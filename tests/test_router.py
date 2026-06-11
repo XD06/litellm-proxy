@@ -1,0 +1,963 @@
+import unittest
+
+from router import Attempt, UpstreamRouter
+
+
+def base_config():
+    return {
+        "routing": {
+            "default_provider_pool": ["alpha", "beta", "disabled"],
+            "provider_select": "round_robin",
+            "max_attempts": 4,
+        },
+        "retry": {
+            "cooldown_s": {},
+            "respect_retry_after": True,
+        },
+        "models": {
+            "routes": {},
+            "provider_model_map": {},
+        },
+        "providers": {
+            "alpha": {
+                "base_url": "https://alpha.example",
+                "chat_completions_path": "/v1/chat/completions",
+                "keys": ["alpha-key"],
+                "enabled": True,
+            },
+            "beta": {
+                "base_url": "https://beta.example",
+                "chat_completions_path": "/chat",
+                "keys": ["beta-key-1", "beta-key-2"],
+                "headers": {"X-Static": "configured"},
+                "forward_client_headers": ["X-Trace"],
+                "enabled": True,
+            },
+            "disabled": {
+                "base_url": "https://disabled.example",
+                "keys": ["disabled-key"],
+                "enabled": False,
+            },
+        },
+        "proxy": {},
+        "observability": {"log_key_mask": {"prefix": 6, "suffix": 2}},
+    }
+
+
+class RouterTests(unittest.TestCase):
+    def test_priority_failover_prefers_high_priority_provider_and_rotates_keys(self):
+        cfg = base_config()
+        cfg["routing"]["provider_select"] = "priority_failover"
+        cfg["routing"]["default_provider_pool"] = ["alpha", "beta"]
+        cfg["routing"]["max_attempts"] = 4
+        cfg["providers"]["alpha"]["priority"] = 10
+        cfg["providers"]["beta"]["priority"] = 80
+        router = UpstreamRouter(cfg)
+
+        first = list(router.iter_attempts("any-model", False, "req-priority-1"))
+        second = list(router.iter_attempts("any-model", False, "req-priority-2"))
+
+        self.assertEqual([a.provider for a in first], ["beta", "beta", "alpha"])
+        self.assertEqual([a.key_index for a in first[:2]], [0, 1])
+        self.assertEqual([a.provider for a in second], ["beta", "beta", "alpha"])
+        self.assertEqual([a.key_index for a in second[:2]], [0, 1])
+
+    def test_priority_failover_uses_route_priority_override(self):
+        cfg = base_config()
+        cfg["routing"]["provider_select"] = "priority_failover"
+        cfg["routing"]["max_attempts"] = 3
+        cfg["providers"]["alpha"]["priority"] = 100
+        cfg["providers"]["beta"]["priority"] = 10
+        cfg["models"]["routes"] = {
+            "priority-model": {
+                "providers": [
+                    {"name": "alpha", "priority": 1},
+                    {"name": "beta", "priority": 200},
+                ],
+                "provider_select": "priority_failover",
+            }
+        }
+        router = UpstreamRouter(cfg)
+
+        attempts = list(router.iter_attempts("priority-model", False, "req-route-priority"))
+
+        self.assertEqual([a.provider for a in attempts], ["beta", "beta", "alpha"])
+
+    def test_priority_failover_skips_unavailable_primary_provider(self):
+        cfg = base_config()
+        cfg["routing"]["provider_select"] = "priority_failover"
+        cfg["routing"]["default_provider_pool"] = ["alpha", "beta"]
+        cfg["providers"]["alpha"]["priority"] = 100
+        cfg["providers"]["beta"]["priority"] = 10
+        router = UpstreamRouter(cfg)
+        first = list(router.iter_attempts("any-model", False, "req-primary"))[0]
+        router.report_failure(first, error_type="server_error", http_status=500)
+        router.clear_key_state("alpha")
+        router._cooldown_provider("alpha", reason="test")
+
+        attempts = list(router.iter_attempts("any-model", False, "req-fallback"))
+
+        self.assertEqual([a.provider for a in attempts], ["beta", "beta"])
+
+    def test_round_robin_rotates_enabled_providers(self):
+        router = UpstreamRouter(base_config())
+
+        attempts = list(router.iter_attempts("any-model", False, "req-1"))
+
+        self.assertEqual([a.provider for a in attempts], ["alpha", "beta", "beta"])
+        self.assertEqual(attempts[0].provider_model, "any-model")
+        self.assertEqual(attempts[1].url, "https://beta.example/chat")
+
+    def test_route_round_robin_ignores_provider_weights(self):
+        cfg = base_config()
+        cfg["routing"]["max_attempts"] = 4
+        cfg["providers"]["alpha"]["keys"] = ["alpha-key-1", "alpha-key-2"]
+        cfg["models"]["routes"] = {
+            "weighted-model": {
+                "providers": [
+                    {"name": "alpha", "weight": 1},
+                    {"name": "beta", "weight": 2},
+                ],
+                "provider_select": "round_robin",
+            }
+        }
+        router = UpstreamRouter(cfg)
+
+        attempts = list(router.iter_attempts("weighted-model", False, "req-route-rr"))
+
+        self.assertEqual([a.provider for a in attempts], ["alpha", "beta", "alpha", "beta"])
+
+    def test_route_weighted_rr_uses_provider_weights(self):
+        cfg = base_config()
+        cfg["routing"]["max_attempts"] = 4
+        cfg["providers"]["alpha"]["keys"] = ["alpha-key-1", "alpha-key-2"]
+        cfg["models"]["routes"] = {
+            "weighted-model": {
+                "providers": [
+                    {"name": "alpha", "weight": 1},
+                    {"name": "beta", "weight": 2},
+                ],
+                "provider_select": "weighted_rr",
+            }
+        }
+        router = UpstreamRouter(cfg)
+
+        attempts = list(router.iter_attempts("weighted-model", False, "req-route-weighted"))
+
+        self.assertEqual([a.provider for a in attempts], ["alpha", "beta", "beta", "alpha"])
+
+    def test_random_provider_select_is_stable_per_request(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha", "beta", "gamma"]
+        cfg["routing"]["provider_select"] = "random"
+        cfg["routing"]["max_attempts"] = 3
+        cfg["providers"]["gamma"] = {
+            "base_url": "https://gamma.example",
+            "keys": ["gamma-key"],
+            "enabled": True,
+        }
+        router = UpstreamRouter(cfg)
+
+        attempts = list(router.iter_attempts("any-model", False, "req-random"))
+
+        self.assertEqual([a.provider for a in attempts], ["beta", "gamma", "alpha"])
+
+    def test_provider_model_map_rewrites_provider_model(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["beta"]
+        cfg["routing"]["max_attempts"] = 3
+        cfg["providers"]["alpha"]["enabled"] = False
+        cfg["models"]["provider_model_map"] = {
+            "beta": {"canonical-model": "beta-real-model"},
+        }
+        router = UpstreamRouter(cfg)
+
+        attempts = list(
+            router.iter_attempts(
+                "canonical-model",
+                False,
+                "req-2",
+                client_headers={"X-Trace": "trace-id"},
+            )
+        )
+
+        self.assertEqual([a.provider for a in attempts], ["beta", "beta"])
+        self.assertEqual([a.key for a in attempts], ["beta-key-1", "beta-key-2"])
+        self.assertTrue(all(a.provider_model == "beta-real-model" for a in attempts))
+        self.assertEqual(attempts[0].headers["Authorization"], "Bearer beta-key-1")
+        self.assertEqual(attempts[0].headers["X-Static"], "configured")
+        self.assertEqual(attempts[0].headers["X-Trace"], "trace-id")
+
+    def test_iter_attempts_does_not_repeat_same_provider_key_format_in_one_request(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha", "beta"]
+        cfg["routing"]["max_attempts"] = 6
+        cfg["providers"]["beta"]["keys"] = ["beta-key-1"]
+        router = UpstreamRouter(cfg)
+
+        attempts = list(router.iter_attempts("any-model", False, "req-no-duplicate-candidate"))
+
+        self.assertEqual([a.provider for a in attempts], ["alpha", "beta"])
+        self.assertEqual(
+            [(a.provider, a.key_index, a.upstream_format) for a in attempts],
+            [("alpha", 0, "chat_completions"), ("beta", 0, "chat_completions")],
+        )
+
+    def test_iter_attempts_allows_same_provider_with_different_keys(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["beta"]
+        cfg["routing"]["max_attempts"] = 4
+        cfg["providers"]["alpha"]["enabled"] = False
+        router = UpstreamRouter(cfg)
+
+        attempts = list(router.iter_attempts("any-model", False, "req-multi-key"))
+
+        self.assertEqual([a.provider for a in attempts], ["beta", "beta"])
+        self.assertEqual([a.key_index for a in attempts], [0, 1])
+
+    def test_attempts_include_upstream_format_and_format_specific_url(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha", "beta"]
+        cfg["providers"]["alpha"]["formats"] = {
+            "chat_completions": {"enabled": False, "path": "/v1/chat/completions"},
+            "responses": {"enabled": True, "path": "/v1/responses"},
+            "anthropic_messages": {"enabled": False, "path": "/v1/messages"},
+        }
+        cfg["providers"]["beta"]["formats"] = {
+            "chat_completions": {"enabled": True, "path": "/chat"},
+            "responses": {"enabled": False, "path": "/v1/responses"},
+            "anthropic_messages": {"enabled": False, "path": "/v1/messages"},
+        }
+        router = UpstreamRouter(cfg)
+
+        attempts = list(
+            router.iter_attempts(
+                "any-model",
+                False,
+                "req-3",
+                client_format="responses",
+                allowed_upstream_formats=["responses", "chat_completions"],
+            )
+        )
+
+        self.assertEqual(attempts[0].provider, "alpha")
+        self.assertEqual(attempts[0].upstream_format, "responses")
+        self.assertEqual(attempts[0].url, "https://alpha.example/v1/responses")
+        self.assertEqual(attempts[1].provider, "beta")
+        self.assertEqual(attempts[1].upstream_format, "chat_completions")
+        self.assertEqual(attempts[1].url, "https://beta.example/chat")
+
+    def test_format_filter_blocks_unavailable_upstream_formats(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha", "beta"]
+        router = UpstreamRouter(cfg)
+
+        attempts = list(
+            router.iter_attempts(
+                "any-model",
+                False,
+                "req-4",
+                client_format="responses",
+                allowed_upstream_formats=["responses"],
+            )
+        )
+
+        self.assertEqual(attempts, [])
+
+    def test_router_prefers_native_format_before_fallback(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["beta", "alpha"]
+        cfg["providers"]["alpha"]["formats"] = {
+            "chat_completions": {"enabled": False, "path": "/v1/chat/completions"},
+            "responses": {"enabled": True, "path": "/v1/responses"},
+            "anthropic_messages": {"enabled": False, "path": "/v1/messages"},
+        }
+        cfg["providers"]["beta"]["formats"] = {
+            "chat_completions": {"enabled": True, "path": "/chat"},
+            "responses": {"enabled": False, "path": "/v1/responses"},
+            "anthropic_messages": {"enabled": False, "path": "/v1/messages"},
+        }
+        router = UpstreamRouter(cfg)
+
+        attempts = list(
+            router.iter_attempts(
+                "any-model",
+                False,
+                "req-5",
+                client_format="responses",
+                allowed_upstream_formats=["responses", "chat_completions"],
+            )
+        )
+
+        self.assertEqual(attempts[0].provider, "alpha")
+        self.assertEqual(attempts[0].upstream_format, "responses")
+        self.assertEqual(attempts[1].provider, "beta")
+        self.assertEqual(attempts[1].upstream_format, "chat_completions")
+
+    def test_attempt_proxy_priority_key_provider_global(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha"]
+        cfg["proxy"] = "http://127.0.0.1:7000"
+        cfg["providers"]["alpha"]["proxy"] = "http://127.0.0.1:8000"
+        cfg["providers"]["alpha"]["keys"] = [
+            {"key": "alpha-key", "proxy": "http://127.0.0.1:9000"},
+        ]
+        router = UpstreamRouter(cfg)
+
+        attempts = list(router.iter_attempts("any-model", False, "req-proxy-key"))
+
+        self.assertEqual(attempts[0].key, "alpha-key")
+        self.assertEqual(attempts[0].headers["Authorization"], "Bearer alpha-key")
+        self.assertEqual(attempts[0].proxy_url, "http://127.0.0.1:9000")
+
+    def test_attempt_proxy_falls_back_to_provider_then_global(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha"]
+        cfg["proxy"] = "http://127.0.0.1:7000"
+        cfg["providers"]["alpha"]["proxy"] = "http://127.0.0.1:8000"
+        router = UpstreamRouter(cfg)
+
+        provider_attempt = list(router.iter_attempts("any-model", False, "req-proxy-provider"))[0]
+        self.assertEqual(provider_attempt.proxy_url, "http://127.0.0.1:8000")
+
+        cfg["providers"]["alpha"]["proxy"] = {}
+        router = UpstreamRouter(cfg)
+        global_attempt = list(router.iter_attempts("any-model", False, "req-proxy-global"))[0]
+        self.assertEqual(global_attempt.proxy_url, "http://127.0.0.1:7000")
+
+    def test_default_pool_includes_enabled_providers_not_listed_in_stale_pool(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha"]
+        cfg["providers"]["gamma"] = {
+            "base_url": "https://gamma.example",
+            "keys": ["gamma-key"],
+            "enabled": True,
+            "formats": {
+                "chat_completions": {"enabled": False, "path": "/v1/chat/completions"},
+                "responses": {"enabled": True, "path": "/v1/responses"},
+                "anthropic_messages": {"enabled": False, "path": "/v1/messages"},
+            },
+        }
+        router = UpstreamRouter(cfg)
+
+        attempts = list(
+            router.iter_attempts(
+                "any-model",
+                False,
+                "req-6",
+                client_format="responses",
+                allowed_upstream_formats=["responses"],
+            )
+        )
+
+        self.assertEqual([a.provider for a in attempts], ["gamma"])
+
+    def test_explicit_model_route_appends_discovered_supporting_providers(self):
+        cfg = base_config()
+        cfg["providers"]["gamma"] = {
+            "base_url": "https://gamma.example",
+            "keys": ["gamma-key"],
+            "enabled": True,
+            "formats": {
+                "chat_completions": {"enabled": False, "path": "/v1/chat/completions"},
+                "responses": {"enabled": True, "path": "/v1/responses"},
+                "anthropic_messages": {"enabled": False, "path": "/v1/messages"},
+            },
+        }
+        cfg["models"]["routes"] = {"any-model": {"providers": ["alpha"]}}
+        cfg["models"]["provider_model_capabilities"] = {
+            "gamma": {
+                "status": "ok",
+                "models": ["any-model"],
+                "canonical_map": {"any-model": "any-model"},
+            }
+        }
+        router = UpstreamRouter(cfg)
+
+        attempts = list(
+            router.iter_attempts(
+                "any-model",
+                False,
+                "req-7",
+                client_format="responses",
+                allowed_upstream_formats=["responses"],
+            )
+        )
+
+        self.assertEqual([a.provider for a in attempts], ["gamma"])
+
+    def test_explicit_model_route_does_not_append_unknown_capability_providers(self):
+        cfg = base_config()
+        cfg["providers"]["gamma"] = {
+            "base_url": "https://gamma.example",
+            "keys": ["gamma-key"],
+            "enabled": True,
+            "formats": {
+                "chat_completions": {"enabled": False, "path": "/v1/chat/completions"},
+                "responses": {"enabled": True, "path": "/v1/responses"},
+                "anthropic_messages": {"enabled": False, "path": "/v1/messages"},
+            },
+        }
+        cfg["models"]["routes"] = {"any-model": {"providers": ["alpha"]}}
+        router = UpstreamRouter(cfg)
+
+        attempts = list(
+            router.iter_attempts(
+                "any-model",
+                False,
+                "req-7b",
+                client_format="responses",
+                allowed_upstream_formats=["responses"],
+            )
+        )
+
+        self.assertEqual(attempts, [])
+
+    def test_stale_provider_model_map_for_missing_provider_does_not_filter_pool(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha", "missing-provider", "beta"]
+        cfg["models"]["provider_model_map"] = {
+            "missing-provider": {"canonical-model": "real-model"},
+        }
+        router = UpstreamRouter(cfg)
+
+        attempts = list(router.iter_attempts("canonical-model", False, "req-8"))
+
+        self.assertEqual([a.provider for a in attempts], ["alpha", "beta", "beta"])
+
+    def test_provider_model_map_does_not_hide_new_unknown_provider(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["beta", "gamma"]
+        cfg["routing"]["max_attempts"] = 3
+        cfg["providers"]["alpha"]["enabled"] = False
+        cfg["providers"]["gamma"] = {
+            "base_url": "https://gamma.example",
+            "keys": ["gamma-key"],
+            "enabled": True,
+        }
+        cfg["models"]["provider_model_map"] = {
+            "beta": {"deepseek-v4-flash": "beta-deepseek-v4-flash"},
+        }
+        router = UpstreamRouter(cfg)
+
+        attempts = list(router.iter_attempts("deepseek-v4-flash", False, "req-new-provider"))
+
+        self.assertEqual([a.provider for a in attempts], ["beta", "gamma", "beta"])
+        self.assertEqual(attempts[0].provider_model, "beta-deepseek-v4-flash")
+        self.assertEqual(attempts[1].provider_model, "deepseek-v4-flash")
+
+    def test_auto_provider_capabilities_filter_to_supporting_provider(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha", "beta"]
+        cfg["models"]["provider_model_capabilities"] = {
+            "alpha": {
+                "status": "ok",
+                "models": ["deepseek-v4-flash"],
+                "canonical_map": {"deepseek-v4-flash": "deepseek-v4-flash"},
+            },
+            "beta": {
+                "status": "ok",
+                "models": ["gpt-5.5"],
+                "canonical_map": {"gpt-5.5": "gpt-5.5"},
+            },
+        }
+        router = UpstreamRouter(cfg)
+
+        attempts = list(router.iter_attempts("deepseek-v4-flash", False, "req-9"))
+
+        self.assertEqual([a.provider for a in attempts], ["alpha"])
+        self.assertTrue(all(a.provider_model == "deepseek-v4-flash" for a in attempts))
+
+    def test_partial_capabilities_do_not_route_target_model_to_unknown_or_mismatched_providers(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["rawchat", "gamma", "alpha"]
+        cfg["routing"]["max_attempts"] = 4
+        cfg["providers"]["gamma"] = {
+            "base_url": "https://gamma.example",
+            "keys": ["gamma-key"],
+            "enabled": True,
+        }
+        cfg["models"]["assume_supports_unknown_models"] = True
+        cfg["models"]["provider_model_capabilities"] = {
+            "rawchat": {
+                "status": "ok",
+                "models": ["gpt-5.5"],
+                "canonical_map": {"gpt-5.5": "gpt-5.5"},
+            },
+            "alpha": {
+                "status": "ok",
+                "models": ["deepseek-v4-flash"],
+                "canonical_map": {"deepseek-v4-flash": "deepseek-v4-flash"},
+            },
+        }
+        router = UpstreamRouter(cfg)
+
+        attempts = list(router.iter_attempts("deepseek-v4-flash", False, "req-partial-caps"))
+
+        self.assertEqual([a.provider for a in attempts], ["alpha"])
+
+    def test_provider_can_explicitly_allow_unknown_model_after_capability_filter_is_active(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["gamma", "alpha"]
+        cfg["providers"]["gamma"] = {
+            "base_url": "https://gamma.example",
+            "keys": ["gamma-key"],
+            "enabled": True,
+            "assume_supports_unknown_models": True,
+        }
+        cfg["models"]["provider_model_capabilities"] = {
+            "alpha": {
+                "status": "ok",
+                "models": ["deepseek-v4-flash"],
+                "canonical_map": {"deepseek-v4-flash": "deepseek-v4-flash"},
+            },
+        }
+        router = UpstreamRouter(cfg)
+
+        attempts = list(router.iter_attempts("deepseek-v4-flash", False, "req-explicit-unknown"))
+
+        self.assertEqual([a.provider for a in attempts], ["gamma", "alpha"])
+
+    def test_auto_provider_capabilities_use_provider_model_name(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha", "beta"]
+        cfg["models"]["provider_model_capabilities"] = {
+            "alpha": {
+                "status": "ok",
+                "models": ["gpt-5.5"],
+                "canonical_map": {"gpt-5.5": "gpt-5.5"},
+            },
+            "beta": {
+                "status": "ok",
+                "models": ["vendor/gpt-5.5"],
+                "canonical_map": {"gpt-5.5": "vendor/gpt-5.5"},
+            },
+        }
+        router = UpstreamRouter(cfg)
+
+        attempts = list(router.iter_attempts("gpt-5.5", False, "req-10"))
+
+        self.assertEqual([a.provider for a in attempts], ["alpha", "beta", "beta"])
+        self.assertEqual(attempts[1].provider_model, "vendor/gpt-5.5")
+
+    def test_manual_provider_model_map_overrides_auto_capabilities(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha", "beta"]
+        cfg["models"]["provider_model_map"] = {
+            "beta": {"deepseek-v4-flash": "manual-beta-model"},
+        }
+        cfg["models"]["provider_model_capabilities"] = {
+            "alpha": {
+                "status": "ok",
+                "models": ["deepseek-v4-flash"],
+                "canonical_map": {"deepseek-v4-flash": "deepseek-v4-flash"},
+            },
+            "beta": {
+                "status": "ok",
+                "models": ["gpt-5.5"],
+                "canonical_map": {"gpt-5.5": "gpt-5.5"},
+            },
+        }
+        router = UpstreamRouter(cfg)
+
+        attempts = list(router.iter_attempts("deepseek-v4-flash", False, "req-11"))
+
+        self.assertEqual([a.provider for a in attempts], ["alpha", "beta", "beta"])
+        beta_attempts = [a for a in attempts if a.provider == "beta"]
+        self.assertTrue(all(a.provider_model == "manual-beta-model" for a in beta_attempts))
+
+    def test_unknown_capability_state_falls_back_by_default(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha", "beta"]
+        cfg["models"]["provider_model_capabilities"] = {
+            "alpha": {
+                "status": "error",
+                "models": [],
+                "canonical_map": {},
+            },
+        }
+        router = UpstreamRouter(cfg)
+
+        attempts = list(router.iter_attempts("unknown-model", False, "req-12"))
+
+        self.assertEqual([a.provider for a in attempts], ["alpha", "beta", "beta"])
+
+    def test_unknown_capability_state_can_be_strict(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha", "beta"]
+        cfg["models"]["assume_supports_unknown_models"] = False
+        cfg["models"]["provider_model_capabilities"] = {
+            "alpha": {
+                "status": "error",
+                "models": [],
+                "canonical_map": {},
+            },
+            "beta": {
+                "status": "ok",
+                "models": ["gpt-5.5"],
+                "canonical_map": {"gpt-5.5": "gpt-5.5"},
+            },
+        }
+        router = UpstreamRouter(cfg)
+
+        attempts = list(router.iter_attempts("unknown-model", False, "req-13"))
+
+        self.assertEqual(attempts, [])
+
+    def test_snapshot_exposes_key_state_without_raw_keys(self):
+        router = UpstreamRouter(base_config())
+
+        snap = router.snapshot()
+
+        self.assertIn("alpha", snap["providers"])
+        alpha_key = snap["providers"]["alpha"]["keys"][0]
+        self.assertEqual(alpha_key["index"], 0)
+        self.assertTrue(alpha_key["available"])
+        self.assertIn("key_id", alpha_key)
+        self.assertNotIn("alpha-key", str(snap))
+        self.assertTrue(snap["providers"]["alpha"]["formats"]["chat_completions"]["enabled"])
+
+    def test_runtime_provider_disable_enable_controls_attempts(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha", "beta"]
+        router = UpstreamRouter(cfg)
+
+        self.assertTrue(router.set_provider_enabled("alpha", False))
+        disabled_attempts = list(router.iter_attempts("any-model", False, "req-disable-provider"))
+
+        self.assertEqual([a.provider for a in disabled_attempts], ["beta", "beta"])
+        snap = router.snapshot()
+        self.assertFalse(snap["providers"]["alpha"]["enabled"])
+        self.assertTrue(snap["providers"]["alpha"]["config_enabled"])
+        self.assertFalse(snap["providers"]["alpha"]["runtime_enabled"])
+        self.assertTrue(cfg["providers"]["alpha"]["enabled"])
+
+        self.assertTrue(router.set_provider_enabled("alpha", True))
+        enabled_attempts = list(router.iter_attempts("any-model", False, "req-enable-provider"))
+
+        self.assertIn("alpha", [a.provider for a in enabled_attempts])
+        self.assertIn("beta", [a.provider for a in enabled_attempts])
+
+    def test_runtime_provider_disable_is_not_bypassed_by_empty_fallback(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha", "beta"]
+        router = UpstreamRouter(cfg)
+
+        self.assertTrue(router.set_provider_enabled("alpha", False))
+        self.assertTrue(router.set_provider_enabled("beta", False))
+
+        attempts = list(router.iter_attempts("any-model", False, "req-disable-all"))
+
+        self.assertEqual(attempts, [])
+
+    def test_runtime_key_disable_enable_and_clear_state(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["beta"]
+        cfg["providers"]["alpha"]["enabled"] = False
+        router = UpstreamRouter(cfg)
+
+        self.assertTrue(router.set_key_enabled("beta", 0, False))
+        disabled_key_attempts = list(router.iter_attempts("any-model", False, "req-disable-key"))
+
+        self.assertEqual([a.key_index for a in disabled_key_attempts], [1])
+        snap = router.snapshot()
+        self.assertFalse(snap["providers"]["beta"]["keys"][0]["runtime_enabled"])
+        self.assertFalse(snap["providers"]["beta"]["keys"][0]["available"])
+
+        self.assertTrue(router.set_key_enabled("beta", 0, True))
+        failed_attempt = Attempt(
+            request_id="req-failed-key",
+            attempt_no=1,
+            provider="beta",
+            key_index=0,
+            key="beta-key-1",
+            url="https://beta.example/chat",
+            headers={},
+            provider_model="any-model",
+            upstream_format="chat_completions",
+        )
+        router.report_failure(failed_attempt, error_type="rate_limited", retry_after_s=30)
+        snap = router.snapshot()
+        self.assertGreaterEqual(snap["providers"]["beta"]["keys"][0]["cooldown_remaining_s"], 0)
+        self.assertFalse(snap["providers"]["beta"]["keys"][0]["available"])
+
+        self.assertTrue(router.clear_key_state("beta", 0))
+        snap = router.snapshot()
+        self.assertEqual(snap["providers"]["beta"]["keys"][0]["cooldown_remaining_s"], 0)
+        self.assertEqual(snap["providers"]["beta"]["keys"][0]["disabled_remaining_s"], 0)
+        self.assertEqual(snap["providers"]["beta"]["keys"][0]["fails"], 0)
+        self.assertTrue(snap["providers"]["beta"]["keys"][0]["available"])
+
+    def test_cooldown_key_is_skipped_for_next_available_key(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["beta"]
+        cfg["routing"]["max_attempts"] = 2
+        cfg["providers"]["alpha"]["enabled"] = False
+        router = UpstreamRouter(cfg)
+        failed_attempt = Attempt(
+            request_id="req-key-cooldown-skip",
+            attempt_no=1,
+            provider="beta",
+            key_index=0,
+            key="beta-key-1",
+            url="https://beta.example/chat",
+            headers={},
+            provider_model="any-model",
+            upstream_format="chat_completions",
+        )
+        router.report_failure(failed_attempt, error_type="rate_limited", http_status=429, retry_after_s=30)
+
+        attempts = list(router.iter_attempts("any-model", False, "req-key-cooldown-skip-next"))
+
+        self.assertEqual([a.key_index for a in attempts], [1])
+        self.assertEqual([a.key for a in attempts], ["beta-key-2"])
+
+    def test_provider_snapshot_unavailable_when_all_keys_are_unavailable(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["beta"]
+        cfg["providers"]["alpha"]["enabled"] = False
+        router = UpstreamRouter(cfg)
+
+        self.assertTrue(router.set_key_enabled("beta", 0, False))
+        self.assertTrue(router.set_key_enabled("beta", 1, False))
+
+        snap = router.snapshot()
+        self.assertFalse(snap["providers"]["beta"]["available"])
+        self.assertEqual(snap["providers"]["beta"]["available_key_count"], 0)
+        self.assertEqual(snap["providers"]["beta"]["key_count"], 2)
+
+    def test_quota_or_balance_cools_key_long_enough_to_skip_repeated_attempts(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["beta"]
+        cfg["routing"]["max_attempts"] = 2
+        cfg["providers"]["alpha"]["enabled"] = False
+        router = UpstreamRouter(cfg)
+        failed_attempt = Attempt(
+            request_id="req-quota",
+            attempt_no=1,
+            provider="beta",
+            key_index=0,
+            key="beta-key-1",
+            url="https://beta.example/chat",
+            headers={},
+            provider_model="any-model",
+            upstream_format="chat_completions",
+        )
+
+        router.report_failure(failed_attempt, error_type="quota_or_balance", http_status=402)
+
+        snap = router.snapshot()
+        self.assertGreaterEqual(snap["providers"]["beta"]["keys"][0]["cooldown_remaining_s"], 1800)
+        attempts = list(router.iter_attempts("any-model", False, "req-quota-next"))
+        self.assertEqual([a.key_index for a in attempts], [1])
+
+    def test_runtime_controls_reject_unknown_provider_or_key(self):
+        router = UpstreamRouter(base_config())
+
+        self.assertFalse(router.set_provider_enabled("missing", False))
+        self.assertFalse(router.clear_provider_cooldown("missing"))
+        self.assertFalse(router.set_key_enabled("alpha", 9, False))
+        self.assertFalse(router.clear_key_state("alpha", 9))
+
+    def test_provider_compat_failure_does_not_cool_down_key(self):
+        router = UpstreamRouter(base_config())
+        failed_attempt = Attempt(
+            request_id="req-provider-compat",
+            attempt_no=1,
+            provider="alpha",
+            key_index=0,
+            key="alpha-key",
+            url="https://alpha.example/v1/chat/completions",
+            headers={},
+            provider_model="any-model",
+            upstream_format="chat_completions",
+        )
+
+        router.report_failure(failed_attempt, error_type="provider_compat", http_status=400)
+
+        snap = router.snapshot()
+        key_state = snap["providers"]["alpha"]["keys"][0]
+        self.assertEqual(key_state["fails"], 1)
+        self.assertEqual(key_state["cooldown_remaining_s"], 0)
+        self.assertTrue(key_state["available"])
+
+    def test_provider_compat_failure_does_not_advance_transient_ladder(self):
+        cfg = base_config()
+        cfg["retry"]["key_failure_ladder_s"] = [10, 60, 3600]
+        router = UpstreamRouter(cfg)
+        failed_attempt = Attempt(
+            request_id="req-provider-compat-ladder",
+            attempt_no=1,
+            provider="alpha",
+            key_index=0,
+            key="alpha-key",
+            url="https://alpha.example/v1/chat/completions",
+            headers={},
+            provider_model="any-model",
+            upstream_format="chat_completions",
+        )
+
+        router.report_failure(failed_attempt, error_type="provider_compat", http_status=400)
+        router.report_failure(failed_attempt, error_type="server_error", http_status=502)
+
+        key_state = router.snapshot()["providers"]["alpha"]["keys"][0]
+        self.assertEqual(key_state["fails"], 2)
+        self.assertEqual(key_state["transient_fails"], 1)
+        self.assertGreaterEqual(key_state["cooldown_remaining_s"], 8)
+        self.assertLessEqual(key_state["cooldown_remaining_s"], 10)
+
+    def test_empty_visible_output_failure_does_not_cool_down_key(self):
+        router = UpstreamRouter(base_config())
+        failed_attempt = Attempt(
+            request_id="req-empty-visible-output",
+            attempt_no=1,
+            provider="alpha",
+            key_index=0,
+            key="alpha-key",
+            url="https://alpha.example/v1/chat/completions",
+            headers={},
+            provider_model="any-model",
+            upstream_format="chat_completions",
+        )
+
+        router.report_failure(failed_attempt, error_type="empty_visible_output", http_status=200)
+
+        snap = router.snapshot()
+        key_state = snap["providers"]["alpha"]["keys"][0]
+        self.assertEqual(key_state["fails"], 1)
+        self.assertEqual(key_state["cooldown_remaining_s"], 0)
+        self.assertTrue(key_state["available"])
+
+    def test_report_failure_uses_retry_after_for_rate_limit_key_cooldown(self):
+        router = UpstreamRouter(base_config())
+        failed_attempt = Attempt(
+            request_id="req-rate-limit",
+            attempt_no=1,
+            provider="alpha",
+            key_index=0,
+            key="alpha-key",
+            url="https://alpha.example/v1/chat/completions",
+            headers={},
+            provider_model="any-model",
+            upstream_format="chat_completions",
+        )
+
+        router.report_failure(failed_attempt, error_type="rate_limited", http_status=429, retry_after_s=42)
+
+        snap = router.snapshot()
+        key_state = snap["providers"]["alpha"]["keys"][0]
+        self.assertGreaterEqual(key_state["cooldown_remaining_s"], 35)
+        self.assertLessEqual(key_state["cooldown_remaining_s"], 42)
+        self.assertFalse(key_state["available"])
+        self.assertEqual(snap["providers"]["alpha"]["cooldown_remaining_s"], 0)
+
+    def test_network_failure_cools_key_not_provider_by_default(self):
+        router = UpstreamRouter(base_config())
+        failed_attempt = Attempt(
+            request_id="req-network",
+            attempt_no=1,
+            provider="alpha",
+            key_index=0,
+            key="alpha-key",
+            url="https://alpha.example/v1/chat/completions",
+            headers={},
+            provider_model="any-model",
+            upstream_format="chat_completions",
+        )
+
+        router.report_failure(failed_attempt, error_type="network_error")
+
+        snap = router.snapshot()
+        key_state = snap["providers"]["alpha"]["keys"][0]
+        self.assertGreaterEqual(key_state["cooldown_remaining_s"], 1)
+        self.assertEqual(snap["providers"]["alpha"]["cooldown_remaining_s"], 0)
+        self.assertFalse(key_state["available"])
+
+    def test_transient_failures_use_key_failure_ladder(self):
+        cfg = base_config()
+        cfg["retry"]["key_failure_ladder_s"] = [10, 60, 3600]
+        router = UpstreamRouter(cfg)
+        failed_attempt = Attempt(
+            request_id="req-ladder",
+            attempt_no=1,
+            provider="alpha",
+            key_index=0,
+            key="alpha-key",
+            url="https://alpha.example/v1/chat/completions",
+            headers={},
+            provider_model="any-model",
+            upstream_format="chat_completions",
+        )
+
+        router.report_failure(failed_attempt, error_type="server_error", http_status=502)
+        first = router.snapshot()["providers"]["alpha"]["keys"][0]
+        self.assertGreaterEqual(first["cooldown_remaining_s"], 8)
+        self.assertLessEqual(first["cooldown_remaining_s"], 10)
+        self.assertEqual(first["disabled_remaining_s"], 0)
+
+        router.report_failure(failed_attempt, error_type="server_error", http_status=502)
+        router.report_failure(failed_attempt, error_type="server_error", http_status=502)
+        third = router.snapshot()["providers"]["alpha"]["keys"][0]
+        self.assertGreaterEqual(third["cooldown_remaining_s"], 3500)
+        self.assertEqual(third["disabled_remaining_s"], 0)
+
+        router.report_failure(failed_attempt, error_type="server_error", http_status=502)
+        disabled = router.snapshot()["providers"]["alpha"]["keys"][0]
+        self.assertGreaterEqual(disabled["disabled_remaining_s"], 3500)
+        self.assertFalse(disabled["available"])
+
+    def test_transient_key_cooldown_falls_back_then_returns_to_priority_provider(self):
+        cfg = base_config()
+        cfg["routing"]["provider_select"] = "priority_failover"
+        cfg["routing"]["default_provider_pool"] = ["alpha", "beta"]
+        cfg["routing"]["max_attempts"] = 3
+        cfg["providers"]["alpha"]["priority"] = 100
+        cfg["providers"]["beta"]["priority"] = 10
+        cfg["retry"]["key_failure_ladder_s"] = [10, 60, 3600]
+        router = UpstreamRouter(cfg)
+        first = list(router.iter_attempts("any-model", False, "req-priority-before"))[0]
+
+        router.report_failure(first, error_type="server_error", http_status=502)
+        fallback = list(router.iter_attempts("any-model", False, "req-priority-fallback"))
+        router.clear_key_state("alpha", 0)
+        router.clear_provider_cooldown("alpha")
+        recovered = list(router.iter_attempts("any-model", False, "req-priority-recovered"))
+
+        self.assertEqual([a.provider for a in fallback], ["beta", "beta"])
+        self.assertEqual(recovered[0].provider, "alpha")
+
+    def test_configured_failure_policy_changes_router_cooldown_scope(self):
+        cfg = base_config()
+        cfg["retry"]["failure_policies"] = {
+            "server_error": {
+                "cooldown_scope": "provider",
+                "provider_cooldown_s": 20,
+                "cooldown_s": 99,
+                "disables_key": False,
+            }
+        }
+        router = UpstreamRouter(cfg)
+        failed_attempt = Attempt(
+            request_id="req-configured-policy",
+            attempt_no=1,
+            provider="alpha",
+            key_index=0,
+            key="alpha-key",
+            url="https://alpha.example/v1/chat/completions",
+            headers={},
+            provider_model="any-model",
+            upstream_format="chat_completions",
+        )
+
+        router.report_failure(failed_attempt, error_type="server_error", http_status=502)
+
+        snap = router.snapshot()
+        key_state = snap["providers"]["alpha"]["keys"][0]
+        self.assertEqual(key_state["fails"], 1)
+        self.assertEqual(key_state["cooldown_remaining_s"], 0)
+        self.assertGreaterEqual(snap["providers"]["alpha"]["cooldown_remaining_s"], 15)
+        self.assertFalse(snap["providers"]["alpha"]["available"])
+
+
+if __name__ == "__main__":
+    unittest.main()

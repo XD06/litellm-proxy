@@ -1,0 +1,326 @@
+// config.json 示例（带注释版）
+// 用法：
+//   1) 复制本文件为同目录下的 config.json
+//   2) 按需修改 providers / keys / routes
+//   3) 启动：python3 sse2json.py
+//
+// 环境变量覆盖（可选）：
+//   - PROXY_CONFIG_PATH=...                     指定 config.json 路径
+//   - PROXY_PROVIDERS_JSON='{"p1":{...}}'       覆盖整个 providers（JSON 字符串）
+//   - PROXY_PROVIDER_KEYS__opencode='["k1"]'    覆盖单个 provider 的 keys（JSON 数组字符串）
+//   - PROXY_MODEL_ROUTES_JSON='{...}'           覆盖 models.routes（JSON 字符串）
+//
+// 兼容旧环境变量覆盖（短期保留）：
+//   - 仍可设置 UPSTREAM_URL / UPSTREAM_API_KEY / MODEL_MAP / DISABLE_MODEL_MAP
+//   - 当这些旧变量存在时，会自动覆盖到默认 provider 上
+{
+  // 代理自身的监听与运行参数
+  "server": {
+    // 本地监听端口；建议正式使用 4894，便于直接访问 http://127.0.0.1:4894
+    "port": 4894,
+
+    // 最大并发 worker 线程数（默认 20）
+    // 注意：流式连接会长期占用线程；如你并发 stream 很多可适当调大
+    "max_workers": 20,
+
+    // 日志目录（相对路径会以项目目录为基准）
+    "log_dir": "proxy_logs",
+
+    // 是否开启“请求级落盘日志”（非常多文件，建议仅调试时开启）
+    // 等同于旧环境变量 PROXY_DEBUG=true
+    "debug_disk_log": false,
+
+    // Admin API 密钥。为空时 /-/admin/* 不可访问。
+    // 可通过 X-Admin-Key、Authorization: Bearer ... 或 ?admin_key=... 传入。
+    "admin_key": "sk-admin-change-me"
+  },
+
+  // 路由/尝试/超时策略
+  "routing": {
+    // 默认供应商池：当 models.routes 里没对某个 canonical model 配路由时，就用这里
+    "default_provider_pool": ["opencode", "rawchat", "deepseek"],
+
+    // 供应商选择策略：
+    // - priority_failover 默认推荐。优先访问 priority 高的 provider；同 provider 多 key 轮换。
+    //                    高优先级 provider/key 不可用、冷却、失败后，再切到下一优先级。
+    //                    适合保护上游缓存命中、固定主供应商、成本/质量优先级明确的生产场景。
+    // - round_robin       provider 之间公平轮询，不使用 weight；适合主动均衡多供应商流量。
+    // - weighted_rr       provider 按 route weight 展开后轮询；适合按比例分摊流量。
+    // - random            同一次请求内顺序稳定的随机；适合临时打散，不推荐作为生产默认。
+    "provider_select": "priority_failover",
+
+    // 单次请求允许的“总尝试次数”上限（跨 provider + key 的总和）
+    // 只会在“向客户端写响应前”重试；一旦开始写 SSE，就不会透明重试
+    "max_attempts": 6,
+
+    // 连接/读取超时（urllib 下会取一个合并值；stream 以 read_timeout 为主）
+    "connect_timeout_s": 30,
+    "read_timeout_s": 180
+  },
+
+  // 错误分类、可重试状态码与冷却时间
+  "retry": {
+    // 这些 HTTP 状态码会触发“换 key / 换 provider”继续尝试
+    "retryable_status": [408, 409, 425, 429, 500, 502, 503, 504],
+
+    // 这些状态码视为 key 失效（会对该 key 施加长冷却/禁用）
+    "key_fatal_status": [401, 403],
+
+    // 冷却时间（秒）
+    "cooldown_s": {
+      // 429 限流
+      "rate_limit": 30,
+      // 5xx 上游故障
+      "server_error": 10,
+      // 网络错误（超时/断开/连接失败等）
+      "network_error": 10,
+      // 401/403 之类 key 无效（建议较长）
+      "key_invalid": 3600,
+      // 402 余额/额度不足，建议长冷却，避免每次请求都先撞失败供应商
+      "quota_or_balance": 3600
+    },
+
+    // 可配置失败策略。未配置的字段会使用代码默认值。
+    // cooldown_scope:
+    // - none         只记录失败，不冷却 key/provider
+    // - key          冷却当前 key
+    // - provider     冷却当前 provider
+    // - key_provider 同时冷却 key 和 provider
+    // provider_cooldown_s 会被限制到合理范围，避免误配置导致 provider 长时间不可用。
+    "failure_policies": {
+      "key_invalid": { "cooldown_scope": "key", "cooldown_s": 3600, "disables_key": true },
+      "rate_limited": { "cooldown_scope": "key", "cooldown_s": 30, "disables_key": false },
+      "quota_or_balance": { "cooldown_scope": "key", "cooldown_s": 3600, "disables_key": false },
+      "server_error": { "cooldown_scope": "key", "cooldown_s": 10, "disables_key": false },
+      "network_error": {
+        "cooldown_scope": "key_provider",
+        "cooldown_s": 10,
+        "provider_cooldown_s": 10,
+        "disables_key": false
+      },
+      "provider_compat": { "cooldown_scope": "none", "cooldown_s": 0, "disables_key": false },
+      "empty_visible_output": { "cooldown_scope": "none", "cooldown_s": 0, "disables_key": false },
+      "client_error": { "cooldown_scope": "key", "cooldown_s": 10, "disables_key": false },
+      "unknown": { "cooldown_scope": "key", "cooldown_s": 10, "disables_key": false }
+    },
+
+    // 429 时是否优先使用 Retry-After 头（推荐 true）
+    "respect_retry_after": true,
+
+    // 预留：指数退避参数（当前实现主要用 cooldown_s + Retry-After）
+    "backoff": { "mode": "exp", "base_s": 2, "max_s": 120 }
+  },
+
+  // 模型映射与路由
+  "models": {
+    // 是否禁用“客户端模型名 -> canonical model”的映射（等同旧 DISABLE_MODEL_MAP=true）
+    // true：客户端发什么 model 就按原样作为 canonical model
+    "disable_client_model_map": true,
+
+    // 客户端模型名 → canonical model。默认不做别名映射，需要时再显式填写。
+    // 注意：canonical model 用于路由；最终发往上游时，还会经过 provider_model_map 二次映射
+    "client_model_map": {},
+
+    // 针对某个 canonical model 的“专用路由”
+    // - providers: 列表，支持 weight 和 priority
+    //   weight 只影响 weighted_rr；priority 影响 priority_failover。
+    //   route provider 的 priority 会覆盖 provider 自身 priority。
+    // - provider_select: 可覆盖 routing.provider_select
+    "routes": {
+      "deepseek-v4-flash": {
+        "providers": [
+          { "name": "opencode", "weight": 1, "priority": 100 },
+          { "name": "deepseek", "weight": 1, "priority": 90 }
+        ],
+        "provider_select": "priority_failover"
+      },
+      "deepseek-v4-pro": {
+        "providers": [
+          { "name": "opencode", "weight": 1, "priority": 100 },
+          { "name": "deepseek", "weight": 1, "priority": 90 }
+        ],
+        "provider_select": "priority_failover"
+      },
+      "gpt-5.5": {
+        "providers": [
+          { "name": "rawchat", "weight": 1, "priority": 80 }
+        ],
+        "provider_select": "priority_failover"
+      }
+    },
+
+    // provider-specific 的手工模型名映射：
+    // canonical model → 某 provider 实际可用的 model id
+    // 自动模型发现会先做安全归一：大小写、vendor 前缀、空格/下划线这类差异会自动合并。
+    // 例：deepseek-ai/DeepSeek_V4 Flash 会自动归一为 deepseek-v4-flash，并保留真实上游 id。
+    // 手工映射只用于自动规则无法安全判断的供应商别名；手工映射优先级最高。
+    "provider_model_map": {
+      "opencode": {
+        "deepseek-v4-flash": "deepseek-v4-flash",
+        "deepseek-v4-pro": "deepseek-v4-pro"
+      },
+      "rawchat": {
+        "gpt-5.5": "gpt-5.5"
+      },
+      "deepseek": {
+        "deepseek-v4-flash": "deepseek-v4-flash",
+        "deepseek-v4-pro": "deepseek-v4-pro"
+      }
+    },
+
+    // 运行时自动发现快照：由 models_source=union 或 GET /v1/models 填充。
+    // 不建议手工维护；未来 admin API 会读取它来展示 provider 模型能力。
+    "provider_model_capabilities": {},
+
+    // 自动发现失败/尚未发现时，是否仍假设 provider 可能支持未知模型。
+    // true 更容错；false 更严格，会减少误发请求但依赖模型发现成功。
+    // 一旦已有 provider_model_capabilities 快照，路由会保守过滤已知不支持该模型的 provider；
+    // 未发现能力的 provider 只有显式配置 provider.assume_supports_unknown_models=true 时才继续参与。
+    "assume_supports_unknown_models": true,
+
+    // GET /v1/models 的来源策略：
+    // - first_healthy_provider：从首个健康 provider 拉取 /v1/models 并转换为 Anthropic 格式（默认）
+    // - union：从所有启用 provider 拉取并保守归一后返回，同时记录 provider_model_capabilities
+    "models_source": "first_healthy_provider"
+  },
+
+  // ★ 全局代理（最低优先级 fallback；key/provider 都没设置 proxy 时才使用）
+  // 支持两种写法：
+  //   写法1（简单）："proxy": "http://127.0.0.1:10808"
+  //   写法2（完整）："proxy": {"http": "http://127.0.0.1:10808", "https": "http://127.0.0.1:10808"}
+  // 不填 = 全直连；优先级：key.proxy > provider.proxy > 全局 proxy > 直连
+  "proxy": {},
+
+  // 上游供应商列表（多供应商切换的核心）
+  "providers": {
+    "opencode": {
+      // provider 默认优先级。priority_failover 下数值越大越优先。
+      // 如果某个 models.routes.providers 项单独写了 priority，则 route priority 优先生效。
+      "priority": 100,
+
+      // 供应商 base_url（不含具体 endpoint path）
+      "base_url": "https://opencode.ai/zen/go",
+
+      // 该供应商支持哪些上游格式。router 会优先选择客户端同格式的上游。
+      // 旧字段 chat_completions_path / responses_path / anthropic_messages_path 仍兼容，
+      // 但新配置建议直接写 formats。
+      "formats": {
+        "chat_completions": { "enabled": true, "path": "/v1/chat/completions" },
+        "responses": { "enabled": false, "path": "/v1/responses" },
+        "anthropic_messages": { "enabled": false, "path": "/v1/messages" }
+      },
+
+      // Models 路径（可选；用于 GET /v1/models 透传/拉取）
+      "models_path": "/v1/models",
+
+      // 多 key：会自动轮询与失败切换
+      // key 可写成字符串，也可写成对象来单独设置 key 级代理。
+      // key.proxy 优先级最高，只对这一把 key 生效。
+      "keys": [
+        "sk-your-key-1",
+        { "key": "sk-your-key-2", "proxy": "http://127.0.0.1:9000" }
+      ],
+
+      // DeepSeek-compatible thinking-mode Chat 上游可能要求历史 assistant 消息带 reasoning_content。
+      // 仅对这类 provider 开启，不要把它当作所有 OpenAI-compatible 供应商的默认规则。
+      "force_reasoning_content": true,
+
+      // 额外 headers（会自动补齐 Content-Type/Authorization/User-Agent）
+      "headers": { "User-Agent": "Mozilla/5.0" },
+
+      // 可选：用于控制台估算 cost_usd。单位是 USD / 1M tokens；不填或为 0 则只统计 token。
+      // 也可以用 models 按 provider_model 覆盖价格。
+      "pricing": {
+        "input_per_million": 0,
+        "output_per_million": 0,
+        "models": {
+          "deepseek-v4-flash": { "input_per_million": 0, "output_per_million": 0 }
+        }
+      },
+
+      // ★ 供应商级别代理（优先级：key.proxy > provider.proxy > 全局 proxy > 直连）
+      // 支持两种写法：
+      //   写法1（简单）："proxy": "http://127.0.0.1:10808"
+      //   写法2（完整）："proxy": {"http": "http://127.0.0.1:10808", "https": "http://127.0.0.1:10808"}
+      // 不填 = 回退到全局 proxy；全局也没填则直连
+
+      // 是否启用该 provider
+      "enabled": true
+    },
+
+    "rawchat": {
+      "priority": 80,
+
+      // 示例：原生 OpenAI Responses 上游。base_url 不需要包含完整 endpoint；
+      // 具体 endpoint 由 formats.responses.path 决定。
+      "base_url": "https://rawchat.example.com",
+      "formats": {
+        "chat_completions": { "enabled": false, "path": "/v1/chat/completions" },
+        "responses": { "enabled": true, "path": "/v1/responses" },
+        "anthropic_messages": { "enabled": false, "path": "/v1/messages" }
+      },
+      "models_path": "/v1/models",
+      "keys": ["sk-your-rawchat-key"],
+      "headers": { "User-Agent": "Mozilla/5.0" },
+      "enabled": true
+    },
+
+    "deepseek": {
+      "priority": 90,
+
+      // 示例：原生 Anthropic Messages 上游。
+      "base_url": "https://api.deepseek.com",
+      "formats": {
+        "chat_completions": { "enabled": false, "path": "/v1/chat/completions" },
+        "responses": { "enabled": false, "path": "/v1/responses" },
+        "anthropic_messages": { "enabled": true, "path": "/v1/messages" }
+      },
+      "models_path": "/v1/models",
+      "keys": ["sk-your-key"],
+      // DeepSeek Anthropic thinking mode 可能要求历史 assistant 消息带 content[].thinking。
+      "force_anthropic_thinking": true,
+      // 假设 deepseek provider 默认需要走代理；单个 key 仍可通过 key.proxy 覆盖：
+      "proxy": "http://127.0.0.1:10808",
+      "headers": { "User-Agent": "Mozilla/5.0" },
+      "enabled": true
+    }
+  },
+
+  // 日志与可观测性
+  "observability": {
+    // 日志级别（目前主要通过 print 输出，后续可扩展为 JSON lines）
+    "log_level": "info",
+
+    // key 在日志里怎么截断显示：前 prefix 位 + ** + 后 suffix 位
+    "log_key_mask": { "prefix": 6, "suffix": 2 },
+
+    // 每次请求是否打印 provider/key/attempt 选择信息
+    "log_provider_on_each_request": true,
+
+    // 安全诊断日志（JSONL，stdlib，无额外依赖）
+    // 用于区分失败发生在上游 HTTP、格式兼容重试、请求转换、网络传输还是代理内部异常。
+    // 只保存 request_id、provider/model/format、attempt、错误分类、上游错误摘要和脱敏 key；
+    // 不保存请求正文，也不保存完整 API key。
+    "diagnostics": {
+      "enabled": true,
+      "path": "tmp/proxy_diagnostics.jsonl"
+    },
+
+    // 控制台历史数据持久化（SQLite，stdlib，无额外依赖）
+    // 只保存请求元数据、attempt 链路、耗时、状态、provider/model/format、错误分类和脱敏 key；
+    // 不保存请求正文，也不保存完整 API key。
+    "history": {
+      "enabled": true,
+      "path": "tmp/proxy_history.sqlite3",
+      "retention_days": 30
+    },
+
+    // Admin 配置/运行时操作审计（JSONL，stdlib，无额外依赖）
+    // 只保存动作、目标、来源、时间和脱敏摘要；不保存完整 provider key。
+    "audit": {
+      "enabled": true,
+      "path": "tmp/admin_audit.jsonl",
+      "max_records": 1000
+    }
+  }
+}

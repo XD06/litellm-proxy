@@ -1,0 +1,278 @@
+{
+  "server": {
+    "port": 4894,
+    "max_workers": 20,
+    "log_dir": "proxy_logs",
+    "debug_disk_log": false,
+    "admin_key": "sk-admin-change-me"
+  },
+  "routing": {
+    "default_provider_pool": [
+      "opencode",
+      "rawchat",
+      "deepseek"
+    ],
+    "provider_select": "priority_failover",
+    "max_attempts": 6,
+    "connect_timeout_s": 30,
+    "read_timeout_s": 180
+  },
+  "retry": {
+    "retryable_status": [
+      408,
+      409,
+      425,
+      429,
+      500,
+      502,
+      503,
+      504
+    ],
+    "key_fatal_status": [
+      401,
+      403
+    ],
+    "same_key_retries": 1,
+    "cooldown_s": {
+      "rate_limit": 30,
+      "server_error": 10,
+      "network_error": 10,
+      "key_invalid": 3600,
+      "quota_or_balance": 3600
+    },
+    "key_failure_ladder_s": [
+      10,
+      60,
+      3600
+    ],
+    "failure_policies": {
+      "key_invalid": {
+        "cooldown_scope": "key",
+        "cooldown_s": 3600,
+        "disables_key": true
+      },
+      "rate_limited": {
+        "cooldown_scope": "key",
+        "cooldown_s": 30,
+        "disables_key": false
+      },
+      "quota_or_balance": {
+        "cooldown_scope": "key",
+        "cooldown_s": 3600,
+        "disables_key": false
+      },
+      "server_error": {
+        "cooldown_scope": "key",
+        "cooldown_s": 10,
+        "disables_key": false
+      },
+      "network_error": {
+        "cooldown_scope": "key",
+        "cooldown_s": 10,
+        "provider_cooldown_s": 0,
+        "disables_key": false
+      },
+      "provider_compat": {
+        "cooldown_scope": "none",
+        "cooldown_s": 0,
+        "disables_key": false
+      },
+      "empty_visible_output": {
+        "cooldown_scope": "none",
+        "cooldown_s": 0,
+        "disables_key": false
+      },
+      "client_error": {
+        "cooldown_scope": "key",
+        "cooldown_s": 10,
+        "disables_key": false
+      },
+      "unknown": {
+        "cooldown_scope": "key",
+        "cooldown_s": 10,
+        "disables_key": false
+      }
+    },
+    "respect_retry_after": true,
+    "backoff": {
+      "mode": "exp",
+      "base_s": 2,
+      "max_s": 120
+    }
+  },
+  "models": {
+    "disable_client_model_map": true,
+    "client_model_map": {},
+    "routes": {
+      "deepseek-v4-flash": {
+        "providers": [
+          {
+            "name": "opencode",
+            "weight": 1,
+            "priority": 100
+          },
+          {
+            "name": "deepseek",
+            "weight": 1,
+            "priority": 90
+          }
+        ],
+        "provider_select": "priority_failover"
+      },
+      "deepseek-v4-pro": {
+        "providers": [
+          {
+            "name": "opencode",
+            "weight": 1,
+            "priority": 100
+          },
+          {
+            "name": "deepseek",
+            "weight": 1,
+            "priority": 90
+          }
+        ],
+        "provider_select": "priority_failover"
+      },
+      "gpt-5.5": {
+        "providers": [
+          {
+            "name": "rawchat",
+            "weight": 1,
+            "priority": 80
+          }
+        ],
+        "provider_select": "priority_failover"
+      }
+    },
+    "provider_model_map": {
+      "opencode": {
+        "deepseek-v4-flash": "deepseek-v4-flash",
+        "deepseek-v4-pro": "deepseek-v4-pro"
+      },
+      "rawchat": {
+        "gpt-5.5": "gpt-5.5"
+      },
+      "deepseek": {
+        "deepseek-v4-flash": "deepseek-v4-flash",
+        "deepseek-v4-pro": "deepseek-v4-pro"
+      }
+    },
+    "provider_model_capabilities": {},
+    "assume_supports_unknown_models": true,
+    "models_source": "first_healthy_provider"
+  },
+  "providers": {
+    "opencode": {
+      "base_url": "https://opencode.ai/zen/go",
+      "formats": {
+        "chat_completions": {
+          "enabled": true,
+          "path": "/v1/chat/completions"
+        },
+        "responses": {
+          "enabled": false,
+          "path": "/v1/responses"
+        },
+        "anthropic_messages": {
+          "enabled": false,
+          "path": "/v1/messages"
+        }
+      },
+      "models_path": "/v1/models",
+      "keys": [
+        "sk-your-key-1",
+        {
+          "key": "sk-your-key-2",
+          "proxy": "http://127.0.0.1:9000"
+        }
+      ],
+      "force_reasoning_content": true,
+      "headers": {
+        "User-Agent": "Mozilla/5.0"
+      },
+      "pricing": {
+        "input_per_million": 0,
+        "output_per_million": 0
+      },
+      "enabled": true,
+      "priority": 100
+    },
+    "rawchat": {
+      "base_url": "https://rawchat.example.com",
+      "formats": {
+        "chat_completions": {
+          "enabled": false,
+          "path": "/v1/chat/completions"
+        },
+        "responses": {
+          "enabled": true,
+          "path": "/v1/responses"
+        },
+        "anthropic_messages": {
+          "enabled": false,
+          "path": "/v1/messages"
+        }
+      },
+      "models_path": "/v1/models",
+      "keys": [
+        "sk-your-rawchat-key"
+      ],
+      "headers": {
+        "User-Agent": "Mozilla/5.0"
+      },
+      "enabled": true,
+      "priority": 80
+    },
+    "deepseek": {
+      "base_url": "https://api.deepseek.com",
+      "formats": {
+        "chat_completions": {
+          "enabled": false,
+          "path": "/v1/chat/completions"
+        },
+        "responses": {
+          "enabled": false,
+          "path": "/v1/responses"
+        },
+        "anthropic_messages": {
+          "enabled": true,
+          "path": "/v1/messages"
+        }
+      },
+      "models_path": "/v1/models",
+      "keys": [
+        "sk-your-key"
+      ],
+      "force_anthropic_thinking": true,
+      "proxy": "http://127.0.0.1:10808",
+      "headers": {
+        "User-Agent": "Mozilla/5.0"
+      },
+      "enabled": true,
+      "priority": 90
+    }
+  },
+  "observability": {
+    "log_level": "info",
+    "log_key_mask": {
+      "prefix": 6,
+      "suffix": 2
+    },
+    "log_provider_on_each_request": true,
+    "diagnostics": {
+      "enabled": true,
+      "path": "tmp/proxy_diagnostics.jsonl"
+    },
+    "history": {
+      "enabled": true,
+      "path": "tmp/proxy_history.sqlite3",
+      "retention_days": 30
+    },
+    "audit": {
+      "enabled": true,
+      "path": "tmp/admin_audit.jsonl",
+      "max_records": 1000
+    }
+  }
+}

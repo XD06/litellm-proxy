@@ -1,0 +1,56 @@
+[proxy] Auto-fetched union models: 88
+Proxy on http://localhost:4894/v1/messages
+Bind: 0.0.0.0:4894  Workers: 20  Logs: C:\Users\dsk\Desktop\litellm-proxy\proxy_logs
+[proxy][WARN] Bound to all interfaces; the proxy and Admin API are reachable from the network and protected only by the admin key. Set server.host to 127.0.0.1 to restrict to localhost.
+[proxy] GET /-/admin/metrics
+[proxy] GET /-/admin/metrics/timeseries
+[proxy] GET /-/admin/status
+[proxy] GET /-/admin/requests
+[proxy] GET /-/admin/routing
+[proxy] GET /-/admin/config
+[proxy] GET /-/admin/config/overlay
+[proxy] GET /-/admin/audit
+[proxy] GET /
+[proxy] GET /-/dashboard/styles.css
+[proxy] GET /-/dashboard/app.js
+[proxy] GET /-/admin/status
+[proxy] GET /-/admin/metrics
+[proxy] GET /-/admin/metrics/timeseries
+[proxy] GET /-/admin/status
+[proxy] GET /-/admin/requests
+[proxy] GET /-/admin/routing
+[proxy] GET /-/admin/config
+[proxy] GET /-/admin/config/overlay
+[proxy] GET /-/admin/audit
+[proxy] GET /-/admin/metrics
+[proxy] GET /-/admin/metrics/timeseries
+[proxy] GET /-/admin/status
+[proxy] GET /-/admin/routing
+[proxy] GET /-/admin/requests
+[proxy] GET /-/admin/config
+[proxy] GET /-/admin/config/overlay
+[proxy] GET /-/admin/audit
+[proxy] GET /anthropic/v1/models
+[proxy] Models: auto-fetch (union)
+[proxy] GET /-/admin/metrics
+[proxy] GET /-/admin/metrics/timeseries
+[proxy] GET /-/admin/requests
+[proxy] GET /-/admin/config
+[proxy] GET /-/admin/routing
+[proxy] GET /-/admin/status
+[proxy] GET /-/admin/config/overlay
+[proxy] GET /-/admin/audit
+[proxy] GET /-/admin/metrics
+[proxy] GET /-/admin/metrics/timeseries
+[proxy] GET /-/admin/requests
+[proxy] GET /-/admin/config
+[proxy] GET /-/admin/routing
+[proxy] GET /-/admin/status
+[proxy] GET /-/admin/config/overlay
+[proxy] GET /-/admin/audit
+[proxy] GET /-/admin/metrics
+[proxy] GET /-/admin/metrics/timeseries
+[proxy] GET /-/admin/status
+[proxy] GET /-/admin/routing
+[proxy] GET /-/admin/requests
+[proxy] GET /-/admin/config

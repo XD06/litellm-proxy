@@ -1,0 +1,11 @@
+config.json
+runtime_config.json
+proxy_logs/
+__pycache__/
+*.py[cod]
+.codegraph/
+.playwright-cli/
+.atomcode/
+.trae/
+.uploads/
+tmp/

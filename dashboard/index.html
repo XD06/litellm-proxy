@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Proxy Console</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231f2933'/%3E%3Cpath d='M8 22V10h4v9h9v3H8Zm7-7V10h9v3h-5v5h-4Z' fill='%23f3efe7'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="/-/dashboard/styles.css?v=20260612-provider-tools" />
+  </head>
+  <body class="is-auth-checking">
+    <section id="authChecking" class="login-gate auth-checking">
+      <div class="login-card auth-card" role="status" aria-live="polite">
+        <div class="login-mark">LP</div>
+        <div>
+          <h1>Proxy Console</h1>
+          <p id="authCheckingText">Checking console access.</p>
+        </div>
+        <div class="auth-progress" aria-hidden="true"></div>
+      </div>
+    </section>
+
+    <section id="loginGate" class="login-gate" hidden>
+      <form id="loginForm" class="login-card" autocomplete="off">
+        <div class="login-mark">LP</div>
+        <div>
+          <h1>Proxy Console</h1>
+          <p>Enter the admin key to open runtime operations.</p>
+        </div>
+        <label class="login-field">
+          <span>Admin key</span>
+          <input id="loginAdminKeyInput" type="password" autocomplete="off" placeholder="admin key" />
+        </label>
+        <button id="loginButton" class="button primary" type="submit">Enter console</button>
+        <p id="loginError" class="login-error" aria-live="polite"></p>
+      </form>
+    </section>
+
+    <div id="app" class="shell" hidden>
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">LP</div>
+          <div>
+            <div class="brand-title">Proxy Console</div>
+            <div class="brand-subtitle">Runtime operations</div>
+          </div>
+        </div>
+        <nav id="sectionNav" class="nav" aria-label="Console sections">
+          <button class="nav-item is-active" data-view="overview">Overview</button>
+          <button class="nav-item" data-view="requests">Requests</button>
+          <button class="nav-item" data-view="providers">Providers</button>
+          <button class="nav-item" data-view="policy">Routing Policy</button>
+          <button class="nav-item" data-view="config">Config</button>
+        </nav>
+        <div id="sidebarActions" class="sidebar-actions" aria-label="Runtime controls">
+          <button id="refreshButton" class="button primary">Refresh</button>
+          <button id="pauseButton" class="button secondary">Pause</button>
+        </div>
+        <div class="sidebar-footer">
+          <span class="dot" id="connectionDot"></span>
+          <span id="connectionText">Not connected</span>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <h1 id="viewTitle">Overview</h1>
+            <p id="viewSubtitle">Live runtime health and request flow.</p>
+          </div>
+          <button
+            id="mobileSettingsButton"
+            class="button secondary mobile-settings-button"
+            type="button"
+            aria-controls="mobileSettingsDrawer"
+            aria-expanded="false"
+          >
+            More settings
+          </button>
+        </header>
+
+        <div id="toastStack" class="toast-stack" aria-live="polite" aria-atomic="false"></div>
+
+        <section id="overviewView" class="view is-active">
+          <div class="overview-page-head">
+            <div>
+              <h1>Overview</h1>
+              <p>Live health metrics and proxy request traffic flow.</p>
+            </div>
+            <div id="timeRangeControl" class="time-range-control" aria-label="Overview time range">
+              <div>
+                <span class="eyebrow">Time range</span>
+                <strong id="timeRangeLabel">Last 30 minutes</strong>
+              </div>
+              <div class="segmented-control" role="group" aria-label="Select chart time range">
+                <button class="segmented-button is-active" type="button" data-time-range="30m">30m</button>
+                <button class="segmented-button" type="button" data-time-range="2h">2h</button>
+                <button class="segmented-button" type="button" data-time-range="24h">24h</button>
+                <button class="segmented-button" type="button" data-time-range="7d">7d</button>
+              </div>
+            </div>
+          </div>
+          <div class="metric-grid" hidden>
+            <article class="metric">
+              <span class="metric-label">Requests</span>
+              <strong id="metricRequests">0</strong>
+              <small id="metricRequestsSub">0 in flight</small>
+            </article>
+            <article class="metric">
+              <span class="metric-label">Success Rate</span>
+              <strong id="metricSuccessRate">0%</strong>
+              <small id="metricSuccessSub">0 success</small>
+            </article>
+            <article class="metric">
+              <span class="metric-label">Attempt Failures</span>
+              <strong id="metricAttemptFailureRate">0%</strong>
+              <small id="metricAttemptSub">0 failed attempts</small>
+            </article>
+            <article class="metric">
+              <span class="metric-label">Providers</span>
+              <strong id="metricProviders">0/0</strong>
+              <small id="metricProvidersSub">available</small>
+            </article>
+            <article class="metric">
+              <span class="metric-label">Tokens</span>
+              <strong id="metricTokens">0</strong>
+              <small id="metricTokensSub">0 input / 0 output</small>
+            </article>
+            <article class="metric">
+              <span class="metric-label">Est. Cost</span>
+              <strong id="metricCost">$0</strong>
+              <small id="metricCostSub">configured pricing only</small>
+            </article>
+          </div>
+          <div id="overviewVisuals" class="overview-visuals" aria-label="Runtime visual summary"></div>
+
+          <div class="overview-grid">
+            <section class="panel panel-wide overview-traffic-panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Usage Trend</h2>
+                  <p>Token flow, request volume, and failures in the selected window.</p>
+                </div>
+                <span class="badge info" id="chartWindow">selected window</span>
+              </div>
+              <div id="trafficChart" class="chart"></div>
+            </section>
+
+            <div class="overview-secondary-layout">
+              <div class="overview-main-column">
+                <section class="panel panel-wide overview-failures-panel">
+                  <div class="panel-head">
+                    <div>
+                      <h2>Recent Failure Trace</h2>
+                      <p>Latest failed or recovered requests.</p>
+                    </div>
+                  </div>
+                  <div id="recentFailures" class="table-wrap"></div>
+                </section>
+
+                <section class="panel panel-wide overview-usage-panel">
+                  <div class="panel-head">
+                    <div>
+                      <h2>Top Model Usage</h2>
+                      <p>Tokens and top models in the selected window.</p>
+                    </div>
+                    <span id="usageWindow" class="tag">token usage</span>
+                  </div>
+                  <div id="usageChart" class="usage-chart"></div>
+                </section>
+              </div>
+
+              <div class="overview-side-column">
+                <section class="panel overview-health-panel">
+                  <div class="panel-head">
+                    <div>
+                      <h2>Upstream Health status</h2>
+                      <p>Providers that need attention.</p>
+                    </div>
+                  </div>
+                  <div id="providerHealth" class="provider-health empty">No providers</div>
+                </section>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="requestsView" class="view">
+          <div id="requestsToolbar" class="toolbar request-filter-bar">
+            <div class="request-filter-primary">
+              <div class="request-status-chips" aria-label="Request status filters">
+                <button class="filter-chip is-active" type="button" data-request-status="">All</button>
+                <button class="filter-chip tone-success" type="button" data-request-status="success">Success</button>
+                <button class="filter-chip tone-danger" type="button" data-request-status="failed">Failed</button>
+              </div>
+              <label class="filter-search-field">
+                <span class="sr-only">Model</span>
+                <input id="filterModel" class="control" placeholder="model" />
+              </label>
+              <label class="filter-search-field">
+                <span class="sr-only">Provider</span>
+                <input id="filterProvider" class="control" placeholder="provider" />
+              </label>
+              <details class="advanced-filter-box">
+                <summary>More</summary>
+                <div class="advanced-filter-fields">
+                  <input id="filterErrorType" class="control" placeholder="error type" />
+                  <input id="filterReason" class="control" placeholder="failure reason" />
+                  <input id="filterHttpStatus" class="control" placeholder="attempt status" />
+                </div>
+              </details>
+              <button id="applyFiltersButton" class="button secondary compact-action" type="button">Apply</button>
+              <button id="clearFiltersButton" class="button ghost compact-action" type="button">Clear</button>
+            </div>
+            <div class="request-bulk-actions">
+              <span id="requestSelectedCount" class="selection-count">0 selected</span>
+              <button id="deleteSelectedRequestsButton" class="button danger compact-action" type="button" disabled>Delete selected</button>
+              <button id="clearHistoryButton" class="button ghost compact-action" type="button">Clear history</button>
+            </div>
+          </div>
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Requests</h2>
+                <p id="requestCountLabel">Recent request records.</p>
+              </div>
+            </div>
+            <div id="requestsTable" class="table-wrap"></div>
+          </section>
+        </section>
+
+        <section id="providersView" class="view">
+          <section class="panel providers-panel">
+            <div class="providers-tools">
+              <div class="providers-tools-head">
+                <div>
+                  <h2>Providers</h2>
+                  <p>Runtime health, model coverage, key state, and routing readiness.</p>
+                </div>
+                <button id="refreshModelsButton" class="button secondary">Refresh models</button>
+              </div>
+              <div id="providerToolbar" class="provider-toolbar">
+                <label class="field provider-search-field">
+                  <span>Search</span>
+                  <input id="providerSearchInput" class="control" placeholder="provider, model, base url" />
+                </label>
+                <label class="field">
+                  <span>Format</span>
+                  <select id="providerFormatFilter" class="control">
+                    <option value="">All formats</option>
+                    <option value="chat_completions">OpenAI Chat</option>
+                    <option value="responses">Responses</option>
+                    <option value="anthropic_messages">Anthropic</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Status</span>
+                  <select id="providerStatusFilter" class="control">
+                    <option value="">All status</option>
+                    <option value="normal">Normal</option>
+                    <option value="degraded">Degraded</option>
+                    <option value="cooldown">Cooldown</option>
+                    <option value="unavailable">Unavailable</option>
+                    <option value="disabled">Disabled</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Keys</span>
+                  <select id="providerKeyFilter" class="control">
+                    <option value="">All keys</option>
+                    <option value="usable">Has usable key</option>
+                    <option value="partial">Partial usable</option>
+                    <option value="none">No usable keys</option>
+                    <option value="cooldown">Key cooldown</option>
+                  </select>
+                </label>
+                <button id="clearProviderFiltersButton" class="button secondary" type="button">Clear</button>
+              </div>
+            </div>
+            <div id="providersTable" class="provider-table"></div>
+            <div id="modelCapabilities" class="provider-model-list empty" hidden>No model capabilities loaded</div>
+          </section>
+        </section>
+
+        <section id="policyView" class="view">
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Routing Controls</h2>
+                <p>Safe runtime-overlay edits for common scheduling and retry settings.</p>
+              </div>
+            </div>
+            <div id="policyControls" class="policy-controls"></div>
+          </section>
+          <div class="policy-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Rule Table</h2>
+                  <p>How requests move across attempts.</p>
+                </div>
+              </div>
+              <div id="ruleTable" class="table-wrap"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Failure Policies</h2>
+                  <p>Cooldown and disable behavior by error type.</p>
+                </div>
+              </div>
+              <div id="failurePoliciesTable" class="table-wrap"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="configView" class="view">
+          <div class="config-grid">
+            <div class="config-column config-main-column">
+              <section class="panel config-primary-panel">
+                <div class="panel-head">
+                  <div>
+                    <h2>Add Provider</h2>
+                    <p>Create a provider with the required connection fields first.</p>
+                  </div>
+                </div>
+                <form id="addProviderForm" class="provider-create-form">
+                  <label class="field">
+                    <span>Provider name</span>
+                    <input class="control" name="name" placeholder="deepseek" required />
+                  </label>
+                  <label class="field">
+                    <span>Base URL</span>
+                    <input class="control" name="base_url" placeholder="https://api.example.com" required />
+                  </label>
+                  <label class="field provider-create-key">
+                    <span>API key</span>
+                    <input class="control" name="key" type="password" autocomplete="off" placeholder="sk-..." required />
+                  </label>
+                  <label class="field provider-create-proxy">
+                    <span>Provider proxy</span>
+                    <input class="control" name="proxy" placeholder="direct or http://127.0.0.1:8002" />
+                  </label>
+                  <label class="field provider-create-priority">
+                    <span>Priority</span>
+                    <input class="control" name="priority" type="number" min="-1000" max="1000" step="1" value="0" />
+                    <small class="field-help">Higher priority is tried first with priority_failover.</small>
+                  </label>
+                  <label class="field provider-create-key-proxy">
+                    <span>Initial key proxy</span>
+                    <input class="control" name="key_proxy" placeholder="optional key-only proxy" />
+                    <small class="field-help">Priority: key proxy, provider proxy, then global proxy.</small>
+                  </label>
+                  <label class="field provider-create-format">
+                    <span>Upstream API format</span>
+                    <select class="control" name="format">
+                      <option value="chat_completions">OpenAI Chat Completions</option>
+                      <option value="responses">OpenAI Responses</option>
+                      <option value="anthropic_messages">Anthropic Messages</option>
+                      <option value="auto">Auto infer from URL</option>
+                    </select>
+                    <small class="field-help">Native provider format. Chat: /v1/chat/completions, Responses: /v1/responses, Messages: /v1/messages.</small>
+                  </label>
+                  <div class="form-actions provider-create-actions">
+                    <button class="button primary" type="submit">Add provider</button>
+                    <span class="form-note">The key is stored in the runtime overlay and shown masked after save.</span>
+                  </div>
+                </form>
+              </section>
+
+              <section class="panel config-provider-panel">
+                <div class="panel-head">
+                  <div>
+                    <h2>Provider Config</h2>
+                    <p>Configured providers and safe edit entry points.</p>
+                  </div>
+                </div>
+                <div id="configProviders" class="config-provider-list empty">No provider config loaded</div>
+              </section>
+
+              <section class="panel config-audit-panel">
+                <div class="panel-head">
+                  <div>
+                    <h2>Audit Trail</h2>
+                    <p>Recent admin mutations with masked details.</p>
+                  </div>
+                </div>
+                <div id="auditTrail" class="audit-list empty">No audit events recorded</div>
+              </section>
+            </div>
+
+            <div class="config-column config-side-column">
+              <section id="modelRoutesPanel" class="panel model-routes-panel">
+                <div class="panel-head">
+                  <div>
+                    <h2>Model Routes</h2>
+                    <p>Map one client model to a weighted provider pool.</p>
+                  </div>
+                </div>
+                <details id="modelRouteEditor" class="model-route-editor">
+                  <summary>Add or edit route</summary>
+                  <form id="modelRouteForm" class="model-route-form">
+                    <label class="field">
+                      <span>Client model</span>
+                      <input class="control" name="model" placeholder="deepseek-v4-flash" required />
+                    </label>
+                    <label class="field">
+                      <span>Provider order</span>
+                      <input class="control" name="providers" placeholder="opencode:1:100, deepseek:1:90" required />
+                      <small class="field-help">provider:weight:priority, comma separated. Priority is optional and overrides provider config.</small>
+                    </label>
+                    <label class="field">
+                      <span>Selection</span>
+                      <select class="control" name="provider_select">
+                        <option value="priority_failover">priority_failover</option>
+                        <option value="round_robin">round_robin</option>
+                        <option value="weighted_rr">weighted_rr</option>
+                        <option value="random">random</option>
+                      </select>
+                    </label>
+                    <div class="form-actions">
+                      <button class="button primary" type="submit">Save route</button>
+                      <button id="clearModelRouteFormButton" class="button ghost" type="button">Clear</button>
+                    </div>
+                  </form>
+                </details>
+                <div id="modelRoutes" class="model-route-list empty">No model routes configured</div>
+              </section>
+
+              <section class="panel provider-model-map-panel">
+                <div class="panel-head">
+                  <div>
+                    <h2>Provider Model Map</h2>
+                    <p>Provider-specific model name overrides.</p>
+                  </div>
+                </div>
+                <div id="providerModelMap" class="provider-model-map-list empty">No provider model overrides configured</div>
+              </section>
+
+              <section class="panel config-status-panel">
+                <div class="panel-head">
+                  <div>
+                    <h2>Runtime Config</h2>
+                    <p>Masked status for the active configuration.</p>
+                  </div>
+                  <button id="reloadConfigButton" class="button secondary">Reload</button>
+                </div>
+                <div id="configSummary" class="config-summary config-summary-compact">No config loaded</div>
+              </section>
+
+              <section class="panel global-proxy-panel">
+                <div class="panel-head">
+                  <div>
+                    <h2>Global Proxy</h2>
+                    <p>Lowest-priority fallback for providers without their own proxy.</p>
+                  </div>
+                </div>
+                <form id="globalProxyForm" class="global-proxy-form">
+                  <label class="field">
+                    <span>Proxy URL</span>
+                    <input class="control" name="proxy" placeholder="direct or http://127.0.0.1:8002" />
+                  </label>
+                  <button class="button secondary" type="submit">Save global proxy</button>
+                  <small class="form-note">Blank means direct unless a provider or key proxy is set.</small>
+                </form>
+              </section>
+
+              <section id="overlaySafetyPanel" class="panel config-advanced-panel">
+                <details class="config-advanced-details">
+                  <summary>
+                    <span>Advanced overlay tools</span>
+                    <small>Validate, export masked JSON, or clear runtime_config.</small>
+                  </summary>
+                  <div class="actions">
+                    <button id="validateOverlayButton" class="button secondary" type="button">Validate</button>
+                    <button id="exportOverlayButton" class="button secondary" type="button">Export masked</button>
+                    <button id="clearOverlayButton" class="button danger" type="button">Clear overlay</button>
+                  </div>
+                  <div id="overlaySafety" class="overlay-safety">No overlay status loaded</div>
+                  <details class="raw-config-details nested-details">
+                    <summary>Show overlay preview</summary>
+                    <pre id="overlayPreview" class="code-block">{}</pre>
+                  </details>
+                </details>
+              </section>
+
+              <section class="panel config-advanced-panel">
+                <div class="panel-head">
+                  <div>
+                    <h2>Raw Snapshot</h2>
+                    <p>Masked JSON for debugging.</p>
+                  </div>
+                </div>
+                <details class="raw-config-details">
+                  <summary>Show masked JSON</summary>
+                  <pre id="configSnapshot" class="code-block">{}</pre>
+                </details>
+              </section>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <aside id="detailDrawer" class="drawer" aria-hidden="true">
+        <div class="drawer-head">
+          <div>
+            <h2>Request Detail</h2>
+            <p id="drawerSubtitle">No request selected</p>
+          </div>
+          <button id="closeDrawerButton" class="icon-button" aria-label="Close">×</button>
+        </div>
+        <div id="drawerBody" class="drawer-body"></div>
+      </aside>
+
+      <aside id="providerDrawer" class="drawer provider-drawer" aria-hidden="true">
+        <div class="drawer-head">
+          <div>
+            <h2 id="providerDrawerTitle">Provider</h2>
+            <p id="providerDrawerSubtitle">No provider selected</p>
+          </div>
+          <button id="closeProviderDrawerButton" class="icon-button" aria-label="Close">×</button>
+        </div>
+        <div id="providerDrawerBody" class="drawer-body provider-drawer-body"></div>
+      </aside>
+
+      <div id="confirmBackdrop" class="confirm-backdrop" hidden></div>
+      <section id="confirmDialog" class="confirm-dialog" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+        <div class="confirm-head">
+          <span id="confirmTone" class="confirm-tone danger"></span>
+          <div>
+            <h2 id="confirmTitle">Confirm action</h2>
+            <p id="confirmMessage">This action needs confirmation.</p>
+          </div>
+        </div>
+        <div class="confirm-actions">
+          <button id="confirmCancelButton" class="button secondary" type="button">Cancel</button>
+          <button id="confirmAcceptButton" class="button danger" type="button">Delete</button>
+        </div>
+      </section>
+
+      <div id="mobileSettingsBackdrop" class="mobile-settings-backdrop" hidden></div>
+      <aside id="mobileSettingsDrawer" class="mobile-settings-drawer" aria-hidden="true">
+        <div class="drawer-head">
+          <div>
+            <h2>More settings</h2>
+            <p>Navigation, runtime controls, and view filters.</p>
+          </div>
+          <button id="closeMobileSettingsButton" class="icon-button" aria-label="Close settings">×</button>
+        </div>
+        <div class="mobile-settings-body">
+          <section class="mobile-settings-section">
+            <h3 class="mobile-settings-section-title">Sections</h3>
+            <div id="mobileNavActions"></div>
+          </section>
+          <section class="mobile-settings-section">
+            <h3 class="mobile-settings-section-title">Runtime</h3>
+            <div id="mobileGlobalActions"></div>
+          </section>
+          <section id="mobileContextSection" class="mobile-settings-section is-hidden">
+            <h3 class="mobile-settings-section-title">Request filters</h3>
+            <div id="mobileContextActions"></div>
+          </section>
+        </div>
+      </aside>
+    </div>
+
+    <script src="/-/dashboard/app.js?v=20260612-requests-provider-tools" defer></script>
+  </body>
+</html>
