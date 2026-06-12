@@ -936,11 +936,15 @@ def _write_attempt_diagnostic_log(
     try:
         path = _diagnostic_log_path()
         line = json.dumps(item, ensure_ascii=False, separators=(",", ":"))
-        _start_diagnostic_writer_if_needed()
-        _DIAGNOSTIC_QUEUE.put((path, line), block=False)
         import sys
         if "unittest" in sys.modules:
-            _DIAGNOSTIC_QUEUE.join()
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with DIAGNOSTIC_LOG_LOCK:
+                with open(path, "a", encoding="utf-8") as f:
+                    f.write(line + "\n")
+            return
+        _start_diagnostic_writer_if_needed()
+        _DIAGNOSTIC_QUEUE.put((path, line), block=False)
     except Exception:
         return
 

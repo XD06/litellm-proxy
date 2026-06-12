@@ -27,13 +27,22 @@ class HTTPResponseLineWrapper:
     """
     def __init__(self, resp: urllib3.HTTPResponse):
         self.resp = resp
-        self.reader = io.BufferedReader(resp)
 
     def readline(self, *args, **kwargs) -> bytes:
-        return self.reader.readline(*args, **kwargs)
+        if self.resp.closed:
+            return b""
+        try:
+            return self.resp.readline(*args, **kwargs)
+        except (ValueError, OSError, Exception):
+            return b""
 
     def read(self, *args, **kwargs) -> bytes:
-        return self.reader.read(*args, **kwargs)
+        if self.resp.closed:
+            return b""
+        try:
+            return self.resp.read(*args, **kwargs)
+        except (ValueError, OSError, Exception):
+            return b""
 
     def __iter__(self):
         return self
@@ -45,10 +54,6 @@ class HTTPResponseLineWrapper:
         return line
 
     def close(self):
-        try:
-            self.reader.close()
-        except Exception:
-            pass
         try:
             self.resp.close()
         except Exception:
