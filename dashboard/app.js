@@ -13,6 +13,7 @@
       status: "",
     },
     selectedRequestIds: new Set(),
+    allMatchingSelected: false,
     providersPage: 0,
     configProvidersPage: 0,
     modelRoutesPage: 0,
@@ -1455,6 +1456,30 @@
     bindViewTargetButtons();
   }
 
+  function selectAllBannerHtml(total, items) {
+    const visibleIds = items.map((item) => String(item.request_id || "")).filter(Boolean);
+    const selectedVisible = visibleIds.filter((id) => state.selectedRequestIds.has(id)).length;
+    const allVisibleSelected = visibleIds.length > 0 && selectedVisible === visibleIds.length;
+    if (allVisibleSelected && total > visibleIds.length) {
+      if (state.allMatchingSelected) {
+        return `
+          <div class="request-select-all-banner">
+            <span>All ${fmtInt(total)} requests matching current filters are selected.</span>
+            <button type="button" class="button link-action" data-request-clear-all-matching>Clear selection</button>
+          </div>
+        `;
+      } else {
+        return `
+          <div class="request-select-all-banner">
+            <span>All ${fmtInt(visibleIds.length)} requests on this page are selected.</span>
+            <button type="button" class="button link-action" data-request-select-all-matching>Select all ${fmtInt(total)} matching requests</button>
+          </div>
+        `;
+      }
+    }
+    return "";
+  }
+
   function renderRequestsTable() {
     const data = state.data.requests || {};
     const items = Array.isArray(data.items) ? data.items : [];
@@ -1483,6 +1508,7 @@
     const rows = items.map(requestSummaryRow).join("");
     target.innerHTML = `
       <div class="request-list-head">${requestPagination(total, currentPage, totalPages, items)}</div>
+      ${selectAllBannerHtml(total, items)}
       ${requestPageVisuals(items)}
       <div class="request-summary-list">${rows}</div>
     `;
@@ -1539,9 +1565,10 @@
       : "no attempts";
     const firstByte = firstByteMsFromRequest(r);
     const requestId = String(r.request_id || "");
-    const checked = state.selectedRequestIds.has(requestId) ? "checked" : "";
+    const isSelected = state.allMatchingSelected || state.selectedRequestIds.has(requestId);
+    const checked = isSelected ? "checked" : "";
     return `
-      <article class="request-summary-row tone-${escapeHtml(statusTone)} ${checked ? "is-selected" : ""}" data-request-row="${escapeHtml(requestId)}" tabindex="0" role="button" aria-label="Open request ${escapeHtml(requestId)}">
+      <article class="request-summary-row tone-${escapeHtml(statusTone)} ${isSelected ? "is-selected" : ""}" data-request-row="${escapeHtml(requestId)}" tabindex="0" role="button" aria-label="Open request ${escapeHtml(requestId)}">
         <label class="request-row-select" title="Select request" aria-label="Select request">
           <input type="checkbox" data-request-select="${escapeHtml(requestId)}" ${checked} />
         </label>
@@ -1597,13 +1624,14 @@
     const start = total ? state.requestsPage * REQUEST_PAGE_SIZE + 1 : 0;
     const end = total ? Math.min(total, start + Number(visibleCount || 0) - 1) : 0;
     const visibleIds = items.map((item) => String(item.request_id || "")).filter(Boolean);
-    const selectedVisible = visibleIds.filter((id) => state.selectedRequestIds.has(id)).length;
-    const allVisibleSelected = visibleIds.length > 0 && selectedVisible === visibleIds.length;
+    const selectedVisible = state.allMatchingSelected ? visibleIds.length : visibleIds.filter((id) => state.selectedRequestIds.has(id)).length;
+    const allVisibleSelected = state.allMatchingSelected || (visibleIds.length > 0 && selectedVisible === visibleIds.length);
+    const labelText = state.allMatchingSelected ? `${fmtInt(total)} selected` : selectedVisible ? `${fmtInt(selectedVisible)} selected` : "Select page";
     return `
       <div class="request-page-summary">
         <label class="request-page-select">
           <input type="checkbox" data-request-select-page ${allVisibleSelected ? "checked" : ""} ${visibleIds.length ? "" : "disabled"} />
-          <span>${selectedVisible ? `${fmtInt(selectedVisible)} selected` : "Select page"}</span>
+          <span>${labelText}</span>
         </label>
         <strong>${fmtInt(start)}-${fmtInt(end)}</strong>
         <span>of ${fmtInt(total)} requests</span>
@@ -1641,19 +1669,30 @@
       input.addEventListener("change", () => {
         const requestId = input.dataset.requestSelect || "";
         if (!requestId) return;
-        if (input.checked) state.selectedRequestIds.add(requestId);
-        else state.selectedRequestIds.delete(requestId);
-        const row = input.closest("[data-request-row]");
-        if (row) row.classList.toggle("is-selected", input.checked);
-        updateRequestSelectionUi(root, items);
+        if (state.allMatchingSelected) {
+          state.allMatchingSelected = false;
+          state.selectedRequestIds.clear();
+          const visibleIds = (Array.isArray(items) ? items : []).map((item) => String(item.request_id || "")).filter(Boolean);
+          visibleIds.forEach((id) => {
+            if (id !== requestId) state.selectedRequestIds.add(id);
+          });
+          renderRequestsTable();
+        } else {
+          if (input.checked) state.selectedRequestIds.add(requestId);
+          else state.selectedRequestIds.delete(requestId);
+          const row = input.closest("[data-request-row]");
+          if (row) row.classList.toggle("is-selected", input.checked);
+          updateRequestSelectionUi(root, items);
+        }
       });
     });
     const pageInput = root.querySelector("[data-request-select-page]");
     if (pageInput) {
       const ids = (Array.isArray(items) ? items : []).map((item) => String(item.request_id || "")).filter(Boolean);
       const selected = ids.filter((id) => state.selectedRequestIds.has(id)).length;
-      pageInput.indeterminate = selected > 0 && selected < ids.length;
+      pageInput.indeterminate = !state.allMatchingSelected && selected > 0 && selected < ids.length;
       pageInput.addEventListener("change", () => {
+        state.allMatchingSelected = false;
         ids.forEach((id) => {
           if (pageInput.checked) state.selectedRequestIds.add(id);
           else state.selectedRequestIds.delete(id);
@@ -1661,10 +1700,27 @@
         renderRequestsTable();
       });
     }
+    const selectAllBtn = root.querySelector("[data-request-select-all-matching]");
+    if (selectAllBtn) {
+      selectAllBtn.addEventListener("click", () => {
+        state.allMatchingSelected = true;
+        state.selectedRequestIds.clear();
+        renderRequestsTable();
+      });
+    }
+    const clearAllBtn = root.querySelector("[data-request-clear-all-matching]");
+    if (clearAllBtn) {
+      clearAllBtn.addEventListener("click", () => {
+        state.allMatchingSelected = false;
+        state.selectedRequestIds.clear();
+        renderRequestsTable();
+      });
+    }
   }
 
   function updateRequestSelectionUi(root = el("requestsTable"), items = state.data.requests?.items || []) {
-    const count = state.selectedRequestIds.size;
+    const total = Number(state.data.requests?.total || 0);
+    const count = state.allMatchingSelected ? total : state.selectedRequestIds.size;
     const countEl = el("requestSelectedCount");
     if (countEl) countEl.textContent = count ? `${fmtInt(count)} selected` : "0 selected";
     const deleteButton = el("deleteRequestsButton");
@@ -1679,13 +1735,13 @@
       deleteButton.setAttribute("aria-label", action);
     }
     const ids = (Array.isArray(items) ? items : []).map((item) => String(item.request_id || "")).filter(Boolean);
-    const selected = ids.filter((id) => state.selectedRequestIds.has(id)).length;
+    const selected = state.allMatchingSelected ? ids.length : ids.filter((id) => state.selectedRequestIds.has(id)).length;
     const pageInput = root?.querySelector?.("[data-request-select-page]");
     if (pageInput) {
       pageInput.checked = ids.length > 0 && selected === ids.length;
-      pageInput.indeterminate = selected > 0 && selected < ids.length;
+      pageInput.indeterminate = !state.allMatchingSelected && selected > 0 && selected < ids.length;
       const label = pageInput.closest(".request-page-select")?.querySelector("span");
-      if (label) label.textContent = selected ? `${fmtInt(selected)} selected` : "Select page";
+      if (label) label.textContent = state.allMatchingSelected ? `${fmtInt(total)} selected` : selected ? `${fmtInt(selected)} selected` : "Select page";
     }
   }
 
@@ -4210,6 +4266,8 @@
         if (state.requestFilters.status === nextStatus) return;
         state.requestFilters.status = nextStatus;
         state.requestsPage = 0;
+        state.selectedRequestIds.clear();
+        state.allMatchingSelected = false;
         syncRequestFilterUi();
         refreshAll({ quiet: true });
       });
@@ -4219,6 +4277,8 @@
       el(id)?.addEventListener("keydown", (event) => {
         if (event.key !== "Enter") return;
         state.requestsPage = 0;
+        state.selectedRequestIds.clear();
+        state.allMatchingSelected = false;
         refreshAll({ quiet: true });
         closeMobileSettings();
       });
@@ -4226,6 +4286,8 @@
 
     el("applyFiltersButton").addEventListener("click", () => {
       state.requestsPage = 0;
+      state.selectedRequestIds.clear();
+      state.allMatchingSelected = false;
       refreshAll();
       closeMobileSettings();
     });
@@ -4236,6 +4298,8 @@
       state.requestFilters.status = "";
       syncRequestFilterUi();
       state.requestsPage = 0;
+      state.selectedRequestIds.clear();
+      state.allMatchingSelected = false;
       refreshAll();
       closeMobileSettings();
     });
@@ -4244,7 +4308,9 @@
       const ids = Array.from(state.selectedRequestIds);
       const filters = activeRequestFilters();
       const filterCount = Object.keys(filters).length;
-      const mode = ids.length ? "selected" : filterCount ? "matching" : "all";
+      const mode = state.allMatchingSelected
+        ? (filterCount ? "matching" : "all")
+        : ids.length ? "selected" : filterCount ? "matching" : "all";
       const title = mode === "selected" ? "Delete selected requests" : mode === "matching" ? "Delete matching requests" : "Clear request history";
       const message = mode === "selected"
         ? `Delete ${fmtInt(ids.length)} selected request record${ids.length === 1 ? "" : "s"}? Runtime counters are not reset.`
@@ -4268,12 +4334,14 @@
             confirm: "delete_matching_request_records",
             filters,
           });
+          state.allMatchingSelected = false;
           state.selectedRequestIds.clear();
         } else {
           result = await apiPost("/-/admin/requests/clear", {
             confirm: "clear_request_history",
             include_diagnostics: true,
           });
+          state.allMatchingSelected = false;
           state.selectedRequestIds.clear();
         }
         state.requestsPage = 0;

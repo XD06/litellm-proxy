@@ -99,6 +99,47 @@ class RequestHistoryStoreTests(unittest.TestCase):
         self.assertEqual(listed["items"][0]["routing_summary"]["outcome"], "failed")
         self.assertNotIn("secret", str(listed))
 
+    def test_fuzzy_filtering_on_requests(self):
+        store = self.store()
+        req_ok = sample_request("req-ok", provider="alpha-provider")
+        req_ok["model"] = "gpt-4o"
+        store.record_request(req_ok)
+
+        req_fail = sample_request("req-fail", status_code=502, provider="beta-provider")
+        req_fail["model"] = "claude-3-opus"
+        store.record_request(req_fail)
+
+        # Test model fuzzy match
+        listed = store.list_requests(filters={"model": "gpt"})
+        self.assertEqual(listed["total"], 1)
+        self.assertEqual(listed["items"][0]["request_id"], "req-ok")
+
+        listed = store.list_requests(filters={"model": "claude"})
+        self.assertEqual(listed["total"], 1)
+        self.assertEqual(listed["items"][0]["request_id"], "req-fail")
+
+        # Test provider fuzzy match
+        listed = store.list_requests(filters={"provider": "alpha"})
+        self.assertEqual(listed["total"], 1)
+        self.assertEqual(listed["items"][0]["request_id"], "req-ok")
+
+        listed = store.list_requests(filters={"provider": "beta"})
+        self.assertEqual(listed["total"], 1)
+        self.assertEqual(listed["items"][0]["request_id"], "req-fail")
+
+        # Test error_type / failure_reason / http_status fuzzy match
+        listed = store.list_requests(filters={"error_type": "server"})
+        self.assertEqual(listed["total"], 1)
+        self.assertEqual(listed["items"][0]["request_id"], "req-fail")
+
+        listed = store.list_requests(filters={"failure_reason": "5xx"})
+        self.assertEqual(listed["total"], 1)
+        self.assertEqual(listed["items"][0]["request_id"], "req-fail")
+
+        listed = store.list_requests(filters={"http_status": "50"})
+        self.assertEqual(listed["total"], 1)
+        self.assertEqual(listed["items"][0]["request_id"], "req-fail")
+
     def test_get_request_returns_attempt_detail_with_masked_key(self):
         store = self.store()
         store.record_request(sample_request("req-detail"))

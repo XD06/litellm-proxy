@@ -7709,3 +7709,31 @@ body {
   color: var(--muted);
 }
 
+.request-select-all-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 14px;
+  background-color: color-mix(in srgb, var(--accent, #3b82f6) 8%, transparent);
+  border-bottom: 1px dashed var(--line-soft);
+  font-size: 12px;
+  color: var(--text);
+  animation: viewIn 0.15s ease-out;
+}
+
+.request-select-all-banner .button.link-action {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.request-select-all-banner .button.link-action:hover {
+  color: var(--accent-hover, #2563eb);
+}
+

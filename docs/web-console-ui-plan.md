@@ -64,6 +64,11 @@ Validated through 2026-06-10:
 - Mobile navigation refinement moves the same `sectionNav` node into the More settings drawer at small widths and restores it to the sidebar on desktop, keeping one source of truth for active view state while removing the mobile horizontal tab rail from the main page.
 - First-byte latency pass records `first_byte_ms` for streaming requests after the first valid upstream SSE event is prefetched and for non-streaming requests when upstream response headers return. SQLite history and in-memory buckets now aggregate both `first_byte_ms_*` and `duration_ms_*`; Overview uses first-byte latency, while Requests detail still keeps total duration. Provider key deletion now accepts sparse/display key indexes such as `/providers/modelscope/keys/2/delete`.
 - Verification on 2026-06-11: `python -m py_compile observability.py history_store.py sse2json.py upstream_client.py config_manager.py proxy_utils.py router.py stream_adapters.py format_adapters.py protocol_adapters.py`, `node --check dashboard/app.js`, and `python -m unittest discover -s tests` passed with 213 tests.
+- Fuzzy/partial search & bulk selection pass (2026-06-13):
+  - Changed SQLite history queries and memory-based filtering to perform case-insensitive substring matching instead of exact matches on `model`, `provider`, `error_type`, `failure_reason`, and `http_status`.
+  - Added a select-all-matching banner to the Requests table when the current filter's matching records count exceeds the page size and the user has selected all records on the current page.
+  - Enabled one-click selection of all matching records across all pages, passing the active search filter parameters to the backend's `/delete-matching` API when deleting matching requests, keeping bulk actions robust and fast.
+  - Added unit test case `test_fuzzy_filtering_on_requests` to `tests/test_history_store.py` and verified all tests pass.
 
 ## Design Read
 

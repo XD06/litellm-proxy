@@ -681,24 +681,27 @@ class ProxyObservability:
         status = str(filters.get("status") or "").strip().lower()
         if status and str(item.get("status") or "").lower() != status:
             return False
-        for key in ("client_format", "endpoint", "model"):
+        for key in ("client_format", "endpoint"):
             value = str(filters.get(key) or "").strip()
             if value and str(item.get(key) or "") != value:
                 return False
-        provider = str(filters.get("provider") or "").strip()
-        if provider and provider not in (item.get("providers") or []):
+        model = str(filters.get("model") or "").strip().lower()
+        if model and model not in str(item.get("model") or "").lower():
             return False
-        upstream_format = str(filters.get("upstream_format") or "").strip()
-        if upstream_format and upstream_format not in (item.get("upstream_formats") or []):
+        provider = str(filters.get("provider") or "").strip().lower()
+        if provider and not any(provider in str(p).lower() for p in (item.get("providers") or [])):
             return False
-        error_type = str(filters.get("error_type") or "").strip()
-        if error_type and error_type not in (item.get("error_types") or []):
+        upstream_format = str(filters.get("upstream_format") or "").strip().lower()
+        if upstream_format and not any(upstream_format in str(uf).lower() for uf in (item.get("upstream_formats") or [])):
             return False
-        failure_reason = str(filters.get("failure_reason") or filters.get("reason") or "").strip()
-        if failure_reason and failure_reason not in (item.get("failure_reasons") or []):
+        error_type = str(filters.get("error_type") or "").strip().lower()
+        if error_type and not any(error_type in str(et).lower() for et in (item.get("error_types") or [])):
             return False
-        http_status = str(filters.get("http_status") or "").strip()
-        if http_status and http_status not in (item.get("attempt_http_statuses") or []):
+        failure_reason = str(filters.get("failure_reason") or filters.get("reason") or "").strip().lower()
+        if failure_reason and not any(failure_reason in str(fr).lower() for fr in (item.get("failure_reasons") or [])):
+            return False
+        http_status = str(filters.get("http_status") or "").strip().lower()
+        if http_status and not any(http_status in str(hs).lower() for hs in (item.get("attempt_http_statuses") or [])):
             return False
         request_status_code = str(filters.get("status_code") or "").strip()
         if request_status_code and request_status_code != str(item.get("status_code") or ""):

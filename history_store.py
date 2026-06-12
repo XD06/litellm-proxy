@@ -744,7 +744,7 @@ class RequestHistoryStore:
         self._add_eq_filter(clauses, params, "r.status", filters.get("status"))
         self._add_eq_filter(clauses, params, "r.client_format", filters.get("client_format"))
         self._add_eq_filter(clauses, params, "r.endpoint", filters.get("endpoint"))
-        self._add_eq_filter(clauses, params, "r.model", filters.get("model"))
+        self._add_like_filter(clauses, params, "r.model", filters.get("model"))
         self._add_eq_filter(clauses, params, "r.status_code", filters.get("status_code"))
 
         attempt_filters = {
@@ -759,9 +759,9 @@ class RequestHistoryStore:
             if not value:
                 continue
             clauses.append(
-                f"EXISTS (SELECT 1 FROM attempts a WHERE a.request_id = r.request_id AND {column} = ?)"
+                f"EXISTS (SELECT 1 FROM attempts a WHERE a.request_id = r.request_id AND {column} LIKE ?)"
             )
-            params.append(value)
+            params.append(f"%{value}%")
 
         if not clauses:
             return "", []
@@ -774,6 +774,14 @@ class RequestHistoryStore:
             return
         clauses.append(f"{column} = ?")
         params.append(value)
+
+    @staticmethod
+    def _add_like_filter(clauses: list, params: list, column: str, value: Any) -> None:
+        value = str(value or "").strip()
+        if not value:
+            return
+        clauses.append(f"{column} LIKE ?")
+        params.append(f"%{value}%")
 
     def _summarize_row(self, conn: sqlite3.Connection, row: sqlite3.Row) -> Dict[str, Any]:
         item = self._request_from_row(row)
