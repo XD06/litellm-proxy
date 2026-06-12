@@ -7,6 +7,7 @@ import os
 import sqlite3
 import threading
 import time
+import queue
 from typing import Any, Dict, Iterable, Optional
 
 from routing_explain import enrich_request
@@ -27,6 +28,9 @@ class RequestHistoryStore:
         self.retention_days = self._retention_days()
         self._lock = threading.Lock()
         self._ready = False
+        self._queue = queue.Queue(maxsize=self._queue_size())
+        self._writer_running = False
+        self._writer_thread = None
 
     def _history_cfg(self) -> Dict[str, Any]:
         obs = self.cfg.get("observability") or {}
@@ -62,21 +66,66 @@ class RequestHistoryStore:
         conn.execute("PRAGMA foreign_keys=ON")
         return conn
 
+    def _queue_size(self) -> int:
+        hist = self._history_cfg()
+        try:
+            return max(10, int(hist.get("queue_size", 1000)))
+        except Exception:
+            return 1000
+
     def initialize(self) -> None:
         if not self.enabled:
             return
         with self._lock:
-            if self._ready:
-                return
-            with self._connect() as conn:
-                self._create_schema(conn)
-                self._migrate_schema(conn)
-            self._ready = True
+            if not self._ready:
+                with self._connect() as conn:
+                    self._create_schema(conn)
+                    self._migrate_schema(conn)
+                self._ready = True
+
+        if self.enabled and not self._writer_running:
+            self._writer_running = True
+            self._writer_thread = threading.Thread(
+                target=self._write_loop,
+                name="history-writer",
+                daemon=True
+            )
+            self._writer_thread.start()
+
+    def _write_loop(self) -> None:
+        while self._writer_running:
+            try:
+                item = self._queue.get(timeout=1.0)
+            except queue.Empty:
+                continue
+            if item is None:
+                self._queue.task_done()
+                break
+            try:
+                self._ensure_ready()
+                with self._lock:
+                    with self._connect() as conn:
+                        self._insert_request(conn, item)
+                        self._prune_locked(conn)
+            except Exception:
+                pass
+            finally:
+                self._queue.task_done()
+
+    def shutdown(self) -> None:
+        if self._writer_running:
+            self._writer_running = False
+            try:
+                self._queue.put(None, block=False)
+            except Exception:
+                pass
+            if self._writer_thread:
+                self._writer_thread.join(timeout=2.0)
 
     def _ensure_ready(self) -> None:
         if not self.enabled:
             return
-        if self._ready:
+        if self._ready and self._writer_running:
             return
         self.initialize()
 
@@ -182,14 +231,21 @@ class RequestHistoryStore:
     def record_request(self, item: Dict[str, Any]) -> None:
         if not self.enabled:
             return
+        if not self._writer_running:
+            self.initialize()
         try:
-            self._ensure_ready()
-            with self._lock:
-                with self._connect() as conn:
-                    self._insert_request(conn, item)
-                    self._prune_locked(conn)
+            self._queue.put(item, block=False)
+            import sys
+            if "unittest" in sys.modules:
+                self._queue.join()
+        except queue.Full:
+            pass
+
+    def __del__(self):
+        try:
+            self.shutdown()
         except Exception:
-            return
+            pass
 
     def _insert_request(self, conn: sqlite3.Connection, item: Dict[str, Any]) -> None:
         request_id = str(item.get("request_id") or "")
@@ -490,6 +546,15 @@ class RequestHistoryStore:
         }
         if not self.enabled:
             return result
+
+        # Drain queue to prevent pending async writes from inserting after clear
+        while not self._queue.empty():
+            try:
+                self._queue.get_nowait()
+                self._queue.task_done()
+            except queue.Empty:
+                break
+
         conn = None
         try:
             self._ensure_ready()

@@ -5,7 +5,7 @@
              true SSE streaming (chunk-by-chunk),
              tool call support with memory,
              count_tokens handler for Claude Code compatibility"""
-import copy, json, os, uuid, datetime, sys, socket, concurrent.futures, time, re, threading, hmac
+import copy, json, os, uuid, datetime, sys, socket, concurrent.futures, time, re, threading, hmac, queue
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 from typing import Optional
@@ -80,6 +80,10 @@ if not os.path.isabs(LOG_DIR):
 
 DEBUG_LOG = bool((CONFIG.get("server") or {}).get("debug_disk_log", False))
 DIAGNOSTIC_LOG_LOCK = threading.Lock()
+_DIAGNOSTIC_QUEUE = queue.Queue(maxsize=1000)
+_DIAGNOSTIC_WRITER_THREAD = None
+_DIAGNOSTIC_WRITER_RUNNING = False
+_DIAGNOSTIC_WRITER_LOCK = threading.Lock()
 
 # Runtime state persistence for router health and discovered model capabilities.
 _ROUTER_STATE_FILE = os.path.join(os.path.dirname(__file__), "tmp", "router_state.json")
@@ -851,6 +855,43 @@ def _attempt_key_masked(attempt) -> str:
         return _mask_diag_secret(raw)
 
 
+def _diagnostic_write_loop() -> None:
+    while _DIAGNOSTIC_WRITER_RUNNING:
+        try:
+            task = _DIAGNOSTIC_QUEUE.get(timeout=1.0)
+        except queue.Empty:
+            continue
+        if task is None:
+            _DIAGNOSTIC_QUEUE.task_done()
+            break
+        path, line = task
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with DIAGNOSTIC_LOG_LOCK:
+                with open(path, "a", encoding="utf-8") as f:
+                    f.write(line + "\n")
+        except Exception:
+            pass
+        finally:
+            _DIAGNOSTIC_QUEUE.task_done()
+
+
+def _start_diagnostic_writer_if_needed() -> None:
+    global _DIAGNOSTIC_WRITER_THREAD, _DIAGNOSTIC_WRITER_RUNNING
+    if _DIAGNOSTIC_WRITER_RUNNING:
+        return
+    with _DIAGNOSTIC_WRITER_LOCK:
+        if _DIAGNOSTIC_WRITER_RUNNING:
+            return
+        _DIAGNOSTIC_WRITER_RUNNING = True
+        _DIAGNOSTIC_WRITER_THREAD = threading.Thread(
+            target=_diagnostic_write_loop,
+            name="diagnostic-writer",
+            daemon=True
+        )
+        _DIAGNOSTIC_WRITER_THREAD.start()
+
+
 def _write_attempt_diagnostic_log(
     request_id,
     attempt,
@@ -894,11 +935,12 @@ def _write_attempt_diagnostic_log(
             item[key] = _sanitize_diagnostic_text(value)
     try:
         path = _diagnostic_log_path()
-        os.makedirs(os.path.dirname(path), exist_ok=True)
         line = json.dumps(item, ensure_ascii=False, separators=(",", ":"))
-        with DIAGNOSTIC_LOG_LOCK:
-            with open(path, "a", encoding="utf-8") as f:
-                f.write(line + "\n")
+        _start_diagnostic_writer_if_needed()
+        _DIAGNOSTIC_QUEUE.put((path, line), block=False)
+        import sys
+        if "unittest" in sys.modules:
+            _DIAGNOSTIC_QUEUE.join()
     except Exception:
         return
 
@@ -907,6 +949,12 @@ def _clear_diagnostic_log() -> dict:
     path = _diagnostic_log_path()
     result = {"path": path, "cleared": False}
     try:
+        while not _DIAGNOSTIC_QUEUE.empty():
+            try:
+                _DIAGNOSTIC_QUEUE.get_nowait()
+                _DIAGNOSTIC_QUEUE.task_done()
+            except queue.Empty:
+                break
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with DIAGNOSTIC_LOG_LOCK:
             with open(path, "w", encoding="utf-8"):

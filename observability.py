@@ -92,6 +92,11 @@ class ProxyObservability:
         _history（SQLite）在新实例 __init__ 已重新打开，无需迁移。"""
         if old_obs is None:
             return
+        if hasattr(old_obs, "_history") and old_obs._history:
+            try:
+                old_obs._history.shutdown()
+            except Exception:
+                pass
         with old_obs._lock:
             counters = old_obs._counters
             recent = old_obs._recent
