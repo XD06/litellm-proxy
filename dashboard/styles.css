@@ -2212,11 +2212,11 @@ h2 {
 }
 
 .request-row-dot {
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: var(--row-tone);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--row-tone) 12%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--row-tone) 14%, transparent);
 }
 
 .request-row-select {
@@ -6927,7 +6927,7 @@ body {
     grid-template-columns: 10px minmax(0, 1fr) auto;
   }
 
-  .provider-activity-row > span:not(.provider-spark) {
+  .provider-activity-row > span:not(.provider-status-dot) {
     grid-column: 2 / -1;
   }
 
@@ -7431,7 +7431,6 @@ body {
 
 .request-row-dot {
   border: 2px solid #fff;
-  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.16);
 }
 
 .recent-failure-list .recent-failure-row.tone-success .request-row-dot,
@@ -7442,14 +7441,19 @@ body {
 
 .recent-failure-list .recent-failure-row.tone-warning .request-row-dot,
 #recentFailures .recent-failure-row.tone-warning .request-row-dot {
-  background: var(--danger);
-  box-shadow: 0 0 0 1px #ef4444;
+  background: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);
 }
 
 .recent-failure-list .recent-failure-row.tone-danger .request-row-dot,
 #recentFailures .recent-failure-row.tone-danger .request-row-dot {
   background: #ef4444;
-  box-shadow: 0 0 0 3px #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.16);
+}
+
+.provider-activity-row .provider-status-dot {
+  margin-top: 0;
+  flex-shrink: 0;
 }
 
 @media (max-width: 980px) {

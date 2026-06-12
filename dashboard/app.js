@@ -2427,7 +2427,7 @@
   function providerActivityRow(event) {
     return `
       <button class="provider-activity-row ${escapeHtml(event.tone)}" type="button" ${event.requestId ? `data-request-id="${escapeHtml(event.requestId)}"` : ""}>
-        <span class="provider-spark ${escapeHtml(event.tone)}"></span>
+        <span class="provider-status-dot ${escapeHtml(event.tone)}"></span>
         <strong>${escapeHtml(event.model || "-")}</strong>
         <small>${escapeHtml(fmtDate(event.ts))}</small>
         <span>${messageMarkup(event.reason || event.status || "-")}</span>
