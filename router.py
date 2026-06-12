@@ -479,6 +479,82 @@ class UpstreamRouter:
                     self._keys_state[(p, i)] = ks
             self._rr_model.update(old_rr)
 
+    def dump_state(self) -> Dict[str, Any]:
+        """序列化可持久化的运行时状态（不含原始 key 值）。"""
+        now = time.time()
+        with self._lock:
+            providers = {}
+            for p, ps in self._providers_state.items():
+                providers[p] = {
+                    "cooldown_remaining_s": max(0.0, ps.cooldown_until - now),
+                    "runtime_enabled": ps.runtime_enabled,
+                }
+            keys = {}
+            for (p, i), ks in self._keys_state.items():
+                keys[f"{p}\x00{i}"] = {
+                    "cooldown_remaining_s": max(0.0, ks.cooldown_until - now),
+                    "disabled_remaining_s": max(0.0, ks.disabled_until - now),
+                    "fails": ks.fails,
+                    "transient_fails": int(getattr(ks, "transient_fails", 0)),
+                    "runtime_enabled": ks.runtime_enabled,
+                }
+            return {
+                "saved_at": now,
+                "providers": providers,
+                "keys": keys,
+                "rr_model": dict(self._rr_model),
+            }
+
+    def load_state(self, state: Dict[str, Any]) -> None:
+        """从 dump_state 结果恢复运行时状态，忽略不在当前 config 中的条目。"""
+        if not isinstance(state, dict):
+            return
+        providers_cfg = self.cfg.get("providers") or {}
+        now = time.time()
+        saved_at = float(state.get("saved_at") or now)
+        age = max(0.0, now - saved_at)
+
+        with self._lock:
+            for p, entry in (state.get("providers") or {}).items():
+                if p not in providers_cfg:
+                    continue
+                ps = self._providers_state.setdefault(p, _ProviderState())
+                remaining = max(0.0, float(entry.get("cooldown_remaining_s") or 0) - age)
+                if remaining > 0:
+                    ps.cooldown_until = now + remaining
+                ps.runtime_enabled = bool(entry.get("runtime_enabled", True))
+
+            for composite_key, entry in (state.get("keys") or {}).items():
+                parts = composite_key.split("\x00", 1)
+                if len(parts) != 2:
+                    continue
+                p, i_str = parts
+                try:
+                    i = int(i_str)
+                except ValueError:
+                    continue
+                if p not in providers_cfg:
+                    continue
+                key_count = len((providers_cfg.get(p) or {}).get("keys") or [])
+                if not (0 <= i < key_count):
+                    continue
+                ks = self._keys_state.setdefault((p, i), _KeyState())
+                cooldown_rem = max(0.0, float(entry.get("cooldown_remaining_s") or 0) - age)
+                disabled_rem = max(0.0, float(entry.get("disabled_remaining_s") or 0) - age)
+                if cooldown_rem > 0:
+                    ks.cooldown_until = now + cooldown_rem
+                if disabled_rem > 0:
+                    ks.disabled_until = now + disabled_rem
+                ks.fails = int(entry.get("fails") or 0)
+                ks.transient_fails = int(entry.get("transient_fails") or 0)
+                ks.runtime_enabled = bool(entry.get("runtime_enabled", True))
+
+            for model, idx in (state.get("rr_model") or {}).items():
+                try:
+                    self._rr_model[model] = int(idx)
+                except Exception:
+                    pass
+
     def _cooldown_provider(self, provider: str, reason: str) -> None:
         _ = reason
         with self._lock:
@@ -809,7 +885,26 @@ class UpstreamRouter:
 
         headers["Content-Type"] = "application/json"
         headers["Authorization"] = f"Bearer {key}"
-        headers.setdefault("User-Agent", "Mozilla/5.0")
+        # User-Agent 优先级：provider.user_agent > 客户端 User-Agent > provider.headers/default。
+        # 先清理所有大小写变体，避免 urllib 最终发出重复/旧 UA。
+        configured_ua = ""
+        for header_name in list(headers.keys()):
+            if str(header_name).lower() == "user-agent":
+                configured_ua = configured_ua or str(headers.get(header_name) or "").strip()
+                headers.pop(header_name, None)
+        client_ua = None
+        if client_headers:
+            client_ua = (
+                client_headers.get("User-Agent")
+                or client_headers.get("user-agent")
+            )
+        provider_ua = str(pcfg.get("user_agent") or "").strip()
+        if provider_ua:
+            headers["User-Agent"] = provider_ua
+        elif client_ua:
+            headers["User-Agent"] = client_ua
+        else:
+            headers["User-Agent"] = configured_ua or "Mozilla/5.0"
 
         key_entry = None
         keys = pcfg.get("keys") or []

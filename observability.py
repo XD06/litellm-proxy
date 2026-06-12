@@ -44,6 +44,19 @@ class ProxyObservability:
         self._recent = deque(maxlen=self._recent_limit())
         self._counters = self._new_counters()
         self._history = RequestHistoryStore(cfg)
+        self._restore_counters_from_history()
+
+    def _restore_counters_from_history(self) -> None:
+        counters = self._history.rebuild_counters()
+        if counters is None:
+            return
+        recent = self._history.recent_requests(self._recent_limit())
+        with self._lock:
+            in_flight = int(self._counters.get("requests_in_flight") or 0)
+            self._counters = counters
+            self._counters["requests_in_flight"] = in_flight
+            if recent is not None:
+                self._recent = deque(recent, maxlen=self._recent_limit())
 
     def _recent_limit(self) -> int:
         try:
@@ -140,6 +153,25 @@ class ProxyObservability:
             "history": history_result,
         }
 
+    def delete_matching_requests(self, filters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        filters = filters or {}
+        history_result = self._history.delete_matching_requests(filters)
+        with self._lock:
+            before = len(self._recent)
+            remaining = [
+                item for item in self._recent
+                if not self._matches_request_filters(self._summarize_request(item), filters)
+            ]
+            self._recent = deque(remaining, maxlen=self._recent_limit())
+            recent_deleted = before - len(self._recent)
+        return {
+            "memory": {
+                "filters": self._copy_value(filters),
+                "recent_requests_deleted": recent_deleted,
+            },
+            "history": history_result,
+        }
+
     def record_request_start(
         self,
         request_id: str,
@@ -178,6 +210,7 @@ class ProxyObservability:
         reason: str = "",
         http_status: Optional[int] = None,
         usage: Optional[Dict[str, Any]] = None,
+        duration_ms: Optional[int] = None,
         diagnostic_stage: str = "",
         upstream_error_summary: str = "",
         upstream_error_type: str = "",
@@ -196,6 +229,8 @@ class ProxyObservability:
             "upstream_format": upstream_format,
             "outcome": outcome,
         }
+        if duration_ms is not None:
+            item["duration_ms"] = max(0, int(duration_ms or 0))
         if raw_key:
             item["key_masked"] = self._mask_secret(raw_key)
             item["key_id"] = self._hash_secret_short(raw_key)
@@ -614,6 +649,7 @@ class ProxyObservability:
             "status_code": status_code,
             "status": "success" if status_code < 400 else "failed",
             "duration_ms": int(item.get("duration_ms") or 0),
+            "first_byte_ms": int(item.get("first_byte_ms") or 0),
             "finished_at": int(item.get("finished_at") or 0),
             "attempts_count": len(attempts),
             "providers": providers,

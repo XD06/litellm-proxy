@@ -53,9 +53,10 @@
     // 只会在“向客户端写响应前”重试；一旦开始写 SSE，就不会透明重试
     "max_attempts": 6,
 
-    // 连接/读取超时（urllib 下会取一个合并值；stream 以 read_timeout 为主）
-    "connect_timeout_s": 30,
-    "read_timeout_s": 180
+    // 连接/读取超时；stream 首个可输出事件前按 first_token_timeout_s 总预算换路由。
+    "connect_timeout_s": 15,
+    "read_timeout_s": 120,
+    "first_token_timeout_s": 30
   },
 
   // 错误分类、可重试状态码与冷却时间

@@ -187,6 +187,32 @@ class RequestHistoryStoreTests(unittest.TestCase):
         self.assertEqual(listed["total"], 1)
         self.assertEqual(listed["items"][0]["request_id"], "req-fail")
 
+    def test_delete_matching_requests_removes_only_filtered_records(self):
+        store = self.store()
+        store.record_request(sample_request("req-alpha", provider="alpha"))
+        store.record_request(sample_request("req-beta", status_code=502, provider="beta"))
+        store.record_request(sample_request("req-beta-ok", provider="beta"))
+
+        result = store.delete_matching_requests({"provider": "beta", "status": "failed"})
+
+        self.assertEqual(result["filters"], {"provider": "beta", "status": "failed"})
+        self.assertEqual(result["requests_deleted"], 1)
+        self.assertEqual(result["attempts_deleted"], 1)
+        self.assertIsNone(store.get_request("req-beta"))
+        self.assertIsNotNone(store.get_request("req-alpha"))
+        self.assertIsNotNone(store.get_request("req-beta-ok"))
+        self.assertEqual(store.list_requests(filters={"provider": "beta"})["total"], 1)
+
+    def test_delete_matching_requests_requires_filter(self):
+        store = self.store()
+        store.record_request(sample_request("req-alpha", provider="alpha"))
+
+        result = store.delete_matching_requests({})
+
+        self.assertIn("at least one filter", result["error"])
+        self.assertEqual(result["requests_deleted"], 0)
+        self.assertEqual(store.list_requests()["total"], 1)
+
     def test_existing_history_schema_is_migrated_for_usage_and_latency_columns(self):
         path = self.temp_db()
         with sqlite3.connect(path) as conn:

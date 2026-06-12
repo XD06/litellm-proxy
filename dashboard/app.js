@@ -379,7 +379,7 @@
 
   // setNotice spawns a floating toast (top-right) instead of an in-flow banner,
   // so showing/hiding it never shifts page layout. opts.key lets a follow-up call
-  // replace an earlier toast (e.g. "Testing…" → result) instead of stacking.
+  // replace an earlier toast (for example, testing -> result) instead of stacking.
   function setNotice(message, tone = "bad", opts = {}) {
     const stack = el("toastStack");
     if (!stack) return;
@@ -672,7 +672,15 @@
     const params = new URLSearchParams();
     params.set("limit", String(REQUEST_PAGE_SIZE));
     params.set("offset", String(Math.max(0, state.requestsPage) * REQUEST_PAGE_SIZE));
-    const mapping = {
+    Object.entries(currentRequestFilters()).forEach(([key, value]) => {
+      const v = String(value || "").trim();
+      if (v) params.set(key, v);
+    });
+    return `/-/admin/requests?${params.toString()}`;
+  }
+
+  function currentRequestFilters() {
+    return {
       model: el("filterModel")?.value,
       provider: el("filterProvider")?.value,
       status: state.requestFilters.status,
@@ -680,11 +688,15 @@
       failure_reason: el("filterReason")?.value,
       http_status: el("filterHttpStatus")?.value,
     };
-    Object.entries(mapping).forEach(([key, value]) => {
-      const v = String(value || "").trim();
-      if (v) params.set(key, v);
+  }
+
+  function activeRequestFilters() {
+    const out = {};
+    Object.entries(currentRequestFilters()).forEach(([key, value]) => {
+      const text = String(value || "").trim();
+      if (text) out[key] = text;
     });
-    return `/-/admin/requests?${params.toString()}`;
+    return out;
   }
 
   function renderAll() {
@@ -1655,18 +1667,16 @@
     const count = state.selectedRequestIds.size;
     const countEl = el("requestSelectedCount");
     if (countEl) countEl.textContent = count ? `${fmtInt(count)} selected` : "0 selected";
-    const deleteButton = el("deleteSelectedRequestsButton");
+    const deleteButton = el("deleteRequestsButton");
     if (deleteButton) {
       if (!deleteButton.dataset.iconified) {
-        deleteButton.innerHTML = `${iconSvg("trash")}<span>Delete selected</span>`;
+        deleteButton.innerHTML = iconSvg("trash");
         deleteButton.dataset.iconified = "1";
       }
-      deleteButton.disabled = count === 0;
-    }
-    const clearButton = el("clearHistoryButton");
-    if (clearButton && !clearButton.dataset.iconified) {
-      clearButton.innerHTML = `${iconSvg("trash")}<span>Clear history</span>`;
-      clearButton.dataset.iconified = "1";
+      const filters = activeRequestFilters();
+      const action = count ? "Delete selected" : Object.keys(filters).length ? "Delete matching" : "Clear history";
+      deleteButton.title = action;
+      deleteButton.setAttribute("aria-label", action);
     }
     const ids = (Array.isArray(items) ? items : []).map((item) => String(item.request_id || "")).filter(Boolean);
     const selected = ids.filter((id) => state.selectedRequestIds.has(id)).length;
@@ -2151,9 +2161,72 @@
       button.addEventListener("click", () => openRequestDetail(button.dataset.requestId || ""));
     });
     bindKeyDeleteButtons(root);
+    bindProbeModelPickers(root);
     bindKeyTestButtons(root);
     bindActionButtons(root);
     bindConfigProviderForms(root);
+    bindProviderModelRefreshButtons(root);
+
+    // static_models form
+    root.querySelectorAll(".config-static-models-form").forEach((form) => {
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const provider = form.dataset.provider || "";
+        const raw = String(form.elements.static_models.value || "").trim();
+        const additions = raw ? raw.split(",").map((s) => s.trim()).filter(Boolean) : [];
+        const existing = state.data.config?.providers?.[provider]?.static_models || [];
+        const seen = new Set();
+        const models = [];
+        [...(Array.isArray(existing) ? existing : []), ...additions].forEach((model) => {
+          const value = String(model || "").trim();
+          if (!value || seen.has(value)) return;
+          seen.add(value);
+          models.push(value);
+        });
+        await runConfigMutation(form, async () => {
+          await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { static_models: models });
+          setNotice(`Static models for ${provider} saved.`, "ok");
+          form.elements.static_models.value = "";
+          await refreshAll({ quiet: true, preserveNotice: true });
+          renderProviderDrawer({ force: true });
+        });
+      });
+    });
+    root.querySelectorAll("[data-clear-static-models]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const provider = button.dataset.clearStaticModels || "";
+        button.disabled = true;
+        try {
+          await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { static_models: [] });
+          setNotice(`Static models for ${provider} cleared.`, "ok");
+          await refreshAll({ quiet: true, preserveNotice: true });
+          renderProviderDrawer({ force: true });
+        } catch (err) {
+          setNotice(`Failed: ${err.message}`);
+        } finally {
+          button.disabled = false;
+        }
+      });
+    });
+    root.querySelectorAll("[data-delete-static-model]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const provider = button.dataset.deleteStaticProvider || "";
+        const model = button.dataset.deleteStaticModel || "";
+        const existing = state.data.config?.providers?.[provider]?.static_models || [];
+        const models = (Array.isArray(existing) ? existing : []).filter((item) => String(item || "") !== model);
+        button.disabled = true;
+        try {
+          await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { static_models: models });
+          setNotice(`Static model ${model} removed from ${provider}.`, "ok");
+          await refreshAll({ quiet: true, preserveNotice: true });
+          renderProviderDrawer({ force: true });
+        } catch (err) {
+          setNotice(`Failed: ${err.message}`);
+        } finally {
+          button.disabled = false;
+        }
+      });
+    });
   }
 
   function providerDrawerPanel(view) {
@@ -2228,6 +2301,14 @@
   function providerDrawerModels(view) {
     const capability = view.capability || {};
     const modelItems = view.modelItems;
+    const staticModels = [];
+    const seenStatic = new Set();
+    (Array.isArray(view.config.static_models) ? view.config.static_models : []).forEach((model) => {
+      const value = String(model || "").trim();
+      if (!value || seenStatic.has(value)) return;
+      seenStatic.add(value);
+      staticModels.push(value);
+    });
     return `
       <section class="provider-drawer-section">
         <div class="provider-detail-metrics">
@@ -2245,6 +2326,41 @@
             </span>
           `).join("") : `<span class="muted">No discovered or mapped models</span>`}
         </div>
+        <div class="provider-models-actions">
+          <button class="button secondary icon-action" type="button"
+            data-provider-models-refresh="${escapeHtml(view.name)}"
+            title="Refresh models"
+            aria-label="Refresh models">${iconSvg("rotate")}</button>
+        </div>
+        <h3 class="drawer-section-title">Static models (fallback when /v1/models unreachable)</h3>
+        <form class="config-static-models-form" data-provider="${escapeHtml(view.name)}">
+          ${staticModels.length ? `
+            <div class="model-chip-list static-model-chip-list">
+              ${staticModels.map((model) => `
+                <span class="model-map-chip static-model-chip">
+                  <b>${escapeHtml(model)}</b><small>static</small>
+                  <button class="static-model-delete" type="button"
+                    title="Remove ${escapeHtml(model)}"
+                    aria-label="Remove ${escapeHtml(model)}"
+                    data-delete-static-provider="${escapeHtml(view.name)}"
+                    data-delete-static-model="${escapeHtml(model)}">x</button>
+                </span>
+              `).join("")}
+            </div>
+          ` : `<span class="muted">No static models configured</span>`}
+          <div class="form-row">
+            <label for="static-models-${escapeHtml(view.name)}">Add model IDs</label>
+            <input id="static-models-${escapeHtml(view.name)}" name="static_models" type="text"
+              placeholder="e.g. gpt-4o, claude-3-5-sonnet-20241022"
+              value=""
+              style="font-family:monospace;width:100%">
+            <small class="muted">Comma-separated. New entries are appended and de-duplicated.</small>
+          </div>
+          <div class="form-actions">
+            <button class="button small" type="submit">Add models</button>
+            ${staticModels.length ? `<button class="button small secondary" type="button" data-clear-static-models="${escapeHtml(view.name)}">Clear</button>` : ""}
+          </div>
+        </form>
       </section>
     `;
   }
@@ -2471,6 +2587,10 @@
             <input class="control" name="proxy" value="${escapeHtml(provider.proxy || "")}" placeholder="direct or http://127.0.0.1:8002" />
           </label>
           <label class="field">
+            <span>User-Agent override</span>
+            <input class="control" name="user_agent" value="${escapeHtml(provider.user_agent || "")}" placeholder="inherit client User-Agent" />
+          </label>
+          <label class="field">
             <span>Priority</span>
             <input class="control" name="priority" type="number" min="-1000" max="1000" step="1" value="${escapeHtml(provider.priority ?? 0)}" />
           </label>
@@ -2573,13 +2693,60 @@
   function probeBadge(provider, keyIndex) {
     const probe = state.keyProbes[`${provider}#${keyIndex}`];
     if (!probe) return "";
-    if (probe.pending) return badge("testing…", "info");
+    if (probe.pending) return badge("testing", "info");
     if (probe.ok) {
       const lat = probe.latency_ms != null ? ` ${fmtInt(probe.latency_ms)}ms` : "";
       return badge(`probe ok${lat}`, "ok");
     }
     const detail = probe.http_status ? ` ${fmtInt(probe.http_status)}` : probe.error_type ? ` ${probe.error_type}` : "";
     return badge(`probe fail${detail}`, "bad");
+  }
+
+  function providerProbeModelOptions(provider) {
+    const values = [];
+    const seen = new Set();
+    const add = (value) => {
+      const text = String(value || "").trim();
+      if (!text || seen.has(text)) return;
+      seen.add(text);
+      values.push(text);
+    };
+    const caps = state.data.status?.models?.providers?.[provider] || state.data.status?.models?.providers?.[String(provider)] || {};
+    Object.keys(caps.canonical_map || {}).forEach(add);
+    (caps.models || []).forEach(add);
+    const configProvider = state.data.config?.providers?.[provider] || {};
+    (configProvider.static_models || []).forEach(add);
+    const providerModelMap = state.data.config?.models?.provider_model_map?.[provider] || {};
+    Object.keys(providerModelMap || {}).forEach(add);
+    providerRouteModels(provider).forEach(add);
+    return values.sort((a, b) => a.localeCompare(b));
+  }
+
+  function probeModelSelect(provider, keyIndex) {
+    const options = providerProbeModelOptions(provider);
+    const probeKey = `${provider}#${keyIndex}`;
+    const selected = options[0] || "";
+    const optionHtml = options.length
+      ? options.map((model, index) => `
+        <button class="key-probe-option ${index === 0 ? "is-selected" : ""}" type="button" data-probe-model-option="${escapeHtml(model)}" title="${escapeHtml(model)}">
+          <span>${escapeHtml(model)}</span>
+        </button>
+      `).join("")
+      : `<div class="key-probe-empty">No discovered models</div>`;
+    return `
+      <div class="key-probe-model" data-probe-model-picker>
+        <button class="control compact-control key-probe-trigger" type="button" data-probe-model-trigger title="${escapeHtml(selected || "No discovered models")}" ${options.length ? "" : "disabled"}>
+          <span data-probe-model-label>${escapeHtml(selected || "No discovered models")}</span>
+        </button>
+        <input type="hidden" data-key-test-model="${escapeHtml(probeKey)}" value="${escapeHtml(selected)}" />
+        <div class="key-probe-menu" data-probe-model-menu hidden>
+          <input class="control key-probe-search" type="search" data-probe-model-search placeholder="Filter models" autocomplete="off" />
+          <div class="key-probe-option-list" data-probe-model-options>
+            ${optionHtml}
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   function keyCard(provider, key, totalKeys = 0) {
@@ -2603,6 +2770,7 @@
           <span>disabled</span><strong>${fmtInt(key.disabled_remaining_s)}s</strong>
         </div>
         <div class="actions key-actions">
+          ${probeModelSelect(provider, key.index)}
           <button
             class="button secondary icon-action"
             type="button"
@@ -2610,6 +2778,7 @@
             data-key-test-index="${escapeHtml(key.index)}"
             title="Test key"
             aria-label="Test key"
+            ${providerProbeModelOptions(provider).length ? "" : "disabled"}
           >${iconSvg("bolt")}</button>
           ${actionButton(key.runtime_enabled ? "Disable key" : "Enable key", `/providers/${encodeURIComponent(provider)}/keys/${key.index}/${key.runtime_enabled ? "disable" : "enable"}`, key.runtime_enabled ? "danger" : "secondary", { iconOnly: true })}
           ${actionButton("Clear key state", `/providers/${encodeURIComponent(provider)}/keys/${key.index}/state/clear`, "secondary", { iconOnly: true })}
@@ -2698,6 +2867,79 @@
     });
   }
 
+  function bindProbeModelPickers(root) {
+    const closePicker = (picker) => {
+      const menu = picker?.querySelector?.("[data-probe-model-menu]");
+      const trigger = picker?.querySelector?.("[data-probe-model-trigger]");
+      if (!menu || !trigger) return;
+      menu.hidden = true;
+      picker.classList.remove("is-open");
+      trigger.setAttribute("aria-expanded", "false");
+    };
+    const closeOthers = (activePicker) => {
+      root.querySelectorAll("[data-probe-model-picker].is-open").forEach((picker) => {
+        if (picker !== activePicker) closePicker(picker);
+      });
+    };
+
+    root.querySelectorAll("[data-probe-model-picker]").forEach((picker) => {
+      const trigger = picker.querySelector("[data-probe-model-trigger]");
+      const menu = picker.querySelector("[data-probe-model-menu]");
+      const search = picker.querySelector("[data-probe-model-search]");
+      const hidden = picker.querySelector("[data-key-test-model]");
+      const label = picker.querySelector("[data-probe-model-label]");
+      if (!trigger || !menu || !hidden || !label) return;
+      trigger.setAttribute("aria-haspopup", "listbox");
+      trigger.setAttribute("aria-expanded", "false");
+
+      trigger.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const nextOpen = menu.hidden;
+        closeOthers(picker);
+        menu.hidden = !nextOpen;
+        picker.classList.toggle("is-open", nextOpen);
+        trigger.setAttribute("aria-expanded", nextOpen ? "true" : "false");
+        if (nextOpen && search) {
+          search.value = "";
+          picker.querySelectorAll("[data-probe-model-option]").forEach((option) => { option.hidden = false; });
+          search.focus();
+        }
+      });
+
+      search?.addEventListener("input", () => {
+        const needle = String(search.value || "").trim().toLowerCase();
+        picker.querySelectorAll("[data-probe-model-option]").forEach((option) => {
+          const model = String(option.dataset.probeModelOption || "").toLowerCase();
+          option.hidden = needle ? !model.includes(needle) : false;
+        });
+      });
+
+      picker.querySelectorAll("[data-probe-model-option]").forEach((option) => {
+        option.addEventListener("click", (event) => {
+          event.stopPropagation();
+          const model = String(option.dataset.probeModelOption || "").trim();
+          if (!model) return;
+          hidden.value = model;
+          label.textContent = model;
+          trigger.title = model;
+          picker.querySelectorAll("[data-probe-model-option]").forEach((item) => {
+            item.classList.toggle("is-selected", item === option);
+          });
+          closePicker(picker);
+          trigger.focus();
+        });
+      });
+
+      picker.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          event.stopPropagation();
+          closePicker(picker);
+          trigger.focus();
+        }
+      });
+    });
+  }
+
   function bindKeyDeleteButtons(root) {
     root.querySelectorAll("[data-key-delete-provider]").forEach((button) => {
       button.addEventListener("click", async () => {
@@ -2735,15 +2977,24 @@
         if (!provider || keyIndex === "") return;
         const probeKey = `${provider}#${keyIndex}`;
         const toastKey = `probe:${probeKey}`;
+        const modelSelect = root.querySelector(`[data-key-test-model="${CSS.escape(probeKey)}"]`);
+        const model = String(modelSelect?.value || "").trim();
+        if (!model) {
+          setNotice("Refresh model capabilities before testing this key.", "info");
+          return;
+        }
         state.keyProbes[probeKey] = { pending: true };
         button.disabled = true;
-        setNotice(`Testing key ${keyIndex} of ${provider}…`, "info", { key: toastKey, sticky: true });
+        setNotice(`Testing key ${keyIndex} of ${provider} on ${model}...`, "info", { key: toastKey, sticky: true });
         try {
-          const resp = await apiPost(`/-/admin/providers/${encodeURIComponent(provider)}/keys/${encodeURIComponent(keyIndex)}/test`);
+          const resp = await apiPost(`/-/admin/providers/${encodeURIComponent(provider)}/keys/${encodeURIComponent(keyIndex)}/test`, { model });
           const result = resp.result || {};
           state.keyProbes[probeKey] = result;
           if (result.ok) {
-            setNotice(`Key ${keyIndex} of ${provider} works (${result.format}, ${fmtInt(result.latency_ms)}ms).`, "ok", { key: toastKey });
+            const shownModel = result.requested_model || model;
+            const upstreamModel = result.upstream_model && result.upstream_model !== shownModel ? result.upstream_model : "";
+            const upstreamText = upstreamModel ? `, upstream ${upstreamModel}` : "";
+            setNotice(`Key ${keyIndex} of ${provider} works on ${shownModel} (${result.format}${upstreamText}, ${fmtInt(result.latency_ms)}ms).`, "ok", { key: toastKey });
           } else {
             const detail = result.http_status ? `HTTP ${result.http_status}` : result.error_type || "failed";
             setNotice(`Key ${keyIndex} of ${provider} failed: ${detail}.`, "bad", { key: toastKey });
@@ -2752,6 +3003,26 @@
         } catch (err) {
           state.keyProbes[probeKey] = { ok: false, error_type: "request_error" };
           setNotice(`Test key failed: ${err.message}`, "bad", { key: toastKey });
+        } finally {
+          button.disabled = false;
+        }
+      });
+    });
+  }
+
+  function bindProviderModelRefreshButtons(root) {
+    root.querySelectorAll("[data-provider-models-refresh]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const provider = button.dataset.providerModelsRefresh || "";
+        if (!provider) return;
+        button.disabled = true;
+        try {
+          await apiPost(`/-/admin/providers/${encodeURIComponent(provider)}/models/refresh`);
+          setNotice(`Models for ${provider} refreshed.`, "ok");
+          await refreshAll({ quiet: true, preserveNotice: true });
+          renderProviderDrawer({ force: true });
+        } catch (err) {
+          setNotice(`Model refresh failed: ${err.message}`, "bad");
         } finally {
           button.disabled = false;
         }
@@ -2832,15 +3103,15 @@
             </label>
             <label class="field">
               <span>Connect timeout</span>
-              <input class="control" name="connect_timeout_s" type="number" min="1" max="3600" value="${escapeHtml(routing.connect_timeout_s ?? policy.connect_timeout_s ?? 30)}" required />
+              <input class="control" name="connect_timeout_s" type="number" min="1" max="3600" value="${escapeHtml(routing.connect_timeout_s ?? policy.connect_timeout_s ?? 15)}" required />
             </label>
             <label class="field">
               <span>Read timeout</span>
-              <input class="control" name="read_timeout_s" type="number" min="1" max="3600" value="${escapeHtml(routing.read_timeout_s ?? policy.read_timeout_s ?? 180)}" required />
+              <input class="control" name="read_timeout_s" type="number" min="1" max="3600" value="${escapeHtml(routing.read_timeout_s ?? policy.read_timeout_s ?? 120)}" required />
             </label>
             <label class="field">
               <span>First token timeout</span>
-              <input class="control" name="first_token_timeout_s" type="number" min="0" max="600" value="${escapeHtml(routing.first_token_timeout_s ?? policy.first_token_timeout_s ?? 15)}" required />
+              <input class="control" name="first_token_timeout_s" type="number" min="0" max="600" value="${escapeHtml(routing.first_token_timeout_s ?? policy.first_token_timeout_s ?? 30)}" required />
             </label>
           </div>
           <button class="button secondary" type="submit">Save routing</button>
@@ -3413,6 +3684,10 @@
             <input class="control" name="proxy" value="${escapeHtml(provider.proxy || "")}" placeholder="direct or http://127.0.0.1:8002" />
           </label>
           <label class="field">
+            <span>User-Agent override</span>
+            <input class="control" name="user_agent" value="${escapeHtml(provider.user_agent || "")}" placeholder="inherit client User-Agent" />
+          </label>
+          <label class="field">
             <span>Priority</span>
             <input class="control" name="priority" type="number" min="-1000" max="1000" step="1" value="${escapeHtml(provider.priority ?? 0)}" />
           </label>
@@ -3503,6 +3778,7 @@
         const payload = {
           base_url: String(form.elements.base_url.value || "").trim(),
           proxy: String(form.elements.proxy.value || "").trim(),
+          user_agent: String(form.elements.user_agent?.value || "").trim(),
           priority: Number(form.elements.priority.value || 0),
           enabled: Boolean(form.elements.enabled.checked),
         };
@@ -3625,6 +3901,7 @@
         <span>Path</span><span>${escapeHtml(detail.path || "-")}</span>
         <span>Stream</span><span>${detail.stream ? "yes" : "no"}</span>
         <span>Duration</span><span>${escapeHtml(fmtMs(detail.duration_ms))}</span>
+        <span>First byte</span><span>${detail.first_byte_ms ? escapeHtml(fmtMs(detail.first_byte_ms)) : escapeHtml("-")}</span>
         <span>Tokens</span><span class="mono" title="${escapeHtml(fmtInt(usageFrom(detail).total_tokens))} tokens">${escapeHtml(fmtTokenCount(usageFrom(detail).total_tokens))}</span>
         <span>Cost</span><span class="mono">${escapeHtml(fmtCost(usageFrom(detail).cost_usd))}</span>
         <span>Error</span><span>${messageMarkup(detail.error || "-")}</span>
@@ -3654,6 +3931,7 @@
           <span>Key ID</span><span>${escapeHtml(maskedKey)}</span>
           <span>Provider Model</span><span>${escapeHtml(attempt.provider_model || "-")}</span>
           <span>Upstream Format</span><span>${chipList([attempt.upstream_format || "-"])}</span>
+          <span>Duration</span><span>${attempt.duration_ms ? escapeHtml(fmtMs(attempt.duration_ms)) : escapeHtml("-")}</span>
           <span>HTTP Status</span><span>${attempt.http_status ? statusBadge("", attempt.http_status) : escapeHtml("-")}</span>
           <span>Tokens</span><span class="mono" title="${escapeHtml(fmtInt(usageFrom(attempt).total_tokens))} tokens">${escapeHtml(fmtTokenCount(usageFrom(attempt).total_tokens))}</span>
           <span>Cost</span><span class="mono">${escapeHtml(fmtCost(usageFrom(attempt).cost_usd))}</span>
@@ -3962,35 +4240,69 @@
       closeMobileSettings();
     });
 
-    el("deleteSelectedRequestsButton")?.addEventListener("click", async () => {
+    el("deleteRequestsButton")?.addEventListener("click", async () => {
       const ids = Array.from(state.selectedRequestIds);
-      if (!ids.length) {
-        setNotice("Select request records to delete first.", "info");
-        return;
-      }
-      const confirmed = await openConfirmDialog({
-        title: "Delete selected requests",
-        message: `Delete ${fmtInt(ids.length)} selected request record${ids.length === 1 ? "" : "s"}? Runtime counters are not reset.`,
-        acceptLabel: "Delete",
-      });
+      const filters = activeRequestFilters();
+      const filterCount = Object.keys(filters).length;
+      const mode = ids.length ? "selected" : filterCount ? "matching" : "all";
+      const title = mode === "selected" ? "Delete selected requests" : mode === "matching" ? "Delete matching requests" : "Clear request history";
+      const message = mode === "selected"
+        ? `Delete ${fmtInt(ids.length)} selected request record${ids.length === 1 ? "" : "s"}? Runtime counters are not reset.`
+        : mode === "matching"
+          ? `Delete all ${fmtInt(state.data.requests?.total || 0)} request record${Number(state.data.requests?.total || 0) === 1 ? "" : "s"} matching the current filters? Runtime counters are not reset.`
+          : "Clear all request history, runtime metrics, and diagnostic log records?";
+      const confirmed = await openConfirmDialog({ title, message, acceptLabel: "Delete" });
       if (!confirmed) return;
-      const button = el("deleteSelectedRequestsButton");
+      const button = el("deleteRequestsButton");
       button.disabled = true;
       try {
-        const result = await apiPost("/-/admin/requests/delete", {
-          confirm: "delete_request_records",
-          request_ids: ids,
-        });
-        ids.forEach((id) => state.selectedRequestIds.delete(id));
+        let result;
+        if (mode === "selected") {
+          result = await apiPost("/-/admin/requests/delete", {
+            confirm: "delete_request_records",
+            request_ids: ids,
+          });
+          ids.forEach((id) => state.selectedRequestIds.delete(id));
+        } else if (mode === "matching") {
+          result = await apiPost("/-/admin/requests/delete-matching", {
+            confirm: "delete_matching_request_records",
+            filters,
+          });
+          state.selectedRequestIds.clear();
+        } else {
+          result = await apiPost("/-/admin/requests/clear", {
+            confirm: "clear_request_history",
+            include_diagnostics: true,
+          });
+          state.selectedRequestIds.clear();
+        }
         state.requestsPage = 0;
-        setNotice(`Deleted ${fmtInt(result.history?.requests_deleted || result.memory?.recent_requests_deleted || 0)} selected request records.`, "ok");
+        const deleted = result.history?.requests_deleted || result.memory?.recent_requests_deleted || 0;
+        setNotice(
+          mode === "all"
+            ? `Request history cleared (${fmtInt(deleted)} records).`
+            : `Deleted ${fmtInt(deleted)} request record${deleted === 1 ? "" : "s"}.`,
+          "ok",
+        );
         await refreshAll({ quiet: true, preserveNotice: true });
       } catch (err) {
-        setNotice(`Delete selected requests failed: ${err.message}`);
+        setNotice(`Delete requests failed: ${err.message}`);
       } finally {
-        button.disabled = state.selectedRequestIds.size === 0;
+        button.disabled = false;
         updateRequestSelectionUi();
         closeMobileSettings();
+      }
+    });
+
+    document.addEventListener("click", (event) => {
+      if (!event.target.closest("[data-probe-model-picker]")) {
+        qsa("[data-probe-model-picker].is-open").forEach((picker) => {
+          const menu = picker.querySelector("[data-probe-model-menu]");
+          const trigger = picker.querySelector("[data-probe-model-trigger]");
+          if (menu) menu.hidden = true;
+          if (trigger) trigger.setAttribute("aria-expanded", "false");
+          picker.classList.remove("is-open");
+        });
       }
     });
 
@@ -3999,32 +4311,6 @@
       el(id)?.addEventListener("change", syncProviderFiltersFromControls);
     });
     el("clearProviderFiltersButton")?.addEventListener("click", clearProviderFilters);
-
-    el("clearHistoryButton").addEventListener("click", async () => {
-      const confirmed = await openConfirmDialog({
-        title: "Clear request history",
-        message: "Clear request history, runtime metrics, and diagnostic log records?",
-        acceptLabel: "Clear",
-      });
-      if (!confirmed) return;
-      const button = el("clearHistoryButton");
-      button.disabled = true;
-      try {
-        const result = await apiPost("/-/admin/requests/clear", {
-          confirm: "clear_request_history",
-          include_diagnostics: true,
-        });
-        state.requestsPage = 0;
-        state.selectedRequestIds.clear();
-        setNotice(`Request history cleared (${fmtInt(result.history?.requests_deleted || 0)} records).`, "ok");
-        await refreshAll({ quiet: true, preserveNotice: true });
-      } catch (err) {
-        setNotice(`Clear request history failed: ${err.message}`);
-      } finally {
-        button.disabled = false;
-        closeMobileSettings();
-      }
-    });
 
     el("reloadConfigButton").addEventListener("click", async () => {
       try {
@@ -4093,20 +4379,6 @@
         await refreshAll({ quiet: true, preserveNotice: true });
       } catch (err) {
         setNotice(`Clear overlay failed: ${err.message}`);
-      }
-    });
-
-    el("refreshModelsButton").addEventListener("click", async (event) => {
-      const button = event.currentTarget;
-      button.disabled = true;
-      try {
-        await apiPost("/-/admin/models/refresh");
-        setNotice("Provider models refreshed.", "ok");
-        await refreshAll({ quiet: true, preserveNotice: true });
-      } catch (err) {
-        setNotice(`Model refresh failed: ${err.message}`);
-      } finally {
-        button.disabled = false;
       }
     });
 
@@ -4274,3 +4546,4 @@
 
   document.addEventListener("DOMContentLoaded", init);
 })();
+

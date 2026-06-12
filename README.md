@@ -49,8 +49,9 @@ Windows 用户可直接双击 `start_proxy_config.bat`。
     "default_provider_pool": ["opencode", "rawchat", "deepseek"],
     "provider_select": "priority_failover", // priority_failover | round_robin | weighted_rr | random
     "max_attempts": 6,                       // 单次请求最大尝试次数
-    "connect_timeout_s": 30,
-    "read_timeout_s": 180
+    "connect_timeout_s": 15,
+    "read_timeout_s": 120,
+    "first_token_timeout_s": 30
   },
   "retry": {
     "retryable_status": [408, 409, 425, 429, 500, 502, 503, 504],

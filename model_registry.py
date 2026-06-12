@@ -20,11 +20,21 @@ def union_model_ids() -> set:
     return set(_union_model_id_set)
 
 
+def restore_union_model_ids(model_ids) -> None:
+    global _union_model_id_set
+    _union_model_id_set = set(str(mid) for mid in (model_ids or []) if str(mid or "").strip())
+
+
 def has_cached_models(cache_key: str) -> bool:
     return cache_key in _cached_models_by_provider
 
 
-def clear_cache() -> None:
+def clear_cache(provider: Optional[str] = None) -> None:
+    global _union_model_id_set
+    if provider:
+        _cached_models_by_provider.pop(str(provider), None)
+        _cached_models_by_provider.pop("__union__", None)
+        return
     _cached_models_by_provider.clear()
     _union_model_id_set.clear()
 
@@ -163,6 +173,157 @@ def _store_provider_capabilities(
     caps[provider] = entry
 
 
+def _rebuild_union_model_ids_from_capabilities(config: Dict[str, Any]) -> None:
+    global _union_model_id_set
+    caps = ((config.get("models") or {}).get("provider_model_capabilities") or {})
+    model_ids = set()
+    if isinstance(caps, dict):
+        for entry in caps.values():
+            if not isinstance(entry, dict) or entry.get("status") != "ok":
+                continue
+            model_ids.update(str(mid) for mid in (entry.get("canonical_map") or {}).keys() if str(mid or "").strip())
+    _union_model_id_set = model_ids
+
+
+def rebuild_union_model_ids_from_capabilities(config: Dict[str, Any]) -> None:
+    _rebuild_union_model_ids_from_capabilities(config)
+
+
+def _models_payload_from_ids(model_ids: List[str]) -> Dict[str, Any]:
+    seen = set()
+    models = []
+    for model_id in model_ids or []:
+        mid = str(model_id or "").strip()
+        if not mid or mid in seen:
+            continue
+        seen.add(mid)
+        models.append({"type": "model", "id": mid, "display_name": mid, "created_at": ""})
+    return {
+        "data": models,
+        "has_more": False,
+        "first_id": models[0]["id"] if models else "",
+        "last_id": models[-1]["id"] if models else "",
+    }
+
+
+def _configured_model_ids(config: Dict[str, Any], provider: Optional[str] = None) -> List[str]:
+    models_cfg = config.get("models") or {}
+    providers_cfg = config.get("providers") or {}
+    provider_names = [provider] if provider else list(providers_cfg.keys())
+    out: List[str] = []
+
+    for pname in provider_names:
+        pcfg = providers_cfg.get(str(pname or "")) or {}
+        static_models = pcfg.get("static_models")
+        if isinstance(static_models, list):
+            for entry in static_models:
+                if isinstance(entry, str):
+                    mid = entry.strip()
+                elif isinstance(entry, dict):
+                    mid = str(entry.get("id") or "").strip()
+                else:
+                    mid = ""
+                if mid:
+                    out.append(mid)
+
+        manual_map = (models_cfg.get("provider_model_map") or {}).get(str(pname or "")) or {}
+        if isinstance(manual_map, dict):
+            out.extend(str(mid) for mid in manual_map.keys() if str(mid or "").strip())
+
+    routes = models_cfg.get("routes") or {}
+    if isinstance(routes, dict):
+        out.extend(str(mid) for mid, route in routes.items() if str(mid or "").strip() and route is not None)
+
+    client_map = models_cfg.get("client_model_map") or {}
+    if isinstance(client_map, dict):
+        out.extend(str(mid) for mid in client_map.keys() if str(mid or "").strip())
+
+    return _dedupe(out)
+
+
+def models_from_capabilities(config: Dict[str, Any], router=None) -> Dict[str, Any]:
+    """Return a client model list from saved capabilities/config only.
+
+    This path intentionally performs no upstream I/O. Discovery is handled by
+    startup/manual/provider refresh paths and persisted in provider capabilities.
+    """
+    models_source = str((config.get("models") or {}).get("models_source", "first_healthy_provider"))
+    if models_source not in ("union", "first_healthy_provider"):
+        return default_models()
+
+    caps = ((config.get("models") or {}).get("provider_model_capabilities") or {})
+    providers_cfg = config.get("providers") or {}
+
+    if models_source == "union":
+        cache_key = "__union__"
+        cached = _cached_models_by_provider.get(cache_key)
+        if cached:
+            return cached
+
+        model_ids: List[str] = []
+        if isinstance(caps, dict):
+            for provider, entry in caps.items():
+                pcfg = providers_cfg.get(str(provider)) or {}
+                if not pcfg.get("enabled", True):
+                    continue
+                if not isinstance(entry, dict) or entry.get("status") != "ok":
+                    continue
+                canonical_map = entry.get("canonical_map") or {}
+                if isinstance(canonical_map, dict) and canonical_map:
+                    model_ids.extend(str(mid) for mid in canonical_map.keys() if str(mid or "").strip())
+                else:
+                    model_ids.extend(str(mid) for mid in (entry.get("models") or []) if str(mid or "").strip())
+
+        model_ids.extend(_configured_model_ids(config))
+        model_ids = _dedupe(model_ids)
+        if not model_ids:
+            _rebuild_union_model_ids_from_capabilities(config)
+            return default_models()
+
+        payload = _models_payload_from_ids(model_ids)
+        _cached_models_by_provider[cache_key] = payload
+        restore_union_model_ids(model_ids)
+        return payload
+
+    provider = None
+    if router is not None and hasattr(router, "first_healthy_provider"):
+        try:
+            provider = router.first_healthy_provider()
+        except Exception:
+            provider = None
+    if not provider:
+        for pname, entry in (caps.items() if isinstance(caps, dict) else []):
+            pcfg = providers_cfg.get(str(pname)) or {}
+            if pcfg.get("enabled", True) and isinstance(entry, dict) and entry.get("status") == "ok":
+                provider = str(pname)
+                break
+
+    if provider and provider in _cached_models_by_provider:
+        return _cached_models_by_provider[provider]
+
+    model_ids = []
+    if provider and isinstance(caps, dict):
+        entry = caps.get(provider) or {}
+        if isinstance(entry, dict) and entry.get("status") == "ok":
+            model_ids.extend(str(mid) for mid in (entry.get("models") or []) if str(mid or "").strip())
+            if not model_ids:
+                canonical_map = entry.get("canonical_map") or {}
+                if isinstance(canonical_map, dict):
+                    model_ids.extend(str(mid) for mid in canonical_map.keys() if str(mid or "").strip())
+
+    model_ids.extend(_configured_model_ids(config, provider))
+    model_ids = _dedupe(model_ids)
+    if not model_ids:
+        _rebuild_union_model_ids_from_capabilities(config)
+        return default_models()
+
+    payload = _models_payload_from_ids(model_ids)
+    if provider:
+        _cached_models_by_provider[provider] = payload
+    _rebuild_union_model_ids_from_capabilities(config)
+    return payload
+
+
 def to_anthropic_models(data):
     anth_models = []
     for m in _extract_model_items(data):
@@ -276,6 +437,7 @@ def fetch_upstream_models(
     upstream_client,
     *,
     format_provider: Optional[Callable[[str], str]] = None,
+    only_provider: Optional[str] = None,
 ):
     models_source = str((config.get("models") or {}).get("models_source", "first_healthy_provider"))
     providers_cfg = config.get("providers") or {}
@@ -285,6 +447,7 @@ def fetch_upstream_models(
         pcfg = providers_cfg.get(provider) or {}
         if not pcfg.get("enabled", True):
             return None
+
         base_url = (pcfg.get("base_url") or "").rstrip("/")
         models_path = pcfg.get("models_path") or "/v1/models"
         key_entry = None
@@ -298,11 +461,35 @@ def fetch_upstream_models(
         headers = {}
         headers.update((pcfg.get("headers") or {}))
         headers["Authorization"] = f"Bearer {key}"
-        headers.setdefault("User-Agent", "Mozilla/5.0")
+        configured_ua = ""
+        for header_name in list(headers.keys()):
+            if str(header_name).lower() == "user-agent":
+                configured_ua = configured_ua or str(headers.get(header_name) or "").strip()
+                headers.pop(header_name, None)
+        provider_ua = str(pcfg.get("user_agent") or "").strip()
+        if provider_ua:
+            headers["User-Agent"] = provider_ua
+        elif client_ua := (format_provider and getattr(format_provider, "_client_ua", None)):
+            headers["User-Agent"] = client_ua
+        else:
+            headers["User-Agent"] = configured_ua or "Mozilla/5.0"
 
         proxy_url = resolve_proxy_url(key_proxy(key_entry), pcfg.get("proxy"), config.get("proxy"))
 
-        data = upstream_client.fetch_models(base_url, models_path, headers=headers, timeout_s=6, proxy_url=proxy_url)
+        errors: List[str] = []
+
+        def _fetch(candidate_base_url: str):
+            try:
+                data = upstream_client.fetch_models(candidate_base_url, models_path, headers=headers, timeout_s=6, proxy_url=proxy_url)
+                if data:
+                    return data
+                errors.append(f"{candidate_base_url.rstrip('/')}{models_path}: empty response")
+                return None
+            except Exception as e:
+                errors.append(f"{candidate_base_url.rstrip('/')}{models_path}: {_sanitize_error(e, pcfg.get('keys') or [])}")
+                return None
+
+        data = _fetch(base_url)
         if data:
             return data
 
@@ -310,8 +497,69 @@ def fetch_upstream_models(
         if parsed.scheme and parsed.netloc and (parsed.path or "").strip("/"):
             origin_url = f"{parsed.scheme}://{parsed.netloc}"
             if origin_url != base_url:
-                return upstream_client.fetch_models(origin_url, models_path, headers=headers, timeout_s=6, proxy_url=proxy_url)
+                data = _fetch(origin_url)
+                if data:
+                    return data
+
+        # static_models as fallback when live fetch fails
+        static_models = pcfg.get("static_models")
+        if isinstance(static_models, list) and static_models:
+            items = []
+            for entry in static_models:
+                if isinstance(entry, str):
+                    mid = entry.strip()
+                elif isinstance(entry, dict):
+                    mid = str(entry.get("id") or "").strip()
+                else:
+                    mid = ""
+                if mid:
+                    items.append({"id": mid, "object": "model"})
+            if items:
+                out = {"object": "list", "data": items, "_source": "static"}
+                if errors:
+                    out["_error"] = "Live /v1/models failed; using static_models fallback: " + "; ".join(errors)
+                return out
+        if errors:
+            raise RuntimeError("; ".join(errors))
         return data
+
+    if only_provider:
+        provider = str(only_provider)
+        if provider not in providers_cfg:
+            raise ValueError(f"unknown provider: {provider}")
+        clear_cache(provider)
+        try:
+            upstream_data = fetch_one(provider)
+            if not upstream_data:
+                raise RuntimeError("empty upstream models")
+            anth = to_anthropic_models(upstream_data)
+            provider_union, canonical_map, raw_ids = parse_provider_models(provider, upstream_data)
+            _ = provider_union
+            if not raw_ids:
+                raise RuntimeError("empty upstream models")
+            _store_provider_capabilities(
+                config,
+                provider,
+                status="ok",
+                canonical_map=canonical_map,
+                raw_ids=raw_ids,
+                error=str(upstream_data.get("_error") or "") if isinstance(upstream_data, dict) else "",
+            )
+            _cached_models_by_provider[provider] = anth
+            _rebuild_union_model_ids_from_capabilities(config)
+            print(f"[proxy] Refreshed {len(anth.get('data') or [])} models from {hprov(provider)}", flush=True)
+            return anth
+        except Exception as e:
+            pcfg = providers_cfg.get(provider) or {}
+            _store_provider_capabilities(
+                config,
+                provider,
+                status="error",
+                error=_sanitize_error(e, pcfg.get("keys") or []),
+            )
+            _rebuild_union_model_ids_from_capabilities(config)
+            print(f"[proxy] Failed to refresh provider models ({hprov(provider)}): {e}", flush=True)
+            return default_models()
 
     if models_source == "union":
         cache_key = "__union__"
@@ -345,14 +593,16 @@ def fetch_upstream_models(
                         status="ok",
                         canonical_map=canonical_map,
                         raw_ids=raw_ids,
+                        error=str(upstream_data.get("_error") or "") if isinstance(upstream_data, dict) else "",
                     )
                 except Exception as e:
                     pcfg = providers_cfg.get(p) or {}
+                    err_msg = _sanitize_error(e, pcfg.get("keys") or [])
                     _store_provider_capabilities(
                         config,
                         p,
                         status="error",
-                        error=_sanitize_error(e, pcfg.get("keys") or []),
+                        error=err_msg,
                     )
                     continue
 
@@ -392,6 +642,7 @@ def fetch_upstream_models(
                 status="ok",
                 canonical_map=canonical_map,
                 raw_ids=raw_ids,
+                error=str(upstream_data.get("_error") or "") if isinstance(upstream_data, dict) else "",
             )
         _cached_models_by_provider[provider] = anth
         print(f"[proxy] Auto-fetched {len(anth.get('data') or [])} models from {hprov(provider)}", flush=True)

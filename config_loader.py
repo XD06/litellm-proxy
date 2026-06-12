@@ -280,8 +280,9 @@ def _default_config() -> Dict[str, Any]:
             "default_provider_pool": ["default"],
             "provider_select": "priority_failover",
             "max_attempts": 6,
-            "connect_timeout_s": 30,
-            "read_timeout_s": 180,
+            "connect_timeout_s": 15,
+            "read_timeout_s": 120,
+            "first_token_timeout_s": 30,
         },
         "retry": {
             "retryable_status": [408, 409, 425, 429, 500, 502, 503, 504],

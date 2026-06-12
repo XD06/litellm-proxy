@@ -251,6 +251,46 @@ class AnthropicProxyTests(unittest.TestCase):
         )
         self.assertEqual(fake_router.successes[0].upstream_format, "anthropic_messages")
 
+    def test_anthropic_union_request_uses_saved_models_without_upstream_fetch(self):
+        cfg = {
+            "models": {
+                "models_source": "union",
+                "provider_model_capabilities": {
+                    "provider": {
+                        "status": "ok",
+                        "models": ["provider-model"],
+                        "canonical_map": {"client-model": "provider-model"},
+                        "formats": ["anthropic_messages"],
+                    }
+                },
+            },
+            "providers": {"provider": {"base_url": "https://provider.example", "keys": ["secret"], "enabled": True}},
+        }
+        upstream_response = {
+            "id": "msg_1",
+            "type": "message",
+            "role": "assistant",
+            "model": "provider-model",
+            "content": [{"type": "text", "text": "ok"}],
+            "stop_reason": "end_turn",
+            "usage": {"input_tokens": 2, "output_tokens": 3},
+        }
+        fake_router = FakeRouter([self.attempt("anthropic_messages")])
+        fake_client = FakeClient(upstream_response)
+        sse2json.model_registry.clear_cache()
+
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(sse2json, "ROUTER", fake_router), patch.object(
+            sse2json, "UPSTREAM_CLIENT", fake_client
+        ), patch.object(sse2json, "fetch_upstream_models", side_effect=AssertionError("client request must not fetch models")):
+            status, body = self.run_server_post(
+                "/anthropic/v1/messages",
+                {"model": "client-model", "max_tokens": 20, "messages": [{"role": "user", "content": "hello"}]},
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(body, upstream_response)
+        self.assertEqual(fake_router.iter_calls[0]["canonical_model"], "client-model")
+
     def test_anthropic_native_tool_request_is_passthrough(self):
         upstream_response = {
             "id": "msg_1",

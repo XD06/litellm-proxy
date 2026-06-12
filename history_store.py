@@ -122,6 +122,7 @@ class RequestHistoryStore:
               upstream_error_type TEXT NOT NULL DEFAULT '',
               upstream_error_code TEXT NOT NULL DEFAULT '',
               upstream_error_param TEXT NOT NULL DEFAULT '',
+              duration_ms INTEGER NOT NULL DEFAULT 0,
               input_tokens INTEGER NOT NULL DEFAULT 0,
               output_tokens INTEGER NOT NULL DEFAULT 0,
               total_tokens INTEGER NOT NULL DEFAULT 0,
@@ -167,6 +168,7 @@ class RequestHistoryStore:
                 "upstream_error_type": "TEXT NOT NULL DEFAULT ''",
                 "upstream_error_code": "TEXT NOT NULL DEFAULT ''",
                 "upstream_error_param": "TEXT NOT NULL DEFAULT ''",
+                "duration_ms": "INTEGER NOT NULL DEFAULT 0",
             },
         )
 
@@ -244,8 +246,8 @@ class RequestHistoryStore:
               request_id, attempt_no, provider, key_index, key_masked, key_id,
               provider_model, upstream_format, outcome, error_type, reason, http_status,
               diagnostic_stage, upstream_error_summary, upstream_error_type, upstream_error_code,
-              upstream_error_param, input_tokens, output_tokens, total_tokens, cost_usd
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              upstream_error_param, duration_ms, input_tokens, output_tokens, total_tokens, cost_usd
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 request_id,
@@ -265,6 +267,7 @@ class RequestHistoryStore:
                 str(attempt.get("upstream_error_type") or "")[:500],
                 str(attempt.get("upstream_error_code") or "")[:500],
                 str(attempt.get("upstream_error_param") or "")[:500],
+                max(0, int(attempt.get("duration_ms") or 0)),
                 usage_totals["input_tokens"],
                 usage_totals["output_tokens"],
                 usage_totals["total_tokens"],
@@ -315,6 +318,112 @@ class RequestHistoryStore:
                 "filters": self._copy_value(filters),
                 "items": items,
             }
+        except Exception:
+            return None
+
+    def rebuild_counters(self) -> Optional[Dict[str, Any]]:
+        """Rebuild in-memory overview counters from persisted SQLite history."""
+        if not self.enabled:
+            return None
+        try:
+            self._ensure_ready()
+            counters = {
+                "requests_total": 0,
+                "requests_success": 0,
+                "requests_failed": 0,
+                "requests_in_flight": 0,
+                "attempts_total": 0,
+                "attempts_success": 0,
+                "attempts_failed": 0,
+                "by_client_format": {},
+                "by_endpoint": {},
+                "by_model": {},
+                "by_provider": {},
+                "by_status": {},
+                "by_attempt_http_status": {},
+                "by_error_type": {},
+                "by_failure_reason": {},
+                "usage": empty_usage_with_cost(),
+                "by_model_usage": {},
+            }
+            with self._connect() as conn:
+                requests = conn.execute("SELECT * FROM requests").fetchall()
+                for row in requests:
+                    item = self._request_from_row(row)
+                    counters["requests_total"] += 1
+                    if int(item.get("status_code") or 0) < 400:
+                        counters["requests_success"] += 1
+                    else:
+                        counters["requests_failed"] += 1
+                    self._inc_dict(counters["by_client_format"], item.get("client_format") or "unknown")
+                    self._inc_dict(counters["by_endpoint"], item.get("endpoint") or "unknown")
+                    self._inc_dict(counters["by_model"], item.get("model") or "")
+                    self._inc_dict(counters["by_status"], str(int(item.get("status_code") or 0)))
+                    usage_totals = normalize_usage(item.get("usage") or item)
+                    if has_usage(usage_totals):
+                        cost_usd = safe_float(item.get("cost_usd"))
+                        add_usage_totals(counters["usage"], usage_totals, cost_usd=cost_usd)
+                        model_usage = counters["by_model_usage"].setdefault(item.get("model") or "", empty_usage_with_cost())
+                        add_usage_totals(model_usage, usage_totals, cost_usd=cost_usd)
+
+                attempts = conn.execute("SELECT * FROM attempts").fetchall()
+                for row in attempts:
+                    attempt = self._attempt_from_row(row)
+                    provider = attempt.get("provider") or "unknown"
+                    upstream_format = attempt.get("upstream_format") or "unknown"
+                    outcome = attempt.get("outcome") or ""
+                    counters["attempts_total"] += 1
+                    if outcome == "success":
+                        counters["attempts_success"] += 1
+                    else:
+                        counters["attempts_failed"] += 1
+                    prov = counters["by_provider"].setdefault(
+                        provider,
+                        {"attempts": 0, "success": 0, "failed": 0, "by_upstream_format": {}, "usage": empty_usage_with_cost()},
+                    )
+                    prov["attempts"] += 1
+                    if outcome == "success":
+                        prov["success"] += 1
+                    else:
+                        prov["failed"] += 1
+                    self._inc_dict(prov["by_upstream_format"], upstream_format)
+                    if attempt.get("error_type"):
+                        self._inc_dict(counters["by_error_type"], attempt.get("error_type"))
+                    if attempt.get("reason"):
+                        self._inc_dict(counters["by_failure_reason"], attempt.get("reason"))
+                    if attempt.get("http_status") is not None:
+                        self._inc_dict(counters["by_attempt_http_status"], str(int(attempt.get("http_status") or 0)))
+                    usage_totals = normalize_usage(attempt.get("usage") or attempt)
+                    if outcome == "success" and has_usage(usage_totals):
+                        add_usage_totals(prov["usage"], usage_totals, cost_usd=attempt.get("cost_usd"))
+            return counters
+        except Exception:
+            return None
+
+    def recent_requests(self, limit: int) -> Optional[list]:
+        if not self.enabled:
+            return None
+        try:
+            self._ensure_ready()
+            limit = max(0, min(500, int(limit)))
+            if limit <= 0:
+                return []
+            with self._connect() as conn:
+                rows = conn.execute(
+                    """
+                    SELECT *
+                    FROM requests
+                    ORDER BY finished_at DESC, request_id DESC
+                    LIMIT ?
+                    """,
+                    (limit,),
+                ).fetchall()
+                items = []
+                for row in rows:
+                    item = self._request_from_row(row)
+                    item["attempts"] = self._attempts_for_request(conn, item["request_id"])
+                    items.append(enrich_request(item))
+                return items
         except Exception:
             return None
 
@@ -444,6 +553,56 @@ class RequestHistoryStore:
                     ids,
                 ).fetchone()[0]
                 conn.execute(f"DELETE FROM requests WHERE request_id IN ({placeholders})", ids)
+                conn.commit()
+                result["attempts_deleted"] = int(attempts or 0)
+                result["requests_deleted"] = int(requests or 0)
+        except Exception as e:
+            result["error"] = str(e)
+        finally:
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+        return result
+
+    def delete_matching_requests(self, filters: Dict[str, Any]) -> Dict[str, Any]:
+        filters = filters or {}
+        where, params = self._request_where(filters)
+        result = {
+            "enabled": bool(self.enabled),
+            "path": self.path,
+            "filters": self._copy_value(filters),
+            "requests_deleted": 0,
+            "attempts_deleted": 0,
+        }
+        if not self.enabled:
+            return result
+        if not where:
+            result["error"] = "at least one filter is required"
+            return result
+
+        conn = None
+        try:
+            self._ensure_ready()
+            with self._lock:
+                conn = self._connect()
+                request_ids = [
+                    str(row["request_id"])
+                    for row in conn.execute(f"SELECT r.request_id FROM requests r {where}", params).fetchall()
+                ]
+                if not request_ids:
+                    return result
+                placeholders = ",".join("?" for _ in request_ids)
+                attempts = conn.execute(
+                    f"SELECT COUNT(*) FROM attempts WHERE request_id IN ({placeholders})",
+                    request_ids,
+                ).fetchone()[0]
+                requests = conn.execute(
+                    f"SELECT COUNT(*) FROM requests WHERE request_id IN ({placeholders})",
+                    request_ids,
+                ).fetchone()[0]
+                conn.execute(f"DELETE FROM requests WHERE request_id IN ({placeholders})", request_ids)
                 conn.commit()
                 result["attempts_deleted"] = int(attempts or 0)
                 result["requests_deleted"] = int(requests or 0)
@@ -589,44 +748,47 @@ class RequestHistoryStore:
             """,
             (request_id,),
         ).fetchall()
-        attempts = []
-        for row in rows:
-            item = {
-                "attempt_no": int(row["attempt_no"] or 0),
-                "provider": row["provider"],
-                "key_index": int(row["key_index"] or 0),
-                "provider_model": row["provider_model"],
-                "upstream_format": row["upstream_format"],
-                "outcome": row["outcome"],
-            }
-            for key in (
-                "key_masked",
-                "key_id",
-                "error_type",
-                "reason",
-                "diagnostic_stage",
-                "upstream_error_summary",
-                "upstream_error_type",
-                "upstream_error_code",
-                "upstream_error_param",
-            ):
-                if row[key]:
-                    item[key] = row[key]
-            if row["http_status"] is not None:
-                item["http_status"] = int(row["http_status"])
-            usage_totals = {
-                "input_tokens": int(row["input_tokens"] or 0),
-                "output_tokens": int(row["output_tokens"] or 0),
-                "total_tokens": int(row["total_tokens"] or 0),
-            }
-            if has_usage(usage_totals):
-                item["usage"] = usage_totals
-                item["input_tokens"] = usage_totals["input_tokens"]
-                item["output_tokens"] = usage_totals["output_tokens"]
-                item["total_tokens"] = usage_totals["total_tokens"]
-                item["cost_usd"] = round(float(row["cost_usd"] or 0), 10)
-            attempts.append(item)
-        return attempts
+        return [RequestHistoryStore._attempt_from_row(row) for row in rows]
+
+    @staticmethod
+    def _attempt_from_row(row: sqlite3.Row) -> Dict[str, Any]:
+        item = {
+            "attempt_no": int(row["attempt_no"] or 0),
+            "provider": row["provider"],
+            "key_index": int(row["key_index"] or 0),
+            "provider_model": row["provider_model"],
+            "upstream_format": row["upstream_format"],
+            "outcome": row["outcome"],
+        }
+        if int(row["duration_ms"] or 0) > 0:
+            item["duration_ms"] = int(row["duration_ms"] or 0)
+        for key in (
+            "key_masked",
+            "key_id",
+            "error_type",
+            "reason",
+            "diagnostic_stage",
+            "upstream_error_summary",
+            "upstream_error_type",
+            "upstream_error_code",
+            "upstream_error_param",
+        ):
+            if row[key]:
+                item[key] = row[key]
+        if row["http_status"] is not None:
+            item["http_status"] = int(row["http_status"])
+        usage_totals = {
+            "input_tokens": int(row["input_tokens"] or 0),
+            "output_tokens": int(row["output_tokens"] or 0),
+            "total_tokens": int(row["total_tokens"] or 0),
+        }
+        if has_usage(usage_totals):
+            item["usage"] = usage_totals
+            item["input_tokens"] = usage_totals["input_tokens"]
+            item["output_tokens"] = usage_totals["output_tokens"]
+            item["total_tokens"] = usage_totals["total_tokens"]
+            item["cost_usd"] = round(float(row["cost_usd"] or 0), 10)
+        return item
 
     @classmethod
     def _summarize_request(cls, item: Dict[str, Any]) -> Dict[str, Any]:

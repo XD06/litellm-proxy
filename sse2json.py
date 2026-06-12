@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """Minimal proxy: Anthropic /v1/messages -> OpenAI /chat/completions
    Features: thinking blocks (native Anthropic format, rendered by Cherry Studio),
              true SSE streaming (chunk-by-chunk),
@@ -35,7 +36,7 @@ from stream_adapters import (
 from upstream_client import OpenAIUpstreamClient
 from usage_accounting import has_usage, normalize_usage
 
-# ─── ANSI color helpers (auto-disabled on Windows cmd.exe without VT support) ─
+# ANSI color helpers.
 try:
     # Windows Terminal / modern consoles support ANSI; older cmd.exe sets this env
     _HAS_ANSI = sys.platform != "win32" or bool(os.environ.get("WT_SESSION") or os.environ.get("TERM_PROGRAM"))
@@ -64,7 +65,7 @@ def _harrow(s: str) -> str:
     """Return arrow '->' highlighted in bold white."""
     return f"\033[1;37m->\033[0m" if _HAS_ANSI else "->"
 
-# ─── Configuration (config.json + env overlay) ───────────────────────────────
+# Configuration (config.json + env overlay).
 BASE_CONFIG = load_base_config(apply_env=False)
 CONFIG_MANAGER = RuntimeConfigManager(BASE_CONFIG)
 CONFIG = apply_env_overlays(CONFIG_MANAGER.config)
@@ -79,6 +80,116 @@ if not os.path.isabs(LOG_DIR):
 
 DEBUG_LOG = bool((CONFIG.get("server") or {}).get("debug_disk_log", False))
 DIAGNOSTIC_LOG_LOCK = threading.Lock()
+
+# Runtime state persistence for router health and discovered model capabilities.
+_ROUTER_STATE_FILE = os.path.join(os.path.dirname(__file__), "tmp", "router_state.json")
+_ROUTER_STATE_INTERVAL_S = 60  # Save router state every 60 seconds.
+
+
+def _safe_model_capabilities_for_state() -> dict:
+    caps = ((CONFIG.get("models") or {}).get("provider_model_capabilities") or {})
+    providers_cfg = CONFIG.get("providers") or {}
+    out = {}
+    if not isinstance(caps, dict):
+        return out
+    for provider, entry in caps.items():
+        if provider not in providers_cfg or not isinstance(entry, dict):
+            continue
+        item = {
+            "status": str(entry.get("status") or "unknown"),
+            "fetched_at": int(entry.get("fetched_at") or 0),
+            "models": [str(model) for model in (entry.get("models") or []) if str(model or "").strip()],
+            "canonical_map": {
+                str(k): str(v)
+                for k, v in (entry.get("canonical_map") or {}).items()
+                if str(k or "").strip() and str(v or "").strip()
+            },
+            "formats": [str(fmt) for fmt in (entry.get("formats") or []) if str(fmt or "").strip()],
+        }
+        if entry.get("error"):
+            item["error"] = str(entry.get("error"))[:500]
+        out[str(provider)] = item
+    return out
+
+
+def _restore_model_capabilities(caps: dict, union_model_ids: Optional[List[str]] = None) -> None:
+    if not isinstance(caps, dict):
+        return
+    providers_cfg = CONFIG.get("providers") or {}
+    models_cfg = CONFIG.setdefault("models", {})
+    dest = models_cfg.setdefault("provider_model_capabilities", {})
+    restored_union_ids = set(str(mid) for mid in (union_model_ids or []) if str(mid or "").strip())
+    for provider, entry in caps.items():
+        if provider not in providers_cfg or not isinstance(entry, dict):
+            continue
+        clean = {
+            "status": str(entry.get("status") or "unknown"),
+            "fetched_at": int(entry.get("fetched_at") or 0),
+            "models": [str(model) for model in (entry.get("models") or []) if str(model or "").strip()],
+            "canonical_map": {
+                str(k): str(v)
+                for k, v in (entry.get("canonical_map") or {}).items()
+                if str(k or "").strip() and str(v or "").strip()
+            },
+            "formats": [str(fmt) for fmt in (entry.get("formats") or []) if str(fmt or "").strip()],
+        }
+        if entry.get("error"):
+            clean["error"] = str(entry.get("error"))[:500]
+        dest[str(provider)] = clean
+        restored_union_ids.update(clean["canonical_map"].keys())
+    if hasattr(model_registry, "restore_union_model_ids"):
+        model_registry.restore_union_model_ids(restored_union_ids)
+
+
+def _save_router_state() -> None:
+    """Persist router runtime state and discovered model capabilities atomically."""
+    try:
+        state = {
+            "saved_at": time.time(),
+            "router": ROUTER.dump_state(),
+            "model_capabilities": _safe_model_capabilities_for_state(),
+            "union_model_ids": sorted(model_registry.union_model_ids()),
+        }
+        os.makedirs(os.path.dirname(_ROUTER_STATE_FILE), exist_ok=True)
+        tmp_path = _ROUTER_STATE_FILE + ".tmp"
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(state, f)
+        os.replace(tmp_path, _ROUTER_STATE_FILE)
+    except Exception as e:
+        print(f"[proxy] router state save failed: {e}", flush=True)
+
+
+def _load_router_state() -> None:
+    """Load persisted router state and model capabilities if present."""
+    try:
+        if not os.path.exists(_ROUTER_STATE_FILE):
+            return
+        with open(_ROUTER_STATE_FILE, "r", encoding="utf-8") as f:
+            state = json.load(f)
+        router_state = state.get("router") if isinstance(state, dict) and isinstance(state.get("router"), dict) else state
+        ROUTER.load_state(router_state)
+        if isinstance(state, dict):
+            _restore_model_capabilities(
+                state.get("model_capabilities") or state.get("provider_model_capabilities") or {},
+                state.get("union_model_ids") or [],
+            )
+        saved_at = router_state.get("saved_at") if isinstance(router_state, dict) else 0
+        saved_at = state.get("saved_at") if isinstance(state, dict) and state.get("saved_at") else saved_at
+        age = max(0, int(time.time() - float(saved_at or 0)))
+        print(f"[proxy] runtime state restored (saved {age}s ago)", flush=True)
+    except Exception as e:
+        print(f"[proxy] router state load failed: {e}", flush=True)
+
+
+def _start_state_autosave() -> None:
+    """Start background runtime state autosave."""
+    def _loop():
+        while True:
+            time.sleep(_ROUTER_STATE_INTERVAL_S)
+            _save_router_state()
+    t = threading.Thread(target=_loop, name="router-state-saver", daemon=True)
+    t.start()
+
 
 ROUTER = UpstreamRouter(CONFIG)
 UPSTREAM_CLIENT = OpenAIUpstreamClient(CONFIG)
@@ -102,8 +213,8 @@ def _apply_runtime_config(new_config: dict) -> None:
     old_obs = OBSERVABILITY
     old_caps = ((CONFIG.get("models") or {}).get("provider_model_capabilities") or {}) if CONFIG else {}
     CONFIG = apply_env_overlays(new_config)
-    # 保留仍存在 provider 的运行时已拉取能力（models/canonical_map），避免每次
-    # 改配置都把 provider 卡片的模型数据清空。后台刷新会用最新数据覆盖。
+    # Preserve provider model capabilities across runtime config reloads.
+    # Without this, key probes can lose discovered model choices after edits.
     if old_caps:
         providers_cfg = CONFIG.get("providers") or {}
         models_cfg = CONFIG.setdefault("models", {})
@@ -112,6 +223,7 @@ def _apply_runtime_config(new_config: dict) -> None:
             if prov in providers_cfg and prov not in caps:
                 caps[prov] = entry
     model_registry.clear_cache()
+    model_registry.rebuild_union_model_ids_from_capabilities(CONFIG)
     ROUTER = UpstreamRouter(CONFIG)
     if old_router is not None:
         ROUTER.migrate_state_from(old_router)
@@ -124,12 +236,12 @@ def _apply_runtime_config(new_config: dict) -> None:
 
 
 def resolve_model(name):
-    """返回 canonical model（用于路由与分流）。"""
+    """Resolve the client-facing model to the canonical model."""
     if DISABLE_MAP:
         return name  # Pass through, no mapping
     canonical = MODEL_MAP.get(name)
     if not canonical:
-        # 不在 client_model_map 中：尝试 union 安全匹配，匹配不到则透传原名
+        # If no explicit client map exists, accept discovered union model aliases.
         try:
             models_source = str((CONFIG.get("models") or {}).get("models_source", "first_healthy_provider"))
             union_model_ids = model_registry.union_model_ids()
@@ -142,8 +254,7 @@ def resolve_model(name):
             pass
         print(f"[proxy] model pass-through: {name}", flush=True)
         return name or ""
-    # 在 client_model_map 中找到，再尝试 union 对齐
-    # 当 models_source=union 时，尽量把 canonical 对齐到“union 模型列表”的实际 id，减少用户手工配置
+    # Reconcile mapped canonical models against discovered union model aliases.
     try:
         models_source = str((CONFIG.get("models") or {}).get("models_source", "first_healthy_provider"))
         union_model_ids = model_registry.union_model_ids()
@@ -163,6 +274,45 @@ def fetch_upstream_models():
     return model_registry.fetch_upstream_models(CONFIG, ROUTER, UPSTREAM_CLIENT, format_provider=_hprov)
 
 
+def fetch_provider_models(provider: str):
+    return model_registry.fetch_upstream_models(CONFIG, ROUTER, UPSTREAM_CLIENT, format_provider=_hprov, only_provider=provider)
+
+
+def _provider_model_refresh_signature(config: dict, provider: str) -> str:
+    pcfg = ((config.get("providers") or {}).get(provider) or {})
+    payload = {
+        "base_url": pcfg.get("base_url") or "",
+        "models_path": pcfg.get("models_path") or "/v1/models",
+        "keys": [key_value(entry) for entry in (pcfg.get("keys") or [])],
+        "proxy": pcfg.get("proxy") or {},
+        "headers": pcfg.get("headers") or {},
+        "user_agent": pcfg.get("user_agent") or "",
+    }
+    return json.dumps(payload, sort_keys=True, default=str)
+
+
+def _merge_provider_model_capability_from(source_config: dict, provider: str) -> bool:
+    source_caps = ((source_config.get("models") or {}).get("provider_model_capabilities") or {})
+    entry = source_caps.get(provider) if isinstance(source_caps, dict) else None
+    if not isinstance(entry, dict):
+        return False
+    if provider not in (CONFIG.get("providers") or {}):
+        return False
+    if source_config is not CONFIG:
+        if _provider_model_refresh_signature(source_config, provider) != _provider_model_refresh_signature(CONFIG, provider):
+            return False
+
+    for target in (CONFIG, CONFIG_MANAGER.config):
+        providers_cfg = target.get("providers") or {}
+        if provider not in providers_cfg:
+            continue
+        models_cfg = target.setdefault("models", {})
+        caps = models_cfg.setdefault("provider_model_capabilities", {})
+        caps[provider] = copy.deepcopy(entry)
+    model_registry.rebuild_union_model_ids_from_capabilities(CONFIG)
+    return True
+
+
 def _probe_error_type(status: int) -> str:
     if status in (401, 403):
         return "key_invalid"
@@ -178,7 +328,7 @@ def _probe_error_type(status: int) -> str:
 
 
 def _pick_probe_model(provider: str) -> Optional[str]:
-    """挑一个该 provider 已拉取到的 canonical 模型用于探测。"""
+    """Pick a discovered canonical model for provider key probing."""
     caps = ((CONFIG.get("models") or {}).get("provider_model_capabilities") or {}).get(provider) or {}
     canonical_map = caps.get("canonical_map") if isinstance(caps, dict) else None
     if isinstance(canonical_map, dict) and canonical_map:
@@ -186,14 +336,60 @@ def _pick_probe_model(provider: str) -> Optional[str]:
     manual_map = ((CONFIG.get("models") or {}).get("provider_model_map") or {}).get(provider) or {}
     if isinstance(manual_map, dict) and manual_map:
         return str(next(iter(manual_map.keys())))
+    pcfg = ((CONFIG.get("providers") or {}).get(provider) or {})
+    static_models = pcfg.get("static_models")
+    if isinstance(static_models, list):
+        for entry in static_models:
+            if isinstance(entry, str):
+                mid = entry.strip()
+            elif isinstance(entry, dict):
+                mid = str(entry.get("id") or "").strip()
+            else:
+                mid = ""
+            if mid:
+                return mid
+    routes = ((CONFIG.get("models") or {}).get("routes") or {})
+    if isinstance(routes, dict):
+        for model, route in routes.items():
+            if route is None:
+                continue
+            providers = (route or {}).get("providers") if isinstance(route, dict) else []
+            for item in providers or []:
+                name = item if isinstance(item, str) else (item or {}).get("name")
+                if str(name or "") == provider and str(model or "").strip():
+                    return str(model)
+        for model, route in routes.items():
+            if route is not None and str(model or "").strip():
+                return str(model)
     return None
 
 
-def probe_provider_key(provider: str, key_index: int) -> dict:
-    """用指定 key 向 provider 发送一个最小请求，验证可用性。
+def _request_filter_payload(value) -> dict:
+    allowed = {
+        "status",
+        "client_format",
+        "endpoint",
+        "model",
+        "status_code",
+        "provider",
+        "upstream_format",
+        "error_type",
+        "failure_reason",
+        "reason",
+        "http_status",
+    }
+    if not isinstance(value, dict):
+        return {}
+    out = {}
+    for key in allowed:
+        text = str(value.get(key) or "").strip()
+        if text:
+            out[key] = text
+    return out
 
-    复用 ROUTER._build_attempt_details / _first_supported_format 与 convert_request，
-    按 provider 实际启用的上游格式发送。探测失败不写入路由冷却状态。"""
+
+def probe_provider_key(provider: str, key_index: int, model: str = "") -> dict:
+    """Send a minimal request with one provider key to verify availability."""
     pcfg = (CONFIG.get("providers") or {}).get(provider)
     if not isinstance(pcfg, dict):
         return {"ok": False, "error_type": "unknown", "error": f"unknown provider: {provider}"}
@@ -201,10 +397,10 @@ def probe_provider_key(provider: str, key_index: int) -> dict:
     if not (0 <= key_index < len(keys)):
         return {"ok": False, "error_type": "unknown", "error": f"unknown key: {provider}/{key_index}"}
 
-    canonical_model = _pick_probe_model(provider)
+    canonical_model = str(model or "").strip() or _pick_probe_model(provider)
     if not canonical_model:
         try:
-            fetch_upstream_models()
+            model_registry.models_from_capabilities(CONFIG, ROUTER)
         except Exception:
             pass
         canonical_model = _pick_probe_model(provider)
@@ -233,56 +429,160 @@ def probe_provider_key(provider: str, key_index: int) -> dict:
     except Exception as e:
         return {"ok": False, "error_type": "unknown", "error": _sanitize_diagnostic_text(e, 200)}
 
+    request_id = f"probe-{provider}-k{key_index}-{uuid.uuid4().hex[:8]}"
+    OBSERVABILITY.record_request_start(
+        request_id,
+        client_format="admin_probe",
+        endpoint="key_test",
+        model=canonical_model,
+        stream=False,
+        path=f"/-/admin/providers/{provider}/keys/{key_index}/test",
+    )
+    from router import Attempt as _Attempt
+    probe_attempt = _Attempt(
+        request_id=request_id,
+        attempt_no=1,
+        provider=provider,
+        key_index=key_index,
+        key=raw_key,
+        url=url,
+        headers=headers,
+        provider_model=provider_model,
+        upstream_format=fmt,
+        proxy_url=proxy_url,
+    )
+    actual_user_agent = str(headers.get("User-Agent") or headers.get("user-agent") or "")
+
     try:
         _resp, latency_ms = UPSTREAM_CLIENT.request_json_with_timing(
             url, headers, payload, proxy_url=proxy_url, remaining_timeout_s=15
         )
-        return {"ok": True, "model": provider_model, "format": fmt, "latency_ms": latency_ms}
+        OBSERVABILITY.record_first_byte(request_id, latency_ms)
+        OBSERVABILITY.record_attempt(request_id, probe_attempt, outcome="success")
+        OBSERVABILITY.record_request_end(request_id, status_code=200)
+        return {"ok": True, "model": canonical_model, "requested_model": canonical_model, "upstream_model": provider_model, "format": fmt, "latency_ms": latency_ms, "user_agent": actual_user_agent}
     except HTTPError as e:
         status = int(getattr(e, "code", 0) or 0)
+        err_body = ""
+        try:
+            err_body = e.read().decode("utf-8", errors="replace")[:300]
+        except Exception:
+            pass
+        error_type = _probe_error_type(status)
+        OBSERVABILITY.record_attempt(
+            request_id, probe_attempt,
+            outcome="failed",
+            error_type=error_type,
+            http_status=status,
+            upstream_error_summary=err_body,
+        )
+        OBSERVABILITY.record_request_end(request_id, status_code=status, error=err_body)
         return {
             "ok": False,
             "http_status": status,
-            "error_type": _probe_error_type(status),
-            "model": provider_model,
+            "error_type": error_type,
+            "model": canonical_model,
+            "requested_model": canonical_model,
+            "upstream_model": provider_model,
             "format": fmt,
+            "user_agent": actual_user_agent,
         }
     except (URLError, socket.timeout) as e:
+        msg = _sanitize_diagnostic_text(e, 200)
+        OBSERVABILITY.record_attempt(
+            request_id, probe_attempt,
+            outcome="failed",
+            error_type="network_error",
+            upstream_error_summary=msg,
+        )
+        OBSERVABILITY.record_request_end(request_id, status_code=0, error=msg)
         return {
             "ok": False,
             "error_type": "network_error",
-            "error": _sanitize_diagnostic_text(e, 200),
-            "model": provider_model,
+            "error": msg,
+            "model": canonical_model,
+            "requested_model": canonical_model,
+            "upstream_model": provider_model,
             "format": fmt,
+            "user_agent": actual_user_agent,
         }
     except Exception as e:
+        msg = _sanitize_diagnostic_text(e, 200)
+        OBSERVABILITY.record_attempt(
+            request_id, probe_attempt,
+            outcome="failed",
+            error_type="unknown",
+            upstream_error_summary=msg,
+        )
+        OBSERVABILITY.record_request_end(request_id, status_code=0, error=msg)
         return {
             "ok": False,
             "error_type": "unknown",
-            "error": _sanitize_diagnostic_text(e, 200),
-            "model": provider_model,
+            "error": msg,
+            "model": canonical_model,
+            "requested_model": canonical_model,
+            "upstream_model": provider_model,
             "format": fmt,
+            "user_agent": actual_user_agent,
         }
 
 
-def _refresh_models_after_config_change() -> None:
-    """配置变更后刷新模型缓存。
+def _refresh_models_after_config_change(provider: Optional[str] = None, *, force: bool = False) -> None:
+    """Refresh only the affected provider after config changes.
 
-    union 模式需要重新拉取上游模型列表，该操作可能阻塞数秒（网络往返到
-    所有 provider），因此放到后台线程执行，避免拖慢 admin 保存请求的响应。
-    capabilities 已在 _apply_runtime_config 中从旧 CONFIG 迁移，所以卡片数据
-    在后台刷新完成前仍可见。"""
-    model_registry.clear_cache()
-    if str((CONFIG.get("models") or {}).get("models_source", "first_healthy_provider")) != "union":
+    Client /v1/models is served from saved capabilities/config; discovery I/O is
+    limited to startup, manual refresh, and provider-level changes.
+    """
+    models_source = str((CONFIG.get("models") or {}).get("models_source", "first_healthy_provider"))
+    if models_source not in ("union", "first_healthy_provider"):
+        model_registry.clear_cache(provider)
+        model_registry.rebuild_union_model_ids_from_capabilities(CONFIG)
         return
 
-    def _bg_refresh():
-        try:
-            fetch_upstream_models()
-        except Exception as e:
-            print(f"[proxy] model refresh after config change failed: {_sanitize_diagnostic_text(e, 200)}", flush=True)
+    if not provider:
+        model_registry.clear_cache()
+        model_registry.rebuild_union_model_ids_from_capabilities(CONFIG)
+        return
 
-    threading.Thread(target=_bg_refresh, name="model-refresh", daemon=True).start()
+    if provider not in (CONFIG.get("providers") or {}):
+        model_registry.clear_cache(provider)
+        model_registry.rebuild_union_model_ids_from_capabilities(CONFIG)
+        return
+
+    pcfg = ((CONFIG.get("providers") or {}).get(provider) or {})
+    if not pcfg.get("enabled", True):
+        model_registry.clear_cache(provider)
+        model_registry.rebuild_union_model_ids_from_capabilities(CONFIG)
+        return
+
+    if not force:
+        model_registry.clear_cache(provider)
+        model_registry.rebuild_union_model_ids_from_capabilities(CONFIG)
+        return
+
+    model_registry.clear_cache(provider)
+    config_ref = CONFIG
+    router_ref = ROUTER
+    upstream_client_ref = UPSTREAM_CLIENT
+
+    def _bg_refresh_provider():
+        try:
+            model_registry.fetch_upstream_models(
+                config_ref,
+                router_ref,
+                upstream_client_ref,
+                format_provider=_hprov,
+                only_provider=provider,
+            )
+            if _merge_provider_model_capability_from(config_ref, provider):
+                _save_router_state()
+        except Exception as e:
+            print(
+                f"[proxy] provider model refresh after config change failed ({_hprov(provider)}): {_sanitize_diagnostic_text(e, 200)}",
+                flush=True,
+            )
+
+    threading.Thread(target=_bg_refresh_provider, name=f"model-refresh-{provider}", daemon=True).start()
 
 
 def _default_models():
@@ -444,7 +744,7 @@ def _sanitize_diagnostic_text(value, limit: int = 500) -> str:
     text = re.sub(r"\b(sk-[A-Za-z0-9_\-]{8,})\b", key_repl, text)
     text = re.sub(r"(?i)\b((?:api[_-]?key|authorization|x-api-key)[\"']?\s*[:=]\s*[\"']?)([A-Za-z0-9._\-]{10,})", named_key_repl, text)
     if len(text) > limit:
-        return text[: max(0, limit - 1)].rstrip() + "…"
+        return text[: max(0, limit - 3)].rstrip() + "..."
     return text
 
 
@@ -486,6 +786,32 @@ def _upstream_error_diagnostics(stage: str, error_body: str = "", *, exception=N
         if clean:
             diag[key] = clean
     return diag
+
+
+def _attempt_duration_ms(started_at) -> int:
+    try:
+        return max(0, int((time.time() - float(started_at)) * 1000))
+    except Exception:
+        return 0
+
+
+def _remaining_first_event_timeout(started_at, timeout_s):
+    if not timeout_s or timeout_s <= 0:
+        return None
+    elapsed = time.time() - float(started_at)
+    remaining = float(timeout_s) - elapsed
+    if remaining <= 0:
+        raise socket.timeout(f"first stream event timeout after {timeout_s}s")
+    return max(0.001, remaining)
+
+
+def _transport_stage_for_exception(exception, default_stage: str = "transport_error") -> str:
+    text = f"{type(exception).__name__}: {exception}".lower()
+    if "first stream event" in text or "first byte" in text or "first token" in text:
+        return "before_first_event"
+    if "timed out" in text or "timeout" in text:
+        return "before_upstream_response"
+    return default_stage
 
 
 def _log_upstream_error(request_id, attempt, status, error_type: str, reason: str, diagnostics: dict) -> None:
@@ -533,6 +859,7 @@ def _write_attempt_diagnostic_log(
     error_type: str = "",
     reason: str = "",
     http_status=None,
+    duration_ms=None,
     diagnostics=None,
 ) -> None:
     if not _diagnostic_log_enabled():
@@ -551,6 +878,8 @@ def _write_attempt_diagnostic_log(
         "error_type": str(error_type or ""),
         "reason": str(reason or ""),
     }
+    if duration_ms is not None:
+        item["duration_ms"] = max(0, int(duration_ms or 0))
     if http_status is not None:
         item["http_status"] = int(http_status)
     for key in (
@@ -595,6 +924,7 @@ def _record_failed_attempt(
     error_type: str,
     reason: str,
     http_status=None,
+    duration_ms=None,
     diagnostics=None,
 ) -> None:
     diagnostics = diagnostics or {}
@@ -605,6 +935,7 @@ def _record_failed_attempt(
         error_type=error_type,
         http_status=int(http_status) if http_status is not None else None,
         reason=reason,
+        duration_ms=duration_ms,
         **diagnostics,
     )
     _write_attempt_diagnostic_log(
@@ -614,11 +945,12 @@ def _record_failed_attempt(
         error_type=error_type,
         reason=reason,
         http_status=http_status,
+        duration_ms=duration_ms,
         diagnostics=diagnostics,
     )
 
 
-def _record_upstream_http_failure(request_id, attempt, status, error_body, decision, retry_after_s, attempt_errors, *, reason=None):
+def _record_upstream_http_failure(request_id, attempt, status, error_body, decision, retry_after_s, attempt_errors, *, reason=None, duration_ms=None):
     err_type = decision.error_type
     final_reason = reason or decision.reason
     diagnostics = _upstream_error_diagnostics("upstream_http_error", error_body)
@@ -634,6 +966,7 @@ def _record_upstream_http_failure(request_id, attempt, status, error_body, decis
         error_type=err_type,
         reason=final_reason,
         http_status=int(status) if status else None,
+        duration_ms=duration_ms,
         diagnostics=diagnostics,
     )
     attempt_errors.append(f"{attempt.provider}:{status}:{err_type}:{final_reason}")
@@ -641,7 +974,7 @@ def _record_upstream_http_failure(request_id, attempt, status, error_body, decis
     return err_type
 
 
-def _record_request_conversion_failure(request_id, attempt, client_format: str, exception, attempt_errors) -> None:
+def _record_request_conversion_failure(request_id, attempt, client_format: str, exception, attempt_errors, *, duration_ms=None) -> None:
     reason = "request_conversion_unsupported"
     summary = f"Could not convert client {client_format} request to upstream {attempt.upstream_format}: {exception}"
     diagnostics = _upstream_error_diagnostics("request_conversion", exception=exception)
@@ -652,6 +985,7 @@ def _record_request_conversion_failure(request_id, attempt, client_format: str, 
         attempt,
         error_type="provider_compat",
         reason=reason,
+        duration_ms=duration_ms,
         diagnostics=diagnostics,
     )
     attempt_errors.append(f"{attempt.provider}:request_conversion:{attempt.upstream_format}")
@@ -670,6 +1004,7 @@ def _record_transport_failure(
     *,
     reason: str = "",
     stage: str = "transport_error",
+    duration_ms=None,
 ) -> None:
     decision = scheduler_policy.classify_transport_error(type(exception).__name__, CONFIG)
     final_reason = reason or decision.reason
@@ -680,6 +1015,7 @@ def _record_transport_failure(
         attempt,
         error_type=decision.error_type,
         reason=final_reason,
+        duration_ms=duration_ms,
         diagnostics=diagnostics,
     )
     attempt_errors.append(f"{attempt.provider}:{final_reason}:{type(exception).__name__}")
@@ -690,7 +1026,7 @@ def _record_transport_failure(
     )
 
 
-def _record_proxy_exception(request_id, attempt, exception, attempt_errors) -> None:
+def _record_proxy_exception(request_id, attempt, exception, attempt_errors, *, duration_ms=None) -> None:
     diagnostics = _upstream_error_diagnostics("proxy_exception", exception=exception)
     ROUTER.report_failure(attempt, error_type="network_error")
     _record_failed_attempt(
@@ -698,12 +1034,32 @@ def _record_proxy_exception(request_id, attempt, exception, attempt_errors) -> N
         attempt,
         error_type="network_error",
         reason="unknown_exception",
+        duration_ms=duration_ms,
         diagnostics=diagnostics,
     )
     attempt_errors.append(f"{attempt.provider}:unknown:{type(exception).__name__}")
     print(
         f"[proxy] ERROR req={request_id} {_h(attempt.provider)} "
         f"stage=proxy_exception: {_sanitize_diagnostic_text(exception, 200)}",
+        flush=True,
+    )
+
+
+def _record_stream_interrupted(request_id, attempt, attempt_errors, *, duration_ms=None, stage="stream_interrupted") -> None:
+    diagnostics = _upstream_error_diagnostics(stage, exception=RuntimeError("upstream stream interrupted after client response started"))
+    ROUTER.report_failure(attempt, error_type="network_error")
+    _record_failed_attempt(
+        request_id,
+        attempt,
+        error_type="network_error",
+        reason="stream_interrupted",
+        duration_ms=duration_ms,
+        diagnostics=diagnostics,
+    )
+    attempt_errors.append(f"{attempt.provider}:stream_interrupted")
+    print(
+        f"[proxy] STREAM INTERRUPTED req={request_id} {_h(attempt.provider)} "
+        f"stage={stage}",
         flush=True,
     )
 
@@ -1023,9 +1379,15 @@ def _open_stream_with_compat_retry(
     proxy_url=None,
     remaining_timeout_s=None,
     first_byte_timeout_s=None,
+    attempt_started_at=None,
 ):
     same_key_retries = _same_key_retries_for_transient_errors()
     attempt_payload = payload
+    started_at = attempt_started_at or time.time()
+
+    def first_event_remaining():
+        return _remaining_first_event_timeout(started_at, first_byte_timeout_s)
+
     try:
         return UPSTREAM_CLIENT.open_stream(
             attempt.url,
@@ -1033,7 +1395,7 @@ def _open_stream_with_compat_retry(
             attempt_payload,
             proxy_url=proxy_url,
             remaining_timeout_s=remaining_timeout_s,
-            first_byte_timeout_s=first_byte_timeout_s,
+            first_byte_timeout_s=first_event_remaining(),
         )
     except HTTPError as e:
         status, error_body, headers = _http_error_details(e)
@@ -1061,7 +1423,7 @@ def _open_stream_with_compat_retry(
                 payload,
                 proxy_url=proxy_url,
                 remaining_timeout_s=remaining_timeout_s,
-                first_byte_timeout_s=first_byte_timeout_s,
+                first_byte_timeout_s=first_event_remaining(),
             )
         if same_key_retries > 0 and _is_same_key_retryable_http(status, error_body, attempt_payload.get("model", "")):
             print(
@@ -1077,7 +1439,7 @@ def _open_stream_with_compat_retry(
                     retry_payload,
                     proxy_url=proxy_url,
                     remaining_timeout_s=remaining_timeout_s,
-                    first_byte_timeout_s=first_byte_timeout_s,
+                    first_byte_timeout_s=first_event_remaining(),
                 )
             except HTTPError as retry_error:
                 status, error_body, headers = _http_error_details(retry_error)
@@ -1095,12 +1457,12 @@ def _open_stream_with_compat_retry(
                 retry_payload,
                 proxy_url=proxy_url,
                 remaining_timeout_s=remaining_timeout_s,
-                first_byte_timeout_s=first_byte_timeout_s,
+                first_byte_timeout_s=first_event_remaining(),
             )
         raise
 
 
-# ─── True streaming: upstream OpenAI SSE → Anthropic SSE ───────────────────
+# True streaming: upstream OpenAI SSE to Anthropic SSE.
 
 def _prefetch_first_stream_line(upstream, timeout_s):
     return prefetch_first_stream_line(upstream, timeout_s)
@@ -1120,7 +1482,7 @@ def do_stream(upstream, wfile, original_model, first_byte_timeout_s=None, read_t
         initial_lines=initial_lines,
     )
 
-# ─── HTTP Handler ──────────────────────────────────────────────────────────
+# HTTP Handler.
 
 class Handler(BaseHTTPRequestHandler):
     def setup(self):
@@ -1141,7 +1503,7 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b)
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, OSError):
-            # 客户端提前断开连接（常见于浏览器/客户端超时/用户取消），无需报错
+            # Client disconnected while receiving the response.
             pass
 
     def _resp_bytes(self, data: bytes, *, content_type: str, status: int = 200):
@@ -1290,7 +1652,8 @@ class Handler(BaseHTTPRequestHandler):
         if not self._admin_authorized():
             return self._resp_json({"error": {"message": "admin auth required"}}, 403)
 
-        parts = [p for p in str(endpoint or "").strip("/").split("/") if p]
+        from urllib.parse import unquote
+        parts = [unquote(p) for p in str(endpoint or "").strip("/").split("/") if p]
         body = None
         if parts == ["requests", "clear"]:
             body = self._read_json_body()
@@ -1346,6 +1709,37 @@ class Handler(BaseHTTPRequestHandler):
             )
             return self._resp_json({"action": "request_records_deleted", **result})
 
+        if parts == ["requests", "delete-matching"]:
+            body = self._read_json_body()
+            if isinstance(body, tuple):
+                return self._resp_json(body[0], body[1])
+            confirm = str((body or {}).get("confirm") or "").strip()
+            if confirm != "delete_matching_request_records":
+                self._audit_admin_event(
+                    "request_matching_delete_failed",
+                    target="requests",
+                    status="failed",
+                    error="confirmation required",
+                )
+                return self._resp_json({"error": {"message": "confirm must be delete_matching_request_records"}}, 400)
+            filters = _request_filter_payload((body or {}).get("filters") or {})
+            if not filters:
+                return self._resp_json({"error": {"message": "at least one filter is required"}}, 400)
+            result = OBSERVABILITY.delete_matching_requests(filters)
+            history_error = (result.get("history") or {}).get("error")
+            if history_error:
+                return self._resp_json({"error": {"message": str(history_error)}}, 400)
+            self._audit_admin_event(
+                "request_matching_records_deleted",
+                target="requests",
+                detail={
+                    "filters": filters,
+                    "history_requests_deleted": (result.get("history") or {}).get("requests_deleted", 0),
+                    "memory_recent_deleted": (result.get("memory") or {}).get("recent_requests_deleted", 0),
+                },
+            )
+            return self._resp_json({"action": "request_matching_records_deleted", "filters": filters, **result})
+
         if parts == ["models", "routes", "delete"]:
             body = self._read_json_body()
             if isinstance(body, tuple):
@@ -1369,6 +1763,7 @@ class Handler(BaseHTTPRequestHandler):
         if parts == ["models", "refresh"]:
             model_registry.clear_cache()
             fetch_upstream_models()
+            _save_router_state()
             self._audit_admin_event("models_refreshed", target="models")
             return self._resp_json({"action": "models_refreshed", "models": _model_capabilities_snapshot()})
 
@@ -1438,7 +1833,7 @@ class Handler(BaseHTTPRequestHandler):
                 provider_cfg = {k: v for k, v in (body or {}).items() if k != "name"}
                 CONFIG_MANAGER.add_provider(provider, provider_cfg)
                 _apply_runtime_config(CONFIG_MANAGER.config)
-                _refresh_models_after_config_change()
+                _refresh_models_after_config_change(provider, force=True)
                 self._audit_admin_event("provider_added", target=provider, detail=provider_cfg)
                 return self._resp_json({"action": "provider_added", "provider": provider, "config": CONFIG_MANAGER.snapshot()})
             except ConfigValidationError as e:
@@ -1452,6 +1847,21 @@ class Handler(BaseHTTPRequestHandler):
 
         if len(parts) >= 3 and parts[0] == "providers":
             provider = parts[1]
+            if len(parts) == 4 and parts[2] == "models" and parts[3] == "refresh":
+                if provider not in (CONFIG.get("providers") or {}):
+                    return self._resp_json({"error": {"message": f"unknown provider: {provider}"}}, 404)
+                model_registry.clear_cache(provider)
+                fetch_provider_models(provider)
+                _save_router_state()
+                self._audit_admin_event("provider_models_refreshed", target=f"{provider}/models")
+                return self._resp_json(
+                    {
+                        "action": "provider_models_refreshed",
+                        "provider": provider,
+                        "models": _model_capabilities_snapshot(),
+                    }
+                )
+
             if len(parts) == 3 and parts[2] == "keys":
                 body = self._read_json_body()
                 if isinstance(body, tuple):
@@ -1459,7 +1869,7 @@ class Handler(BaseHTTPRequestHandler):
                 try:
                     CONFIG_MANAGER.add_key(provider, (body or {}).get("key") or "", (body or {}).get("proxy") or "")
                     _apply_runtime_config(CONFIG_MANAGER.config)
-                    _refresh_models_after_config_change()
+                    _refresh_models_after_config_change(provider)
                     self._audit_admin_event("key_added", target=f"{provider}/keys", detail={"key": (body or {}).get("key") or "", "proxy": (body or {}).get("proxy") or ""})
                     return self._resp_json({"action": "key_added", "provider": provider, "config": CONFIG_MANAGER.snapshot()})
                 except ConfigValidationError as e:
@@ -1493,6 +1903,7 @@ class Handler(BaseHTTPRequestHandler):
                 enabled = parts[2] == "enable"
                 if not ROUTER.set_provider_enabled(provider, enabled):
                     return self._resp_json({"error": {"message": f"unknown provider: {provider}"}}, 404)
+                _save_router_state()
                 self._audit_admin_event("provider_enabled" if enabled else "provider_disabled", target=provider)
                 return self._resp_json(
                     {
@@ -1505,6 +1916,7 @@ class Handler(BaseHTTPRequestHandler):
             if len(parts) == 4 and parts[2] == "cooldown" and parts[3] == "clear":
                 if not ROUTER.clear_provider_cooldown(provider):
                     return self._resp_json({"error": {"message": f"unknown provider: {provider}"}}, 404)
+                _save_router_state()
                 self._audit_admin_event("provider_cooldown_cleared", target=provider)
                 return self._resp_json(
                     {
@@ -1527,6 +1939,7 @@ class Handler(BaseHTTPRequestHandler):
                             {"error": {"message": f"unknown key: {provider}/{key_index}"}},
                             404,
                         )
+                    _save_router_state()
                     self._audit_admin_event(
                         "key_enabled" if enabled else "key_disabled",
                         target=f"{provider}/keys/{key_index}",
@@ -1556,7 +1969,7 @@ class Handler(BaseHTTPRequestHandler):
                     try:
                         CONFIG_MANAGER.delete_key(provider, key_index)
                         _apply_runtime_config(CONFIG_MANAGER.config)
-                        _refresh_models_after_config_change()
+                        _refresh_models_after_config_change(provider)
                         self._audit_admin_event("key_deleted", target=f"{provider}/keys/{key_index}")
                         return self._resp_json(
                             {
@@ -1581,6 +1994,7 @@ class Handler(BaseHTTPRequestHandler):
                             {"error": {"message": f"unknown key: {provider}/{key_index}"}},
                             404,
                         )
+                    _save_router_state()
                     self._audit_admin_event("key_state_cleared", target=f"{provider}/keys/{key_index}")
                     return self._resp_json(
                         {
@@ -1592,7 +2006,11 @@ class Handler(BaseHTTPRequestHandler):
                     )
 
                 if len(parts) == 5 and parts[4] == "test":
-                    result = probe_provider_key(provider, key_index)
+                    body = self._read_json_body()
+                    if isinstance(body, tuple):
+                        return self._resp_json(body[0], body[1])
+                    probe_model = str((body or {}).get("model") or "").strip()
+                    result = probe_provider_key(provider, key_index, model=probe_model)
                     self._audit_admin_event(
                         "key_probed",
                         target=f"{provider}/keys/{key_index}",
@@ -1601,6 +2019,7 @@ class Handler(BaseHTTPRequestHandler):
                             "ok": bool(result.get("ok")),
                             "format": result.get("format"),
                             "model": result.get("model"),
+                            "requested_model": probe_model,
                             "error_type": result.get("error_type"),
                         },
                     )
@@ -1619,7 +2038,8 @@ class Handler(BaseHTTPRequestHandler):
         if not self._admin_authorized():
             return self._resp_json({"error": {"message": "admin auth required"}}, 403)
 
-        parts = [p for p in str(endpoint or "").strip("/").split("/") if p]
+        from urllib.parse import unquote
+        parts = [unquote(p) for p in str(endpoint or "").strip("/").split("/") if p]
         body = self._read_json_body()
         if isinstance(body, tuple):
             return self._resp_json(body[0], body[1])
@@ -1661,7 +2081,8 @@ class Handler(BaseHTTPRequestHandler):
                 provider = parts[1]
                 CONFIG_MANAGER.update_provider(provider, body or {})
                 _apply_runtime_config(CONFIG_MANAGER.config)
-                _refresh_models_after_config_change()
+                refresh_fields = {"base_url", "models_path", "keys", "proxy", "headers", "user_agent"}
+                _refresh_models_after_config_change(provider, force=any(k in refresh_fields for k in (body or {}).keys()))
                 self._audit_admin_event("provider_updated", target=provider, detail=body or {})
                 return self._resp_json({"action": "provider_updated", "provider": provider, "config": CONFIG_MANAGER.snapshot()})
 
@@ -1673,7 +2094,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self._resp_json({"error": {"message": f"invalid key index: {parts[3]}"}}, 400)
                 CONFIG_MANAGER.update_key(provider, key_index, body or {})
                 _apply_runtime_config(CONFIG_MANAGER.config)
-                _refresh_models_after_config_change()
+                _refresh_models_after_config_change(provider)
                 self._audit_admin_event("key_updated", target=f"{provider}/keys/{key_index}", detail=body or {})
                 return self._resp_json(
                     {
@@ -1689,7 +2110,7 @@ class Handler(BaseHTTPRequestHandler):
                 fmt = parts[3]
                 CONFIG_MANAGER.update_format(provider, fmt, body or {})
                 _apply_runtime_config(CONFIG_MANAGER.config)
-                _refresh_models_after_config_change()
+                _refresh_models_after_config_change(provider)
                 self._audit_admin_event("format_updated", target=f"{provider}/formats/{fmt}", detail=body or {})
                 return self._resp_json(
                     {
@@ -1771,8 +2192,8 @@ class Handler(BaseHTTPRequestHandler):
         elif route.endpoint == "models" and route.implemented:
             models_source = str((CONFIG.get("models") or {}).get("models_source", "first_healthy_provider"))
             if models_source in ("first_healthy_provider", "union"):
-                print(f"[proxy] Models: auto-fetch ({models_source})", flush=True)
-                self._resp_json(fetch_upstream_models())
+                print(f"[proxy] Models: using saved capabilities ({models_source})", flush=True)
+                self._resp_json(model_registry.models_from_capabilities(CONFIG, ROUTER))
             else:
                 print(f"[proxy] Models: using hardcoded list", flush=True)
                 self._resp_json(self.MODELS)
@@ -1802,9 +2223,9 @@ class Handler(BaseHTTPRequestHandler):
         has_attempt = False
         total_start = time.time()
         routing_cfg = CONFIG.get("routing") or {}
-        connect_t = int(routing_cfg.get("connect_timeout_s", 30))
-        read_t = int(routing_cfg.get("read_timeout_s", 180))
-        first_byte_t = int(routing_cfg.get("first_token_timeout_s", 15))
+        connect_t = int(routing_cfg.get("connect_timeout_s", 15))
+        read_t = int(routing_cfg.get("read_timeout_s", 120))
+        first_byte_t = int(routing_cfg.get("first_token_timeout_s", 30))  # Total budget before first stream event.
         max_attempts = int(routing_cfg.get("max_attempts", 6))
         max_budget = (connect_t + read_t) * min(3, max(1, max_attempts))
         allowed_formats = ["chat_completions", "responses", "anthropic_messages"]
@@ -1828,6 +2249,7 @@ class Handler(BaseHTTPRequestHandler):
                     flush=True,
                 )
 
+            attempt_started = time.time()
             try:
                 payload = dict(
                     convert_request(
@@ -1838,7 +2260,7 @@ class Handler(BaseHTTPRequestHandler):
                     )
                 )
             except ValueError as e:
-                _record_request_conversion_failure(request_id, attempt, CHAT, e, attempt_errors)
+                _record_request_conversion_failure(request_id, attempt, CHAT, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
                 continue
             payload["model"] = attempt.provider_model
             payload["stream"] = is_stream if attempt.upstream_format in (CHAT, RESPONSES, ANTHROPIC) else False
@@ -1856,8 +2278,10 @@ class Handler(BaseHTTPRequestHandler):
                         proxy_url=attempt.proxy_url,
                         remaining_timeout_s=remaining,
                         first_byte_timeout_s=first_byte_t if first_byte_t > 0 else None,
+                        attempt_started_at=attempt_started,
                     )
-                    initial_lines = _prefetch_initial_stream_lines(upstream_conn, first_byte_t if first_byte_t > 0 else None)
+                    first_event_remaining = _remaining_first_event_timeout(attempt_started, first_byte_t) if first_byte_t > 0 else None
+                    initial_lines = _prefetch_initial_stream_lines(upstream_conn, first_event_remaining)
                     OBSERVABILITY.record_first_byte(request_id)
 
                     self.close_connection = True
@@ -1886,12 +2310,22 @@ class Handler(BaseHTTPRequestHandler):
                             read_timeout_s=read_t,
                             initial_lines=initial_lines,
                         )
+                    if stream_resp is None:
+                        _record_stream_interrupted(
+                            request_id,
+                            attempt,
+                            attempt_errors,
+                            duration_ms=_attempt_duration_ms(attempt_started),
+                        )
+                        OBSERVABILITY.record_request_end(request_id, status_code=502, error="stream_interrupted")
+                        return
                     ROUTER.report_success(attempt)
                     OBSERVABILITY.record_attempt(
                         request_id,
                         attempt,
                         outcome="success",
                         usage=_response_usage(stream_resp),
+                        duration_ms=_attempt_duration_ms(attempt_started),
                     )
                     OBSERVABILITY.record_request_end(request_id, status_code=200)
                     return
@@ -1923,6 +2357,7 @@ class Handler(BaseHTTPRequestHandler):
                     attempt,
                     outcome="success",
                     usage=_response_usage(client_response, upstream_data),
+                    duration_ms=_attempt_duration_ms(attempt_started),
                 )
                 OBSERVABILITY.record_request_end(request_id, status_code=200)
                 return self._resp_json(client_response)
@@ -1944,6 +2379,7 @@ class Handler(BaseHTTPRequestHandler):
                     decision,
                     retry_after_s,
                     attempt_errors,
+                    duration_ms=_attempt_duration_ms(attempt_started),
                 )
                 if decision.stop_attempts:
                     break
@@ -1954,27 +2390,33 @@ class Handler(BaseHTTPRequestHandler):
                     print(f"[proxy] CLIENT DISCONNECTED req={request_id}: {type(e).__name__}", flush=True)
                     OBSERVABILITY.record_request_end(request_id, status_code=499, error=type(e).__name__)
                     return
-                _record_transport_failure(request_id, attempt, e, attempt_errors, stage="client_disconnected")
+                _record_transport_failure(request_id, attempt, e, attempt_errors, stage="client_disconnected", duration_ms=_attempt_duration_ms(attempt_started))
                 continue
 
             except (URLError, socket.timeout) as e:
                 err_label = "timeout" if isinstance(e, socket.timeout) else "network_error"
+                stage = "streaming_idle_timeout" if response_started and isinstance(e, socket.timeout) else _transport_stage_for_exception(e)
                 _record_transport_failure(
                     request_id,
                     attempt,
                     e,
                     attempt_errors,
                     reason=err_label,
-                    stage="transport_error",
+                    stage=stage,
+                    duration_ms=_attempt_duration_ms(attempt_started),
                 )
+                if response_started:
+                    OBSERVABILITY.record_request_end(request_id, status_code=502, error=type(e).__name__)
+                    return
                 continue
 
             except Exception as e:
                 if response_started:
                     print(f"[proxy] STREAM ERROR req={request_id} {_h(attempt.provider)}: {type(e).__name__}", flush=True)
+                    _record_proxy_exception(request_id, attempt, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
                     OBSERVABILITY.record_request_end(request_id, status_code=502, error=type(e).__name__)
                     return
-                _record_proxy_exception(request_id, attempt, e, attempt_errors)
+                _record_proxy_exception(request_id, attempt, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
                 continue
 
             finally:
@@ -2026,9 +2468,9 @@ class Handler(BaseHTTPRequestHandler):
         has_attempt = False
         total_start = time.time()
         routing_cfg = CONFIG.get("routing") or {}
-        connect_t = int(routing_cfg.get("connect_timeout_s", 30))
-        read_t = int(routing_cfg.get("read_timeout_s", 180))
-        first_byte_t = int(routing_cfg.get("first_token_timeout_s", 15))
+        connect_t = int(routing_cfg.get("connect_timeout_s", 15))
+        read_t = int(routing_cfg.get("read_timeout_s", 120))
+        first_byte_t = int(routing_cfg.get("first_token_timeout_s", 30))  # Total budget before first stream event.
         max_attempts = int(routing_cfg.get("max_attempts", 6))
         max_budget = (connect_t + read_t) * min(3, max(1, max_attempts))
 
@@ -2051,6 +2493,7 @@ class Handler(BaseHTTPRequestHandler):
                     flush=True,
                 )
 
+            attempt_started = time.time()
             try:
                 payload = dict(
                     convert_request(
@@ -2061,7 +2504,7 @@ class Handler(BaseHTTPRequestHandler):
                     )
                 )
             except ValueError as e:
-                _record_request_conversion_failure(request_id, attempt, RESPONSES, e, attempt_errors)
+                _record_request_conversion_failure(request_id, attempt, RESPONSES, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
                 continue
             payload["model"] = attempt.provider_model
             payload["stream"] = is_stream if attempt.upstream_format in (RESPONSES, CHAT, ANTHROPIC) else False
@@ -2079,11 +2522,13 @@ class Handler(BaseHTTPRequestHandler):
                         proxy_url=attempt.proxy_url,
                         remaining_timeout_s=remaining,
                         first_byte_timeout_s=first_byte_t if first_byte_t > 0 else None,
+                        attempt_started_at=attempt_started,
                     )
+                    first_event_remaining = _remaining_first_event_timeout(attempt_started, first_byte_t) if first_byte_t > 0 else None
                     if attempt.upstream_format in (RESPONSES, ANTHROPIC):
-                        initial_lines = _prefetch_initial_stream_lines(upstream_conn, first_byte_t if first_byte_t > 0 else None)
+                        initial_lines = _prefetch_initial_stream_lines(upstream_conn, first_event_remaining)
                     else:
-                        first_line = _prefetch_first_stream_line(upstream_conn, first_byte_t if first_byte_t > 0 else None)
+                        first_line = _prefetch_first_stream_line(upstream_conn, first_event_remaining)
                         initial_lines = [first_line] if first_line else None
                     OBSERVABILITY.record_first_byte(request_id)
 
@@ -2114,12 +2559,22 @@ class Handler(BaseHTTPRequestHandler):
                             read_timeout_s=read_t,
                             initial_lines=initial_lines,
                         )
+                    if stream_resp is None:
+                        _record_stream_interrupted(
+                            request_id,
+                            attempt,
+                            attempt_errors,
+                            duration_ms=_attempt_duration_ms(attempt_started),
+                        )
+                        OBSERVABILITY.record_request_end(request_id, status_code=502, error="stream_interrupted")
+                        return
                     ROUTER.report_success(attempt)
                     OBSERVABILITY.record_attempt(
                         request_id,
                         attempt,
                         outcome="success",
                         usage=_response_usage(stream_resp),
+                        duration_ms=_attempt_duration_ms(attempt_started),
                     )
                     OBSERVABILITY.record_request_end(request_id, status_code=200)
                     return
@@ -2151,6 +2606,7 @@ class Handler(BaseHTTPRequestHandler):
                     attempt,
                     outcome="success",
                     usage=_response_usage(client_response, upstream_data),
+                    duration_ms=_attempt_duration_ms(attempt_started),
                 )
                 OBSERVABILITY.record_request_end(request_id, status_code=200)
                 return self._resp_json(client_response)
@@ -2172,6 +2628,7 @@ class Handler(BaseHTTPRequestHandler):
                     decision,
                     retry_after_s,
                     attempt_errors,
+                    duration_ms=_attempt_duration_ms(attempt_started),
                 )
                 if decision.stop_attempts:
                     break
@@ -2182,27 +2639,33 @@ class Handler(BaseHTTPRequestHandler):
                     print(f"[proxy] CLIENT DISCONNECTED req={request_id}: {type(e).__name__}", flush=True)
                     OBSERVABILITY.record_request_end(request_id, status_code=499, error=type(e).__name__)
                     return
-                _record_transport_failure(request_id, attempt, e, attempt_errors, stage="client_disconnected")
+                _record_transport_failure(request_id, attempt, e, attempt_errors, stage="client_disconnected", duration_ms=_attempt_duration_ms(attempt_started))
                 continue
 
             except (URLError, socket.timeout) as e:
                 err_label = "timeout" if isinstance(e, socket.timeout) else "network_error"
+                stage = "streaming_idle_timeout" if response_started and isinstance(e, socket.timeout) else _transport_stage_for_exception(e)
                 _record_transport_failure(
                     request_id,
                     attempt,
                     e,
                     attempt_errors,
                     reason=err_label,
-                    stage="transport_error",
+                    stage=stage,
+                    duration_ms=_attempt_duration_ms(attempt_started),
                 )
+                if response_started:
+                    OBSERVABILITY.record_request_end(request_id, status_code=502, error=type(e).__name__)
+                    return
                 continue
 
             except Exception as e:
                 if response_started:
                     print(f"[proxy] STREAM ERROR req={request_id} {_h(attempt.provider)}: {type(e).__name__}", flush=True)
+                    _record_proxy_exception(request_id, attempt, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
                     OBSERVABILITY.record_request_end(request_id, status_code=502, error=type(e).__name__)
                     return
-                _record_proxy_exception(request_id, attempt, e, attempt_errors)
+                _record_proxy_exception(request_id, attempt, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
                 continue
 
             finally:
@@ -2297,17 +2760,16 @@ class Handler(BaseHTTPRequestHandler):
         print(f"[proxy] stream={is_stream} model={_hmodel(original_model)} msgs={msgs_count} tools={tools_count}", flush=True)
 
         try:
-            resolved_model = resolve_model(original_model or "")
-            if resolved_model != original_model:
-                print(f"[proxy] model alias: {original_model} -> {resolved_model}", flush=True)
-            # 若启用 union 模型源，为了让"客户端 model → canonical"自动对齐，
-            # 在第一次请求时尽量预热一次 models（短超时，失败则跳过，不影响主流程）。
+            # Rebuild union aliases from saved capabilities/config without upstream I/O.
             try:
                 if str((CONFIG.get("models") or {}).get("models_source", "first_healthy_provider")) == "union":
                     if not model_registry.has_cached_models("__union__"):
-                        fetch_upstream_models()
+                        model_registry.models_from_capabilities(CONFIG, ROUTER)
             except Exception:
                 pass
+            resolved_model = resolve_model(original_model or "")
+            if resolved_model != original_model:
+                print(f"[proxy] model alias: {original_model} -> {resolved_model}", flush=True)
             canonical_model = resolved_model
             OBSERVABILITY.record_request_start(
                 request_id,
@@ -2322,7 +2784,6 @@ class Handler(BaseHTTPRequestHandler):
             if DEBUG_LOG:
                 payload_base = convert_request(ANTHROPIC, CHAT, req, resolve_model=resolve_model)
                 for i, m in enumerate(payload_base.get("messages", [])[:5]):
-                    # 注意：reasoning_content 可能是空字符串；m.get(...) 会被当成 False，导致日志看不出来是否“有字段”。
                     if "reasoning_content" in m:
                         rv = m.get("reasoning_content")
                         rlen = len(rv) if isinstance(rv, str) else 0
@@ -2338,11 +2799,11 @@ class Handler(BaseHTTPRequestHandler):
             has_attempt = False
             total_start = time.time()
             routing_cfg = (CONFIG.get("routing") or {})
-            connect_t = int(routing_cfg.get("connect_timeout_s", 30))
-            read_t = int(routing_cfg.get("read_timeout_s", 180))
-            first_byte_t = int(routing_cfg.get("first_token_timeout_s", 15))  # 首个有效 SSE 数据超时；0 表示不启用
+            connect_t = int(routing_cfg.get("connect_timeout_s", 15))
+            read_t = int(routing_cfg.get("read_timeout_s", 120))
+            first_byte_t = int(routing_cfg.get("first_token_timeout_s", 30))  # Total budget before first stream event.
             max_attempts = int(routing_cfg.get("max_attempts", 6))
-            # 计算总超时预算：最多尝试 3 次，每次至多 connect_t+read_t
+            # Keep a bounded global routing budget across attempts.
             max_budget = (connect_t + read_t) * min(3, max(1, max_attempts))
 
             allowed_formats = [ANTHROPIC, CHAT, RESPONSES]
@@ -2355,7 +2816,7 @@ class Handler(BaseHTTPRequestHandler):
                 allowed_upstream_formats=allowed_formats,
             ):
                 has_attempt = True
-                # 每个 attempt 的剩余时间：已用时间越多，剩余预算越少
+                # Shrink per-attempt timeout as total routing budget is consumed.
                 elapsed = time.time() - total_start
                 remaining = max(connect_t, int(max_budget - elapsed))
                 has_attempt = True
@@ -2367,6 +2828,7 @@ class Handler(BaseHTTPRequestHandler):
                         flush=True,
                     )
 
+                attempt_started = time.time()
                 try:
                     payload = dict(
                         convert_request(
@@ -2377,7 +2839,7 @@ class Handler(BaseHTTPRequestHandler):
                         )
                     )
                 except ValueError as e:
-                    _record_request_conversion_failure(request_id, attempt, ANTHROPIC, e, attempt_errors)
+                    _record_request_conversion_failure(request_id, attempt, ANTHROPIC, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
                     continue
                 payload["model"] = attempt.provider_model
                 payload["stream"] = bool(is_stream) if attempt.upstream_format in (ANTHROPIC, CHAT, RESPONSES) else False
@@ -2388,12 +2850,13 @@ class Handler(BaseHTTPRequestHandler):
                 upstream_conn = None
                 try:
                     if is_stream:
-                        # 关键：先连上游成功，再回写 SSE 头（避免上游错误后无法返回 JSON）
-                        upstream_conn = _open_stream_with_compat_retry(request_id, attempt, payload, proxy_url=attempt.proxy_url, remaining_timeout_s=remaining, first_byte_timeout_s=first_byte_t if first_byte_t > 0 else None)
+                        # Open upstream stream and prefetch the first event before sending headers.
+                        upstream_conn = _open_stream_with_compat_retry(request_id, attempt, payload, proxy_url=attempt.proxy_url, remaining_timeout_s=remaining, first_byte_timeout_s=first_byte_t if first_byte_t > 0 else None, attempt_started_at=attempt_started)
+                        first_event_remaining = _remaining_first_event_timeout(attempt_started, first_byte_t) if first_byte_t > 0 else None
                         if attempt.upstream_format in (ANTHROPIC, RESPONSES):
-                            initial_lines = _prefetch_initial_stream_lines(upstream_conn, first_byte_t if first_byte_t > 0 else None)
+                            initial_lines = _prefetch_initial_stream_lines(upstream_conn, first_event_remaining)
                         else:
-                            first_line = _prefetch_first_stream_line(upstream_conn, first_byte_t if first_byte_t > 0 else None)
+                            first_line = _prefetch_first_stream_line(upstream_conn, first_event_remaining)
                             initial_lines = [first_line] if first_line else None
                         OBSERVABILITY.record_first_byte(request_id)
 
@@ -2418,12 +2881,22 @@ class Handler(BaseHTTPRequestHandler):
                             )
                         else:
                             anth_resp = do_stream(upstream_conn, self.wfile, original_model, read_timeout_s=read_t, initial_lines=initial_lines)
+                        if anth_resp is None:
+                            _record_stream_interrupted(
+                                request_id,
+                                attempt,
+                                attempt_errors,
+                                duration_ms=_attempt_duration_ms(attempt_started),
+                            )
+                            OBSERVABILITY.record_request_end(request_id, status_code=502, error="stream_interrupted")
+                            return
                         ROUTER.report_success(attempt)
                         OBSERVABILITY.record_attempt(
                             request_id,
                             attempt,
                             outcome="success",
                             usage=_response_usage(anth_resp),
+                            duration_ms=_attempt_duration_ms(attempt_started),
                         )
                         OBSERVABILITY.record_request_end(request_id, status_code=200)
                         if DEBUG_LOG:
@@ -2459,6 +2932,7 @@ class Handler(BaseHTTPRequestHandler):
                         attempt,
                         outcome="success",
                         usage=_response_usage(anth_resp, upstream_data),
+                        duration_ms=_attempt_duration_ms(attempt_started),
                     )
                     OBSERVABILITY.record_request_end(request_id, status_code=200)
                     self._resp_json(anth_resp)
@@ -2477,7 +2951,7 @@ class Handler(BaseHTTPRequestHandler):
                     )
                     err_type = decision.error_type
 
-                    # reasoning_content 错误：去除后换供应商重试
+                    # reasoning_content errors can be retried after stripping that field.
                     if scheduler_policy.should_strip_reasoning_content(attempt.upstream_format, error_body):
                         stripped = 0
                         for msg in payload.get("messages", []):
@@ -2486,8 +2960,7 @@ class Handler(BaseHTTPRequestHandler):
                                 stripped += 1
                         if stripped:
                             print(f"[proxy] reasoning_content stripped from {stripped} msg(s), retrying...", flush=True)
-                        # 直接继续下一个 attempt，payload 中已无 reasoning_content
-                        # 但当前 attempt 仍需正常上报失败
+                        # Continue with the next attempt after reporting this failed attempt.
                         _record_upstream_http_failure(
                             request_id,
                             attempt,
@@ -2497,6 +2970,7 @@ class Handler(BaseHTTPRequestHandler):
                             retry_after_s,
                             attempt_errors,
                             reason="reasoning_content_retry",
+                            duration_ms=_attempt_duration_ms(attempt_started),
                         )
                         continue
 
@@ -2508,9 +2982,9 @@ class Handler(BaseHTTPRequestHandler):
                         decision,
                         retry_after_s,
                         attempt_errors,
+                        duration_ms=_attempt_duration_ms(attempt_started),
                     )
 
-                    # 客户端参数错误：不要轮换（换 provider/key 也无意义）
                     if decision.stop_attempts:
                         break
                     continue
@@ -2520,39 +2994,54 @@ class Handler(BaseHTTPRequestHandler):
                         print(f"[proxy] CLIENT DISCONNECTED req={request_id}: {type(e).__name__}", flush=True)
                         OBSERVABILITY.record_request_end(request_id, status_code=499, error=type(e).__name__)
                         return
-                    _record_transport_failure(request_id, attempt, e, attempt_errors, stage="client_disconnected")
+                    _record_transport_failure(request_id, attempt, e, attempt_errors, stage="client_disconnected", duration_ms=_attempt_duration_ms(attempt_started))
                     continue
 
                 except URLError as e:
+                    stage = _transport_stage_for_exception(e)
                     _record_transport_failure(
                         request_id,
                         attempt,
                         e,
                         attempt_errors,
                         reason="network_error",
-                        stage="transport_error",
+                        stage=stage,
+                        duration_ms=_attempt_duration_ms(attempt_started),
                     )
+                    if response_started:
+                        OBSERVABILITY.record_request_end(request_id, status_code=502, error=type(e).__name__)
+                        return
                     continue
 
                 except socket.timeout as e:
+                    stage = "streaming_idle_timeout" if response_started else _transport_stage_for_exception(e)
                     _record_transport_failure(
                         request_id,
                         attempt,
                         e,
                         attempt_errors,
                         reason="timeout",
-                        stage="transport_error",
+                        stage=stage,
+                        duration_ms=_attempt_duration_ms(attempt_started),
                     )
+                    if response_started:
+                        OBSERVABILITY.record_request_end(request_id, status_code=502, error=type(e).__name__)
+                        return
                     continue
 
                 except Exception as e:
-                    _record_proxy_exception(request_id, attempt, e, attempt_errors)
+                    if response_started:
+                        print(f"[proxy] STREAM ERROR req={request_id} {_h(attempt.provider)}: {type(e).__name__}", flush=True)
+                        _record_proxy_exception(request_id, attempt, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
+                        OBSERVABILITY.record_request_end(request_id, status_code=502, error=type(e).__name__)
+                        return
+                    _record_proxy_exception(request_id, attempt, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
                     continue
 
                 finally:
                     _close_upstream_conn(upstream_conn)
 
-            # 所有 attempt 失败（且尚未写 SSE/响应体）
+            # All attempts failed before writing SSE/response body.
             if not has_attempt:
                 if is_stream:
                     OBSERVABILITY.record_request_end(request_id, status_code=501)
@@ -2604,7 +3093,7 @@ class _ThreadPoolHTTPServer(ThreadingMixIn, HTTPServer):
     allow_reuse_address = True
 
     def __init__(self, *args, max_workers=20, **kwargs):
-        self._executor = None  # 预初始化，防止 server_bind() 失败时 server_close() 报 AttributeError
+        self._executor = None  # Initialize before server_bind so server_close is safe after bind failures.
         super().__init__(*args, **kwargs)
         self._executor = concurrent.futures.ThreadPoolExecutor(
             max_workers=max_workers,
@@ -2621,11 +3110,17 @@ class _ThreadPoolHTTPServer(ThreadingMixIn, HTTPServer):
 
 
 if __name__ == "__main__":
-    # 预热模型列表（避免首个请求卡住）
+    # Restore runtime state before model prefetch.
+    _load_router_state()
+    # Start autosave before serving requests.
+    _start_state_autosave()
+
+    # Warm model list so first user request is less likely to block.
     try:
         models_source = str((CONFIG.get("models") or {}).get("models_source", "first_healthy_provider"))
         if models_source in ("union", "first_healthy_provider"):
             fetch_upstream_models()
+            _save_router_state()
     except Exception:
         pass
 
@@ -2645,4 +3140,7 @@ if __name__ == "__main__":
         s.serve_forever()
     except KeyboardInterrupt:
         print("\n[proxy] Shutting down...", flush=True)
+        _save_router_state()
         s.server_close()
+
+

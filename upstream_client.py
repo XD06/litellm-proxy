@@ -53,8 +53,8 @@ class OpenAIUpstreamClient:
 
     def _timeout(self, *, is_stream: bool, remaining_timeout_s: Optional[int] = None) -> int:
         routing = self.cfg.get("routing", {}) or {}
-        connect_t = int(routing.get("connect_timeout_s", 30))
-        read_t = int(routing.get("read_timeout_s", 180))
+        connect_t = int(routing.get("connect_timeout_s", 15))
+        read_t = int(routing.get("read_timeout_s", 120))
         if is_stream:
             return read_t
         base_t = connect_t + read_t
@@ -111,17 +111,20 @@ class OpenAIUpstreamClient:
         http_req = Request(url, data=json.dumps(payload).encode("utf-8"), headers=hdr)
         opener = self._opener_for(proxy_url)
         timeout = self._timeout(is_stream=True, remaining_timeout_s=remaining_timeout_s)
-        # 使用首字节超时（如果指定）作为初始连接超时
-        connect_timeout = first_byte_timeout_s if first_byte_timeout_s else timeout
-        resp = opener.open(http_req, timeout=connect_timeout)
-        # 如果指定了首字节超时，设置 socket 超时以便在首字节到达后可以延长
+        routing = self.cfg.get("routing", {}) or {}
+        connect_t = int(routing.get("connect_timeout_s", 15))
+        # Opening the stream should be bounded by connect_timeout_s, while the
+        # caller may pass a smaller remaining first-event budget.
+        connect_timeout = connect_t
         if first_byte_timeout_s:
-            try:
-                sock = resp.fp.raw._sock if hasattr(resp.fp, 'raw') and hasattr(resp.fp.raw, '_sock') else None
-                if sock:
-                    sock.settimeout(timeout)  # 收到连接后恢复为正常读取超时
-            except Exception:
-                pass
+            connect_timeout = min(connect_timeout, float(first_byte_timeout_s))
+        resp = opener.open(http_req, timeout=connect_timeout)
+        try:
+            sock = resp.fp.raw._sock if hasattr(resp.fp, 'raw') and hasattr(resp.fp.raw, '_sock') else None
+            if sock:
+                sock.settimeout(timeout)
+        except Exception:
+            pass
         return resp
 
     def fetch_models(
@@ -140,7 +143,12 @@ class OpenAIUpstreamClient:
             with closing(opener.open(req, timeout=int(timeout_s))) as resp:
                 raw = resp.read()
             return json.loads(raw)
-        except HTTPError:
-            return None
-        except Exception:
-            return None
+        except HTTPError as e:
+            body = ""
+            try:
+                body = e.read().decode("utf-8", errors="replace")[:300]
+            except Exception:
+                body = ""
+            raise RuntimeError(f"HTTP {int(getattr(e, 'code', 0) or 0)} fetching {url}: {body}") from e
+        except Exception as e:
+            raise RuntimeError(f"{type(e).__name__} fetching {url}: {str(e)[:300]}") from e

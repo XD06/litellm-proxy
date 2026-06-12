@@ -2,6 +2,7 @@ import json
 import os
 import tempfile
 import threading
+import time
 import unittest
 from contextlib import contextmanager
 from http.server import HTTPServer
@@ -386,6 +387,78 @@ class AdminApiTests(unittest.TestCase):
         self.assertEqual(body["action"], "models_refreshed")
         self.assertEqual(body["models"]["providers"]["alpha"]["status"], "ok")
 
+    def test_admin_provider_models_refresh_refreshes_one_provider(self):
+        cfg = {
+            "server": {"admin_key": "admin-secret"},
+            "models": {"provider_model_capabilities": {}},
+            "providers": {"alpha": {"base_url": "https://alpha.example", "keys": ["raw-alpha-key"], "enabled": True}},
+        }
+        headers = {"Content-Type": "application/json", "X-Admin-Key": "admin-secret"}
+
+        def fake_fetch_provider_models(provider):
+            cfg["models"]["provider_model_capabilities"] = {
+                provider: {
+                    "status": "ok",
+                    "fetched_at": 456,
+                    "models": ["alpha-model"],
+                    "canonical_map": {"alpha-model": "alpha-model"},
+                    "formats": ["chat_completions"],
+                }
+            }
+            return {"data": [{"id": "alpha-model"}]}
+
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(sse2json.model_registry, "clear_cache") as clear_cache, patch.object(
+            sse2json, "fetch_provider_models", fake_fetch_provider_models
+        ):
+            status, body = self.post_json("/-/admin/providers/alpha/models/refresh", headers=headers)
+
+        self.assertEqual(status, 200)
+        clear_cache.assert_called_once_with("alpha")
+        self.assertEqual(body["action"], "provider_models_refreshed")
+        self.assertEqual(body["provider"], "alpha")
+        self.assertEqual(body["models"]["providers"]["alpha"]["status"], "ok")
+
+    def test_admin_provider_models_refresh_unknown_provider(self):
+        cfg = {
+            "server": {"admin_key": "admin-secret"},
+            "models": {"provider_model_capabilities": {}},
+            "providers": {},
+        }
+        headers = {"Content-Type": "application/json", "X-Admin-Key": "admin-secret"}
+        with patch.object(sse2json, "CONFIG", cfg):
+            status, body = self.post_json("/-/admin/providers/missing/models/refresh", headers=headers)
+
+        self.assertEqual(status, 404)
+        self.assertIn("unknown provider", body["error"]["message"])
+
+    def test_client_models_uses_saved_capabilities_without_upstream_fetch(self):
+        cfg = {
+            "server": {"admin_key": "admin-secret"},
+            "models": {
+                "models_source": "union",
+                "provider_model_capabilities": {
+                    "alpha": {
+                        "status": "ok",
+                        "fetched_at": 456,
+                        "models": ["alpha/raw"],
+                        "canonical_map": {"alpha-model": "alpha/raw"},
+                        "formats": ["chat_completions"],
+                    }
+                },
+            },
+            "providers": {"alpha": {"base_url": "https://alpha.example", "keys": ["raw-alpha-key"], "enabled": True}},
+        }
+        router = sse2json.UpstreamRouter(cfg)
+        sse2json.model_registry.clear_cache()
+
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(sse2json, "ROUTER", router), patch.object(
+            sse2json, "fetch_upstream_models", side_effect=AssertionError("client /v1/models must not fetch upstream")
+        ):
+            status, body = self.get_json("/v1/models")
+
+        self.assertEqual(status, 200)
+        self.assertEqual([m["id"] for m in body["data"]], ["alpha-model"])
+
     def test_metrics_record_successful_proxy_request(self):
         cfg = {
             "server": {"admin_key": "admin-secret"},
@@ -633,6 +706,78 @@ class AdminApiTests(unittest.TestCase):
         self.assertEqual(listed["total"], 1)
         self.assertEqual(listed["items"][0]["request_id"], "req-keep")
         self.assertEqual(missing_status, 404)
+
+    def test_admin_can_delete_matching_request_records(self):
+        db_path = self.temp_overlay_path() + ".sqlite3"
+        cfg = {
+            "server": {"admin_key": "admin-secret"},
+            "models": {"disable_client_model_map": True},
+            "observability": {
+                "recent_requests_limit": 10,
+                "history": {"enabled": True, "path": db_path, "retention_days": 30},
+            },
+            "providers": {},
+        }
+        headers = {"Content-Type": "application/json", "X-Admin-Key": "admin-secret"}
+        obs = ProxyObservability(cfg)
+        for rid, provider, status_code in (
+            ("req-keep", "alpha", 200),
+            ("req-delete", "beta", 502),
+            ("req-beta-ok", "beta", 200),
+        ):
+            obs.record_request_start(
+                rid,
+                client_format="chat_completions",
+                endpoint="chat_completions",
+                model=rid,
+                stream=False,
+                path="/v1/chat/completions",
+            )
+            obs.record_attempt(
+                rid,
+                Attempt(
+                    request_id=rid,
+                    attempt_no=1,
+                    provider=provider,
+                    key_index=0,
+                    key="raw-alpha-key",
+                    url="https://alpha.example/v1/chat/completions",
+                    headers={"Authorization": "Bearer raw-alpha-key"},
+                    provider_model="alpha-model",
+                    upstream_format="chat_completions",
+                ),
+                outcome="success" if status_code < 400 else "failed",
+                error_type="" if status_code < 400 else "server_error",
+                http_status=None if status_code < 400 else 502,
+            )
+            obs.record_request_end(rid, status_code=status_code)
+
+        before_total = obs.snapshot()["counters"]["requests_total"]
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(sse2json, "OBSERVABILITY", obs):
+            bad_status, bad_body = self.post_json(
+                "/-/admin/requests/delete-matching",
+                {"confirm": "delete_matching_request_records", "filters": {}},
+                headers=headers,
+            )
+            delete_status, deleted = self.post_json(
+                "/-/admin/requests/delete-matching",
+                {"confirm": "delete_matching_request_records", "filters": {"provider": "beta", "status": "failed"}},
+                headers=headers,
+            )
+            list_status, listed = self.get_json("/-/admin/requests", headers={"X-Admin-Key": "admin-secret"})
+            metrics_status, metrics = self.get_json("/-/admin/metrics", headers={"X-Admin-Key": "admin-secret"})
+
+        self.assertEqual(bad_status, 400)
+        self.assertIn("at least one filter", bad_body["error"]["message"])
+        self.assertEqual(delete_status, 200)
+        self.assertEqual(deleted["action"], "request_matching_records_deleted")
+        self.assertEqual(deleted["history"]["requests_deleted"], 1)
+        self.assertEqual(deleted["memory"]["recent_requests_deleted"], 1)
+        self.assertEqual(list_status, 200)
+        self.assertEqual(listed["total"], 2)
+        self.assertCountEqual([item["request_id"] for item in listed["items"]], ["req-beta-ok", "req-keep"])
+        self.assertEqual(metrics_status, 200)
+        self.assertEqual(metrics["counters"]["requests_total"], before_total)
 
     def test_admin_request_detail_returns_404_for_missing_request(self):
         cfg = {"server": {"admin_key": "admin-secret"}, "providers": {}, "models": {}}
@@ -907,6 +1052,7 @@ class AdminApiTests(unittest.TestCase):
 
         with self.runtime_config(manager), patch.object(sse2json, "OpenAIUpstreamClient", lambda _cfg: FakeClient()):
             sse2json._apply_runtime_config(manager.config)
+            sse2json.fetch_provider_models("alpha")
             before_status, before = self.get_json("/v1/models")
             add_status, add_body = self.post_json(
                 "/-/admin/providers",
@@ -925,6 +1071,11 @@ class AdminApiTests(unittest.TestCase):
                 headers=headers,
             )
             after_status, after = self.get_json("/v1/models")
+            for _ in range(20):
+                if "beta-model" in [m["id"] for m in after["data"]]:
+                    break
+                time.sleep(0.05)
+                after_status, after = self.get_json("/v1/models")
 
         self.assertEqual(before_status, 200)
         self.assertEqual([m["id"] for m in before["data"]], ["alpha-model"])
@@ -1098,7 +1249,7 @@ class AdminApiTests(unittest.TestCase):
         self.assertNotIn(b"adminKeyInput", html_body)
         self.assertNotIn(b"saveKeyButton", html_body)
         self.assertIn(b"modelCapabilities", html_body)
-        self.assertIn(b"refreshModelsButton", html_body)
+        self.assertNotIn(b"refreshModelsButton", html_body)
         self.assertIn(b"overlaySafety", html_body)
         self.assertIn(b"clearOverlayButton", html_body)
         self.assertNotIn(b"admin-secret", html_body)
@@ -1146,8 +1297,8 @@ class AdminApiTests(unittest.TestCase):
                 "provider_model_capabilities": {
                     "alpha": {
                         "status": "ok",
-                        "models": ["alpha-model"],
-                        "canonical_map": {"alpha-model": "alpha-model"},
+                        "models": ["alpha-model", "chosen-model"],
+                        "canonical_map": {"alpha-model": "alpha-model", "chosen-model": "provider-chosen-model"},
                         "formats": [fmt],
                     }
                 },
@@ -1180,6 +1331,7 @@ class AdminApiTests(unittest.TestCase):
         with patch.object(sse2json, "CONFIG", cfg), patch.object(sse2json, "ROUTER", router), patch.object(sse2json, "UPSTREAM_CLIENT", OkClient()):
             status, body = self.post_json(
                 "/-/admin/providers/alpha/keys/0/test",
+                {"model": "chosen-model"},
                 headers={"Content-Type": "application/json", "X-Admin-Key": "admin-secret"},
             )
 
@@ -1189,6 +1341,10 @@ class AdminApiTests(unittest.TestCase):
         self.assertEqual(body["result"]["format"], "chat_completions")
         self.assertEqual(body["result"]["latency_ms"], 42)
         self.assertTrue(captured["url"].endswith("/v1/chat/completions"))
+        self.assertEqual(captured["payload"]["model"], "provider-chosen-model")
+        self.assertEqual(body["result"]["model"], "chosen-model")
+        self.assertEqual(body["result"]["requested_model"], "chosen-model")
+        self.assertEqual(body["result"]["upstream_model"], "provider-chosen-model")
 
     def test_key_probe_uses_provider_supported_format(self):
         cfg = self._probe_cfg(fmt="anthropic_messages")
@@ -1246,3 +1402,5 @@ class AdminApiTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+

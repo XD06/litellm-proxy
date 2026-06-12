@@ -1,6 +1,10 @@
+import os
+import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
+import sse2json
 from observability import ProxyObservability
 from router import UpstreamRouter, _KeyState, _ProviderState
 
@@ -61,6 +65,47 @@ class RouterStateMigrationTests(unittest.TestCase):
         new = UpstreamRouter(_cfg(self.providers))
         new.migrate_state_from(None)
         self.assertIn("alpha", new._providers_state)
+
+
+class RuntimeStatePersistenceTests(unittest.TestCase):
+    def test_router_state_file_restores_provider_model_capabilities(self):
+        cfg = {
+            "providers": {"alpha": {"base_url": "https://a.test", "keys": ["k1"]}},
+            "models": {
+                "provider_model_capabilities": {
+                    "alpha": {
+                        "status": "ok",
+                        "fetched_at": 123,
+                        "models": ["raw-alpha-model"],
+                        "canonical_map": {"canonical-alpha": "raw-alpha-model"},
+                        "formats": ["chat_completions"],
+                    }
+                }
+            },
+        }
+        router = UpstreamRouter(cfg)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "router_state.json")
+            with patch.object(sse2json, "CONFIG", cfg), patch.object(sse2json, "ROUTER", router), patch.object(
+                sse2json, "_ROUTER_STATE_FILE", path
+            ):
+                sse2json.model_registry.restore_union_model_ids({"canonical-alpha"})
+                sse2json._save_router_state()
+
+            restored_cfg = {
+                "providers": {"alpha": {"base_url": "https://a.test", "keys": ["k1"]}},
+                "models": {"provider_model_capabilities": {}},
+            }
+            restored_router = UpstreamRouter(restored_cfg)
+            with patch.object(sse2json, "CONFIG", restored_cfg), patch.object(sse2json, "ROUTER", restored_router), patch.object(
+                sse2json, "_ROUTER_STATE_FILE", path
+            ):
+                sse2json.model_registry.clear_cache()
+                sse2json._load_router_state()
+
+            caps = restored_cfg["models"]["provider_model_capabilities"]["alpha"]
+            self.assertEqual(caps["canonical_map"]["canonical-alpha"], "raw-alpha-model")
+            self.assertIn("canonical-alpha", sse2json.model_registry.union_model_ids())
 
 
 class ObservabilityMigrationTests(unittest.TestCase):

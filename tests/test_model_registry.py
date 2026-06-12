@@ -194,6 +194,66 @@ class ModelRegistryTests(unittest.TestCase):
             ["https://alpha.example/anthropic", "https://alpha.example"],
         )
 
+    def test_provider_refresh_records_only_selected_provider(self):
+        cfg = registry_config("union")
+        client = FakeUpstreamClient(
+            {
+                "https://alpha.example": {"data": [{"id": "alpha-model"}]},
+                "https://beta.example": {"data": [{"id": "beta-model"}]},
+            }
+        )
+
+        result = model_registry.fetch_upstream_models(cfg, FakeRouter(), client, only_provider="alpha")
+
+        self.assertEqual([m["id"] for m in result["data"]], ["alpha-model"])
+        self.assertEqual([c["base_url"] for c in client.calls], ["https://alpha.example"])
+        self.assertEqual(cfg["models"]["provider_model_capabilities"]["alpha"]["status"], "ok")
+        self.assertNotIn("beta", cfg["models"]["provider_model_capabilities"])
+        self.assertEqual(model_registry.union_model_ids(), {"alpha-model"})
+
+    def test_provider_refresh_error_records_attempted_model_urls(self):
+        cfg = registry_config("union")
+        cfg["providers"]["alpha"]["base_url"] = "https://alpha.example/anthropic"
+        client = FakeUpstreamClient(
+            {
+                "https://alpha.example/anthropic": RuntimeError("network failed for alpha-key"),
+                "https://alpha.example": RuntimeError("HTTP 404"),
+            }
+        )
+
+        model_registry.fetch_upstream_models(cfg, FakeRouter(), client, only_provider="alpha")
+
+        cap = cfg["models"]["provider_model_capabilities"]["alpha"]
+        self.assertEqual(cap["status"], "error")
+        self.assertIn("https://alpha.example/anthropic/v1/models", cap["error"])
+        self.assertIn("https://alpha.example/v1/models", cap["error"])
+        self.assertNotIn("alpha-key", cap["error"])
+
+    def test_static_models_fallback_records_live_fetch_error(self):
+        cfg = registry_config("union")
+        cfg["providers"]["alpha"]["base_url"] = "https://alpha.example/anthropic"
+        cfg["providers"]["alpha"]["static_models"] = ["manual-model"]
+        client = FakeUpstreamClient(
+            {
+                "https://alpha.example/anthropic": RuntimeError("network failed for alpha-key"),
+                "https://alpha.example": RuntimeError("HTTP 404"),
+            }
+        )
+
+        result = model_registry.fetch_upstream_models(cfg, FakeRouter(), client, only_provider="alpha")
+
+        self.assertEqual([m["id"] for m in result["data"]], ["manual-model"])
+        self.assertEqual(
+            [c["base_url"] for c in client.calls],
+            ["https://alpha.example/anthropic", "https://alpha.example"],
+        )
+        cap = cfg["models"]["provider_model_capabilities"]["alpha"]
+        self.assertEqual(cap["status"], "ok")
+        self.assertIn("using static_models fallback", cap["error"])
+        self.assertIn("https://alpha.example/anthropic/v1/models", cap["error"])
+        self.assertIn("https://alpha.example/v1/models", cap["error"])
+        self.assertNotIn("alpha-key", cap["error"])
+
     def test_first_healthy_provider_fetches_and_caches_models(self):
         cfg = registry_config("first_healthy_provider")
         client = FakeUpstreamClient({"https://alpha.example": {"data": [{"id": "alpha-model"}]}})
@@ -204,6 +264,38 @@ class ModelRegistryTests(unittest.TestCase):
         self.assertEqual(first["data"][0]["id"], "alpha-model")
         self.assertEqual(second["data"][0]["id"], "alpha-model")
         self.assertEqual(len(client.calls), 1)
+
+    def test_models_from_capabilities_union_does_not_require_upstream_fetch(self):
+        cfg = registry_config("union")
+        cfg["models"]["provider_model_capabilities"] = {
+            "alpha": {
+                "status": "ok",
+                "models": ["alpha/raw"],
+                "canonical_map": {"alpha-model": "alpha/raw"},
+                "formats": ["chat_completions"],
+            },
+            "beta": {
+                "status": "ok",
+                "models": ["beta/raw"],
+                "canonical_map": {"beta-model": "beta/raw"},
+                "formats": ["responses"],
+            },
+        }
+
+        result = model_registry.models_from_capabilities(cfg, FakeRouter())
+
+        self.assertEqual([m["id"] for m in result["data"]], ["alpha-model", "beta-model"])
+        self.assertEqual(model_registry.union_model_ids(), {"alpha-model", "beta-model"})
+
+    def test_models_from_capabilities_includes_configured_models(self):
+        cfg = registry_config("union")
+        cfg["providers"]["alpha"]["static_models"] = ["manual-alpha"]
+        cfg["models"]["provider_model_map"] = {"beta": {"mapped-beta": "raw-beta"}}
+        cfg["models"]["routes"] = {"routed-model": {"providers": ["alpha"]}}
+
+        result = model_registry.models_from_capabilities(cfg, FakeRouter())
+
+        self.assertEqual([m["id"] for m in result["data"]], ["manual-alpha", "mapped-beta", "routed-model"])
 
     def test_models_fetch_uses_key_proxy_before_provider_and_global_proxy(self):
         cfg = registry_config("union")

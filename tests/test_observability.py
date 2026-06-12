@@ -1,3 +1,5 @@
+import os
+import tempfile
 import unittest
 
 from observability import ProxyObservability
@@ -78,6 +80,35 @@ class ObservabilityTests(unittest.TestCase):
         self.assertEqual(snap["recent_requests"][0]["attempts"][0]["key_masked"], "se**ey")
         self.assertEqual(len(snap["recent_requests"][0]["attempts"][0]["key_id"]), 10)
         self.assertNotIn("secret-key", str(snap))
+
+    def test_sqlite_history_restores_recent_requests_on_restart(self):
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
+            cfg = {
+                "observability": {
+                    "recent_requests_limit": 5,
+                    "history": {"enabled": True, "path": os.path.join(tmp, "history.sqlite3")},
+                },
+            }
+            obs = ProxyObservability(cfg)
+            obs.record_request_start(
+                "req-restore",
+                client_format="chat_completions",
+                endpoint="chat_completions",
+                model="client-model",
+                stream=False,
+                path="/v1/chat/completions",
+            )
+            obs.record_first_byte("req-restore", 77)
+            obs.record_attempt("req-restore", make_attempt("req-restore", provider="alpha"), outcome="success")
+            obs.record_request_end("req-restore", status_code=200)
+
+            restored = ProxyObservability(cfg)
+            snap = restored.snapshot()
+
+            self.assertEqual(snap["counters"]["requests_total"], 1)
+            self.assertEqual([item["request_id"] for item in snap["recent_requests"]], ["req-restore"])
+            self.assertEqual(snap["recent_requests"][0]["first_byte_ms"], 77)
+            self.assertEqual(snap["recent_requests"][0]["attempts"][0]["provider"], "alpha")
 
     def test_records_failure_reason_breakdowns(self):
         obs = ProxyObservability({"observability": {"recent_requests_limit": 2}})
@@ -254,6 +285,40 @@ class ObservabilityTests(unittest.TestCase):
         self.assertEqual(result["memory"]["recent_requests_deleted"], 1)
         self.assertEqual([item["request_id"] for item in snap["recent_requests"]], ["req-fail"])
         self.assertEqual(obs.list_requests()["total"], 1)
+
+    def test_delete_matching_requests_removes_recent_without_resetting_counters(self):
+        obs = ProxyObservability({"observability": {"recent_requests_limit": 10}})
+        for rid, provider, status_code in (
+            ("req-ok", "alpha", 200),
+            ("req-fail", "beta", 502),
+            ("req-other", "beta", 200),
+        ):
+            obs.record_request_start(
+                rid,
+                client_format="chat_completions",
+                endpoint="chat_completions",
+                model=rid,
+                stream=False,
+                path="/v1/chat/completions",
+            )
+            obs.record_attempt(
+                rid,
+                make_attempt(rid, provider=provider),
+                outcome="success" if status_code < 400 else "failed",
+                error_type="" if status_code < 400 else "server_error",
+                http_status=None if status_code < 400 else 502,
+            )
+            obs.record_request_end(rid, status_code=status_code)
+        before = obs.snapshot()["counters"].copy()
+
+        result = obs.delete_matching_requests({"provider": "beta", "status": "failed"})
+        snap = obs.snapshot()
+
+        self.assertEqual(result["memory"]["recent_requests_deleted"], 1)
+        self.assertEqual([item["request_id"] for item in snap["recent_requests"]], ["req-other", "req-ok"])
+        self.assertEqual(snap["counters"]["requests_total"], before["requests_total"])
+        self.assertEqual(snap["counters"]["requests_failed"], before["requests_failed"])
+        self.assertEqual(snap["counters"]["attempts_failed"], before["attempts_failed"])
 
     def test_get_request_finds_recent_and_active_requests(self):
         obs = ProxyObservability({"observability": {"recent_requests_limit": 10}})

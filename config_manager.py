@@ -381,11 +381,13 @@ class RuntimeConfigManager:
             "responses_path",
             "anthropic_messages_path",
             "forward_client_headers",
+            "user_agent",
             "force_reasoning_content",
             "force_anthropic_thinking",
             "assume_supports_unknown_models",
             "pricing",
             "priority",
+            "static_models",
         }
         clean: Dict[str, Any] = {}
         for key, value in patch.items():
@@ -394,6 +396,8 @@ class RuntimeConfigManager:
             clean[key] = copy.deepcopy(value)
         if "base_url" in clean and not str(clean.get("base_url") or "").strip():
             raise ConfigValidationError("base_url cannot be empty")
+        if "user_agent" in clean:
+            clean["user_agent"] = str(clean.get("user_agent") or "").strip()
         if "keys" in clean:
             keys = clean.get("keys")
             if not isinstance(keys, (str, list)):
@@ -416,6 +420,32 @@ class RuntimeConfigManager:
             raise ConfigValidationError("pricing must be an object")
         if "priority" in clean:
             clean["priority"] = RuntimeConfigManager._bounded_int(clean.get("priority"), "priority", -1000, 1000)
+        if "static_models" in clean:
+            sm = clean.get("static_models")
+            if sm is None:
+                pass  # allow clearing
+            elif isinstance(sm, list):
+                seen = set()
+                out = []
+                for m in sm:
+                    value = str(m).strip()
+                    if not value or value in seen:
+                        continue
+                    seen.add(value)
+                    out.append(value)
+                clean["static_models"] = out
+            elif isinstance(sm, str):
+                seen = set()
+                out = []
+                for m in sm.split(","):
+                    value = m.strip()
+                    if not value or value in seen:
+                        continue
+                    seen.add(value)
+                    out.append(value)
+                clean["static_models"] = out
+            else:
+                raise ConfigValidationError("static_models must be a list of model id strings")
         return clean
 
     def _validate_routing_patch(self, patch: Dict[str, Any]) -> Dict[str, Any]:
