@@ -7310,19 +7310,19 @@ body {
 
 .traffic-total-line {
   stroke: #a855f7;
-  stroke-width: 3.8;
+  stroke-width: 2.2;
   filter: drop-shadow(0 4px 6px rgba(168, 85, 247, 0.22));
 }
 
 .traffic-input-line {
   stroke: #3b82f6;
-  stroke-width: 2.7;
+  stroke-width: 1.5;
   stroke-dasharray: 6 4;
 }
 
 .traffic-output-line {
   stroke: #10b981;
-  stroke-width: 2.7;
+  stroke-width: 1.5;
   stroke-dasharray: 2 3;
 }
 
@@ -7349,7 +7349,7 @@ body {
 .traffic-latency-line {
   fill: none;
   stroke: #f59e0b;
-  stroke-width: 3.5;
+  stroke-width: 2.0;
   stroke-linecap: round;
   stroke-linejoin: round;
   filter: drop-shadow(0 4px 6px rgba(245, 158, 11, 0.22));
@@ -7456,7 +7456,7 @@ body {
 .traffic-trend-legend-item.traffic-input-dot i,
 .traffic-trend-legend-item.traffic-output-dot i {
   width: 18px;
-  height: 3px;
+  height: 2px;
   border-radius: 999px;
 }
 
