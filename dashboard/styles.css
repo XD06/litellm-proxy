@@ -7295,6 +7295,10 @@ body {
   pointer-events: none;
 }
 
+.traffic-plot-bg {
+  fill: transparent;
+}
+
 .traffic-total-line,
 .traffic-input-line,
 .traffic-output-line {
@@ -7307,10 +7311,11 @@ body {
 .traffic-total-line {
   stroke: #a855f7;
   stroke-width: 3.8;
+  filter: drop-shadow(0 4px 6px rgba(168, 85, 247, 0.22));
 }
 
 .traffic-input-line {
-  stroke: #2563eb;
+  stroke: #3b82f6;
   stroke-width: 2.7;
 }
 
@@ -7319,19 +7324,44 @@ body {
   stroke-width: 2.7;
 }
 
-.traffic-bar-req {
-  fill: #6366f1;
-  opacity: 0.42;
+.traffic-bar-success {
+  fill: #10b981;
+  opacity: 0.85;
   transition: opacity 0.12s ease;
 }
 
-.traffic-bar-req:hover {
-  opacity: 0.66;
+.traffic-bar-success:hover {
+  opacity: 1;
 }
 
 .traffic-bar-fail {
-  fill: #f43f5e;
-  opacity: 0.92;
+  fill: #ef4444;
+  opacity: 0.9;
+  transition: opacity 0.12s ease;
+}
+
+.traffic-bar-fail:hover {
+  opacity: 1;
+}
+
+.traffic-latency-line {
+  fill: none;
+  stroke: #f59e0b;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 4px 6px rgba(245, 158, 11, 0.22));
+}
+
+.traffic-latency-area {
+  fill: url("#trafficLatencyArea");
+  pointer-events: none;
+}
+
+.traffic-latency-dot {
+  fill: #f59e0b;
+  stroke: #ffffff;
+  stroke-width: 2;
 }
 
 .traffic-trend-dot {
@@ -7345,36 +7375,91 @@ body {
 }
 
 .traffic-input-dot {
-  fill: #2563eb;
+  fill: #3b82f6;
 }
 
 .traffic-output-dot {
   fill: #10b981;
 }
 
-.traffic-trend-legend {
+.traffic-chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 40%, transparent);
+}
+
+.traffic-chart-header .traffic-trend-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px 18px;
-  justify-content: center;
+  gap: 16px;
   align-items: center;
-  padding: 0 8px 12px;
+  padding: 0;
+  margin: 0;
+}
+
+.traffic-mode-selectors {
+  display: inline-flex;
+  background: #f1f5f9;
+  padding: 3px;
+  border-radius: 99px;
+  border: 1px solid #e2e8f0;
+}
+
+.traffic-mode-selectors .pill-toggle {
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  padding: 6px 12px;
+  border-radius: 99px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin: 0;
+  height: auto;
+  line-height: 1.2;
+}
+
+.traffic-mode-selectors .pill-toggle:hover {
+  color: #1e293b;
+}
+
+.traffic-mode-selectors .pill-toggle.is-active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  font-weight: 800;
 }
 
 .traffic-trend-legend-item {
   display: inline-flex;
-  gap: 7px;
+  gap: 8px;
   align-items: center;
-  color: #666d78;
+  color: #475569;
   font-size: 12px;
-  font-weight: 720;
+  font-weight: 600;
 }
 
 .traffic-trend-legend-item i {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Line series legend indicators (pills/lines) */
+.traffic-trend-legend-item.traffic-latency-legend i,
+.traffic-trend-legend-item.traffic-total-dot i,
+.traffic-trend-legend-item.traffic-input-dot i,
+.traffic-trend-legend-item.traffic-output-dot i {
   width: 18px;
   height: 3px;
   border-radius: 999px;
-  background: #71717a;
+}
+
+.traffic-trend-legend-item.traffic-latency-legend i {
+  background: #f59e0b;
 }
 
 .traffic-trend-legend-item.traffic-total-dot i {
@@ -7382,26 +7467,27 @@ body {
 }
 
 .traffic-trend-legend-item.traffic-input-dot i {
-  background: #2563eb;
+  background: #3b82f6;
 }
 
 .traffic-trend-legend-item.traffic-output-dot i {
   background: #10b981;
 }
 
-.traffic-trend-legend-item.traffic-bar-req-legend i {
-  width: 11px;
-  height: 11px;
-  border-radius: 3px;
-  background: #6366f1;
-  opacity: 0.55;
-}
-
+/* Bar series legend indicators (squares/dots) */
+.traffic-trend-legend-item.traffic-bar-success-legend i,
 .traffic-trend-legend-item.traffic-bar-fail-legend i {
   width: 11px;
   height: 11px;
   border-radius: 3px;
-  background: #f43f5e;
+}
+
+.traffic-trend-legend-item.traffic-bar-success-legend i {
+  background: #10b981;
+}
+
+.traffic-trend-legend-item.traffic-bar-fail-legend i {
+  background: #ef4444;
 }
 
 /* Cleaner provider health status dots. */

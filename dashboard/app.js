@@ -14,6 +14,7 @@
     },
     selectedRequestIds: new Set(),
     allMatchingSelected: false,
+    trafficChartMode: "requests",
     providersPage: 0,
     configProvidersPage: 0,
     modelRoutesPage: 0,
@@ -904,6 +905,7 @@
         output: usage.output_tokens,
         total_tokens: usage.total_tokens,
         cost_usd: usage.cost_usd,
+        first_byte_ms_avg: Number(bucket.first_byte_ms_avg || 0),
       };
     });
 
@@ -934,6 +936,7 @@
           output: usage.output_tokens,
           total_tokens: usage.total_tokens,
           cost_usd: usage.cost_usd,
+          first_byte_ms_avg: Number(request.first_byte_ms || 0),
         };
       });
     }
@@ -1015,9 +1018,19 @@
         lastTs,
         width: 1120,
         height: 360,
-        pad: { top: 26, right: 62, bottom: 62, left: 72 },
+        pad: { top: 32, right: 72, bottom: 48, left: 72 },
       })}
     `;
+
+    // Bind event listeners for mode toggling
+    target.querySelectorAll("[data-traffic-mode]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const mode = btn.dataset.trafficMode;
+        if (state.trafficChartMode === mode) return;
+        state.trafficChartMode = mode;
+        renderTrafficChart();
+      });
+    });
   }
 
   function usageTrendKpi(label, value, tone) {
@@ -1064,111 +1077,214 @@
   function renderTrafficComboChart(options) {
     const width = Number(options.width || 1120);
     const height = Number(options.height || 360);
-    const pad = options.pad || { top: 26, right: 62, bottom: 62, left: 72 };
+    const pad = options.pad || { top: 32, right: 72, bottom: 48, left: 72 };
     const firstTs = Number(options.firstTs || 0);
     const lastTs = Number(options.lastTs || firstTs);
     const plotW = width - pad.left - pad.right;
     const plotH = height - pad.top - pad.bottom;
     const buckets = Array.isArray(options.buckets) ? options.buckets : [];
 
-    // Vertical split: token area band on top, request bar band at the bottom.
-    const barBandH = Math.max(48, plotH * 0.26);
-    const bandGap = 18;
-    const tokenBandH = plotH - barBandH - bandGap;
-    const tokenTop = pad.top;
-    const tokenBaseline = pad.top + tokenBandH;
-    const barBaseline = height - pad.bottom;
-    const barTop = barBaseline - barBandH;
-
     const xFor = (bucket, index, total) => {
       const ts = Number(bucket.ts || 0);
       if (lastTs > firstTs && ts) return pad.left + ((ts - firstTs) / (lastTs - firstTs)) * plotW;
       return pad.left + (total > 1 ? (index / (total - 1)) * plotW : plotW / 2);
     };
-    const safeMax = (values, fallback = 1) => Math.max(fallback, ...values.map((value) => Number(value || 0)));
-    const tokenMax = niceChartMax(safeMax(buckets.flatMap((bucket) => [
-      bucket.total_tokens,
-      bucket.input,
-      bucket.output,
-    ]), 1) * 1.12);
-    const requestMax = niceChartMax(Math.max(4, safeMax(buckets.flatMap((bucket) => [
-      bucket.requests,
-      bucket.failed,
-    ]), 1) * 1.2));
-
-    const yToken = (value) => tokenBaseline - (Number(value || 0) / Math.max(1, tokenMax)) * tokenBandH;
-    const yBar = (value) => barBaseline - (Number(value || 0) / Math.max(1, requestMax)) * barBandH;
 
     const enriched = buckets.map((bucket, index) => ({
       ...bucket,
       x: xFor(bucket, index, buckets.length),
     }));
 
-    const tokenSeries = [
-      { key: "total_tokens", label: "Total tokens", className: "traffic-total-line", dotClass: "traffic-total-dot", format: fmtTokenCount },
-      { key: "input", label: "Input", className: "traffic-input-line", dotClass: "traffic-input-dot", format: fmtTokenCount },
-      { key: "output", label: "Output", className: "traffic-output-line", dotClass: "traffic-output-dot", format: fmtTokenCount },
-    ];
-    const tokenPoints = (config) => enriched.map((bucket) => ({
-      ...bucket,
-      value: Number(bucket[config.key] || 0),
-      y: yToken(Number(bucket[config.key] || 0)),
-    }));
-    const buildTokenPath = (config) => {
-      const points = tokenPoints(config);
-      if (!points.some((point) => Number(point.value || 0) > 0)) return "";
-      return smoothSvgPath(points, tokenTop, tokenBaseline);
-    };
-    const totalPoints = tokenPoints(tokenSeries[0]);
-    const totalPath = buildTokenPath(tokenSeries[0]);
-    const areaPath = totalPath && totalPoints.length > 1 && totalPoints.some((point) => point.value > 0)
-      ? `${totalPath} L ${svgNum(totalPoints[totalPoints.length - 1].x)} ${svgNum(tokenBaseline)} L ${svgNum(totalPoints[0].x)} ${svgNum(tokenBaseline)} Z`
-      : "";
-    const tokenLines = tokenSeries.map((config) => {
-      const path = config.key === "total_tokens" ? totalPath : buildTokenPath(config);
-      return path ? `<path class="${config.className}" d="${path}"></path>` : "";
-    }).join("");
-    const pointTitle = (point, config) => `${fmtDate(point.start || point.ts)} ${config.label}: ${config.format(point.value)}`;
-    const tokenDots = tokenSeries.map((config) => {
-      const points = tokenPoints(config);
-      if (points.length > 64) return "";
-      return points
-        .filter((point) => Number(point.value || 0) > 0)
-        .map((point) => `
-          <circle class="traffic-trend-dot ${config.dotClass}" cx="${svgNum(point.x)}" cy="${svgNum(point.y)}" r="${config.key === "total_tokens" ? "3.6" : "2.8"}">
-            <title>${escapeHtml(pointTitle(point, config))}</title>
-          </circle>
-        `).join("");
-    }).join("");
+    const safeMax = (values, fallback = 1) => Math.max(fallback, ...values.map((value) => Number(value || 0)));
+    const barBaseline = height - pad.bottom;
 
-    // Request bars: total request volume per bucket, failures overlaid in red.
-    const count = enriched.length;
-    const slot = count > 0 ? plotW / count : plotW;
-    const barW = Math.max(2, Math.min(26, slot * 0.62));
-    const bars = enriched.map((bucket) => {
-      const requests = Number(bucket.requests || 0);
-      const failed = Math.min(requests, Number(bucket.failed || 0));
-      const cx = bucket.x;
-      const x = cx - barW / 2;
-      const reqTop = yBar(requests);
-      const failTop = yBar(failed);
-      const ok = `
-        <rect class="traffic-bar-req" x="${svgNum(x)}" y="${svgNum(reqTop)}" width="${svgNum(barW)}" height="${svgNum(Math.max(0, barBaseline - reqTop))}" rx="1.5">
-          <title>${escapeHtml(`${fmtDate(bucket.start || bucket.ts)} Requests: ${fmtInt(requests)}`)}</title>
-        </rect>`;
-      const bad = failed > 0
-        ? `<rect class="traffic-bar-fail" x="${svgNum(x)}" y="${svgNum(failTop)}" width="${svgNum(barW)}" height="${svgNum(Math.max(0, barBaseline - failTop))}" rx="1.5">
-            <title>${escapeHtml(`${fmtDate(bucket.start || bucket.ts)} Failures: ${fmtInt(failed)}`)}</title>
-          </rect>`
+    let svgContent = "";
+    let legendItems = [];
+
+    if (state.trafficChartMode === "requests") {
+      const requestMax = niceChartMax(Math.max(4, safeMax(buckets.map((b) => b.requests), 1) * 1.15));
+      const latencyMax = niceChartMax(safeMax(buckets.map((b) => b.first_byte_ms_avg), 1000) * 1.15);
+
+      const yBar = (value) => barBaseline - (Number(value || 0) / Math.max(1, requestMax)) * plotH;
+      const yLatency = (value) => barBaseline - (Number(value || 0) / Math.max(1, latencyMax)) * plotH;
+
+      const requestLabels = [0, Math.ceil(requestMax / 2), requestMax];
+      const latencyLabels = [0, Math.ceil(latencyMax / 2), latencyMax];
+
+      // Draw grid lines and left Y axis labels (Requests)
+      const gridAndLabels = requestLabels.map((label) => `
+        <line class="axis traffic-grid-line" x1="${pad.left}" y1="${yBar(label)}" x2="${width - pad.right}" y2="${yBar(label)}"></line>
+        <text class="traffic-axis-label" x="${pad.left - 14}" y="${yBar(label) + 4}" text-anchor="end">${escapeHtml(fmtInt(label))}</text>
+      `).join("");
+
+      // Draw right Y axis labels (Latency)
+      const rightLabels = latencyLabels.map((label) => `
+        <text class="traffic-axis-label traffic-axis-label-info" x="${width - pad.right + 14}" y="${yLatency(label) + 4}">${escapeHtml(fmtMs(label))}</text>
+      `).join("");
+
+      // Draw stacked request bars
+      const count = enriched.length;
+      const slot = count > 0 ? plotW / count : plotW;
+      const barW = Math.max(2, Math.min(26, slot * 0.5));
+      const bars = enriched.map((bucket) => {
+        const requests = Number(bucket.requests || 0);
+        const failed = Math.min(requests, Number(bucket.failed || 0));
+        const success = Math.max(0, requests - failed);
+        const cx = bucket.x;
+        const x = cx - barW / 2;
+        if (requests === 0) return "";
+
+        const successTop = yBar(success);
+        const totalTop = yBar(requests);
+
+        const successHeight = barBaseline - successTop;
+        const failedHeight = successTop - totalTop;
+
+        const successRect = success > 0
+          ? `<rect class="traffic-bar-success" x="${svgNum(x)}" y="${svgNum(successTop)}" width="${svgNum(barW)}" height="${svgNum(successHeight)}" rx="1.5">
+              <title>${escapeHtml(`${fmtDate(bucket.start || bucket.ts)} Success: ${fmtInt(success)}`)}</title>
+             </rect>`
+          : "";
+
+        const failedRect = failed > 0
+          ? `<rect class="traffic-bar-fail" x="${svgNum(x)}" y="${svgNum(totalTop)}" width="${svgNum(barW)}" height="${svgNum(failedHeight)}" rx="1.5">
+              <title>${escapeHtml(`${fmtDate(bucket.start || bucket.ts)} Failures: ${fmtInt(failed)}`)}</title>
+             </rect>`
+          : "";
+
+        return successRect + failedRect;
+      }).join("");
+
+      // Draw latency line & area
+      const latencyPoints = enriched
+        .filter((bucket) => bucket.requests > 0 && bucket.first_byte_ms_avg > 0)
+        .map((bucket) => ({
+          x: bucket.x,
+          y: yLatency(bucket.first_byte_ms_avg),
+          value: bucket.first_byte_ms_avg,
+          start: bucket.start,
+          ts: bucket.ts,
+        }));
+      const latencyPath = smoothSvgPath(latencyPoints, pad.top, barBaseline);
+      const latencyAreaPath = latencyPath && latencyPoints.length > 1
+        ? `${latencyPath} L ${svgNum(latencyPoints[latencyPoints.length - 1].x)} ${svgNum(barBaseline)} L ${svgNum(latencyPoints[0].x)} ${svgNum(barBaseline)} Z`
         : "";
-      return requests > 0 || failed > 0 ? ok + bad : "";
-    }).join("");
 
-    const tokenLabels = [0, Math.ceil(tokenMax / 2), tokenMax];
-    const requestLabels = [0, requestMax];
+      const latencyArea = latencyAreaPath
+        ? `<path class="traffic-latency-area" d="${latencyAreaPath}"></path>`
+        : "";
+      const latencyLine = latencyPath
+        ? `<path class="traffic-latency-line" d="${latencyPath}"></path>`
+        : "";
+      const latencyDots = latencyPoints.length <= 64
+        ? latencyPoints.map((point) => `
+            <circle class="traffic-trend-dot traffic-latency-dot" cx="${svgNum(point.x)}" cy="${svgNum(point.y)}" r="3.2">
+              <title>${escapeHtml(`${fmtDate(point.start || point.ts)} Avg Latency: ${fmtMs(point.value)}`)}</title>
+            </circle>
+          `).join("")
+        : "";
+
+      svgContent = `
+        ${gridAndLabels}
+        ${rightLabels}
+        ${bars}
+        ${latencyArea}
+        ${latencyLine}
+        ${latencyDots}
+        <text class="traffic-axis-title" x="${pad.left}" y="${pad.top - 8}">requests</text>
+        <text class="traffic-axis-title traffic-axis-label-info" x="${width - pad.right}" y="${pad.top - 8}" text-anchor="end">latency</text>
+      `;
+
+      legendItems = [
+        { dotClass: "traffic-bar-success-legend", label: "Success requests" },
+        { dotClass: "traffic-bar-fail-legend", label: "Failures" },
+        { dotClass: "traffic-latency-legend", label: "Avg Latency" },
+      ];
+    } else {
+      // Tokens mode
+      const tokenMax = niceChartMax(safeMax(buckets.flatMap((bucket) => [
+        bucket.total_tokens,
+        bucket.input,
+        bucket.output,
+      ]), 1000) * 1.15);
+
+      const yToken = (value) => barBaseline - (Number(value || 0) / Math.max(1, tokenMax)) * plotH;
+      const tokenLabels = [0, Math.ceil(tokenMax / 2), tokenMax];
+
+      // Draw grid lines and Y axis labels (Tokens)
+      const gridAndLabels = tokenLabels.map((label) => `
+        <line class="axis traffic-grid-line" x1="${pad.left}" y1="${yToken(label)}" x2="${width - pad.right}" y2="${yToken(label)}"></line>
+        <text class="traffic-axis-label" x="${pad.left - 14}" y="${yToken(label) + 4}" text-anchor="end">${escapeHtml(fmtTokenCount(label))}</text>
+      `).join("");
+
+      // Draw total tokens path and area
+      const totalPoints = enriched.map((bucket) => ({
+        x: bucket.x,
+        y: yToken(bucket.total_tokens),
+        value: bucket.total_tokens,
+        start: bucket.start,
+        ts: bucket.ts,
+      }));
+      const totalPath = smoothSvgPath(totalPoints, pad.top, barBaseline);
+      const totalAreaPath = totalPath && totalPoints.length > 1
+        ? `${totalPath} L ${svgNum(totalPoints[totalPoints.length - 1].x)} ${svgNum(barBaseline)} L ${svgNum(totalPoints[0].x)} ${svgNum(barBaseline)} Z`
+        : "";
+
+      const totalArea = totalAreaPath ? `<path class="traffic-token-area" d="${totalAreaPath}"></path>` : "";
+      const totalLine = totalPath ? `<path class="traffic-total-line" d="${totalPath}"></path>` : "";
+
+      // Draw input/output token lines
+      const inputPoints = enriched.map((bucket) => ({
+        x: bucket.x,
+        y: yToken(bucket.input),
+        value: bucket.input,
+        start: bucket.start,
+        ts: bucket.ts,
+      }));
+      const inputPath = smoothSvgPath(inputPoints, pad.top, barBaseline);
+      const inputLine = inputPath ? `<path class="traffic-input-line" d="${inputPath}"></path>` : "";
+
+      const outputPoints = enriched.map((bucket) => ({
+        x: bucket.x,
+        y: yToken(bucket.output),
+        value: bucket.output,
+        start: bucket.start,
+        ts: bucket.ts,
+      }));
+      const outputPath = smoothSvgPath(outputPoints, pad.top, barBaseline);
+      const outputLine = outputPath ? `<path class="traffic-output-line" d="${outputPath}"></path>` : "";
+
+      // Draw dots for total tokens
+      const totalDots = totalPoints.length <= 64
+        ? totalPoints.map((point) => `
+            <circle class="traffic-trend-dot traffic-total-dot" cx="${svgNum(point.x)}" cy="${svgNum(point.y)}" r="3.6">
+              <title>${escapeHtml(`${fmtDate(point.start || point.ts)} Total Tokens: ${fmtTokenCount(point.value)}`)}</title>
+            </circle>
+          `).join("")
+        : "";
+
+      svgContent = `
+        ${gridAndLabels}
+        ${totalArea}
+        ${totalLine}
+        ${inputLine}
+        ${outputLine}
+        ${totalDots}
+        <text class="traffic-axis-title" x="${pad.left}" y="${pad.top - 8}">tokens</text>
+      `;
+
+      legendItems = [
+        { dotClass: "traffic-total-dot", label: "Total tokens" },
+        { dotClass: "traffic-input-dot", label: "Input" },
+        { dotClass: "traffic-output-dot", label: "Output" },
+      ];
+    }
+
+    // Common elements: baseline, X ticks, and wrapping structure.
     const xTicks = enriched.length > 2
       ? [enriched[0], enriched[Math.floor(enriched.length / 2)], enriched[enriched.length - 1]]
       : enriched;
+
     const shortDate = (ts) => {
       const n = Number(ts || 0);
       if (!n) return "-";
@@ -1179,13 +1295,11 @@
         : { hour: "2-digit", minute: "2-digit" };
       return d.toLocaleString(undefined, opts);
     };
-    const legendItems = [
-      { dotClass: "traffic-total-dot", label: "Total tokens" },
-      { dotClass: "traffic-input-dot", label: "Input" },
-      { dotClass: "traffic-output-dot", label: "Output" },
-      { dotClass: "traffic-bar-req-legend", label: "Requests" },
-      { dotClass: "traffic-bar-fail-legend", label: "Failures" },
-    ];
+
+    const xTicksHtml = xTicks.map((point) => `
+      <text class="traffic-axis-label" x="${svgNum(point.x)}" y="${height - 18}" text-anchor="middle">${escapeHtml(shortDate(point.start || point.ts))}</text>
+    `).join("");
+
     const legend = legendItems.map((item) => `
       <span class="traffic-trend-legend-item ${item.dotClass}">
         <i></i>${escapeHtml(item.label)}
@@ -1194,33 +1308,29 @@
 
     return `
       <div class="traffic-chart-shell">
-        <div class="traffic-trend-legend">${legend}</div>
-        <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Token usage area with request volume bars">
+        <div class="traffic-chart-header">
+          <div class="traffic-trend-legend">${legend}</div>
+          <div class="traffic-mode-selectors">
+            <button type="button" class="button pill-toggle ${state.trafficChartMode === "requests" ? "is-active" : ""}" data-traffic-mode="requests">Requests & Latency</button>
+            <button type="button" class="button pill-toggle ${state.trafficChartMode === "tokens" ? "is-active" : ""}" data-traffic-mode="tokens">Tokens</button>
+          </div>
+        </div>
+        <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Gateway traffic visualization chart">
           <defs>
             <linearGradient id="trafficTokenArea" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stop-color="#a855f7" stop-opacity="0.26"></stop>
-              <stop offset="55%" stop-color="#a855f7" stop-opacity="0.09"></stop>
+              <stop offset="0%" stop-color="#a855f7" stop-opacity="0.22"></stop>
+              <stop offset="55%" stop-color="#a855f7" stop-opacity="0.07"></stop>
               <stop offset="100%" stop-color="#a855f7" stop-opacity="0"></stop>
             </linearGradient>
+            <linearGradient id="trafficLatencyArea" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.16"></stop>
+              <stop offset="100%" stop-color="#f59e0b" stop-opacity="0"></stop>
+            </linearGradient>
           </defs>
-          <rect class="traffic-plot-bg" x="${pad.left}" y="${tokenTop}" width="${plotW}" height="${tokenBandH}" rx="0"></rect>
-          ${tokenLabels.map((label) => `
-            <line class="axis traffic-grid-line" x1="${pad.left}" y1="${yToken(label)}" x2="${width - pad.right}" y2="${yToken(label)}"></line>
-            <text class="traffic-axis-label" x="${pad.left - 14}" y="${yToken(label) + 4}" text-anchor="end">${escapeHtml(fmtTokenCount(label))}</text>
-          `).join("")}
-          ${requestLabels.map((label) => `
-            <text class="traffic-axis-label traffic-axis-label-info" x="${width - pad.right + 14}" y="${yBar(label) + 4}">${escapeHtml(fmtInt(label))}</text>
-          `).join("")}
-          ${xTicks.map((point) => `
-            <text class="traffic-axis-label" x="${svgNum(point.x)}" y="${height - 26}" text-anchor="middle">${escapeHtml(shortDate(point.start || point.ts))}</text>
-          `).join("")}
-          ${areaPath ? `<path class="traffic-token-area" d="${areaPath}"></path>` : ""}
-          ${tokenLines}
-          ${tokenDots}
+          <rect class="traffic-plot-bg" x="${pad.left}" y="${pad.top}" width="${plotW}" height="${plotH}" rx="0"></rect>
+          ${svgContent}
           <line class="axis traffic-baseline" x1="${pad.left}" y1="${barBaseline}" x2="${width - pad.right}" y2="${barBaseline}"></line>
-          ${bars}
-          <text class="traffic-axis-title" x="${pad.left}" y="${tokenTop - 8}">tokens</text>
-          <text class="traffic-axis-title traffic-axis-label-info" x="${width - pad.right}" y="${barTop - 6}" text-anchor="end">requests</text>
+          ${xTicksHtml}
         </svg>
       </div>
     `;
