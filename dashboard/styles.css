@@ -7317,11 +7317,13 @@ body {
 .traffic-input-line {
   stroke: #3b82f6;
   stroke-width: 2.7;
+  stroke-dasharray: 6 4;
 }
 
 .traffic-output-line {
   stroke: #10b981;
   stroke-width: 2.7;
+  stroke-dasharray: 2 3;
 }
 
 .traffic-bar-success {
@@ -7467,11 +7469,11 @@ body {
 }
 
 .traffic-trend-legend-item.traffic-input-dot i {
-  background: #3b82f6;
+  background: repeating-linear-gradient(90deg, #3b82f6 0 6px, transparent 6px 10px);
 }
 
 .traffic-trend-legend-item.traffic-output-dot i {
-  background: #10b981;
+  background: repeating-linear-gradient(90deg, #10b981 0 3px, transparent 3px 6px);
 }
 
 /* Bar series legend indicators (squares/dots) */
