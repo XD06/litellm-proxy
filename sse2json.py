@@ -1685,6 +1685,20 @@ class Handler(BaseHTTPRequestHandler):
                     buckets=params.get("buckets", 30),
                 )
             )
+        if endpoint.startswith("model-summary/"):
+            from urllib.parse import unquote
+            model_slug = unquote(endpoint.split("/", 1)[1])
+            params = self._query_params()
+            refresh = params.get("refresh") == "true"
+            proxy = params.get("proxy")
+            try:
+                from artificial_analysis_api import aa
+                result = aa.get(model_slug, proxy=proxy, refresh=refresh)
+                return self._resp_json(result)
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                return self._resp_json({"error": str(e)}, 500)
         return self._resp_json({"error": {"message": f"unknown admin endpoint: {endpoint}"}}, 404)
 
     def _query_params(self) -> dict:

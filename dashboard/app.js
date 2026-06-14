@@ -2675,7 +2675,7 @@
         ${capability.error ? `<div class="model-capability-error">${messageMarkup(capability.error)}</div>` : ""}
         <div class="model-chip-list">
           ${modelItems.length ? modelItems.slice(0, 18).map((item) => `
-            <span class="model-map-chip" title="${escapeHtml(item.title)}">
+            <span class="model-map-chip" data-model-name="${escapeHtml(item.label)}" title="${escapeHtml(item.title)}">
               <b>${escapeHtml(item.label)}</b>
               ${item.raw && item.raw !== item.label ? `<small>${escapeHtml(item.raw)}</small>` : ""}
             </span>
@@ -4655,6 +4655,16 @@
 
     el("closeDrawerButton").addEventListener("click", closeDrawer);
     el("closeProviderDrawerButton")?.addEventListener("click", closeProviderDrawer);
+    el("closeModelDrawerButton")?.addEventListener("click", closeModelDrawer);
+    el("modelCapabilities")?.addEventListener("click", (event) => {
+      const chip = event.target.closest(".model-map-chip");
+      if (chip) {
+        const modelName = chip.dataset.modelName;
+        if (modelName) {
+          openModelDrawer(modelName);
+        }
+      }
+    });
     el("mobileSettingsButton").addEventListener("click", toggleMobileSettings);
     el("closeMobileSettingsButton").addEventListener("click", closeMobileSettings);
     el("mobileSettingsBackdrop").addEventListener("click", closeMobileSettings);
@@ -4662,6 +4672,7 @@
       if (event.key === "Escape") {
         closeDrawer();
         closeProviderDrawer();
+        closeModelDrawer();
         closeMobileSettings();
       }
     });
@@ -4672,6 +4683,141 @@
     drawer.classList.remove("is-open");
     drawer.setAttribute("aria-hidden", "true");
   }
+
+  async function openModelDrawer(modelName) {
+    const drawer = el("modelDrawer");
+    const title = el("modelDrawerTitle");
+    const subtitle = el("modelDrawerSubtitle");
+    const body = el("modelDrawerBody");
+    if (!drawer || !body) return;
+
+    title.textContent = modelName;
+    subtitle.textContent = "Loading benchmark data...";
+    body.innerHTML = `
+      <div class="loading-state pad" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 0;">
+        <div class="auth-progress" style="width: 40px; height: 40px; border: 3px solid var(--accent-soft, #eff6ff); border-top-color: var(--accent-strong, #3b82f6); border-radius: 50%; animation: spin 1s linear infinite;"></div>
+        <div style="margin-top: 16px; color: var(--muted); font-size: 13px; font-weight: 500;">Retrieving details from Artificial Analysis...</div>
+      </div>
+    `;
+    drawer.classList.add("is-open");
+    drawer.setAttribute("aria-hidden", "false");
+
+    try {
+      const result = await apiGet(`/-/admin/model-summary/${encodeURIComponent(modelName)}`);
+      if (result.error) {
+        body.innerHTML = `
+          <div style="padding: 24px; text-align: center;">
+            <div style="font-size: 32px; margin-bottom: 12px;">🔍</div>
+            <strong style="display: block; font-size: 15px; color: var(--text); margin-bottom: 8px;">Model Not Found</strong>
+            <p style="color: var(--muted); font-size: 13px; margin-bottom: 16px;">${escapeHtml(result.error)}</p>
+            ${result.suggestion ? `
+              <div style="border-top: 1px solid var(--line-soft); padding-top: 16px; margin-top: 16px;">
+                <span style="font-size: 12px; color: var(--muted); display: block; margin-bottom: 8px;">Did you mean?</span>
+                <button class="button secondary pill-toggle" style="padding: 6px 12px; font-size: 12px; font-weight: bold;" onclick="window.LP_openModelDrawer('${escapeHtml(result.suggestion)}')">
+                  ${escapeHtml(result.suggestion)}
+                </button>
+              </div>
+            ` : ""}
+          </div>
+        `;
+        subtitle.textContent = "Not Found";
+      } else {
+        const summary = result.summary || {};
+        const url = result.source_url || `https://artificialanalysis.ai/models/${encodeURIComponent(result.model)}`;
+        subtitle.textContent = result.model;
+
+        const fmtRank = (item) => item && item.rank ? `#${item.rank} of ${item.total}` : "-";
+
+        body.innerHTML = `
+          <div class="model-summary-details">
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 24px;">
+              ${summary.intelligence ? `
+                <div class="mini-metric" style="background: var(--surface-raised); border: 1px solid var(--line-soft); border-radius: 8px; padding: 12px;">
+                  <span class="metric-label" style="display: block; font-size: 11px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px;">Quality (AA Index)</span>
+                  <strong style="font-size: 18px; font-weight: 800; font-family: var(--mono); color: var(--text);">${summary.intelligence.score}</strong>
+                  <small style="display: block; font-size: 10px; color: var(--muted); margin-top: 2px;">Rank ${fmtRank(summary.intelligence)}</small>
+                </div>
+              ` : ""}
+              ${summary.speed ? `
+                <div class="mini-metric" style="background: var(--surface-raised); border: 1px solid var(--line-soft); border-radius: 8px; padding: 12px;">
+                  <span class="metric-label" style="display: block; font-size: 11px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px;">Output Speed</span>
+                  <strong style="font-size: 18px; font-weight: 800; font-family: var(--mono); color: var(--text);">${summary.speed.tokens_per_second} <span style="font-size: 11px; font-weight: normal;">t/s</span></strong>
+                  <small style="display: block; font-size: 10px; color: var(--muted); margin-top: 2px;">Rank ${fmtRank(summary.speed)}</small>
+                </div>
+              ` : ""}
+              ${summary.price_blended ? `
+                <div class="mini-metric" style="background: var(--surface-raised); border: 1px solid var(--line-soft); border-radius: 8px; padding: 12px;">
+                  <span class="metric-label" style="display: block; font-size: 11px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px;">Blended Cost</span>
+                  <strong style="font-size: 18px; font-weight: 800; font-family: var(--mono); color: var(--text);">${fmtCost(summary.price_blended.price_per_1m_tokens)}<span style="font-size: 11px; font-weight: normal;">/1M</span></strong>
+                  <small style="display: block; font-size: 10px; color: var(--muted); margin-top: 2px;">Rank ${fmtRank(summary.price_blended)}</small>
+                </div>
+              ` : ""}
+              ${summary.context_window ? `
+                <div class="mini-metric" style="background: var(--surface-raised); border: 1px solid var(--line-soft); border-radius: 8px; padding: 12px;">
+                  <span class="metric-label" style="display: block; font-size: 11px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px;">Context Window</span>
+                  <strong style="font-size: 18px; font-weight: 800; font-family: var(--mono); color: var(--text);">${fmtTokenCount(summary.context_window.tokens)}</strong>
+                  <small style="display: block; font-size: 10px; color: var(--muted); margin-top: 2px;">Rank ${fmtRank(summary.context_window)}</small>
+                </div>
+              ` : ""}
+            </div>
+
+            <h3 class="drawer-section-title" style="font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin: 24px 0 8px; border-bottom: 1px solid var(--line-soft); padding-bottom: 6px;">Pricing per 1M Tokens</h3>
+            <div class="kv-grid drawer-kv" style="display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; font-size: 13px;">
+              ${summary.pricing ? `
+                <span style="color: var(--muted);">Input Price</span><span class="mono" style="font-family: var(--mono); font-weight: 600; text-align: right;">${fmtCost(summary.pricing.input)}</span>
+                <span style="color: var(--muted);">Output Price</span><span class="mono" style="font-family: var(--mono); font-weight: 600; text-align: right;">${fmtCost(summary.pricing.output)}</span>
+                <span style="color: var(--muted);">Cache Hit Price</span><span class="mono" style="font-family: var(--mono); font-weight: 600; text-align: right;">${summary.pricing.cache_hit !== null ? fmtCost(summary.pricing.cache_hit) : "-"}</span>
+              ` : "<span>Pricing data</span><span>Not available</span>"}
+            </div>
+
+            <h3 class="drawer-section-title" style="font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin: 24px 0 8px; border-bottom: 1px solid var(--line-soft); padding-bottom: 6px;">Latency Performance</h3>
+            <div class="kv-grid drawer-kv" style="display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; font-size: 13px;">
+              ${summary.latency ? `
+                <span style="color: var(--muted);">TTFT (Time To First Token)</span><span class="mono" style="font-family: var(--mono); font-weight: 600; text-align: right;">${summary.latency.input_time_s !== null ? `${summary.latency.input_time_s.toFixed(2)}s` : "-"}</span>
+                <span style="color: var(--muted);">Reasoning Time</span><span class="mono" style="font-family: var(--mono); font-weight: 600; text-align: right;">${summary.latency.reasoning_time_s !== null ? `${summary.latency.reasoning_time_s.toFixed(2)}s` : "-"}</span>
+                <span style="color: var(--muted);">Answer Generation</span><span class="mono" style="font-family: var(--mono); font-weight: 600; text-align: right;">${summary.latency.answer_time_s !== null ? `${summary.latency.answer_time_s.toFixed(2)}s` : "-"}</span>
+              ` : "<span>Latency data</span><span>Not available</span>"}
+            </div>
+
+            <h3 class="drawer-section-title" style="font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin: 24px 0 8px; border-bottom: 1px solid var(--line-soft); padding-bottom: 6px;">Specifications & Openness</h3>
+            <div class="kv-grid drawer-kv" style="display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; font-size: 13px; margin-bottom: 24px;">
+              ${summary.model_size ? `
+                <span style="color: var(--muted);">Active Parameters</span><span style="font-weight: 600; text-align: right;">${summary.model_size.active_params_b !== null ? `${summary.model_size.active_params_b}B` : "-"}</span>
+                <span style="color: var(--muted);">Total Parameters</span><span style="font-weight: 600; text-align: right;">${summary.model_size.total_params_b !== null ? `${summary.model_size.total_params_b}B` : "-"}</span>
+              ` : ""}
+              ${summary.openness ? `
+                <span style="color: var(--muted);">Openness Score</span><span style="font-weight: 600; text-align: right;"><strong>${summary.openness.score}</strong>/10 <small class="muted">(${fmtRank(summary.openness)})</small></span>
+              ` : ""}
+            </div>
+
+            <div style="margin-top: 32px; display: flex; justify-content: center;">
+              <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="button primary" style="display: inline-flex; align-items: center; gap: 8px; text-decoration: none; padding: 8px 16px; font-size: 13px; font-weight: bold;">
+                View on Artificial Analysis ↗
+              </a>
+            </div>
+          </div>
+        `;
+      }
+    } catch (err) {
+      body.innerHTML = `
+        <div class="notice danger pad" style="margin: 15px;">
+          <strong>Fetch Failed</strong>
+          <p>${escapeHtml(err.message)}</p>
+        </div>
+      `;
+      subtitle.textContent = "Error";
+    }
+  }
+
+  function closeModelDrawer() {
+    const drawer = el("modelDrawer");
+    if (drawer) {
+      drawer.classList.remove("is-open");
+      drawer.setAttribute("aria-hidden", "true");
+    }
+  }
+
+  window.LP_openModelDrawer = openModelDrawer;
 
   function startTimer() {
     if (state.timer) window.clearInterval(state.timer);

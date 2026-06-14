@@ -2683,6 +2683,15 @@ tr.clickable:hover {
   border-radius: 6px;
   background: color-mix(in srgb, var(--info-soft) 36%, var(--surface));
   font-size: 11px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.model-map-chip:hover {
+  background: color-mix(in srgb, var(--info-soft) 72%, var(--surface));
+  border-color: color-mix(in srgb, var(--info) 45%, var(--line));
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
 }
 
 .model-map-chip b,
