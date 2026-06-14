@@ -1672,7 +1672,6 @@
       ? Math.round(firstByteSamples.reduce((sum, value) => sum + value, 0) / firstByteSamples.length)
       : null;
     const totalTokens = rows.reduce((sum, r) => sum + usageFrom(r).total_tokens, 0);
-    const totalCost = rows.reduce((sum, r) => sum + usageFrom(r).cost_usd, 0);
     return `
       <div class="request-page-vitals">
         ${requestVital("Success", success, rows.length, "success")}
@@ -1680,7 +1679,6 @@
         ${requestVital("Failed", failed, rows.length, "danger")}
         <span class="request-vital request-vital-info">${iconSvg("clock")}<strong>${avgFirstByte === null ? "-" : escapeHtml(fmtMs(avgFirstByte))}</strong><small>first byte</small></span>
         <span class="request-vital request-vital-compat">${iconSvg("activity")}<strong>${escapeHtml(fmtTokenCount(totalTokens))}</strong><small>tokens</small></span>
-        <span class="request-vital request-vital-info" style="--vital:0%; border-left:1px solid var(--line-soft); padding-left:14px;">${iconSvg("gauge")}<strong>${escapeHtml(fmtCost(totalCost))}</strong><small>est. cost</small></span>
       </div>
     `;
   }

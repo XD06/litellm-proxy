@@ -3175,9 +3175,115 @@ class _ThreadPoolHTTPServer(ThreadingMixIn, HTTPServer):
         super().server_close()
 
 
+def _prefetch_model_summaries():
+    try:
+        models = set()
+        models_cfg = CONFIG.get("models") or {}
+        
+        # 1. Configured routes
+        routes = models_cfg.get("routes") or {}
+        if isinstance(routes, dict):
+            for m in routes.keys():
+                if m:
+                    models.add(str(m))
+                    
+        # 2. Configured provider model mapping
+        prov_map = models_cfg.get("provider_model_map") or {}
+        if isinstance(prov_map, dict):
+            for mapping in prov_map.values():
+                if isinstance(mapping, dict):
+                    for client_m, prov_m in mapping.items():
+                        if client_m:
+                            models.add(str(client_m))
+                        if prov_m:
+                            models.add(str(prov_m))
+                            
+        # 3. Client model map
+        client_map = models_cfg.get("client_model_map") or {}
+        if isinstance(client_map, dict):
+            for client_m, mapped_m in client_map.items():
+                if client_m:
+                    models.add(str(client_m))
+                if mapped_m:
+                    models.add(str(mapped_m))
+                    
+        # 4. Provider model capabilities
+        caps = models_cfg.get("provider_model_capabilities") or {}
+        if isinstance(caps, dict):
+            for entry in caps.values():
+                if isinstance(entry, dict) and "models" in entry:
+                    for m in entry["models"]:
+                        if m:
+                            models.add(str(m))
+                            
+        # 5. Union model ids from registry
+        try:
+            import model_registry
+            for m in model_registry.union_model_ids():
+                if m:
+                    models.add(str(m))
+        except Exception:
+            pass
+            
+        # 6. Default models
+        try:
+            import model_registry
+            for m in model_registry.default_models().get("data", []):
+                mid = m.get("id")
+                if mid:
+                    models.add(str(mid))
+        except Exception:
+            pass
+            
+        # 7. Historical request models and attempt models from SQLite database
+        try:
+            if OBSERVABILITY and hasattr(OBSERVABILITY, "_history") and OBSERVABILITY._history and OBSERVABILITY._history.enabled:
+                with OBSERVABILITY._history._connect() as conn:
+                    # Get models from requests
+                    for row in conn.execute("SELECT DISTINCT model FROM requests WHERE model IS NOT NULL AND model != ''"):
+                        if row[0]:
+                            models.add(str(row[0]))
+                    # Get provider models from attempts
+                    for row in conn.execute("SELECT DISTINCT provider_model FROM attempts WHERE provider_model IS NOT NULL AND provider_model != ''"):
+                        if row[0]:
+                            models.add(str(row[0]))
+        except Exception as e:
+            print(f"[proxy] Failed to fetch historical models for prefetching: {e}", flush=True)
+
+        # Remove empty strings
+        models = {m.strip() for m in models if m and m.strip()}
+        if not models:
+            return
+            
+        print(f"[proxy] Background prefetching Model Summaries for {len(models)} models...", flush=True)
+        def do_prefetch():
+            import time
+            from artificial_analysis_api import aa
+            # Wait a few seconds for the proxy to start serving, then start fetching
+            time.sleep(5)
+            for m in sorted(list(models)):
+                try:
+                    # aa.get performs a resolved check; if cached locally, it returns immediately.
+                    # Otherwise it fetches & parses.
+                    res = aa.get(m)
+                    # Sleep slightly between network fetches to avoid spamming artificial analysis
+                    if res and not res.get("cached") and not res.get("error"):
+                        time.sleep(1.5)
+                except Exception as e:
+                    print(f"[proxy] Failed to prefetch summary for {m}: {e}", flush=True)
+            print("[proxy] Background prefetching of Model Summaries complete.", flush=True)
+            
+        import threading
+        t = threading.Thread(target=do_prefetch, daemon=True)
+        t.start()
+    except Exception as e:
+        print(f"[proxy] Failed to start prefetcher: {e}", flush=True)
+
+
 if __name__ == "__main__":
     # Restore runtime state before model prefetch.
     _load_router_state()
+    _prefetch_model_summaries()
     # Start autosave before serving requests.
     _start_state_autosave()
 

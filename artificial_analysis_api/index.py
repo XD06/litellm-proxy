@@ -26,6 +26,8 @@ class ModelIndex:
     # ---- load / save ----
 
     def load_local(self) -> bool:
+        if self._models:
+            return True
         if self._cache_file.exists():
             try:
                 self._models = json.loads(self._cache_file.read_text()).get("models", {})
