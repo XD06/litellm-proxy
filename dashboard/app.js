@@ -1201,20 +1201,29 @@
         { dotClass: "traffic-latency-legend", label: "Avg Latency" },
       ];
     } else {
-      // Tokens mode
+      // Tokens & Usage mode
       const tokenMax = niceChartMax(safeMax(buckets.flatMap((bucket) => [
         bucket.total_tokens,
         bucket.input,
         bucket.output,
       ]), 1000) * 1.15);
+      const costMax = safeMax(buckets.map((b) => b.cost_usd), 0.01) * 1.15;
 
       const yToken = (value) => barBaseline - (Number(value || 0) / Math.max(1, tokenMax)) * plotH;
-      const tokenLabels = [0, Math.ceil(tokenMax / 2), tokenMax];
+      const yCost = (value) => barBaseline - (Number(value || 0) / Math.max(0.000001, costMax)) * plotH;
 
-      // Draw grid lines and Y axis labels (Tokens)
+      const tokenLabels = [0, Math.ceil(tokenMax / 2), tokenMax];
+      const costLabels = [0, costMax / 2, costMax];
+
+      // Draw grid lines and left Y axis labels (Tokens)
       const gridAndLabels = tokenLabels.map((label) => `
         <line class="axis traffic-grid-line" x1="${pad.left}" y1="${yToken(label)}" x2="${width - pad.right}" y2="${yToken(label)}"></line>
         <text class="traffic-axis-label" x="${pad.left - 14}" y="${yToken(label) + 4}" text-anchor="end">${escapeHtml(fmtTokenCount(label))}</text>
+      `).join("");
+
+      // Draw right Y axis labels (Cost)
+      const rightLabels = costLabels.map((label) => `
+        <text class="traffic-axis-label traffic-axis-label-info" x="${width - pad.right + 14}" y="${yCost(label) + 4}">${escapeHtml(fmtCost(label))}</text>
       `).join("");
 
       // Draw total tokens path and area
@@ -1254,6 +1263,17 @@
       const outputPath = smoothSvgPath(outputPoints, pad.top, barBaseline);
       const outputLine = outputPath ? `<path class="traffic-output-line" d="${outputPath}"></path>` : "";
 
+      // Draw cost line
+      const costPoints = enriched.map((bucket) => ({
+        x: bucket.x,
+        y: yCost(bucket.cost_usd),
+        value: bucket.cost_usd,
+        start: bucket.start,
+        ts: bucket.ts,
+      }));
+      const costPath = smoothSvgPath(costPoints, pad.top, barBaseline);
+      const costLine = costPath ? `<path class="traffic-cost-line" d="${costPath}"></path>` : "";
+
       // Draw dots for total tokens
       const totalDots = totalPoints.length <= 64
         ? totalPoints.map((point) => `
@@ -1263,20 +1283,34 @@
           `).join("")
         : "";
 
+      // Draw dots for cost
+      const costDots = costPoints.length <= 64 && costPath
+        ? costPoints.map((point) => `
+            <circle class="traffic-trend-dot traffic-cost-dot" cx="${svgNum(point.x)}" cy="${svgNum(point.y)}" r="3.2">
+              <title>${escapeHtml(`${fmtDate(point.start || point.ts)} Est. Cost: ${fmtCost(point.value)}`)}</title>
+            </circle>
+          `).join("")
+        : "";
+
       svgContent = `
         ${gridAndLabels}
+        ${rightLabels}
         ${totalArea}
         ${totalLine}
         ${inputLine}
         ${outputLine}
+        ${costLine}
         ${totalDots}
+        ${costDots}
         <text class="traffic-axis-title" x="${pad.left}" y="${pad.top - 8}">tokens</text>
+        <text class="traffic-axis-title traffic-axis-label-info" x="${width - pad.right}" y="${pad.top - 8}" text-anchor="end">cost</text>
       `;
 
       legendItems = [
         { dotClass: "traffic-total-dot", label: "Total tokens" },
         { dotClass: "traffic-input-dot", label: "Input" },
         { dotClass: "traffic-output-dot", label: "Output" },
+        { dotClass: "traffic-cost-legend", label: "Est. Cost" },
       ];
     }
 
@@ -1312,7 +1346,7 @@
           <div class="traffic-trend-legend">${legend}</div>
           <div class="traffic-mode-selectors">
             <button type="button" class="button pill-toggle ${state.trafficChartMode === "requests" ? "is-active" : ""}" data-traffic-mode="requests">Requests & Latency</button>
-            <button type="button" class="button pill-toggle ${state.trafficChartMode === "tokens" ? "is-active" : ""}" data-traffic-mode="tokens">Tokens</button>
+            <button type="button" class="button pill-toggle ${state.trafficChartMode === "tokens" ? "is-active" : ""}" data-traffic-mode="tokens">Usage</button>
           </div>
         </div>
         <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Gateway traffic visualization chart">
@@ -1638,6 +1672,7 @@
       ? Math.round(firstByteSamples.reduce((sum, value) => sum + value, 0) / firstByteSamples.length)
       : null;
     const totalTokens = rows.reduce((sum, r) => sum + usageFrom(r).total_tokens, 0);
+    const totalCost = rows.reduce((sum, r) => sum + usageFrom(r).cost_usd, 0);
     return `
       <div class="request-page-vitals">
         ${requestVital("Success", success, rows.length, "success")}
@@ -1645,6 +1680,7 @@
         ${requestVital("Failed", failed, rows.length, "danger")}
         <span class="request-vital request-vital-info">${iconSvg("clock")}<strong>${avgFirstByte === null ? "-" : escapeHtml(fmtMs(avgFirstByte))}</strong><small>first byte</small></span>
         <span class="request-vital request-vital-compat">${iconSvg("activity")}<strong>${escapeHtml(fmtTokenCount(totalTokens))}</strong><small>tokens</small></span>
+        <span class="request-vital request-vital-info" style="--vital:0%; border-left:1px solid var(--line-soft); padding-left:14px;">${iconSvg("gauge")}<strong>${escapeHtml(fmtCost(totalCost))}</strong><small>est. cost</small></span>
       </div>
     `;
   }
@@ -1699,7 +1735,7 @@
           <span class="route-pill ${escapeHtml(routeTone)}">${escapeHtml(routeOutcomeLabel(route))}</span>
         </span>
         <span class="request-row-metrics mono">
-          <strong title="${escapeHtml(fmtInt(usage.total_tokens))} tokens">${escapeHtml(fmtTokenCount(usage.total_tokens))}</strong>
+          <strong title="${escapeHtml(fmtInt(usage.total_tokens))} tokens">${escapeHtml(fmtTokenCount(usage.total_tokens))} <span style="font-weight: normal; color: var(--muted); opacity: 0.85; margin: 0 3px;">/</span> <span style="color: #0f172a; font-weight: 700;">${escapeHtml(fmtCost(usage.cost_usd))}</span></strong>
           <small>${escapeHtml(firstByte ? fmtMs(firstByte) : "-")} first / ${escapeHtml(attemptText)}</small>
         </span>
         <span class="request-row-open">${iconSvg("chevron-right")}</span>

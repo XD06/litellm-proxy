@@ -7375,6 +7375,21 @@ body {
   stroke-width: 2;
 }
 
+.traffic-cost-line {
+  fill: none;
+  stroke: #f59e0b;
+  stroke-width: 2.0;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 4px 6px rgba(245, 158, 11, 0.22));
+}
+
+.traffic-cost-dot {
+  fill: #f59e0b;
+  stroke: #ffffff;
+  stroke-width: 2;
+}
+
 .traffic-trend-dot {
   stroke: #fff;
   stroke-width: 2.4;
@@ -7463,7 +7478,8 @@ body {
 .traffic-trend-legend-item.traffic-latency-legend i,
 .traffic-trend-legend-item.traffic-total-dot i,
 .traffic-trend-legend-item.traffic-input-dot i,
-.traffic-trend-legend-item.traffic-output-dot i {
+.traffic-trend-legend-item.traffic-output-dot i,
+.traffic-trend-legend-item.traffic-cost-legend i {
   width: 18px;
   height: 2px;
   border-radius: 999px;
@@ -7483,6 +7499,10 @@ body {
 
 .traffic-trend-legend-item.traffic-output-dot i {
   background: repeating-linear-gradient(90deg, #10b981 0 3px, transparent 3px 6px);
+}
+
+.traffic-trend-legend-item.traffic-cost-legend i {
+  background: #f59e0b;
 }
 
 /* Bar series legend indicators (squares/dots) */
