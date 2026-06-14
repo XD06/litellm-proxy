@@ -112,16 +112,33 @@ def estimate_cost_usd(cfg: Dict[str, Any], provider: str, provider_model: str, u
         return 0.0
     providers = (cfg or {}).get("providers") or {}
     pcfg = providers.get(provider) if isinstance(providers, dict) else {}
-    if not isinstance(pcfg, dict):
-        return 0.0
-    pricing = pcfg.get("pricing") or pcfg.get("cost") or {}
-    if not isinstance(pricing, dict):
-        return 0.0
-    pricing = _pricing_for_model(pricing, provider_model)
-    input_rate = first_rate(pricing, _INPUT_RATE_KEYS)
-    output_rate = first_rate(pricing, _OUTPUT_RATE_KEYS)
+    input_rate = 0.0
+    output_rate = 0.0
+    if isinstance(pcfg, dict):
+        pricing = pcfg.get("pricing") or pcfg.get("cost") or {}
+        if isinstance(pricing, dict):
+            pricing = _pricing_for_model(pricing, provider_model)
+            input_rate = first_rate(pricing, _INPUT_RATE_KEYS)
+            output_rate = first_rate(pricing, _OUTPUT_RATE_KEYS)
+            
+    if input_rate <= 0 and output_rate <= 0:
+        try:
+            from artificial_analysis_api import aa
+            # Resolve model to its slug using index (memory-safe lookup)
+            slug = aa._index.resolve(provider_model)
+            if slug:
+                # Query local memory/file cache only; never query network on request path
+                cached = aa._cache.get(slug)
+                if isinstance(cached, dict) and "pricing" in cached:
+                    pricing_summary = cached["pricing"]
+                    input_rate = safe_float(pricing_summary.get("input"))
+                    output_rate = safe_float(pricing_summary.get("output"))
+        except Exception:
+            pass
+
     if input_rate <= 0 and output_rate <= 0:
         return 0.0
+
     return round(
         (normalized["input_tokens"] / 1_000_000.0) * input_rate
         + (normalized["output_tokens"] / 1_000_000.0) * output_rate,

@@ -7364,7 +7364,7 @@ body {
   filter: drop-shadow(0 4px 6px rgba(245, 158, 11, 0.22));
 }
 
-.traffic-latency-area {
+.traffic-latency-region {
   fill: url("#trafficLatencyArea");
   pointer-events: none;
 }

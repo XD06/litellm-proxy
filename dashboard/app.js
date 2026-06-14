@@ -1171,7 +1171,7 @@
         : "";
 
       const latencyArea = latencyAreaPath
-        ? `<path class="traffic-latency-area" d="${latencyAreaPath}"></path>`
+        ? `<path class="traffic-latency-region" d="${latencyAreaPath}"></path>`
         : "";
       const latencyLine = latencyPath
         ? `<path class="traffic-latency-line" d="${latencyPath}"></path>`
