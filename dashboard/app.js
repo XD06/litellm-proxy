@@ -1008,7 +1008,7 @@
           ${usageTrendKpi("Input", fmtTokenCount(displayUsage.input_tokens), "usage-input")}
           ${usageTrendKpi("Output", fmtTokenCount(displayUsage.output_tokens), "usage-output")}
           ${usageTrendKpi("Requests", fmtInt(totals.requests), "usage-request")}
-          ${usageTrendKpi("Failures", `${fmtInt(totals.failed)} failed`, "usage-failure")}
+          ${usageTrendKpi("Failures", fmtInt(totals.failed), "usage-failure")}
           ${usageTrendKpi("Success", fmtPct(successRate), "usage-success")}
         </div>
       </div>
