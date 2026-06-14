@@ -2147,8 +2147,7 @@ class Handler(BaseHTTPRequestHandler):
                 provider = parts[1]
                 CONFIG_MANAGER.update_provider(provider, body or {})
                 _apply_runtime_config(CONFIG_MANAGER.config)
-                refresh_fields = {"base_url", "models_path", "keys", "proxy", "headers", "user_agent"}
-                _refresh_models_after_config_change(provider, force=any(k in refresh_fields for k in (body or {}).keys()))
+                _refresh_models_after_config_change(provider, force=True)
                 self._audit_admin_event("provider_updated", target=provider, detail=body or {})
                 return self._resp_json({"action": "provider_updated", "provider": provider, "config": CONFIG_MANAGER.snapshot()})
 
