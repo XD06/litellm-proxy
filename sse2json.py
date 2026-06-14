@@ -1935,7 +1935,7 @@ class Handler(BaseHTTPRequestHandler):
                 try:
                     CONFIG_MANAGER.add_key(provider, (body or {}).get("key") or "", (body or {}).get("proxy") or "")
                     _apply_runtime_config(CONFIG_MANAGER.config)
-                    _refresh_models_after_config_change(provider)
+                    _refresh_models_after_config_change(provider, force=True)
                     self._audit_admin_event("key_added", target=f"{provider}/keys", detail={"key": (body or {}).get("key") or "", "proxy": (body or {}).get("proxy") or ""})
                     return self._resp_json({"action": "key_added", "provider": provider, "config": CONFIG_MANAGER.snapshot()})
                 except ConfigValidationError as e:
@@ -2035,7 +2035,7 @@ class Handler(BaseHTTPRequestHandler):
                     try:
                         CONFIG_MANAGER.delete_key(provider, key_index)
                         _apply_runtime_config(CONFIG_MANAGER.config)
-                        _refresh_models_after_config_change(provider)
+                        _refresh_models_after_config_change(provider, force=True)
                         self._audit_admin_event("key_deleted", target=f"{provider}/keys/{key_index}")
                         return self._resp_json(
                             {
@@ -2160,7 +2160,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self._resp_json({"error": {"message": f"invalid key index: {parts[3]}"}}, 400)
                 CONFIG_MANAGER.update_key(provider, key_index, body or {})
                 _apply_runtime_config(CONFIG_MANAGER.config)
-                _refresh_models_after_config_change(provider)
+                _refresh_models_after_config_change(provider, force=True)
                 self._audit_admin_event("key_updated", target=f"{provider}/keys/{key_index}", detail=body or {})
                 return self._resp_json(
                     {
@@ -2176,7 +2176,7 @@ class Handler(BaseHTTPRequestHandler):
                 fmt = parts[3]
                 CONFIG_MANAGER.update_format(provider, fmt, body or {})
                 _apply_runtime_config(CONFIG_MANAGER.config)
-                _refresh_models_after_config_change(provider)
+                _refresh_models_after_config_change(provider, force=True)
                 self._audit_admin_event("format_updated", target=f"{provider}/formats/{fmt}", detail=body or {})
                 return self._resp_json(
                     {
