@@ -12,7 +12,7 @@ if __name__ == "__main__":
 import copy, json, os, uuid, datetime, socket, concurrent.futures, time, re, threading, hmac, queue, errno
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
-from typing import Optional
+from typing import List, Optional
 from urllib.request import Request
 from urllib.error import HTTPError, URLError
 
