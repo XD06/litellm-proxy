@@ -9,6 +9,10 @@ WORKDIR /app
 
 RUN useradd --create-home --shell /usr/sbin/nologin appuser
 
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gosu && \
+    rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -17,8 +21,10 @@ COPY . .
 RUN mkdir -p /app/tmp /app/proxy_logs /app/data && \
     chown -R appuser:appuser /app
 
-USER appuser
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 4894
 
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["python", "-u", "sse2json.py"]

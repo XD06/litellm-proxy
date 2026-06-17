@@ -154,3 +154,27 @@ sudo systemctl status litellm-proxy
 sudo journalctl -u litellm-proxy -f
 sudo systemctl restart litellm-proxy
 ```
+
+## 故障处理
+
+如果 Docker 日志里出现下面这类权限错误：
+
+```text
+Permission denied: '/app/tmp/router_state.json.tmp'
+Permission denied: 'data/aa_cache'
+```
+
+说明 VPS 宿主机上的 bind mount 目录或文件不是容器内 `appuser` 可写。新版镜像启动时会自动修正 `/app/tmp`、`/app/proxy_logs`、`/app/data` 和 `runtime_config.json` 的权限；拉取新代码后重建即可：
+
+```bash
+git pull
+docker compose down
+docker compose up -d --build
+```
+
+如果仍然失败，先在宿主机修正目录权限：
+
+```bash
+sudo chown -R "$USER":"$USER" tmp proxy_logs data runtime_config.json
+docker compose up -d --build
+```
