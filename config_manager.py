@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import errno
 import json
 import os
 import re
@@ -75,7 +76,16 @@ class RuntimeConfigManager:
         backup_path = ""
         if os.path.exists(self.overlay_path):
             backup_path = f"{self.overlay_path}.bak.{int(time.time())}"
-            os.replace(self.overlay_path, backup_path)
+            try:
+                os.replace(self.overlay_path, backup_path)
+            except OSError as e:
+                if e.errno not in (errno.EBUSY, errno.EXDEV):
+                    raise
+                self._copy_file(self.overlay_path, backup_path)
+                with open(self.overlay_path, "w", encoding="utf-8") as f:
+                    f.write("{}\n")
+                    f.flush()
+                    os.fsync(f.fileno())
         self.overlay = {}
         self.config = self._normalized_merged()
         return {"backup_path": backup_path, "config": self.config}
@@ -789,6 +799,9 @@ class RuntimeConfigManager:
                     os.replace(tmp_path, self.overlay_path)
                     break
                 except OSError as e:
+                    if e.errno in (errno.EBUSY, errno.EXDEV):
+                        self._write_overlay_in_place(tmp_path)
+                        break
                     if attempt == 4:
                         raise
                     import time
@@ -799,6 +812,27 @@ class RuntimeConfigManager:
                     os.unlink(tmp_path)
                 except OSError:
                     pass
+
+    def _write_overlay_in_place(self, tmp_path: str) -> None:
+        """Fallback for Docker single-file bind mounts where rename returns EBUSY."""
+        data = self._read_text(tmp_path)
+        with open(self.overlay_path, "w", encoding="utf-8") as dst:
+            dst.write(data)
+            dst.flush()
+            os.fsync(dst.fileno())
+
+    @staticmethod
+    def _read_text(path: str) -> str:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+
+    @classmethod
+    def _copy_file(cls, src_path: str, dst_path: str) -> None:
+        data = cls._read_text(src_path)
+        with open(dst_path, "w", encoding="utf-8") as dst:
+            dst.write(data)
+            dst.flush()
+            os.fsync(dst.fileno())
 
     @staticmethod
     def _server_view(server: Dict[str, Any]) -> Dict[str, Any]:

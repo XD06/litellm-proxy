@@ -1,7 +1,9 @@
 import json
+import errno
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import config_manager
 from config_loader import load_base_config, load_config
@@ -205,6 +207,40 @@ class ConfigManagerTests(unittest.TestCase):
         self.assertTrue(overlay["providers"]["beta"]["force_reasoning_content"])
         self.assertTrue(overlay["providers"]["beta"]["force_anthropic_thinking"])
         self.assertNotIn("alpha-secret-key", json.dumps(mgr.snapshot()))
+
+    def test_write_overlay_falls_back_for_bind_mount_replace_busy(self):
+        _config_path, overlay_path = self.temp_paths()
+        with open(overlay_path, "w", encoding="utf-8") as f:
+            f.write("{}\n")
+        mgr = config_manager.RuntimeConfigManager(base_config(), overlay_path=overlay_path)
+        busy_error = OSError(errno.EBUSY, "Device or resource busy")
+
+        with patch("config_manager.os.replace", side_effect=busy_error):
+            cfg = mgr.update_routing({"max_attempts": 3})
+
+        self.assertEqual(cfg["routing"]["max_attempts"], 3)
+        with open(overlay_path, "r", encoding="utf-8") as f:
+            overlay = json.load(f)
+        self.assertEqual(overlay["routing"]["max_attempts"], 3)
+
+    def test_clear_overlay_falls_back_for_bind_mount_replace_busy(self):
+        _config_path, overlay_path = self.temp_paths()
+        with open(overlay_path, "w", encoding="utf-8") as f:
+            json.dump({"routing": {"max_attempts": 2}}, f)
+        mgr = config_manager.RuntimeConfigManager(base_config(), overlay_path=overlay_path)
+        busy_error = OSError(errno.EBUSY, "Device or resource busy")
+
+        with patch("config_manager.os.replace", side_effect=busy_error):
+            cleared = mgr.clear_overlay()
+
+        self.assertEqual(mgr.config["routing"]["max_attempts"], 6)
+        self.assertTrue(os.path.exists(cleared["backup_path"]))
+        with open(cleared["backup_path"], "r", encoding="utf-8") as f:
+            backup = json.load(f)
+        self.assertEqual(backup["routing"]["max_attempts"], 2)
+        with open(overlay_path, "r", encoding="utf-8") as f:
+            overlay = json.load(f)
+        self.assertEqual(overlay, {})
 
     def test_provider_name_accepts_unicode_letters_but_rejects_path_chars(self):
         _config_path, overlay_path = self.temp_paths()

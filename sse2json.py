@@ -163,7 +163,21 @@ def _save_router_state() -> None:
         tmp_path = _ROUTER_STATE_FILE + ".tmp"
         with open(tmp_path, "w", encoding="utf-8") as f:
             json.dump(state, f)
-        os.replace(tmp_path, _ROUTER_STATE_FILE)
+        try:
+            os.replace(tmp_path, _ROUTER_STATE_FILE)
+        except OSError as e:
+            if e.errno not in (errno.EBUSY, errno.EXDEV):
+                raise
+            with open(_ROUTER_STATE_FILE, "w", encoding="utf-8") as f:
+                json.dump(state, f)
+                f.flush()
+                os.fsync(f.fileno())
+        finally:
+            if os.path.exists(tmp_path):
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
     except Exception as e:
         print(f"[proxy] router state save failed: {e}", flush=True)
 
