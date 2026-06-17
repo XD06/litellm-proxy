@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import sys
+if __name__ == "__main__":
+    sys.modules["sse2json"] = sys.modules["__main__"]
+
 """Minimal proxy: Anthropic /v1/messages -> OpenAI /chat/completions
    Features: thinking blocks (native Anthropic format, rendered by Cherry Studio),
              true SSE streaming (chunk-by-chunk),
              tool call support with memory,
              count_tokens handler for Claude Code compatibility"""
-import copy, json, os, uuid, datetime, sys, socket, concurrent.futures, time, re, threading, hmac, queue
+import copy, json, os, uuid, datetime, socket, concurrent.futures, time, re, threading, hmac, queue, errno
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 from typing import Optional
@@ -13,6 +17,7 @@ from urllib.request import Request
 from urllib.error import HTTPError, URLError
 
 import model_registry
+import model_discovery_queue
 import scheduler_policy
 from audit_store import AdminAuditStore
 from config_manager import ConfigValidationError, RuntimeConfigManager
@@ -200,6 +205,33 @@ UPSTREAM_CLIENT = OpenAIUpstreamClient(CONFIG)
 OBSERVABILITY = ProxyObservability(CONFIG)
 AUDIT = AdminAuditStore(CONFIG)
 
+
+class RuntimeContext:
+    """Immutable snapshot of the live runtime objects.
+
+    Config hot-swap reassigns the single module global RUNTIME to a freshly
+    built RuntimeContext in one atomic step, so a request thread that captures
+    RUNTIME once sees a consistent (config, router, client, observability,
+    audit) set instead of a torn mix during reload.
+
+    Fields are intentionally not frozen: the bundle object identity is what
+    matters; mutations happen by swapping the whole RUNTIME reference, not by
+    editing fields in place.
+    """
+
+    __slots__ = ("config", "router", "upstream_client", "observability", "audit")
+
+    def __init__(self, config, router, upstream_client, observability, audit):
+        self.config = config
+        self.router = router
+        self.upstream_client = upstream_client
+        self.observability = observability
+        self.audit = audit
+
+
+RUNTIME = RuntimeContext(CONFIG, ROUTER, UPSTREAM_CLIENT, OBSERVABILITY, AUDIT)
+
+
 # Model mapping (client model -> canonical model)
 DISABLE_MAP = bool((CONFIG.get("models") or {}).get("disable_client_model_map", False))
 MODEL_MAP = (CONFIG.get("models") or {}).get("client_model_map") or {}
@@ -212,31 +244,74 @@ def _refresh_model_mapping_globals() -> None:
 
 
 def _apply_runtime_config(new_config: dict) -> None:
-    global CONFIG, ROUTER, UPSTREAM_CLIENT, OBSERVABILITY, AUDIT
+    global CONFIG, ROUTER, UPSTREAM_CLIENT, OBSERVABILITY, AUDIT, RUNTIME
     old_router = ROUTER
     old_obs = OBSERVABILITY
     old_caps = ((CONFIG.get("models") or {}).get("provider_model_capabilities") or {}) if CONFIG else {}
-    CONFIG = apply_env_overlays(new_config)
+    new_config = apply_env_overlays(new_config)
     # Preserve provider model capabilities across runtime config reloads.
     # Without this, key probes can lose discovered model choices after edits.
     if old_caps:
-        providers_cfg = CONFIG.get("providers") or {}
-        models_cfg = CONFIG.setdefault("models", {})
+        providers_cfg = new_config.get("providers") or {}
+        models_cfg = new_config.setdefault("models", {})
         caps = models_cfg.setdefault("provider_model_capabilities", {})
         for prov, entry in old_caps.items():
             if prov in providers_cfg and prov not in caps:
                 caps[prov] = entry
     model_registry.clear_cache()
-    model_registry.rebuild_union_model_ids_from_capabilities(CONFIG)
-    ROUTER = UpstreamRouter(CONFIG)
+    model_registry.rebuild_union_model_ids_from_capabilities(new_config)
+    new_router = UpstreamRouter(new_config)
     if old_router is not None:
-        ROUTER.migrate_state_from(old_router)
-    UPSTREAM_CLIENT = OpenAIUpstreamClient(CONFIG)
-    OBSERVABILITY = ProxyObservability(CONFIG)
+        new_router.migrate_state_from(old_router)
+    new_upstream_client = OpenAIUpstreamClient(new_config)
+    new_observability = ProxyObservability(new_config)
     if old_obs is not None:
-        OBSERVABILITY.migrate_counters_from(old_obs)
-    AUDIT = AdminAuditStore(CONFIG)
+        new_observability.migrate_counters_from(old_obs)
+    new_audit = AdminAuditStore(new_config)
+
+    # Atomic swap: a single STORE_GLOBAL on RUNTIME is the linearization point.
+    # Every reader that captured RUNTIME before this line keeps the old set;
+    # every reader after sees the new set. The legacy module globals below are
+    # refreshed for backwards compatibility only and are not relied on for
+    # request-thread consistency.
+    new_runtime = RuntimeContext(new_config, new_router, new_upstream_client, new_observability, new_audit)
+    RUNTIME = new_runtime
+    CONFIG = new_config
+    ROUTER = new_router
+    UPSTREAM_CLIENT = new_upstream_client
+    OBSERVABILITY = new_observability
+    AUDIT = new_audit
     _refresh_model_mapping_globals()
+    # After a config reload, re-scan providers through the discovery queue so
+    # newly added providers get discovered and removed ones are dropped. The
+    # queue's per-provider TTL/retry cadence prevents a reload storm.
+    if MODEL_DISCOVERY_QUEUE is not None:
+        MODEL_DISCOVERY_QUEUE.enqueue_all(force=False)
+
+
+def _request_runtime() -> "RuntimeContext":
+    """Return a consistent runtime snapshot for one request/operation.
+
+    In production the legacy module globals are always kept in sync with the
+    RUNTIME bundle (see _apply_runtime_config), so the identity check matches
+    and we return the cached bundle -- a single atomic snapshot taken at swap
+    time. Request threads that capture this once see a consistent
+    (config, router, client, observability, audit) set.
+
+    In tests the legacy globals are frequently patched directly
+    (patch.object(sse2json, "ROUTER", ...)). When that happens the identity
+    check fails and we rebuild a fresh bundle from the (patched) globals, so
+    request handlers still observe the fake objects the test installed.
+    """
+    if (
+        RUNTIME.config is CONFIG
+        and RUNTIME.router is ROUTER
+        and RUNTIME.upstream_client is UPSTREAM_CLIENT
+        and RUNTIME.observability is OBSERVABILITY
+        and RUNTIME.audit is AUDIT
+    ):
+        return RUNTIME
+    return RuntimeContext(CONFIG, ROUTER, UPSTREAM_CLIENT, OBSERVABILITY, AUDIT)
 
 
 def resolve_model(name):
@@ -531,6 +606,29 @@ def probe_provider_key(provider: str, key_index: int, model: str = "") -> dict:
         }
 
 
+def _mark_provider_models_pending(provider: str) -> None:
+    """Flag a provider's capability snapshot as refreshing.
+
+    The background discovery thread overwrites this with status "ok" or "error"
+    when it finishes. Until then the dashboard can show a "refreshing" state
+    instead of an empty models list. Existing models/canonical_map are preserved
+    so a failed refresh still surfaces the last known list rather than nothing.
+    """
+    if not provider:
+        return
+    caps = (CONFIG.get("models") or {}).setdefault("provider_model_capabilities", {})
+    existing = caps.get(provider) if isinstance(caps.get(provider), dict) else {}
+    caps[provider] = {
+        "status": "pending",
+        "fetched_at": int(time.time()),
+        "models": list(existing.get("models") or []),
+        "canonical_map": dict(existing.get("canonical_map") or {}),
+        "formats": list(existing.get("formats") or []),
+    }
+    if existing.get("error"):
+        caps[provider]["error"] = str(existing.get("error"))[:500]
+
+
 def _refresh_models_after_config_change(provider: Optional[str] = None, *, force: bool = False) -> None:
     """Refresh only the affected provider after config changes.
 
@@ -565,6 +663,17 @@ def _refresh_models_after_config_change(provider: Optional[str] = None, *, force
         return
 
     model_registry.clear_cache(provider)
+    # Route through the background discovery queue when available: it caches ok
+    # snapshots (so an unchanged provider is not re-fetched), retries failures
+    # on a slow cadence, and runs in its own thread (never the request worker
+    # pool). Fall back to the legacy per-call thread only if the queue is not
+    # running yet (e.g. very early startup).
+    if MODEL_DISCOVERY_QUEUE is not None:
+        MODEL_DISCOVERY_QUEUE.enqueue(provider, force=True)
+        return
+    # Flag this provider as refreshing before the background thread starts so the
+    # next /-/admin/status poll shows a "refreshing" indicator instead of empty.
+    _mark_provider_models_pending(provider)
     config_ref = CONFIG
     router_ref = ROUTER
     upstream_client_ref = UPSTREAM_CLIENT
@@ -587,6 +696,71 @@ def _refresh_models_after_config_change(provider: Optional[str] = None, *, force
             )
 
     threading.Thread(target=_bg_refresh_provider, name=f"model-refresh-{provider}", daemon=True).start()
+
+
+# ---------------------------------------------------------------------------
+# Background model discovery queue
+# ---------------------------------------------------------------------------
+# Replaces the previous "one-shot union fetch at startup with an 8s timeout".
+# A single daemon worker pulls providers from a queue and discovers their
+# models sequentially, caching ok snapshots for a TTL and retrying
+# missing/failed providers on a slow cadence. This runs in its own thread and
+# never touches the request-forwarding worker pool, so it cannot block or slow
+# down real traffic. Providers that were unreachable at startup (slow /v1/models,
+# proxy required) get discovered automatically once they come back, without the
+# user having to click "Refresh models" for each one.
+def _enabled_provider_names() -> list:
+    providers = CONFIG.get("providers") or {}
+    return [str(name) for name, pcfg in providers.items() if (pcfg or {}).get("enabled", True)]
+
+
+def _provider_capability_snapshot(provider: str):
+    caps = ((CONFIG.get("models") or {}).get("provider_model_capabilities") or {})
+    return caps.get(provider)
+
+
+def _discovery_fetch_provider(provider: str) -> None:
+    """Fetch one provider's models inside the discovery worker thread.
+
+    Uses upstream_client (its own transport, not the proxy worker pool) and
+    stores the result into CONFIG's capability snapshot, mirroring the manual
+    refresh path. Exceptions are absorbed by the queue, which schedules a retry.
+    """
+    config_ref = CONFIG
+    router_ref = ROUTER
+    upstream_client_ref = UPSTREAM_CLIENT
+    try:
+        _mark_provider_models_pending(provider)
+    except Exception:
+        pass
+    model_registry.fetch_upstream_models(
+        config_ref,
+        router_ref,
+        upstream_client_ref,
+        format_provider=_hprov,
+        only_provider=provider,
+    )
+    if _merge_provider_model_capability_from(config_ref, provider):
+        _save_router_state()
+
+
+MODEL_DISCOVERY_QUEUE: Optional[model_discovery_queue.ModelDiscoveryQueue] = None
+
+
+def _start_model_discovery_queue() -> None:
+    global MODEL_DISCOVERY_QUEUE
+    models_source = str((CONFIG.get("models") or {}).get("models_source", "first_healthy_provider"))
+    if models_source not in ("union", "first_healthy_provider"):
+        return
+    if MODEL_DISCOVERY_QUEUE is not None:
+        MODEL_DISCOVERY_QUEUE.stop()
+    MODEL_DISCOVERY_QUEUE = model_discovery_queue.ModelDiscoveryQueue(
+        fetch_provider_fn=_discovery_fetch_provider,
+        get_snapshot_fn=_provider_capability_snapshot,
+        providers_fn=_enabled_provider_names,
+        enabled_fn=lambda: True,
+    )
+    MODEL_DISCOVERY_QUEUE.start()
 
 
 def _default_models():
@@ -616,6 +790,24 @@ def _max_request_body_bytes() -> int:
         return int((CONFIG.get("server") or {}).get("max_request_body_bytes", 32 * 1024 * 1024))
     except Exception:
         return 32 * 1024 * 1024
+
+
+def _stream_flush_policy():
+    try:
+        routing = (CONFIG.get("routing") or {})
+        interval_ms = int(routing.get("stream_flush_interval_ms", 0))
+        flush_bytes = int(routing.get("stream_flush_bytes", 0))
+        return interval_ms, flush_bytes
+    except Exception:
+        return 0, 0
+
+
+def _discovery_status() -> dict:
+    """Expose the background discovery-queue state so the dashboard can show
+    which providers are queued / cooling down, and the TTL/retry cadence."""
+    if MODEL_DISCOVERY_QUEUE is None:
+        return {"running": False, "queued": 0, "queued_providers": [], "cooldowns": []}
+    return MODEL_DISCOVERY_QUEUE.snapshot_status()
 
 
 def _model_capabilities_snapshot() -> dict:
@@ -816,6 +1008,38 @@ def _transport_stage_for_exception(exception, default_stage: str = "transport_er
     if "timed out" in text or "timeout" in text:
         return "before_upstream_response"
     return default_stage
+
+
+# Windows socket disconnect error codes (WSAE*) surfaced via OSError.winerror.
+# 10053 = WSAECONNABORTED, 10054 = WSAECONNRESET, 10058 = WSAESHUTDOWN.
+_WINDOWS_DISCONNECT_WINERRORS = {10053, 10054, 10058}
+
+
+def is_client_disconnect_error(exc: BaseException) -> bool:
+    """Return True when exc indicates the *client* (not the upstream provider)
+    closed or reset the connection.
+
+    Treating these as client-side 499 prevents cooling a healthy provider just
+    because the downstream client went away. Covers the explicit exception
+    classes plus generic OSError with common disconnect errno/winerror values
+    (the latter shows up on Windows and some TLS stacks). Also unwraps
+    urllib URLError whose .reason carries the underlying OSError.
+    """
+    # Unwrap URLError.reason (urllib wraps socket errors).
+    if isinstance(exc, URLError):
+        reason = getattr(exc, "reason", None)
+        if isinstance(reason, BaseException):
+            exc = reason
+    if isinstance(exc, (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, ConnectionRefusedError)):
+        return True
+    if isinstance(exc, OSError):
+        code = getattr(exc, "errno", None)
+        if code in (errno.EPIPE, errno.ECONNRESET, errno.ESHUTDOWN):
+            return True
+        winerr = getattr(exc, "winerror", None)
+        if winerr in _WINDOWS_DISCONNECT_WINERRORS:
+            return True
+    return False
 
 
 def _log_upstream_error(request_id, attempt, status, error_type: str, reason: str, diagnostics: dict) -> None:
@@ -1257,7 +1481,7 @@ def _request_json_with_compat_retry(request_id, attempt, payload, *, proxy_url=N
                 f"status={int(status) if status else 0}",
                 flush=True,
             )
-            retry_payload = copy.deepcopy(attempt_payload)
+            retry_payload = dict(attempt_payload)
             try:
                 data, first_byte_ms = _request_json_once_with_timing(
                     attempt,
@@ -1277,7 +1501,7 @@ def _request_json_with_compat_retry(request_id, attempt, payload, *, proxy_url=N
                 f"error={type(e).__name__}",
                 flush=True,
             )
-            retry_payload = copy.deepcopy(attempt_payload)
+            retry_payload = dict(attempt_payload)
             data, first_byte_ms = _request_json_once_with_timing(
                 attempt,
                 retry_payload,
@@ -1483,7 +1707,7 @@ def _open_stream_with_compat_retry(
                 f"status={int(status) if status else 0}",
                 flush=True,
             )
-            retry_payload = copy.deepcopy(attempt_payload)
+            retry_payload = dict(attempt_payload)
             try:
                 return UPSTREAM_CLIENT.open_stream(
                     attempt.url,
@@ -1502,7 +1726,7 @@ def _open_stream_with_compat_retry(
                 f"[proxy] same-key stream retry req={request_id} {_h(attempt.provider)} transport_error",
                 flush=True,
             )
-            retry_payload = copy.deepcopy(attempt_payload)
+            retry_payload = dict(attempt_payload)
             return UPSTREAM_CLIENT.open_stream(
                 attempt.url,
                 attempt.headers,
@@ -1516,12 +1740,36 @@ def _open_stream_with_compat_retry(
 
 # True streaming: upstream OpenAI SSE to Anthropic SSE.
 
+def _stream_prefetch_bounds():
+    """Read prelude bounds from routing config. 0 disables a bound."""
+    routing = (CONFIG.get("routing") or {})
+    try:
+        max_lines = int(routing.get("stream_prefetch_max_lines", 128))
+    except Exception:
+        max_lines = 128
+    try:
+        max_bytes = int(routing.get("stream_prefetch_max_bytes", 65536))
+    except Exception:
+        max_bytes = 65536
+    return max_lines, max_bytes
+
+
 def _prefetch_first_stream_line(upstream, timeout_s):
+    max_lines, max_bytes = _stream_prefetch_bounds()
     return prefetch_first_stream_line(upstream, timeout_s)
 
 
 def _prefetch_initial_stream_lines(upstream, timeout_s):
-    return prefetch_initial_stream_lines(upstream, timeout_s)
+    # prefetch_initial_stream_lines only buffers skipped lines when
+    # preserve_skipped=True (native pass-through). The bounds protect that path.
+    max_lines, max_bytes = _stream_prefetch_bounds()
+    return prefetch_initial_stream_lines(
+        upstream,
+        timeout_s,
+        preserve_skipped=True,
+        max_skipped_lines=max_lines,
+        max_skipped_bytes=max_bytes,
+    )
 
 
 def do_stream(upstream, wfile, original_model, first_byte_timeout_s=None, read_timeout_s=None, initial_lines=None):
@@ -1536,7 +1784,9 @@ def do_stream(upstream, wfile, original_model, first_byte_timeout_s=None, read_t
 
 # HTTP Handler.
 
-class Handler(BaseHTTPRequestHandler):
+import admin_routes
+
+class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
     def setup(self):
         super().setup()
         # Disable Nagle's algorithm so SSE events are sent immediately,
@@ -1589,613 +1839,6 @@ class Handler(BaseHTTPRequestHandler):
         except OSError:
             return self._resp_json({"error": {"message": f"dashboard asset missing: {endpoint}"}}, 404)
         return self._resp_bytes(data, content_type=content_type)
-
-    def _admin_authorized(self) -> bool:
-        expected = _admin_key()
-        if not expected:
-            return False
-        supplied = self.headers.get("X-Admin-Key") or ""
-        auth = self.headers.get("Authorization") or ""
-        if auth.lower().startswith("bearer "):
-            supplied = auth.split(" ", 1)[1].strip()
-        if not supplied and _allow_query_admin_key():
-            try:
-                from urllib.parse import parse_qs, urlparse
-
-                qs = parse_qs(urlparse(self.path).query or "")
-                supplied = (qs.get("admin_key") or [""])[0]
-            except Exception:
-                supplied = ""
-        if not supplied:
-            return False
-        return hmac.compare_digest(str(supplied), expected)
-
-    def _audit_admin_event(
-        self,
-        action: str,
-        *,
-        target: str = "",
-        detail: Optional[dict] = None,
-        status: str = "success",
-        error: str = "",
-    ) -> None:
-        try:
-            source_ip = ""
-            if isinstance(getattr(self, "client_address", None), tuple) and self.client_address:
-                source_ip = str(self.client_address[0])
-            AUDIT.record(
-                action,
-                target=target,
-                status=status,
-                detail=detail or {},
-                error=error,
-                source_ip=source_ip,
-                path=str(getattr(self, "path", "") or ""),
-            )
-        except Exception:
-            pass
-
-    def _resp_admin(self, endpoint: str):
-        if not self._admin_authorized():
-            return self._resp_json({"error": {"message": "admin auth required"}}, 403)
-        if endpoint == "status":
-            return self._resp_json(
-                {
-                    "status": "ok",
-                    "metrics": OBSERVABILITY.snapshot(),
-                    "router": ROUTER.snapshot(),
-                    "policy": scheduler_policy.policy_snapshot(CONFIG),
-                    "models": _model_capabilities_snapshot(),
-                }
-            )
-        if endpoint == "metrics":
-            return self._resp_json(OBSERVABILITY.snapshot())
-        if endpoint == "routing":
-            return self._resp_json(
-                {
-                    "router": ROUTER.snapshot(),
-                    "policy": scheduler_policy.policy_snapshot(CONFIG),
-                }
-            )
-        if endpoint == "models/capabilities":
-            return self._resp_json(_model_capabilities_snapshot())
-        if endpoint == "config":
-            return self._resp_json(CONFIG_MANAGER.snapshot())
-        if endpoint == "config/overlay":
-            return self._resp_json(CONFIG_MANAGER.overlay_snapshot())
-        if endpoint == "audit":
-            params = self._query_params()
-            return self._resp_json(AUDIT.list(limit=params.get("limit", 50)))
-        if endpoint == "requests":
-            filters = self._query_params()
-            limit = filters.pop("limit", 50)
-            offset = filters.pop("offset", 0)
-            return self._resp_json(OBSERVABILITY.list_requests(filters=filters, limit=limit, offset=offset))
-        if endpoint.startswith("requests/"):
-            request_id = endpoint.split("/", 1)[1]
-            detail = OBSERVABILITY.get_request(request_id)
-            if detail is None:
-                return self._resp_json({"error": {"message": f"unknown request: {request_id}"}}, 404)
-            return self._resp_json(detail)
-        if endpoint == "metrics/timeseries":
-            params = self._query_params()
-            return self._resp_json(
-                OBSERVABILITY.timeseries(
-                    bucket_s=params.get("bucket_s", 60),
-                    buckets=params.get("buckets", 30),
-                )
-            )
-        if endpoint.startswith("model-summary/"):
-            from urllib.parse import unquote
-            model_slug = unquote(endpoint.split("/", 1)[1])
-            params = self._query_params()
-            refresh = params.get("refresh") == "true"
-            proxy = params.get("proxy")
-            try:
-                from artificial_analysis_api import aa
-                result = aa.get(model_slug, proxy=proxy, refresh=refresh)
-                return self._resp_json(result)
-            except Exception as e:
-                import traceback
-                traceback.print_exc()
-                return self._resp_json({"error": str(e)}, 500)
-        return self._resp_json({"error": {"message": f"unknown admin endpoint: {endpoint}"}}, 404)
-
-    def _query_params(self) -> dict:
-        try:
-            from urllib.parse import parse_qs, urlparse
-
-            qs = parse_qs(urlparse(self.path).query or "")
-            return {
-                str(k): str((v or [""])[0])
-                for k, v in qs.items()
-                if str(k).lower() != "admin_key"
-            }
-        except Exception:
-            return {}
-
-    def _resp_admin_mutation(self, endpoint: str):
-        if not self._admin_authorized():
-            return self._resp_json({"error": {"message": "admin auth required"}}, 403)
-
-        from urllib.parse import unquote
-        parts = [unquote(p) for p in str(endpoint or "").strip("/").split("/") if p]
-        body = None
-        if parts == ["requests", "clear"]:
-            body = self._read_json_body()
-            if isinstance(body, tuple):
-                return self._resp_json(body[0], body[1])
-            confirm = str((body or {}).get("confirm") or "").strip()
-            if confirm != "clear_request_history":
-                self._audit_admin_event(
-                    "request_history_clear_failed",
-                    target="requests",
-                    status="failed",
-                    error="confirmation required",
-                )
-                return self._resp_json({"error": {"message": "confirm must be clear_request_history"}}, 400)
-            result = OBSERVABILITY.clear_history()
-            if bool((body or {}).get("include_diagnostics", True)):
-                result["diagnostics"] = _clear_diagnostic_log()
-            self._audit_admin_event(
-                "request_history_cleared",
-                target="requests",
-                detail={
-                    "history_requests_deleted": (result.get("history") or {}).get("requests_deleted", 0),
-                    "diagnostics_cleared": bool((result.get("diagnostics") or {}).get("cleared")),
-                },
-            )
-            return self._resp_json({"action": "request_history_cleared", **result})
-
-        if parts == ["requests", "delete"]:
-            body = self._read_json_body()
-            if isinstance(body, tuple):
-                return self._resp_json(body[0], body[1])
-            confirm = str((body or {}).get("confirm") or "").strip()
-            if confirm != "delete_request_records":
-                self._audit_admin_event(
-                    "request_records_delete_failed",
-                    target="requests",
-                    status="failed",
-                    error="confirmation required",
-                )
-                return self._resp_json({"error": {"message": "confirm must be delete_request_records"}}, 400)
-            request_ids = (body or {}).get("request_ids")
-            if not isinstance(request_ids, list):
-                return self._resp_json({"error": {"message": "request_ids must be a list"}}, 400)
-            result = OBSERVABILITY.delete_requests(request_ids)
-            self._audit_admin_event(
-                "request_records_deleted",
-                target="requests",
-                detail={
-                    "requested": len(request_ids),
-                    "history_requests_deleted": (result.get("history") or {}).get("requests_deleted", 0),
-                    "memory_recent_deleted": (result.get("memory") or {}).get("recent_requests_deleted", 0),
-                },
-            )
-            return self._resp_json({"action": "request_records_deleted", **result})
-
-        if parts == ["requests", "delete-matching"]:
-            body = self._read_json_body()
-            if isinstance(body, tuple):
-                return self._resp_json(body[0], body[1])
-            confirm = str((body or {}).get("confirm") or "").strip()
-            if confirm != "delete_matching_request_records":
-                self._audit_admin_event(
-                    "request_matching_delete_failed",
-                    target="requests",
-                    status="failed",
-                    error="confirmation required",
-                )
-                return self._resp_json({"error": {"message": "confirm must be delete_matching_request_records"}}, 400)
-            filters = _request_filter_payload((body or {}).get("filters") or {})
-            if not filters:
-                return self._resp_json({"error": {"message": "at least one filter is required"}}, 400)
-            result = OBSERVABILITY.delete_matching_requests(filters)
-            history_error = (result.get("history") or {}).get("error")
-            if history_error:
-                return self._resp_json({"error": {"message": str(history_error)}}, 400)
-            self._audit_admin_event(
-                "request_matching_records_deleted",
-                target="requests",
-                detail={
-                    "filters": filters,
-                    "history_requests_deleted": (result.get("history") or {}).get("requests_deleted", 0),
-                    "memory_recent_deleted": (result.get("memory") or {}).get("recent_requests_deleted", 0),
-                },
-            )
-            return self._resp_json({"action": "request_matching_records_deleted", "filters": filters, **result})
-
-        if parts == ["models", "routes", "delete"]:
-            body = self._read_json_body()
-            if isinstance(body, tuple):
-                return self._resp_json(body[0], body[1])
-            try:
-                model = str((body or {}).get("model") or "").strip()
-                CONFIG_MANAGER.delete_model_route(model)
-                _apply_runtime_config(CONFIG_MANAGER.config)
-                self._audit_admin_event("model_route_deleted", target=model, detail={"model": model})
-                return self._resp_json({"action": "model_route_deleted", "model": model, "config": CONFIG_MANAGER.snapshot()})
-            except ConfigValidationError as e:
-                self._audit_admin_event(
-                    "model_route_delete_failed",
-                    target=str((body or {}).get("model") or ""),
-                    status="failed",
-                    detail=body or {},
-                    error=str(e),
-                )
-                return self._resp_json({"error": {"message": str(e)}}, 400)
-
-        if parts == ["models", "refresh"]:
-            model_registry.clear_cache()
-            fetch_upstream_models()
-            _save_router_state()
-            self._audit_admin_event("models_refreshed", target="models")
-            return self._resp_json({"action": "models_refreshed", "models": _model_capabilities_snapshot()})
-
-        if parts == ["config", "reload"]:
-            try:
-                CONFIG_MANAGER.reload(load_base_config(apply_env=False))
-                _apply_runtime_config(CONFIG_MANAGER.config)
-                self._audit_admin_event("config_reloaded", target="config")
-                return self._resp_json({"action": "config_reloaded", "config": CONFIG_MANAGER.snapshot()})
-            except ConfigValidationError as e:
-                self._audit_admin_event("config_reload_failed", target="config", status="failed", error=str(e))
-                return self._resp_json({"error": {"message": str(e)}}, 400)
-
-        if parts == ["config", "overlay", "validate"]:
-            body = self._read_json_body()
-            if isinstance(body, tuple):
-                return self._resp_json(body[0], body[1])
-            try:
-                overlay = (body or {}).get("overlay")
-                preview = CONFIG_MANAGER.preview_overlay(overlay if overlay is not None else None)
-                self._audit_admin_event("config_overlay_validated", target="config/overlay", detail={"has_overlay": preview.get("has_overlay")})
-                return self._resp_json({"action": "config_overlay_validated", "preview": preview})
-            except ConfigValidationError as e:
-                self._audit_admin_event("config_overlay_validate_failed", target="config/overlay", status="failed", error=str(e))
-                return self._resp_json({"error": {"message": str(e)}}, 400)
-
-        if parts == ["config", "overlay", "clear"]:
-            body = self._read_json_body()
-            if isinstance(body, tuple):
-                return self._resp_json(body[0], body[1])
-            confirm = str((body or {}).get("confirm") or "").strip()
-            if confirm != "clear_runtime_overlay":
-                self._audit_admin_event("config_overlay_clear_failed", target="config/overlay", status="failed", error="confirmation required")
-                return self._resp_json({"error": {"message": "confirm must be clear_runtime_overlay"}}, 400)
-            result = CONFIG_MANAGER.clear_overlay()
-            _apply_runtime_config(CONFIG_MANAGER.config)
-            self._audit_admin_event("config_overlay_cleared", target="config/overlay", detail={"backup_path": result.get("backup_path") or ""})
-            return self._resp_json(
-                {
-                    "action": "config_overlay_cleared",
-                    "backup_path": result.get("backup_path") or "",
-                    "config": CONFIG_MANAGER.snapshot(),
-                }
-            )
-
-        if parts == ["config", "overlay", "compact"]:
-            try:
-                result = CONFIG_MANAGER.compact_overlay()
-                _apply_runtime_config(CONFIG_MANAGER.config)
-                self._audit_admin_event("config_overlay_compacted", target="config/overlay")
-                return self._resp_json(
-                    {
-                        "action": "config_overlay_compacted",
-                        "config": CONFIG_MANAGER.snapshot(),
-                    }
-                )
-            except ConfigValidationError as e:
-                self._audit_admin_event("config_overlay_compact_failed", target="config/overlay", status="failed", error=str(e))
-                return self._resp_json({"error": {"message": str(e)}}, 400)
-
-        if parts == ["providers"]:
-            body = self._read_json_body()
-            if isinstance(body, tuple):
-                return self._resp_json(body[0], body[1])
-            try:
-                provider = str((body or {}).get("name") or "").strip()
-                provider_cfg = {k: v for k, v in (body or {}).items() if k != "name"}
-                CONFIG_MANAGER.add_provider(provider, provider_cfg)
-                _apply_runtime_config(CONFIG_MANAGER.config)
-                _refresh_models_after_config_change(provider, force=True)
-                self._audit_admin_event("provider_added", target=provider, detail=provider_cfg)
-                return self._resp_json({"action": "provider_added", "provider": provider, "config": CONFIG_MANAGER.snapshot()})
-            except ConfigValidationError as e:
-                self._audit_admin_event(
-                    "provider_add_failed",
-                    target=str((body or {}).get("name") or ""),
-                    status="failed",
-                    error=str(e),
-                )
-                return self._resp_json({"error": {"message": str(e)}}, 400)
-
-        if len(parts) >= 3 and parts[0] == "providers":
-            provider = parts[1]
-            if len(parts) == 4 and parts[2] == "models" and parts[3] == "refresh":
-                if provider not in (CONFIG.get("providers") or {}):
-                    return self._resp_json({"error": {"message": f"unknown provider: {provider}"}}, 404)
-                model_registry.clear_cache(provider)
-                fetch_provider_models(provider)
-                _save_router_state()
-                self._audit_admin_event("provider_models_refreshed", target=f"{provider}/models")
-                return self._resp_json(
-                    {
-                        "action": "provider_models_refreshed",
-                        "provider": provider,
-                        "models": _model_capabilities_snapshot(),
-                    }
-                )
-
-            if len(parts) == 3 and parts[2] == "keys":
-                body = self._read_json_body()
-                if isinstance(body, tuple):
-                    return self._resp_json(body[0], body[1])
-                try:
-                    CONFIG_MANAGER.add_key(provider, (body or {}).get("key") or "", (body or {}).get("proxy") or "")
-                    _apply_runtime_config(CONFIG_MANAGER.config)
-                    _refresh_models_after_config_change(provider, force=True)
-                    self._audit_admin_event("key_added", target=f"{provider}/keys", detail={"key": (body or {}).get("key") or "", "proxy": (body or {}).get("proxy") or ""})
-                    return self._resp_json({"action": "key_added", "provider": provider, "config": CONFIG_MANAGER.snapshot()})
-                except ConfigValidationError as e:
-                    self._audit_admin_event("key_add_failed", target=f"{provider}/keys", status="failed", error=str(e))
-                    return self._resp_json({"error": {"message": str(e)}}, 400)
-
-            if len(parts) == 3 and parts[2] == "delete":
-                body = self._read_json_body()
-                if isinstance(body, tuple):
-                    return self._resp_json(body[0], body[1])
-                confirm = str((body or {}).get("confirm") or "").strip()
-                if confirm != "delete_provider":
-                    self._audit_admin_event(
-                        "provider_delete_failed",
-                        target=provider,
-                        status="failed",
-                        error="confirmation required",
-                    )
-                    return self._resp_json({"error": {"message": "confirm must be delete_provider"}}, 400)
-                try:
-                    CONFIG_MANAGER.delete_provider(provider)
-                    _apply_runtime_config(CONFIG_MANAGER.config)
-                    _refresh_models_after_config_change()
-                    self._audit_admin_event("provider_deleted", target=provider)
-                    return self._resp_json({"action": "provider_deleted", "provider": provider, "config": CONFIG_MANAGER.snapshot()})
-                except ConfigValidationError as e:
-                    self._audit_admin_event("provider_delete_failed", target=provider, status="failed", error=str(e))
-                    return self._resp_json({"error": {"message": str(e)}}, 400)
-
-            if len(parts) == 3 and parts[2] in ("enable", "disable"):
-                enabled = parts[2] == "enable"
-                if not ROUTER.set_provider_enabled(provider, enabled):
-                    return self._resp_json({"error": {"message": f"unknown provider: {provider}"}}, 404)
-                _save_router_state()
-                self._audit_admin_event("provider_enabled" if enabled else "provider_disabled", target=provider)
-                return self._resp_json(
-                    {
-                        "action": "provider_enabled" if enabled else "provider_disabled",
-                        "provider": provider,
-                        "router": ROUTER.snapshot(),
-                    }
-                )
-
-            if len(parts) == 4 and parts[2] == "cooldown" and parts[3] == "clear":
-                if not ROUTER.clear_provider_cooldown(provider):
-                    return self._resp_json({"error": {"message": f"unknown provider: {provider}"}}, 404)
-                _save_router_state()
-                self._audit_admin_event("provider_cooldown_cleared", target=provider)
-                return self._resp_json(
-                    {
-                        "action": "provider_cooldown_cleared",
-                        "provider": provider,
-                        "router": ROUTER.snapshot(),
-                    }
-                )
-
-            if len(parts) >= 5 and parts[2] == "keys":
-                try:
-                    key_index = int(parts[3])
-                except Exception:
-                    return self._resp_json({"error": {"message": f"invalid key index: {parts[3]}"}}, 400)
-
-                if len(parts) == 5 and parts[4] in ("enable", "disable"):
-                    enabled = parts[4] == "enable"
-                    if not ROUTER.set_key_enabled(provider, key_index, enabled):
-                        return self._resp_json(
-                            {"error": {"message": f"unknown key: {provider}/{key_index}"}},
-                            404,
-                        )
-                    _save_router_state()
-                    self._audit_admin_event(
-                        "key_enabled" if enabled else "key_disabled",
-                        target=f"{provider}/keys/{key_index}",
-                    )
-                    return self._resp_json(
-                        {
-                            "action": "key_enabled" if enabled else "key_disabled",
-                            "provider": provider,
-                            "key_index": key_index,
-                            "router": ROUTER.snapshot(),
-                        }
-                    )
-
-                if len(parts) == 5 and parts[4] == "delete":
-                    body = self._read_json_body()
-                    if isinstance(body, tuple):
-                        return self._resp_json(body[0], body[1])
-                    confirm = str((body or {}).get("confirm") or "").strip()
-                    if confirm != "delete_key":
-                        self._audit_admin_event(
-                            "key_delete_failed",
-                            target=f"{provider}/keys/{key_index}",
-                            status="failed",
-                            error="confirmation required",
-                        )
-                        return self._resp_json({"error": {"message": "confirm must be delete_key"}}, 400)
-                    try:
-                        CONFIG_MANAGER.delete_key(provider, key_index)
-                        _apply_runtime_config(CONFIG_MANAGER.config)
-                        _refresh_models_after_config_change(provider, force=True)
-                        self._audit_admin_event("key_deleted", target=f"{provider}/keys/{key_index}")
-                        return self._resp_json(
-                            {
-                                "action": "key_deleted",
-                                "provider": provider,
-                                "key_index": key_index,
-                                "config": CONFIG_MANAGER.snapshot(),
-                            }
-                        )
-                    except ConfigValidationError as e:
-                        self._audit_admin_event(
-                            "key_delete_failed",
-                            target=f"{provider}/keys/{key_index}",
-                            status="failed",
-                            error=str(e),
-                        )
-                        return self._resp_json({"error": {"message": str(e)}}, 400)
-
-                if len(parts) == 6 and parts[4] == "state" and parts[5] == "clear":
-                    if not ROUTER.clear_key_state(provider, key_index):
-                        return self._resp_json(
-                            {"error": {"message": f"unknown key: {provider}/{key_index}"}},
-                            404,
-                        )
-                    _save_router_state()
-                    self._audit_admin_event("key_state_cleared", target=f"{provider}/keys/{key_index}")
-                    return self._resp_json(
-                        {
-                            "action": "key_state_cleared",
-                            "provider": provider,
-                            "key_index": key_index,
-                            "router": ROUTER.snapshot(),
-                        }
-                    )
-
-                if len(parts) == 5 and parts[4] == "test":
-                    body = self._read_json_body()
-                    if isinstance(body, tuple):
-                        return self._resp_json(body[0], body[1])
-                    probe_model = str((body or {}).get("model") or "").strip()
-                    result = probe_provider_key(provider, key_index, model=probe_model)
-                    self._audit_admin_event(
-                        "key_probed",
-                        target=f"{provider}/keys/{key_index}",
-                        status="ok" if result.get("ok") else "failed",
-                        detail={
-                            "ok": bool(result.get("ok")),
-                            "format": result.get("format"),
-                            "model": result.get("model"),
-                            "requested_model": probe_model,
-                            "error_type": result.get("error_type"),
-                        },
-                    )
-                    return self._resp_json(
-                        {
-                            "action": "key_probed",
-                            "provider": provider,
-                            "key_index": key_index,
-                            "result": result,
-                        }
-                    )
-
-        return self._resp_json({"error": {"message": f"unknown admin endpoint: {endpoint}"}}, 404)
-
-    def _resp_admin_patch(self, endpoint: str):
-        if not self._admin_authorized():
-            return self._resp_json({"error": {"message": "admin auth required"}}, 403)
-
-        from urllib.parse import unquote
-        parts = [unquote(p) for p in str(endpoint or "").strip("/").split("/") if p]
-        body = self._read_json_body()
-        if isinstance(body, tuple):
-            return self._resp_json(body[0], body[1])
-
-        try:
-            if parts == ["routing"]:
-                CONFIG_MANAGER.update_routing(body or {})
-                _apply_runtime_config(CONFIG_MANAGER.config)
-                self._audit_admin_event("routing_updated", target="routing", detail=body or {})
-                return self._resp_json({"action": "routing_updated", "config": CONFIG_MANAGER.snapshot()})
-
-            if parts == ["retry"]:
-                CONFIG_MANAGER.update_retry(body or {})
-                _apply_runtime_config(CONFIG_MANAGER.config)
-                self._audit_admin_event("retry_updated", target="retry", detail=body or {})
-                return self._resp_json({"action": "retry_updated", "config": CONFIG_MANAGER.snapshot()})
-
-            if parts == ["retry", "failure-policies"]:
-                CONFIG_MANAGER.update_failure_policy(body or {})
-                _apply_runtime_config(CONFIG_MANAGER.config)
-                error_type = str((body or {}).get("error_type") or "").strip()
-                self._audit_admin_event("failure_policy_updated", target=error_type, detail=body or {})
-                return self._resp_json({"action": "failure_policy_updated", "error_type": error_type, "config": CONFIG_MANAGER.snapshot()})
-
-            if parts == ["models", "routes"]:
-                CONFIG_MANAGER.update_model_route(body or {})
-                _apply_runtime_config(CONFIG_MANAGER.config)
-                model = str((body or {}).get("model") or "").strip()
-                self._audit_admin_event("model_route_updated", target=model, detail=body or {})
-                return self._resp_json({"action": "model_route_updated", "model": model, "config": CONFIG_MANAGER.snapshot()})
-
-            if parts == ["proxy"]:
-                CONFIG_MANAGER.update_global_proxy(body or {})
-                _apply_runtime_config(CONFIG_MANAGER.config)
-                self._audit_admin_event("global_proxy_updated", target="proxy", detail=body or {})
-                return self._resp_json({"action": "global_proxy_updated", "config": CONFIG_MANAGER.snapshot()})
-
-            if len(parts) == 2 and parts[0] == "providers":
-                provider = parts[1]
-                CONFIG_MANAGER.update_provider(provider, body or {})
-                _apply_runtime_config(CONFIG_MANAGER.config)
-                _refresh_models_after_config_change(provider, force=True)
-                self._audit_admin_event("provider_updated", target=provider, detail=body or {})
-                return self._resp_json({"action": "provider_updated", "provider": provider, "config": CONFIG_MANAGER.snapshot()})
-
-            if len(parts) == 4 and parts[0] == "providers" and parts[2] == "keys":
-                provider = parts[1]
-                try:
-                    key_index = int(parts[3])
-                except Exception:
-                    return self._resp_json({"error": {"message": f"invalid key index: {parts[3]}"}}, 400)
-                CONFIG_MANAGER.update_key(provider, key_index, body or {})
-                _apply_runtime_config(CONFIG_MANAGER.config)
-                _refresh_models_after_config_change(provider, force=True)
-                self._audit_admin_event("key_updated", target=f"{provider}/keys/{key_index}", detail=body or {})
-                return self._resp_json(
-                    {
-                        "action": "key_updated",
-                        "provider": provider,
-                        "key_index": key_index,
-                        "config": CONFIG_MANAGER.snapshot(),
-                    }
-                )
-
-            if len(parts) == 4 and parts[0] == "providers" and parts[2] == "formats":
-                provider = parts[1]
-                fmt = parts[3]
-                CONFIG_MANAGER.update_format(provider, fmt, body or {})
-                _apply_runtime_config(CONFIG_MANAGER.config)
-                _refresh_models_after_config_change(provider, force=True)
-                self._audit_admin_event("format_updated", target=f"{provider}/formats/{fmt}", detail=body or {})
-                return self._resp_json(
-                    {
-                        "action": "format_updated",
-                        "provider": provider,
-                        "format": fmt,
-                        "config": CONFIG_MANAGER.snapshot(),
-                    }
-                )
-        except ConfigValidationError as e:
-            self._audit_admin_event(
-                "admin_patch_failed",
-                target="/".join(parts),
-                status="failed",
-                detail=body or {},
-                error=str(e),
-            )
-            return self._resp_json({"error": {"message": str(e)}}, 400)
-
-        return self._resp_json({"error": {"message": f"unknown admin endpoint: {endpoint}"}}, 404)
 
     def _read_body_bounded(self):
         """Read the request body defensively.
@@ -2266,6 +1909,15 @@ class Handler(BaseHTTPRequestHandler):
             self._resp_json({"error": {"message": f"unknown endpoint: {self.path}"}}, 404)
 
     def _proxy_openai_chat_completions(self, req, request_id, start_ts):
+        # Snapshot the live runtime once so the whole request sees a consistent
+        # (config, router, client, observability, audit) set even if a config
+        # hot-swap happens concurrently in another thread. Local names shadow
+        # the module globals for reads; nothing here reassigns them.
+        rt = _request_runtime()
+        CONFIG = rt.config
+        ROUTER = rt.router
+        UPSTREAM_CLIENT = rt.upstream_client
+        OBSERVABILITY = rt.observability
         is_stream = bool(req.get("stream", False))
         original_model = req.get("model", "")
         resolved_model = resolve_model(original_model or "")
@@ -2294,6 +1946,7 @@ class Handler(BaseHTTPRequestHandler):
         max_attempts = int(routing_cfg.get("max_attempts", 6))
         max_budget = (connect_t + read_t) * min(3, max(1, max_attempts))
         allowed_formats = ["chat_completions", "responses", "anthropic_messages"]
+        converted_payloads = {}
 
         for attempt in ROUTER.iter_attempts(
             canonical_model,
@@ -2315,18 +1968,19 @@ class Handler(BaseHTTPRequestHandler):
                 )
 
             attempt_started = time.time()
-            try:
-                payload = dict(
-                    convert_request(
+            fmt = attempt.upstream_format
+            if fmt not in converted_payloads:
+                try:
+                    converted_payloads[fmt] = convert_request(
                         CHAT,
-                        attempt.upstream_format,
+                        fmt,
                         req,
                         resolve_model=resolve_model,
                     )
-                )
-            except ValueError as e:
-                _record_request_conversion_failure(request_id, attempt, CHAT, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
-                continue
+                except ValueError as e:
+                    _record_request_conversion_failure(request_id, attempt, CHAT, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
+                    continue
+            payload = dict(converted_payloads[fmt])
             payload["model"] = attempt.provider_model
             payload["stream"] = is_stream if attempt.upstream_format in (CHAT, RESPONSES, ANTHROPIC) else False
             _force_chat_reasoning_content_if_needed(attempt, payload, log_each=log_each)
@@ -2357,24 +2011,32 @@ class Handler(BaseHTTPRequestHandler):
                     self.end_headers()
                     response_started = True
 
-                    if attempt.upstream_format == CHAT:
-                        stream_resp = relay_sse_stream(upstream_conn, self.wfile, initial_lines=initial_lines)
-                    elif attempt.upstream_format == RESPONSES:
-                        stream_resp = stream_responses_sse_to_openai_chat(
-                            upstream_conn,
-                            self.wfile,
-                            original_model,
-                            read_timeout_s=read_t,
-                            initial_lines=initial_lines,
-                        )
-                    else:
-                        stream_resp = stream_anthropic_sse_to_openai_chat(
-                            upstream_conn,
-                            self.wfile,
-                            original_model,
-                            read_timeout_s=read_t,
-                            initial_lines=initial_lines,
-                        )
+                    interval_ms, flush_bytes = _stream_flush_policy()
+                    from stream_adapters import BufferedSSEWriter
+                    bwfile = BufferedSSEWriter(self.wfile, interval_ms, flush_bytes)
+
+                    try:
+                        if attempt.upstream_format == CHAT:
+                            stream_resp = relay_sse_stream(upstream_conn, bwfile, initial_lines=initial_lines)
+                        elif attempt.upstream_format == RESPONSES:
+                            stream_resp = stream_responses_sse_to_openai_chat(
+                                upstream_conn,
+                                bwfile,
+                                original_model,
+                                read_timeout_s=read_t,
+                                initial_lines=initial_lines,
+                            )
+                        else:
+                            stream_resp = stream_anthropic_sse_to_openai_chat(
+                                upstream_conn,
+                                bwfile,
+                                original_model,
+                                read_timeout_s=read_t,
+                                initial_lines=initial_lines,
+                            )
+                    finally:
+                        bwfile.force_flush()
+
                     if stream_resp is None:
                         _record_stream_interrupted(
                             request_id,
@@ -2459,6 +2121,13 @@ class Handler(BaseHTTPRequestHandler):
                 continue
 
             except (URLError, socket.timeout) as e:
+                # Once bytes were sent to the client, a disconnect-style error on
+                # a write is the client going away, not an upstream failure.
+                # Treat it as 499 and do NOT cool the provider/key.
+                if response_started and is_client_disconnect_error(e):
+                    print(f"[proxy] CLIENT DISCONNECTED req={request_id}: {type(e).__name__}", flush=True)
+                    OBSERVABILITY.record_request_end(request_id, status_code=499, error=type(e).__name__)
+                    return
                 err_label = "timeout" if isinstance(e, socket.timeout) else "network_error"
                 stage = "streaming_idle_timeout" if response_started and isinstance(e, socket.timeout) else _transport_stage_for_exception(e)
                 _record_transport_failure(
@@ -2511,6 +2180,13 @@ class Handler(BaseHTTPRequestHandler):
         return self._resp_json({"error": {"message": err_msg, "request_id": request_id}}, 502)
 
     def _proxy_openai_responses(self, req, request_id, start_ts, path="/openai/v1/responses"):
+        # Snapshot the live runtime once for whole-request consistency during
+        # config hot-swap. See _proxy_openai_chat_completions for rationale.
+        rt = _request_runtime()
+        CONFIG = rt.config
+        ROUTER = rt.router
+        UPSTREAM_CLIENT = rt.upstream_client
+        OBSERVABILITY = rt.observability
         is_stream = bool(req.get("stream", False))
         original_model = req.get("model", "")
         resolved_model = resolve_model(original_model or "")
@@ -2538,6 +2214,7 @@ class Handler(BaseHTTPRequestHandler):
         first_byte_t = int(routing_cfg.get("first_token_timeout_s", 30))  # Total budget before first stream event.
         max_attempts = int(routing_cfg.get("max_attempts", 6))
         max_budget = (connect_t + read_t) * min(3, max(1, max_attempts))
+        converted_payloads = {}
 
         for attempt in ROUTER.iter_attempts(
             canonical_model,
@@ -2559,18 +2236,19 @@ class Handler(BaseHTTPRequestHandler):
                 )
 
             attempt_started = time.time()
-            try:
-                payload = dict(
-                    convert_request(
+            fmt = attempt.upstream_format
+            if fmt not in converted_payloads:
+                try:
+                    converted_payloads[fmt] = convert_request(
                         RESPONSES,
-                        attempt.upstream_format,
+                        fmt,
                         req,
                         resolve_model=resolve_model,
                     )
-                )
-            except ValueError as e:
-                _record_request_conversion_failure(request_id, attempt, RESPONSES, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
-                continue
+                except ValueError as e:
+                    _record_request_conversion_failure(request_id, attempt, RESPONSES, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
+                    continue
+            payload = dict(converted_payloads[fmt])
             payload["model"] = attempt.provider_model
             payload["stream"] = is_stream if attempt.upstream_format in (RESPONSES, CHAT, ANTHROPIC) else False
             _force_chat_reasoning_content_if_needed(attempt, payload, log_each=log_each)
@@ -2605,25 +2283,33 @@ class Handler(BaseHTTPRequestHandler):
                     self.end_headers()
                     response_started = True
 
+                    interval_ms, flush_bytes = _stream_flush_policy()
+                    from stream_adapters import BufferedSSEWriter
+                    bwfile = BufferedSSEWriter(self.wfile, interval_ms, flush_bytes)
+
                     stream_resp = None
-                    if attempt.upstream_format == RESPONSES:
-                        stream_resp = relay_sse_stream(upstream_conn, self.wfile, initial_lines=initial_lines)
-                    elif attempt.upstream_format == CHAT:
-                        stream_resp = stream_openai_sse_to_responses(
-                            upstream_conn,
-                            self.wfile,
-                            original_model,
-                            read_timeout_s=read_t,
-                            initial_lines=initial_lines,
-                        )
-                    else:
-                        stream_resp = stream_anthropic_sse_to_responses(
-                            upstream_conn,
-                            self.wfile,
-                            original_model,
-                            read_timeout_s=read_t,
-                            initial_lines=initial_lines,
-                        )
+                    try:
+                        if attempt.upstream_format == RESPONSES:
+                            stream_resp = relay_sse_stream(upstream_conn, bwfile, initial_lines=initial_lines)
+                        elif attempt.upstream_format == CHAT:
+                            stream_resp = stream_openai_sse_to_responses(
+                                upstream_conn,
+                                bwfile,
+                                original_model,
+                                read_timeout_s=read_t,
+                                initial_lines=initial_lines,
+                            )
+                        else:
+                            stream_resp = stream_anthropic_sse_to_responses(
+                                upstream_conn,
+                                bwfile,
+                                original_model,
+                                read_timeout_s=read_t,
+                                initial_lines=initial_lines,
+                            )
+                    finally:
+                        bwfile.force_flush()
+
                     if stream_resp is None:
                         _record_stream_interrupted(
                             request_id,
@@ -2708,6 +2394,13 @@ class Handler(BaseHTTPRequestHandler):
                 continue
 
             except (URLError, socket.timeout) as e:
+                # Once bytes were sent to the client, a disconnect-style error on
+                # a write is the client going away, not an upstream failure.
+                # Treat it as 499 and do NOT cool the provider/key.
+                if response_started and is_client_disconnect_error(e):
+                    print(f"[proxy] CLIENT DISCONNECTED req={request_id}: {type(e).__name__}", flush=True)
+                    OBSERVABILITY.record_request_end(request_id, status_code=499, error=type(e).__name__)
+                    return
                 err_label = "timeout" if isinstance(e, socket.timeout) else "network_error"
                 stage = "streaming_idle_timeout" if response_started and isinstance(e, socket.timeout) else _transport_stage_for_exception(e)
                 _record_transport_failure(
@@ -2818,6 +2511,13 @@ class Handler(BaseHTTPRequestHandler):
         if is_responses:
             return self._proxy_openai_responses(req, request_id, start_ts, path=clean_path)
 
+        # Anthropic Messages branch: snapshot the live runtime once for
+        # whole-request consistency during config hot-swap.
+        rt = _request_runtime()
+        CONFIG = rt.config
+        ROUTER = rt.router
+        UPSTREAM_CLIENT = rt.upstream_client
+        OBSERVABILITY = rt.observability
         is_stream = req.get("stream", False)
         original_model = req.get("model", "deepseek-v4-flash")
         msgs_count = len(req.get("messages", []))
@@ -2872,6 +2572,7 @@ class Handler(BaseHTTPRequestHandler):
             max_budget = (connect_t + read_t) * min(3, max(1, max_attempts))
 
             allowed_formats = [ANTHROPIC, CHAT, RESPONSES]
+            converted_payloads = {}
             for attempt in ROUTER.iter_attempts(
                 canonical_model,
                 bool(is_stream),
@@ -2894,18 +2595,19 @@ class Handler(BaseHTTPRequestHandler):
                     )
 
                 attempt_started = time.time()
-                try:
-                    payload = dict(
-                        convert_request(
+                fmt = attempt.upstream_format
+                if fmt not in converted_payloads:
+                    try:
+                        converted_payloads[fmt] = convert_request(
                             ANTHROPIC,
-                            attempt.upstream_format,
+                            fmt,
                             req,
                             resolve_model=resolve_model,
                         )
-                    )
-                except ValueError as e:
-                    _record_request_conversion_failure(request_id, attempt, ANTHROPIC, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
-                    continue
+                    except ValueError as e:
+                        _record_request_conversion_failure(request_id, attempt, ANTHROPIC, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
+                        continue
+                payload = dict(converted_payloads[fmt])
                 payload["model"] = attempt.provider_model
                 payload["stream"] = bool(is_stream) if attempt.upstream_format in (ANTHROPIC, CHAT, RESPONSES) else False
                 _force_chat_reasoning_content_if_needed(attempt, payload, log_each=log_each)
@@ -2933,19 +2635,27 @@ class Handler(BaseHTTPRequestHandler):
                         self.end_headers()
                         response_started = True
 
-                        if attempt.upstream_format == "anthropic_messages":
-                            native_usage = relay_sse_stream(upstream_conn, self.wfile, initial_lines=initial_lines)
-                            anth_resp = {"streamed": True, "native": True, "usage": native_usage}
-                        elif attempt.upstream_format == RESPONSES:
-                            anth_resp = stream_responses_sse_to_anthropic(
-                                upstream_conn,
-                                self.wfile,
-                                original_model,
-                                read_timeout_s=read_t,
-                                initial_lines=initial_lines,
-                            )
-                        else:
-                            anth_resp = do_stream(upstream_conn, self.wfile, original_model, read_timeout_s=read_t, initial_lines=initial_lines)
+                        interval_ms, flush_bytes = _stream_flush_policy()
+                        from stream_adapters import BufferedSSEWriter
+                        bwfile = BufferedSSEWriter(self.wfile, interval_ms, flush_bytes)
+
+                        try:
+                            if attempt.upstream_format == "anthropic_messages":
+                                native_usage = relay_sse_stream(upstream_conn, bwfile, initial_lines=initial_lines)
+                                anth_resp = {"streamed": True, "native": True, "usage": native_usage}
+                            elif attempt.upstream_format == RESPONSES:
+                                anth_resp = stream_responses_sse_to_anthropic(
+                                    upstream_conn,
+                                    bwfile,
+                                    original_model,
+                                    read_timeout_s=read_t,
+                                    initial_lines=initial_lines,
+                                )
+                            else:
+                                anth_resp = do_stream(upstream_conn, bwfile, original_model, read_timeout_s=read_t, initial_lines=initial_lines)
+                        finally:
+                            bwfile.force_flush()
+
                         if anth_resp is None:
                             _record_stream_interrupted(
                                 request_id,
@@ -3063,6 +2773,13 @@ class Handler(BaseHTTPRequestHandler):
                     continue
 
                 except URLError as e:
+                    # Once bytes were sent to the client, a disconnect-style error
+                    # on a write is the client going away, not an upstream failure.
+                    # Treat it as 499 and do NOT cool the provider/key.
+                    if response_started and is_client_disconnect_error(e):
+                        print(f"[proxy] CLIENT DISCONNECTED req={request_id}: {type(e).__name__}", flush=True)
+                        OBSERVABILITY.record_request_end(request_id, status_code=499, error=type(e).__name__)
+                        return
                     stage = _transport_stage_for_exception(e)
                     _record_transport_failure(
                         request_id,
@@ -3258,13 +2975,34 @@ def _prefetch_model_summaries():
         def do_prefetch():
             import time
             from artificial_analysis_api import aa
+            # Warm the resolve cache for every known model name FIRST, before
+            # the sleep, so it is ready by the time the first dashboard pricing
+            # query arrives. This is pure local index work, no network.
+            try:
+                aa._index.load_local()
+                for m in sorted(list(models)):
+                    try:
+                        aa._index.resolve(m)
+                    except Exception:
+                        pass
+                print(f"[proxy] Resolve cache warmed for {len(models)} models.", flush=True)
+            except Exception:
+                pass
             # Wait a few seconds for the proxy to start serving, then start fetching
             time.sleep(5)
+            # Optional proxy for fetching from artificialanalysis.ai (faster
+            # from regions with restricted direct access). Read from config
+            # observability.pricing.proxy or AA_PROXY env.
+            aa_proxy = ""
+            try:
+                aa_proxy = str(((CONFIG.get("observability") or {}).get("pricing") or {}).get("proxy") or os.environ.get("AA_PROXY") or "").strip()
+            except Exception:
+                pass
             for m in sorted(list(models)):
                 try:
                     # aa.get performs a resolved check; if cached locally, it returns immediately.
-                    # Otherwise it fetches & parses.
-                    res = aa.get(m)
+                    # Otherwise it fetches & parses (through aa_proxy if configured).
+                    res = aa.get(m, proxy=aa_proxy or None)
                     # Sleep slightly between network fetches to avoid spamming artificial analysis
                     if res and not res.get("cached") and not res.get("error"):
                         time.sleep(1.5)
@@ -3286,14 +3024,15 @@ if __name__ == "__main__":
     # Start autosave before serving requests.
     _start_state_autosave()
 
-    # Warm model list so first user request is less likely to block.
-    try:
-        models_source = str((CONFIG.get("models") or {}).get("models_source", "first_healthy_provider"))
-        if models_source in ("union", "first_healthy_provider"):
-            fetch_upstream_models()
-            _save_router_state()
-    except Exception:
-        pass
+    # Start the background model-discovery queue. This replaces the previous
+    # one-shot union fetch that ran with an 8s total timeout and silently
+    # dropped any provider that did not respond in time. The queue pulls each
+    # enabled provider sequentially in its own daemon thread (never the request
+    # worker pool), caches ok snapshots for a TTL, and retries missing/failed
+    # providers on a slow cadence — so providers that were unreachable at
+    # startup get discovered automatically once they come back, without the
+    # user having to click "Refresh models" for each one.
+    _start_model_discovery_queue()
 
     s = _ThreadPoolHTTPServer((HOST, PORT), Handler, max_workers=MAX_WORKERS)
     s.timeout = 0.5

@@ -477,10 +477,14 @@ class AdminApiTests(unittest.TestCase):
                 {"model": "client-model", "messages": [{"role": "user", "content": "hello"}]},
             )
             metrics_status, metrics = self.get_json("/-/admin/metrics", headers={"X-Admin-Key": "admin-secret"})
+            # /-/admin/metrics is the lightweight poll payload (no recent_requests);
+            # /-/admin/metrics/full carries the full ring for the requests view.
+            full_status, full_metrics = self.get_json("/-/admin/metrics/full", headers={"X-Admin-Key": "admin-secret"})
 
         self.assertEqual(status, 200)
         self.assertEqual(body["choices"][0]["message"]["content"], "ok")
         self.assertEqual(metrics_status, 200)
+        self.assertEqual(full_status, 200)
         self.assertEqual(metrics["counters"]["requests_total"], 1)
         self.assertEqual(metrics["counters"]["requests_success"], 1)
         self.assertEqual(metrics["counters"]["attempts_success"], 1)
@@ -491,12 +495,14 @@ class AdminApiTests(unittest.TestCase):
         self.assertEqual(metrics["counters"]["usage"]["output_tokens"], 6)
         self.assertEqual(metrics["counters"]["usage"]["total_tokens"], 10)
         self.assertAlmostEqual(metrics["counters"]["usage"]["cost_usd"], 0.000016)
-        self.assertEqual(metrics["recent_requests"][0]["usage"], {"input_tokens": 4, "output_tokens": 6, "total_tokens": 10})
-        self.assertAlmostEqual(metrics["recent_requests"][0]["cost_usd"], 0.000016)
-        self.assertEqual(metrics["recent_requests"][0]["attempts"][0]["provider"], "alpha")
-        self.assertEqual(metrics["recent_requests"][0]["attempts"][0]["usage"], {"input_tokens": 4, "output_tokens": 6, "total_tokens": 10})
-        self.assertEqual(metrics["recent_requests"][0]["attempts"][0]["key_masked"], "raw-al**-key")
-        self.assertNotIn("raw-alpha-key", json.dumps(metrics))
+        # The lightweight metrics payload intentionally omits recent_requests.
+        self.assertNotIn("recent_requests", metrics)
+        self.assertEqual(full_metrics["recent_requests"][0]["usage"], {"input_tokens": 4, "output_tokens": 6, "total_tokens": 10})
+        self.assertAlmostEqual(full_metrics["recent_requests"][0]["cost_usd"], 0.000016)
+        self.assertEqual(full_metrics["recent_requests"][0]["attempts"][0]["provider"], "alpha")
+        self.assertEqual(full_metrics["recent_requests"][0]["attempts"][0]["usage"], {"input_tokens": 4, "output_tokens": 6, "total_tokens": 10})
+        self.assertEqual(full_metrics["recent_requests"][0]["attempts"][0]["key_masked"], "raw-al**-key")
+        self.assertNotIn("raw-alpha-key", json.dumps(full_metrics))
 
     def test_admin_requests_list_detail_and_timeseries(self):
         cfg = {
@@ -1087,6 +1093,105 @@ class AdminApiTests(unittest.TestCase):
         self.assertEqual(manager.config["models"]["provider_model_capabilities"]["beta"]["status"], "ok")
         self.assertNotIn("beta-secret-key", json.dumps([add_body, after, manager.config["models"]["provider_model_capabilities"]]))
 
+    def test_add_provider_marks_capability_pending_until_background_refresh_completes(self):
+        cfg = {
+            "server": {"admin_key": "admin-secret"},
+            "routing": {"default_provider_pool": ["alpha"], "max_attempts": 4},
+            "models": {
+                "disable_client_model_map": True,
+                "models_source": "union",
+                "provider_model_capabilities": {},
+            },
+            "providers": {
+                "alpha": {
+                    "base_url": "https://alpha.example",
+                    "models_path": "/v1/models",
+                    "keys": ["raw-alpha-key"],
+                    "enabled": True,
+                }
+            },
+        }
+        manager = config_manager.RuntimeConfigManager(cfg, overlay_path=self.temp_overlay_path())
+
+        # Gate the background fetch so we can observe the pending window.
+        gate = threading.Event()
+
+        def gated_fetch(config, router, client, *, format_provider=None, only_provider=None):
+            gate.wait(timeout=5)
+            return real_fetch(
+                config, router, client, format_provider=format_provider, only_provider=only_provider,
+            )
+
+        real_fetch = sse2json.model_registry.fetch_upstream_models
+
+        with self.runtime_config(manager), patch.object(sse2json, "OpenAIUpstreamClient", lambda _cfg: FakeClient()):
+            sse2json._apply_runtime_config(manager.config)
+            # Add a second provider so _refresh_models_after_config_change(force=True)
+            # launches the background discovery thread for it.
+            manager.add_provider(
+                "beta",
+                {
+                    "base_url": "https://beta.example/v1",
+                    "models_path": "/v1/models",
+                    "keys": ["beta-secret-key"],
+                    "priority": 25,
+                    "formats": {
+                        "chat_completions": {"enabled": True, "path": "/v1/chat/completions"},
+                        "responses": {"enabled": False, "path": "/v1/responses"},
+                        "anthropic_messages": {"enabled": False, "path": "/v1/messages"},
+                    },
+                },
+            )
+            sse2json._apply_runtime_config(manager.config)
+
+            with patch.object(sse2json.model_registry, "fetch_upstream_models", side_effect=gated_fetch):
+                sse2json._refresh_models_after_config_change("beta", force=True)
+
+                # While the background thread is gated, beta must read as "pending".
+                snapshot = sse2json._model_capabilities_snapshot()
+                beta_cap = snapshot["providers"].get("beta", {})
+                self.assertEqual(beta_cap.get("status"), "pending")
+
+                # Release the gate so the background refresh can finish.
+                gate.set()
+                # Poll until the snapshot flips to a terminal status.
+                for _ in range(60):
+                    snapshot = sse2json._model_capabilities_snapshot()
+                    beta_cap = snapshot["providers"].get("beta", {})
+                    if beta_cap.get("status") in ("ok", "error"):
+                        break
+                    time.sleep(0.05)
+                self.assertEqual(beta_cap.get("status"), "ok")
+
+    def test_mark_provider_models_pending_preserves_existing_models(self):
+        # A re-refresh must not wipe a previously discovered model list while pending.
+        caps = {
+            "alpha": {
+                "status": "ok",
+                "fetched_at": 100,
+                "models": ["alpha-model"],
+                "canonical_map": {"alpha-model": "alpha-model"},
+                "formats": ["chat_completions"],
+                "error": "old error",
+            }
+        }
+        cfg = {
+            "server": {"admin_key": "admin-secret"},
+            "models": {"models_source": "union", "provider_model_capabilities": caps},
+            "providers": {"alpha": {"base_url": "https://alpha.example", "keys": ["k"], "enabled": True}},
+        }
+        manager = config_manager.RuntimeConfigManager(cfg, overlay_path=self.temp_overlay_path())
+        with self.runtime_config(manager):
+            sse2json._mark_provider_models_pending("alpha")
+            entry = sse2json.CONFIG["models"]["provider_model_capabilities"]["alpha"]
+            self.assertEqual(entry["status"], "pending")
+            # Existing data preserved so a failed refresh still shows last-known models.
+            self.assertEqual(entry["models"], ["alpha-model"])
+            self.assertEqual(entry["canonical_map"], {"alpha-model": "alpha-model"})
+            self.assertEqual(entry["formats"], ["chat_completions"])
+            # Stale error from the previous run is carried through.
+            self.assertEqual(entry["error"], "old error")
+
     def test_delete_provider_requires_confirmation(self):
         cfg = {
             "server": {"admin_key": "admin-secret"},
@@ -1398,6 +1503,69 @@ class AdminApiTests(unittest.TestCase):
             status, body = self.post_json("/-/admin/providers/alpha/keys/0/test")
 
         self.assertEqual(status, 403)
+
+
+class ModelPricingEndpointTests(unittest.TestCase):
+    def setUp(self):
+        self._original_audit = sse2json.AUDIT
+        sse2json.AUDIT = sse2json.AdminAuditStore({"observability": {"audit": {"enabled": False}}})
+        sse2json.OBSERVABILITY.reset()
+        self.server = HTTPServer(("127.0.0.1", 0), sse2json.Handler)
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.base_url = f"http://127.0.0.1:{self.server.server_address[1]}"
+        self.cfg = {"server": {"admin_key": "admin-secret"}, "providers": {}, "models": {}}
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join(timeout=2)
+        sse2json.OBSERVABILITY.reset()
+        sse2json.AUDIT = self._original_audit
+
+    def _get(self, path):
+        req = Request(self.base_url + path, headers={"X-Admin-Key": "admin-secret"}, method="GET")
+        try:
+            with urlopen(req, timeout=5) as resp:
+                return resp.status, json.loads(resp.read())
+        except HTTPError as e:
+            try:
+                return e.code, json.loads(e.read())
+            finally:
+                e.close()
+
+    def test_model_pricing_returns_cached_prices_without_network(self):
+        # Patch the aa singleton's index/cache to avoid touching real files.
+        import artificial_analysis_api
+        aa = artificial_analysis_api.aa
+        # fast_resolve builds its lookup from _index._models; seed it so the
+        # test model resolves without the slow per-query resolver.
+        with patch.object(sse2json, "CONFIG", self.cfg), \
+             patch.object(aa._index, "_models", {"deepseek-v4-flash": "DeepSeek V4 Flash"}), \
+             patch.object(aa._index, "load_local", lambda: None), \
+             patch.object(aa._cache, "get", side_effect=lambda slug: {"pricing": {"input": 0.14, "output": 0.28, "cache_hit": 0.014}} if slug == "deepseek-v4-flash" else None) as get_mock, \
+             patch.object(aa._cache, "list_slugs", return_value=[]):
+            status, body = self._get("/-/admin/model-pricing?models=deepseek-v4-flash,unknown-model")
+
+        self.assertEqual(status, 200)
+        pricing = body["pricing"]
+        self.assertTrue(pricing["deepseek-v4-flash"]["available"])
+        self.assertEqual(pricing["deepseek-v4-flash"]["input"], 0.14)
+        self.assertEqual(pricing["deepseek-v4-flash"]["output"], 0.28)
+        # unknown-model resolves to None -> available False
+        self.assertFalse(pricing["unknown-model"]["available"])
+        # cache.get is read-only, no network fetcher invoked.
+        get_mock.assert_called()
+
+    def test_model_pricing_requires_admin_auth(self):
+        with patch.object(sse2json, "CONFIG", self.cfg):
+            req = Request(self.base_url + "/-/admin/model-pricing", method="GET")
+            try:
+                urlopen(req, timeout=5)
+                self.fail("expected auth failure")
+            except HTTPError as e:
+                self.assertIn(e.code, (401, 403))
+                e.close()
 
 
 if __name__ == "__main__":

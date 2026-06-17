@@ -16,6 +16,7 @@ from proxy_utils import key_proxy, key_value, resolve_proxy_url
 
 
 PROVIDER_SELECT_MODES = ("priority_failover", "round_robin", "weighted_rr", "random")
+FORMAT_PREFERENCE_MODES = ("priority_first", "native_first")
 
 
 @dataclass(frozen=True)
@@ -675,6 +676,27 @@ class UpstreamRouter:
 
         return filtered
 
+    def _format_preference(self, canonical_model: str) -> str:
+        """Return the format preference policy for a route.
+
+        priority_first (default): provider priority decides global order;
+        same-format (native) providers only win ties against fallback-format
+        providers at equal priority. native_first: legacy behavior where all
+        native providers precede all fallback providers regardless of priority.
+        Per-model override via models.routes.{model}.format_preference wins
+        over the global routing.format_preference setting.
+        """
+        routes = (self.cfg.get("models") or {}).get("routes") or {}
+        route = routes.get(canonical_model) or {}
+        mode = ""
+        if isinstance(route, dict):
+            mode = str(route.get("format_preference") or "").strip()
+        if not mode:
+            mode = str((self.cfg.get("routing") or {}).get("format_preference") or "priority_first").strip()
+        if mode not in FORMAT_PREFERENCE_MODES:
+            return "priority_first"
+        return mode
+
     def _select_provider_attempts(
         self,
         canonical_model: str,
@@ -709,7 +731,28 @@ class UpstreamRouter:
             else:
                 fallback.append(item)
 
-        selected: List[Tuple[str, str]] = []
+        # priority_first: provider priority decides global order; native wins
+        # only as a tiebreaker at equal priority. native_first: legacy behavior,
+        # all native providers precede all fallback providers.
+        if (
+            self._format_preference(canonical_model) == "priority_first"
+            and provider_select == "priority_failover"
+            and native
+            and fallback
+        ):
+            # Tag each candidate with is_native (0 native, 1 fallback) for the
+            # tiebreaker, then sort once across both pools.
+            tagged = [(name, w, prio, fmt, 0) for (name, w, prio, fmt) in native]
+            tagged += [(name, w, prio, fmt, 1) for (name, w, prio, fmt) in fallback]
+            ordered = sorted(enumerate(tagged), key=lambda entry: (-entry[1][2], entry[1][4], entry[0]))
+            providers_cfg = self.cfg.get("providers") or {}
+            selected: List[Tuple[str, str]] = []
+            for _idx, (name, _w, _priority, upstream_format, _native_flag) in ordered:
+                keys = (providers_cfg.get(name) or {}).get("keys") or []
+                selected.extend([(name, upstream_format)] * max(1, len(keys)))
+            return selected
+
+        selected = []
         if native:
             rotation_key = f"{canonical_model}|native|{client_format}|{','.join(format_order)}"
             selected.extend(

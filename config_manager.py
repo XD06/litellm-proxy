@@ -12,7 +12,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from config_loader import SUPPORTED_FORMATS, _deep_merge, _normalize_config
 from proxy_utils import key_value, normalize_key_entries, normalize_key_entry, normalize_proxy_config, proxy_display
-from router import PROVIDER_SELECT_MODES, _hash_key_short, _mask_key
+from router import PROVIDER_SELECT_MODES, FORMAT_PREFERENCE_MODES, _hash_key_short, _mask_key
 from scheduler_policy import MAX_CONFIGURED_COOLDOWN_S, MAX_PROVIDER_COOLDOWN_S, VALID_COOLDOWN_SCOPES
 
 
@@ -454,6 +454,7 @@ class RuntimeConfigManager:
         allowed = {
             "default_provider_pool",
             "provider_select",
+            "format_preference",
             "max_attempts",
             "connect_timeout_s",
             "read_timeout_s",
@@ -469,6 +470,11 @@ class RuntimeConfigManager:
                 mode = str(value or "").strip()
                 if mode not in PROVIDER_SELECT_MODES:
                     raise ConfigValidationError(f"unsupported provider_select: {mode}")
+                clean[key] = mode
+            elif key == "format_preference":
+                mode = str(value or "").strip()
+                if mode not in FORMAT_PREFERENCE_MODES:
+                    raise ConfigValidationError(f"unsupported format_preference: {mode}")
                 clean[key] = mode
             elif key == "max_attempts":
                 clean[key] = self._bounded_int(value, key, 1, 50)
@@ -778,7 +784,15 @@ class RuntimeConfigManager:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(overlay, f, ensure_ascii=False, indent=2)
                 f.write("\n")
-            os.replace(tmp_path, self.overlay_path)
+            for attempt in range(5):
+                try:
+                    os.replace(tmp_path, self.overlay_path)
+                    break
+                except OSError as e:
+                    if attempt == 4:
+                        raise
+                    import time
+                    time.sleep(0.1)
         finally:
             if os.path.exists(tmp_path):
                 try:

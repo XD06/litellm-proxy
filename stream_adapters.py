@@ -11,6 +11,60 @@ import uuid
 from typing import Any, Dict, Iterable, Optional
 
 from usage_accounting import empty_usage, has_usage, normalize_usage
+from upstream_client import set_response_read_timeout
+
+
+_PREFETCH_POOL = None
+_PREFETCH_POOL_LOCK = threading.Lock()
+
+def _get_prefetch_pool():
+    global _PREFETCH_POOL
+    if _PREFETCH_POOL is None:
+        with _PREFETCH_POOL_LOCK:
+            if _PREFETCH_POOL is None:
+                import concurrent.futures
+                _PREFETCH_POOL = concurrent.futures.ThreadPoolExecutor(
+                    max_workers=50,
+                    thread_name_prefix="prefetch"
+                )
+    return _PREFETCH_POOL
+
+
+class BufferedSSEWriter:
+    def __init__(self, wfile, flush_interval_ms=0, flush_bytes=0):
+        self._wfile = wfile
+        self._flush_interval_s = max(0, flush_interval_ms) / 1000.0 if flush_interval_ms else 0
+        self._flush_bytes = max(0, flush_bytes) if flush_bytes else 0
+        self._buf_len = 0
+        self._last_flush_time = time.time()
+        self._batch_mode = (self._flush_interval_s > 0 or self._flush_bytes > 0)
+
+    def write(self, data: bytes):
+        self._wfile.write(data)
+        if self._batch_mode:
+            self._buf_len += len(data)
+
+    def flush(self):
+        if not self._batch_mode:
+            self._wfile.flush()
+            return
+
+        should_flush = False
+        if self._flush_bytes > 0 and self._buf_len >= self._flush_bytes:
+            should_flush = True
+        elif self._flush_interval_s > 0:
+            now = time.time()
+            if now - self._last_flush_time >= self._flush_interval_s:
+                should_flush = True
+
+        if should_flush:
+            self.force_flush()
+
+    def force_flush(self):
+        if not self._batch_mode or self._buf_len > 0:
+            self._wfile.flush()
+            self._buf_len = 0
+            self._last_flush_time = time.time()
 
 
 def sse_data_payload(line: str) -> Optional[str]:
@@ -48,8 +102,18 @@ def prefetch_first_stream_line(upstream, timeout_s):
     return lines[0] if lines else None
 
 
-def prefetch_initial_stream_lines(upstream, timeout_s, preserve_skipped=True):
-    """Return lines read up to the first SSE data line for native pass-through."""
+def prefetch_initial_stream_lines(upstream, timeout_s, preserve_skipped=True, *, max_skipped_lines=None, max_skipped_bytes=None):
+    """Return lines read up to the first SSE data line for native pass-through.
+
+    When ``preserve_skipped`` is True, comment/empty/non-data lines before the
+    first data line are buffered so they can be replayed to the client. To
+    prevent a pathological upstream (infinite comments/keepalives, no data
+    event) from consuming unbounded memory and a prefetch thread, the buffered
+    prelude is bounded by ``max_skipped_lines`` and ``max_skipped_bytes``. If
+    either bound is hit before a data line arrives, the upstream is closed and
+    a socket.timeout is raised so the caller fails before client headers are
+    sent. ``None``/non-positive bounds disable that limit (backwards compatible).
+    """
     if not timeout_s or timeout_s <= 0:
         return []
 
@@ -58,6 +122,8 @@ def prefetch_initial_stream_lines(upstream, timeout_s, preserve_skipped=True):
     def read_first_line():
         try:
             initial = []
+            skipped_count = 0
+            skipped_bytes = 0
             while True:
                 raw = upstream.readline()
                 if not raw:
@@ -67,6 +133,18 @@ def prefetch_initial_stream_lines(upstream, timeout_s, preserve_skipped=True):
                 if not line or line.startswith(":") or sse_data_payload(line) is None:
                     if preserve_skipped:
                         initial.append(raw)
+                        skipped_count += 1
+                        skipped_bytes += len(raw)
+                        if max_skipped_lines is not None and max_skipped_lines > 0 and skipped_count > max_skipped_lines:
+                            q.put(socket.timeout(
+                                f"stream prefetch exceeded max_skipped_lines={max_skipped_lines} before first data event"
+                            ))
+                            return
+                        if max_skipped_bytes is not None and max_skipped_bytes > 0 and skipped_bytes > max_skipped_bytes:
+                            q.put(socket.timeout(
+                                f"stream prefetch exceeded max_skipped_bytes={max_skipped_bytes} before first data event"
+                            ))
+                            return
                     continue
                 initial.append(raw)
                 q.put(initial if preserve_skipped else [raw])
@@ -74,7 +152,7 @@ def prefetch_initial_stream_lines(upstream, timeout_s, preserve_skipped=True):
         except Exception as e:
             q.put(e)
 
-    threading.Thread(target=read_first_line, daemon=True).start()
+    _get_prefetch_pool().submit(read_first_line)
     try:
         item = q.get(timeout=float(timeout_s))
     except queue.Empty:
@@ -103,6 +181,8 @@ def relay_sse_stream(upstream, wfile, initial_lines: Optional[Iterable[bytes]] =
 
 
 def _usage_from_sse_line(raw: bytes) -> Dict[str, int]:
+    if b'"usage"' not in raw:
+        return empty_usage()
     try:
         line = raw.decode("utf-8", errors="replace").strip()
     except Exception:
@@ -164,6 +244,7 @@ def stream_openai_sse_to_anthropic(
     usage = {}
     block_idx = 0
     thinking_open = False
+    thinking_emitted = False
     thinking_sig = None
     text_open = False
     first_byte_received = False
@@ -229,12 +310,7 @@ def stream_openai_sse_to_anthropic(
             if not first_byte_received:
                 first_byte_received = True
                 if read_timeout_s:
-                    try:
-                        sock = upstream.fp.raw._sock if hasattr(upstream.fp, "raw") and hasattr(upstream.fp.raw, "_sock") else None
-                        if sock:
-                            sock.settimeout(read_timeout_s)
-                    except Exception:
-                        pass
+                    set_response_read_timeout(upstream, read_timeout_s)
 
             try:
                 chunk = json.loads(data)
@@ -254,7 +330,14 @@ def stream_openai_sse_to_anthropic(
 
             r = delta.get("reasoning_content", "")
             if r:
-                if not thinking_open:
+                # Anthropic block ordering requires thinking blocks to come
+                # before text/tool. If text or any tool block has already
+                # started, we must NOT reopen a thinking block (that would
+                # violate ordering and reuse a content_block index). Late
+                # reasoning is still accumulated for the final content log so
+                # non-streaming consumers do not lose it.
+                reasoning_started = thinking_open
+                if not text_open and not tool_block_idx and not thinking_open:
                     thinking_sig = uuid.uuid4().hex
                     sse(
                         "content_block_start",
@@ -265,16 +348,21 @@ def stream_openai_sse_to_anthropic(
                         },
                     )
                     thinking_open = True
+                    thinking_emitted = True
+                    reasoning_started = True
+                if reasoning_started:
+                    sse(
+                        "content_block_delta",
+                        {
+                            "type": "content_block_delta",
+                            "index": block_idx,
+                            "delta": {"type": "thinking_delta", "thinking": r},
+                        },
+                    )
+                    wfile.flush()
+                # Always retain reasoning text so the final assembled message
+                # still surfaces it for history/non-stream consumers.
                 reasoning_buf += r
-                sse(
-                    "content_block_delta",
-                    {
-                        "type": "content_block_delta",
-                        "index": block_idx,
-                        "delta": {"type": "thinking_delta", "thinking": r},
-                    },
-                )
-                wfile.flush()
 
             c = delta.get("content", "")
             if c:
@@ -410,7 +498,7 @@ def stream_openai_sse_to_anthropic(
     wfile.flush()
 
     content_log = []
-    if reasoning_buf:
+    if reasoning_buf and thinking_emitted:
         content_log.append({"type": "thinking", "thinking": reasoning_buf, "signature": thinking_sig or uuid.uuid4().hex})
     if content_buf:
         content_log.append({"type": "text", "text": content_buf})
@@ -467,10 +555,21 @@ def stream_openai_sse_to_responses(
     reasoning_done = False
     first_byte_received = False
     stream_start_time = time.time()
+    sequence_number = 0
 
     def sse(event, data):
+        nonlocal sequence_number
+        sequence_number += 1
+        # OpenAI Responses streaming events carry a monotonic sequence_number so
+        # strict clients can order events and detect gaps. Inject it without
+        # mutating the caller's dict.
+        if isinstance(data, dict) and "sequence_number" not in data:
+            payload = dict(data)
+            payload["sequence_number"] = sequence_number
+        else:
+            payload = data
         wfile.write(f"event: {event}\n".encode())
-        wfile.write(f"data: {json.dumps(data, ensure_ascii=False)}\n\n".encode())
+        wfile.write(f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode())
 
     def response_obj(status="in_progress", output=None):
         out = {
@@ -695,12 +794,7 @@ def stream_openai_sse_to_responses(
             if not first_byte_received:
                 first_byte_received = True
                 if read_timeout_s:
-                    try:
-                        sock = upstream.fp.raw._sock if hasattr(upstream.fp, "raw") and hasattr(upstream.fp.raw, "_sock") else None
-                        if sock:
-                            sock.settimeout(read_timeout_s)
-                    except Exception:
-                        pass
+                    set_response_read_timeout(upstream, read_timeout_s)
 
             try:
                 chunk = json.loads(data)
@@ -860,10 +954,18 @@ def stream_anthropic_sse_to_responses(
     current_event = None
     first_byte_received = False
     stream_start_time = time.time()
+    sequence_number = 0
 
     def sse(event, data):
+        nonlocal sequence_number
+        sequence_number += 1
+        if isinstance(data, dict) and "sequence_number" not in data:
+            payload = dict(data)
+            payload["sequence_number"] = sequence_number
+        else:
+            payload = data
         wfile.write(f"event: {event}\n".encode())
-        wfile.write(f"data: {json.dumps(data, ensure_ascii=False)}\n\n".encode())
+        wfile.write(f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode())
 
     def next_output_index(kind, ref=None):
         output_order.append((kind, ref))
@@ -1185,12 +1287,7 @@ def stream_anthropic_sse_to_responses(
             if not first_byte_received:
                 first_byte_received = True
                 if read_timeout_s:
-                    try:
-                        sock = upstream.fp.raw._sock if hasattr(upstream.fp, "raw") and hasattr(upstream.fp.raw, "_sock") else None
-                        if sock:
-                            sock.settimeout(read_timeout_s)
-                    except Exception:
-                        pass
+                    set_response_read_timeout(upstream, read_timeout_s)
 
             event_name = sse_event_name(line)
             if event_name is not None:
@@ -1289,6 +1386,7 @@ def stream_responses_sse_to_anthropic(
     current_event = None
     block_idx = 0
     open_block = None
+    text_or_tool_seen = False
     first_byte_received = False
     stream_start_time = time.time()
 
@@ -1369,8 +1467,15 @@ def stream_responses_sse_to_anthropic(
     def emit_reasoning(text, item):
         if not text:
             return
-        idx = ensure_block("thinking", item)
+        # Anthropic block ordering requires thinking before text/tool. If text
+        # or a tool block has already been emitted, do NOT reopen a thinking
+        # block; only retain the text on the item so non-streaming/history
+        # consumers still see it.
         item["thinking"] = (item.get("thinking") or "") + text
+        if text_or_tool_seen:
+            return
+        idx = ensure_block("thinking", item)
+        item["_thinking_emitted"] = True
         sse(
             "content_block_delta",
             {
@@ -1382,8 +1487,10 @@ def stream_responses_sse_to_anthropic(
         wfile.flush()
 
     def emit_text(text, item):
+        nonlocal text_or_tool_seen
         if not text:
             return
+        text_or_tool_seen = True
         idx = ensure_block("text", item)
         item["text"] = (item.get("text") or "") + text
         sse(
@@ -1397,8 +1504,10 @@ def stream_responses_sse_to_anthropic(
         wfile.flush()
 
     def emit_tool_args(chunk, item):
+        nonlocal text_or_tool_seen
         if not chunk:
             return
+        text_or_tool_seen = True
         idx = ensure_block("tool", item)
         item["arguments"] = (item.get("arguments") or "") + chunk
         sse(
@@ -1530,12 +1639,7 @@ def stream_responses_sse_to_anthropic(
             if not first_byte_received:
                 first_byte_received = True
                 if read_timeout_s:
-                    try:
-                        sock = upstream.fp.raw._sock if hasattr(upstream.fp, "raw") and hasattr(upstream.fp.raw, "_sock") else None
-                        if sock:
-                            sock.settimeout(read_timeout_s)
-                    except Exception:
-                        pass
+                    set_response_read_timeout(upstream, read_timeout_s)
 
             event_name = sse_event_name(line)
             if event_name is not None:
@@ -1596,7 +1700,7 @@ def stream_responses_sse_to_anthropic(
     for item_id in item_order:
         item = items.get(item_id) or {}
         item_type = item.get("type")
-        if item_type == "reasoning" and item.get("thinking"):
+        if item_type == "reasoning" and item.get("thinking") and item.get("_thinking_emitted"):
             content_log.append({"type": "thinking", "thinking": item.get("thinking") or "", "signature": uuid.uuid4().hex})
         elif item_type == "message" and item.get("text"):
             content_log.append({"type": "text", "text": item.get("text") or ""})
@@ -1839,12 +1943,7 @@ def stream_responses_sse_to_openai_chat(
             if not first_byte_received:
                 first_byte_received = True
                 if read_timeout_s:
-                    try:
-                        sock = upstream.fp.raw._sock if hasattr(upstream.fp, "raw") and hasattr(upstream.fp.raw, "_sock") else None
-                        if sock:
-                            sock.settimeout(read_timeout_s)
-                    except Exception:
-                        pass
+                    set_response_read_timeout(upstream, read_timeout_s)
             event_name = sse_event_name(line)
             if event_name is not None:
                 current_event = event_name
@@ -2043,12 +2142,7 @@ def stream_anthropic_sse_to_openai_chat(
             if not first_byte_received:
                 first_byte_received = True
                 if read_timeout_s:
-                    try:
-                        sock = upstream.fp.raw._sock if hasattr(upstream.fp, "raw") and hasattr(upstream.fp.raw, "_sock") else None
-                        if sock:
-                            sock.settimeout(read_timeout_s)
-                    except Exception:
-                        pass
+                    set_response_read_timeout(upstream, read_timeout_s)
             event_name = sse_event_name(line)
             if event_name is not None:
                 current_event = event_name

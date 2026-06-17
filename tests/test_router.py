@@ -294,6 +294,84 @@ class RouterTests(unittest.TestCase):
         self.assertEqual(attempts[1].provider, "beta")
         self.assertEqual(attempts[1].upstream_format, "chat_completions")
 
+    def _native_fallback_cfg(self, *, alpha_native, beta_fallback, alpha_prio, beta_prio, format_preference="priority_first"):
+        cfg = base_config()
+        cfg["routing"]["provider_select"] = "priority_failover"
+        cfg["routing"]["default_provider_pool"] = ["alpha", "beta"]
+        cfg["routing"]["format_preference"] = format_preference
+        cfg["routing"]["max_attempts"] = 4
+        cfg["providers"]["alpha"]["priority"] = alpha_prio
+        cfg["providers"]["beta"]["priority"] = beta_prio
+        cfg["providers"]["alpha"]["formats"] = {
+            "chat_completions": {"enabled": alpha_native == "chat", "path": "/v1/chat/completions"},
+            "responses": {"enabled": alpha_native == "responses", "path": "/v1/responses"},
+            "anthropic_messages": {"enabled": False, "path": "/v1/messages"},
+        }
+        cfg["providers"]["beta"]["formats"] = {
+            "chat_completions": {"enabled": beta_fallback == "chat", "path": "/v1/chat/completions"},
+            "responses": {"enabled": beta_fallback == "responses", "path": "/v1/responses"},
+            "anthropic_messages": {"enabled": False, "path": "/v1/messages"},
+        }
+        return cfg
+
+    def test_priority_first_lets_high_priority_fallback_beat_low_priority_native(self):
+        # client requests responses. alpha is native (responses, prio 10),
+        # beta is fallback (chat_completions, prio 80). Under priority_first
+        # the high-priority fallback beta must come BEFORE the low-priority
+        # native alpha, even though alpha matches the client format natively.
+        cfg = self._native_fallback_cfg(
+            alpha_native="responses", beta_fallback="chat", alpha_prio=10, beta_prio=80,
+        )
+        router = UpstreamRouter(cfg)
+        attempts = list(
+            router.iter_attempts(
+                "any-model", False, "req-prio-first",
+                client_format="responses",
+                allowed_upstream_formats=["responses", "chat_completions"],
+            )
+        )
+        # beta has 2 keys in base_config, so it occupies the first two attempts
+        # (priority_failover expands by key count), then alpha.
+        self.assertEqual([a.provider for a in attempts[:3]], ["beta", "beta", "alpha"])
+        self.assertEqual(attempts[0].upstream_format, "chat_completions")
+        self.assertEqual(attempts[2].upstream_format, "responses")
+
+    def test_priority_first_native_is_tiebreaker_at_equal_priority(self):
+        # Equal priority: native (alpha, responses) beats fallback (beta, chat).
+        cfg = self._native_fallback_cfg(
+            alpha_native="responses", beta_fallback="chat", alpha_prio=50, beta_prio=50,
+        )
+        router = UpstreamRouter(cfg)
+        attempts = list(
+            router.iter_attempts(
+                "any-model", False, "req-tie",
+                client_format="responses",
+                allowed_upstream_formats=["responses", "chat_completions"],
+            )
+        )
+        self.assertEqual([a.provider for a in attempts[:3]], ["alpha", "beta", "beta"])
+        self.assertEqual(attempts[0].upstream_format, "responses")
+
+    def test_native_first_setting_preserves_legacy_grouping(self):
+        # With format_preference=native_first, all native precede all fallback
+        # regardless of priority (legacy behavior).
+        cfg = self._native_fallback_cfg(
+            alpha_native="responses", beta_fallback="chat", alpha_prio=10, beta_prio=80,
+            format_preference="native_first",
+        )
+        router = UpstreamRouter(cfg)
+        attempts = list(
+            router.iter_attempts(
+                "any-model", False, "req-native-first",
+                client_format="responses",
+                allowed_upstream_formats=["responses", "chat_completions"],
+            )
+        )
+        # alpha (native responses, prio 10) comes before beta (fallback, prio 80).
+        self.assertEqual([a.provider for a in attempts[:3]], ["alpha", "beta", "beta"])
+        self.assertEqual(attempts[0].upstream_format, "responses")
+        self.assertEqual(attempts[1].upstream_format, "chat_completions")
+
     def test_attempt_proxy_priority_key_provider_global(self):
         cfg = base_config()
         cfg["routing"]["default_provider_pool"] = ["alpha"]

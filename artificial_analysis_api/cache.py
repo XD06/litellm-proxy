@@ -36,3 +36,18 @@ class ModelCache:
         self._path(slug).write_text(
             json.dumps({"slug": slug, "cached_at": time.time(), "summary": summary})
         )
+
+    def list_slugs(self) -> list:
+        """Return all slugs that have a cached summary (in memory or on disk).
+
+        Read-only and side-effect free apart from populating the in-memory
+        cache entry when a file is found. Used by batch pricing lookups.
+        """
+        slugs = set(self._mem.keys())
+        try:
+            if self._dir.exists():
+                for p in self._dir.glob("*.json"):
+                    slugs.add(p.stem)
+        except Exception:
+            pass
+        return sorted(slugs)

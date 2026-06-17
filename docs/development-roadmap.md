@@ -1,5 +1,10 @@
 # Development Roadmap
 
+## Recent Refactoring Updates (2026-06-15)
+
+* **Dashboard Engineering Refactor**: Migrated the 251KB monolith dashboard/app.js into a Vite-based build pipeline (dashboard_src). The code is currently bundled without minification to ensure existing UI unit tests (which assert raw code substrings) continue to pass. This provides a safe foundation for future component splitting.
+* **Admin API Extraction**: Decoupled the God Object (sse2json.py) by extracting all _resp_admin_* routing methods (~700 lines) into dmin_routes.py via an AdminRoutesMixin. Local context constraints (like _request_filter_payload) were safely preserved and all 190+ test cases pass cleanly.
+
 ## Purpose
 
 This document describes the target architecture and follow-up development plan for the proxy.

@@ -133,5 +133,119 @@ class ObservabilityMigrationTests(unittest.TestCase):
         self.assertEqual(new._counters["requests_total"], 0)
 
 
+class RuntimeSwapConsistencyTests(unittest.TestCase):
+    """Verify _request_runtime returns an internally consistent bundle even
+    while the module global RUNTIME is being swapped concurrently."""
+
+    def test_request_runtime_snapshot_is_internally_consistent_under_swap(self):
+        import threading
+        from upstream_client import OpenAIUpstreamClient
+        from observability import ProxyObservability
+        from audit_store import AdminAuditStore
+
+        def _make_bundle(tag):
+            cfg = {"providers": {}, "models": {}, "tag": tag}
+            router = UpstreamRouter(cfg)
+            client = OpenAIUpstreamClient(cfg)
+            obs = ProxyObservability(cfg)
+            audit = AdminAuditStore(cfg)
+            return sse2json.RuntimeContext(cfg, router, client, obs, audit)
+
+        bundle_a = _make_bundle("A")
+        bundle_b = _make_bundle("B")
+
+        originals = {
+            "CONFIG": sse2json.CONFIG,
+            "ROUTER": sse2json.ROUTER,
+            "UPSTREAM_CLIENT": sse2json.UPSTREAM_CLIENT,
+            "OBSERVABILITY": sse2json.OBSERVABILITY,
+            "AUDIT": sse2json.AUDIT,
+            "RUNTIME": sse2json.RUNTIME,
+        }
+
+        observed = []
+        stop = threading.Event()
+        inconsistencies = []
+
+        def reader():
+            while not stop.is_set():
+                rt = sse2json._request_runtime()
+                # Each snapshot must be internally consistent: all five fields
+                # must come from the SAME bundle instance.
+                tag = rt.config.get("tag")
+                expected_bundle = bundle_a if tag == "A" else bundle_b if tag == "B" else None
+                if expected_bundle is None:
+                    inconsistencies.append(("unknown_tag", tag))
+                    continue
+                if not (
+                    rt.router is expected_bundle.router
+                    and rt.upstream_client is expected_bundle.upstream_client
+                    and rt.observability is expected_bundle.observability
+                    and rt.audit is expected_bundle.audit
+                ):
+                    inconsistencies.append(("torn", tag))
+                observed.append(tag)
+
+        try:
+            # Install bundle A so RUNTIME and legacy globals are consistent
+            # (the production invariant). _request_runtime will return RUNTIME
+            # directly without rebuilding.
+            sse2json.RUNTIME = bundle_a
+            sse2json.CONFIG = bundle_a.config
+            sse2json.ROUTER = bundle_a.router
+            sse2json.UPSTREAM_CLIENT = bundle_a.upstream_client
+            sse2json.OBSERVABILITY = bundle_a.observability
+            sse2json.AUDIT = bundle_a.audit
+
+            t = threading.Thread(target=reader, daemon=True)
+            t.start()
+
+            # Hammer the swap from A <-> B many times. Each swap mimics
+            # _apply_runtime_config: reassign RUNTIME first, then legacy globals
+            # follow immediately. The reader must never observe a torn bundle.
+            for _ in range(200):
+                target = bundle_b if sse2json.RUNTIME is bundle_a else bundle_a
+                sse2json.RUNTIME = target
+                sse2json.CONFIG = target.config
+                sse2json.ROUTER = target.router
+                sse2json.UPSTREAM_CLIENT = target.upstream_client
+                sse2json.OBSERVABILITY = target.observability
+                sse2json.AUDIT = target.audit
+
+            stop.set()
+            t.join(timeout=5)
+
+            self.assertFalse(t.is_alive(), "reader thread did not stop")
+            self.assertGreater(len(observed), 0, "reader never observed any snapshot")
+            self.assertEqual(inconsistencies, [], f"observed torn/inconsistent bundles: {inconsistencies[:5]}")
+        finally:
+            for name, value in originals.items():
+                setattr(sse2json, name, value)
+
+    def test_request_runtime_falls_back_to_legacy_globals_when_patched(self):
+        # When a test patches legacy globals directly, RUNTIME still points at
+        # the unpatched bundle. _request_runtime must detect the mismatch and
+        # rebuild from the patched globals so handlers observe the fake objects.
+        from upstream_client import OpenAIUpstreamClient
+
+        fake_router = UpstreamRouter({"providers": {}, "models": {}})
+        fake_client = OpenAIUpstreamClient({"providers": {}, "models": {}})
+        originals = {
+            "ROUTER": sse2json.ROUTER,
+            "UPSTREAM_CLIENT": sse2json.UPSTREAM_CLIENT,
+        }
+        try:
+            sse2json.ROUTER = fake_router
+            sse2json.UPSTREAM_CLIENT = fake_client
+            rt = sse2json._request_runtime()
+            # The returned snapshot must reflect the patched globals, not the
+            # cached RUNTIME bundle.
+            self.assertIs(rt.router, fake_router)
+            self.assertIs(rt.upstream_client, fake_client)
+        finally:
+            for name, value in originals.items():
+                setattr(sse2json, name, value)
+
+
 if __name__ == "__main__":
     unittest.main()

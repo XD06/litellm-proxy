@@ -279,10 +279,19 @@ def _default_config() -> Dict[str, Any]:
         "routing": {
             "default_provider_pool": ["default"],
             "provider_select": "priority_failover",
+            # priority_first (default): provider priority decides global order,
+            # same-format (native) only wins ties. native_first: legacy, all
+            # native providers precede all fallback providers.
+            "format_preference": "priority_first",
             "max_attempts": 6,
             "connect_timeout_s": 15,
             "read_timeout_s": 120,
             "first_token_timeout_s": 30,
+            # Bounds for the SSE prelude buffered before client headers are sent.
+            # Protects against pathological upstreams that emit infinite
+            # comments/keepalives without a data event. 0 disables a bound.
+            "stream_prefetch_max_lines": 128,
+            "stream_prefetch_max_bytes": 65536,
         },
         "retry": {
             "retryable_status": [408, 409, 425, 429, 500, 502, 503, 504],

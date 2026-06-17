@@ -22,6 +22,8 @@ python3 sse2json.py
 
 Windows 用户可直接双击 `start_proxy_config.bat`。
 
+迁移到 Linux/VPS 时建议先看 [docs/VPS_MIGRATION.md](docs/VPS_MIGRATION.md)。仓库已提供 `requirements.txt`、`Dockerfile`、`docker-compose.yml`、systemd unit 和 Nginx 反代样例。
+
 ---
 
 ## 配置详解（config.json + runtime_config.json）
@@ -251,7 +253,7 @@ Admin mutation 审计默认写入 JSONL：`observability.audit.enabled=true`、`
 
 优先级配置有两层：provider 自身的 `providers.{name}.priority` 是默认优先级；某个模型的 `models.routes.{model}.providers[]` 如果写了 `priority`，会覆盖 provider 默认值。控制台里 provider 配置可以直接编辑 provider priority；Model Routes 输入框支持 `provider:weight:priority`，例如 `opencode:1:100, deepseek:1:90`。如果只写 `provider:weight`，则 route 不覆盖 priority，继续使用 provider 默认值。
 
-注意：当前 router 仍会先把同格式/native 上游排在 fallback 格式前面，再在同一格式组内应用 `provider_select`。也就是说，如果客户端请求 Anthropic Messages，直接支持 Anthropic 的 provider 会先于只支持 Chat/Responses 的 provider；后续如果要强制跨格式优先级，需要单独引入 `format_preference`。
+注意：`routing.format_preference` 控制同格式与 provider 优先级的关系，默认 `priority_first`：**provider 的 `priority` 数值决定全局顺序，同格式（native）只在相同 priority 时作为 tiebreaker 优先于 fallback 格式**。也就是说，一个高 priority 的 fallback 格式 provider 会排在低 priority 的 native provider 前面。如果需要旧行为（所有 native provider 整组先于所有 fallback provider），设置 `routing.format_preference: "native_first"` 或 per-model `models.routes.{model}.format_preference`。两种模式下，同一格式组内仍按 `provider_select`（默认 `priority_failover`）应用。
 
 同一次客户端请求的 attempt 选择会做候选去重：相同 `provider + key_index + upstream_format` 不会被重复尝试。多 key provider 仍可在同一次请求中尝试不同 key；如果所有候选都已尝试过，请求会停止轮换并返回最后的失败原因。
 

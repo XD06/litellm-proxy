@@ -1,8 +1,10 @@
 import os
 import sqlite3
+import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 from history_store import RequestHistoryStore
 
@@ -201,6 +203,52 @@ class RequestHistoryStoreTests(unittest.TestCase):
 
     def test_clear_removes_persisted_requests_and_attempts(self):
         store = self.store()
+        store.record_request(sample_request("req-1"))
+        store.record_request(sample_request("req-2", provider="beta"))
+        store.record_request(sample_request("req-3"))
+
+        result = store.clear()
+
+        self.assertTrue(result["enabled"])
+        self.assertEqual(result["requests_deleted"], 3)
+        self.assertEqual(result["attempts_deleted"], 3)
+
+    def test_attempts_batch_returns_grouped_attempts_in_one_query(self):
+        store = self.store()
+        store.record_request(sample_request("req-a"))
+        store.record_request(sample_request("req-b", provider="beta"))
+        store.record_request(sample_request("req-c"))
+        store.initialize()
+
+        import sqlite3
+        with store._connect() as conn:
+            grouped = store._attempts_batch(conn, ["req-a", "req-b", "req-c", "missing"])
+        # Each existing request has exactly one attempt; missing yields no key.
+        self.assertEqual(set(grouped.keys()), {"req-a", "req-b", "req-c"})
+        self.assertEqual(len(grouped["req-a"]), 1)
+        self.assertEqual(grouped["req-a"][0]["provider"], "alpha")
+        self.assertEqual(grouped["req-b"][0]["provider"], "beta")
+        # Empty input returns an empty dict without querying.
+        with store._connect() as conn:
+            self.assertEqual(store._attempts_batch(conn, []), {})
+
+    def test_attempts_batch_chunks_large_id_lists(self):
+        # More than the 500-id chunk size: verify all are still returned.
+        store = self.store()
+        ids = []
+        for i in range(520):
+            rid = f"req-{i:04d}"
+            ids.append(rid)
+            store.record_request(sample_request(rid, provider="alpha" if i % 2 == 0 else "beta"))
+        store.initialize()
+
+        with store._connect() as conn:
+            grouped = store._attempts_batch(conn, ids)
+        self.assertEqual(len(grouped), 520)
+        # i=0 -> alpha, i=501 -> beta (odd), confirms chunk >500 boundary works.
+        self.assertEqual(grouped["req-0000"][0]["provider"], "alpha")
+        self.assertEqual(grouped["req-0501"][0]["provider"], "beta")
+        store = self.store()
         store.record_request(sample_request("req-ok", provider="alpha"))
         store.record_request(sample_request("req-fail", status_code=502, provider="beta"))
 
@@ -310,6 +358,43 @@ class RequestHistoryStoreTests(unittest.TestCase):
         self.assertEqual(detail["attempts"][0]["usage"]["output_tokens"], 6)
         self.assertEqual(detail["attempts"][0]["diagnostic_stage"], "upstream_http_error")
         self.assertEqual(detail["attempts"][0]["upstream_error_code"], "invalid_request_error")
+
+    def test_dropped_count_increments_when_queue_full(self):
+        # Use a tiny queue so it saturates quickly. We bypass the
+        # "unittest in sys.modules" synchronous branch to exercise the real
+        # queue.Full path that production uses, and we mark the writer as
+        # already running so record_request does not spawn a consumer thread
+        # that would drain the queue and hide the overflow.
+        cfg = {
+            "observability": {
+                "history": {
+                    "enabled": True,
+                    "path": os.path.join(tempfile.mkdtemp(), "h.sqlite3"),
+                    "queue_size": 10,
+                }
+            }
+        }
+        store = RequestHistoryStore(cfg)
+        self.assertEqual(store.dropped_count(), 0)
+
+        modules_without_unittest = {k: v for k, v in sys.modules.items() if k != "unittest"}
+        with patch.dict(sys.modules, modules_without_unittest, clear=True):
+            # Pretend the writer is already running so record_request only does
+            # the queue.put path; otherwise initialize() would spawn a consumer.
+            store._writer_running = True
+            # Fill the queue to capacity.
+            for i in range(store._queue.maxsize):
+                store._queue.put({"request_id": f"fill-{i}"}, block=False)
+            # Now the queue is full; further records must be dropped + counted.
+            store.record_request(sample_request(request_id="overflow-1"))
+            store.record_request(sample_request(request_id="overflow-2"))
+
+        self.assertEqual(store.dropped_count(), 2)
+
+    def test_dropped_count_starts_at_zero(self):
+        cfg = {"observability": {"history": {"enabled": True, "path": ":memory:"}}}
+        store = RequestHistoryStore(cfg)
+        self.assertEqual(store.dropped_count(), 0)
 
 
 if __name__ == "__main__":

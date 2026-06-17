@@ -22,6 +22,11 @@ class ModelIndex:
     def __init__(self, cache_dir: str | Path):
         self._cache_file = Path(cache_dir) / "model_index.json"
         self._models: dict[str, str] = {}  # slug -> short_name
+        # Process-local cache of resolve() results so repeated lookups for the
+        # same model name (e.g. one per request in cost estimation, or a batch
+        # pricing query) do not re-run the O(n) fuzzy matcher every time. The
+        # index is static for the process lifetime, so caching is safe.
+        self._resolve_cache: dict[str, Optional[str]] = {}
 
     # ---- load / save ----
 
@@ -90,6 +95,18 @@ class ModelIndex:
     # ---- resolve ----
 
     def resolve(self, query: str) -> Optional[str]:
+        # Memoize: the index does not change during the process lifetime, so a
+        # repeated resolve() for the same query returns the cached slug without
+        # re-running the O(n) fuzzy matcher. This is what makes batch pricing
+        # queries (200+ models) fast on the second call.
+        cache_key = (query or "").strip().lower()
+        if cache_key in self._resolve_cache:
+            return self._resolve_cache[cache_key]
+        result = self._resolve_uncached(query)
+        self._resolve_cache[cache_key] = result
+        return result
+
+    def _resolve_uncached(self, query: str) -> Optional[str]:
         q = query.strip().lower()
         if q in self._models:
             return q

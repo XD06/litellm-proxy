@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Proxy Console</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231f2933'/%3E%3Cpath d='M8 22V10h4v9h9v3H8Zm7-7V10h9v3h-5v5h-4Z' fill='%23f3efe7'/%3E%3C/svg%3E" />
-    <link rel="stylesheet" href="/-/dashboard/styles.css?v=20260612-provider-tools" />
+    <link rel="stylesheet" href="/-/dashboard/styles.css?v=20260614-pricing-tooltip" />
   </head>
   <body class="is-auth-checking">
     <section id="authChecking" class="login-gate auth-checking">
@@ -235,6 +235,7 @@
                   <h2>Providers</h2>
                   <p>Runtime health, model coverage, key state, and routing readiness.</p>
                 </div>
+                <button id="openAddProviderModal" class="button primary" type="button">Add Provider</button>
               </div>
               <div id="providerToolbar" class="provider-toolbar">
                 <label class="field provider-search-field">
@@ -314,62 +315,11 @@
         <section id="configView" class="view">
           <div class="config-grid">
             <div class="config-column config-main-column">
-              <section class="panel config-primary-panel">
-                <div class="panel-head">
-                  <div>
-                    <h2>Add Provider</h2>
-                    <p>Create a provider with the required connection fields first.</p>
-                  </div>
-                </div>
-                <form id="addProviderForm" class="provider-create-form">
-                  <label class="field">
-                    <span>Provider name</span>
-                    <input class="control" name="name" placeholder="deepseek" required />
-                  </label>
-                  <label class="field">
-                    <span>Base URL</span>
-                    <input class="control" name="base_url" placeholder="https://api.example.com" required />
-                  </label>
-                  <label class="field provider-create-key">
-                    <span>API key</span>
-                    <input class="control" name="key" type="password" autocomplete="off" placeholder="sk-..." required />
-                  </label>
-                  <label class="field provider-create-proxy">
-                    <span>Provider proxy</span>
-                    <input class="control" name="proxy" placeholder="direct or http://127.0.0.1:8002" />
-                  </label>
-                  <label class="field provider-create-priority">
-                    <span>Priority</span>
-                    <input class="control" name="priority" type="number" min="-1000" max="1000" step="1" value="0" />
-                    <small class="field-help">Higher priority is tried first with priority_failover.</small>
-                  </label>
-                  <label class="field provider-create-key-proxy">
-                    <span>Initial key proxy</span>
-                    <input class="control" name="key_proxy" placeholder="optional key-only proxy" />
-                    <small class="field-help">Priority: key proxy, provider proxy, then global proxy.</small>
-                  </label>
-                  <label class="field provider-create-format">
-                    <span>Upstream API format</span>
-                    <select class="control" name="format">
-                      <option value="chat_completions">OpenAI Chat Completions</option>
-                      <option value="responses">OpenAI Responses</option>
-                      <option value="anthropic_messages">Anthropic Messages</option>
-                      <option value="auto">Auto infer from URL</option>
-                    </select>
-                    <small class="field-help">Native provider format. Chat: /v1/chat/completions, Responses: /v1/responses, Messages: /v1/messages.</small>
-                  </label>
-                  <div class="form-actions provider-create-actions">
-                    <button class="button primary" type="submit">Add provider</button>
-                    <span class="form-note">The key is stored in the runtime overlay and shown masked after save.</span>
-                  </div>
-                </form>
-              </section>
-
               <section class="panel config-provider-panel">
                 <div class="panel-head">
                   <div>
-                    <h2>Provider Config</h2>
-                    <p>Configured providers and safe edit entry points.</p>
+                    <h2>Providers</h2>
+                    <p>Edit existing provider config here. To add a new provider, use the Add Provider button on the <a href="#" data-goto-view="providers" class="link-action">Providers page</a>.</p>
                   </div>
                 </div>
                 <div id="configProviders" class="config-provider-list empty">No provider config loaded</div>
@@ -502,7 +452,7 @@
         <div class="drawer-head">
           <div>
             <h2>Request Detail</h2>
-            <p id="drawerSubtitle">No request selected</p>
+            <p id="drawerSubtitle">Click a request to view its trace and payload.</p>
           </div>
           <button id="closeDrawerButton" class="icon-button" aria-label="Close">×</button>
         </div>
@@ -513,7 +463,7 @@
         <div class="drawer-head">
           <div>
             <h2 id="providerDrawerTitle">Provider</h2>
-            <p id="providerDrawerSubtitle">No provider selected</p>
+            <p id="providerDrawerSubtitle">Select a provider to view its models and state.</p>
           </div>
           <button id="closeProviderDrawerButton" class="icon-button" aria-label="Close">×</button>
         </div>
@@ -546,6 +496,19 @@
         </div>
       </section>
 
+      <!-- Generic form modal (Add Provider, future dialogs) -->
+      <div id="formModalBackdrop" class="confirm-backdrop form-modal-backdrop" hidden></div>
+      <section id="formModal" class="form-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="formModalTitle">
+        <div class="form-modal-head">
+          <div>
+            <h2 id="formModalTitle">Title</h2>
+            <p id="formModalSubtitle"></p>
+          </div>
+          <button id="formModalClose" class="button icon-action" type="button" aria-label="Close" title="Close"></button>
+        </div>
+        <div id="formModalBody" class="form-modal-body"></div>
+      </section>
+
       <div id="mobileSettingsBackdrop" class="mobile-settings-backdrop" hidden></div>
       <aside id="mobileSettingsDrawer" class="mobile-settings-drawer" aria-hidden="true">
         <div class="drawer-head">
@@ -572,6 +535,6 @@
       </aside>
     </div>
 
-    <script src="/-/dashboard/app.js?v=20260612-requests-provider-tools" defer></script>
+    <script src="/-/dashboard/app.js?v=20260614-pricing-tooltip-2" defer></script>
   </body>
 </html>

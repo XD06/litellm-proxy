@@ -1,0 +1,24 @@
+services:
+  litellm-proxy:
+    build: .
+    container_name: litellm-proxy
+    restart: unless-stopped
+    environment:
+      PROXY_CONFIG_PATH: /app/config.json
+      PROXY_RUNTIME_CONFIG_PATH: /app/runtime_config.json
+      PROXY_PORT: "4894"
+      PROXY_LOG_DIR: /app/proxy_logs
+    ports:
+      - "127.0.0.1:4894:4894"
+    volumes:
+      - ./config.json:/app/config.json:ro
+      - ./runtime_config.json:/app/runtime_config.json
+      - ./tmp:/app/tmp
+      - ./proxy_logs:/app/proxy_logs
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4894/health', timeout=5).read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s

@@ -161,11 +161,22 @@ def _store_provider_capabilities(
     models_cfg = config.setdefault("models", {})
     caps = models_cfg.setdefault("provider_model_capabilities", {})
     pcfg = (config.get("providers") or {}).get(provider) or {}
+
+    # Get existing entry to preserve data on error/pending
+    existing = caps.get(provider) if isinstance(caps.get(provider), dict) else {}
+
+    if status == "error":
+        models_list = list(raw_ids) if raw_ids else list(existing.get("models") or [])
+        cmap = dict(canonical_map) if canonical_map else dict(existing.get("canonical_map") or {})
+    else:
+        models_list = list(raw_ids or [])
+        cmap = dict(canonical_map or {})
+
     entry = {
         "status": status,
         "fetched_at": int(time.time()),
-        "models": list(raw_ids or []),
-        "canonical_map": dict(canonical_map or {}),
+        "models": models_list,
+        "canonical_map": cmap,
         "formats": _provider_enabled_formats(pcfg),
     }
     if error:
@@ -179,7 +190,7 @@ def _rebuild_union_model_ids_from_capabilities(config: Dict[str, Any]) -> None:
     model_ids = set()
     if isinstance(caps, dict):
         for entry in caps.values():
-            if not isinstance(entry, dict) or entry.get("status") != "ok":
+            if not isinstance(entry, dict) or entry.get("status") not in ("ok", "error", "pending"):
                 continue
             model_ids.update(str(mid) for mid in (entry.get("canonical_map") or {}).keys() if str(mid or "").strip())
     _union_model_id_set = model_ids

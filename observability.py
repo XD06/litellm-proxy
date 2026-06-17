@@ -397,6 +397,189 @@ class ProxyObservability:
                 ],
             }
 
+    def snapshot_lite(self) -> Dict[str, Any]:
+        """Lightweight snapshot for high-frequency polling.
+
+        Same shape as snapshot() but omits recent_requests (the ~hundreds of KB
+        payload that only the requests view and detail drawers actually need).
+        counters and failure_summary are still included because they are cheap
+        and drive every dashboard view.
+        """
+        with self._lock:
+            counters = {
+                key: self._copy_value(value)
+                for key, value in self._counters.items()
+            }
+            recent = [self._copy_value(item) for item in self._recent]
+            active = [self._copy_value(item) for item in self._active.values()]
+        return {
+            "started_at": int(self._started_at),
+            "uptime_s": int(time.time() - self._started_at),
+            "counters": self._with_derived_counters(counters),
+            "failure_summary": self._failure_summary_from_requests(recent),
+            "active_requests": [
+                {
+                    "request_id": item.get("request_id"),
+                    "client_format": item.get("client_format"),
+                    "endpoint": item.get("endpoint"),
+                    "model": item.get("model"),
+                    "stream": item.get("stream"),
+                    "path": item.get("path"),
+                    "duration_ms": int((time.time() - float(item.get("started_at") or time.time())) * 1000),
+                    "first_byte_ms": int(item.get("first_byte_ms") or 0),
+                    "attempts": self._copy_value(list(item.get("attempts") or [])),
+                }
+                for item in active
+            ],
+        }
+
+    def provider_activity_summary(
+        self, limit: int = 60, include_events: bool = False
+    ) -> Dict[str, Dict[str, Any]]:
+        """Aggregate per-provider recent activity in a single pass.
+
+        Replaces the frontend pattern of calling providerActivity(name) per
+        provider, each of which re-scanned all recent_requests. Returns one
+        entry per provider with the same derived fields the frontend consumed:
+        total/ok/warn/bad counts, successRate, latestLatency, avgLatency,
+        lastError. The per-event list is omitted by default because it is only
+        consumed by the provider drawer's recent-activity panel, not by the
+        provider table or overview cards — emitting it for every provider on
+        every 5s poll made this the single largest admin payload.
+
+        ``limit`` matches the frontend's events.slice(-60) window so numbers
+        stay consistent with the previous client-side computation.
+        """
+        try:
+            limit = max(1, min(200, int(limit)))
+        except Exception:
+            limit = 60
+        with self._lock:
+            recent = [self._copy_value(item) for item in self._recent]
+        summary = self._provider_activity_from_recent(recent, limit)
+        if not include_events:
+            for entry in summary.values():
+                entry.pop("events", None)
+        return summary
+
+    def provider_activity_for(
+        self, provider: str, limit: int = 60
+    ) -> Optional[Dict[str, Any]]:
+        """Return the full activity entry (with events) for a single provider.
+
+        Used by the provider drawer's recent-activity panel, which only needs
+        one provider's events. Cheaper than computing the full per-provider
+        aggregate when only one provider is on screen.
+        """
+        try:
+            limit = max(1, min(200, int(limit)))
+        except Exception:
+            limit = 60
+        with self._lock:
+            recent = [self._copy_value(item) for item in self._recent]
+        summary = self._provider_activity_from_recent(recent, limit)
+        return summary.get(provider)
+
+    @classmethod
+    def _provider_activity_from_recent(
+        cls, recent: Any, limit: int
+    ) -> Dict[str, Dict[str, Any]]:
+        """One-pass aggregation mirroring the prior frontend providerActivity().
+
+        Per request, a provider is credited when one of its attempts ran or it
+        was the routing_summary.final_provider. tone/latency rules match the
+        legacy client code exactly so dashboards do not visibly change.
+        """
+        per_provider: Dict[str, Dict[str, Any]] = {}
+        for item in recent or []:
+            attempts = list(item.get("attempts") or [])
+            routing_summary = item.get("routing_summary") or {}
+            final_provider = str(routing_summary.get("final_provider") or "")
+            status_code = int(item.get("status_code") or 0)
+            # recent_items lack a derived "status"; reconstruct it for parity.
+            request_status = "success" if status_code and status_code < 400 else "failed"
+            first_byte_ms = int(item.get("first_byte_ms") or 0)
+            involved: Dict[str, Dict[str, Any]] = {}
+
+            def ensure(name: str) -> Dict[str, Any]:
+                entry = involved.get(name)
+                if entry is None:
+                    entry = {"success": False, "failed_reason": ""}
+                    involved[name] = entry
+                return entry
+
+            for attempt in attempts:
+                name = str(attempt.get("provider") or "")
+                if not name:
+                    continue
+                entry = ensure(name)
+                if str(attempt.get("outcome") or "") == "success":
+                    entry["success"] = True
+                else:
+                    reason = attempt.get("reason") or attempt.get("error_type") or ""
+                    if reason and not entry.get("failed_reason"):
+                        entry["failed_reason"] = str(reason)
+
+            if final_provider and final_provider not in involved:
+                ensure(final_provider)
+
+            for name, entry in involved.items():
+                success_here = bool(entry.get("success"))
+                final_success = request_status == "success" and name == final_provider
+                if success_here or final_success:
+                    tone = "ok"
+                elif request_status == "success":
+                    tone = "warn"
+                else:
+                    tone = "bad"
+                reason = entry.get("failed_reason") or (item.get("error") if tone != "ok" else "") or request_status
+                latency = first_byte_ms if (success_here or final_success) and first_byte_ms > 0 else 0
+                event = {
+                    "requestId": str(item.get("request_id") or ""),
+                    "ts": int(item.get("finished_at") or 0),
+                    "model": str(item.get("model") or "-"),
+                    "tone": tone,
+                    "reason": str(reason or "-"),
+                    "latencyMs": latency,
+                    "status": request_status,
+                }
+                bucket = per_provider.setdefault(
+                    name,
+                    {
+                        "events": [],
+                        "total": 0,
+                        "ok": 0,
+                        "warn": 0,
+                        "bad": 0,
+                        "latency_samples": [],
+                        "successRate": None,
+                        "latestLatency": 0,
+                        "avgLatency": 0,
+                        "lastError": None,
+                    },
+                )
+                bucket["events"].append(event)
+                bucket["total"] += 1
+
+        for name, bucket in per_provider.items():
+            events = bucket["events"]
+            # recent_items are appendleft (newest first); sort ascending then clip.
+            events.sort(key=lambda ev: int(ev.get("ts") or 0))
+            clipped = events[-limit:]
+            bucket["events"] = clipped
+            bucket["total"] = len(clipped)
+            bucket["ok"] = sum(1 for ev in clipped if ev.get("tone") == "ok")
+            bucket["warn"] = sum(1 for ev in clipped if ev.get("tone") == "warn")
+            bucket["bad"] = sum(1 for ev in clipped if ev.get("tone") == "bad")
+            samples = [int(ev.get("latencyMs") or 0) for ev in clipped if int(ev.get("latencyMs") or 0) > 0]
+            bucket["latestLatency"] = samples[-1] if samples else 0
+            bucket["avgLatency"] = round(sum(samples) / len(samples)) if samples else 0
+            bucket["successRate"] = (bucket["ok"] / len(clipped)) if clipped else None
+            last_err = next((ev for ev in reversed(clipped) if ev.get("tone") != "ok"), None)
+            bucket["lastError"] = last_err
+            bucket.pop("latency_samples", None)
+        return per_provider
+
     def list_requests(
         self,
         *,

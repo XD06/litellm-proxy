@@ -347,6 +347,7 @@ def policy_snapshot(config: Dict[str, Any]) -> Dict[str, Any]:
         "connect_timeout_s": int(routing_cfg.get("connect_timeout_s", 15)),
         "read_timeout_s": int(routing_cfg.get("read_timeout_s", 120)),
         "first_token_timeout_s": int(routing_cfg.get("first_token_timeout_s", 30)),
+        "format_preference": str(routing_cfg.get("format_preference", "priority_first")),
         "retryable_status": list(retry_cfg.get("retryable_status") or []),
         "key_fatal_status": list(retry_cfg.get("key_fatal_status") or [401, 403]),
         "same_key_retries": int(retry_cfg.get("same_key_retries", 1) or 0),

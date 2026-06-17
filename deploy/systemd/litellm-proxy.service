@@ -1,0 +1,24 @@
+[Unit]
+Description=LiteLLM format proxy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/litellm-proxy
+Environment=PYTHONUNBUFFERED=1
+Environment=PROXY_CONFIG_PATH=/opt/litellm-proxy/config.json
+Environment=PROXY_RUNTIME_CONFIG_PATH=/opt/litellm-proxy/runtime_config.json
+Environment=PROXY_LOG_DIR=/opt/litellm-proxy/proxy_logs
+ExecStart=/opt/litellm-proxy/.venv/bin/python -u /opt/litellm-proxy/sse2json.py
+Restart=always
+RestartSec=3
+User=litellm-proxy
+Group=litellm-proxy
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/opt/litellm-proxy/runtime_config.json /opt/litellm-proxy/tmp /opt/litellm-proxy/proxy_logs /opt/litellm-proxy/data
+
+[Install]
+WantedBy=multi-user.target

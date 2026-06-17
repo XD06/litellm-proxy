@@ -1,5 +1,6 @@
 config.json
 runtime_config.json
+.env
 proxy_logs/
 __pycache__/
 *.py[cod]
@@ -9,3 +10,12 @@ __pycache__/
 .trae/
 .uploads/
 tmp/
+dashboard_src/node_modules/
+*.png
+*.txt
+!requirements.txt
+*.log
+nul
+data/
+scratch/
+temp.py

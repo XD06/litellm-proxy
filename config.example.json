@@ -1,5 +1,6 @@
 {
   "server": {
+    "host": "127.0.0.1",
     "port": 4894,
     "max_workers": 20,
     "log_dir": "proxy_logs",

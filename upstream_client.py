@@ -82,6 +82,30 @@ class HTTPResponseLineWrapper:
         return None
 
 
+def set_response_read_timeout(resp, timeout_s) -> bool:
+    """Best-effort update of the underlying socket read timeout for an upstream
+    streaming response.
+
+    Returns True if a socket was found and updated, False otherwise. This
+    centralizes the previous private ``resp.fp.raw._sock`` reach-through used
+    to switch from the connect/first-byte timeout to the read timeout after
+    the first SSE event arrives. The private attribute path is fragile across
+    Python versions, urllib3 releases, and TLS stacks, so failure here is
+    tolerated -- the read timeout simply stays at whatever the connection was
+    opened with.
+    """
+    try:
+        fp = getattr(resp, "fp", None)
+        raw = getattr(fp, "raw", None) if fp is not None else None
+        sock = getattr(raw, "_sock", None) if raw is not None else None
+        if sock is not None and hasattr(sock, "settimeout"):
+            sock.settimeout(timeout_s)
+            return True
+    except Exception:
+        pass
+    return False
+
+
 class OpenAIUpstreamClient:
     """
     OpenAI Chat Completions 上游客户端（支持 urllib 与 urllib3 双传输通道，高性能与测试兼容）。
@@ -328,12 +352,7 @@ class OpenAIUpstreamClient:
             if first_byte_timeout_s:
                 connect_timeout = min(connect_timeout, float(first_byte_timeout_s))
             resp = opener.open(http_req, timeout=connect_timeout)
-            try:
-                sock = resp.fp.raw._sock if hasattr(resp.fp, 'raw') and hasattr(resp.fp.raw, '_sock') else None
-                if sock:
-                    sock.settimeout(timeout)
-            except Exception:
-                pass
+            set_response_read_timeout(resp, timeout)
             return resp
 
     def fetch_models(

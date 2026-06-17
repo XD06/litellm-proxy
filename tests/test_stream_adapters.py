@@ -1,5 +1,6 @@
 import io
 import json
+import socket
 import unittest
 
 from stream_adapters import (
@@ -45,6 +46,36 @@ class StreamAdapterTests(unittest.TestCase):
             ],
         )
 
+    def test_prefetch_initial_stream_lines_bounds_excessive_skipped_lines(self):
+        # An upstream that only emits comment keepalives (no data event) must
+        # not be buffered unbounded. The line bound aborts the prefetch.
+        junk = b": keepalive\n" * 50
+        upstream = io.BytesIO(junk)
+        with self.assertRaises(socket.timeout) as ctx:
+            prefetch_initial_stream_lines(upstream, 2, preserve_skipped=True, max_skipped_lines=8, max_skipped_bytes=1 << 20)
+        self.assertIn("max_skipped_lines", str(ctx.exception))
+
+    def test_prefetch_initial_stream_lines_bounds_excessive_skipped_bytes(self):
+        junk = b": keepalive\n" * 50
+        upstream = io.BytesIO(junk)
+        with self.assertRaises(socket.timeout) as ctx:
+            prefetch_initial_stream_lines(upstream, 2, preserve_skipped=True, max_skipped_lines=1 << 20, max_skipped_bytes=32)
+        self.assertIn("max_skipped_bytes", str(ctx.exception))
+
+    def test_prefetch_initial_stream_lines_allows_normal_prelude_under_bounds(self):
+        # A normal native prelude well within bounds is preserved unchanged.
+        upstream = io.BytesIO(b"event: message_start\n: keepalive\n\ndata: {\"ok\": true}\n")
+        initial = prefetch_initial_stream_lines(upstream, 1, preserve_skipped=True, max_skipped_lines=128, max_skipped_bytes=65536)
+        self.assertEqual(initial[-1], b'data: {"ok": true}\n')
+
+    def test_prefetch_initial_stream_lines_zero_bound_disables_limit(self):
+        # A non-positive bound disables that limit (backwards compatible).
+        junk = b": keepalive\n" * 200
+        upstream = io.BytesIO(junk + b'data: {"ok": true}\n')
+        initial = prefetch_initial_stream_lines(upstream, 2, preserve_skipped=True, max_skipped_lines=0, max_skipped_bytes=0)
+        # Reached the data line despite 200 skipped lines because bounds off.
+        self.assertEqual(initial[-1], b'data: {"ok": true}\n')
+
     def test_stream_openai_sse_to_anthropic_emits_thinking_text_and_usage(self):
         output = io.BytesIO()
         lines = [
@@ -73,7 +104,55 @@ class StreamAdapterTests(unittest.TestCase):
         self.assertIn('"type": "text_delta"', body)
         self.assertIn("event: message_stop", body)
 
-    def test_relay_sse_stream_writes_initial_and_upstream_lines(self):
+    def _anthropic_content_block_indices(self, body):
+        """Return list of (block_type, index) for every content_block_start event."""
+        starts = []
+        for chunk in body.split("\n\n"):
+            event_name = None
+            data_line = None
+            for line in chunk.split("\n"):
+                if line.startswith("event: "):
+                    event_name = line[len("event: "):]
+                elif line.startswith("data: "):
+                    data_line = line[len("data: "):]
+            if event_name == "content_block_start" and data_line:
+                payload = json.loads(data_line)
+                block = payload.get("content_block") or {}
+                starts.append((block.get("type"), payload.get("index")))
+        return starts
+
+    def test_stream_openai_sse_to_anthropic_does_not_reopen_thinking_after_text(self):
+        # Upstream sends reasoning AFTER text has already started. The adapter
+        # must not reopen a thinking block (which would violate Anthropic block
+        # ordering) and must never reuse a content_block index. Late reasoning
+        # is still accumulated into the final content log.
+        output = io.BytesIO()
+        lines = [
+            sse_data({"choices": [{"delta": {"content": "answer"}}]}),
+            sse_data({"choices": [{"delta": {"reasoning_content": "late-think"}}]}),
+            sse_data({"choices": [{"delta": {"content": " more"}}]}),
+            sse_data({"choices": [{"delta": {}, "finish_reason": "stop"}]}),
+        ]
+
+        result = stream_openai_sse_to_anthropic([], output, "client-model", initial_lines=lines)
+
+        body = output.getvalue().decode("utf-8")
+        starts = self._anthropic_content_block_indices(body)
+        # Only ONE thinking block (in fact zero here, since reasoning arrived late),
+        # and exactly one text block with index 0. No index reuse.
+        types = [t for t, _ in starts]
+        self.assertNotIn("thinking", types)  # late reasoning must not reopen thinking
+        text_indices = [idx for t, idx in starts if t == "text"]
+        self.assertEqual(text_indices, [0])
+        # All block indices unique and monotonic.
+        all_indices = [idx for _, idx in starts]
+        self.assertEqual(all_indices, sorted(set(all_indices)))
+        # Late reasoning is still preserved in the final content log.
+        self.assertEqual([block["type"] for block in result["content"]], ["text"])
+        self.assertIn("answer", result["content"][0]["text"])
+        self.assertIn("more", result["content"][0]["text"])
+
+
         output = io.BytesIO()
         upstream = [b"data: second\n", b"data: third\n"]
 
@@ -506,6 +585,68 @@ class StreamAdapterTests(unittest.TestCase):
         ]
         self.assertEqual(argument_deltas, ['{"q"', ':"x"}'])
 
+    def test_stream_responses_sse_to_anthropic_does_not_reopen_thinking_after_text(self):
+        # Reasoning delta arrives AFTER text has already streamed. The adapter
+        # must not reopen a thinking block; block indices stay monotonic and
+        # unique. Late reasoning is retained on the item but not emitted as a
+        # thinking block in the stream.
+        output = io.BytesIO()
+        lines = [
+            b"event: response.created\n",
+            sse_data({"type": "response.created", "response": {"id": "resp_1", "status": "in_progress"}}),
+            b"event: response.output_item.added\n",
+            sse_data(
+                {
+                    "type": "response.output_item.added",
+                    "output_index": 0,
+                    "item": {"id": "msg_1", "type": "message", "role": "assistant", "content": []},
+                }
+            ),
+            b"event: response.output_text.delta\n",
+            sse_data({"type": "response.output_text.delta", "item_id": "msg_1", "output_index": 0, "delta": "answer"}),
+            b"event: response.output_item.added\n",
+            sse_data(
+                {
+                    "type": "response.output_item.added",
+                    "output_index": 1,
+                    "item": {"id": "rs_1", "type": "reasoning", "summary": []},
+                }
+            ),
+            b"event: response.reasoning_summary_text.delta\n",
+            sse_data({"type": "response.reasoning_summary_text.delta", "item_id": "rs_1", "output_index": 1, "delta": "late"}),
+            b"event: response.completed\n",
+            sse_data(
+                {
+                    "type": "response.completed",
+                    "response": {"id": "resp_1", "status": "completed", "usage": {"input_tokens": 1, "output_tokens": 2}},
+                }
+            ),
+        ]
+
+        result = stream_responses_sse_to_anthropic([], output, "client-model", initial_lines=lines)
+
+        body = output.getvalue().decode("utf-8")
+        events = parse_sse_events(body)
+        # No thinking_delta emitted at all (text started first).
+        thinking_deltas = [
+            data["delta"]["thinking"]
+            for event, data in events
+            if event == "content_block_delta" and data["delta"]["type"] == "thinking_delta"
+        ]
+        self.assertEqual(thinking_deltas, [])
+        # content log is text-only; late reasoning is not surfaced as a block.
+        self.assertEqual([block["type"] for block in result["content"]], ["text"])
+        self.assertIn("answer", result["content"][0]["text"])
+        # All content_block_start indices unique and monotonic.
+        starts = [
+            (data["content_block"]["type"], data["index"])
+            for event, data in events
+            if event == "content_block_start"
+        ]
+        all_indices = [idx for _, idx in starts]
+        self.assertEqual(all_indices, sorted(set(all_indices)))
+        self.assertNotIn("thinking", [t for t, _ in starts])
+
     def test_stream_responses_sse_to_anthropic_emits_reasoning_summary_text_delta(self):
         output = io.BytesIO()
         lines = [
@@ -802,6 +943,52 @@ def parse_chat_sse_chunks(body):
             continue
         chunks.append(json.loads(data))
     return chunks
+
+
+def _sequence_numbers(events):
+    return [data.get("sequence_number") for _event, data in events if isinstance(data, dict)]
+
+
+class ResponsesSequenceNumberTests(unittest.TestCase):
+    """Verify converted Responses streams emit monotonic sequence_number on
+    every event, per the OpenAI Responses streaming contract."""
+
+    def test_chat_to_responses_emits_monotonic_sequence_number(self):
+        output = io.BytesIO()
+        lines = [
+            sse_data({"choices": [{"delta": {"reasoning_content": "plan"}}]}),
+            sse_data({"choices": [{"delta": {"content": "answer"}}]}),
+            sse_data({"choices": [{"delta": {}, "finish_reason": "stop"}], "usage": {"prompt_tokens": 1, "completion_tokens": 2}}),
+        ]
+        stream_openai_sse_to_responses([], output, "client-model", initial_lines=lines)
+        events = parse_sse_events(output.getvalue().decode("utf-8"))
+        seqs = _sequence_numbers(events)
+        # Every event carries a sequence_number.
+        self.assertTrue(all(s is not None for s in seqs), f"missing sequence_number in: {seqs}")
+        # Strictly monotonic starting at 1.
+        self.assertEqual(seqs, list(range(1, len(seqs) + 1)))
+
+    def test_anthropic_to_responses_emits_monotonic_sequence_number(self):
+        output = io.BytesIO()
+        lines = [
+            b"event: message_start\n",
+            sse_data({"type": "message_start", "message": {"id": "msg_1", "usage": {"input_tokens": 1, "output_tokens": 0}}}),
+            b"event: content_block_start\n",
+            sse_data({"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}}),
+            b"event: content_block_delta\n",
+            sse_data({"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "hi"}}),
+            b"event: content_block_stop\n",
+            sse_data({"type": "content_block_stop", "index": 0}),
+            b"event: message_delta\n",
+            sse_data({"type": "message_delta", "delta": {"stop_reason": "end_turn"}, "usage": {"input_tokens": 1, "output_tokens": 2}}),
+            b"event: message_stop\n",
+            sse_data({"type": "message_stop"}),
+        ]
+        stream_anthropic_sse_to_responses([], output, "client-model", initial_lines=lines)
+        events = parse_sse_events(output.getvalue().decode("utf-8"))
+        seqs = _sequence_numbers(events)
+        self.assertTrue(all(s is not None for s in seqs), f"missing sequence_number in: {seqs}")
+        self.assertEqual(seqs, list(range(1, len(seqs) + 1)))
 
 
 if __name__ == "__main__":

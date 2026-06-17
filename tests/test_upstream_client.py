@@ -3,7 +3,7 @@ from unittest.mock import patch, Mock
 from urllib.error import HTTPError
 import socket
 
-from upstream_client import OpenAIUpstreamClient
+from upstream_client import OpenAIUpstreamClient, set_response_read_timeout
 
 
 class PoolManagerCacheTests(unittest.TestCase):
@@ -72,6 +72,40 @@ class Urllib3RequestTests(unittest.TestCase):
             self.client.request_json("https://example.com/api", {}, {"ping": "pong"})
         self.assertEqual(ctx.exception.code, 401)
         self.assertEqual(ctx.exception.read(), b'{"error": "Unauthorized"}')
+
+
+class SetResponseReadTimeoutTests(unittest.TestCase):
+    def _resp_with_sock(self, sock):
+        raw = Mock()
+        raw._sock = sock
+        fp = Mock()
+        fp.raw = raw
+        resp = Mock()
+        resp.fp = fp
+        return resp
+
+    def test_updates_socket_timeout_when_sock_present(self):
+        sock = Mock()
+        sock.settimeout = Mock()
+        resp = self._resp_with_sock(sock)
+        self.assertTrue(set_response_read_timeout(resp, 42))
+        sock.settimeout.assert_called_once_with(42)
+
+    def test_returns_false_when_no_sock(self):
+        # resp without fp.raw._sock must not raise and must return False.
+        resp = Mock()
+        resp.fp = None
+        self.assertFalse(set_response_read_timeout(resp, 10))
+
+    def test_returns_false_for_object_without_fp(self):
+        resp = object()
+        self.assertFalse(set_response_read_timeout(resp, 10))
+
+    def test_tolerates_settimeout_missing(self):
+        sock = Mock(spec=[])  # no settimeout attribute
+        resp = self._resp_with_sock(sock)
+        # Should not raise; returns False because settimeout is unavailable.
+        self.assertFalse(set_response_read_timeout(resp, 10))
 
 
 if __name__ == "__main__":

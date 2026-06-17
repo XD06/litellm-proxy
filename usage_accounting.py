@@ -124,6 +124,13 @@ def estimate_cost_usd(cfg: Dict[str, Any], provider: str, provider_model: str, u
     if input_rate <= 0 and output_rate <= 0:
         try:
             from artificial_analysis_api import aa
+            # Ensure the slug index is loaded from local file; resolve() does
+            # not lazy-load so without this it returns None until aa.get() is
+            # called somewhere. Pure local read, no network.
+            try:
+                aa._index.load_local()
+            except Exception:
+                pass
             # Resolve model to its slug using index (memory-safe lookup)
             slug = aa._index.resolve(provider_model)
             if slug:

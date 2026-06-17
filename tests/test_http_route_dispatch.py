@@ -1,4 +1,6 @@
+import errno
 import json
+import os
 import threading
 import unittest
 from http.server import HTTPServer
@@ -101,6 +103,48 @@ class HttpRouteDispatchTests(unittest.TestCase):
 
         self.assertEqual(status, 200)
         self.assertEqual(body, {"proxied": True, "model": "m"})
+
+
+class ClientDisconnectDetectionTests(unittest.TestCase):
+    """Unit tests for is_client_disconnect_error classification."""
+
+    def test_explicit_disconnect_exception_classes_are_detected(self):
+        for exc in (
+            BrokenPipeError("broken pipe"),
+            ConnectionResetError("reset"),
+            ConnectionAbortedError("aborted"),
+            ConnectionRefusedError("refused"),
+        ):
+            self.assertTrue(sse2json.is_client_disconnect_error(exc), msg=f"{type(exc).__name__} should count as client disconnect")
+
+    def test_oserror_with_disconnect_errno_is_detected(self):
+        for code in (errno.EPIPE, errno.ECONNRESET, errno.ESHUTDOWN):
+            exc = OSError(code, os.strerror(code))
+            self.assertTrue(sse2json.is_client_disconnect_error(exc), msg=f"errno {code} should count as client disconnect")
+
+    def test_oserror_with_windows_disconnect_winerror_is_detected(self):
+        for winerr in (10053, 10054, 10058):
+            exc = OSError("x")
+            exc.winerror = winerr
+            self.assertTrue(sse2json.is_client_disconnect_error(exc), msg=f"winerror {winerr} should count as client disconnect")
+
+    def test_urlerror_wrapping_disconnect_is_detected(self):
+        from urllib.error import URLError
+        # URLError whose .reason is a disconnect OSError.
+        wrapped = URLError(OSError(errno.ECONNRESET, "reset by peer"))
+        self.assertTrue(sse2json.is_client_disconnect_error(wrapped))
+
+    def test_non_disconnect_errors_are_not_detected(self):
+        from urllib.error import URLError
+        import socket
+        # Timeout is NOT a client disconnect.
+        self.assertFalse(sse2json.is_client_disconnect_error(socket.timeout("read timeout")))
+        # Generic URLError wrapping a timeout is not a client disconnect.
+        self.assertFalse(sse2json.is_client_disconnect_error(URLError("getaddrinfo failed")))
+        # Generic OSError without disconnect errno/winerror is not.
+        self.assertFalse(sse2json.is_client_disconnect_error(OSError("some other failure")))
+        # Plain ValueError is not.
+        self.assertFalse(sse2json.is_client_disconnect_error(ValueError("nope")))
 
 
 if __name__ == "__main__":
