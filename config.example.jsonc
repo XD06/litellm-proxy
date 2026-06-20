@@ -59,7 +59,18 @@
     // 连接/读取超时；stream 首个可输出事件前按 first_token_timeout_s 总预算换路由。
     "connect_timeout_s": 15,
     "read_timeout_s": 120,
-    "first_token_timeout_s": 30
+    "first_token_timeout_s": 30,
+
+    // 原生同格式非流式响应：
+    // - safe: 旧行为，解析上游 JSON 后重新序列化返回
+    // - validated: 解析一次做 usage/空输出校验，但向客户端返回上游原始 JSON bytes，减少重序列化开销
+    "native_nonstream_mode": "validated",
+
+    // 原生同格式流式响应：
+    // - safe: 旧行为，先等首个 SSE data 事件，失败时还能在写响应前换路由
+    // - guarded: 默认。上游 HTTP 状态 OK 后立即给客户端发 SSE headers，不等首事件，降低首 token 代理等待；
+    //            代价是 headers 发出后首事件超时不能再透明 failover
+    "native_stream_mode": "guarded"
   },
 
   // 错误分类、可重试状态码与冷却时间
@@ -302,8 +313,13 @@
     // key 在日志里怎么截断显示：前 prefix 位 + ** + 后 suffix 位
     "log_key_mask": { "prefix": 6, "suffix": 2 },
 
-    // 每次请求是否打印 provider/key/attempt 选择信息
-    "log_provider_on_each_request": true,
+    // 每次请求是否打印 provider/key/attempt 选择信息。关闭可减少热路径同步 stdout 开销。
+    "log_provider_on_each_request": false,
+
+    // 原生同格式 SSE pass-through 是否扫描 usage：
+    // - full: 旧行为，逐行扫描 usage 并计入统计
+    // - off: 只转发不解析 SSE 行，减少 CPU；usage 统计会为空
+    "native_stream_usage": "full",
 
     // 安全诊断日志（JSONL，stdlib，无额外依赖）
     // 用于区分失败发生在上游 HTTP、格式兼容重试、请求转换、网络传输还是代理内部异常。

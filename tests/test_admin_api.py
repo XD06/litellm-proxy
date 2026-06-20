@@ -1510,6 +1510,50 @@ class AdminApiTests(unittest.TestCase):
         self.assertEqual(body["result"]["requested_model"], "chosen-model")
         self.assertEqual(body["result"]["upstream_model"], "provider-chosen-model")
 
+    def test_key_probe_concurrent_duplicates_share_one_upstream_request(self):
+        cfg = self._probe_cfg()
+        router = sse2json.UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"recent_requests_limit": 20}})
+        started = threading.Event()
+        release = threading.Event()
+        call_count = 0
+        call_lock = threading.Lock()
+
+        class SlowClient:
+            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
+                nonlocal call_count
+                with call_lock:
+                    call_count += 1
+                started.set()
+                release.wait(timeout=5)
+                return {"id": "x", "choices": [{"message": {"content": "ok"}}]}, 42
+
+        def run_probe(results, index):
+            results[index] = sse2json.probe_provider_key("alpha", 0, model="chosen-model")
+
+        with sse2json._KEY_PROBE_LOCK:
+            sse2json._KEY_PROBE_INFLIGHT.clear()
+
+        results = [None] * 6
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(sse2json, "ROUTER", router), patch.object(
+            sse2json, "UPSTREAM_CLIENT", SlowClient()
+        ), patch.object(sse2json, "OBSERVABILITY", obs):
+            threads = [threading.Thread(target=run_probe, args=(results, i)) for i in range(len(results))]
+            for thread in threads:
+                thread.start()
+            self.assertTrue(started.wait(timeout=2))
+            time.sleep(0.05)
+            release.set()
+            for thread in threads:
+                thread.join(timeout=2)
+
+        self.assertEqual(call_count, 1)
+        self.assertTrue(all(result and result["ok"] for result in results))
+        self.assertGreaterEqual(sum(1 for result in results if result.get("deduped")), 1)
+        snap = obs.snapshot()
+        self.assertEqual(snap["counters"]["requests_total"], 1)
+        self.assertEqual(len(snap["recent_requests"]), 1)
+
     def test_key_probe_uses_provider_supported_format(self):
         cfg = self._probe_cfg(fmt="anthropic_messages")
         router = sse2json.UpstreamRouter(cfg)

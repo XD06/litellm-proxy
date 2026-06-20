@@ -50,6 +50,16 @@ class FakeClient:
         return self.response
 
 
+class RawFakeClient:
+    def __init__(self, raw_response):
+        self.raw_response = raw_response
+        self.calls = []
+
+    def request_raw_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
+        self.calls.append({"url": url, "headers": headers, "payload": payload})
+        return self.raw_response, 7
+
+
 class SequenceFakeClient:
     def __init__(self, responses):
         self.responses = list(responses)
@@ -233,6 +243,12 @@ class ChatProxyTests(unittest.TestCase):
             provider_model="provider-model",
             upstream_format=upstream_format,
         )
+
+    def config_with(self, **sections):
+        cfg = dict(sse2json.CONFIG)
+        for name, values in sections.items():
+            cfg[name] = {**(cfg.get(name) or {}), **values}
+        return cfg
 
     def test_chat_request_can_fallback_to_responses_upstream(self):
         fake_router = FakeRouter([self.attempt("responses")])
@@ -523,6 +539,32 @@ class ChatProxyTests(unittest.TestCase):
         self.assertEqual([b["type"] for b in sent_messages[1]["content"]], ["tool_result", "tool_result"])
         self.assertEqual(body["choices"][0]["message"]["content"], "answer")
 
+    def test_chat_native_validated_nonstream_returns_raw_upstream_json(self):
+        raw = (
+            b'{"id":"chatcmpl_1","choices":[{"message":{"role":"assistant","content":"ok"},'
+            b'"finish_reason":"stop"}],"usage":{"prompt_tokens":2,"completion_tokens":3,"total_tokens":5}}'
+        )
+        fake_router = FakeRouter([self.attempt("chat_completions")])
+        fake_client = RawFakeClient(raw)
+        obs = sse2json.ProxyObservability({"observability": {"recent_requests_limit": 10}})
+        cfg = self.config_with(routing={"native_nonstream_mode": "validated"})
+
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(sse2json, "ROUTER", fake_router), patch.object(
+            sse2json, "UPSTREAM_CLIENT", fake_client
+        ), patch.object(sse2json, "OBSERVABILITY", obs), patch.object(sse2json, "DISABLE_MAP", True):
+            status, content_type, body = self.run_server_post_raw(
+                "/v1/chat/completions",
+                {"model": "client-model", "stream": False, "messages": [{"role": "user", "content": "hello"}]},
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(content_type, "application/json")
+        self.assertEqual(body, raw.decode("utf-8"))
+        self.assertEqual(fake_client.calls[0]["payload"]["model"], "provider-model")
+        self.assertEqual(fake_router.successes[0].upstream_format, "chat_completions")
+        snap = obs.snapshot()
+        self.assertEqual(snap["counters"]["usage"]["total_tokens"], 5)
+
     def test_chat_native_stream_records_usage(self):
         lines = [
             b'data: {"choices":[{"delta":{"content":"hel"}}]}\n',
@@ -553,6 +595,54 @@ class ChatProxyTests(unittest.TestCase):
         request = snap["recent_requests"][0]
         self.assertEqual(request["usage"], {"input_tokens": 2, "output_tokens": 3, "total_tokens": 5})
         self.assertEqual(request["attempts"][0]["usage"], {"input_tokens": 2, "output_tokens": 3, "total_tokens": 5})
+
+    def test_chat_native_guarded_stream_skips_first_event_prefetch(self):
+        lines = [
+            b'data: {"choices":[{"delta":{"content":"hi"}}]}\n',
+            b"data: [DONE]\n",
+        ]
+        fake_router = FakeRouter([self.attempt("chat_completions")])
+        fake_client = FakeStreamingClient(lines)
+        cfg = self.config_with(routing={"native_stream_mode": "guarded"})
+
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(sse2json, "ROUTER", fake_router), patch.object(
+            sse2json, "UPSTREAM_CLIENT", fake_client
+        ), patch.object(sse2json, "DISABLE_MAP", True), patch.object(
+            sse2json, "_prefetch_initial_stream_lines", side_effect=AssertionError("prefetch should be skipped")
+        ):
+            status, content_type, body = self.run_server_post_raw(
+                "/v1/chat/completions",
+                {"model": "client-model", "stream": True, "messages": [{"role": "user", "content": "hello"}]},
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(content_type, "text/event-stream")
+        self.assertEqual(body, b"".join(lines).decode("utf-8"))
+
+    def test_chat_native_stream_usage_off_preserves_bytes_without_usage_stats(self):
+        lines = [
+            b'data: {"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":2,"completion_tokens":3,"total_tokens":5}}\n',
+            b"data: [DONE]\n",
+        ]
+        fake_router = FakeRouter([self.attempt("chat_completions")])
+        fake_client = FakeStreamingClient(lines)
+        obs = sse2json.ProxyObservability({"observability": {"recent_requests_limit": 10}})
+        cfg = self.config_with(observability={"native_stream_usage": "off"})
+
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(sse2json, "ROUTER", fake_router), patch.object(
+            sse2json, "UPSTREAM_CLIENT", fake_client
+        ), patch.object(sse2json, "OBSERVABILITY", obs), patch.object(sse2json, "DISABLE_MAP", True):
+            status, content_type, body = self.run_server_post_raw(
+                "/v1/chat/completions",
+                {"model": "client-model", "stream": True, "messages": [{"role": "user", "content": "hello"}]},
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(content_type, "text/event-stream")
+        self.assertEqual(body, b"".join(lines).decode("utf-8"))
+        snap = obs.snapshot()
+        self.assertEqual(snap["counters"]["usage"]["total_tokens"], 0)
+        self.assertNotIn("usage", snap["recent_requests"][0]["attempts"][0])
 
     def test_chat_streaming_allows_responses_fallback(self):
         fake_router = FakeRouter([self.attempt("responses")])

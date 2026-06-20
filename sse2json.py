@@ -89,6 +89,8 @@ _DIAGNOSTIC_QUEUE = queue.Queue(maxsize=1000)
 _DIAGNOSTIC_WRITER_THREAD = None
 _DIAGNOSTIC_WRITER_RUNNING = False
 _DIAGNOSTIC_WRITER_LOCK = threading.Lock()
+_KEY_PROBE_LOCK = threading.Lock()
+_KEY_PROBE_INFLIGHT = {}
 
 # Runtime state persistence for router health and discovered model capabilities.
 _ROUTER_STATE_FILE = os.path.join(os.path.dirname(__file__), "tmp", "router_state.json")
@@ -532,6 +534,44 @@ def _request_filter_payload(value) -> dict:
 
 
 def probe_provider_key(provider: str, key_index: int, model: str = "") -> dict:
+    """Send a minimal request with one provider key to verify availability.
+
+    Concurrent dashboard clicks for the same provider/key/model share one
+    upstream probe so the request history does not fill with duplicate tests.
+    """
+    probe_key = (str(provider), int(key_index), str(model or "").strip())
+    with _KEY_PROBE_LOCK:
+        future = _KEY_PROBE_INFLIGHT.get(probe_key)
+        if future is None:
+            future = concurrent.futures.Future()
+            _KEY_PROBE_INFLIGHT[probe_key] = future
+            owner = True
+        else:
+            owner = False
+
+    if not owner:
+        try:
+            result = future.result(timeout=20)
+            copied = copy.deepcopy(result)
+            copied["deduped"] = True
+            return copied
+        except Exception as e:
+            return {"ok": False, "error_type": "probe_inflight_error", "error": _sanitize_diagnostic_text(e, 200)}
+
+    try:
+        result = _probe_provider_key_once(provider, key_index, model=model)
+        future.set_result(copy.deepcopy(result))
+        return result
+    except Exception as e:
+        future.set_exception(e)
+        raise
+    finally:
+        with _KEY_PROBE_LOCK:
+            if _KEY_PROBE_INFLIGHT.get(probe_key) is future:
+                _KEY_PROBE_INFLIGHT.pop(probe_key, None)
+
+
+def _probe_provider_key_once(provider: str, key_index: int, model: str = "") -> dict:
     """Send a minimal request with one provider key to verify availability."""
     pcfg = (CONFIG.get("providers") or {}).get(provider)
     if not isinstance(pcfg, dict):
@@ -872,6 +912,26 @@ def _stream_flush_policy():
         return interval_ms, flush_bytes
     except Exception:
         return 0, 0
+
+
+def _config_choice(config: dict, section: str, key: str, default: str, allowed: set) -> str:
+    try:
+        value = str(((config.get(section) or {}).get(key, default)) or default).strip().lower()
+    except Exception:
+        return default
+    return value if value in allowed else default
+
+
+def _native_nonstream_mode(config: dict = None) -> str:
+    return _config_choice(config or CONFIG, "routing", "native_nonstream_mode", "safe", {"safe", "validated"})
+
+
+def _native_stream_mode(config: dict = None) -> str:
+    return _config_choice(config or CONFIG, "routing", "native_stream_mode", "safe", {"safe", "guarded"})
+
+
+def _native_stream_usage_mode(config: dict = None) -> str:
+    return _config_choice(config or CONFIG, "observability", "native_stream_usage", "full", {"full", "off"})
 
 
 def _discovery_status() -> dict:
@@ -1516,6 +1576,24 @@ def _request_json_once_with_timing(attempt, payload, *, proxy_url=None, remainin
     return data, max(0, int((time.time() - started) * 1000))
 
 
+def _request_raw_once_with_timing(attempt, payload, *, proxy_url=None, remaining_timeout_s=None):
+    if hasattr(UPSTREAM_CLIENT, "request_raw_with_timing"):
+        return UPSTREAM_CLIENT.request_raw_with_timing(
+            attempt.url,
+            attempt.headers,
+            payload,
+            proxy_url=proxy_url,
+            remaining_timeout_s=remaining_timeout_s,
+        )
+    data, first_byte_ms = _request_json_once_with_timing(
+        attempt,
+        payload,
+        proxy_url=proxy_url,
+        remaining_timeout_s=remaining_timeout_s,
+    )
+    return json.dumps(data).encode("utf-8"), first_byte_ms
+
+
 def _request_json_with_compat_retry(request_id, attempt, payload, *, proxy_url=None, remaining_timeout_s=None):
     same_key_retries = _same_key_retries_for_transient_errors()
     attempt_payload = payload
@@ -1591,6 +1669,84 @@ def _request_json_with_compat_retry(request_id, attempt, payload, *, proxy_url=N
             )
             OBSERVABILITY.record_first_byte(request_id, first_byte_ms)
             return data
+        raise
+
+
+def _request_raw_with_compat_retry(request_id, attempt, payload, *, proxy_url=None, remaining_timeout_s=None):
+    same_key_retries = _same_key_retries_for_transient_errors()
+    attempt_payload = payload
+    try:
+        raw, first_byte_ms = _request_raw_once_with_timing(
+            attempt,
+            attempt_payload,
+            proxy_url=proxy_url,
+            remaining_timeout_s=remaining_timeout_s,
+        )
+        OBSERVABILITY.record_first_byte(request_id, first_byte_ms)
+        return raw
+    except HTTPError as e:
+        status, error_body, headers = _http_error_details(e)
+        if (
+            int(status) in (400, 404)
+            and _has_forced_tool_choice(payload)
+            and scheduler_policy.should_downgrade_tool_choice(attempt.upstream_format, error_body)
+        ):
+            _downgrade_tool_choice_for_retry(payload, attempt.upstream_format)
+            _record_failed_attempt(
+                request_id,
+                attempt,
+                error_type="provider_compat",
+                http_status=int(status) if status else None,
+                reason="tool_choice_auto_retry",
+                diagnostics=_upstream_error_diagnostics("provider_compat_retry", error_body),
+            )
+            print(
+                f"[proxy] tool_choice downgraded to auto for raw retry req={request_id} {_h(attempt.provider)}",
+                flush=True,
+            )
+            raw, first_byte_ms = _request_raw_once_with_timing(
+                attempt,
+                payload,
+                proxy_url=proxy_url,
+                remaining_timeout_s=remaining_timeout_s,
+            )
+            OBSERVABILITY.record_first_byte(request_id, first_byte_ms)
+            return raw
+        if same_key_retries > 0 and _is_same_key_retryable_http(status, error_body, attempt_payload.get("model", "")):
+            print(
+                f"[proxy] same-key raw retry req={request_id} {_h(attempt.provider)} "
+                f"status={int(status) if status else 0}",
+                flush=True,
+            )
+            retry_payload = dict(attempt_payload)
+            try:
+                raw, first_byte_ms = _request_raw_once_with_timing(
+                    attempt,
+                    retry_payload,
+                    proxy_url=proxy_url,
+                    remaining_timeout_s=remaining_timeout_s,
+                )
+                OBSERVABILITY.record_first_byte(request_id, first_byte_ms)
+                return raw
+            except HTTPError as retry_error:
+                status, error_body, headers = _http_error_details(retry_error)
+        raise CachedHTTPError(status, error_body, headers)
+    except (URLError, socket.timeout) as e:
+        if same_key_retries > 0:
+            print(
+                f"[proxy] same-key raw retry req={request_id} {_h(attempt.provider)} "
+                f"error={type(e).__name__}",
+                flush=True,
+            )
+            retry_payload = dict(attempt_payload)
+            raw, first_byte_ms = _request_raw_once_with_timing(
+                attempt,
+                retry_payload,
+                proxy_url=proxy_url,
+                remaining_timeout_s=remaining_timeout_s,
+            )
+            OBSERVABILITY.record_first_byte(request_id, first_byte_ms)
+            return raw
         raise
 
 
@@ -2012,12 +2168,12 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             path="/v1/chat/completions",
         )
         msgs_count = len(req.get("messages", []))
-        print(f"[proxy] openai passthrough stream={is_stream} model={_hmodel(original_model)} msgs={msgs_count}", flush=True)
-        if resolved_model != original_model:
-            print(f"[proxy] model alias: {original_model} -> {resolved_model}", flush=True)
-
         attempt_errors = []
-        log_each = bool((CONFIG.get("observability") or {}).get("log_provider_on_each_request", True))
+        log_each = bool((CONFIG.get("observability") or {}).get("log_provider_on_each_request", False))
+        if log_each:
+            print(f"[proxy] openai passthrough stream={is_stream} model={_hmodel(original_model)} msgs={msgs_count}", flush=True)
+            if resolved_model != original_model:
+                print(f"[proxy] model alias: {original_model} -> {resolved_model}", flush=True)
         has_attempt = False
         total_start = time.time()
         routing_cfg = CONFIG.get("routing") or {}
@@ -2081,7 +2237,10 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                         attempt_started_at=attempt_started,
                     )
                     first_event_remaining = _remaining_first_event_timeout(attempt_started, first_byte_t) if first_byte_t > 0 else None
-                    initial_lines = _prefetch_initial_stream_lines(upstream_conn, first_event_remaining)
+                    if attempt.upstream_format == CHAT and _native_stream_mode(CONFIG) == "guarded":
+                        initial_lines = None
+                    else:
+                        initial_lines = _prefetch_initial_stream_lines(upstream_conn, first_event_remaining)
                     OBSERVABILITY.record_first_byte(request_id)
 
                     self.close_connection = True
@@ -2098,7 +2257,12 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
 
                     try:
                         if attempt.upstream_format == CHAT:
-                            stream_resp = relay_sse_stream(upstream_conn, bwfile, initial_lines=initial_lines)
+                            stream_resp = relay_sse_stream(
+                                upstream_conn,
+                                bwfile,
+                                initial_lines=initial_lines,
+                                collect_usage=_native_stream_usage_mode(CONFIG) != "off",
+                            )
                         elif attempt.upstream_format == RESPONSES:
                             stream_resp = stream_responses_sse_to_openai_chat(
                                 upstream_conn,
@@ -2138,19 +2302,31 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                     OBSERVABILITY.record_request_end(request_id, status_code=200)
                     return
 
-                upstream_data = _request_json_with_compat_retry(
-                    request_id,
-                    attempt,
-                    payload,
-                    proxy_url=attempt.proxy_url,
-                    remaining_timeout_s=remaining,
-                )
-                client_response = convert_response(
-                    attempt.upstream_format,
-                    CHAT,
-                    upstream_data,
-                    original_model=original_model,
-                )
+                raw_response = None
+                if attempt.upstream_format == CHAT and _native_nonstream_mode(CONFIG) == "validated":
+                    raw_response = _request_raw_with_compat_retry(
+                        request_id,
+                        attempt,
+                        payload,
+                        proxy_url=attempt.proxy_url,
+                        remaining_timeout_s=remaining,
+                    )
+                    upstream_data = json.loads(raw_response)
+                    client_response = upstream_data
+                else:
+                    upstream_data = _request_json_with_compat_retry(
+                        request_id,
+                        attempt,
+                        payload,
+                        proxy_url=attempt.proxy_url,
+                        remaining_timeout_s=remaining,
+                    )
+                    client_response = convert_response(
+                        attempt.upstream_format,
+                        CHAT,
+                        upstream_data,
+                        original_model=original_model,
+                    )
                 if _is_empty_visible_output(
                     CHAT,
                     client_response,
@@ -2168,6 +2344,8 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                     duration_ms=_attempt_duration_ms(attempt_started),
                 )
                 OBSERVABILITY.record_request_end(request_id, status_code=200)
+                if raw_response is not None:
+                    return self._resp_bytes(raw_response, content_type="application/json")
                 return self._resp_json(client_response)
 
             except (HTTPError, CachedHTTPError) as e:
@@ -2280,13 +2458,13 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             stream=is_stream,
             path=path,
         )
-        print(f"[proxy] responses stream={is_stream} model={_hmodel(original_model)}", flush=True)
-        if resolved_model != original_model:
-            print(f"[proxy] model alias: {original_model} -> {resolved_model}", flush=True)
-
         allowed_formats = [RESPONSES, CHAT, ANTHROPIC]
         attempt_errors = []
-        log_each = bool((CONFIG.get("observability") or {}).get("log_provider_on_each_request", True))
+        log_each = bool((CONFIG.get("observability") or {}).get("log_provider_on_each_request", False))
+        if log_each:
+            print(f"[proxy] responses stream={is_stream} model={_hmodel(original_model)}", flush=True)
+            if resolved_model != original_model:
+                print(f"[proxy] model alias: {original_model} -> {resolved_model}", flush=True)
         has_attempt = False
         total_start = time.time()
         routing_cfg = CONFIG.get("routing") or {}
@@ -2349,7 +2527,9 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                         attempt_started_at=attempt_started,
                     )
                     first_event_remaining = _remaining_first_event_timeout(attempt_started, first_byte_t) if first_byte_t > 0 else None
-                    if attempt.upstream_format in (RESPONSES, ANTHROPIC):
+                    if attempt.upstream_format == RESPONSES and _native_stream_mode(CONFIG) == "guarded":
+                        initial_lines = None
+                    elif attempt.upstream_format in (RESPONSES, ANTHROPIC):
                         initial_lines = _prefetch_initial_stream_lines(upstream_conn, first_event_remaining)
                     else:
                         first_line = _prefetch_first_stream_line(upstream_conn, first_event_remaining)
@@ -2371,7 +2551,12 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                     stream_resp = None
                     try:
                         if attempt.upstream_format == RESPONSES:
-                            stream_resp = relay_sse_stream(upstream_conn, bwfile, initial_lines=initial_lines)
+                            stream_resp = relay_sse_stream(
+                                upstream_conn,
+                                bwfile,
+                                initial_lines=initial_lines,
+                                collect_usage=_native_stream_usage_mode(CONFIG) != "off",
+                            )
                         elif attempt.upstream_format == CHAT:
                             stream_resp = stream_openai_sse_to_responses(
                                 upstream_conn,
@@ -2411,19 +2596,31 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                     OBSERVABILITY.record_request_end(request_id, status_code=200)
                     return
 
-                upstream_data = _request_json_with_compat_retry(
-                    request_id,
-                    attempt,
-                    payload,
-                    proxy_url=attempt.proxy_url,
-                    remaining_timeout_s=remaining,
-                )
-                client_response = convert_response(
-                    attempt.upstream_format,
-                    RESPONSES,
-                    upstream_data,
-                    original_model=original_model,
-                )
+                raw_response = None
+                if attempt.upstream_format == RESPONSES and _native_nonstream_mode(CONFIG) == "validated":
+                    raw_response = _request_raw_with_compat_retry(
+                        request_id,
+                        attempt,
+                        payload,
+                        proxy_url=attempt.proxy_url,
+                        remaining_timeout_s=remaining,
+                    )
+                    upstream_data = json.loads(raw_response)
+                    client_response = upstream_data
+                else:
+                    upstream_data = _request_json_with_compat_retry(
+                        request_id,
+                        attempt,
+                        payload,
+                        proxy_url=attempt.proxy_url,
+                        remaining_timeout_s=remaining,
+                    )
+                    client_response = convert_response(
+                        attempt.upstream_format,
+                        RESPONSES,
+                        upstream_data,
+                        original_model=original_model,
+                    )
                 if _is_empty_visible_output(
                     RESPONSES,
                     client_response,
@@ -2441,6 +2638,8 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                     duration_ms=_attempt_duration_ms(attempt_started),
                 )
                 OBSERVABILITY.record_request_end(request_id, status_code=200)
+                if raw_response is not None:
+                    return self._resp_bytes(raw_response, content_type="application/json")
                 return self._resp_json(client_response)
 
             except (HTTPError, CachedHTTPError) as e:
@@ -2603,7 +2802,9 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         original_model = req.get("model", "deepseek-v4-flash")
         msgs_count = len(req.get("messages", []))
         tools_count = len(req.get("tools", []))
-        print(f"[proxy] stream={is_stream} model={_hmodel(original_model)} msgs={msgs_count} tools={tools_count}", flush=True)
+        log_each = bool((CONFIG.get("observability") or {}).get("log_provider_on_each_request", False))
+        if log_each:
+            print(f"[proxy] stream={is_stream} model={_hmodel(original_model)} msgs={msgs_count} tools={tools_count}", flush=True)
 
         try:
             # Rebuild union aliases from saved capabilities/config without upstream I/O.
@@ -2614,7 +2815,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             except Exception:
                 pass
             resolved_model = resolve_model(original_model or "")
-            if resolved_model != original_model:
+            if resolved_model != original_model and log_each:
                 print(f"[proxy] model alias: {original_model} -> {resolved_model}", flush=True)
             canonical_model = resolved_model
             OBSERVABILITY.record_request_start(
@@ -2641,7 +2842,6 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                     print(f"  msg[{i}] role={m['role']}{rc}{tc} {c_preview!r}", flush=True)
 
             attempt_errors = []
-            log_each = bool((CONFIG.get("observability") or {}).get("log_provider_on_each_request", True))
             has_attempt = False
             total_start = time.time()
             routing_cfg = (CONFIG.get("routing") or {})
@@ -2701,7 +2901,9 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                         # Open upstream stream and prefetch the first event before sending headers.
                         upstream_conn = _open_stream_with_compat_retry(request_id, attempt, payload, proxy_url=attempt.proxy_url, remaining_timeout_s=remaining, first_byte_timeout_s=first_byte_t if first_byte_t > 0 else None, attempt_started_at=attempt_started)
                         first_event_remaining = _remaining_first_event_timeout(attempt_started, first_byte_t) if first_byte_t > 0 else None
-                        if attempt.upstream_format in (ANTHROPIC, RESPONSES):
+                        if attempt.upstream_format == ANTHROPIC and _native_stream_mode(CONFIG) == "guarded":
+                            initial_lines = None
+                        elif attempt.upstream_format in (ANTHROPIC, RESPONSES):
                             initial_lines = _prefetch_initial_stream_lines(upstream_conn, first_event_remaining)
                         else:
                             first_line = _prefetch_first_stream_line(upstream_conn, first_event_remaining)
@@ -2722,7 +2924,12 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
 
                         try:
                             if attempt.upstream_format == "anthropic_messages":
-                                native_usage = relay_sse_stream(upstream_conn, bwfile, initial_lines=initial_lines)
+                                native_usage = relay_sse_stream(
+                                    upstream_conn,
+                                    bwfile,
+                                    initial_lines=initial_lines,
+                                    collect_usage=_native_stream_usage_mode(CONFIG) != "off",
+                                )
                                 anth_resp = {"streamed": True, "native": True, "usage": native_usage}
                             elif attempt.upstream_format == RESPONSES:
                                 anth_resp = stream_responses_sse_to_anthropic(
@@ -2764,16 +2971,22 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                             )
                         return
 
-                    upstream_data = _request_json_with_compat_retry(request_id, attempt, payload, proxy_url=attempt.proxy_url, remaining_timeout_s=remaining)
-                    if attempt.upstream_format == ANTHROPIC:
+                    raw_response = None
+                    if attempt.upstream_format == ANTHROPIC and _native_nonstream_mode(CONFIG) == "validated":
+                        raw_response = _request_raw_with_compat_retry(request_id, attempt, payload, proxy_url=attempt.proxy_url, remaining_timeout_s=remaining)
+                        upstream_data = json.loads(raw_response)
                         anth_resp = upstream_data
                     else:
-                        anth_resp = convert_response(
-                            attempt.upstream_format,
-                            ANTHROPIC,
-                            upstream_data,
-                            original_model=original_model,
-                        )
+                        upstream_data = _request_json_with_compat_retry(request_id, attempt, payload, proxy_url=attempt.proxy_url, remaining_timeout_s=remaining)
+                        if attempt.upstream_format == ANTHROPIC:
+                            anth_resp = upstream_data
+                        else:
+                            anth_resp = convert_response(
+                                attempt.upstream_format,
+                                ANTHROPIC,
+                                upstream_data,
+                                original_model=original_model,
+                            )
                     if _is_empty_visible_output(
                         ANTHROPIC,
                         anth_resp,
@@ -2791,7 +3004,10 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                         duration_ms=_attempt_duration_ms(attempt_started),
                     )
                     OBSERVABILITY.record_request_end(request_id, status_code=200)
-                    self._resp_json(anth_resp)
+                    if raw_response is not None:
+                        self._resp_bytes(raw_response, content_type="application/json")
+                    else:
+                        self._resp_json(anth_resp)
                     if DEBUG_LOG:
                         log_request(req, payload, upstream_data, anth_resp)
                     return

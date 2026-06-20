@@ -292,6 +292,8 @@ def _default_config() -> Dict[str, Any]:
             # comments/keepalives without a data event. 0 disables a bound.
             "stream_prefetch_max_lines": 128,
             "stream_prefetch_max_bytes": 65536,
+            "native_nonstream_mode": "validated",
+            "native_stream_mode": "guarded",
         },
         "retry": {
             "retryable_status": [408, 409, 425, 429, 500, 502, 503, 504],
@@ -346,7 +348,8 @@ def _default_config() -> Dict[str, Any]:
         "observability": {
             "log_level": "info",
             "log_key_mask": {"prefix": 6, "suffix": 2},
-            "log_provider_on_each_request": True,
+            "log_provider_on_each_request": False,
+            "native_stream_usage": "full",
             "history": {
                 "enabled": True,
                 "path": "tmp/proxy_history.sqlite3",

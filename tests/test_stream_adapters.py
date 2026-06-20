@@ -179,6 +179,23 @@ class StreamAdapterTests(unittest.TestCase):
         self.assertEqual(output.getvalue(), b"".join(lines))
         self.assertEqual(result, {"input_tokens": 2, "output_tokens": 3, "total_tokens": 5})
 
+    def test_relay_sse_stream_can_skip_usage_scan(self):
+        output = io.BytesIO()
+        lines = [
+            sse_data(
+                {
+                    "choices": [{"delta": {}, "finish_reason": "stop"}],
+                    "usage": {"prompt_tokens": 2, "completion_tokens": 3, "total_tokens": 5},
+                }
+            ),
+            b"data: [DONE]\n",
+        ]
+
+        result = relay_sse_stream([], output, initial_lines=lines, collect_usage=False)
+
+        self.assertEqual(output.getvalue(), b"".join(lines))
+        self.assertEqual(result, {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0})
+
     def test_sse_data_payload_tolerates_missing_space(self):
         self.assertEqual(sse_data_payload("data:hello"), "hello")
         self.assertEqual(sse_data_payload("data: hello"), "hello")

@@ -167,16 +167,24 @@ def prefetch_initial_stream_lines(upstream, timeout_s, preserve_skipped=True, *,
     return item
 
 
-def relay_sse_stream(upstream, wfile, initial_lines: Optional[Iterable[bytes]] = None) -> Dict[str, int]:
+def relay_sse_stream(
+    upstream,
+    wfile,
+    initial_lines: Optional[Iterable[bytes]] = None,
+    *,
+    collect_usage: bool = True,
+) -> Dict[str, int]:
     usage = empty_usage()
     for raw in initial_lines or []:
         wfile.write(raw)
         wfile.flush()
-        usage = _merge_usage(usage, _usage_from_sse_line(raw))
+        if collect_usage:
+            usage = _merge_usage(usage, _usage_from_sse_line(raw))
     for raw in upstream:
         wfile.write(raw)
         wfile.flush()
-        usage = _merge_usage(usage, _usage_from_sse_line(raw))
+        if collect_usage:
+            usage = _merge_usage(usage, _usage_from_sse_line(raw))
     return usage
 
 

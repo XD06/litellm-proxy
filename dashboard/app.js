@@ -476,6 +476,7 @@
 			confirmResolve: null,
 			confirmLastFocus: null,
 			keyProbes: {},
+			keyProbeInFlight: {},
 			data: {
 				metrics: null,
 				metricsFull: null,
@@ -3619,6 +3620,8 @@
 		function keyCard(provider, key, totalKeys = 0) {
 			const available = key.available && key.runtime_enabled;
 			const tone = available ? "ok" : key.runtime_enabled ? "warn" : "bad";
+			const probeKey = `${provider}#${key.index}`;
+			const probePending = Boolean(state.keyProbeInFlight[probeKey] || state.keyProbes[probeKey]?.pending);
 			return `
       <article class="provider-key-card" data-key-total="${escapeHtml(totalKeys)}">
         <div class="key-card-head">
@@ -3645,7 +3648,7 @@
             data-key-test-index="${escapeHtml(key.index)}"
             title="Test key"
             aria-label="Test key"
-            ${providerProbeModelOptions(provider).length ? "" : "disabled"}
+            ${providerProbeModelOptions(provider).length && !probePending ? "" : "disabled"}
           >${iconSvg("bolt")}</button>
           ${actionButton(key.runtime_enabled ? "Disable key" : "Enable key", `/providers/${encodeURIComponent(provider)}/keys/${key.index}/${key.runtime_enabled ? "disable" : "enable"}`, key.runtime_enabled ? "danger" : "secondary", { iconOnly: true })}
           ${actionButton("Clear key state", `/providers/${encodeURIComponent(provider)}/keys/${key.index}/state/clear`, "secondary", { iconOnly: true })}
@@ -3853,6 +3856,8 @@
 						setNotice("Refresh model capabilities before testing this key.", "info");
 						return;
 					}
+					if (state.keyProbeInFlight[probeKey]) return;
+					state.keyProbeInFlight[probeKey] = true;
 					state.keyProbes[probeKey] = { pending: true };
 					button.disabled = true;
 					setNotice(`Testing key ${keyIndex} of ${provider} on ${model}...`, "info", {
@@ -3879,6 +3884,7 @@
 						};
 						setNotice(`Test key failed: ${err.message}`, "bad", { key: toastKey });
 					} finally {
+						delete state.keyProbeInFlight[probeKey];
 						button.disabled = false;
 					}
 				});

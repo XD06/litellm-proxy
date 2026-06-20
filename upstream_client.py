@@ -295,6 +295,54 @@ class OpenAIUpstreamClient:
                 raw = resp.read()
             return json.loads(raw), first_byte_ms
 
+    def request_raw_with_timing(
+        self,
+        url: str,
+        headers: Dict[str, str],
+        payload: Dict[str, Any],
+        *,
+        proxy_url: Optional[str] = None,
+        remaining_timeout_s: Optional[int] = None,
+    ) -> tuple[bytes, int]:
+        if self._use_urllib3():
+            pool = self._pool_manager_for(proxy_url)
+            timeout = self._timeout(is_stream=False, remaining_timeout_s=remaining_timeout_s)
+            routing = self.cfg.get("routing", {}) or {}
+            connect_t = int(routing.get("connect_timeout_s", 15))
+            urllib3_timeout = urllib3.Timeout(connect=connect_t, read=timeout)
+
+            started = time.time()
+            try:
+                resp = pool.request(
+                    "POST",
+                    url,
+                    headers=headers,
+                    body=json.dumps(payload).encode("utf-8"),
+                    timeout=urllib3_timeout,
+                    preload_content=True,
+                    redirect=False
+                )
+                first_byte_ms = max(0, int((time.time() - started) * 1000))
+            except urllib3.exceptions.TimeoutError as e:
+                raise socket.timeout(str(e))
+            except Exception as e:
+                raise URLError(str(e))
+
+            if resp.status >= 400:
+                fp = io.BytesIO(resp.data)
+                raise HTTPError(url, resp.status, getattr(resp, "reason", ""), resp.headers, fp)
+
+            return bytes(resp.data), first_byte_ms
+        else:
+            http_req = Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers)
+            opener = self._opener_for(proxy_url)
+            timeout = self._timeout(is_stream=False, remaining_timeout_s=remaining_timeout_s)
+            started = time.time()
+            with closing(opener.open(http_req, timeout=timeout)) as resp:
+                first_byte_ms = max(0, int((time.time() - started) * 1000))
+                raw = resp.read()
+            return raw, first_byte_ms
+
     def open_stream(
         self,
         url: str,
