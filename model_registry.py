@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import concurrent.futures
 import datetime
+import hashlib
+import json
 import re
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -115,6 +117,21 @@ def _sanitize_error(err: Exception, keys: List[Any]) -> str:
     return msg
 
 
+def provider_config_signature(config: Dict[str, Any], provider: str) -> str:
+    pcfg = ((config.get("providers") or {}).get(provider) or {})
+    payload = {
+        "base_url": pcfg.get("base_url") or "",
+        "models_path": pcfg.get("models_path") or "/v1/models",
+        "keys": [key_value(entry) for entry in (pcfg.get("keys") or [])],
+        "proxy": pcfg.get("proxy") or {},
+        "headers": pcfg.get("headers") or {},
+        "user_agent": pcfg.get("user_agent") or "",
+        "formats": pcfg.get("formats") or {},
+    }
+    raw = json.dumps(payload, sort_keys=True, default=str)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
 def parse_provider_models(provider: str, upstream_data) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, str], List[str]]:
     union_map: Dict[str, Dict[str, Any]] = {}
     canonical_map: Dict[str, str] = {}
@@ -178,6 +195,7 @@ def _store_provider_capabilities(
         "models": models_list,
         "canonical_map": cmap,
         "formats": _provider_enabled_formats(pcfg),
+        "config_signature": provider_config_signature(config, provider),
     }
     if error:
         entry["error"] = error
@@ -217,6 +235,80 @@ def _models_payload_from_ids(model_ids: List[str]) -> Dict[str, Any]:
     }
 
 
+def _store_models_union_snapshot(
+    config: Dict[str, Any],
+    *,
+    models_source: str,
+    payload: Dict[str, Any],
+    signature: Dict[str, Any],
+    provider: str = "",
+) -> None:
+    models_cfg = config.setdefault("models", {})
+    model_ids = [str(m.get("id") or "") for m in payload.get("data") or [] if isinstance(m, dict) and str(m.get("id") or "").strip()]
+    models_cfg["models_union_snapshot"] = {
+        "status": "ok",
+        "built_at": int(time.time()),
+        "models_source": models_source,
+        "provider": provider,
+        "signature": signature,
+        "model_ids": model_ids,
+        "payload": payload,
+    }
+
+
+def _union_signature(config: Dict[str, Any], *, models_source: str, provider: str = "") -> Dict[str, Any]:
+    providers_cfg = config.get("providers") or {}
+    caps = ((config.get("models") or {}).get("provider_model_capabilities") or {})
+    provider_names = [provider] if provider else list(providers_cfg.keys())
+    providers = {}
+    if isinstance(caps, dict):
+        for pname in provider_names:
+            pcfg = providers_cfg.get(str(pname)) or {}
+            if not pcfg.get("enabled", True):
+                continue
+            entry = caps.get(str(pname)) or {}
+            if not isinstance(entry, dict):
+                continue
+            canonical_map = entry.get("canonical_map") or {}
+            raw_models = entry.get("models") or []
+            providers[str(pname)] = {
+                "status": str(entry.get("status") or ""),
+                "fetched_at": int(entry.get("fetched_at") or 0),
+                "canonical_count": len(canonical_map) if isinstance(canonical_map, dict) else 0,
+                "models_count": len(raw_models) if isinstance(raw_models, list) else 0,
+            }
+    return {
+        "models_source": models_source,
+        "provider": provider,
+        "providers": providers,
+        "configured_model_ids": _configured_model_ids(config, provider or None),
+    }
+
+
+def _snapshot_payload_if_current(
+    config: Dict[str, Any],
+    *,
+    models_source: str,
+    signature: Dict[str, Any],
+    provider: str = "",
+) -> Optional[Dict[str, Any]]:
+    snapshot = ((config.get("models") or {}).get("models_union_snapshot") or {})
+    if not isinstance(snapshot, dict):
+        return None
+    if snapshot.get("status") != "ok":
+        return None
+    if str(snapshot.get("models_source") or "") != models_source:
+        return None
+    if str(snapshot.get("provider") or "") != provider:
+        return None
+    if snapshot.get("signature") != signature:
+        return None
+    payload = snapshot.get("payload") or {}
+    if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
+        return None
+    return payload
+
+
 def _configured_model_ids(config: Dict[str, Any], provider: Optional[str] = None) -> List[str]:
     models_cfg = config.get("models") or {}
     providers_cfg = config.get("providers") or {}
@@ -252,11 +344,12 @@ def _configured_model_ids(config: Dict[str, Any], provider: Optional[str] = None
     return _dedupe(out)
 
 
-def models_from_capabilities(config: Dict[str, Any], router=None) -> Dict[str, Any]:
-    """Return a client model list from saved capabilities/config only.
+def rebuild_models_union_snapshot(config: Dict[str, Any], router=None) -> Dict[str, Any]:
+    """Rebuild the local /v1/models snapshot from saved capabilities/config.
 
-    This path intentionally performs no upstream I/O. Discovery is handled by
-    startup/manual/provider refresh paths and persisted in provider capabilities.
+    This never performs upstream I/O. Provider refresh paths update
+    provider_model_capabilities first, then call this to publish a fast,
+    persisted read model for GET /v1/models.
     """
     models_source = str((config.get("models") or {}).get("models_source", "first_healthy_provider"))
     if models_source not in ("union", "first_healthy_provider"):
@@ -266,18 +359,13 @@ def models_from_capabilities(config: Dict[str, Any], router=None) -> Dict[str, A
     providers_cfg = config.get("providers") or {}
 
     if models_source == "union":
-        cache_key = "__union__"
-        cached = _cached_models_by_provider.get(cache_key)
-        if cached:
-            return cached
-
         model_ids: List[str] = []
         if isinstance(caps, dict):
             for provider, entry in caps.items():
                 pcfg = providers_cfg.get(str(provider)) or {}
                 if not pcfg.get("enabled", True):
                     continue
-                if not isinstance(entry, dict) or entry.get("status") != "ok":
+                if not isinstance(entry, dict) or entry.get("status") not in ("ok", "error", "pending"):
                     continue
                 canonical_map = entry.get("canonical_map") or {}
                 if isinstance(canonical_map, dict) and canonical_map:
@@ -292,8 +380,10 @@ def models_from_capabilities(config: Dict[str, Any], router=None) -> Dict[str, A
             return default_models()
 
         payload = _models_payload_from_ids(model_ids)
-        _cached_models_by_provider[cache_key] = payload
-        restore_union_model_ids(model_ids)
+        signature = _union_signature(config, models_source=models_source)
+        _store_models_union_snapshot(config, models_source=models_source, payload=payload, signature=signature)
+        _cached_models_by_provider["__union__"] = payload
+        _rebuild_union_model_ids_from_capabilities(config)
         return payload
 
     provider = None
@@ -308,9 +398,6 @@ def models_from_capabilities(config: Dict[str, Any], router=None) -> Dict[str, A
             if pcfg.get("enabled", True) and isinstance(entry, dict) and entry.get("status") == "ok":
                 provider = str(pname)
                 break
-
-    if provider and provider in _cached_models_by_provider:
-        return _cached_models_by_provider[provider]
 
     model_ids = []
     if provider and isinstance(caps, dict):
@@ -329,10 +416,73 @@ def models_from_capabilities(config: Dict[str, Any], router=None) -> Dict[str, A
         return default_models()
 
     payload = _models_payload_from_ids(model_ids)
+    signature = _union_signature(config, models_source=models_source, provider=provider or "")
+    _store_models_union_snapshot(
+        config,
+        models_source=models_source,
+        payload=payload,
+        signature=signature,
+        provider=provider or "",
+    )
     if provider:
         _cached_models_by_provider[provider] = payload
     _rebuild_union_model_ids_from_capabilities(config)
     return payload
+
+
+def models_from_capabilities(config: Dict[str, Any], router=None) -> Dict[str, Any]:
+    """Return a client model list from saved capabilities/config only.
+
+    This path intentionally performs no upstream I/O. Discovery is handled by
+    startup/manual/provider refresh paths and persisted in provider capabilities.
+    """
+    models_source = str((config.get("models") or {}).get("models_source", "first_healthy_provider"))
+    if models_source not in ("union", "first_healthy_provider"):
+        return default_models()
+
+    if models_source == "union":
+        cache_key = "__union__"
+        cached = _cached_models_by_provider.get(cache_key)
+        if cached:
+            return cached
+        signature = _union_signature(config, models_source=models_source)
+        payload = _snapshot_payload_if_current(config, models_source=models_source, signature=signature)
+        if payload:
+            _cached_models_by_provider[cache_key] = payload
+            _rebuild_union_model_ids_from_capabilities(config)
+            return payload
+        return rebuild_models_union_snapshot(config, router)
+
+    provider = None
+    if router is not None and hasattr(router, "first_healthy_provider"):
+        try:
+            provider = router.first_healthy_provider()
+        except Exception:
+            provider = None
+    if not provider:
+        caps = ((config.get("models") or {}).get("provider_model_capabilities") or {})
+        providers_cfg = config.get("providers") or {}
+        for pname, entry in (caps.items() if isinstance(caps, dict) else []):
+            pcfg = providers_cfg.get(str(pname)) or {}
+            if pcfg.get("enabled", True) and isinstance(entry, dict) and entry.get("status") == "ok":
+                provider = str(pname)
+                break
+
+    if provider and provider in _cached_models_by_provider:
+        return _cached_models_by_provider[provider]
+    signature = _union_signature(config, models_source=models_source, provider=provider or "")
+    payload = _snapshot_payload_if_current(
+        config,
+        models_source=models_source,
+        signature=signature,
+        provider=provider or "",
+    )
+    if payload:
+        if provider:
+            _cached_models_by_provider[provider] = payload
+        _rebuild_union_model_ids_from_capabilities(config)
+        return payload
+    return rebuild_models_union_snapshot(config, router)
 
 
 def to_anthropic_models(data):
@@ -557,7 +707,7 @@ def fetch_upstream_models(
                 error=str(upstream_data.get("_error") or "") if isinstance(upstream_data, dict) else "",
             )
             _cached_models_by_provider[provider] = anth
-            _rebuild_union_model_ids_from_capabilities(config)
+            rebuild_models_union_snapshot(config, router)
             print(f"[proxy] Refreshed {len(anth.get('data') or [])} models from {hprov(provider)}", flush=True)
             return anth
         except Exception as e:
@@ -568,7 +718,7 @@ def fetch_upstream_models(
                 status="error",
                 error=_sanitize_error(e, pcfg.get("keys") or []),
             )
-            _rebuild_union_model_ids_from_capabilities(config)
+            rebuild_models_union_snapshot(config, router)
             print(f"[proxy] Failed to refresh provider models ({hprov(provider)}): {e}", flush=True)
             return default_models()
 
@@ -619,18 +769,15 @@ def fetch_upstream_models(
 
         merge_similar_models(union_map, auto_provider_map)
 
-        anth = {
+        fetched_payload = {
             "data": list(union_map.values()),
             "has_more": False,
             "first_id": next(iter(union_map.keys()), ""),
             "last_id": list(union_map.keys())[-1] if union_map else "",
         }
-        global _union_model_id_set
-        _union_model_id_set = set(union_map.keys())
-
-        _cached_models_by_provider[cache_key] = anth
-        print(f"[proxy] Auto-fetched union models: {len(anth.get('data') or [])}", flush=True)
-        return anth if anth.get("data") else default_models()
+        rebuild_models_union_snapshot(config, router)
+        print(f"[proxy] Auto-fetched union models: {len(fetched_payload.get('data') or [])}", flush=True)
+        return fetched_payload if fetched_payload.get("data") else default_models()
 
     provider = router.first_healthy_provider()
     if not provider:
@@ -656,6 +803,7 @@ def fetch_upstream_models(
                 error=str(upstream_data.get("_error") or "") if isinstance(upstream_data, dict) else "",
             )
         _cached_models_by_provider[provider] = anth
+        rebuild_models_union_snapshot(config, router)
         print(f"[proxy] Auto-fetched {len(anth.get('data') or [])} models from {hprov(provider)}", flush=True)
         return anth
     except Exception as e:
@@ -666,5 +814,6 @@ def fetch_upstream_models(
             status="error",
             error=_sanitize_error(e, pcfg.get("keys") or []),
         )
+        rebuild_models_union_snapshot(config, router)
         print(f"[proxy] Failed to fetch upstream models ({hprov(provider)}): {e}", flush=True)
         return default_models()

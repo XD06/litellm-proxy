@@ -44,8 +44,8 @@
     "default_provider_pool": ["opencode", "rawchat", "deepseek"],
 
     // 供应商选择策略：
-    // - priority_failover 默认推荐。优先访问 priority 高的 provider；同 provider 多 key 轮换。
-    //                    高优先级 provider/key 不可用、冷却、失败后，再切到下一优先级。
+    // - priority_failover 默认推荐。优先访问 priority 高的 provider；同 provider 多 key 按配置顺序作为备用。
+    //                    第一把可用 key 成功时会持续优先使用；不可用、冷却、失败后，再切到后续 key/provider。
     //                    适合保护上游缓存命中、固定主供应商、成本/质量优先级明确的生产场景。
     // - round_robin       provider 之间公平轮询，不使用 weight；适合主动均衡多供应商流量。
     // - weighted_rr       provider 按 route weight 展开后轮询；适合按比例分摊流量。
@@ -172,9 +172,13 @@
       }
     },
 
-    // 运行时自动发现快照：由 models_source=union 或 GET /v1/models 填充。
-    // 不建议手工维护；未来 admin API 会读取它来展示 provider 模型能力。
+    // Provider 模型发现快照：后台发现、添加/修改 provider、手动刷新时写入。
+    // GET /v1/models 只读取本地快照，不会临时请求上游，避免请求时等待。
     "provider_model_capabilities": {},
+
+    // /v1/models 的本地聚合快照：由 provider_model_capabilities 和显式配置重建。
+    // 不建议手工维护；会随 runtime state 一起保存，重启后可立即返回。
+    "models_union_snapshot": {},
 
     // 自动发现失败/尚未发现时，是否仍假设 provider 可能支持未知模型。
     // true 更容错；false 更严格，会减少误发请求但依赖模型发现成功。
@@ -182,9 +186,9 @@
     // 未发现能力的 provider 只有显式配置 provider.assume_supports_unknown_models=true 时才继续参与。
     "assume_supports_unknown_models": true,
 
-    // GET /v1/models 的来源策略：
-    // - first_healthy_provider：从首个健康 provider 拉取 /v1/models 并转换为 Anthropic 格式（默认）
-    // - union：从所有启用 provider 拉取并保守归一后返回，同时记录 provider_model_capabilities
+    // GET /v1/models 的本地快照策略：
+    // - first_healthy_provider：返回首个健康 provider 的已发现模型快照（默认）
+    // - union：返回所有启用 provider 的已发现模型并集；失败/刷新中会保留 last-known-good
     "models_source": "first_healthy_provider"
   },
 
@@ -217,7 +221,7 @@
       // Models 路径（可选；用于 GET /v1/models 透传/拉取）
       "models_path": "/v1/models",
 
-      // 多 key：会自动轮询与失败切换
+      // 多 key：按配置顺序优先使用，失败或冷却时才切到后续 key
       // key 可写成字符串，也可写成对象来单独设置 key 级代理。
       // key.proxy 优先级最高，只对这一把 key 生效。
       "keys": [

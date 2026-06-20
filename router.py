@@ -133,7 +133,8 @@ class UpstreamRouter:
     ) -> Generator[Attempt, None, None]:
         """按 provider_select 选择 provider+key。
 
-        默认 priority_failover 会先固定高优先级 provider，并在同一 provider 内轮换可用 key；
+        默认 priority_failover 会先固定高优先级 provider，并在同一 provider 内按配置顺序选择 key；
+        key 不做成功请求负载轮换，只在当前优先 key 不可用或本次请求已尝试过时回退到后续 key。
         round_robin/weighted_rr/random 保留跨 provider 分散流量的旧行为。
 
         client_headers: 客户端原始请求头，用于按 provider 配置透传特定 header。
@@ -165,10 +166,18 @@ class UpstreamRouter:
             provider, upstream_format = provider_order[current_prov_idx]
             scan_no += 1
              
-            sel = self._select_key(provider)
+            sel = self._select_key(
+                provider,
+                upstream_format=upstream_format,
+                seen_candidates=seen_candidates,
+            )
             if sel is None:
-                # provider 无可用 key → 冷却 provider，切换到下一个
-                self._cooldown_provider(provider, reason="no_key")
+                # If the provider still has an available key, every available
+                # candidate for this provider/format was already tried in this
+                # client request. Move on without cooling the provider.
+                if not self._provider_has_available_key(provider):
+                    # provider 无可用 key → 冷却 provider，切换到下一个
+                    self._cooldown_provider(provider, reason="no_key")
                 current_prov_idx += 1
                 continue
 
@@ -831,7 +840,13 @@ class UpstreamRouter:
             self._rr_model[rotation_key] = (idx + 1) % len(expanded)
         return expanded[idx:] + expanded[:idx]
 
-    def _select_key(self, provider: str) -> Optional[Tuple[int, str]]:
+    def _select_key(
+        self,
+        provider: str,
+        *,
+        upstream_format: str = "chat_completions",
+        seen_candidates: Optional[set] = None,
+    ) -> Optional[Tuple[int, str]]:
         now = time.time()
         providers_cfg = self.cfg.get("providers") or {}
         pcfg = providers_cfg.get(provider) or {}
@@ -843,17 +858,34 @@ class UpstreamRouter:
             ps = self._providers_state.setdefault(provider, _ProviderState())
             if not ps.available(now):
                 return None
-            start = ps.rr_key % len(keys)
-            ps.rr_key = (start + 1) % len(keys)
 
-            for offset in range(len(keys)):
-                i = (start + offset) % len(keys)
+            for i in range(len(keys)):
+                if seen_candidates is not None and (provider, i, upstream_format) in seen_candidates:
+                    continue
                 ks = self._keys_state.setdefault((provider, i), _KeyState())
                 if ks.available(now):
                     selected = key_value(keys[i])
                     if selected:
                         return i, selected
         return None
+
+    def _provider_has_available_key(self, provider: str) -> bool:
+        now = time.time()
+        providers_cfg = self.cfg.get("providers") or {}
+        pcfg = providers_cfg.get(provider) or {}
+        keys = pcfg.get("keys") or []
+        if not keys:
+            return False
+
+        with self._lock:
+            ps = self._providers_state.setdefault(provider, _ProviderState())
+            if not ps.available(now):
+                return False
+            for i, key in enumerate(keys):
+                ks = self._keys_state.setdefault((provider, i), _KeyState())
+                if ks.available(now) and key_value(key):
+                    return True
+        return False
 
     def _provider_formats(self, provider: str) -> Dict[str, Dict[str, Any]]:
         pcfg = (self.cfg.get("providers") or {}).get(provider) or {}

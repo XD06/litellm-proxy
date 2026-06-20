@@ -802,7 +802,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
 
       const fetches = {
         metrics: apiGet("/-/admin/metrics"),
-        providerActivity: apiGet("/-/admin/provider-activity"),
+        providerActivity: apiGet("/-/admin/provider-activity?include_events=1&limit=60"),
         status: apiGet("/-/admin/status"),
         routing: apiGet("/-/admin/routing"),
         config: apiGet("/-/admin/config"),
@@ -2297,13 +2297,9 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
   }
 
   function providerNames(runtimeProviders, configProviders) {
-    const capabilityProviders = state.data.status?.models?.providers || {};
-    const mappedProviders = state.data.config?.models?.provider_model_map || {};
     return Array.from(new Set([
       ...Object.keys(runtimeProviders || {}),
       ...Object.keys(configProviders || {}),
-      ...Object.keys(capabilityProviders || {}),
-      ...Object.keys(mappedProviders || {}),
     ])).sort();
   }
 
@@ -2611,11 +2607,9 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
   }
 
   function providerSparkline(activity) {
-    // activity.events is only present when the per-provider activity endpoint
-    // was queried with events (e.g. the drawer). On the provider cards the
-    // aggregate comes from the lightweight /provider-activity poll, which omits
-    // the event list, so fall back to the placeholder sparkline gracefully.
-    const raw = Array.isArray(activity?.events) ? activity.events : [];
+    // Provider cards request a bounded event list for the sparkline; older
+    // payloads or failed polls may still omit it, so keep the placeholder path.
+    const raw = Array.isArray(activity?.events) ? activity.events.slice(-24) : [];
     const events = raw.length ? raw : Array.from({ length: 24 }, () => ({ tone: "neutral", reason: "No recent calls" }));
     return `
       <div class="provider-sparkline" aria-label="Recent provider attempts">

@@ -115,10 +115,46 @@ def _safe_model_capabilities_for_state() -> dict:
             },
             "formats": [str(fmt) for fmt in (entry.get("formats") or []) if str(fmt or "").strip()],
         }
+        if entry.get("config_signature"):
+            item["config_signature"] = str(entry.get("config_signature") or "")
         if entry.get("error"):
             item["error"] = str(entry.get("error"))[:500]
         out[str(provider)] = item
     return out
+
+
+def _safe_models_union_snapshot_for_state() -> dict:
+    snapshot = ((CONFIG.get("models") or {}).get("models_union_snapshot") or {})
+    if not isinstance(snapshot, dict) or snapshot.get("status") != "ok":
+        return {}
+    payload = snapshot.get("payload") or {}
+    data = payload.get("data") if isinstance(payload, dict) else []
+    if not isinstance(data, list):
+        return {}
+    clean_payload = {
+        "data": [
+            {
+                "type": str(item.get("type") or "model"),
+                "id": str(item.get("id") or ""),
+                "display_name": str(item.get("display_name") or item.get("id") or ""),
+                "created_at": str(item.get("created_at") or ""),
+            }
+            for item in data
+            if isinstance(item, dict) and str(item.get("id") or "").strip()
+        ],
+        "has_more": False,
+    }
+    clean_payload["first_id"] = clean_payload["data"][0]["id"] if clean_payload["data"] else ""
+    clean_payload["last_id"] = clean_payload["data"][-1]["id"] if clean_payload["data"] else ""
+    return {
+        "status": "ok",
+        "built_at": int(snapshot.get("built_at") or 0),
+        "models_source": str(snapshot.get("models_source") or ""),
+        "provider": str(snapshot.get("provider") or ""),
+        "signature": copy.deepcopy(snapshot.get("signature") or {}),
+        "model_ids": [item["id"] for item in clean_payload["data"]],
+        "payload": clean_payload,
+    }
 
 
 def _restore_model_capabilities(caps: dict, union_model_ids: Optional[List[str]] = None) -> None:
@@ -142,12 +178,24 @@ def _restore_model_capabilities(caps: dict, union_model_ids: Optional[List[str]]
             },
             "formats": [str(fmt) for fmt in (entry.get("formats") or []) if str(fmt or "").strip()],
         }
+        if entry.get("config_signature"):
+            clean["config_signature"] = str(entry.get("config_signature") or "")
         if entry.get("error"):
             clean["error"] = str(entry.get("error"))[:500]
         dest[str(provider)] = clean
         restored_union_ids.update(clean["canonical_map"].keys())
     if hasattr(model_registry, "restore_union_model_ids"):
         model_registry.restore_union_model_ids(restored_union_ids)
+
+
+def _restore_models_union_snapshot(snapshot: dict) -> None:
+    if not isinstance(snapshot, dict) or snapshot.get("status") != "ok":
+        return
+    payload = snapshot.get("payload") or {}
+    if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
+        return
+    models_cfg = CONFIG.setdefault("models", {})
+    models_cfg["models_union_snapshot"] = copy.deepcopy(snapshot)
 
 
 def _save_router_state() -> None:
@@ -158,6 +206,7 @@ def _save_router_state() -> None:
             "router": ROUTER.dump_state(),
             "model_capabilities": _safe_model_capabilities_for_state(),
             "union_model_ids": sorted(model_registry.union_model_ids()),
+            "models_union_snapshot": _safe_models_union_snapshot_for_state(),
         }
         os.makedirs(os.path.dirname(_ROUTER_STATE_FILE), exist_ok=True)
         tmp_path = _ROUTER_STATE_FILE + ".tmp"
@@ -196,6 +245,7 @@ def _load_router_state() -> None:
                 state.get("model_capabilities") or state.get("provider_model_capabilities") or {},
                 state.get("union_model_ids") or [],
             )
+            _restore_models_union_snapshot(state.get("models_union_snapshot") or {})
         saved_at = router_state.get("saved_at") if isinstance(router_state, dict) else 0
         saved_at = state.get("saved_at") if isinstance(state, dict) and state.get("saved_at") else saved_at
         age = max(0, int(time.time() - float(saved_at or 0)))
@@ -273,7 +323,7 @@ def _apply_runtime_config(new_config: dict) -> None:
             if prov in providers_cfg and prov not in caps:
                 caps[prov] = entry
     model_registry.clear_cache()
-    model_registry.rebuild_union_model_ids_from_capabilities(new_config)
+    model_registry.rebuild_models_union_snapshot(new_config)
     new_router = UpstreamRouter(new_config)
     if old_router is not None:
         new_router.migrate_state_from(old_router)
@@ -402,7 +452,7 @@ def _merge_provider_model_capability_from(source_config: dict, provider: str) ->
         models_cfg = target.setdefault("models", {})
         caps = models_cfg.setdefault("provider_model_capabilities", {})
         caps[provider] = copy.deepcopy(entry)
-    model_registry.rebuild_union_model_ids_from_capabilities(CONFIG)
+    model_registry.rebuild_models_union_snapshot(CONFIG, ROUTER)
     return True
 
 
@@ -638,6 +688,7 @@ def _mark_provider_models_pending(provider: str) -> None:
         "models": list(existing.get("models") or []),
         "canonical_map": dict(existing.get("canonical_map") or {}),
         "formats": list(existing.get("formats") or []),
+        "config_signature": model_registry.provider_config_signature(CONFIG, provider),
     }
     if existing.get("error"):
         caps[provider]["error"] = str(existing.get("error"))[:500]
@@ -652,31 +703,33 @@ def _refresh_models_after_config_change(provider: Optional[str] = None, *, force
     models_source = str((CONFIG.get("models") or {}).get("models_source", "first_healthy_provider"))
     if models_source not in ("union", "first_healthy_provider"):
         model_registry.clear_cache(provider)
-        model_registry.rebuild_union_model_ids_from_capabilities(CONFIG)
+        model_registry.rebuild_models_union_snapshot(CONFIG, ROUTER)
         return
 
     if not provider:
         model_registry.clear_cache()
-        model_registry.rebuild_union_model_ids_from_capabilities(CONFIG)
+        model_registry.rebuild_models_union_snapshot(CONFIG, ROUTER)
         return
 
     if provider not in (CONFIG.get("providers") or {}):
         model_registry.clear_cache(provider)
-        model_registry.rebuild_union_model_ids_from_capabilities(CONFIG)
+        model_registry.rebuild_models_union_snapshot(CONFIG, ROUTER)
         return
 
     pcfg = ((CONFIG.get("providers") or {}).get(provider) or {})
     if not pcfg.get("enabled", True):
         model_registry.clear_cache(provider)
-        model_registry.rebuild_union_model_ids_from_capabilities(CONFIG)
+        model_registry.rebuild_models_union_snapshot(CONFIG, ROUTER)
         return
 
     if not force:
         model_registry.clear_cache(provider)
-        model_registry.rebuild_union_model_ids_from_capabilities(CONFIG)
+        model_registry.rebuild_models_union_snapshot(CONFIG, ROUTER)
         return
 
     model_registry.clear_cache(provider)
+    _mark_provider_models_pending(provider)
+    model_registry.rebuild_models_union_snapshot(CONFIG, ROUTER)
     # Route through the background discovery queue when available: it caches ok
     # snapshots (so an unchanged provider is not re-fetched), retries failures
     # on a slow cadence, and runs in its own thread (never the request worker
@@ -685,9 +738,6 @@ def _refresh_models_after_config_change(provider: Optional[str] = None, *, force
     if MODEL_DISCOVERY_QUEUE is not None:
         MODEL_DISCOVERY_QUEUE.enqueue(provider, force=True)
         return
-    # Flag this provider as refreshing before the background thread starts so the
-    # next /-/admin/status poll shows a "refreshing" indicator instead of empty.
-    _mark_provider_models_pending(provider)
     config_ref = CONFIG
     router_ref = ROUTER
     upstream_client_ref = UPSTREAM_CLIENT
@@ -730,7 +780,15 @@ def _enabled_provider_names() -> list:
 
 def _provider_capability_snapshot(provider: str):
     caps = ((CONFIG.get("models") or {}).get("provider_model_capabilities") or {})
-    return caps.get(provider)
+    entry = caps.get(provider)
+    if isinstance(entry, dict):
+        current_sig = model_registry.provider_config_signature(CONFIG, provider)
+        if entry.get("config_signature") != current_sig:
+            stale = dict(entry)
+            stale["status"] = "stale"
+            stale["fetched_at"] = 0
+            return stale
+    return entry
 
 
 def _discovery_fetch_provider(provider: str) -> None:
@@ -826,12 +884,21 @@ def _discovery_status() -> dict:
 
 def _model_capabilities_snapshot() -> dict:
     caps = ((CONFIG.get("models") or {}).get("provider_model_capabilities") or {})
+    providers_cfg = CONFIG.get("providers") or {}
     providers = {}
     for provider, entry in caps.items():
         if not isinstance(entry, dict):
             continue
+        if provider not in providers_cfg:
+            continue
+        status = entry.get("status", "unknown")
+        try:
+            if entry.get("config_signature") and entry.get("config_signature") != model_registry.provider_config_signature(CONFIG, provider):
+                status = "stale"
+        except Exception:
+            pass
         providers[provider] = {
-            "status": entry.get("status", "unknown"),
+            "status": status,
             "fetched_at": entry.get("fetched_at", 0),
             "models": list(entry.get("models") or []),
             "canonical_map": dict(entry.get("canonical_map") or {}),

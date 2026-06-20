@@ -45,7 +45,7 @@ def base_config():
 
 
 class RouterTests(unittest.TestCase):
-    def test_priority_failover_prefers_high_priority_provider_and_rotates_keys(self):
+    def test_priority_failover_prefers_high_priority_provider_and_orders_keys_as_fallbacks(self):
         cfg = base_config()
         cfg["routing"]["provider_select"] = "priority_failover"
         cfg["routing"]["default_provider_pool"] = ["alpha", "beta"]
@@ -61,6 +61,23 @@ class RouterTests(unittest.TestCase):
         self.assertEqual([a.key_index for a in first[:2]], [0, 1])
         self.assertEqual([a.provider for a in second], ["beta", "beta", "alpha"])
         self.assertEqual([a.key_index for a in second[:2]], [0, 1])
+
+    def test_successive_requests_keep_primary_key_when_it_is_available(self):
+        cfg = base_config()
+        cfg["routing"]["provider_select"] = "priority_failover"
+        cfg["routing"]["default_provider_pool"] = ["beta"]
+        cfg["routing"]["max_attempts"] = 2
+        cfg["providers"]["alpha"]["enabled"] = False
+        router = UpstreamRouter(cfg)
+
+        first = next(router.iter_attempts("any-model", False, "req-primary-key-1"))
+        router.report_success(first)
+        second = next(router.iter_attempts("any-model", False, "req-primary-key-2"))
+
+        self.assertEqual(first.key_index, 0)
+        self.assertEqual(second.key_index, 0)
+        self.assertEqual(first.key, "beta-key-1")
+        self.assertEqual(second.key, "beta-key-1")
 
     def test_priority_failover_uses_route_priority_override(self):
         cfg = base_config()
@@ -214,6 +231,24 @@ class RouterTests(unittest.TestCase):
 
         self.assertEqual([a.provider for a in attempts], ["beta", "beta"])
         self.assertEqual([a.key_index for a in attempts], [0, 1])
+
+    def test_request_local_fallback_uses_next_key_without_global_rotation(self):
+        cfg = base_config()
+        cfg["routing"]["provider_select"] = "priority_failover"
+        cfg["routing"]["default_provider_pool"] = ["beta"]
+        cfg["routing"]["max_attempts"] = 2
+        cfg["providers"]["alpha"]["enabled"] = False
+        router = UpstreamRouter(cfg)
+
+        attempts = router.iter_attempts("any-model", False, "req-local-fallback")
+        first = next(attempts)
+        router.report_failure(first, error_type="provider_compat", http_status=400)
+        second = next(attempts)
+        next_request_first = next(router.iter_attempts("any-model", False, "req-after-local-fallback"))
+
+        self.assertEqual(first.key_index, 0)
+        self.assertEqual(second.key_index, 1)
+        self.assertEqual(next_request_first.key_index, 0)
 
     def test_attempts_include_upstream_format_and_format_specific_url(self):
         cfg = base_config()

@@ -845,6 +845,7 @@ class RuntimeConfigManager:
     def _models_view(models: Dict[str, Any]) -> Dict[str, Any]:
         view = copy.deepcopy(models)
         view.pop("provider_model_capabilities", None)
+        view.pop("models_union_snapshot", None)
         view.setdefault("routes", {})
         view.setdefault("provider_model_map", {})
         return view

@@ -207,6 +207,13 @@ class AdminApiTests(unittest.TestCase):
                         "models": ["alpha-model"],
                         "canonical_map": {"alpha-model": "alpha-model"},
                         "formats": ["chat_completions"],
+                    },
+                    "ghost": {
+                        "status": "pending",
+                        "fetched_at": 456,
+                        "models": ["ghost-model"],
+                        "canonical_map": {"ghost-model": "ghost-model"},
+                        "formats": ["chat_completions"],
                     }
                 },
             },
@@ -236,6 +243,56 @@ class AdminApiTests(unittest.TestCase):
         self.assertIn("rule_table", body["policy"])
         self.assertEqual(body["policy"]["failure_policies"]["empty_visible_output"]["cooldown_scope"], "none")
         self.assertEqual(body["models"]["providers"]["alpha"]["status"], "ok")
+        self.assertNotIn("ghost", body["models"]["providers"])
+        self.assertNotIn("raw-alpha-key", json.dumps(body))
+
+    def test_provider_activity_can_include_events_for_provider_cards(self):
+        cfg = {
+            "server": {"admin_key": "admin-secret"},
+            "observability": {"recent_requests_limit": 10},
+            "providers": {
+                "alpha": {"base_url": "https://alpha.example", "keys": ["raw-alpha-key"], "enabled": True}
+            },
+            "models": {"disable_client_model_map": True, "provider_model_capabilities": {}},
+        }
+        obs = ProxyObservability(cfg)
+        obs.record_request_start(
+            "req-provider-activity",
+            client_format="chat_completions",
+            endpoint="chat_completions",
+            model="alpha-model",
+            stream=False,
+            path="/v1/chat/completions",
+        )
+        obs.record_first_byte("req-provider-activity", 123)
+        obs.record_attempt(
+            "req-provider-activity",
+            Attempt(
+                request_id="req-provider-activity",
+                attempt_no=1,
+                provider="alpha",
+                key_index=0,
+                key="raw-alpha-key",
+                url="https://alpha.example/v1/chat/completions",
+                headers={},
+                provider_model="alpha-model",
+                upstream_format="chat_completions",
+            ),
+            outcome="success",
+        )
+        obs.record_request_end("req-provider-activity", status_code=200)
+
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(sse2json, "OBSERVABILITY", obs):
+            status, body = self.get_json(
+                "/-/admin/provider-activity?include_events=1&limit=24",
+                headers={"X-Admin-Key": "admin-secret"},
+            )
+
+        self.assertEqual(status, 200)
+        self.assertIn("alpha", body["providers"])
+        self.assertEqual(body["providers"]["alpha"]["total"], 1)
+        self.assertEqual(body["providers"]["alpha"]["events"][0]["requestId"], "req-provider-activity")
+        self.assertEqual(body["providers"]["alpha"]["events"][0]["tone"], "ok")
         self.assertNotIn("raw-alpha-key", json.dumps(body))
 
     def test_admin_metrics_accepts_bearer_token(self):
@@ -361,7 +418,9 @@ class AdminApiTests(unittest.TestCase):
         cfg = {
             "server": {"admin_key": "admin-secret"},
             "models": {"provider_model_capabilities": {}},
-            "providers": {},
+            "providers": {
+                "alpha": {"base_url": "https://alpha.example", "keys": ["raw-alpha-key"], "enabled": True}
+            },
         }
         headers = {"Content-Type": "application/json", "X-Admin-Key": "admin-secret"}
 

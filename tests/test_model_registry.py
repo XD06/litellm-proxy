@@ -286,6 +286,50 @@ class ModelRegistryTests(unittest.TestCase):
 
         self.assertEqual([m["id"] for m in result["data"]], ["alpha-model", "beta-model"])
         self.assertEqual(model_registry.union_model_ids(), {"alpha-model", "beta-model"})
+        self.assertEqual(
+            [m["id"] for m in cfg["models"]["models_union_snapshot"]["payload"]["data"]],
+            ["alpha-model", "beta-model"],
+        )
+
+    def test_models_from_capabilities_reads_current_persisted_union_snapshot(self):
+        cfg = registry_config("union")
+        cfg["models"]["provider_model_capabilities"] = {
+            "alpha": {
+                "status": "ok",
+                "fetched_at": 123,
+                "models": ["alpha/raw"],
+                "canonical_map": {"alpha-model": "alpha/raw"},
+                "formats": ["chat_completions"],
+            }
+        }
+        first = model_registry.models_from_capabilities(cfg, FakeRouter())
+        model_registry.clear_cache()
+
+        second = model_registry.models_from_capabilities(cfg, FakeRouter())
+
+        self.assertEqual([m["id"] for m in first["data"]], ["alpha-model"])
+        self.assertEqual([m["id"] for m in second["data"]], ["alpha-model"])
+
+    def test_provider_refresh_error_preserves_last_known_model_in_union_snapshot(self):
+        cfg = registry_config("union")
+        cfg["models"]["provider_model_capabilities"] = {
+            "alpha": {
+                "status": "ok",
+                "fetched_at": 123,
+                "models": ["alpha/raw"],
+                "canonical_map": {"alpha-model": "alpha/raw"},
+                "formats": ["chat_completions"],
+            }
+        }
+        model_registry.rebuild_models_union_snapshot(cfg, FakeRouter())
+        client = FakeUpstreamClient({"https://alpha.example": RuntimeError("network failed for alpha-key")})
+
+        model_registry.fetch_upstream_models(cfg, FakeRouter(), client, only_provider="alpha")
+        result = model_registry.models_from_capabilities(cfg, FakeRouter())
+
+        self.assertEqual(cfg["models"]["provider_model_capabilities"]["alpha"]["status"], "error")
+        self.assertEqual([m["id"] for m in result["data"]], ["alpha-model"])
+        self.assertNotIn("alpha-key", cfg["models"]["provider_model_capabilities"]["alpha"]["error"])
 
     def test_models_from_capabilities_includes_configured_models(self):
         cfg = registry_config("union")

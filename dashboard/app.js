@@ -1330,7 +1330,7 @@
 					state.forceRequestsFetch = false;
 					const fetches = {
 						metrics: apiGet("/-/admin/metrics"),
-						providerActivity: apiGet("/-/admin/provider-activity"),
+						providerActivity: apiGet("/-/admin/provider-activity?include_events=1&limit=60"),
 						status: apiGet("/-/admin/status"),
 						routing: apiGet("/-/admin/routing"),
 						config: apiGet("/-/admin/config"),
@@ -2628,14 +2628,7 @@
 			bindProviderCards(target);
 		}
 		function providerNames(runtimeProviders, configProviders) {
-			const capabilityProviders = state.data.status?.models?.providers || {};
-			const mappedProviders = state.data.config?.models?.provider_model_map || {};
-			return Array.from(new Set([
-				...Object.keys(runtimeProviders || {}),
-				...Object.keys(configProviders || {}),
-				...Object.keys(capabilityProviders || {}),
-				...Object.keys(mappedProviders || {})
-			])).sort();
+			return Array.from(new Set([...Object.keys(runtimeProviders || {}), ...Object.keys(configProviders || {})])).sort();
 		}
 		function providerViewModel(name) {
 			const __t0 = performance.now();
@@ -2871,7 +2864,7 @@
 			return String(fmt || "");
 		}
 		function providerSparkline(activity) {
-			const raw = Array.isArray(activity?.events) ? activity.events : [];
+			const raw = Array.isArray(activity?.events) ? activity.events.slice(-24) : [];
 			return `
       <div class="provider-sparkline" aria-label="Recent provider attempts">
         ${(raw.length ? raw : Array.from({ length: 24 }, () => ({

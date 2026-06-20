@@ -90,6 +90,7 @@ class RuntimeStatePersistenceTests(unittest.TestCase):
                 sse2json, "_ROUTER_STATE_FILE", path
             ):
                 sse2json.model_registry.restore_union_model_ids({"canonical-alpha"})
+                sse2json.model_registry.rebuild_models_union_snapshot(cfg, router)
                 sse2json._save_router_state()
 
             restored_cfg = {
@@ -106,6 +107,35 @@ class RuntimeStatePersistenceTests(unittest.TestCase):
             caps = restored_cfg["models"]["provider_model_capabilities"]["alpha"]
             self.assertEqual(caps["canonical_map"]["canonical-alpha"], "raw-alpha-model")
             self.assertIn("canonical-alpha", sse2json.model_registry.union_model_ids())
+            self.assertEqual(
+                restored_cfg["models"]["models_union_snapshot"]["payload"]["data"][0]["id"],
+                "raw-alpha-model",
+            )
+
+    def test_provider_capability_snapshot_marks_config_signature_mismatch_stale(self):
+        cfg = {
+            "providers": {"alpha": {"base_url": "https://a.test", "keys": ["k1"]}},
+            "models": {
+                "models_source": "union",
+                "provider_model_capabilities": {
+                    "alpha": {
+                        "status": "ok",
+                        "fetched_at": 123,
+                        "models": ["raw-alpha-model"],
+                        "canonical_map": {"canonical-alpha": "raw-alpha-model"},
+                        "formats": ["chat_completions"],
+                        "config_signature": "old-signature",
+                    }
+                },
+            },
+        }
+
+        with patch.object(sse2json, "CONFIG", cfg):
+            snapshot = sse2json._provider_capability_snapshot("alpha")
+
+        self.assertEqual(snapshot["status"], "stale")
+        self.assertEqual(snapshot["fetched_at"], 0)
+        self.assertEqual(snapshot["canonical_map"]["canonical-alpha"], "raw-alpha-model")
 
 
 class ObservabilityMigrationTests(unittest.TestCase):
