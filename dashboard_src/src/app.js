@@ -2668,6 +2668,8 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
 
   function openProviderDrawer(name, tab = "") {
     if (!name) return;
+    closeDrawer(false);
+    closeModelDrawer();
     state.providerDrawerName = name;
     if (tab) state.providerDrawerTab = tab;
     // Reset the lazy events cache so the newly opened drawer fetches its own
@@ -2781,11 +2783,14 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         renderProviderDrawerTabSwitch();
       });
     });
-    root.querySelectorAll(".provider-activity-row[data-request-id]").forEach((button) => {
-      if (button.dataset.boundprovideractivityrowdatarequestid) return;
-      button.dataset.boundprovideractivityrowdatarequestid = "1";
-      button.addEventListener("click", () => openRequestDetail(button.dataset.requestId || ""));
-    });
+    if (!root.dataset.boundprovideractivityrows) {
+      root.dataset.boundprovideractivityrows = "1";
+      root.addEventListener("click", (event) => {
+        const row = event.target.closest(".provider-activity-row[data-request-id]");
+        if (!row || !root.contains(row)) return;
+        openRequestDetail(row.dataset.requestId || "");
+      });
+    }
     bindKeyDeleteButtons(root);
     bindProbeModelPickers(root);
     bindKeyTestButtons(root);
@@ -3470,6 +3475,8 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
   function keyCard(provider, key, totalKeys = 0) {
     const available = key.available && key.runtime_enabled;
     const tone = available ? "ok" : key.runtime_enabled ? "warn" : "bad";
+    const probeKey = `${provider}#${key.index}`;
+    const probePending = Boolean(state.keyProbeInFlight[probeKey] || state.keyProbes[probeKey]?.pending);
     return `
       <article class="provider-key-card" data-key-total="${escapeHtml(totalKeys)}">
         <div class="key-card-head">
@@ -3496,7 +3503,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
             data-key-test-index="${escapeHtml(key.index)}"
             title="Test key"
             aria-label="Test key"
-            ${providerProbeModelOptions(provider).length ? "" : "disabled"}
+            ${providerProbeModelOptions(provider).length && !probePending ? "" : "disabled"}
           >${iconSvg("bolt")}</button>
           ${actionButton(key.runtime_enabled ? "Disable key" : "Enable key", `/providers/${encodeURIComponent(provider)}/keys/${key.index}/${key.runtime_enabled ? "disable" : "enable"}`, key.runtime_enabled ? "danger" : "secondary", { iconOnly: true })}
           ${actionButton("Clear key state", `/providers/${encodeURIComponent(provider)}/keys/${key.index}/state/clear`, "secondary", { iconOnly: true })}
@@ -3716,6 +3723,8 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
           setNotice("Refresh model capabilities before testing this key.", "info");
           return;
         }
+        if (state.keyProbeInFlight[probeKey]) return;
+        state.keyProbeInFlight[probeKey] = true;
         state.keyProbes[probeKey] = { pending: true };
         button.disabled = true;
         setNotice(`Testing key ${keyIndex} of ${provider} on ${model}...`, "info", { key: toastKey, sticky: true });
@@ -3737,6 +3746,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
           state.keyProbes[probeKey] = { ok: false, error_type: "request_error" };
           setNotice(`Test key failed: ${err.message}`, "bad", { key: toastKey });
         } finally {
+          delete state.keyProbeInFlight[probeKey];
           button.disabled = false;
         }
       });
@@ -4707,6 +4717,21 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
 
   async function openRequestDetail(requestId) {
     if (!requestId) return;
+    state.detailDrawerReturn = null;
+    if (el("providerDrawer")?.classList.contains("is-open") && state.providerDrawerName) {
+      state.detailDrawerReturn = {
+        type: "provider",
+        name: state.providerDrawerName,
+        tab: state.providerDrawerTab || "overview",
+      };
+    } else if (el("modelDrawer")?.classList.contains("is-open")) {
+      const modelName = el("modelDrawerTitle")?.textContent || "";
+      if (modelName) {
+        state.detailDrawerReturn = { type: "model", name: modelName };
+      }
+    }
+    closeProviderDrawer();
+    closeModelDrawer();
     const drawer = el("detailDrawer");
     drawer.classList.add("is-open");
     drawer.setAttribute("aria-hidden", "false");
@@ -5366,7 +5391,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     el("mobileSettingsBackdrop").addEventListener("click", closeMobileSettings);
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape") {
-        closeDrawer();
+        closeDrawer(false);
         closeProviderDrawer();
         closeModelDrawer();
         closeMobileSettings();
@@ -5374,13 +5399,22 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     });
   }
 
-  function closeDrawer() {
+  function closeDrawer(restoreReturn = true) {
     const drawer = el("detailDrawer");
     drawer.classList.remove("is-open");
     drawer.setAttribute("aria-hidden", "true");
+    const returnTarget = restoreReturn ? state.detailDrawerReturn : null;
+    state.detailDrawerReturn = null;
+    if (returnTarget?.type === "provider" && returnTarget.name) {
+      openProviderDrawer(returnTarget.name, returnTarget.tab || "overview");
+    } else if (returnTarget?.type === "model" && returnTarget.name) {
+      openModelDrawer(returnTarget.name);
+    }
   }
 
   async function openModelDrawer(modelName) {
+    closeDrawer(false);
+    closeProviderDrawer();
     const drawer = el("modelDrawer");
     const title = el("modelDrawerTitle");
     const subtitle = el("modelDrawerSubtitle");

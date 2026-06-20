@@ -29,6 +29,7 @@ export const state = {
   openProviderEditors: new Set(),
   providerDrawerName: "",
   providerDrawerTab: "overview",
+  detailDrawerReturn: null,
   providerFilters: {
     search: "",
     format: "",
@@ -38,6 +39,7 @@ export const state = {
   confirmResolve: null,
   confirmLastFocus: null,
   keyProbes: {},
+  keyProbeInFlight: {},
   data: {
     metrics: null,
     metricsFull: null,
