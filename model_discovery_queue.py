@@ -115,9 +115,15 @@ class ModelDiscoveryQueue:
             if force:
                 self._next_eligible.pop(provider, None)
             if provider in self._queued:
+                if force:
+                    self._queue = [p for p in self._queue if p != provider]
+                    self._queue.insert(0, provider)
                 return
             self._queued.add(provider)
-            self._queue.append(provider)
+            if force:
+                self._queue.insert(0, provider)
+            else:
+                self._queue.append(provider)
         self._wake.set()
 
     def enqueue_all(self, *, force: bool = False) -> None:

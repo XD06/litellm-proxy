@@ -136,6 +136,18 @@ class ModelDiscoveryQueueTests(unittest.TestCase):
             self.assertGreaterEqual(len(store.fetched), 2,
                                     "force enqueue should bypass the TTL cooldown")
 
+    def test_enqueue_force_promotes_already_queued_provider(self):
+        store = _FakeStore()
+        providers = ["alpha", "beta", "gamma"]
+        q = _make_queue(store, providers, ok_ttl_s=60, retry_interval_s=60)
+
+        q.enqueue_all(force=False)
+        self.assertEqual(q.snapshot_status()["queued_providers"], providers)
+
+        q.enqueue("beta", force=True)
+
+        self.assertEqual(q.snapshot_status()["queued_providers"], ["beta", "alpha", "gamma"])
+
     def test_snapshot_status_reports_queue_state(self):
         store = _FakeStore()
         providers = ["alpha", "beta"]
