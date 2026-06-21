@@ -3370,12 +3370,12 @@ button.provider-model-chip:focus-visible {
 
 .format-route.enabled {
   border-color: color-mix(in srgb, var(--info, #3b82f6) 70%, var(--line));
-  background: color-mix(in srgb, var(--info, #3b82f6) 14%, var(--surface));
+  background: var(--success-soft);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--info, #3b82f6) 22%, transparent) inset;
 }
 
 .format-route.enabled b {
-  color: color-mix(in srgb, var(--info, #3b82f6) 88%, var(--text));
+  color: black;
 }
 
 .format-route.disabled {
@@ -3409,7 +3409,7 @@ button.provider-model-chip:focus-visible {
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--info, #3b82f6) 90%, white);
+  background: var(--success);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--info, #3b82f6) 18%, transparent);
 }
 

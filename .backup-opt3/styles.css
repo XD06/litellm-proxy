@@ -2911,7 +2911,7 @@ tr.clickable:hover {
 }
 
 .format-route small {
-  color: var(--muted);
+  color: var(--success);
   font: 11px var(--mono);
 }
 
