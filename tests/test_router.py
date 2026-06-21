@@ -679,6 +679,30 @@ class RouterTests(unittest.TestCase):
         beta_attempts = [a for a in attempts if a.provider == "beta"]
         self.assertTrue(all(a.provider_model == "manual-beta-model" for a in beta_attempts))
 
+    def test_provider_model_disabled_excludes_provider_for_that_model(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha", "beta"]
+        cfg["models"]["provider_model_capabilities"] = {
+            "alpha": {
+                "status": "ok",
+                "models": ["deepseek-v4-flash"],
+                "canonical_map": {"deepseek-v4-flash": "deepseek-v4-flash"},
+            },
+            "beta": {
+                "status": "ok",
+                "models": ["vendor/deepseek-v4-flash"],
+                "canonical_map": {"deepseek-v4-flash": "vendor/deepseek-v4-flash"},
+            },
+        }
+        cfg["models"]["provider_model_disabled"] = {"alpha": {"deepseek-v4-flash": True}}
+        router = UpstreamRouter(cfg)
+
+        attempts = list(router.iter_attempts("deepseek-v4-flash", False, "req-disabled-model"))
+
+        self.assertTrue(attempts)
+        self.assertEqual({a.provider for a in attempts}, {"beta"})
+        self.assertTrue(all(a.provider_model == "vendor/deepseek-v4-flash" for a in attempts))
+
     def test_unknown_capability_state_falls_back_by_default(self):
         cfg = base_config()
         cfg["routing"]["default_provider_pool"] = ["alpha", "beta"]

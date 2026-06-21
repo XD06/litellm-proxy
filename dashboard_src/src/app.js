@@ -2438,28 +2438,109 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       capability.canonical_map || {},
     );
     const items = base.slice();
-    const seen = new Set(items.map((item) => `${item.label}\n${item.raw}`));
+    const seen = new Set();
+    const seenKey = (value) => String(value || "").trim().toLowerCase();
+    const rememberModelItem = (item) => {
+      [item?.label, item?.raw].forEach((value) => {
+        const key = seenKey(value);
+        if (key) seen.add(key);
+      });
+    };
+    items.forEach(rememberModelItem);
     const configuredMap = state.data.config?.models?.provider_model_map?.[name] || {};
     Object.entries(configuredMap || {})
       .filter(([_canonical, raw]) => raw)
       .sort(([a], [b]) => String(a).localeCompare(String(b)))
       .forEach(([canonical, raw]) => {
-        const key = `${canonical}\n${raw}`;
-        if (seen.has(key)) return;
-        seen.add(key);
-        items.push({
+        if (seen.has(seenKey(canonical)) || seen.has(seenKey(raw))) return;
+        const item = {
           label: String(canonical || raw),
           raw: String(raw || ""),
           title: raw && raw !== canonical ? `${canonical} maps to ${raw}` : String(canonical || raw),
-        });
+        };
+        items.push(item);
+        rememberModelItem(item);
       });
     providerRouteModels(name).forEach((model) => {
-      const key = `${model}\n`;
-      if (seen.has(key)) return;
-      seen.add(key);
-      items.push({ label: model, raw: "", title: model });
+      if (seen.has(seenKey(model))) return;
+      const item = { label: model, raw: "", title: model };
+      items.push(item);
+      rememberModelItem(item);
     });
-    return items;
+    return items.map((item) => ({
+      ...item,
+      disabled: isProviderModelDisabled(name, item.label),
+      pending: Object.prototype.hasOwnProperty.call(providerModelDraft(name), String(item.label || "")),
+    }));
+  }
+
+  function providerModelDisabledMap(provider) {
+    const disabled = state.data.config?.models?.provider_model_disabled?.[provider] || {};
+    return disabled && typeof disabled === "object" ? disabled : {};
+  }
+
+  function savedProviderModelDisabled(provider, model) {
+    const disabled = providerModelDisabledMap(provider);
+    const key = String(model || "");
+    return Boolean(disabled[key] || disabled[key.toLowerCase()]);
+  }
+
+  function providerModelDraft(provider) {
+    const drafts = state.providerModelDrafts || {};
+    const draft = drafts[provider] || {};
+    return draft && typeof draft === "object" ? draft : {};
+  }
+
+  function isProviderModelDisabled(provider, model) {
+    const draft = providerModelDraft(provider);
+    const key = String(model || "");
+    if (Object.prototype.hasOwnProperty.call(draft, key)) return Boolean(draft[key]);
+    return savedProviderModelDisabled(provider, model);
+  }
+
+  function setProviderModelDisabledDraft(provider, model, disabled) {
+    if (!provider || !model) return;
+    if (!state.providerModelDrafts) state.providerModelDrafts = {};
+    const draft = { ...(state.providerModelDrafts[provider] || {}) };
+    if (Boolean(disabled) === savedProviderModelDisabled(provider, model)) {
+      delete draft[model];
+    } else {
+      draft[model] = Boolean(disabled);
+    }
+    if (Object.keys(draft).length) state.providerModelDrafts[provider] = draft;
+    else delete state.providerModelDrafts[provider];
+  }
+
+  function setProviderModelsDisabledDraft(provider, modelStates) {
+    if (!provider || !modelStates || typeof modelStates !== "object") return;
+    if (!state.providerModelDrafts) state.providerModelDrafts = {};
+    const draft = { ...(state.providerModelDrafts[provider] || {}) };
+    Object.entries(modelStates).forEach(([model, disabled]) => {
+      if (!model) return;
+      if (Boolean(disabled) === savedProviderModelDisabled(provider, model)) {
+        delete draft[model];
+      } else {
+        draft[model] = Boolean(disabled);
+      }
+    });
+    if (Object.keys(draft).length) state.providerModelDrafts[provider] = draft;
+    else delete state.providerModelDrafts[provider];
+  }
+
+  function providerModelDraftCount(provider) {
+    return Object.keys(providerModelDraft(provider)).length;
+  }
+
+  function filteredProviderModelItems(items) {
+    const filters = state.providerModelFilters || {};
+    const search = String(filters.search || "").trim().toLowerCase();
+    const status = String(filters.status || "");
+    return (items || []).filter((item) => {
+      if (status === "enabled" && item.disabled) return false;
+      if (status === "disabled" && !item.disabled) return false;
+      if (!search) return true;
+      return [item.label, item.raw, item.title].join(" ").toLowerCase().includes(search);
+    });
   }
 
   function providerRouteModels(name) {
@@ -2797,6 +2878,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     bindActionButtons(root);
     bindConfigProviderForms(root);
     bindProviderModelRefreshButtons(root);
+    bindProviderModelDisableControls(root);
 
     // static_models form
     root.querySelectorAll(".config-static-models-form").forEach((form) => {
@@ -2980,6 +3062,10 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
   function providerDrawerModels(view) {
     const capability = view.capability || {};
     const modelItems = view.modelItems;
+    const visibleItems = filteredProviderModelItems(modelItems);
+    const disabledCount = modelItems.filter((item) => item.disabled).length;
+    const modelFilters = state.providerModelFilters || {};
+    const draftCount = providerModelDraftCount(view.name);
     const staticModels = [];
     const seenStatic = new Set();
     (Array.isArray(view.config.static_models) ? view.config.static_models : []).forEach((model) => {
@@ -2993,18 +3079,58 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         <div class="provider-detail-metrics">
           ${miniMetric("Capability", capability.status === "pending" ? "refreshing" : (capability.status || "not fetched"), "models endpoint")}
           ${miniMetric("Models", fmtInt(modelItems.length), "canonical/raw")}
+          ${miniMetric("Disabled", fmtInt(disabledCount), "provider")}
           ${miniMetric("Fetched", capability.fetched_at ? fmtDate(capability.fetched_at) : "-", "snapshot")}
           ${miniMetric("Routes", fmtInt(view.routeModels.length), "configured")}
         </div>
         ${capability.status === "pending" ? `<div class="model-capability-refreshing">${refreshSpinner()} Discovering models in the background…</div>` : ""}
         ${capability.error ? `<div class="model-capability-error">${messageMarkup(capability.error)}</div>` : ""}
+        <div class="provider-model-toolbar">
+          <input class="control provider-model-search" type="search"
+            data-provider-model-search="${escapeHtml(view.name)}"
+            placeholder="Search models"
+            value="${escapeHtml(modelFilters.search || "")}" />
+          <select class="control provider-model-status-filter" data-provider-model-status-filter="${escapeHtml(view.name)}">
+            <option value="" ${!modelFilters.status ? "selected" : ""}>All</option>
+            <option value="enabled" ${modelFilters.status === "enabled" ? "selected" : ""}>Enabled</option>
+            <option value="disabled" ${modelFilters.status === "disabled" ? "selected" : ""}>Disabled</option>
+          </select>
+          <button class="button small secondary" type="button"
+            data-provider-model-bulk="${escapeHtml(view.name)}"
+            data-provider-model-bulk-action="disable"
+            title="Stage disable visible models"
+            aria-label="Stage disable visible models"
+            ${visibleItems.length ? "" : "disabled"}>${iconSvg("eye-off")}</button>
+          <button class="button small secondary" type="button"
+            data-provider-model-bulk="${escapeHtml(view.name)}"
+            data-provider-model-bulk-action="enable"
+            title="Stage enable visible models"
+            aria-label="Stage enable visible models"
+            ${visibleItems.length ? "" : "disabled"}>${iconSvg("eye")}</button>
+          <button class="button small icon-action" type="button"
+            data-provider-model-apply="${escapeHtml(view.name)}"
+            title="Apply model changes${draftCount ? ` (${draftCount})` : ""}"
+            aria-label="Apply model changes"
+            ${draftCount ? "" : "disabled"}>${iconSvg("save")}</button>
+          <button class="button small secondary icon-action" type="button"
+            data-provider-model-reset="${escapeHtml(view.name)}"
+            title="Reset staged model changes"
+            aria-label="Reset staged model changes"
+            ${draftCount ? "" : "disabled"}>${iconSvg("undo")}</button>
+        </div>
         <div class="model-chip-list provider-drawer-models">
-          ${modelItems.length ? modelItems.slice(0, 100).map((item) => `
-            <span class="model-map-chip" title="${escapeHtml(item.title)}">
+          ${visibleItems.length ? visibleItems.slice(0, 100).map((item) => `
+            <button class="model-map-chip provider-model-chip ${item.disabled ? "is-disabled" : ""} ${item.pending ? "is-pending" : ""}" type="button"
+              data-provider-model-disable-provider="${escapeHtml(view.name)}"
+              data-provider-model-disable-model="${escapeHtml(item.label)}"
+              data-provider-model-disable-next="${item.disabled ? "false" : "true"}"
+              title="${escapeHtml(`${item.disabled ? "Stage enable" : "Stage disable"} ${item.title}`)}"
+              aria-label="${escapeHtml(`${item.disabled ? "Stage enable" : "Stage disable"} ${item.label}`)}">
               <b>${escapeHtml(item.label)}</b>
               ${item.raw && item.raw !== item.label ? `<small>${escapeHtml(item.raw)}</small>` : ""}
-            </span>
-          `).join("") + (modelItems.length > 100 ? `<span class="muted" style="padding: 4px 8px;">+ ${modelItems.length - 100} more models...</span>` : "") : `<span class="muted">No discovered or mapped models</span>`}
+              ${item.pending ? `<small class="model-pending-note">pending</small>` : ""}
+            </button>
+          `).join("") + (visibleItems.length > 100 ? `<span class="muted" style="padding: 4px 8px;">+ ${visibleItems.length - 100} more models...</span>` : "") : `<span class="muted">No matching models</span>`}
         </div>
         <div class="provider-models-actions">
           <button class="button secondary icon-action" type="button"
@@ -3223,13 +3349,16 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
   function modelCapabilityItems(models, canonicalMap) {
     const items = [];
     const seen = new Set();
+    const seenKey = (value) => String(value || "").trim().toLowerCase();
     const push = (label, raw) => {
       const safeLabel = String(label || raw || "").trim();
       const safeRaw = String(raw || "").trim();
       if (!safeLabel) return;
-      const key = `${safeLabel}\n${safeRaw}`;
-      if (seen.has(key)) return;
-      seen.add(key);
+      if (seen.has(seenKey(safeLabel)) || seen.has(seenKey(safeRaw))) return;
+      [safeLabel, safeRaw].forEach((value) => {
+        const key = seenKey(value);
+        if (key) seen.add(key);
+      });
       items.push({
         label: safeLabel,
         raw: safeRaw,
@@ -3569,6 +3698,10 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       filter: `<path d="M4 5h16l-6 7v5l-4 2v-7L4 5z"></path>`,
       pencil: `<path d="M4 20h4l10.5-10.5a2.8 2.8 0 0 0-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path>`,
       search: `<circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path>`,
+      eye: `<path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"></path><circle cx="12" cy="12" r="3"></circle>`,
+      "eye-off": `<path d="M3 3l18 18"></path><path d="M10.6 10.6A3 3 0 0 0 13.4 13.4"></path><path d="M7.4 7.4C4.3 9 2.5 12 2.5 12s3.5 6 9.5 6c1.5 0 2.8-.4 4-1"></path><path d="M10 6.2A10.6 10.6 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-2.6 3.2"></path>`,
+      save: `<path d="M5 3h12l2 2v16H5z"></path><path d="M8 3v6h8V3"></path><path d="M8 21v-7h8v7"></path>`,
+      undo: `<path d="M9 7H4v5"></path><path d="M4 12a8 8 0 1 0 2.3-5.7L4 7"></path>`,
       settings: `<path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"></path><path d="M4 12h2"></path><path d="M18 12h2"></path><path d="M12 4v2"></path><path d="M12 18v2"></path><path d="M5.6 5.6 7 7"></path><path d="M17 17l1.4 1.4"></path><path d="M18.4 5.6 17 7"></path><path d="M7 17l-1.4 1.4"></path>`,
       dot: `<circle cx="12" cy="12" r="2"></circle>`,
       bolt: `<path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"></path>`,
@@ -3779,6 +3912,88 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
           button.disabled = false;
         }
       });
+    });
+  }
+
+  async function updateProviderModelDisabled(provider, models, successMessage) {
+    if (!provider || !models || !Object.keys(models).length) return;
+    try {
+      await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/models/disabled`, { models });
+      if (state.providerModelDrafts) delete state.providerModelDrafts[provider];
+      setNotice(successMessage || `Model settings for ${provider} saved.`, "ok");
+      await refreshAll({ quiet: true, preserveNotice: true });
+      renderProviderDrawer({ force: true });
+    } catch (err) {
+      setNotice(`Model setting failed: ${err.message}`, "bad");
+    }
+  }
+
+  function bindProviderModelDisableControls(root) {
+    if (root.dataset.boundProviderModelControls === "1") return;
+    root.dataset.boundProviderModelControls = "1";
+    root.addEventListener("input", (event) => {
+      const input = event.target.closest("[data-provider-model-search]");
+      if (!input || !root.contains(input)) return;
+      state.providerModelFilters.search = String(input.value || "");
+      renderProviderDrawer({ force: true });
+    });
+    root.addEventListener("change", (event) => {
+      const select = event.target.closest("[data-provider-model-status-filter]");
+      if (!select || !root.contains(select)) return;
+      state.providerModelFilters.status = String(select.value || "");
+      renderProviderDrawer({ force: true });
+    });
+    root.addEventListener("click", async (event) => {
+      const modelButton = event.target.closest("[data-provider-model-disable-model]");
+      if (modelButton && root.contains(modelButton)) {
+        const provider = modelButton.dataset.providerModelDisableProvider || "";
+        const model = modelButton.dataset.providerModelDisableModel || "";
+        const next = modelButton.dataset.providerModelDisableNext === "true";
+        setProviderModelDisabledDraft(provider, model, next);
+        renderProviderDrawer({ force: true });
+        return;
+      }
+
+      const bulkButton = event.target.closest("[data-provider-model-bulk]");
+      if (bulkButton && root.contains(bulkButton)) {
+        const provider = bulkButton.dataset.providerModelBulk || "";
+        const action = bulkButton.dataset.providerModelBulkAction || "";
+        const view = providerViewModel(provider);
+        if (!view) return;
+        const visibleItems = filteredProviderModelItems(view.modelItems);
+        const next = action === "disable";
+        const models = {};
+        visibleItems.forEach((item) => {
+          if (!item.label) return;
+          models[item.label] = next;
+        });
+        if (!Object.keys(models).length) return;
+        setProviderModelsDisabledDraft(provider, models);
+        renderProviderDrawer({ force: true });
+        return;
+      }
+
+      const applyButton = event.target.closest("[data-provider-model-apply]");
+      if (applyButton && root.contains(applyButton)) {
+        const provider = applyButton.dataset.providerModelApply || "";
+        const draft = providerModelDraft(provider);
+        if (!Object.keys(draft).length) return;
+        applyButton.disabled = true;
+        await updateProviderModelDisabled(
+          provider,
+          draft,
+          `Applied ${Object.keys(draft).length} model changes for ${provider}.`,
+        );
+        applyButton.disabled = false;
+        return;
+      }
+
+      const resetButton = event.target.closest("[data-provider-model-reset]");
+      if (resetButton && root.contains(resetButton)) {
+        const provider = resetButton.dataset.providerModelReset || "";
+        if (state.providerModelDrafts) delete state.providerModelDrafts[provider];
+        renderProviderDrawer({ force: true });
+      }
     });
   }
 

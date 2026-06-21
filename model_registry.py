@@ -27,6 +27,35 @@ def restore_union_model_ids(model_ids) -> None:
     _union_model_id_set = set(str(mid) for mid in (model_ids or []) if str(mid or "").strip())
 
 
+def provider_model_disabled(config: Dict[str, Any], provider: str, canonical_model: str) -> bool:
+    if not provider or not canonical_model:
+        return False
+    disabled = ((config.get("models") or {}).get("provider_model_disabled") or {}).get(provider) or {}
+    if not isinstance(disabled, dict):
+        return False
+    model = str(canonical_model or "").strip()
+    if not model:
+        return False
+    return bool(disabled.get(model) or disabled.get(model.lower()))
+
+
+def provider_model_id_disabled(
+    config: Dict[str, Any],
+    provider: str,
+    model_id: str,
+    canonical_map: Optional[Dict[str, str]] = None,
+) -> bool:
+    if provider_model_disabled(config, provider, model_id):
+        return True
+    raw_model = str(model_id or "").strip()
+    if not raw_model or not isinstance(canonical_map, dict):
+        return False
+    for canonical, raw in canonical_map.items():
+        if str(raw or "").strip() == raw_model and provider_model_disabled(config, provider, str(canonical)):
+            return True
+    return False
+
+
 def has_cached_models(cache_key: str) -> bool:
     return cache_key in _cached_models_by_provider
 
@@ -207,10 +236,15 @@ def _rebuild_union_model_ids_from_capabilities(config: Dict[str, Any]) -> None:
     caps = ((config.get("models") or {}).get("provider_model_capabilities") or {})
     model_ids = set()
     if isinstance(caps, dict):
-        for entry in caps.values():
+        for provider, entry in caps.items():
             if not isinstance(entry, dict) or entry.get("status") not in ("ok", "error", "pending"):
                 continue
-            model_ids.update(str(mid) for mid in (entry.get("canonical_map") or {}).keys() if str(mid or "").strip())
+            for mid in (entry.get("canonical_map") or {}).keys():
+                model_id = str(mid or "").strip()
+                if model_id and not provider_model_id_disabled(
+                    config, str(provider), model_id, entry.get("canonical_map") or {}
+                ):
+                    model_ids.add(model_id)
     _union_model_id_set = model_ids
 
 
@@ -282,6 +316,21 @@ def _union_signature(config: Dict[str, Any], *, models_source: str, provider: st
         "provider": provider,
         "providers": providers,
         "configured_model_ids": _configured_model_ids(config, provider or None),
+        "provider_model_disabled": copy_disabled_provider_models(config, provider or None),
+    }
+
+
+def copy_disabled_provider_models(config: Dict[str, Any], provider: Optional[str] = None) -> Dict[str, Any]:
+    disabled = (config.get("models") or {}).get("provider_model_disabled") or {}
+    if not isinstance(disabled, dict):
+        return {}
+    if provider:
+        entry = disabled.get(provider) or {}
+        return {provider: dict(entry)} if isinstance(entry, dict) and entry else {}
+    return {
+        str(p): dict(entry)
+        for p, entry in disabled.items()
+        if isinstance(entry, dict) and entry
     }
 
 
@@ -326,12 +375,16 @@ def _configured_model_ids(config: Dict[str, Any], provider: Optional[str] = None
                     mid = str(entry.get("id") or "").strip()
                 else:
                     mid = ""
-                if mid:
+                if mid and not provider_model_disabled(config, str(pname or ""), mid):
                     out.append(mid)
 
         manual_map = (models_cfg.get("provider_model_map") or {}).get(str(pname or "")) or {}
         if isinstance(manual_map, dict):
-            out.extend(str(mid) for mid in manual_map.keys() if str(mid or "").strip())
+            out.extend(
+                str(mid)
+                for mid in manual_map.keys()
+                if str(mid or "").strip() and not provider_model_disabled(config, str(pname or ""), str(mid))
+            )
 
     routes = models_cfg.get("routes") or {}
     if isinstance(routes, dict):
@@ -362,16 +415,26 @@ def rebuild_models_union_snapshot(config: Dict[str, Any], router=None) -> Dict[s
         model_ids: List[str] = []
         if isinstance(caps, dict):
             for provider, entry in caps.items():
-                pcfg = providers_cfg.get(str(provider)) or {}
+                provider_name = str(provider)
+                pcfg = providers_cfg.get(provider_name) or {}
                 if not pcfg.get("enabled", True):
                     continue
                 if not isinstance(entry, dict) or entry.get("status") not in ("ok", "error", "pending"):
                     continue
                 canonical_map = entry.get("canonical_map") or {}
                 if isinstance(canonical_map, dict) and canonical_map:
-                    model_ids.extend(str(mid) for mid in canonical_map.keys() if str(mid or "").strip())
+                    model_ids.extend(
+                        str(mid)
+                        for mid in canonical_map.keys()
+                        if str(mid or "").strip()
+                        and not provider_model_id_disabled(config, provider_name, str(mid), canonical_map)
+                    )
                 else:
-                    model_ids.extend(str(mid) for mid in (entry.get("models") or []) if str(mid or "").strip())
+                    model_ids.extend(
+                        str(mid)
+                        for mid in (entry.get("models") or [])
+                        if str(mid or "").strip() and not provider_model_disabled(config, provider_name, str(mid))
+                    )
 
         model_ids.extend(_configured_model_ids(config))
         model_ids = _dedupe(model_ids)
@@ -403,11 +466,18 @@ def rebuild_models_union_snapshot(config: Dict[str, Any], router=None) -> Dict[s
     if provider and isinstance(caps, dict):
         entry = caps.get(provider) or {}
         if isinstance(entry, dict) and entry.get("status") == "ok":
-            model_ids.extend(str(mid) for mid in (entry.get("models") or []) if str(mid or "").strip())
-            if not model_ids:
-                canonical_map = entry.get("canonical_map") or {}
-                if isinstance(canonical_map, dict):
-                    model_ids.extend(str(mid) for mid in canonical_map.keys() if str(mid or "").strip())
+            canonical_map = entry.get("canonical_map") or {}
+            model_ids.extend(
+                str(mid)
+                for mid in (entry.get("models") or [])
+                if str(mid or "").strip() and not provider_model_id_disabled(config, provider, str(mid), canonical_map)
+            )
+            if not model_ids and isinstance(canonical_map, dict) and canonical_map:
+                model_ids.extend(
+                    str(mid)
+                    for mid in canonical_map.keys()
+                    if str(mid or "").strip() and not provider_model_id_disabled(config, provider, str(mid), canonical_map)
+                )
 
     model_ids.extend(_configured_model_ids(config, provider))
     model_ids = _dedupe(model_ids)
@@ -541,12 +611,17 @@ def provider_supports_model(
 
     models_cfg = config.get("models") or {}
     manual_map = (models_cfg.get("provider_model_map") or {}).get(provider) or {}
+    caps = (models_cfg.get("provider_model_capabilities") or {}).get(provider)
+    canonical_map = caps.get("canonical_map") if isinstance(caps, dict) else {}
+
+    if provider_model_id_disabled(config, provider, canonical_model, canonical_map):
+        return False
+
     if canonical_model in manual_map:
         return True
 
-    caps = (models_cfg.get("provider_model_capabilities") or {}).get(provider)
     if isinstance(caps, dict) and caps.get("status") == "ok":
-        canonical_map = caps.get("canonical_map") or {}
+        canonical_map = canonical_map or {}
         lower_model = str(canonical_model).lower()
         return canonical_model in canonical_map or lower_model in canonical_map
 

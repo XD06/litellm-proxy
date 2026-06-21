@@ -153,6 +153,7 @@ class RuntimeConfigManager:
         self._remove_provider_from_routes(models, name)
         self._remove_provider_map_entry(models, name, "provider_model_map")
         self._remove_provider_map_entry(models, name, "provider_model_capabilities")
+        self._remove_provider_map_entry(models, name, "provider_model_disabled")
         return self._commit_overlay(overlay)
 
     def add_key(self, provider: str, key: str, proxy: Any = "") -> Dict[str, Any]:
@@ -303,6 +304,59 @@ class RuntimeConfigManager:
         if isinstance(base_routes, dict) and model_id in base_routes:
             routes[model_id] = None
         models["routes"] = routes
+        return self._commit_overlay(overlay)
+
+    def update_provider_model_disabled(self, provider: str, model: str, disabled: bool) -> Dict[str, Any]:
+        self._require_provider(provider)
+        model_id = self._validate_model_id(model)
+        overlay = copy.deepcopy(self.overlay)
+        models = overlay.setdefault("models", {})
+        if not isinstance(models, dict):
+            models = {}
+            overlay["models"] = models
+        disabled_map = copy.deepcopy((self.config.get("models") or {}).get("provider_model_disabled") or {})
+        if not isinstance(disabled_map, dict):
+            disabled_map = {}
+        provider_map = copy.deepcopy(disabled_map.get(provider) or {})
+        if not isinstance(provider_map, dict):
+            provider_map = {}
+        if disabled:
+            provider_map[model_id] = True
+        else:
+            provider_map.pop(model_id, None)
+        if provider_map:
+            disabled_map[provider] = provider_map
+        else:
+            disabled_map.pop(provider, None)
+        models["provider_model_disabled"] = disabled_map
+        return self._commit_overlay(overlay)
+
+    def update_provider_models_disabled(self, provider: str, model_states: Dict[str, bool]) -> Dict[str, Any]:
+        self._require_provider(provider)
+        if not isinstance(model_states, dict):
+            raise ConfigValidationError("models must be an object")
+        overlay = copy.deepcopy(self.overlay)
+        models = overlay.setdefault("models", {})
+        if not isinstance(models, dict):
+            models = {}
+            overlay["models"] = models
+        disabled_map = copy.deepcopy((self.config.get("models") or {}).get("provider_model_disabled") or {})
+        if not isinstance(disabled_map, dict):
+            disabled_map = {}
+        provider_map = copy.deepcopy(disabled_map.get(provider) or {})
+        if not isinstance(provider_map, dict):
+            provider_map = {}
+        for model, disabled in model_states.items():
+            model_id = self._validate_model_id(model)
+            if disabled:
+                provider_map[model_id] = True
+            else:
+                provider_map.pop(model_id, None)
+        if provider_map:
+            disabled_map[provider] = provider_map
+        else:
+            disabled_map.pop(provider, None)
+        models["provider_model_disabled"] = disabled_map
         return self._commit_overlay(overlay)
 
     def _remove_provider_from_routes(self, overlay_models: Dict[str, Any], provider: str) -> None:
@@ -732,7 +786,7 @@ class RuntimeConfigManager:
                 routes.pop(model, None)
         models = normalized.get("models") or {}
         if isinstance(models, dict):
-            for field in ("provider_model_map", "provider_model_capabilities"):
+            for field in ("provider_model_map", "provider_model_capabilities", "provider_model_disabled"):
                 entries = models.get(field) or {}
                 if isinstance(entries, dict):
                     for provider in [name for name, value in entries.items() if value is None]:
@@ -771,7 +825,7 @@ class RuntimeConfigManager:
                 if not routes:
                     models.pop("routes", None)
 
-            for field in ("provider_model_map", "provider_model_capabilities"):
+            for field in ("provider_model_map", "provider_model_capabilities", "provider_model_disabled"):
                 entries = models.get(field)
                 if not isinstance(entries, dict):
                     continue
@@ -848,6 +902,7 @@ class RuntimeConfigManager:
         view.pop("models_union_snapshot", None)
         view.setdefault("routes", {})
         view.setdefault("provider_model_map", {})
+        view.setdefault("provider_model_disabled", {})
         return view
 
     @staticmethod

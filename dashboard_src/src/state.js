@@ -36,6 +36,11 @@ export const state = {
     status: "",
     keys: "",
   },
+  providerModelFilters: {
+    search: "",
+    status: "",
+  },
+  providerModelDrafts: {},
   confirmResolve: null,
   confirmLastFocus: null,
   keyProbes: {},

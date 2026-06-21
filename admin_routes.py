@@ -788,6 +788,37 @@ class AdminRoutesMixin:
                 self._audit_admin_event("model_route_updated", target=model, detail=body or {})
                 return self._resp_json({"action": "model_route_updated", "model": model, "config": CONFIG_MANAGER.snapshot()})
 
+            if len(parts) == 4 and parts[0] == "providers" and parts[2] == "models" and parts[3] == "disabled":
+                provider = parts[1]
+                models = (body or {}).get("models") or {}
+                CONFIG_MANAGER.update_provider_models_disabled(provider, models)
+                model_registry.clear_cache()
+                _apply_runtime_config(CONFIG_MANAGER.config)
+                self._audit_admin_event("provider_models_disabled_updated", target=f"{provider}/models", detail={"models": models})
+                return self._resp_json({"action": "provider_models_disabled_updated", "provider": provider, "config": CONFIG_MANAGER.snapshot()})
+
+            if len(parts) == 5 and parts[0] == "providers" and parts[2] == "models" and parts[4] == "disabled":
+                provider = parts[1]
+                model = parts[3]
+                disabled = bool((body or {}).get("disabled"))
+                CONFIG_MANAGER.update_provider_model_disabled(provider, model, disabled)
+                model_registry.clear_cache()
+                _apply_runtime_config(CONFIG_MANAGER.config)
+                self._audit_admin_event(
+                    "provider_model_disabled_updated",
+                    target=f"{provider}/models/{model}",
+                    detail={"model": model, "disabled": disabled},
+                )
+                return self._resp_json(
+                    {
+                        "action": "provider_model_disabled_updated",
+                        "provider": provider,
+                        "model": model,
+                        "disabled": disabled,
+                        "config": CONFIG_MANAGER.snapshot(),
+                    }
+                )
+
             if parts == ["proxy"]:
                 CONFIG_MANAGER.update_global_proxy(body or {})
                 _apply_runtime_config(CONFIG_MANAGER.config)

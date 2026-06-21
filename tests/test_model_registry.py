@@ -291,6 +291,55 @@ class ModelRegistryTests(unittest.TestCase):
             ["alpha-model", "beta-model"],
         )
 
+    def test_disabled_provider_model_is_excluded_only_for_that_provider(self):
+        cfg = registry_config("union")
+        cfg["models"]["provider_model_capabilities"] = {
+            "alpha": {
+                "status": "ok",
+                "models": ["alpha/raw"],
+                "canonical_map": {"shared-model": "alpha/raw"},
+                "formats": ["chat_completions"],
+            },
+            "beta": {
+                "status": "ok",
+                "models": ["beta/raw"],
+                "canonical_map": {"shared-model": "beta/raw"},
+                "formats": ["chat_completions"],
+            },
+        }
+        cfg["models"]["provider_model_disabled"] = {"alpha": {"shared-model": True}}
+
+        result = model_registry.models_from_capabilities(cfg, FakeRouter())
+
+        self.assertEqual([m["id"] for m in result["data"]], ["shared-model"])
+        self.assertEqual(model_registry.union_model_ids(), {"shared-model"})
+
+    def test_disabled_provider_model_removed_when_no_provider_remains(self):
+        cfg = registry_config("union")
+        cfg["models"]["provider_model_capabilities"] = {
+            "alpha": {
+                "status": "ok",
+                "models": ["alpha/raw"],
+                "canonical_map": {"shared-model": "alpha/raw"},
+                "formats": ["chat_completions"],
+            },
+            "beta": {
+                "status": "ok",
+                "models": ["beta/raw"],
+                "canonical_map": {"shared-model": "beta/raw"},
+                "formats": ["chat_completions"],
+            },
+        }
+        cfg["models"]["provider_model_disabled"] = {
+            "alpha": {"shared-model": True},
+            "beta": {"shared-model": True},
+        }
+
+        result = model_registry.models_from_capabilities(cfg, FakeRouter())
+
+        self.assertNotIn("shared-model", [m["id"] for m in result["data"]])
+        self.assertNotIn("shared-model", model_registry.union_model_ids())
+
     def test_models_from_capabilities_reads_current_persisted_union_snapshot(self):
         cfg = registry_config("union")
         cfg["models"]["provider_model_capabilities"] = {

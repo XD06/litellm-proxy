@@ -490,6 +490,40 @@ class AdminApiTests(unittest.TestCase):
         self.assertEqual(status, 404)
         self.assertIn("unknown provider", body["error"]["message"])
 
+    def test_admin_provider_models_disabled_updates_config(self):
+        cfg = {
+            "server": {"admin_key": "admin-secret"},
+            "models": {
+                "models_source": "union",
+                "provider_model_capabilities": {
+                    "alpha": {
+                        "status": "ok",
+                        "fetched_at": 456,
+                        "models": ["alpha/raw"],
+                        "canonical_map": {"alpha-model": "alpha/raw"},
+                        "formats": ["chat_completions"],
+                    }
+                },
+            },
+            "providers": {"alpha": {"base_url": "https://alpha.example", "keys": ["raw-alpha-key"], "enabled": True}},
+        }
+        manager = config_manager.RuntimeConfigManager(cfg, overlay_path=self.temp_overlay_path())
+        headers = {"Content-Type": "application/json", "X-Admin-Key": "admin-secret"}
+
+        with self.runtime_config(manager):
+            status, body = self.patch_json(
+                "/-/admin/providers/alpha/models/disabled",
+                {"models": {"alpha-model": True}},
+                headers=headers,
+            )
+            models_status, models_body = self.get_json("/v1/models")
+
+        self.assertEqual(status, 200)
+        self.assertEqual(body["action"], "provider_models_disabled_updated")
+        self.assertTrue(manager.config["models"]["provider_model_disabled"]["alpha"]["alpha-model"])
+        self.assertEqual(models_status, 200)
+        self.assertNotIn("alpha-model", [m["id"] for m in models_body["data"]])
+
     def test_client_models_uses_saved_capabilities_without_upstream_fetch(self):
         cfg = {
             "server": {"admin_key": "admin-secret"},

@@ -2743,6 +2743,61 @@ tr.clickable:hover {
   font-size: 10px;
 }
 
+.provider-model-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.provider-model-search {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.provider-model-status-filter {
+  flex: 0 0 118px;
+}
+
+.provider-model-chip {
+  position: relative;
+  align-content: start;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+button.provider-model-chip {
+  appearance: none;
+}
+
+button.provider-model-chip:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--info) 70%, transparent);
+  outline-offset: 2px;
+}
+
+.provider-model-chip.is-disabled {
+  border-color: color-mix(in srgb, var(--danger) 34%, var(--line));
+  background: color-mix(in srgb, var(--danger-soft) 48%, var(--surface));
+}
+
+.provider-model-chip.is-pending {
+  outline: 1px dashed color-mix(in srgb, var(--warning) 70%, var(--line));
+  outline-offset: 2px;
+}
+
+.provider-model-chip.is-disabled b {
+  color: color-mix(in srgb, var(--danger) 72%, var(--text));
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+  text-decoration-color: var(--danger);
+}
+
+.model-pending-note {
+  color: color-mix(in srgb, var(--warning) 78%, var(--muted));
+}
+
 .model-price-tip {
   display: inline-flex;
   align-items: center;

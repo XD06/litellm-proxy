@@ -481,6 +481,7 @@ class ConfigManagerTests(unittest.TestCase):
             },
         }
         cfg["models"]["provider_model_map"] = {"beta": {"shared-model": "beta-model"}}
+        cfg["models"]["provider_model_disabled"] = {"beta": {"shared-model": True}}
         cfg["models"]["provider_model_capabilities"] = {
             "beta": {
                 "status": "ok",
@@ -501,6 +502,7 @@ class ConfigManagerTests(unittest.TestCase):
         self.assertNotIn("beta-only", deleted["models"]["routes"])
         self.assertNotIn("beta", deleted["models"]["provider_model_map"])
         self.assertNotIn("beta", deleted["models"]["provider_model_capabilities"])
+        self.assertNotIn("beta", deleted["models"]["provider_model_disabled"])
 
         with open(overlay_path, "r", encoding="utf-8") as f:
             overlay = json.load(f)
@@ -508,6 +510,7 @@ class ConfigManagerTests(unittest.TestCase):
         self.assertIsNone(overlay["models"]["routes"]["beta-only"])
         self.assertIsNone(overlay["models"]["provider_model_map"]["beta"])
         self.assertIsNone(overlay["models"]["provider_model_capabilities"]["beta"])
+        self.assertIsNone(overlay["models"]["provider_model_disabled"]["beta"])
 
     def test_delete_overlay_only_provider_removes_overlay_entry(self):
         _config_path, overlay_path = self.temp_paths()
