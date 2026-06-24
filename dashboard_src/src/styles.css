@@ -2762,17 +2762,50 @@ tr.clickable:hover {
 
 .provider-model-chip {
   position: relative;
-  align-content: start;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   color: inherit;
   font: inherit;
   text-align: left;
 }
 
-button.provider-model-chip {
+.model-chip-toggle,
+.model-map-edit-button {
   appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
 }
 
-button.provider-model-chip:focus-visible {
+.model-chip-toggle {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.model-map-edit-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 5px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.model-map-edit-button:hover {
+  color: var(--info);
+  background: color-mix(in srgb, var(--info-soft) 64%, transparent);
+}
+
+.model-chip-toggle:focus-visible,
+.model-map-edit-button:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--info) 70%, transparent);
   outline-offset: 2px;
 }
@@ -2785,6 +2818,11 @@ button.provider-model-chip:focus-visible {
 .provider-model-chip.is-pending {
   outline: 1px dashed color-mix(in srgb, var(--warning) 70%, var(--line));
   outline-offset: 2px;
+}
+
+.provider-model-chip.is-manual-map {
+  border-color: color-mix(in srgb, var(--success) 28%, var(--line));
+  background: color-mix(in srgb, var(--success-soft) 42%, var(--surface));
 }
 
 .provider-model-chip.is-disabled b {
@@ -3358,9 +3396,11 @@ button.provider-model-chip:focus-visible {
 .format-route {
   position: relative;
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   gap: 2px;
   min-width: 0;
-  padding: 9px 11px;
+  padding: 9px 9px 9px 11px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--surface);
@@ -3382,19 +3422,25 @@ button.provider-model-chip:focus-visible {
   opacity: 0.55;
 }
 
-.format-route b,
-.format-route small {
+.format-route-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.format-route-main b,
+.format-route-main small {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.format-route b {
+.format-route-main b {
   font: 760 11px var(--mono);
 }
 
-.format-route small {
+.format-route-main small {
   color: var(--muted);
   font: 11px var(--mono);
 }
@@ -3405,7 +3451,7 @@ button.provider-model-chip:focus-visible {
   content: "";
   position: absolute;
   top: 7px;
-  right: 7px;
+  right: 42px;
   width: 9px;
   height: 9px;
   border-radius: 50%;
@@ -3432,6 +3478,38 @@ button.provider-model-chip:focus-visible {
 }
 
 .format-route.is-interactive:focus-visible {
+  outline: 2px solid var(--info, #3b82f6);
+  outline-offset: 1px;
+}
+
+.format-route-edit {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-left: 8px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.14s ease, background 0.14s ease, border-color 0.14s ease, transform 0.06s ease;
+}
+
+.format-route-edit:hover {
+  border-color: var(--line);
+  background: var(--surface-raised);
+  color: var(--text);
+}
+
+.format-route-edit:active {
+  transform: translateY(1px);
+}
+
+.format-route-edit:focus-visible {
   outline: 2px solid var(--info, #3b82f6);
   outline-offset: 1px;
 }
@@ -4960,6 +5038,185 @@ button.provider-model-chip:focus-visible {
   border-top: 1px solid var(--line-soft);
   padding-top: 14px;
   margin-top: 4px;
+}
+
+.form-modal.is-model-map-modal,
+.form-modal.is-format-path-modal {
+  width: min(480px, calc(100vw - 32px));
+}
+
+.form-modal.is-model-map-modal .form-modal-body,
+.form-modal.is-format-path-modal .form-modal-body {
+  padding-top: 16px;
+}
+
+.model-map-form,
+.format-path-form {
+  display: grid;
+  gap: 14px;
+}
+
+.model-map-field,
+.format-path-field {
+  display: grid;
+  gap: 7px;
+}
+
+.model-map-field span,
+.model-map-raw-line span,
+.format-path-field span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.model-map-field input,
+.format-path-field input {
+  width: 100%;
+  min-width: 0;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: 13px var(--mono-font, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace);
+}
+
+.model-map-field input:focus,
+.format-path-field input:focus {
+  border-color: color-mix(in srgb, var(--info) 70%, var(--line));
+  outline: 3px solid color-mix(in srgb, var(--info-soft) 80%, transparent);
+}
+
+.model-map-raw-line {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-muted) 72%, transparent);
+}
+
+.model-map-raw-line code {
+  min-width: 0;
+  justify-self: end;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 12px;
+  text-align: right;
+}
+
+.model-map-hint {
+  margin: -2px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.format-path-summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-muted) 72%, transparent);
+}
+
+.format-path-summary > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.format-path-summary strong,
+.format-path-summary code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.format-path-summary strong {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 780;
+}
+
+.format-path-summary code {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.format-path-state {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: var(--surface);
+}
+
+.format-path-state.is-enabled {
+  border-color: color-mix(in srgb, var(--success) 48%, var(--line));
+  color: var(--success);
+  background: color-mix(in srgb, var(--success-soft) 76%, var(--surface));
+}
+
+.format-path-state.is-disabled {
+  border-color: color-mix(in srgb, var(--danger) 42%, var(--line));
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger-soft) 76%, var(--surface));
+}
+
+.format-path-hint {
+  margin: -4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.model-map-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.model-map-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.model-map-action:hover {
+  color: var(--text);
+  background: var(--surface-muted);
+}
+
+.model-map-action.primary {
+  border-color: color-mix(in srgb, var(--info) 42%, var(--line));
+  background: var(--text);
+  color: var(--surface);
+}
+
+.model-map-action.primary:hover {
+  background: color-mix(in srgb, var(--text) 88%, var(--info));
 }
 
 .mobile-settings-body {

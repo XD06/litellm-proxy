@@ -577,6 +577,8 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     const backdrop = el("formModalBackdrop");
     if (dialog) {
       dialog.classList.remove("is-open");
+      dialog.classList.remove("is-model-map-modal");
+      dialog.classList.remove("is-format-path-modal");
       dialog.setAttribute("aria-hidden", "true");
     }
     if (backdrop) backdrop.hidden = true;
@@ -893,6 +895,31 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     } catch (_outerErr) {
       // Defensive: never leave the re-entrancy lock held.
       _refreshInFlight = false;
+    }
+  }
+
+  async function refreshProviderConfigView({ preserveNotice = true } = {}) {
+    if (!state.adminKey) return false;
+    try {
+      const [status, config] = await Promise.all([
+        apiGet("/-/admin/status"),
+        apiGet("/-/admin/config"),
+      ]);
+      state.data.status = status;
+      state.data.config = config;
+      state.data.version = Number(state.data.version || 0) + 1;
+      state.forceConfigRender = true;
+      state.forceProvidersRender = true;
+      state.forceModelCapsRender = true;
+      renderAll();
+      renderProviderDrawer({ force: true });
+      if (!preserveNotice) setNotice("");
+      setConnection(true, `Updated ${new Date().toLocaleTimeString()}`);
+      return true;
+    } catch (err) {
+      setConnection(false, "Connection error");
+      setNotice(`Provider config refresh failed: ${err.message}`, "bad");
+      return false;
     }
   }
 
@@ -2437,7 +2464,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       Array.isArray(capability.models) ? capability.models : [],
       capability.canonical_map || {},
     );
-    const items = base.slice();
+    const items = [];
     const seen = new Set();
     const seenKey = (value) => String(value || "").trim().toLowerCase();
     const rememberModelItem = (item) => {
@@ -2446,7 +2473,6 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         if (key) seen.add(key);
       });
     };
-    items.forEach(rememberModelItem);
     const configuredMap = state.data.config?.models?.provider_model_map?.[name] || {};
     Object.entries(configuredMap || {})
       .filter(([_canonical, raw]) => raw)
@@ -2457,10 +2483,16 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
           label: String(canonical || raw),
           raw: String(raw || ""),
           title: raw && raw !== canonical ? `${canonical} maps to ${raw}` : String(canonical || raw),
+          manual: true,
         };
         items.push(item);
         rememberModelItem(item);
       });
+    base.forEach((item) => {
+      if (seen.has(seenKey(item.label)) || seen.has(seenKey(item.raw))) return;
+      items.push(item);
+      rememberModelItem(item);
+    });
     providerRouteModels(name).forEach((model) => {
       if (seen.has(seenKey(model))) return;
       const item = { label: model, raw: "", title: model };
@@ -3120,16 +3152,25 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         </div>
         <div class="model-chip-list provider-drawer-models">
           ${visibleItems.length ? visibleItems.slice(0, 100).map((item) => `
-            <button class="model-map-chip provider-model-chip ${item.disabled ? "is-disabled" : ""} ${item.pending ? "is-pending" : ""}" type="button"
-              data-provider-model-disable-provider="${escapeHtml(view.name)}"
-              data-provider-model-disable-model="${escapeHtml(item.label)}"
-              data-provider-model-disable-next="${item.disabled ? "false" : "true"}"
-              title="${escapeHtml(`${item.disabled ? "Stage enable" : "Stage disable"} ${item.title}`)}"
-              aria-label="${escapeHtml(`${item.disabled ? "Stage enable" : "Stage disable"} ${item.label}`)}">
-              <b>${escapeHtml(item.label)}</b>
-              ${item.raw && item.raw !== item.label ? `<small>${escapeHtml(item.raw)}</small>` : ""}
-              ${item.pending ? `<small class="model-pending-note">pending</small>` : ""}
-            </button>
+            <span class="model-map-chip provider-model-chip ${item.disabled ? "is-disabled" : ""} ${item.pending ? "is-pending" : ""} ${item.manual ? "is-manual-map" : ""}">
+              <button class="model-chip-toggle" type="button"
+                data-provider-model-disable-provider="${escapeHtml(view.name)}"
+                data-provider-model-disable-model="${escapeHtml(item.label)}"
+                data-provider-model-disable-next="${item.disabled ? "false" : "true"}"
+                title="${escapeHtml(`${item.disabled ? "Stage enable" : "Stage disable"} ${item.title}`)}"
+                aria-label="${escapeHtml(`${item.disabled ? "Stage enable" : "Stage disable"} ${item.label}`)}">
+                <b>${escapeHtml(item.label)}</b>
+                ${item.raw && item.raw !== item.label ? `<small>${escapeHtml(item.raw)}</small>` : ""}
+                ${item.pending ? `<small class="model-pending-note">pending</small>` : ""}
+              </button>
+              <button class="model-map-edit-button" type="button"
+                data-provider-model-map-edit-provider="${escapeHtml(view.name)}"
+                data-provider-model-map-edit-model="${escapeHtml(item.label)}"
+                data-provider-model-map-edit-raw="${escapeHtml(item.raw || item.label)}"
+                data-provider-model-map-edit-manual="${item.manual ? "1" : "0"}"
+                title="Edit model mapping"
+                aria-label="${escapeHtml(`Edit mapping for ${item.label}`)}">${iconSvg("pencil")}</button>
+            </span>
           `).join("") + (visibleItems.length > 100 ? `<span class="muted" style="padding: 4px 8px;">+ ${visibleItems.length - 100} more models...</span>` : "") : `<span class="muted">No matching models</span>`}
         </div>
         <div class="provider-models-actions">
@@ -3443,7 +3484,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         </form>
         ${includeFormats ? `
           <div class="provider-formats-group">
-            <h3 class="drawer-section-title">Formats <small class="drawer-section-hint">click to toggle · double-click to edit path</small></h3>
+            <h3 class="drawer-section-title">Formats <small class="drawer-section-hint">click card to toggle · pencil edits path</small></h3>
             <div class="format-route-list provider-format-edit-list">
               ${formatRouteItems(formats, name)}
             </div>
@@ -3521,14 +3562,21 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       const path = cfg?.path || "-";
       const label = formatLabel(name) || name;
       const dataAttrs = interactive
-        ? `data-format-provider="${escapeHtml(provider)}" data-format="${escapeHtml(name)}" data-format-enabled="${enabled ? "1" : "0"}" data-format-path="${escapeHtml(cfg?.path || "")}" role="button" tabindex="0"`
+        ? `data-format-provider="${escapeHtml(provider)}" data-format="${escapeHtml(name)}" data-format-enabled="${enabled ? "1" : "0"}" data-format-path="${escapeHtml(cfg?.path || "")}" role="button" tabindex="0" aria-label="${escapeHtml(`${enabled ? "Disable" : "Enable"} ${label} for ${provider}`)}"`
         : "";
-      const hint = interactive ? `<small class="format-route-hint">click to toggle · double-click to edit path</small>` : "";
+      const edit = interactive ? `
+          <button class="format-route-edit" type="button"
+            data-format-path-edit
+            title="Edit path"
+            aria-label="${escapeHtml(`Edit ${label} path for ${provider}`)}">${iconSvg("pencil")}</button>
+        ` : "";
       return `
         <span class="format-route ${enabled ? "enabled" : "disabled"} ${interactive ? "is-interactive" : ""}" ${dataAttrs}>
-          <b>${escapeHtml(label)}</b>
-          <small>${escapeHtml(path)}</small>
-          ${hint}
+          <span class="format-route-main">
+            <b>${escapeHtml(label)}</b>
+            <small>${escapeHtml(path)}</small>
+          </span>
+          ${edit}
         </span>
       `;
     }).join("");
@@ -3928,6 +3976,136 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     }
   }
 
+  async function updateProviderModelMapping(provider, oldModel, rawModel, nextModel) {
+    if (!provider || !oldModel || !rawModel) return false;
+    try {
+      await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/models/map`, {
+        old_model: oldModel,
+        model: nextModel,
+        raw_model: rawModel,
+      });
+      setNotice(nextModel ? `Model mapping saved for ${provider}.` : `Model mapping reset for ${provider}.`, "ok");
+      await refreshAll({ quiet: true, preserveNotice: true });
+      renderProviderDrawer({ force: true });
+      return true;
+    } catch (err) {
+      setNotice(`Model mapping failed: ${err.message}`, "bad");
+      return false;
+    }
+  }
+
+  function openProviderModelMappingModal({ provider, oldModel, rawModel, isManual }) {
+    if (!provider || !oldModel || !rawModel) return;
+    openFormModal({
+      title: "Edit model mapping",
+      subtitle: provider,
+      bodyHtml: `
+        <form class="model-map-form" data-provider-model-map-form>
+          <label class="model-map-field">
+            <span>Client model</span>
+            <input name="model" value="${escapeHtml(oldModel)}" autocomplete="off" spellcheck="false" />
+          </label>
+          <div class="model-map-raw-line">
+            <span>Provider</span>
+            <code>${escapeHtml(rawModel)}</code>
+          </div>
+          ${isManual ? `<p class="model-map-hint">Empty name restores automatic mapping.</p>` : ""}
+          <div class="model-map-actions">
+            <button class="model-map-action secondary" type="button" data-model-map-cancel title="Cancel" aria-label="Cancel">${iconSvg("x")}</button>
+            <button class="model-map-action primary" type="submit" title="Save mapping" aria-label="Save mapping">${iconSvg("save")}</button>
+          </div>
+        </form>
+      `,
+    });
+    el("formModal")?.classList.add("is-model-map-modal");
+    const form = el("formModalBody")?.querySelector("[data-provider-model-map-form]");
+    if (!form) return;
+    form.elements.model?.focus();
+    form.elements.model?.select();
+    form.querySelector("[data-model-map-cancel]")?.addEventListener("click", closeFormModal);
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const input = form.elements.model;
+      const nextModel = String(input?.value || "").trim();
+      if (!nextModel && !isManual) {
+        setNotice("Model mapping name is required.", "bad");
+        input?.focus();
+        return;
+      }
+      if (nextModel === oldModel) {
+        closeFormModal();
+        return;
+      }
+      const submit = form.querySelector('button[type="submit"]');
+      if (submit) submit.disabled = true;
+      const saved = await updateProviderModelMapping(provider, oldModel, rawModel, nextModel);
+      if (saved) closeFormModal();
+      else if (submit) submit.disabled = false;
+    });
+  }
+
+  function openProviderFormatPathModal({ provider, fmt, label, path, enabled, ownerCard }) {
+    if (!provider || !fmt) return;
+    const current = path || defaultFormatPath(fmt);
+    openFormModal({
+      title: "Edit format path",
+      subtitle: provider,
+      bodyHtml: `
+        <form class="format-path-form" data-provider-format-path-form>
+          <div class="format-path-summary">
+            <span class="format-path-state ${enabled ? "is-enabled" : "is-disabled"}">${enabled ? iconSvg("check") : iconSvg("x")}</span>
+            <div>
+              <strong>${escapeHtml(label || formatLabel(fmt) || fmt)}</strong>
+              <code>${escapeHtml(fmt)}</code>
+            </div>
+          </div>
+          <label class="format-path-field">
+            <span>Upstream path</span>
+            <input name="path" value="${escapeHtml(current)}" autocomplete="off" spellcheck="false" required />
+          </label>
+          <p class="format-path-hint">Use the provider endpoint path, for example /v1/chat/completions.</p>
+          <div class="model-map-actions">
+            <button class="model-map-action secondary" type="button" data-format-path-cancel title="Cancel" aria-label="Cancel">${iconSvg("x")}</button>
+            <button class="model-map-action primary" type="submit" title="Save path" aria-label="Save path">${iconSvg("save")}</button>
+          </div>
+        </form>
+      `,
+    });
+    el("formModal")?.classList.add("is-format-path-modal");
+    const form = el("formModalBody")?.querySelector("[data-provider-format-path-form]");
+    if (!form) return;
+    form.elements.path?.focus();
+    form.elements.path?.select();
+    form.querySelector("[data-format-path-cancel]")?.addEventListener("click", closeFormModal);
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const input = form.elements.path;
+      const trimmed = String(input?.value || "").trim();
+      if (!trimmed) {
+        setNotice("Format path cannot be empty.", "bad");
+        input?.focus();
+        return;
+      }
+      const normalized = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+      if (normalized === current) {
+        closeFormModal();
+        return;
+      }
+      const submit = form.querySelector('button[type="submit"]');
+      if (submit) submit.disabled = true;
+      const saved = await runFormatMutation(ownerCard, async () => {
+          const resp = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/formats/${encodeURIComponent(fmt)}`, { path: normalized });
+          setNotice(`${provider} ${fmt} path updated.`, "ok");
+          return resp;
+      });
+      if (saved) {
+        closeFormModal();
+      } else {
+        if (submit) submit.disabled = false;
+      }
+    });
+  }
+
   function bindProviderModelDisableControls(root) {
     if (root.dataset.boundProviderModelControls === "1") return;
     root.dataset.boundProviderModelControls = "1";
@@ -3944,6 +4122,16 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       renderProviderDrawer({ force: true });
     });
     root.addEventListener("click", async (event) => {
+      const mapEditButton = event.target.closest("[data-provider-model-map-edit-provider]");
+      if (mapEditButton && root.contains(mapEditButton)) {
+        const provider = mapEditButton.dataset.providerModelMapEditProvider || "";
+        const oldModel = mapEditButton.dataset.providerModelMapEditModel || "";
+        const rawModel = mapEditButton.dataset.providerModelMapEditRaw || "";
+        const isManual = mapEditButton.dataset.providerModelMapEditManual === "1";
+        openProviderModelMappingModal({ provider, oldModel, rawModel, isManual });
+        return;
+      }
+
       const modelButton = event.target.closest("[data-provider-model-disable-model]");
       if (modelButton && root.contains(modelButton)) {
         const provider = modelButton.dataset.providerModelDisableProvider || "";
@@ -4806,45 +4994,41 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     root.querySelectorAll(".format-route.is-interactive").forEach((card) => {
       if (card.dataset.boundformatrouteisinteractive) return;
       card.dataset.boundformatrouteisinteractive = "1";
-      let clickTimer = null;
       const provider = card.dataset.formatProvider || "";
       const fmt = card.dataset.format || "";
+      const label = card.querySelector(".format-route-main b")?.textContent || formatLabel(fmt) || fmt;
 
       const toggle = async () => {
         const nextEnabled = card.dataset.formatEnabled !== "1";
         await runFormatMutation(card, async () => {
-          await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/formats/${encodeURIComponent(fmt)}`, { enabled: nextEnabled });
+          const resp = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/formats/${encodeURIComponent(fmt)}`, { enabled: nextEnabled });
           setNotice(`${provider} ${fmt} ${nextEnabled ? "enabled" : "disabled"}.`, "ok");
+          return resp;
         });
       };
 
-      const editPath = async () => {
-        const current = card.dataset.formatPath || defaultFormatPath(fmt);
-        const next = window.prompt(`Path for ${fmt} on ${provider}`, current);
-        if (next === null) return;
-        const trimmed = String(next).trim();
-        if (!trimmed) {
-          setNotice("Format path cannot be empty.");
-          return;
-        }
-        await runFormatMutation(card, async () => {
-          await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/formats/${encodeURIComponent(fmt)}`, { path: trimmed });
-          setNotice(`${provider} ${fmt} path updated.`, "ok");
+      const editPath = () => {
+        openProviderFormatPathModal({
+          provider,
+          fmt,
+          label,
+          path: card.dataset.formatPath || defaultFormatPath(fmt),
+          enabled: card.dataset.formatEnabled === "1",
+          ownerCard: card,
         });
       };
 
-      card.addEventListener("click", () => {
-        // Distinguish single vs double click with a short timer.
-        if (clickTimer) {
-          clearTimeout(clickTimer);
-          clickTimer = null;
-          editPath();
+      card.querySelector("[data-format-path-edit]")?.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        editPath();
+      });
+
+      card.addEventListener("click", (event) => {
+        if (event.target.closest("[data-format-path-edit]")) {
           return;
         }
-        clickTimer = setTimeout(() => {
-          clickTimer = null;
-          toggle();
-        }, 220);
+        toggle();
       });
 
       card.addEventListener("keydown", (event) => {
@@ -4856,15 +5040,6 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
           editPath();
         }
       });
-
-      card.addEventListener("dblclick", (event) => {
-        event.preventDefault();
-        if (clickTimer) {
-          clearTimeout(clickTimer);
-          clickTimer = null;
-        }
-        editPath();
-      });
     });
   }
 
@@ -4874,17 +5049,19 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       card.classList.add("is-busy");
     }
     try {
-      await operation();
+      const result = await operation();
+      if (result?.config) state.data.config = result.config;
+      state.data.version = Number(state.data.version || 0) + 1;
       state.forceConfigRender = true;
       state.forceProvidersRender = true;
       state.forceModelCapsRender = true;
-      await refreshAll({ quiet: true, preserveNotice: true });
-      // The drawer is not force-rendered by refreshAll (its guard skips while a
-      // control inside it has focus), so force it explicitly so the toggled
-      // format card visually updates immediately.
+      renderAll();
       renderProviderDrawer({ force: true });
+      Promise.resolve().then(() => refreshProviderConfigView({ preserveNotice: true })).catch(() => {});
+      return true;
     } catch (err) {
-      setNotice(`Format update failed: ${err.message}`);
+      setNotice(`Format update failed: ${err.message}`, "bad");
+      return false;
     } finally {
       if (card) {
         card.removeAttribute("aria-busy");

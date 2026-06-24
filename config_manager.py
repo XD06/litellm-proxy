@@ -359,6 +359,52 @@ class RuntimeConfigManager:
         models["provider_model_disabled"] = disabled_map
         return self._commit_overlay(overlay)
 
+    def update_provider_model_mapping(
+        self,
+        provider: str,
+        *,
+        model: str,
+        raw_model: str = "",
+        old_model: str = "",
+    ) -> Dict[str, Any]:
+        self._require_provider(provider)
+        new_model = self._validate_model_id(model) if str(model or "").strip() else ""
+        old_model_id = self._validate_model_id(old_model) if str(old_model or "").strip() else ""
+        raw_model_id = self._validate_model_id(raw_model) if str(raw_model or "").strip() else ""
+        if new_model and not raw_model_id:
+            raise ConfigValidationError("raw_model is required")
+        if not new_model and not old_model_id:
+            raise ConfigValidationError("model or old_model is required")
+
+        overlay = copy.deepcopy(self.overlay)
+        models = overlay.setdefault("models", {})
+        if not isinstance(models, dict):
+            models = {}
+            overlay["models"] = models
+        provider_maps = copy.deepcopy((self.config.get("models") or {}).get("provider_model_map") or {})
+        if not isinstance(provider_maps, dict):
+            provider_maps = {}
+        provider_map = copy.deepcopy(provider_maps.get(provider) or {})
+        if not isinstance(provider_map, dict):
+            provider_map = {}
+
+        if old_model_id and old_model_id != new_model:
+            provider_map.pop(old_model_id, None)
+        if new_model:
+            for existing_model, existing_raw in list(provider_map.items()):
+                if str(existing_raw or "").strip() == raw_model_id and str(existing_model or "") != new_model:
+                    provider_map.pop(existing_model, None)
+            provider_map[new_model] = raw_model_id
+        elif old_model_id:
+            provider_map.pop(old_model_id, None)
+
+        if provider_map:
+            provider_maps[provider] = provider_map
+        else:
+            provider_maps.pop(provider, None)
+        models["provider_model_map"] = provider_maps
+        return self._commit_overlay(overlay)
+
     def _remove_provider_from_routes(self, overlay_models: Dict[str, Any], provider: str) -> None:
         routes = copy.deepcopy(overlay_models.get("routes") or (self.config.get("models") or {}).get("routes") or {})
         if not isinstance(routes, dict):

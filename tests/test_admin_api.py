@@ -524,6 +524,42 @@ class AdminApiTests(unittest.TestCase):
         self.assertEqual(models_status, 200)
         self.assertNotIn("alpha-model", [m["id"] for m in models_body["data"]])
 
+    def test_admin_provider_model_mapping_renames_auto_model(self):
+        cfg = {
+            "server": {"admin_key": "admin-secret"},
+            "models": {
+                "models_source": "union",
+                "provider_model_capabilities": {
+                    "alpha": {
+                        "status": "ok",
+                        "fetched_at": 456,
+                        "models": ["alpha/raw"],
+                        "canonical_map": {"alpha-model": "alpha/raw"},
+                        "formats": ["chat_completions"],
+                    }
+                },
+            },
+            "providers": {"alpha": {"base_url": "https://alpha.example", "keys": ["raw-alpha-key"], "enabled": True}},
+        }
+        manager = config_manager.RuntimeConfigManager(cfg, overlay_path=self.temp_overlay_path())
+        headers = {"Content-Type": "application/json", "X-Admin-Key": "admin-secret"}
+
+        with self.runtime_config(manager):
+            status, body = self.patch_json(
+                "/-/admin/providers/alpha/models/map",
+                {"old_model": "alpha-model", "model": "client-alpha", "raw_model": "alpha/raw"},
+                headers=headers,
+            )
+            models_status, models_body = self.get_json("/v1/models")
+
+        self.assertEqual(status, 200)
+        self.assertEqual(body["action"], "provider_model_mapping_updated")
+        self.assertEqual(manager.config["models"]["provider_model_map"]["alpha"]["client-alpha"], "alpha/raw")
+        self.assertEqual(models_status, 200)
+        model_ids = [m["id"] for m in models_body["data"]]
+        self.assertIn("client-alpha", model_ids)
+        self.assertNotIn("alpha-model", model_ids)
+
     def test_client_models_uses_saved_capabilities_without_upstream_fetch(self):
         cfg = {
             "server": {"admin_key": "admin-secret"},
@@ -1096,6 +1132,39 @@ class AdminApiTests(unittest.TestCase):
         self.assertIn("provider_deleted", audit_actions)
         self.assertNotIn("beta-secret-key", json.dumps(audit_body))
         self.assertNotIn("beta-second-secret", json.dumps(audit_body))
+
+    def test_admin_provider_format_patch_does_not_force_model_discovery(self):
+        cfg = {
+            "server": {"admin_key": "admin-secret"},
+            "models": {"models_source": "union", "provider_model_capabilities": {}},
+            "providers": {
+                "beta": {
+                    "base_url": "https://beta.example",
+                    "keys": ["beta-secret-key"],
+                    "formats": {
+                        "chat_completions": {"enabled": True, "path": "/v1/chat/completions"},
+                    },
+                }
+            },
+        }
+        manager = config_manager.RuntimeConfigManager(cfg, overlay_path=self.temp_overlay_path())
+        headers = {"Content-Type": "application/json", "X-Admin-Key": "admin-secret"}
+        refresh_calls = []
+
+        def fake_refresh(provider=None, *, force=False):
+            refresh_calls.append((provider, force))
+
+        with self.runtime_config(manager), patch.object(sse2json, "_refresh_models_after_config_change", fake_refresh):
+            status, body = self.patch_json(
+                "/-/admin/providers/beta/formats/chat_completions",
+                {"path": "v1/chat"},
+                headers=headers,
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(body["action"], "format_updated")
+        self.assertEqual(refresh_calls, [("beta", False)])
+        self.assertEqual(manager.config["providers"]["beta"]["formats"]["chat_completions"]["path"], "/v1/chat")
 
     def test_admin_delete_key_accepts_sparse_display_index(self):
         cfg = {

@@ -56,6 +56,37 @@ def provider_model_id_disabled(
     return False
 
 
+def _manual_raw_claims(config: Dict[str, Any], provider: str) -> Dict[str, str]:
+    manual_map = ((config.get("models") or {}).get("provider_model_map") or {}).get(provider) or {}
+    if not isinstance(manual_map, dict):
+        return {}
+    claims = {}
+    for canonical, raw in manual_map.items():
+        raw_id = str(raw or "").strip()
+        canonical_id = str(canonical or "").strip()
+        if raw_id and canonical_id:
+            claims[raw_id] = canonical_id
+    return claims
+
+
+def provider_model_auto_hidden_by_manual_map(
+    config: Dict[str, Any],
+    provider: str,
+    canonical_model: str,
+    canonical_map: Optional[Dict[str, str]] = None,
+) -> bool:
+    if not canonical_model or not isinstance(canonical_map, dict):
+        return False
+    raw_model = canonical_map.get(canonical_model)
+    if raw_model is None:
+        raw_model = canonical_map.get(str(canonical_model).lower())
+    raw_model = str(raw_model or "").strip()
+    if not raw_model:
+        return False
+    manual_canonical = _manual_raw_claims(config, provider).get(raw_model)
+    return bool(manual_canonical and manual_canonical != str(canonical_model or "").strip())
+
+
 def has_cached_models(cache_key: str) -> bool:
     return cache_key in _cached_models_by_provider
 
@@ -243,6 +274,8 @@ def _rebuild_union_model_ids_from_capabilities(config: Dict[str, Any]) -> None:
                 model_id = str(mid or "").strip()
                 if model_id and not provider_model_id_disabled(
                     config, str(provider), model_id, entry.get("canonical_map") or {}
+                ) and not provider_model_auto_hidden_by_manual_map(
+                    config, str(provider), model_id, entry.get("canonical_map") or {}
                 ):
                     model_ids.add(model_id)
     _union_model_id_set = model_ids
@@ -316,7 +349,22 @@ def _union_signature(config: Dict[str, Any], *, models_source: str, provider: st
         "provider": provider,
         "providers": providers,
         "configured_model_ids": _configured_model_ids(config, provider or None),
+        "provider_model_map": copy_provider_model_maps(config, provider or None),
         "provider_model_disabled": copy_disabled_provider_models(config, provider or None),
+    }
+
+
+def copy_provider_model_maps(config: Dict[str, Any], provider: Optional[str] = None) -> Dict[str, Any]:
+    maps = (config.get("models") or {}).get("provider_model_map") or {}
+    if not isinstance(maps, dict):
+        return {}
+    if provider:
+        entry = maps.get(provider) or {}
+        return {provider: dict(entry)} if isinstance(entry, dict) and entry else {}
+    return {
+        str(p): dict(entry)
+        for p, entry in maps.items()
+        if isinstance(entry, dict) and entry
     }
 
 
@@ -428,6 +476,7 @@ def rebuild_models_union_snapshot(config: Dict[str, Any], router=None) -> Dict[s
                         for mid in canonical_map.keys()
                         if str(mid or "").strip()
                         and not provider_model_id_disabled(config, provider_name, str(mid), canonical_map)
+                        and not provider_model_auto_hidden_by_manual_map(config, provider_name, str(mid), canonical_map)
                     )
                 else:
                     model_ids.extend(
@@ -470,13 +519,17 @@ def rebuild_models_union_snapshot(config: Dict[str, Any], router=None) -> Dict[s
             model_ids.extend(
                 str(mid)
                 for mid in (entry.get("models") or [])
-                if str(mid or "").strip() and not provider_model_id_disabled(config, provider, str(mid), canonical_map)
+                if str(mid or "").strip()
+                and not provider_model_id_disabled(config, provider, str(mid), canonical_map)
+                and not provider_model_auto_hidden_by_manual_map(config, provider, str(mid), canonical_map)
             )
             if not model_ids and isinstance(canonical_map, dict) and canonical_map:
                 model_ids.extend(
                     str(mid)
                     for mid in canonical_map.keys()
-                    if str(mid or "").strip() and not provider_model_id_disabled(config, provider, str(mid), canonical_map)
+                    if str(mid or "").strip()
+                    and not provider_model_id_disabled(config, provider, str(mid), canonical_map)
+                    and not provider_model_auto_hidden_by_manual_map(config, provider, str(mid), canonical_map)
                 )
 
     model_ids.extend(_configured_model_ids(config, provider))
@@ -623,6 +676,8 @@ def provider_supports_model(
     if isinstance(caps, dict) and caps.get("status") == "ok":
         canonical_map = canonical_map or {}
         lower_model = str(canonical_model).lower()
+        if provider_model_auto_hidden_by_manual_map(config, provider, canonical_model, canonical_map):
+            return False
         return canonical_model in canonical_map or lower_model in canonical_map
 
     pcfg = ((config.get("providers") or {}).get(provider) or {})

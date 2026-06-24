@@ -819,6 +819,36 @@ class AdminRoutesMixin:
                     }
                 )
 
+            if len(parts) == 4 and parts[0] == "providers" and parts[2] == "models" and parts[3] == "map":
+                provider = parts[1]
+                model = str((body or {}).get("model") or "").strip()
+                raw_model = str((body or {}).get("raw_model") or "").strip()
+                old_model = str((body or {}).get("old_model") or "").strip()
+                CONFIG_MANAGER.update_provider_model_mapping(
+                    provider,
+                    model=model,
+                    raw_model=raw_model,
+                    old_model=old_model,
+                )
+                model_registry.clear_cache()
+                model_registry.rebuild_models_union_snapshot(CONFIG_MANAGER.config, ROUTER)
+                _apply_runtime_config(CONFIG_MANAGER.config)
+                self._audit_admin_event(
+                    "provider_model_mapping_updated",
+                    target=f"{provider}/models/{model or old_model}",
+                    detail={"model": model, "raw_model": raw_model, "old_model": old_model},
+                )
+                return self._resp_json(
+                    {
+                        "action": "provider_model_mapping_updated",
+                        "provider": provider,
+                        "model": model,
+                        "raw_model": raw_model,
+                        "old_model": old_model,
+                        "config": CONFIG_MANAGER.snapshot(),
+                    }
+                )
+
             if parts == ["proxy"]:
                 CONFIG_MANAGER.update_global_proxy(body or {})
                 _apply_runtime_config(CONFIG_MANAGER.config)
@@ -857,7 +887,7 @@ class AdminRoutesMixin:
                 fmt = parts[3]
                 CONFIG_MANAGER.update_format(provider, fmt, body or {})
                 _apply_runtime_config(CONFIG_MANAGER.config)
-                _refresh_models_after_config_change(provider, force=True)
+                _refresh_models_after_config_change(provider, force=False)
                 self._audit_admin_event("format_updated", target=f"{provider}/formats/{fmt}", detail=body or {})
                 return self._resp_json(
                     {

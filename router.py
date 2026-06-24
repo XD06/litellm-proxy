@@ -115,6 +115,7 @@ class UpstreamRouter:
         self._rr_model: Dict[str, int] = {}
         self._providers_state: Dict[str, _ProviderState] = {}
         self._keys_state: Dict[Tuple[str, int], _KeyState] = {}
+        self._attempt_static_cache: Dict[Tuple[str, str], Tuple[str, Dict[str, str], set, Tuple[str, ...], str, str]] = {}
 
         self._init_states()
 
@@ -583,7 +584,26 @@ class UpstreamRouter:
         except Exception:
             return 0
 
-    def _select_provider_items(self, canonical_model: str) -> List[_ProviderItem]:
+    def _manual_filter_active(self, canonical_model: str, provider_items: List[_ProviderItem]) -> bool:
+        if not canonical_model:
+            return False
+        providers_cfg = self.cfg.get("providers") or {}
+        models_cfg = self.cfg.get("models") or {}
+        provider_capabilities = models_cfg.get("provider_model_capabilities") or {}
+        assume_unknown_global = bool(models_cfg.get("assume_supports_unknown_models", True))
+        for item in provider_items:
+            n = item.name
+            pcfg = providers_cfg.get(n) or {}
+            if not pcfg or not pcfg.get("enabled", True):
+                continue
+            cap = provider_capabilities.get(n)
+            if isinstance(cap, dict) and cap.get("status") == "ok":
+                return True
+            if not bool(pcfg.get("assume_supports_unknown_models", assume_unknown_global)):
+                return True
+        return False
+
+    def _select_provider_items(self, canonical_model: str, *, include_runtime: bool = True) -> List[_ProviderItem]:
         routes = (self.cfg.get("models") or {}).get("routes") or {}
         route = routes.get(canonical_model) or {}
         providers_cfg = (self.cfg.get("providers") or {})
@@ -633,44 +653,36 @@ class UpstreamRouter:
                 provider_items.append(_ProviderItem(name=str(name), weight=1, priority=self._provider_priority(str(name))))
                 seen.add(str(name))
 
-        now = time.time()
         models_cfg = self.cfg.get("models") or {}
 
-        provider_capabilities = models_cfg.get("provider_model_capabilities") or {}
-        assume_unknown_global = bool(models_cfg.get("assume_supports_unknown_models", True))
-        auto_filter_active = False
-        if canonical_model:
-            for item in provider_items:
-                n = item.name
-                pcfg = providers_cfg.get(n) or {}
-                if not pcfg or not pcfg.get("enabled", True):
-                    continue
-                cap = provider_capabilities.get(n)
-                if isinstance(cap, dict) and cap.get("status") == "ok":
-                    auto_filter_active = True
-                    break
-                if not bool(pcfg.get("assume_supports_unknown_models", assume_unknown_global)):
-                    auto_filter_active = True
-                    break
+        auto_filter_active = self._manual_filter_active(canonical_model, provider_items)
 
-        with self._lock:
-            filtered = []
-            for item in provider_items:
-                name = item.name
-                pcfg = providers_cfg.get(name) or {}
-                if not pcfg or not pcfg.get("enabled", True):
-                    continue
-                ps = self._providers_state.get(name)
-                if ps and not ps.available(now):
-                    continue
-                if not model_registry.provider_supports_model(
-                    self.cfg,
-                    name,
-                    canonical_model,
-                    manual_filter_active=auto_filter_active,
-                ):
-                    continue
-                filtered.append(_ProviderItem(name=name, weight=max(1, item.weight), priority=item.priority))
+        supported = []
+        for item in provider_items:
+            name = item.name
+            pcfg = providers_cfg.get(name) or {}
+            if not pcfg or not pcfg.get("enabled", True):
+                continue
+            if not model_registry.provider_supports_model(
+                self.cfg,
+                name,
+                canonical_model,
+                manual_filter_active=auto_filter_active,
+            ):
+                continue
+            supported.append(_ProviderItem(name=name, weight=max(1, item.weight), priority=item.priority))
+
+        if include_runtime:
+            now = time.time()
+            with self._lock:
+                filtered = []
+                for item in supported:
+                    ps = self._providers_state.get(item.name)
+                    if ps and not ps.available(now):
+                        continue
+                    filtered.append(item)
+        else:
+            filtered = supported
 
         if not filtered:
             if auto_filter_active:
@@ -926,6 +938,35 @@ class UpstreamRouter:
             path = "/" + str(path)
         return str(path)
 
+    def _attempt_static_details(
+        self,
+        provider: str,
+        upstream_format: str,
+    ) -> Tuple[str, Dict[str, str], set, Tuple[str, ...], str, str]:
+        cache_key = (provider, upstream_format)
+        cached = self._attempt_static_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        pcfg = (self.cfg.get("providers") or {}).get(provider) or {}
+        base_url = (pcfg.get("base_url") or "").rstrip("/")
+        url = base_url + self._format_path(provider, upstream_format)
+
+        headers = dict(pcfg.get("headers") or {})
+        configured_ua = ""
+        for header_name in list(headers.keys()):
+            if str(header_name).lower() == "user-agent":
+                configured_ua = configured_ua or str(headers.get(header_name) or "").strip()
+                headers.pop(header_name, None)
+        header_names_lower = {str(k).lower() for k in headers}
+        fwd_list = tuple(str(h) for h in (pcfg.get("forward_client_headers") or []) if str(h))
+        provider_ua = str(pcfg.get("user_agent") or "").strip()
+        cached = (url, headers, header_names_lower, fwd_list, configured_ua, provider_ua)
+        if len(self._attempt_static_cache) > 512:
+            self._attempt_static_cache.clear()
+        self._attempt_static_cache[cache_key] = cached
+        return cached
+
     def _build_attempt_details(
         self,
         provider: str,
@@ -940,20 +981,16 @@ class UpstreamRouter:
         proxy 优先级：key.proxy > provider.proxy > 全局 proxy > None（直连）。
         client_headers: 客户端原始请求头，按 provider 的 forward_client_headers 白名单透传。"""
         pcfg = (self.cfg.get("providers") or {}).get(provider) or {}
-        base_url = (pcfg.get("base_url") or "").rstrip("/")
-        url = base_url + self._format_path(provider, upstream_format)
+        url, base_headers, header_names_lower, fwd_list, configured_ua, provider_ua = (
+            self._attempt_static_details(provider, upstream_format)
+        )
 
-        # 1. 静态配置头（provider.headers）
-        headers = {}
-        headers.update((pcfg.get("headers") or {}))
-
-        # 2. 透传客户端请求头（按白名单 forward_client_headers）
-        fwd_list = pcfg.get("forward_client_headers") or []
-        if client_headers and isinstance(fwd_list, list):
+        headers = dict(base_headers)
+        if client_headers and fwd_list:
             for hdr_name in fwd_list:
                 hdr_key = str(hdr_name).lower()
                 # 不覆盖已在静态 headers 中显式配置的值
-                if hdr_key not in {k.lower() for k in headers}:
+                if hdr_key not in header_names_lower:
                     value = client_headers.get(hdr_name) or client_headers.get(hdr_name.title())
                     if value:
                         headers[hdr_name] = value
@@ -961,19 +998,12 @@ class UpstreamRouter:
         headers["Content-Type"] = "application/json"
         headers["Authorization"] = f"Bearer {key}"
         # User-Agent 优先级：provider.user_agent > 客户端 User-Agent > provider.headers/default。
-        # 先清理所有大小写变体，避免 urllib 最终发出重复/旧 UA。
-        configured_ua = ""
-        for header_name in list(headers.keys()):
-            if str(header_name).lower() == "user-agent":
-                configured_ua = configured_ua or str(headers.get(header_name) or "").strip()
-                headers.pop(header_name, None)
         client_ua = None
         if client_headers:
             client_ua = (
                 client_headers.get("User-Agent")
                 or client_headers.get("user-agent")
             )
-        provider_ua = str(pcfg.get("user_agent") or "").strip()
         if provider_ua:
             headers["User-Agent"] = provider_ua
         elif client_ua:

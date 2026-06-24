@@ -158,6 +158,26 @@ class ModelRegistryTests(unittest.TestCase):
         )
         self.assertEqual(model_registry.resolve_provider_model(cfg, "beta", "unknown-model"), "unknown-model")
 
+    def test_manual_provider_model_map_hides_auto_name_for_same_raw_model(self):
+        cfg = registry_config("union")
+        cfg["models"]["provider_model_map"] = {"alpha": {"client-alpha": "alpha/raw"}}
+        cfg["models"]["provider_model_capabilities"] = {
+            "alpha": {
+                "status": "ok",
+                "models": ["alpha/raw"],
+                "canonical_map": {"auto-alpha": "alpha/raw"},
+            },
+        }
+
+        payload = model_registry.rebuild_models_union_snapshot(cfg)
+        ids = [item["id"] for item in payload["data"]]
+
+        self.assertIn("client-alpha", ids)
+        self.assertNotIn("auto-alpha", ids)
+        self.assertTrue(model_registry.provider_supports_model(cfg, "alpha", "client-alpha"))
+        self.assertFalse(model_registry.provider_supports_model(cfg, "alpha", "auto-alpha"))
+        self.assertEqual(model_registry.resolve_provider_model(cfg, "alpha", "client-alpha"), "alpha/raw")
+
     def test_failed_union_fetch_records_error_without_exposing_keys(self):
         cfg = registry_config("union")
         client = FakeUpstreamClient(

@@ -372,6 +372,51 @@ class ConfigManagerTests(unittest.TestCase):
         self.assertEqual(overlay["retry"]["same_key_retries"], 1)
         self.assertEqual(overlay["retry"]["key_failure_ladder_s"], [10, 60, 3600])
 
+    def test_update_provider_model_mapping_writes_overlay(self):
+        _config_path, overlay_path = self.temp_paths()
+        mgr = config_manager.RuntimeConfigManager(base_config(), overlay_path=overlay_path)
+
+        cfg = mgr.update_provider_model_mapping(
+            "alpha",
+            old_model="auto-alpha",
+            model="client-alpha",
+            raw_model="vendor/alpha",
+        )
+
+        self.assertEqual(cfg["models"]["provider_model_map"]["alpha"]["client-alpha"], "vendor/alpha")
+        with open(overlay_path, "r", encoding="utf-8") as f:
+            overlay = json.load(f)
+        self.assertEqual(overlay["models"]["provider_model_map"]["alpha"]["client-alpha"], "vendor/alpha")
+
+        cfg = mgr.update_provider_model_mapping(
+            "alpha",
+            old_model="client-alpha",
+            model="",
+            raw_model="vendor/alpha",
+        )
+
+        self.assertNotIn("alpha", cfg["models"].get("provider_model_map") or {})
+
+    def test_update_provider_model_mapping_replaces_existing_raw_claim(self):
+        _config_path, overlay_path = self.temp_paths()
+        mgr = config_manager.RuntimeConfigManager(base_config(), overlay_path=overlay_path)
+        mgr.update_provider_model_mapping(
+            "alpha",
+            old_model="auto-alpha",
+            model="client-alpha",
+            raw_model="vendor/alpha",
+        )
+
+        cfg = mgr.update_provider_model_mapping(
+            "alpha",
+            old_model="auto-alpha",
+            model="renamed-alpha",
+            raw_model="vendor/alpha",
+        )
+
+        self.assertNotIn("client-alpha", cfg["models"]["provider_model_map"]["alpha"])
+        self.assertEqual(cfg["models"]["provider_model_map"]["alpha"]["renamed-alpha"], "vendor/alpha")
+
     def test_update_failure_policy_write_overlay(self):
         _config_path, overlay_path = self.temp_paths()
         mgr = config_manager.RuntimeConfigManager(base_config(), overlay_path=overlay_path)

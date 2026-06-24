@@ -3173,6 +3173,7 @@ class _ThreadPoolHTTPServer(ThreadingMixIn, HTTPServer):
 
     def __init__(self, *args, max_workers=20, **kwargs):
         self._executor = None  # Initialize before server_bind so server_close is safe after bind failures.
+        self.request_queue_size = max(32, int(max_workers) * 2)
         super().__init__(*args, **kwargs)
         self._executor = concurrent.futures.ThreadPoolExecutor(
             max_workers=max_workers,
