@@ -3515,11 +3515,15 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     const stats = keyStats || providerKeyStats(Array.isArray(p.keys) ? p.keys : [], []);
     const enabled = p.enabled !== false && p.config_enabled !== false && p.runtime_enabled !== false && config.enabled !== false;
     const providerCooldown = Number(p.cooldown_remaining_s || 0);
+    const hardFailure = Boolean(p.has_hard_failure);
     if (!enabled) return { id: "disabled", label: "disabled", tone: "is-disabled", badge: "bad" };
     if (providerCooldown > 0) return { id: "cooldown", label: "cooldown", tone: "is-cooldown", badge: "warn" };
     if (stats.total > 0 && stats.usable <= 0) {
       if (stats.cooldown > 0) return { id: "cooldown", label: "key cooldown", tone: "is-cooldown", badge: "warn" };
       return { id: "unavailable", label: "no usable key", tone: "is-unavailable", badge: "bad" };
+    }
+    if (hardFailure) {
+      return { id: "degraded", label: "degraded", tone: "is-degraded", badge: "warn" };
     }
     if (p.available) {
       if (stats.total > 0 && stats.usable < stats.total) {

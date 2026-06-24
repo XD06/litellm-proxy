@@ -3660,6 +3660,7 @@
 			const stats = keyStats || providerKeyStats(Array.isArray(p.keys) ? p.keys : [], []);
 			const enabled = p.enabled !== false && p.config_enabled !== false && p.runtime_enabled !== false && config.enabled !== false;
 			const providerCooldown = Number(p.cooldown_remaining_s || 0);
+			const hardFailure = Boolean(p.has_hard_failure);
 			if (!enabled) return {
 				id: "disabled",
 				label: "disabled",
@@ -3686,6 +3687,12 @@
 					badge: "bad"
 				};
 			}
+			if (hardFailure) return {
+				id: "degraded",
+				label: "degraded",
+				tone: "is-degraded",
+				badge: "warn"
+			};
 			if (p.available) {
 				if (stats.total > 0 && stats.usable < stats.total) return {
 					id: "degraded",

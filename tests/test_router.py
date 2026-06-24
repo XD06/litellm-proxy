@@ -885,8 +885,41 @@ class RouterTests(unittest.TestCase):
 
         snap = router.snapshot()
         self.assertGreaterEqual(snap["providers"]["beta"]["keys"][0]["cooldown_remaining_s"], 1800)
+        self.assertTrue(snap["providers"]["beta"]["keys"][0]["has_failure"])
         attempts = list(router.iter_attempts("any-model", False, "req-quota-next"))
         self.assertEqual([a.key_index for a in attempts], [1])
+
+    def test_key_invalid_starts_with_cooldown_before_disable(self):
+        cfg = base_config()
+        router = UpstreamRouter(cfg)
+        failed_attempt = Attempt(
+            request_id="req-key-invalid",
+            attempt_no=1,
+            provider="alpha",
+            key_index=0,
+            key="alpha-key",
+            url="https://alpha.example/v1/chat/completions",
+            headers={},
+            provider_model="any-model",
+            upstream_format="chat_completions",
+        )
+
+        router.report_failure(failed_attempt, error_type="key_invalid", http_status=401)
+        first = router.snapshot()["providers"]["alpha"]["keys"][0]
+        self.assertGreaterEqual(first["cooldown_remaining_s"], 45)
+        self.assertLess(first["disabled_remaining_s"], 1)
+        self.assertTrue(first["has_failure"])
+
+        router.report_failure(failed_attempt, error_type="key_invalid", http_status=401)
+        second = router.snapshot()["providers"]["alpha"]["keys"][0]
+        self.assertGreaterEqual(second["cooldown_remaining_s"], 45)
+        self.assertLess(second["disabled_remaining_s"], 1)
+
+        router.report_failure(failed_attempt, error_type="key_invalid", http_status=401)
+        router.report_failure(failed_attempt, error_type="key_invalid", http_status=401)
+        disabled = router.snapshot()["providers"]["alpha"]["keys"][0]
+        self.assertGreaterEqual(disabled["disabled_remaining_s"], 3500)
+        self.assertFalse(disabled["available"])
 
     def test_runtime_controls_reject_unknown_provider_or_key(self):
         router = UpstreamRouter(base_config())

@@ -254,6 +254,15 @@ class UpstreamRouter:
         with self._lock:
             ks = self._keys_state.setdefault((attempt.provider, attempt.key_index), _KeyState())
             ks.fails += 1
+            if error_type == "key_invalid" and cooldown_scope in ("key", "key_provider"):
+                # 401/403 are treated as hard key failures, but we keep them in
+                # cooldown first and only hard-disable after repeated repeats.
+                # This preserves the "try another key now, come back later"
+                # behavior without permanently removing a key after one bad hit.
+                if ks.fails < 4:
+                    disable_key = False
+                else:
+                    disable_key = disable_key or True
             if transient_key_failure and not disable_key:
                 ks.transient_fails = int(getattr(ks, "transient_fails", 0)) + 1
                 cooldown_s, disable_key = self._key_failure_ladder_decision(ks.transient_fails, cooldown_s)
@@ -420,10 +429,16 @@ class UpstreamRouter:
             for provider, pcfg in providers_cfg.items():
                 ps = self._providers_state.get(provider)
                 keys = []
+                provider_hard_failure = False
                 for idx, key in enumerate(pcfg.get("keys") or []):
                     ks = self._keys_state.get((provider, idx))
                     key_s = key_value(key)
                     key_available = bool(ks is None or ks.available(now))
+                    cooldown_remaining_s = max(0, int(((ks.cooldown_until if ks else 0.0) - now)))
+                    disabled_remaining_s = max(0, int(((ks.disabled_until if ks else 0.0) - now)))
+                    key_failed = bool(ks and (ks.fails > 0 or ks.transient_fails > 0))
+                    if disabled_remaining_s > 0 or (ks and not ks.runtime_enabled):
+                        provider_hard_failure = True
                     keys.append(
                         {
                             "index": idx,
@@ -432,21 +447,24 @@ class UpstreamRouter:
                             "proxy": resolve_proxy_url(key_proxy(key)) or "",
                             "available": key_available,
                             "runtime_enabled": bool(ks.runtime_enabled if ks else True),
-                            "cooldown_remaining_s": max(0, int(((ks.cooldown_until if ks else 0.0) - now))),
-                            "disabled_remaining_s": max(0, int(((ks.disabled_until if ks else 0.0) - now))),
+                            "cooldown_remaining_s": cooldown_remaining_s,
+                            "disabled_remaining_s": disabled_remaining_s,
                             "fails": int(ks.fails if ks else 0),
                             "transient_fails": int(getattr(ks, "transient_fails", 0) if ks else 0),
+                            "has_failure": key_failed,
                         }
                     )
                 config_enabled = bool((pcfg or {}).get("enabled", True))
                 runtime_enabled = bool(ps.runtime_enabled if ps else True)
                 provider_state_available = bool(ps is None or ps.available(now))
                 available_key_count = sum(1 for item in keys if item.get("available"))
+                provider_hard_failure = provider_hard_failure or any(item.get("disabled_remaining_s", 0) > 0 for item in keys)
                 providers[provider] = {
                     "enabled": config_enabled and runtime_enabled,
                     "config_enabled": config_enabled,
                     "runtime_enabled": runtime_enabled,
                     "available": config_enabled and runtime_enabled and provider_state_available and available_key_count > 0,
+                    "has_hard_failure": provider_hard_failure,
                     "cooldown_remaining_s": max(0, int(((ps.cooldown_until if ps else 0.0) - now))),
                     "key_count": len(keys),
                     "available_key_count": available_key_count,
