@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+import warnings
 
 from observability import ProxyObservability
 from router import Attempt
@@ -109,6 +110,40 @@ class ObservabilityTests(unittest.TestCase):
             self.assertEqual([item["request_id"] for item in snap["recent_requests"]], ["req-restore"])
             self.assertEqual(snap["recent_requests"][0]["first_byte_ms"], 77)
             self.assertEqual(snap["recent_requests"][0]["attempts"][0]["provider"], "alpha")
+
+    def test_sqlite_history_queries_close_connections(self):
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
+            cfg = {
+                "observability": {
+                    "recent_requests_limit": 5,
+                    "history": {"enabled": True, "path": os.path.join(tmp, "history.sqlite3")},
+                },
+            }
+            obs = ProxyObservability(cfg)
+            obs.record_request_start(
+                "req-close",
+                client_format="chat_completions",
+                endpoint="chat_completions",
+                model="client-model",
+                stream=False,
+                path="/v1/chat/completions",
+            )
+            obs.record_attempt("req-close", make_attempt("req-close"), outcome="success")
+            obs.record_request_end("req-close", status_code=200)
+
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always", ResourceWarning)
+                restored = ProxyObservability(cfg)
+                restored.snapshot()
+                restored.list_requests()
+                restored.timeseries(bucket_s=60, buckets=1)
+                restored.get_request("req-close")
+
+            resource_warnings = [
+                item for item in caught
+                if issubclass(item.category, ResourceWarning) and "unclosed database" in str(item.message)
+            ]
+            self.assertEqual(resource_warnings, [])
 
     def test_records_failure_reason_breakdowns(self):
         obs = ProxyObservability({"observability": {"recent_requests_limit": 2}})

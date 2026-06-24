@@ -95,6 +95,7 @@ _KEY_PROBE_INFLIGHT = {}
 # Runtime state persistence for router health and discovered model capabilities.
 _ROUTER_STATE_FILE = os.path.join(os.path.dirname(__file__), "tmp", "router_state.json")
 _ROUTER_STATE_INTERVAL_S = 60  # Save router state every 60 seconds.
+_ROUTER_STATE_SAVE_LOCK = threading.Lock()
 
 
 def _safe_model_capabilities_for_state() -> dict:
@@ -203,32 +204,33 @@ def _restore_models_union_snapshot(snapshot: dict) -> None:
 def _save_router_state() -> None:
     """Persist router runtime state and discovered model capabilities atomically."""
     try:
-        state = {
-            "saved_at": time.time(),
-            "router": ROUTER.dump_state(),
-            "model_capabilities": _safe_model_capabilities_for_state(),
-            "union_model_ids": sorted(model_registry.union_model_ids()),
-            "models_union_snapshot": _safe_models_union_snapshot_for_state(),
-        }
-        os.makedirs(os.path.dirname(_ROUTER_STATE_FILE), exist_ok=True)
-        tmp_path = _ROUTER_STATE_FILE + ".tmp"
-        with open(tmp_path, "w", encoding="utf-8") as f:
-            json.dump(state, f)
-        try:
-            os.replace(tmp_path, _ROUTER_STATE_FILE)
-        except OSError as e:
-            if e.errno not in (errno.EBUSY, errno.EXDEV):
-                raise
-            with open(_ROUTER_STATE_FILE, "w", encoding="utf-8") as f:
+        with _ROUTER_STATE_SAVE_LOCK:
+            state = {
+                "saved_at": time.time(),
+                "router": ROUTER.dump_state(),
+                "model_capabilities": _safe_model_capabilities_for_state(),
+                "union_model_ids": sorted(model_registry.union_model_ids()),
+                "models_union_snapshot": _safe_models_union_snapshot_for_state(),
+            }
+            os.makedirs(os.path.dirname(_ROUTER_STATE_FILE), exist_ok=True)
+            tmp_path = _ROUTER_STATE_FILE + ".tmp"
+            with open(tmp_path, "w", encoding="utf-8") as f:
                 json.dump(state, f)
-                f.flush()
-                os.fsync(f.fileno())
-        finally:
-            if os.path.exists(tmp_path):
-                try:
-                    os.unlink(tmp_path)
-                except OSError:
-                    pass
+            try:
+                os.replace(tmp_path, _ROUTER_STATE_FILE)
+            except OSError as e:
+                if e.errno not in (errno.EBUSY, errno.EXDEV):
+                    raise
+                with open(_ROUTER_STATE_FILE, "w", encoding="utf-8") as f:
+                    json.dump(state, f)
+                    f.flush()
+                    os.fsync(f.fileno())
+            finally:
+                if os.path.exists(tmp_path):
+                    try:
+                        os.unlink(tmp_path)
+                    except OSError:
+                        pass
     except Exception as e:
         print(f"[proxy] router state save failed: {e}", flush=True)
 
@@ -353,6 +355,7 @@ def _apply_runtime_config(new_config: dict) -> None:
     # queue's per-provider TTL/retry cadence prevents a reload storm.
     if MODEL_DISCOVERY_QUEUE is not None:
         MODEL_DISCOVERY_QUEUE.enqueue_all(force=False)
+    _save_router_state()
 
 
 def _request_runtime() -> "RuntimeContext":
@@ -3252,7 +3255,7 @@ def _prefetch_model_summaries():
         # 7. Historical request models and attempt models from SQLite database
         try:
             if OBSERVABILITY and hasattr(OBSERVABILITY, "_history") and OBSERVABILITY._history and OBSERVABILITY._history.enabled:
-                with OBSERVABILITY._history._connect() as conn:
+                with OBSERVABILITY._history._connection() as conn:
                     # Get models from requests
                     for row in conn.execute("SELECT DISTINCT model FROM requests WHERE model IS NOT NULL AND model != ''"):
                         if row[0]:

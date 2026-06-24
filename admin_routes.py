@@ -96,7 +96,6 @@ class AdminRoutesMixin:
                     "metrics": OBSERVABILITY.snapshot_lite(),
                     "router": ROUTER.snapshot(),
                     "policy": scheduler_policy.policy_snapshot(CONFIG),
-                    "models": _model_capabilities_snapshot(),
                     "history_dropped": history_dropped,
                 }
             )

@@ -194,7 +194,7 @@ class AdminApiTests(unittest.TestCase):
         self.assertEqual(status, 403)
         self.assertEqual(body["error"]["message"], "admin auth required")
 
-    def test_admin_status_returns_metrics_router_and_models_without_raw_keys(self):
+    def test_admin_status_is_lightweight_and_models_capabilities_are_separate(self):
         cfg = {
             "server": {"admin_key": "admin-secret"},
             "observability": {"recent_requests_limit": 10},
@@ -234,17 +234,24 @@ class AdminApiTests(unittest.TestCase):
 
         with patch.object(sse2json, "CONFIG", cfg), patch.object(sse2json, "ROUTER", router):
             status, body = self.get_json("/-/admin/status", headers={"X-Admin-Key": "admin-secret"})
+            models_status, models_body = self.get_json(
+                "/-/admin/models/capabilities",
+                headers={"X-Admin-Key": "admin-secret"},
+            )
 
         self.assertEqual(status, 200)
         self.assertEqual(body["status"], "ok")
         self.assertIn("metrics", body)
         self.assertIn("router", body)
         self.assertIn("policy", body)
+        self.assertNotIn("models", body)
         self.assertIn("rule_table", body["policy"])
         self.assertEqual(body["policy"]["failure_policies"]["empty_visible_output"]["cooldown_scope"], "none")
-        self.assertEqual(body["models"]["providers"]["alpha"]["status"], "ok")
-        self.assertNotIn("ghost", body["models"]["providers"])
+        self.assertEqual(models_status, 200)
+        self.assertEqual(models_body["providers"]["alpha"]["status"], "ok")
+        self.assertNotIn("ghost", models_body["providers"])
         self.assertNotIn("raw-alpha-key", json.dumps(body))
+        self.assertNotIn("raw-alpha-key", json.dumps(models_body))
 
     def test_provider_activity_can_include_events_for_provider_cards(self):
         cfg = {
@@ -287,13 +294,21 @@ class AdminApiTests(unittest.TestCase):
                 "/-/admin/provider-activity?include_events=1&limit=24",
                 headers={"X-Admin-Key": "admin-secret"},
             )
+            light_status, light_body = self.get_json(
+                "/-/admin/provider-activity?limit=24",
+                headers={"X-Admin-Key": "admin-secret"},
+            )
 
         self.assertEqual(status, 200)
         self.assertIn("alpha", body["providers"])
         self.assertEqual(body["providers"]["alpha"]["total"], 1)
         self.assertEqual(body["providers"]["alpha"]["events"][0]["requestId"], "req-provider-activity")
         self.assertEqual(body["providers"]["alpha"]["events"][0]["tone"], "ok")
+        self.assertEqual(light_status, 200)
+        self.assertIn("alpha", light_body["providers"])
+        self.assertNotIn("events", light_body["providers"]["alpha"])
         self.assertNotIn("raw-alpha-key", json.dumps(body))
+        self.assertNotIn("raw-alpha-key", json.dumps(light_body))
 
     def test_admin_metrics_accepts_bearer_token(self):
         cfg = {"server": {"admin_key": "admin-secret"}, "providers": {}, "models": {}}

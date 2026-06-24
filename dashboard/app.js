@@ -1335,17 +1335,21 @@
 					const needTimeseries = !quiet || view === "overview" || state.forceTimeseriesFetch;
 					const needRequests = !quiet || view === "requests" || state.forceRequestsFetch;
 					const needRecentRing = !quiet || view === "overview" || state.forceRequestsFetch;
+					const needStaticAdminData = !quiet || !state.data.status || !state.data.config;
 					state.forceTimeseriesFetch = false;
 					state.forceRequestsFetch = false;
 					const fetches = {
 						metrics: apiGet("/-/admin/metrics"),
-						providerActivity: apiGet("/-/admin/provider-activity?include_events=1&limit=60"),
-						status: apiGet("/-/admin/status"),
-						routing: apiGet("/-/admin/routing"),
-						config: apiGet("/-/admin/config"),
-						overlay: apiGet("/-/admin/config/overlay"),
-						audit: apiGet("/-/admin/audit?limit=12")
+						providerActivity: apiGet("/-/admin/provider-activity?limit=60")
 					};
+					if (needStaticAdminData) {
+						fetches.status = apiGet("/-/admin/status");
+						fetches.models = apiGet("/-/admin/models/capabilities");
+						fetches.routing = apiGet("/-/admin/routing");
+						fetches.config = apiGet("/-/admin/config");
+						fetches.overlay = apiGet("/-/admin/config/overlay");
+						fetches.audit = apiGet("/-/admin/audit?limit=12");
+					}
 					if (needRecentRing) fetches.metricsFull = apiGet("/-/admin/metrics/full");
 					if (needTimeseries) fetches.timeseries = apiGet(timeseriesPath());
 					if (needRequests) fetches.requests = apiGet(requestsPath());
@@ -1364,6 +1368,10 @@
 					}
 					if (result.timeseries !== void 0) state.data.timeseries = result.timeseries;
 					if (result.status !== void 0) state.data.status = result.status;
+					if (result.models !== void 0) state.data.status = {
+						...state.data.status || {},
+						models: result.models
+					};
 					if (result.requests !== void 0) state.data.requests = result.requests;
 					if (result.routing !== void 0) state.data.routing = result.routing;
 					if (result.config !== void 0) state.data.config = result.config;

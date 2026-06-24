@@ -68,6 +68,47 @@ class RouterStateMigrationTests(unittest.TestCase):
 
 
 class RuntimeStatePersistenceTests(unittest.TestCase):
+    def test_apply_runtime_config_persists_migrated_router_state(self):
+        old_cfg = {
+            "providers": {"alpha": {"base_url": "https://a.test", "keys": ["k1"]}},
+            "models": {},
+            "routing": {},
+        }
+        old_router = UpstreamRouter(old_cfg)
+        old_router._keys_state[("alpha", 0)].fails = 3
+        new_cfg = {
+            "providers": {
+                "alpha": {"base_url": "https://a.test", "keys": ["k1"]},
+                "beta": {"base_url": "https://b.test", "keys": ["k2"]},
+            },
+            "models": {},
+            "routing": {},
+        }
+
+        originals = {
+            "CONFIG": sse2json.CONFIG,
+            "ROUTER": sse2json.ROUTER,
+            "UPSTREAM_CLIENT": sse2json.UPSTREAM_CLIENT,
+            "OBSERVABILITY": sse2json.OBSERVABILITY,
+            "AUDIT": sse2json.AUDIT,
+            "RUNTIME": sse2json.RUNTIME,
+            "MODEL_DISCOVERY_QUEUE": sse2json.MODEL_DISCOVERY_QUEUE,
+        }
+        try:
+            sse2json.CONFIG = old_cfg
+            sse2json.ROUTER = old_router
+            sse2json.MODEL_DISCOVERY_QUEUE = None
+
+            with patch.object(sse2json, "_save_router_state") as save_router_state:
+                sse2json._apply_runtime_config(new_cfg)
+
+            save_router_state.assert_called_once_with()
+            self.assertEqual(sse2json.ROUTER._keys_state[("alpha", 0)].fails, 3)
+            self.assertIn(("beta", 0), sse2json.ROUTER._keys_state)
+        finally:
+            for name, value in originals.items():
+                setattr(sse2json, name, value)
+
     def test_router_state_file_restores_provider_model_capabilities(self):
         cfg = {
             "providers": {"alpha": {"base_url": "https://a.test", "keys": ["k1"]}},

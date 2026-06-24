@@ -8,6 +8,7 @@ import sqlite3
 import threading
 import time
 import queue
+from contextlib import contextmanager
 from typing import Any, Dict, Iterable, Optional
 
 from routing_explain import enrich_request
@@ -70,6 +71,15 @@ class RequestHistoryStore:
         conn.execute("PRAGMA foreign_keys=ON")
         return conn
 
+    @contextmanager
+    def _connection(self):
+        conn = self._connect()
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()
+
     def _queue_size(self) -> int:
         hist = self._history_cfg()
         try:
@@ -82,7 +92,7 @@ class RequestHistoryStore:
             return
         with self._lock:
             if not self._ready:
-                with self._connect() as conn:
+                with self._connection() as conn:
                     self._create_schema(conn)
                     self._migrate_schema(conn)
                 self._ready = True
@@ -108,7 +118,7 @@ class RequestHistoryStore:
             try:
                 self._ensure_ready()
                 with self._lock:
-                    with self._connect() as conn:
+                    with self._connection() as conn:
                         self._insert_request(conn, item)
                         self._prune_locked(conn)
             except Exception:
@@ -240,7 +250,7 @@ class RequestHistoryStore:
             try:
                 self._ensure_ready()
                 with self._lock:
-                    with self._connect() as conn:
+                    with self._connection() as conn:
                         self._insert_request(conn, item)
                         self._prune_locked(conn)
             except Exception:
@@ -381,7 +391,7 @@ class RequestHistoryStore:
         filters = filters or {}
         try:
             where, params = self._request_where(filters)
-            with self._connect() as conn:
+            with self._connection() as conn:
                 total = int(conn.execute(f"SELECT COUNT(*) FROM requests r {where}", params).fetchone()[0])
                 rows = conn.execute(
                     f"""
@@ -438,7 +448,7 @@ class RequestHistoryStore:
                 "usage": empty_usage_with_cost(),
                 "by_model_usage": {},
             }
-            with self._connect() as conn:
+            with self._connection() as conn:
                 requests = conn.execute("SELECT * FROM requests").fetchall()
                 for row in requests:
                     item = self._request_from_row(row)
@@ -500,7 +510,7 @@ class RequestHistoryStore:
             limit = max(0, min(500, int(limit)))
             if limit <= 0:
                 return []
-            with self._connect() as conn:
+            with self._connection() as conn:
                 rows = conn.execute(
                     """
                     SELECT *
@@ -528,7 +538,7 @@ class RequestHistoryStore:
             return None
         try:
             self._ensure_ready()
-            with self._connect() as conn:
+            with self._connection() as conn:
                 row = conn.execute("SELECT * FROM requests WHERE request_id = ?", (rid,)).fetchone()
                 if row is None:
                     return None
@@ -550,7 +560,7 @@ class RequestHistoryStore:
             end = ((now // bucket_s) + 1) * bucket_s
             start = end - bucket_s * buckets
             series = [self._new_bucket(start + i * bucket_s, bucket_s) for i in range(buckets)]
-            with self._connect() as conn:
+            with self._connection() as conn:
                 rows = conn.execute(
                     "SELECT * FROM requests WHERE finished_at >= ? AND finished_at < ? ORDER BY finished_at ASC",
                     (start, end),
