@@ -672,7 +672,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         try {
           await apiPost("/-/admin/providers", payload);
           closeFormModal();
-          await refreshAll({ quiet: true });
+          await refreshAll({ quiet: true, staticData: true });
           setNotice(`Provider ${payload.name} added.`, "ok");
         } catch (err) {
           setNotice(`Add provider failed: ${err.message}`);
@@ -762,7 +762,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     return `<span class="model-price-tip" data-tip="${escapeHtml(tip)}" tabindex="0" aria-label="Pricing for ${escapeHtml(modelName)}">${iconSvg("info")}</span>`;
   }
 
-  async function refreshAll({ quiet = false, preserveNotice = false } = {}) {
+  async function refreshAll({ quiet = false, preserveNotice = false, staticData = false } = {}) {
     if (!state.adminKey) {
       setConnection(false, "Admin key required");
       showLogin(quiet ? "" : "Admin key is required to load console data.");
@@ -777,7 +777,12 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       // Remember that another refresh is wanted (e.g. user switched tab while we
       // were fetching); we will run one more after the current finishes.
       _refreshWanted = true;
-      _refreshWantedArgs = { quiet, preserveNotice };
+      const previous = _refreshWantedArgs;
+      _refreshWantedArgs = {
+        quiet: previous ? Boolean(previous.quiet && quiet) : Boolean(quiet),
+        preserveNotice: previous ? Boolean(previous.preserveNotice || preserveNotice) : Boolean(preserveNotice),
+        staticData: previous ? Boolean(previous.staticData || staticData) : Boolean(staticData),
+      };
       return;
     }
     _refreshInFlight = true;
@@ -799,7 +804,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       const needTimeseries = !quiet || view === "overview" || state.forceTimeseriesFetch;
       const needRequests = !quiet || view === "requests" || state.forceRequestsFetch;
       const needRecentRing = !quiet || view === "overview" || state.forceRequestsFetch;
-      const needStaticAdminData = !quiet || !state.data.status || !state.data.config;
+      const needStaticAdminData = staticData || !quiet || !state.data.status || !state.data.config;
       state.forceTimeseriesFetch = false;
       state.forceRequestsFetch = false;
 
@@ -2941,8 +2946,6 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
           await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { static_models: models });
           setNotice(`Static models for ${provider} saved.`, "ok");
           form.elements.static_models.value = "";
-          await refreshAll({ quiet: true, preserveNotice: true });
-          renderProviderDrawer({ force: true });
         });
       });
     });
@@ -2955,7 +2958,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         try {
           await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { static_models: [] });
           setNotice(`Static models for ${provider} cleared.`, "ok");
-          await refreshAll({ quiet: true, preserveNotice: true });
+          await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
           renderProviderDrawer({ force: true });
         } catch (err) {
           setNotice(`Failed: ${err.message}`);
@@ -2976,7 +2979,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         try {
           await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { static_models: models });
           setNotice(`Static model ${model} removed from ${provider}.`, "ok");
-          await refreshAll({ quiet: true, preserveNotice: true });
+          await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
           renderProviderDrawer({ force: true });
         } catch (err) {
           setNotice(`Failed: ${err.message}`);
@@ -3780,8 +3783,15 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         const path = `/-/admin${button.dataset.actionPath}`;
         button.disabled = true;
         try {
-          await apiPost(path);
-          await refreshAll({ quiet: true });
+          const result = await apiPost(path);
+          if (result?.router) {
+            state.data.status = { ...(state.data.status || {}), router: result.router };
+            state.data.version = Number(state.data.version || 0) + 1;
+            state.forceProvidersRender = true;
+            renderAll();
+            renderProviderDrawer({ force: true });
+          }
+          await refreshAll({ quiet: true, staticData: true });
         } catch (err) {
           setNotice(`Action failed: ${err.message}`);
         } finally {
@@ -3889,7 +3899,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         try {
           await apiPost(`/-/admin/providers/${encodeURIComponent(provider)}/keys/${encodeURIComponent(keyIndex)}/delete`, { confirm: "delete_key" });
           setNotice(`Key ${keyIndex} deleted from ${provider}.`, "ok");
-          await refreshAll({ quiet: true, preserveNotice: true });
+          await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
         } catch (err) {
           setNotice(`Delete key failed: ${err.message}`);
         } finally {
@@ -3933,7 +3943,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
             const detail = result.http_status ? `HTTP ${result.http_status}` : result.error_type || "failed";
             setNotice(`Key ${keyIndex} of ${provider} failed: ${detail}.`, "bad", { key: toastKey });
           }
-          await refreshAll({ quiet: true, preserveNotice: true });
+          await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
         } catch (err) {
           state.keyProbes[probeKey] = { ok: false, error_type: "request_error" };
           setNotice(`Test key failed: ${err.message}`, "bad", { key: toastKey });
@@ -3962,7 +3972,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         try {
           await apiPost(`/-/admin/providers/${encodeURIComponent(provider)}/models/refresh`);
           setNotice(`Models for ${provider} refreshed.`, "ok");
-          await refreshAll({ quiet: true, preserveNotice: true });
+          await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
           renderProviderDrawer({ force: true });
         } catch (err) {
           setNotice(`Model refresh failed: ${err.message}`, "bad");
@@ -3980,7 +3990,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/models/disabled`, { models });
       if (state.providerModelDrafts) delete state.providerModelDrafts[provider];
       setNotice(successMessage || `Model settings for ${provider} saved.`, "ok");
-      await refreshAll({ quiet: true, preserveNotice: true });
+      await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
       renderProviderDrawer({ force: true });
     } catch (err) {
       setNotice(`Model setting failed: ${err.message}`, "bad");
@@ -3996,7 +4006,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         raw_model: rawModel,
       });
       setNotice(nextModel ? `Model mapping saved for ${provider}.` : `Model mapping reset for ${provider}.`, "ok");
-      await refreshAll({ quiet: true, preserveNotice: true });
+      await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
       renderProviderDrawer({ force: true });
       return true;
     } catch (err) {
@@ -4419,7 +4429,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       if (document.activeElement && typeof document.activeElement.blur === "function") {
         document.activeElement.blur();
       }
-      await refreshAll({ quiet: true, preserveNotice: true });
+      await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
     } catch (err) {
       setNotice(`Policy update failed: ${err.message}`);
     } finally {
@@ -4940,7 +4950,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
           if (state.providerDrawerName === provider) closeProviderDrawer();
           state.forceConfigRender = true;
           setNotice(`Provider ${provider} deleted.`, "ok");
-          await refreshAll({ quiet: true, preserveNotice: true });
+          await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
         } catch (err) {
           setNotice(`Delete provider failed: ${err.message}`);
         } finally {
@@ -5093,7 +5103,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       if (document.activeElement && typeof document.activeElement.blur === "function") {
         document.activeElement.blur();
       }
-      await refreshAll({ quiet: true, preserveNotice: true });
+      await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
     } catch (err) {
       setNotice(`Config update failed: ${err.message}`);
     } finally {
@@ -5617,7 +5627,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     el("reloadConfigButton").addEventListener("click", async () => {
       try {
         await apiPost("/-/admin/config/reload");
-        await refreshAll({ quiet: true });
+        await refreshAll({ quiet: true, staticData: true });
       } catch (err) {
         setNotice(`Config reload failed: ${err.message}`);
       }
@@ -5678,7 +5688,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
           2,
         );
         setNotice(result.backup_path ? `Overlay cleared. Backup: ${result.backup_path}` : "Overlay cleared.", "ok");
-        await refreshAll({ quiet: true, preserveNotice: true });
+        await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
       } catch (err) {
         setNotice(`Clear overlay failed: ${err.message}`);
       }
@@ -5710,7 +5720,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       try {
         await apiPost("/-/admin/providers", payload);
         if (formEl && typeof formEl.reset === "function") formEl.reset();
-        await refreshAll({ quiet: true });
+        await refreshAll({ quiet: true, staticData: true });
         setNotice(`Provider ${payload.name} added.`, "ok");
       } catch (err) {
         setNotice(`Add provider failed: ${err.message}`);
@@ -5768,7 +5778,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
           await apiPost("/-/admin/models/routes/delete", { model });
           state.forceModelRoutesRender = true;
           setNotice(`Model route ${model} deleted.`, "ok");
-          await refreshAll({ quiet: true, preserveNotice: true });
+          await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
         } catch (err) {
           setNotice(`Delete model route failed: ${err.message}`);
         } finally {
