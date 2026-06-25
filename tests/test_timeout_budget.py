@@ -53,7 +53,7 @@ class TimeoutBudgetTests(unittest.TestCase):
     def test_stream_open_uses_smaller_of_connect_and_first_event_budget(self):
         sock = _FakeSock()
         opener = _FakeOpener(_FakeResponse(sock))
-        client = OpenAIUpstreamClient({"routing": {"connect_timeout_s": 15, "read_timeout_s": 120}})
+        client = OpenAIUpstreamClient({"routing": {"transport": "urllib", "connect_timeout_s": 15, "read_timeout_s": 120}})
         client._default_opener = opener
 
         client.open_stream("https://example.test/v1/responses", {}, {"model": "m"}, first_byte_timeout_s=30)

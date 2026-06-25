@@ -66,6 +66,140 @@ class RouterStateMigrationTests(unittest.TestCase):
         new.migrate_state_from(None)
         self.assertIn("alpha", new._providers_state)
 
+    # ------------------------------------------------------------------
+    # Multi-key state migration: state must follow the *key value*, not the
+    # *index*.  Deleting or reordering a middle key must not shift cooldown /
+    # failure state onto a different key.
+    # ------------------------------------------------------------------
+
+    def test_migration_after_deleting_first_key_preserves_remaining_state(self):
+        """Delete key[0] ("k1"); the cooldown on key[1] ("k2") must stay on k2."""
+        old = UpstreamRouter(_cfg(self.providers))
+        old._keys_state[("alpha", 1)].cooldown_until = time.time() + 300
+        old._keys_state[("alpha", 1)].fails = 7
+
+        # Simulate delete_key("alpha", 0): k1 is gone, k2 shifts to index 0.
+        new_cfg = _cfg({
+            "alpha": {"base_url": "https://a.test", "keys": ["k2"]},
+            "beta": self.providers["beta"],
+        })
+        new = UpstreamRouter(new_cfg)
+        new.migrate_state_from(old)
+
+        # k2 is now at index 0 — its cooldown and fails must follow.
+        self.assertGreater(new._keys_state[("alpha", 0)].cooldown_until, time.time())
+        self.assertEqual(new._keys_state[("alpha", 0)].fails, 7)
+        # k1's old slot (index 0 in old router) must NOT leak into k2's state.
+        self.assertNotIn(("alpha", 1), new._keys_state)
+
+    def test_migration_after_deleting_middle_key_preserves_state(self):
+        """Three keys [A, B, C]; delete B (index 1); A and C keep their state."""
+        providers = {
+            "p": {"base_url": "https://x.test", "keys": ["A", "B", "C"]},
+        }
+        old = UpstreamRouter(_cfg(providers))
+        old._keys_state[("p", 0)].fails = 1          # A
+        old._keys_state[("p", 1)].cooldown_until = time.time() + 120  # B
+        old._keys_state[("p", 2)].fails = 9          # C
+
+        # Delete B: keys become [A, C]
+        new_cfg = _cfg({"p": {"base_url": "https://x.test", "keys": ["A", "C"]}})
+        new = UpstreamRouter(new_cfg)
+        new.migrate_state_from(old)
+
+        self.assertEqual(new._keys_state[("p", 0)].fails, 1)          # A keeps fails=1
+        self.assertEqual(new._keys_state[("p", 1)].fails, 9)          # C keeps fails=9
+        # B's cooldown must NOT land on C.
+        self.assertEqual(new._keys_state[("p", 1)].cooldown_until, 0.0)
+
+    def test_migration_after_reordering_keys_preserves_state(self):
+        """Reorder [A, B] → [B, A]; state must follow the key value."""
+        old = UpstreamRouter(_cfg(self.providers))
+        old._keys_state[("alpha", 0)].fails = 3   # k1
+        old._keys_state[("alpha", 1)].fails = 8   # k2
+
+        new_cfg = _cfg({
+            "alpha": {"base_url": "https://a.test", "keys": ["k2", "k1"]},
+            "beta": self.providers["beta"],
+        })
+        new = UpstreamRouter(new_cfg)
+        new.migrate_state_from(old)
+
+        self.assertEqual(new._keys_state[("alpha", 0)].fails, 8)   # k2 now idx 0
+        self.assertEqual(new._keys_state[("alpha", 1)].fails, 3)   # k1 now idx 1
+
+    def test_migration_duplicate_key_values_get_first_match(self):
+        """If the same key value appears twice in the new config, the first
+        matching index wins and the second gets no migrated state."""
+        old = UpstreamRouter(_cfg({"p": {"base_url": "https://x.test", "keys": ["K"]}}))
+        old._keys_state[("p", 0)].fails = 5
+
+        new_cfg = _cfg({"p": {"base_url": "https://x.test", "keys": ["K", "K"]}})
+        new = UpstreamRouter(new_cfg)
+        new.migrate_state_from(old)
+
+        self.assertEqual(new._keys_state[("p", 0)].fails, 5)
+        # The second slot was created by _init_states but receives no migration.
+        self.assertEqual(new._keys_state[("p", 1)].fails, 0)
+
+
+class KeyFingerprintPersistenceTests(unittest.TestCase):
+    """Verify dump_state / load_state survive key-list reordering via key_hint."""
+
+    def test_dump_state_includes_key_hint(self):
+        cfg = _cfg({"p": {"base_url": "https://x.test", "keys": ["secret-A"]}})
+        r = UpstreamRouter(cfg)
+        state = r.dump_state()
+        entry = state["keys"]["p\x000"]
+        self.assertIn("key_hint", entry)
+        self.assertTrue(entry["key_hint"])
+        self.assertNotIn("secret", entry["key_hint"])
+
+    def test_load_state_matches_by_fingerprint_after_reorder(self):
+        """State saved with keys [A, B] must restore correctly when config is
+        reordered to [B, A] before restart."""
+        old_cfg = _cfg({"p": {"base_url": "https://x.test", "keys": ["A", "B"]}})
+        old = UpstreamRouter(old_cfg)
+        old._keys_state[("p", 0)].fails = 4          # A
+        old._keys_state[("p", 1)].cooldown_until = time.time() + 200  # B
+        state = old.dump_state()
+
+        # Restart with reordered keys [B, A]
+        new_cfg = _cfg({"p": {"base_url": "https://x.test", "keys": ["B", "A"]}})
+        new = UpstreamRouter(new_cfg)
+        new.load_state(state)
+
+        # B is now at index 0, A at index 1.
+        self.assertGreater(new._keys_state[("p", 0)].cooldown_until, time.time())  # B
+        self.assertEqual(new._keys_state[("p", 1)].fails, 4)                       # A
+
+    def test_load_state_falls_back_to_index_without_hint(self):
+        """Old state files without key_hint must still work via index fallback."""
+        old_cfg = _cfg({"p": {"base_url": "https://x.test", "keys": ["A"]}})
+        old = UpstreamRouter(old_cfg)
+        old._keys_state[("p", 0)].fails = 2
+        state = old.dump_state()
+        # Strip the hint to simulate a legacy state file.
+        state["keys"]["p\x000"].pop("key_hint", None)
+
+        new = UpstreamRouter(old_cfg)
+        new.load_state(state)
+        self.assertEqual(new._keys_state[("p", 0)].fails, 2)
+
+    def test_load_state_skips_unknown_key_after_deletion(self):
+        """State for a key that no longer exists must be silently dropped."""
+        old_cfg = _cfg({"p": {"base_url": "https://x.test", "keys": ["A", "B"]}})
+        old = UpstreamRouter(old_cfg)
+        old._keys_state[("p", 1)].fails = 6  # B
+        state = old.dump_state()
+
+        # Restart with only [A] — B is gone.
+        new_cfg = _cfg({"p": {"base_url": "https://x.test", "keys": ["A"]}})
+        new = UpstreamRouter(new_cfg)
+        new.load_state(state)
+
+        self.assertNotIn(("p", 1), new._keys_state)
+
 
 class RuntimeStatePersistenceTests(unittest.TestCase):
     def test_apply_runtime_config_persists_migrated_router_state(self):

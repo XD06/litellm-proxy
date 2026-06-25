@@ -882,6 +882,15 @@ def _default_models():
     return model_registry.default_models()
 
 
+def _should_log_each_request() -> bool:
+    """Whether per-request path logging is enabled.
+
+    Reads the global CONFIG so callers inside do_POST (which shadows CONFIG with
+    a local runtime snapshot later in the method) do not hit UnboundLocalError.
+    """
+    return bool((CONFIG.get("observability") or {}).get("log_provider_on_each_request", False))
+
+
 def _admin_key() -> str:
     return str((CONFIG.get("server") or {}).get("admin_key") or "").strip()
 
@@ -2036,12 +2045,27 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         except OSError:
             pass
 
-    def _resp_json(self, data, status=200):
+    def _send_route_trace_headers(self, attempt, key_masked=None):
+        """Inject routing trace headers so the dashboard Playground can display
+        which provider/key was selected for this request."""
+        try:
+            self.send_header("X-Route-Provider", str(attempt.provider))
+            self.send_header("X-Route-Key", str(key_masked or ""))
+            self.send_header("X-Route-Format", str(attempt.upstream_format))
+            self.send_header("X-Route-Model", str(getattr(attempt, "provider_model", "")))
+            self.send_header("X-Route-Attempt", str(attempt.attempt_no))
+        except Exception:
+            pass
+
+    def _resp_json(self, data, status=200, extra_headers=None):
         b = json.dumps(data).encode()
         try:
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(b)))
+            if extra_headers:
+                for k, v in extra_headers.items():
+                    self.send_header(k, v)
             self.end_headers()
             self.wfile.write(b)
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, OSError):
@@ -2129,7 +2153,8 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         from urllib.parse import urlparse
         clean_path = urlparse(self.path).path
         route = classify_get(clean_path)
-        print(f"[proxy] GET {clean_path}", flush=True)
+        if _should_log_each_request():
+            print(f"[proxy] GET {clean_path}")
         self.log_request_detail("GET", self.path, self.headers)
         if route.endpoint == "health":
             self._resp_json({"status": "ok"})
@@ -2251,6 +2276,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                     self.send_header("Content-Type", "text/event-stream")
                     self.send_header("Cache-Control", "no-cache")
                     self.send_header("X-Accel-Buffering", "no")
+                    self._send_route_trace_headers(attempt, key_masked)
                     self.end_headers()
                     response_started = True
 
@@ -2347,9 +2373,16 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                     duration_ms=_attempt_duration_ms(attempt_started),
                 )
                 OBSERVABILITY.record_request_end(request_id, status_code=200)
+                _route_hdrs = {
+                    "X-Route-Provider": str(attempt.provider),
+                    "X-Route-Key": str(key_masked or ""),
+                    "X-Route-Format": str(attempt.upstream_format),
+                    "X-Route-Model": str(getattr(attempt, "provider_model", "")),
+                    "X-Route-Attempt": str(attempt.attempt_no),
+                }
                 if raw_response is not None:
                     return self._resp_bytes(raw_response, content_type="application/json")
-                return self._resp_json(client_response)
+                return self._resp_json(client_response, extra_headers=_route_hdrs)
 
             except (HTTPError, CachedHTTPError) as e:
                 status, error_body, headers = _http_error_details(e)
@@ -2544,6 +2577,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                     self.send_header("Content-Type", "text/event-stream")
                     self.send_header("Cache-Control", "no-cache")
                     self.send_header("X-Accel-Buffering", "no")
+                    self._send_route_trace_headers(attempt, key_masked)
                     self.end_headers()
                     response_started = True
 
@@ -2641,9 +2675,16 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                     duration_ms=_attempt_duration_ms(attempt_started),
                 )
                 OBSERVABILITY.record_request_end(request_id, status_code=200)
+                _route_hdrs = {
+                    "X-Route-Provider": str(attempt.provider),
+                    "X-Route-Key": str(key_masked or ""),
+                    "X-Route-Format": str(attempt.upstream_format),
+                    "X-Route-Model": str(getattr(attempt, "provider_model", "")),
+                    "X-Route-Attempt": str(attempt.attempt_no),
+                }
                 if raw_response is not None:
                     return self._resp_bytes(raw_response, content_type="application/json")
-                return self._resp_json(client_response)
+                return self._resp_json(client_response, extra_headers=_route_hdrs)
 
             except (HTTPError, CachedHTTPError) as e:
                 status, error_body, headers = _http_error_details(e)
@@ -2751,7 +2792,8 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         clean_path = urlparse(self.path).path
         route = classify_post(clean_path)
         self.log_request_detail("POST", self.path, self.headers)
-        print(f"[proxy] POST {clean_path}", flush=True)
+        if _should_log_each_request():
+            print(f"[proxy] POST {clean_path}")
 
         if route.family == "admin":
             return self._resp_admin_mutation(route.endpoint)
@@ -2918,6 +2960,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                         self.send_header("Content-Type", "text/event-stream")
                         self.send_header("Cache-Control", "no-cache")
                         self.send_header("X-Accel-Buffering", "no")
+                        self._send_route_trace_headers(attempt, key_masked)
                         self.end_headers()
                         response_started = True
 
@@ -3007,10 +3050,17 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                         duration_ms=_attempt_duration_ms(attempt_started),
                     )
                     OBSERVABILITY.record_request_end(request_id, status_code=200)
+                    _route_hdrs = {
+                        "X-Route-Provider": str(attempt.provider),
+                        "X-Route-Key": str(key_masked or ""),
+                        "X-Route-Format": str(attempt.upstream_format),
+                        "X-Route-Model": str(getattr(attempt, "provider_model", "")),
+                        "X-Route-Attempt": str(attempt.attempt_no),
+                    }
                     if raw_response is not None:
                         self._resp_bytes(raw_response, content_type="application/json")
                     else:
-                        self._resp_json(anth_resp)
+                        self._resp_json(anth_resp, extra_headers=_route_hdrs)
                     if DEBUG_LOG:
                         log_request(req, payload, upstream_data, anth_resp)
                     return

@@ -19,6 +19,16 @@ PROVIDER_SELECT_MODES = ("priority_failover", "round_robin", "weighted_rr", "ran
 FORMAT_PREFERENCE_MODES = ("priority_first", "native_first")
 
 
+def _key_fingerprint(key_value_str: str) -> str:
+    """Return a short SHA-256 digest of a key value for state matching.
+
+    Only the first 16 hex chars are kept — enough to avoid collisions in any
+    realistic key pool, while never exposing the raw secret on disk."""
+    if not key_value_str:
+        return ""
+    return hashlib.sha256(key_value_str.encode("utf-8")).hexdigest()[:16]
+
+
 @dataclass(frozen=True)
 class Attempt:
     request_id: str
@@ -488,7 +498,11 @@ class UpstreamRouter:
         """从旧 router 迁移仍存在于新 CONFIG 的 provider/key 运行状态。
 
         热加载配置时调用：保留冷却/失败计数等运行时状态，仅丢弃已删除的
-        provider 或越界的 key 索引。"""
+        provider 或 key。
+
+        Key 状态按 **key 值** 匹配而非按索引，这样在删除/插入中间 key 时
+        不会发生状态错位（例如删除 key[0] 后 key[1] 变成 key[0]，
+        旧 key[0] 的冷却状态不会错误嫁接到 key[1] 上）。"""
         if old_router is None:
             return
         providers_cfg = self.cfg.get("providers") or {}
@@ -496,21 +510,34 @@ class UpstreamRouter:
             old_providers = dict(old_router._providers_state)
             old_keys = dict(old_router._keys_state)
             old_rr = dict(old_router._rr_model)
+            old_providers_cfg = old_router.cfg.get("providers") or {}
         with self._lock:
             for p, ps in old_providers.items():
                 if p in providers_cfg:
                     self._providers_state[p] = ps
-            for (p, i), ks in old_keys.items():
+            for (p, old_idx), ks in old_keys.items():
                 if p not in providers_cfg:
                     continue
-                key_count = len((providers_cfg.get(p) or {}).get("keys") or [])
-                if 0 <= i < key_count:
-                    self._keys_state[(p, i)] = ks
+                old_keys_list = (old_providers_cfg.get(p) or {}).get("keys") or []
+                if old_idx < 0 or old_idx >= len(old_keys_list):
+                    continue
+                old_key_value = key_value(old_keys_list[old_idx])
+                if not old_key_value:
+                    continue
+                new_keys_list = (providers_cfg.get(p) or {}).get("keys") or []
+                for new_idx, new_key_entry in enumerate(new_keys_list):
+                    if key_value(new_key_entry) == old_key_value:
+                        self._keys_state[(p, new_idx)] = ks
+                        break
             self._rr_model.update(old_rr)
 
     def dump_state(self) -> Dict[str, Any]:
-        """序列化可持久化的运行时状态（不含原始 key 值）。"""
+        """序列化可持久化的运行时状态（不含原始 key 值）。
+
+        每个 key 条目附带 ``key_hint`` —— key 值的 SHA-256 摘要前 16 位，
+        用于 ``load_state`` 在 key 列表重排后按值匹配而非按索引。"""
         now = time.time()
+        providers_cfg = self.cfg.get("providers") or {}
         with self._lock:
             providers = {}
             for p, ps in self._providers_state.items():
@@ -520,7 +547,12 @@ class UpstreamRouter:
                 }
             keys = {}
             for (p, i), ks in self._keys_state.items():
+                kv = ""
+                keys_list = (providers_cfg.get(p) or {}).get("keys") or []
+                if 0 <= i < len(keys_list):
+                    kv = key_value(keys_list[i]) or ""
                 keys[f"{p}\x00{i}"] = {
+                    "key_hint": _key_fingerprint(kv),
                     "cooldown_remaining_s": max(0.0, ks.cooldown_until - now),
                     "disabled_remaining_s": max(0.0, ks.disabled_until - now),
                     "fails": ks.fails,
@@ -564,10 +596,23 @@ class UpstreamRouter:
                     continue
                 if p not in providers_cfg:
                     continue
-                key_count = len((providers_cfg.get(p) or {}).get("keys") or [])
-                if not (0 <= i < key_count):
+                new_keys_list = (providers_cfg.get(p) or {}).get("keys") or []
+                key_count = len(new_keys_list)
+                # Prefer matching by key fingerprint so that state survives
+                # key-list reordering (e.g. deleting a middle key then restart).
+                # Fall back to the raw index for old state files without a hint.
+                hint = str(entry.get("key_hint") or "")
+                target_idx: Optional[int] = None
+                if hint:
+                    for idx, k_entry in enumerate(new_keys_list):
+                        if _key_fingerprint(key_value(k_entry) or "") == hint:
+                            target_idx = idx
+                            break
+                if target_idx is None and 0 <= i < key_count:
+                    target_idx = i
+                if target_idx is None:
                     continue
-                ks = self._keys_state.setdefault((p, i), _KeyState())
+                ks = self._keys_state.setdefault((p, target_idx), _KeyState())
                 cooldown_rem = max(0.0, float(entry.get("cooldown_remaining_s") or 0) - age)
                 disabled_rem = max(0.0, float(entry.get("disabled_remaining_s") or 0) - age)
                 if cooldown_rem > 0:

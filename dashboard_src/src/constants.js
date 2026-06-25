@@ -36,4 +36,8 @@ export const views = {
     title: "Config",
     subtitle: "configuration and safe edits",
   },
+  playground: {
+    title: "Playground",
+    subtitle: "Test models with live routing feedback.",
+  },
 };

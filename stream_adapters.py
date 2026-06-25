@@ -173,14 +173,22 @@ def relay_sse_stream(
     initial_lines: Optional[Iterable[bytes]] = None,
     *,
     collect_usage: bool = True,
+    read_timeout_s: Optional[int] = None,
 ) -> Dict[str, int]:
     usage = empty_usage()
+    timeout_switched = False
     for raw in initial_lines or []:
+        if not timeout_switched and read_timeout_s:
+            set_response_read_timeout(upstream, read_timeout_s)
+            timeout_switched = True
         wfile.write(raw)
         wfile.flush()
         if collect_usage:
             usage = _merge_usage(usage, _usage_from_sse_line(raw))
     for raw in upstream:
+        if not timeout_switched and read_timeout_s:
+            set_response_read_timeout(upstream, read_timeout_s)
+            timeout_switched = True
         wfile.write(raw)
         wfile.flush()
         if collect_usage:

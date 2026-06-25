@@ -36,6 +36,45 @@ class PoolManagerCacheTests(unittest.TestCase):
         b = self.client._pool_manager_for("http://127.0.0.1:9999")
         self.assertIsNot(a, b)
 
+    def test_lru_evicts_oldest_when_limit_exceeded(self):
+        # Temporarily lower the limit so the test is fast.
+        original_limit = OpenAIUpstreamClient._MAX_POOL_MANAGERS
+        OpenAIUpstreamClient._MAX_POOL_MANAGERS = 4
+        try:
+            client = OpenAIUpstreamClient({"routing": {}})
+            created = []
+            for port in range(9000, 9000 + 6):
+                m = client._pool_manager_for(f"http://127.0.0.1:{port}")
+                created.append((port, m))
+            # Only 4 managers should remain.
+            self.assertEqual(len(client._pool_managers), 4)
+            # The first two should have been evicted.
+            self.assertNotIn("http://127.0.0.1:9000", client._pool_managers)
+            self.assertNotIn("http://127.0.0.1:9001", client._pool_managers)
+            # The last four should still be present.
+            self.assertIn("http://127.0.0.1:9002", client._pool_managers)
+            self.assertIn("http://127.0.0.1:9005", client._pool_managers)
+        finally:
+            OpenAIUpstreamClient._MAX_POOL_MANAGERS = original_limit
+
+    def test_lru_access_keeps_entry_alive(self):
+        original_limit = OpenAIUpstreamClient._MAX_POOL_MANAGERS
+        OpenAIUpstreamClient._MAX_POOL_MANAGERS = 3
+        try:
+            client = OpenAIUpstreamClient({"routing": {}})
+            first = client._pool_manager_for("http://127.0.0.1:9001")
+            client._pool_manager_for("http://127.0.0.1:9002")
+            # Touch the first one to make it most-recently-used.
+            client._pool_manager_for("http://127.0.0.1:9001")
+            client._pool_manager_for("http://127.0.0.1:9003")
+            client._pool_manager_for("http://127.0.0.1:9004")  # triggers eviction
+            self.assertEqual(len(client._pool_managers), 3)
+            # 9001 was touched, so 9002 (the actual oldest) should be evicted.
+            self.assertIn("http://127.0.0.1:9001", client._pool_managers)
+            self.assertNotIn("http://127.0.0.1:9002", client._pool_managers)
+        finally:
+            OpenAIUpstreamClient._MAX_POOL_MANAGERS = original_limit
+
 
 class Urllib3RequestTests(unittest.TestCase):
     def setUp(self):

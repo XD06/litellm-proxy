@@ -1025,6 +1025,8 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       renderPolicy(); __mark("policy");
     } else if (view === "config") {
       renderConfig(); __mark("config");
+    } else if (view === "playground") {
+      renderPlayground(); __mark("playground");
     }
     renderProviderDrawer(); __mark("providerDrawer");
     bindViewTargetButtons();
@@ -5331,6 +5333,8 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     } else if (nextView === "requests") {
       state.forceRequestsFetch = true;
       refreshAll({ quiet: true });
+    } else if (nextView === "playground") {
+      pgLoadModels();
     }
     syncMobileSettingsContext();
     closeMobileSettings();
@@ -6153,6 +6157,495 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       persist: adminKeySource.fromQuery,
       checkingMessage: "Checking saved admin key.",
     });
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // Playground: interactive model testing with routing feedback
+  // ─────────────────────────────────────────────────────────────
+
+  const pg = {
+    models: [],
+    messages: [],
+    format: "chat_completions",
+    loading: false,
+    abortCtrl: null,
+    firstByteMs: null,
+    startTime: null,
+  };
+
+  function pgEsc(s) {
+    return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function pgEndpoint() {
+    if (pg.format === "anthropic_messages") return "/v1/messages";
+    if (pg.format === "responses") return "/v1/responses";
+    return "/v1/chat/completions";
+  }
+
+  function pgBuildRequest(userText) {
+    const model = el("pgModel")?.value || "";
+    const temperature = parseFloat(el("pgTemperature")?.value || "0.7");
+    const maxTokens = parseInt(el("pgMaxTokens")?.value || "4096", 10);
+    const topP = parseFloat(el("pgTopP")?.value || "1");
+    const stream = el("pgStream")?.checked !== false;
+    const sysPrompt = (el("pgSystemPrompt")?.value || "").trim();
+
+    const msgs = [...pg.messages];
+    if (sysPrompt) {
+      msgs.unshift({ role: "system", content: sysPrompt });
+    }
+    msgs.push({ role: "user", content: userText });
+
+    if (pg.format === "anthropic_messages") {
+      const body = {
+        model,
+        messages: msgs.filter((m) => m.role !== "system").map((m) => ({
+          role: m.role,
+          content: m.content,
+        })),
+        max_tokens: maxTokens,
+        temperature,
+        top_p: topP,
+        stream,
+      };
+      if (sysPrompt) body.system = sysPrompt;
+      return body;
+    }
+
+    if (pg.format === "responses") {
+      return {
+        model,
+        input: msgs.map((m) => ({ role: m.role, content: m.content })),
+        max_output_tokens: maxTokens,
+        temperature,
+        top_p: topP,
+        stream,
+      };
+    }
+
+    return {
+      model,
+      messages: msgs,
+      temperature,
+      max_tokens: maxTokens,
+      top_p: topP,
+      stream,
+    };
+  }
+
+  function pgStatus(text) {
+    const node = el("pgStatusText");
+    if (node) node.textContent = text;
+  }
+
+  function pgRenderMessages() {
+    const chat = el("pgChat");
+    if (!chat) return;
+    if (!pg.messages.length) {
+      chat.innerHTML = `<div class="pg-empty"><span class="pg-empty-text">Send a message to start testing.</span></div>`;
+      return;
+    }
+    chat.innerHTML = pg.messages.map((m) => pgRenderMessage(m)).join("");
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function pgRenderMessage(m) {
+    const roleClass = `pg-role-${m.role || "user"}`;
+    const roleLabel = (m.role || "user").replace("_", " ");
+    let body = "";
+    let meta = "";
+    if (m.error) {
+      body = `<div class="pg-message-error">${pgEsc(m.error)}</div>`;
+    } else if (m.streaming) {
+      body = `<div class="pg-message-content">${pgEsc(m.content || "")}<span class="pg-stream-cursor"></span></div>`;
+    } else {
+      body = `<div class="pg-message-content">${pgEsc(m.content || "")}</div>`;
+    }
+    if (m.provider) {
+      const parts = [`provider:${pgEsc(m.provider)}`];
+      if (m.keyIndex != null) parts.push(`key:${m.keyIndex}`);
+      if (m.firstByteMs != null) parts.push(`${m.firstByteMs}ms first byte`);
+      if (m.totalMs != null) parts.push(`${(m.totalMs / 1000).toFixed(2)}s total`);
+      if (m.usage) {
+        const u = m.usage;
+        const tin = u.input_tokens || u.prompt_tokens || 0;
+        const tout = u.output_tokens || u.completion_tokens || 0;
+        parts.push(`${tin} in / ${tout} out`);
+      }
+      meta = `<div class="pg-message-meta">${parts.map((p) => `<span class="badge tone-neutral">${p}</span>`).join("")}</div>`;
+    }
+    return `<div class="pg-message ${roleClass}">
+      <div class="pg-message-head"><span class="pg-message-role">${roleLabel}</span></div>
+      ${body}${meta}
+    </div>`;
+  }
+
+  function pgRenderTrace(trace) {
+    const strip = el("pgTraceStrip");
+    if (!strip) return;
+    if (!trace) {
+      strip.hidden = true;
+      strip.innerHTML = "";
+      return;
+    }
+    strip.hidden = false;
+    const items = [];
+    if (trace.provider) items.push(["provider", pgEsc(trace.provider)]);
+    if (trace.keyIndex != null) items.push(["key", trace.keyIndex]);
+    if (trace.upstreamFormat) items.push(["format", pgEsc(trace.upstreamFormat)]);
+    if (trace.providerModel) items.push(["upstream model", pgEsc(trace.providerModel)]);
+    if (trace.firstByteMs != null) items.push(["1st byte", `${trace.firstByteMs}ms`]);
+    if (trace.totalMs != null) items.push(["total", `${(trace.totalMs / 1000).toFixed(2)}s`]);
+    if (trace.usage) {
+      const u = trace.usage;
+      const tin = u.input_tokens || u.prompt_tokens || 0;
+      const tout = u.output_tokens || u.completion_tokens || 0;
+      items.push(["tokens", `${tin}in/${tout}out`]);
+    }
+    strip.innerHTML = items.map(([k, v]) => `<div class="pg-trace-item"><span class="pg-trace-k">${k}</span><span class="pg-trace-v">${v}</span></div>`).join("");
+  }
+
+  async function pgLoadModels() {
+    // Always fetch fresh models to ensure latest data
+    try {
+      const data = await apiGet("/v1/models");
+      const models = (data?.data || data?.models || []).map((m) => m.id || m);
+      pg.models = models.sort();
+      pgPopulateModelSelect();
+    } catch (err) {
+      pgStatus(`Failed to load models: ${err.message}`);
+    }
+  }
+
+  function pgPopulateModelSelect() {
+    const hidden = el("pgModel");
+    const searchInput = el("pgModelSearch");
+    if (!hidden || !searchInput) return;
+    // Keep current selection if still valid
+    if (!hidden.value || !pg.models.includes(hidden.value)) {
+      hidden.value = pg.models[0] || "";
+    }
+    searchInput.value = hidden.value;
+  }
+
+  function pgFilterModels(query) {
+    const q = (query || "").toLowerCase().trim();
+    if (!q) return pg.models;
+    return pg.models.filter((m) => m.toLowerCase().includes(q));
+  }
+
+  function pgShowModelDropdown() {
+    const dropdown = el("pgModelDropdown");
+    const searchInput = el("pgModelSearch");
+    if (!dropdown || !searchInput) return;
+    const filtered = pgFilterModels(searchInput.value);
+    if (!filtered.length) {
+      dropdown.innerHTML = '<div class="pg-model-empty">No models found</div>';
+    } else {
+      const current = el("pgModel").value;
+      dropdown.innerHTML = filtered.map((id) => `<div class="pg-model-option${id === current ? " selected" : ""}" data-model="${pgEsc(id)}">${pgEsc(id)}</div>`).join("");
+    }
+    dropdown.hidden = false;
+  }
+
+  function pgHideModelDropdown() {
+    const dropdown = el("pgModelDropdown");
+    if (dropdown) dropdown.hidden = true;
+  }
+
+  function pgSelectModel(id) {
+    const hidden = el("pgModel");
+    const searchInput = el("pgModelSearch");
+    if (hidden) hidden.value = id;
+    if (searchInput) searchInput.value = id;
+    pgHideModelDropdown();
+  }
+
+  function pgExtractContent(chunk, format) {
+    if (format === "anthropic_messages") {
+      if (chunk.type === "content_block_delta" && chunk.delta) {
+        if (chunk.delta.type === "text_delta") return chunk.delta.text || "";
+        if (chunk.delta.type === "thinking_delta") return "";
+      }
+      if (chunk.type === "message_stop") return null;
+      return "";
+    }
+    if (format === "responses") {
+      if (chunk.type === "response.output_text.delta") return chunk.delta || "";
+      return "";
+    }
+    // chat_completions
+    const choice = chunk.choices?.[0];
+    if (!choice) return "";
+    return choice.delta?.content || "";
+  }
+
+  function pgExtractUsage(data, format) {
+    if (format === "anthropic_messages") {
+      if (data.usage) return { input_tokens: data.usage.input_tokens || 0, output_tokens: data.usage.output_tokens || 0 };
+      if (data.message?.usage) return { input_tokens: data.message.usage.input_tokens || 0, output_tokens: data.message.usage.output_tokens || 0 };
+    }
+    if (format === "responses") {
+      if (data.usage) return { input_tokens: data.usage.input_tokens || 0, output_tokens: data.usage.output_tokens || 0 };
+    }
+    if (data.usage) return { input_tokens: data.usage.prompt_tokens || 0, output_tokens: data.usage.completion_tokens || 0 };
+    return null;
+  }
+
+  async function pgSend() {
+    const input = el("pgChatInput");
+    if (!input) return;
+    const userText = input.value.trim();
+    if (!userText || pg.loading) return;
+    input.value = "";
+
+    pg.messages.push({ role: "user", content: userText });
+    const assistantMsg = { role: "assistant", content: "", streaming: true };
+    pg.messages.push(assistantMsg);
+    pg.loading = true;
+    pg.firstByteMs = null;
+    pg.startTime = performance.now();
+    pgRenderMessages();
+
+    const sendBtn = el("pgSendButton");
+    const stopBtn = el("pgStopButton");
+    if (sendBtn) sendBtn.hidden = true;
+    if (stopBtn) stopBtn.hidden = false;
+    pgStatus("Sending...");
+
+    const body = pgBuildRequest(userText);
+    const stream = body.stream !== false;
+    const endpoint = pgEndpoint();
+
+    pg.abortCtrl = new AbortController();
+
+    try {
+      const resp = await fetch(withAdmin(endpoint), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(state.adminKey ? { "X-Admin-Key": state.adminKey } : {}),
+        },
+        body: JSON.stringify(body),
+        signal: pg.abortCtrl.signal,
+      });
+
+      if (!resp.ok) {
+        const errData = await readJson(resp);
+        throw new Error(errorMessage(errData, resp.status));
+      }
+
+      // Extract routing trace from response headers (injected by the proxy backend)
+      const routeTrace = pgExtractRouteHeaders(resp);
+      if (routeTrace) {
+        assistantMsg.provider = routeTrace.provider;
+        assistantMsg.keyIndex = routeTrace.keyIndex;
+        assistantMsg.upstreamFormat = routeTrace.upstreamFormat;
+        assistantMsg.providerModel = routeTrace.providerModel;
+      }
+
+      if (stream && resp.body) {
+        await pgHandleStream(resp, assistantMsg);
+      } else {
+        const data = await resp.json();
+        assistantMsg.content = pgExtractNonStreamContent(data, pg.format);
+        assistantMsg.usage = pgExtractUsage(data, pg.format);
+      }
+
+      assistantMsg.streaming = false;
+      assistantMsg.totalMs = performance.now() - pg.startTime;
+      pgRenderMessages();
+
+      const trace = {
+        provider: assistantMsg.provider,
+        keyIndex: assistantMsg.keyIndex,
+        upstreamFormat: assistantMsg.upstreamFormat || pg.format,
+        providerModel: assistantMsg.providerModel,
+        firstByteMs: pg.firstByteMs,
+        totalMs: assistantMsg.totalMs,
+        usage: assistantMsg.usage,
+      };
+      pgRenderTrace(trace);
+      pgStatus("Done.");
+    } catch (err) {
+      if (err.name === "AbortError") {
+        assistantMsg.content += "\n[stopped by user]";
+        pgStatus("Stopped.");
+      } else {
+        assistantMsg.error = err.message;
+        pgStatus(`Error: ${err.message}`);
+      }
+      assistantMsg.streaming = false;
+      pgRenderMessages();
+    } finally {
+      pg.loading = false;
+      pg.abortCtrl = null;
+      if (sendBtn) sendBtn.hidden = false;
+      if (stopBtn) stopBtn.hidden = true;
+    }
+  }
+
+  function pgExtractRouteHeaders(resp) {
+    const provider = resp.headers.get("x-route-provider");
+    if (!provider) return null;
+    return {
+      provider,
+      keyIndex: resp.headers.get("x-route-key") || null,
+      upstreamFormat: resp.headers.get("x-route-format") || null,
+      providerModel: resp.headers.get("x-route-model") || null,
+      attemptNo: resp.headers.get("x-route-attempt") || null,
+    };
+  }
+
+  function pgExtractNonStreamContent(data, format) {
+    if (format === "anthropic_messages") {
+      const blocks = data.content || [];
+      return blocks.filter((b) => b.type === "text").map((b) => b.text || "").join("");
+    }
+    if (format === "responses") {
+      return data.output_text || (data.output || []).filter((b) => b.type === "message").map((b) => (b.content || []).map((c) => c.text || "").join("")).join("");
+    }
+    return data.choices?.[0]?.message?.content || "";
+  }
+
+  async function pgHandleStream(resp, assistantMsg) {
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let gotFirstByte = false;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith(":")) continue;
+        if (!trimmed.startsWith("data:")) continue;
+        const payload = trimmed.slice(5).trim();
+        if (payload === "[DONE]") continue;
+        try {
+          const chunk = JSON.parse(payload);
+          if (!gotFirstByte) {
+            gotFirstByte = true;
+            pg.firstByteMs = Math.round(performance.now() - pg.startTime);
+          }
+          const text = pgExtractContent(chunk, pg.format);
+          if (text === null) break;
+          if (text) {
+            assistantMsg.content += text;
+            pgRenderMessages();
+          }
+          // Capture usage from final chunk
+          const usage = pgExtractUsage(chunk, pg.format);
+          if (usage) assistantMsg.usage = usage;
+          // Capture provider from response headers/metadata
+          if (chunk.provider && !assistantMsg.provider) assistantMsg.provider = chunk.provider;
+        } catch (_e) {
+          // Skip non-JSON lines
+        }
+      }
+    }
+  }
+
+  function pgStop() {
+    if (pg.abortCtrl) {
+      pg.abortCtrl.abort();
+    }
+  }
+
+  function pgClear() {
+    pg.messages = [];
+    pgRenderTrace(null);
+    pgStatus("Ready.");
+    pgRenderMessages();
+  }
+
+  function pgBindEvents() {
+    const sendBtn = el("pgSendButton");
+    const stopBtn = el("pgStopButton");
+    const clearBtn = el("pgClearButton");
+    const chat = el("pgChat");
+
+    if (sendBtn && !sendBtn.dataset.pgBound) {
+      sendBtn.dataset.pgBound = "1";
+      sendBtn.addEventListener("click", pgSend);
+    }
+    if (stopBtn && !stopBtn.dataset.pgBound) {
+      stopBtn.dataset.pgBound = "1";
+      stopBtn.addEventListener("click", pgStop);
+    }
+    if (clearBtn && !clearBtn.dataset.pgBound) {
+      clearBtn.dataset.pgBound = "1";
+      clearBtn.addEventListener("click", pgClear);
+    }
+
+    // Enter to send, Shift+Enter for newline
+    const input = el("pgChatInput");
+    if (input && !input.dataset.pgBound) {
+      input.dataset.pgBound = "1";
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          pgSend();
+        }
+      });
+    }
+
+    // Format segmented control
+    qsa("[data-pg-format]").forEach((btn) => {
+      if (btn.dataset.pgBound) return;
+      btn.dataset.pgBound = "1";
+      btn.addEventListener("click", () => {
+        qsa("[data-pg-format]").forEach((b) => b.classList.remove("is-active"));
+        btn.classList.add("is-active");
+        pg.format = btn.dataset.pgFormat;
+      });
+    });
+
+    // Model search combobox
+    const modelSearch = el("pgModelSearch");
+    if (modelSearch && !modelSearch.dataset.pgBound) {
+      modelSearch.dataset.pgBound = "1";
+      modelSearch.addEventListener("focus", pgShowModelDropdown);
+      modelSearch.addEventListener("input", pgShowModelDropdown);
+      modelSearch.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          const dropdown = el("pgModelDropdown");
+          if (dropdown && !dropdown.hidden) {
+            const first = dropdown.querySelector(".pg-model-option");
+            if (first) pgSelectModel(first.dataset.model);
+          }
+        } else if (e.key === "Escape") {
+          pgHideModelDropdown();
+        }
+      });
+    }
+
+    const modelDropdown = el("pgModelDropdown");
+    if (modelDropdown && !modelDropdown.dataset.pgBound) {
+      modelDropdown.dataset.pgBound = "1";
+      modelDropdown.addEventListener("click", (e) => {
+        const opt = e.target.closest(".pg-model-option");
+        if (opt) pgSelectModel(opt.dataset.model);
+      });
+    }
+
+    // Close dropdown when clicking outside
+    document.addEventListener("click", (e) => {
+      const combo = el("pgModelCombo");
+      if (combo && !combo.contains(e.target)) pgHideModelDropdown();
+    });
+  }
+
+  function renderPlayground() {
+    pgRenderMessages();
+    pgBindEvents();
   }
 
   document.addEventListener("DOMContentLoaded", init);

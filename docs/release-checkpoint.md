@@ -1,6 +1,6 @@
 # Release Checkpoint
 
-Date: 2026-06-10
+Date: 2026-06-25 (updated from 2026-06-10)
 
 ## Current Status
 
@@ -15,6 +15,26 @@ This checkpoint is a stable Python baseline for the proxy.
 - Routing, retry, cooldown, provider/key rotation, request history, metrics, token accounting, and Admin API are in place.
 - The dashboard can inspect requests, providers, routing policy, metrics, runtime config overlay, model routes, and audit records.
 - The dashboard login gate validates the admin key before rendering the console, so wrong keys do not briefly expose the app and refreshes with a valid saved key show a neutral checking state instead of the login form.
+
+### Changes since 2026-06-10
+
+**5 bug fixes** (see `docs/fix-plan-2026-06-25.md`):
+
+1. `relay_sse_stream` now switches socket read timeout from first-byte budget to read budget after first byte (P0).
+2. `open_stream` error path now closes urllib3 response before raising, preventing pool connection leaks (P0).
+3. Per-request `print(flush=True)` gated behind `log_provider_on_each_request`, removing a global synchronization point (P1).
+4. `_use_urllib3` transport selection no longer checks `sys.modules` for `unittest`; default is always `urllib3` in production (P1).
+5. `_pool_managers` dict capped with LRU eviction at 32 entries (P2).
+
+**Bonus fix**: Routing state migration (`migrate_state_from` / `dump_state` / `load_state`) now uses value-based key fingerprint (`SHA-256` `key_hint`) instead of positional index, preventing state corruption when key lists are reordered.
+
+**Playground feature** (see `docs/playground-design.md`):
+
+- New Playground view in the dashboard for live model testing with SSE streaming.
+- Supports Chat Completions, Responses, and Anthropic Messages formats.
+- Model selector with search/filter combobox; always fetches latest model list from `/v1/models`.
+- Routing trace strip showing selected provider, key, upstream format, upstream model, attempt number, first-byte latency, total latency, and token usage.
+- Backend injects `X-Route-Provider`, `X-Route-Key`, `X-Route-Format`, `X-Route-Model`, `X-Route-Attempt` response headers on all 6 success paths (3 streaming + 3 non-streaming).
 
 ## Production-Like Config
 
@@ -72,7 +92,7 @@ python -m unittest discover -s tests
 python -m py_compile stream_adapters.py sse2json.py protocol_adapters.py format_adapters.py request_routes.py tools\real_stream_tool_smoke.py
 ```
 
-Latest local result: 177 tests OK.
+Latest local result (2026-06-25): **351 passed in 46.16s** (`python -m pytest tests/ -x -q`).
 
 Real upstream smoke results were documented in `docs/development-roadmap.md`. The temporary JSON reports were removed during project cleanup so `tmp/` only carries runtime state.
 

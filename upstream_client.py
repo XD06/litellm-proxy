@@ -3,7 +3,7 @@ import threading
 import time
 import io
 import socket
-import sys
+from collections import OrderedDict
 from contextlib import closing
 from typing import Any, Dict, Optional
 from urllib.error import HTTPError, URLError
@@ -122,14 +122,14 @@ class OpenAIUpstreamClient:
         self._proxy_openers_lock = threading.Lock()
 
         # urllib3 (high performance)
-        self._pool_managers: Dict[str, urllib3.PoolManager | urllib3.ProxyManager] = {}
+        self._pool_managers: "OrderedDict[str, urllib3.PoolManager | urllib3.ProxyManager]" = OrderedDict()
         self._pool_managers_lock = threading.Lock()
 
     def _use_urllib3(self) -> bool:
-        # Check config setting. Default to urllib for tests, but urllib3 for production.
+        # Default to urllib3 (high performance). Tests that need the
+        # mock-friendly urllib path set routing.transport = "urllib".
         routing = self.cfg.get("routing", {}) or {}
-        default_transport = "urllib" if "unittest" in sys.modules else "urllib3"
-        transport = str(routing.get("transport", default_transport)).lower().strip()
+        transport = str(routing.get("transport", "urllib3")).lower().strip()
         return transport == "urllib3"
 
     def _opener_for(self, proxy_url: Optional[str] = None):
@@ -151,8 +151,12 @@ class OpenAIUpstreamClient:
             self._proxy_openers[proxy_url] = opener
             return opener
 
+    _MAX_POOL_MANAGERS = 32
+
     def _pool_manager_for(self, proxy_url: Optional[str] = None) -> urllib3.PoolManager | urllib3.ProxyManager:
-        """返回带指定代理的 PoolManager；无代理时复用默认 PoolManager（仅在 urllib3 传输下使用）。"""
+        """返回带指定代理的 PoolManager；无代理时复用默认 PoolManager（仅在 urllib3 传输下使用）。
+
+        使用 LRU 策略限制缓存的 PoolManager 数量，避免动态添加大量不同代理时无限增长。"""
         if not proxy_url or not str(proxy_url).strip():
             key = "direct"
         else:
@@ -160,11 +164,15 @@ class OpenAIUpstreamClient:
 
         cached = self._pool_managers.get(key)
         if cached is not None:
+            with self._pool_managers_lock:
+                if key in self._pool_managers:
+                    self._pool_managers.move_to_end(key)
             return cached
 
         with self._pool_managers_lock:
             cached = self._pool_managers.get(key)
             if cached is not None:
+                self._pool_managers.move_to_end(key)
                 return cached
 
             max_workers = int((self.cfg.get("server") or {}).get("max_workers", 20))
@@ -190,6 +198,13 @@ class OpenAIUpstreamClient:
                 manager = urllib3.PoolManager(num_pools=pool_size, maxsize=pool_size, retries=False)
 
             self._pool_managers[key] = manager
+            # Evict least-recently-used entries to bound memory and connections.
+            while len(self._pool_managers) > self._MAX_POOL_MANAGERS:
+                _evicted_key, evicted_manager = self._pool_managers.popitem(last=False)
+                try:
+                    evicted_manager.clear()
+                except Exception:
+                    pass
             return manager
 
     def _timeout(self, *, is_stream: bool, remaining_timeout_s: Optional[int] = None) -> int:
@@ -383,7 +398,10 @@ class OpenAIUpstreamClient:
                 raise URLError(str(e))
 
             if resp.status >= 400:
-                body_bytes = resp.read()
+                try:
+                    body_bytes = resp.read()
+                finally:
+                    resp.close()
                 fp = io.BytesIO(body_bytes)
                 raise HTTPError(url, resp.status, getattr(resp, "reason", ""), resp.headers, fp)
 

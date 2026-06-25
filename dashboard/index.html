@@ -50,6 +50,7 @@
           <button class="nav-item" data-view="providers">Providers</button>
           <button class="nav-item" data-view="policy">Routing Policy</button>
           <button class="nav-item" data-view="config">Config</button>
+          <button class="nav-item" data-view="playground">Playground</button>
         </nav>
         <div id="sidebarActions" class="sidebar-actions" aria-label="Runtime controls">
           <button id="refreshButton" class="button primary">Refresh</button>
@@ -443,6 +444,62 @@
                   <pre id="configSnapshot" class="code-block">{}</pre>
                 </details>
               </section>
+            </div>
+          </div>
+        </section>
+
+        <section id="playgroundView" class="view playground-view">
+          <div class="playground-layout">
+            <aside class="playground-config">
+              <details class="pg-config-section" open>
+                <summary>Model</summary>
+                <div class="pg-config-body">
+                  <div class="pg-model-combo" id="pgModelCombo">
+                    <input id="pgModelSearch" class="control" type="text" placeholder="Search model..." autocomplete="off" />
+                    <div class="pg-model-dropdown" id="pgModelDropdown" hidden></div>
+                  </div>
+                  <input id="pgModel" type="hidden" />
+                </div>
+              </details>
+              <details class="pg-config-section" open>
+                <summary>Parameters</summary>
+                <div class="pg-config-body pg-param-grid">
+                  <label class="pg-param"><span>Temp</span><input id="pgTemperature" class="control" type="number" min="0" max="2" step="0.1" value="0.7" /></label>
+                  <label class="pg-param"><span>Max tokens</span><input id="pgMaxTokens" class="control" type="number" min="1" max="65536" step="1" value="4096" /></label>
+                  <label class="pg-param"><span>Top P</span><input id="pgTopP" class="control" type="number" min="0" max="1" step="0.05" value="1" /></label>
+                  <label class="pg-param"><span>Stream</span><input id="pgStream" type="checkbox" checked /></label>
+                </div>
+              </details>
+              <details class="pg-config-section">
+                <summary>System Prompt</summary>
+                <div class="pg-config-body">
+                  <textarea id="pgSystemPrompt" class="control" rows="4" placeholder="Optional system prompt..."></textarea>
+                </div>
+              </details>
+              <details class="pg-config-section">
+                <summary>API Format</summary>
+                <div class="pg-config-body">
+                  <div class="pg-format-selector">
+                    <button class="pg-format-btn is-active" data-pg-format="chat_completions">Chat</button>
+                    <button class="pg-format-btn" data-pg-format="responses">Responses</button>
+                    <button class="pg-format-btn" data-pg-format="anthropic_messages">Anthropic</button>
+                  </div>
+                </div>
+              </details>
+            </aside>
+
+            <div class="playground-main">
+              <div id="pgChat" class="pg-chat-area"></div>
+              <div id="pgTraceStrip" class="pg-trace-strip"></div>
+              <div class="pg-input-bar">
+                <textarea id="pgChatInput" class="pg-input" placeholder="Type a message... (Enter to send, Shift+Enter for newline)" rows="2"></textarea>
+                <div class="pg-input-actions">
+                  <span id="pgStatusText" class="pg-status">Ready.</span>
+                  <button id="pgClearButton" class="button secondary pg-btn">Clear</button>
+                  <button id="pgStopButton" class="button danger pg-btn" hidden>Stop</button>
+                  <button id="pgSendButton" class="button primary pg-btn">Send</button>
+                </div>
+              </div>
             </div>
           </div>
         </section>
