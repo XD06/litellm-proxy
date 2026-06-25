@@ -2072,12 +2072,15 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             # Client disconnected while receiving the response.
             pass
 
-    def _resp_bytes(self, data: bytes, *, content_type: str, status: int = 200):
+    def _resp_bytes(self, data: bytes, *, content_type: str, status: int = 200, extra_headers=None):
         try:
             self.send_response(status)
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(data)))
             self.send_header("Cache-Control", "no-store")
+            if extra_headers:
+                for k, v in extra_headers.items():
+                    self.send_header(k, v)
             self.end_headers()
             self.wfile.write(data)
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, OSError):
@@ -2381,7 +2384,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                     "X-Route-Attempt": str(attempt.attempt_no),
                 }
                 if raw_response is not None:
-                    return self._resp_bytes(raw_response, content_type="application/json")
+                    return self._resp_bytes(raw_response, content_type="application/json", extra_headers=_route_hdrs)
                 return self._resp_json(client_response, extra_headers=_route_hdrs)
 
             except (HTTPError, CachedHTTPError) as e:
@@ -2683,7 +2686,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                     "X-Route-Attempt": str(attempt.attempt_no),
                 }
                 if raw_response is not None:
-                    return self._resp_bytes(raw_response, content_type="application/json")
+                    return self._resp_bytes(raw_response, content_type="application/json", extra_headers=_route_hdrs)
                 return self._resp_json(client_response, extra_headers=_route_hdrs)
 
             except (HTTPError, CachedHTTPError) as e:
@@ -3058,7 +3061,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                         "X-Route-Attempt": str(attempt.attempt_no),
                     }
                     if raw_response is not None:
-                        self._resp_bytes(raw_response, content_type="application/json")
+                        self._resp_bytes(raw_response, content_type="application/json", extra_headers=_route_hdrs)
                     else:
                         self._resp_json(anth_resp, extra_headers=_route_hdrs)
                     if DEBUG_LOG:

@@ -6189,9 +6189,10 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     const maxTokens = parseInt(el("pgMaxTokens")?.value || "4096", 10);
     const topP = parseFloat(el("pgTopP")?.value || "1");
     const stream = el("pgStream")?.checked !== false;
+    const includeHistory = el("pgIncludeHistory")?.checked === true;
     const sysPrompt = (el("pgSystemPrompt")?.value || "").trim();
 
-    const msgs = [...pg.messages];
+    const msgs = includeHistory ? [...pg.messages] : [];
     if (sysPrompt) {
       msgs.unshift({ role: "system", content: sysPrompt });
     }
@@ -6239,15 +6240,96 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     if (node) node.textContent = text;
   }
 
-  function pgRenderMessages() {
+  function pgNewRequestId() {
+    try {
+      if (window.crypto?.randomUUID) return `pg-${window.crypto.randomUUID()}`;
+    } catch (_e) {}
+    return `pg-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  function pgShortText(text, limit = 44) {
+    const value = String(text || "");
+    return value.length > limit ? `${value.slice(0, limit - 1)}...` : value;
+  }
+
+  function pgTextFromAny(value) {
+    if (value == null) return "";
+    if (typeof value === "string") return value;
+    if (typeof value === "number" || typeof value === "boolean") return String(value);
+    if (Array.isArray(value)) return value.map((item) => pgTextFromAny(item)).join("");
+    if (typeof value === "object") {
+      for (const key of ["text", "content", "summary", "thinking"]) {
+        if (value[key] != null) return pgTextFromAny(value[key]);
+      }
+    }
+    return "";
+  }
+
+  function pgApplyTraceToMessage(message, trace) {
+    if (!message || !trace) return;
+    if (trace.requestId) message.requestId = trace.requestId;
+    if (trace.clientFormat) message.clientFormat = trace.clientFormat;
+    if (trace.provider) message.provider = trace.provider;
+    if (trace.keyIndex != null) message.keyIndex = trace.keyIndex;
+    if (trace.keyMasked) message.keyMasked = trace.keyMasked;
+    if (trace.upstreamFormat) message.upstreamFormat = trace.upstreamFormat;
+    if (trace.providerModel) message.providerModel = trace.providerModel;
+    if (trace.routeHeadline) message.routeHeadline = trace.routeHeadline;
+    if (trace.firstByteMs != null) message.firstByteMs = trace.firstByteMs;
+    if (trace.totalMs != null) message.totalMs = trace.totalMs;
+    if (trace.usage) message.usage = trace.usage;
+  }
+
+  function pgIsNearBottom(node, threshold = 80) {
+    if (!node) return true;
+    return node.scrollHeight - node.scrollTop - node.clientHeight <= threshold;
+  }
+
+  function pgRenderMessages({ scroll = "preserve" } = {}) {
     const chat = el("pgChat");
     if (!chat) return;
+    const previousTop = chat.scrollTop;
+    const wasNearBottom = pgIsNearBottom(chat);
     if (!pg.messages.length) {
       chat.innerHTML = `<div class="pg-empty"><span class="pg-empty-text">Send a message to start testing.</span></div>`;
       return;
     }
     chat.innerHTML = pg.messages.map((m) => pgRenderMessage(m)).join("");
-    chat.scrollTop = chat.scrollHeight;
+    if (scroll === "bottom" || (scroll === "follow" && wasNearBottom)) {
+      chat.scrollTop = chat.scrollHeight;
+    } else {
+      chat.scrollTop = previousTop;
+    }
+  }
+
+  function pgUpdateStreamingMessage(m) {
+    const chat = el("pgChat");
+    if (!chat) return;
+    const nodes = chat.querySelectorAll(".pg-message");
+    const node = nodes[nodes.length - 1];
+    const content = node?.querySelector(".pg-message-content");
+    const thinking = node?.querySelector(".pg-thinking");
+    const thinkingText = node?.querySelector(".pg-thinking-text");
+    const thinkingSummary = node?.querySelector(".pg-thinking summary");
+    if (!content) {
+      pgRenderMessages({ scroll: "follow" });
+      return;
+    }
+    const shouldFollow = pgIsNearBottom(chat);
+    if (thinking && thinkingText) {
+      const reasoning = m.reasoning || "";
+      thinking.hidden = !reasoning.trim();
+      if (reasoning.trim()) thinking.open = Boolean(m.streaming);
+      thinkingText.textContent = m.reasoning || "";
+      if (thinkingSummary) thinkingSummary.textContent = `Thinking${reasoning ? ` · ${reasoning.length} chars` : ""}`;
+    }
+    content.textContent = m.content || "";
+    if (m.streaming) {
+      const cursor = document.createElement("span");
+      cursor.className = "pg-stream-cursor";
+      content.appendChild(cursor);
+    }
+    if (shouldFollow) chat.scrollTop = chat.scrollHeight;
   }
 
   function pgRenderMessage(m) {
@@ -6258,13 +6340,16 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     if (m.error) {
       body = `<div class="pg-message-error">${pgEsc(m.error)}</div>`;
     } else if (m.streaming) {
-      body = `<div class="pg-message-content">${pgEsc(m.content || "")}<span class="pg-stream-cursor"></span></div>`;
+      body = `${pgRenderThinking(m)}<div class="pg-message-content">${pgEsc(m.content || "")}<span class="pg-stream-cursor"></span></div>`;
     } else {
-      body = `<div class="pg-message-content">${pgEsc(m.content || "")}</div>`;
+      body = `${pgRenderThinking(m)}<div class="pg-message-content">${pgEsc(m.content || "")}</div>`;
     }
     if (m.provider) {
       const parts = [`provider:${pgEsc(m.provider)}`];
-      if (m.keyIndex != null) parts.push(`key:${m.keyIndex}`);
+      if (m.keyMasked) parts.push(`key:${pgEsc(m.keyMasked)}`);
+      else if (m.keyIndex != null) parts.push(`key:${m.keyIndex}`);
+      if (m.clientFormat) parts.push(`client:${pgEsc(m.clientFormat)}`);
+      if (m.upstreamFormat) parts.push(`upstream:${pgEsc(m.upstreamFormat)}`);
       if (m.firstByteMs != null) parts.push(`${m.firstByteMs}ms first byte`);
       if (m.totalMs != null) parts.push(`${(m.totalMs / 1000).toFixed(2)}s total`);
       if (m.usage) {
@@ -6281,6 +6366,15 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     </div>`;
   }
 
+  function pgRenderThinking(m) {
+    if ((m.role || "") !== "assistant") return "";
+    const text = String(m.reasoning || "");
+    return `<details class="pg-thinking" ${text.trim() ? "open" : "hidden"}>
+      <summary>Thinking${text ? ` · ${text.length} chars` : ""}</summary>
+      <pre class="pg-thinking-text">${pgEsc(text)}</pre>
+    </details>`;
+  }
+
   function pgRenderTrace(trace) {
     const strip = el("pgTraceStrip");
     if (!strip) return;
@@ -6291,8 +6385,10 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     }
     strip.hidden = false;
     const items = [];
+    if (trace.requestId) items.push(["request", pgShortText(trace.requestId, 18)]);
     if (trace.provider) items.push(["provider", pgEsc(trace.provider)]);
-    if (trace.keyIndex != null) items.push(["key", trace.keyIndex]);
+    if (trace.keyMasked) items.push(["key", pgEsc(trace.keyMasked)]);
+    else if (trace.keyIndex != null) items.push(["key", trace.keyIndex]);
     if (trace.upstreamFormat) items.push(["format", pgEsc(trace.upstreamFormat)]);
     if (trace.providerModel) items.push(["upstream model", pgEsc(trace.providerModel)]);
     if (trace.firstByteMs != null) items.push(["1st byte", `${trace.firstByteMs}ms`]);
@@ -6303,7 +6399,41 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       const tout = u.output_tokens || u.completion_tokens || 0;
       items.push(["tokens", `${tin}in/${tout}out`]);
     }
+    if (trace.sentText) items.push(["sent", `"${pgEsc(pgShortText(trace.sentText, 32))}"`]);
     strip.innerHTML = items.map(([k, v]) => `<div class="pg-trace-item"><span class="pg-trace-k">${k}</span><span class="pg-trace-v">${v}</span></div>`).join("");
+  }
+
+  function pgRouteTraceFromDetail(detail) {
+    if (!detail || typeof detail !== "object") return null;
+    const attempts = Array.isArray(detail.attempts) ? detail.attempts : [];
+    const finalAttempt = attempts.find((a) => String(a?.outcome || "") === "success") || attempts[attempts.length - 1] || {};
+    const summary = detail.routing_summary || {};
+    return {
+      requestId: detail.request_id || "",
+      clientFormat: detail.client_format || "",
+      provider: finalAttempt.provider || summary.final_provider || "",
+      keyIndex: finalAttempt.key_index ?? null,
+      keyMasked: finalAttempt.key_masked || "",
+      upstreamFormat: finalAttempt.upstream_format || summary.final_upstream_format || "",
+      providerModel: finalAttempt.provider_model || detail.model || "",
+      firstByteMs: detail.first_byte_ms || null,
+      totalMs: detail.duration_ms || null,
+      usage: detail.usage || finalAttempt.usage || null,
+      routeHeadline: summary.headline || "",
+    };
+  }
+
+  async function pgFetchRouteTrace(requestId) {
+    if (!requestId) return null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const detail = await apiGet(`/-/admin/requests/${encodeURIComponent(requestId)}`);
+        return pgRouteTraceFromDetail(detail);
+      } catch (_err) {
+        await new Promise((resolve) => setTimeout(resolve, 120 + attempt * 180));
+      }
+    }
+    return null;
   }
 
   async function pgLoadModels() {
@@ -6362,23 +6492,39 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     pgHideModelDropdown();
   }
 
-  function pgExtractContent(chunk, format) {
+  function pgExtractDelta(chunk, format) {
+    const out = { content: "", reasoning: "", done: false };
     if (format === "anthropic_messages") {
       if (chunk.type === "content_block_delta" && chunk.delta) {
-        if (chunk.delta.type === "text_delta") return chunk.delta.text || "";
-        if (chunk.delta.type === "thinking_delta") return "";
+        if (chunk.delta.type === "text_delta") out.content = chunk.delta.text || "";
+        if (chunk.delta.type === "thinking_delta") out.reasoning = chunk.delta.thinking || "";
       }
-      if (chunk.type === "message_stop") return null;
-      return "";
+      if (chunk.type === "message_stop") out.done = true;
+      return out;
     }
     if (format === "responses") {
-      if (chunk.type === "response.output_text.delta") return chunk.delta || "";
-      return "";
+      if (chunk.type === "response.output_text.delta") out.content = chunk.delta || "";
+      if (chunk.type === "response.reasoning_summary_text.delta" || chunk.type === "response.reasoning_summary.delta" || chunk.type === "response.reasoning_text.delta") {
+        out.reasoning = chunk.delta || chunk.text || "";
+      }
+      if (chunk.type === "response.completed") out.done = true;
+      return out;
     }
-    // chat_completions
     const choice = chunk.choices?.[0];
-    if (!choice) return "";
-    return choice.delta?.content || "";
+    if (!choice) return out;
+    out.content = choice.delta?.content || "";
+    out.reasoning = pgTextFromAny(choice.delta?.reasoning_content ?? choice.delta?.reasoning ?? choice.delta?.thinking);
+    if (choice.finish_reason) out.done = true;
+    return out;
+  }
+
+  function pgExtractContent(chunk, format) {
+    const delta = pgExtractDelta(chunk, format);
+    return delta.done ? null : delta.content;
+  }
+
+  function pgExtractReasoning(chunk, format) {
+    return pgExtractDelta(chunk, format).reasoning;
   }
 
   function pgExtractUsage(data, format) {
@@ -6401,12 +6547,12 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     input.value = "";
 
     pg.messages.push({ role: "user", content: userText });
-    const assistantMsg = { role: "assistant", content: "", streaming: true };
+    const assistantMsg = { role: "assistant", content: "", reasoning: "", streaming: true };
     pg.messages.push(assistantMsg);
     pg.loading = true;
     pg.firstByteMs = null;
     pg.startTime = performance.now();
-    pgRenderMessages();
+    pgRenderMessages({ scroll: "bottom" });
 
     const sendBtn = el("pgSendButton");
     const stopBtn = el("pgStopButton");
@@ -6417,6 +6563,10 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     const body = pgBuildRequest(userText);
     const stream = body.stream !== false;
     const endpoint = pgEndpoint();
+    const requestId = pgNewRequestId();
+    assistantMsg.requestId = requestId;
+    assistantMsg.sentText = userText;
+    assistantMsg.clientFormat = pg.format;
 
     pg.abortCtrl = new AbortController();
 
@@ -6425,6 +6575,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "X-Request-Id": requestId,
           ...(state.adminKey ? { "X-Admin-Key": state.adminKey } : {}),
         },
         body: JSON.stringify(body),
@@ -6439,10 +6590,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       // Extract routing trace from response headers (injected by the proxy backend)
       const routeTrace = pgExtractRouteHeaders(resp);
       if (routeTrace) {
-        assistantMsg.provider = routeTrace.provider;
-        assistantMsg.keyIndex = routeTrace.keyIndex;
-        assistantMsg.upstreamFormat = routeTrace.upstreamFormat;
-        assistantMsg.providerModel = routeTrace.providerModel;
+        pgApplyTraceToMessage(assistantMsg, { ...routeTrace, requestId, clientFormat: pg.format, sentText: userText });
       }
 
       if (stream && resp.body) {
@@ -6450,23 +6598,30 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       } else {
         const data = await resp.json();
         assistantMsg.content = pgExtractNonStreamContent(data, pg.format);
+        assistantMsg.reasoning = pgExtractNonStreamReasoning(data, pg.format);
         assistantMsg.usage = pgExtractUsage(data, pg.format);
       }
 
       assistantMsg.streaming = false;
       assistantMsg.totalMs = performance.now() - pg.startTime;
-      pgRenderMessages();
+      const detailTrace = await pgFetchRouteTrace(requestId);
+      if (detailTrace) pgApplyTraceToMessage(assistantMsg, { ...detailTrace, clientFormat: detailTrace.clientFormat || pg.format, sentText: userText });
+      pgRenderMessages({ scroll: "follow" });
 
       const trace = {
+        requestId,
+        clientFormat: assistantMsg.clientFormat || pg.format,
         provider: assistantMsg.provider,
         keyIndex: assistantMsg.keyIndex,
+        keyMasked: assistantMsg.keyMasked,
         upstreamFormat: assistantMsg.upstreamFormat || pg.format,
         providerModel: assistantMsg.providerModel,
-        firstByteMs: pg.firstByteMs,
+        firstByteMs: assistantMsg.firstByteMs ?? pg.firstByteMs,
         totalMs: assistantMsg.totalMs,
         usage: assistantMsg.usage,
+        sentText: userText,
       };
-      pgRenderTrace(trace);
+      pgRenderTrace(null);
       pgStatus("Done.");
     } catch (err) {
       if (err.name === "AbortError") {
@@ -6477,7 +6632,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         pgStatus(`Error: ${err.message}`);
       }
       assistantMsg.streaming = false;
-      pgRenderMessages();
+      pgRenderMessages({ scroll: "follow" });
     } finally {
       pg.loading = false;
       pg.abortCtrl = null;
@@ -6491,7 +6646,8 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     if (!provider) return null;
     return {
       provider,
-      keyIndex: resp.headers.get("x-route-key") || null,
+      keyIndex: null,
+      keyMasked: resp.headers.get("x-route-key") || null,
       upstreamFormat: resp.headers.get("x-route-format") || null,
       providerModel: resp.headers.get("x-route-model") || null,
       attemptNo: resp.headers.get("x-route-attempt") || null,
@@ -6507,6 +6663,28 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       return data.output_text || (data.output || []).filter((b) => b.type === "message").map((b) => (b.content || []).map((c) => c.text || "").join("")).join("");
     }
     return data.choices?.[0]?.message?.content || "";
+  }
+
+  function pgExtractNonStreamReasoning(data, format) {
+    if (format === "anthropic_messages") {
+      const blocks = data.content || [];
+      return blocks.filter((b) => b.type === "thinking").map((b) => b.thinking || "").join("");
+    }
+    if (format === "responses") {
+      const parts = [];
+      for (const item of data.output || []) {
+        if (item.type !== "reasoning") continue;
+        for (const summary of item.summary || []) {
+          const text = pgTextFromAny(summary);
+          if (text) parts.push(text);
+        }
+        if (item.text) parts.push(pgTextFromAny(item.text));
+        if (item.content) parts.push(pgTextFromAny(item.content));
+      }
+      return parts.join("");
+    }
+    const message = data.choices?.[0]?.message || {};
+    return pgTextFromAny(message.reasoning_content ?? message.reasoning ?? message.thinking);
   }
 
   async function pgHandleStream(resp, assistantMsg) {
@@ -6534,12 +6712,10 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
             gotFirstByte = true;
             pg.firstByteMs = Math.round(performance.now() - pg.startTime);
           }
-          const text = pgExtractContent(chunk, pg.format);
-          if (text === null) break;
-          if (text) {
-            assistantMsg.content += text;
-            pgRenderMessages();
-          }
+          const delta = pgExtractDelta(chunk, pg.format);
+          if (delta.content) assistantMsg.content += delta.content;
+          if (delta.reasoning) assistantMsg.reasoning += delta.reasoning;
+          if (delta.content || delta.reasoning) pgUpdateStreamingMessage(assistantMsg);
           // Capture usage from final chunk
           const usage = pgExtractUsage(chunk, pg.format);
           if (usage) assistantMsg.usage = usage;
@@ -6562,7 +6738,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     pg.messages = [];
     pgRenderTrace(null);
     pgStatus("Ready.");
-    pgRenderMessages();
+    pgRenderMessages({ scroll: "bottom" });
   }
 
   function pgBindEvents() {
@@ -6644,7 +6820,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
   }
 
   function renderPlayground() {
-    pgRenderMessages();
+    pgRenderMessages({ scroll: "preserve" });
     pgBindEvents();
   }
 
