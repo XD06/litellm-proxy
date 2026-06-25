@@ -6139,6 +6139,14 @@
 			}
 			return "";
 		}
+		function pgAppendStreamText(current, incoming) {
+			const base = String(current || "");
+			const text = String(incoming || "");
+			if (!text) return base;
+			if (!base) return text;
+			if (text.startsWith(base)) return text;
+			return base + text;
+		}
 		function pgApplyTraceToMessage(message, trace) {
 			if (!message || !trace) return;
 			if (trace.requestId) message.requestId = trace.requestId;
@@ -6536,8 +6544,8 @@
 							pg.firstByteMs = Math.round(performance.now() - pg.startTime);
 						}
 						const delta = pgExtractDelta(chunk, pg.format);
-						if (delta.content) assistantMsg.content += delta.content;
-						if (delta.reasoning) assistantMsg.reasoning += delta.reasoning;
+						if (delta.content) assistantMsg.content = pgAppendStreamText(assistantMsg.content, delta.content);
+						if (delta.reasoning) assistantMsg.reasoning = pgAppendStreamText(assistantMsg.reasoning, delta.reasoning);
 						if (delta.content || delta.reasoning) pgUpdateStreamingMessage(assistantMsg);
 						const usage = pgExtractUsage(chunk, pg.format);
 						if (usage) assistantMsg.usage = usage;
