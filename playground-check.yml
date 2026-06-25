@@ -1,0 +1,387 @@
+- generic [ref=e9]:
+  - complementary [ref=e10]:
+    - generic [ref=e11]:
+      - generic [ref=e12]: LP
+      - generic [ref=e13]:
+        - generic [ref=e14]: Proxy Console
+        - generic [ref=e15]: Runtime operations
+    - navigation "Console sections" [ref=e16]:
+      - button "Overview" [ref=e17] [cursor=pointer]
+      - button "Requests" [ref=e18] [cursor=pointer]
+      - button "Providers" [ref=e19] [cursor=pointer]
+      - button "Routing Policy" [ref=e20] [cursor=pointer]
+      - button "Config" [ref=e21] [cursor=pointer]
+      - button "Playground" [ref=e22] [cursor=pointer]
+    - generic "Runtime controls" [ref=e23]:
+      - button "Refresh" [ref=e24] [cursor=pointer]
+      - button "Pause" [ref=e25] [cursor=pointer]
+    - generic [ref=e28]: Updated 15:14:01
+  - main [ref=e29]:
+    - generic [ref=e31]:
+      - complementary [ref=e32]:
+        - group [ref=e33]:
+          - generic "Model" [ref=e34] [cursor=pointer]
+          - combobox [ref=e36]:
+            - option "ai-synthetic-video-detector" [selected]
+            - option "antangelmed"
+            - option "antigravity-preview-05-2026"
+            - option "aqa"
+            - option "arctic-embed-l"
+            - option "bge-large-en-v1.5"
+            - option "bge-large-zh-v1.5"
+            - option "bge-m3"
+            - option "bge-reranker-v2-m3"
+            - option "c4ai-command-r-plus-08-2024"
+            - option "claude-fable-5"
+            - option "claude-haiku-4-5-20251001"
+            - option "claude-opus-4-5-20251101"
+            - option "claude-opus-4-6"
+            - option "claude-opus-4-7"
+            - option "claude-opus-4-8"
+            - option "claude-sonnet-4-5-20250929"
+            - option "claude-sonnet-4-6"
+            - option "codegemma-1.1-7b"
+            - option "codegemma-7b"
+            - option "codellama-70b"
+            - option "codestral-22b-instruct-v0.1"
+            - option "codex-auto-review"
+            - option "compassjudger-1-32b-instruct"
+            - option "cosmos-reason2-8b"
+            - option "cosyvoice2-0.5b"
+            - option "dbrx-instruct"
+            - option "deep-research-max-preview-04-2026"
+            - option "deep-research-preview-04-2026"
+            - option "deep-research-pro-preview-12-2025"
+            - option "deepseek-coder-6.7b-instruct"
+            - option "deepseek-ocr"
+            - option "deepseek-r1"
+            - option "deepseek-r1-0528-qwen3-8b"
+            - option "deepseek-v3"
+            - option "deepseek-v3.1-terminus"
+            - option "deepseek-v3.2"
+            - option "deepseek-v4-flash"
+            - option "deepseek-v4-flash:free"
+            - option "deepseek-v4-pro"
+            - option "deplot"
+            - option "diffusiongemma-26b-a4b-it"
+            - option "dracarys-llama-3.1-70b-instruct"
+            - option "embed-qa-4"
+            - option "ernie-4.5-0.3b-pt"
+            - option "ernie-4.5-21b-a3b-pt"
+            - option "ernie-4.5-300b-a47b-pt"
+            - option "ernie-4.5-vl-28b-a3b-pt"
+            - option "ernie-image-turbo"
+            - option "fuyu-8b"
+            - option "gemini-2.0-flash"
+            - option "gemini-2.0-flash-001"
+            - option "gemini-2.0-flash-lite"
+            - option "gemini-2.0-flash-lite-001"
+            - option "gemini-2.5-computer-use-preview-10-2025"
+            - option "gemini-2.5-flash"
+            - option "gemini-2.5-flash-image"
+            - option "gemini-2.5-flash-lite"
+            - option "gemini-2.5-flash-preview-tts"
+            - option "gemini-2.5-pro"
+            - option "gemini-2.5-pro-preview-tts"
+            - option "gemini-3-flash-preview"
+            - option "gemini-3-pro-image"
+            - option "gemini-3-pro-image-preview"
+            - option "gemini-3-pro-preview"
+            - option "gemini-3.1-flash-image"
+            - option "gemini-3.1-flash-image-preview"
+            - option "gemini-3.1-flash-lite"
+            - option "gemini-3.1-flash-lite-preview"
+            - option "gemini-3.1-flash-tts-preview"
+            - option "gemini-3.1-pro"
+            - option "gemini-3.1-pro-preview"
+            - option "gemini-3.1-pro-preview-customtools"
+            - option "gemini-3.5-flash"
+            - option "gemini-embedding-001"
+            - option "gemini-embedding-2"
+            - option "gemini-embedding-2-preview"
+            - option "gemini-flash-latest"
+            - option "gemini-flash-lite-latest"
+            - option "gemini-pro-latest"
+            - option "gemini-robotics-er-1.5-preview"
+            - option "gemini-robotics-er-1.6-preview"
+            - option "gemma-2-2b-it"
+            - option "gemma-2b"
+            - option "gemma-3-12b-it"
+            - option "gemma-3-4b-it"
+            - option "gemma-3n-e2b-it"
+            - option "gemma-3n-e4b-it"
+            - option "gemma-4-26b-a4b-it"
+            - option "gemma-4-31b-it"
+            - option "gliner-pii"
+            - option "glm-4-32b-0414"
+            - option "glm-4-9b-0414"
+            - option "glm-4.5-air"
+            - option "glm-4.5v"
+            - option "glm-4.7-flash"
+            - option "glm-5"
+            - option "glm-5.1"
+            - option "glm-5.2"
+            - option "glm-z1-9b-0414"
+            - option "gpt-5.3-codex-spark"
+            - option "gpt-5.3-codex-spark-openai-compact"
+            - option "gpt-5.4"
+            - option "gpt-5.4-mini"
+            - option "gpt-5.4-openai-compact"
+            - option "gpt-5.5"
+            - option "gpt-5.5-openai-compact"
+            - option "gpt-image-2"
+            - option "gpt-oss-120b"
+            - option "gpt-oss-20b"
+            - option "granite-3.0-3b-a800m-instruct"
+            - option "granite-3.0-8b-instruct"
+            - option "granite-34b-code-instruct"
+            - option "granite-8b-code-instruct"
+            - option "gui-owl-1.5-8b-instruct"
+            - option "gui-owl-1.5-8b-think"
+            - option "hunyuan-a13b-instruct"
+            - option "hunyuan-mt-7b"
+            - option "imagen-4.0-fast-generate-001"
+            - option "imagen-4.0-generate-001"
+            - option "imagen-4.0-ultra-generate-001"
+            - option "intern-s1"
+            - option "intern-s1-mini"
+            - option "intern-s2-preview"
+            - option "internvl3-5-241b-a28b"
+            - option "ising-calibration-1-35b-a3b"
+            - option "jamba-1.5-large-instruct"
+            - option "kimi-k2.5"
+            - option "kimi-k2.6"
+            - option "kimi-k2.7-code"
+            - option "kimi-k2.7-code-highspeed"
+            - option "kolors"
+            - option "kosmos-2"
+            - option "ling-flash-2.0"
+            - option "ling-mini-2.0"
+            - option "llama-3.1-70b-instruct"
+            - option "llama-3.1-8b-instruct"
+            - option "llama-3.1-nemoguard-8b-content-safety"
+            - option "llama-3.1-nemoguard-8b-topic-control"
+            - option "llama-3.1-nemotron-51b-instruct"
+            - option "llama-3.1-nemotron-70b-instruct"
+            - option "llama-3.1-nemotron-nano-8b-v1"
+            - option "llama-3.1-nemotron-nano-vl-8b-v1"
+            - option "llama-3.1-nemotron-safety-guard-8b-v3"
+            - option "llama-3.1-nemotron-ultra-253b-v1"
+            - option "llama-3.2-11b-vision-instruct"
+            - option "llama-3.2-1b-instruct"
+            - option "llama-3.2-3b-instruct"
+            - option "llama-3.2-90b-vision-instruct"
+            - option "llama-3.2-nemoretriever-1b-vlm-embed-v1"
+            - option "llama-3.2-nv-embedqa-1b-v1"
+            - option "llama-3.3-70b-instruct"
+            - option "llama-3.3-nemotron-super-49b-v1"
+            - option "llama-3.3-nemotron-super-49b-v1.5"
+            - option "llama-4-maverick-17b-128e-instruct"
+            - option "llama-guard-4-12b"
+            - option "llama-nemotron-embed-1b-v2"
+            - option "llama-nemotron-embed-vl-1b-v2"
+            - option "llama2-70b"
+            - option "llama3-chatqa-1.5-70b"
+            - option "longcat-flash-lite"
+            - option "lyria-3-clip-preview"
+            - option "lyria-3-pro-preview"
+            - option "mimo-v2-flash"
+            - option "mimo-v2-omni"
+            - option "mimo-v2-pro"
+            - option "mimo-v2.5"
+            - option "mimo-v2.5-pro"
+            - option "minimax-m1-80k"
+            - option "minimax-m2.5"
+            - option "minimax-m2.7"
+            - option "minimax-m3"
+            - option "ministral-14b-instruct-2512"
+            - option "ministral-8b-instruct-2410"
+            - option "mistral-7b-instruct-v0.3"
+            - option "mistral-large"
+            - option "mistral-large-2-instruct"
+            - option "mistral-large-3-675b-instruct-2512"
+            - option "mistral-large-instruct-2407"
+            - option "mistral-medium-3.5-128b"
+            - option "mistral-nemo-12b-instruct"
+            - option "mistral-nemo-minitron-8b-8k-instruct"
+            - option "mistral-nemotron"
+            - option "mistral-small-4-119b-2603"
+            - option "mistral-small-instruct-2409"
+            - option "mixtral-8x22b-v0.1"
+            - option "mixtral-8x7b-instruct-v0.1"
+            - option "moonshot-v1-128k"
+            - option "moonshot-v1-128k-vision-preview"
+            - option "moonshot-v1-32k"
+            - option "moonshot-v1-32k-vision-preview"
+            - option "moonshot-v1-8k"
+            - option "moonshot-v1-8k-vision-preview"
+            - option "moonshot-v1-auto"
+            - option "moss-ttsd-v0.5"
+            - option "nano-banana-pro-preview"
+            - option "nemoretriever-parse"
+            - option "nemotron-3-content-safety"
+            - option "nemotron-3-nano-30b-a3b"
+            - option "nemotron-3-nano-omni-30b-a3b-reasoning"
+            - option "nemotron-3-super-120b-a12b"
+            - option "nemotron-3-ultra-550b-a55b"
+            - option "nemotron-3.5-content-safety"
+            - option "nemotron-4-340b-instruct"
+            - option "nemotron-4-340b-reward"
+            - option "nemotron-content-safety-reasoning-4b"
+            - option "nemotron-mini-4b-instruct"
+            - option "nemotron-nano-12b-v2-vl"
+            - option "nemotron-nano-3-30b-a3b"
+            - option "nemotron-parse"
+            - option "neva-22b"
+            - option "nex-n2-pro"
+            - option "nv-embed-v1"
+            - option "nv-embedcode-7b-v1"
+            - option "nv-embedqa-e5-v5"
+            - option "nv-embedqa-mistral-7b-v2"
+            - option "nvclip"
+            - option "nvidia-nemotron-nano-9b-v2"
+            - option "paddleocr-vl-1.5"
+            - option "palmyra-creative-122b"
+            - option "palmyra-fin-70b-32k"
+            - option "palmyra-med-70b"
+            - option "palmyra-med-70b-32k"
+            - option "phi-3-vision-128k-instruct"
+            - option "phi-3.5-moe-instruct"
+            - option "phi-4-mini-instruct"
+            - option "phi-4-multimodal-instruct"
+            - option "qwen-image"
+            - option "qwen-image-edit"
+            - option "qwen-image-edit-2509"
+            - option "qwen2.5-14b-instruct"
+            - option "qwen2.5-32b-instruct"
+            - option "qwen2.5-72b-instruct"
+            - option "qwen2.5-72b-instruct-128k"
+            - option "qwen2.5-7b-instruct"
+            - option "qwen3-14b"
+            - option "qwen3-235b-a22b"
+            - option "qwen3-235b-a22b-instruct-2507"
+            - option "qwen3-235b-a22b-thinking-2507"
+            - option "qwen3-30b-a3b"
+            - option "qwen3-30b-a3b-instruct-2507"
+            - option "qwen3-30b-a3b-thinking-2507"
+            - option "qwen3-32b"
+            - option "qwen3-4b"
+            - option "qwen3-8b"
+            - option "qwen3-coder-30b-a3b-instruct"
+            - option "qwen3-embedding-0.6b"
+            - option "qwen3-embedding-4b"
+            - option "qwen3-embedding-8b"
+            - option "qwen3-next-80b-a3b-instruct"
+            - option "qwen3-next-80b-a3b-thinking"
+            - option "qwen3-omni-30b-a3b-captioner"
+            - option "qwen3-omni-30b-a3b-instruct"
+            - option "qwen3-omni-30b-a3b-thinking"
+            - option "qwen3-reranker-0.6b"
+            - option "qwen3-reranker-4b"
+            - option "qwen3-reranker-8b"
+            - option "qwen3-vl-235b-a22b-instruct"
+            - option "qwen3-vl-30b-a3b-instruct"
+            - option "qwen3-vl-30b-a3b-thinking"
+            - option "qwen3-vl-32b-instruct"
+            - option "qwen3-vl-32b-thinking"
+            - option "qwen3-vl-8b-instruct"
+            - option "qwen3-vl-8b-thinking"
+            - option "qwen3-vl-embedding-8b"
+            - option "qwen3-vl-reranker-8b"
+            - option "qwen3.5-122b-a10b"
+            - option "qwen3.5-27b"
+            - option "qwen3.5-35b-a3b"
+            - option "qwen3.5-397b-a17b"
+            - option "qwen3.5-4b"
+            - option "qwen3.5-9b"
+            - option "qwen3.5-plus"
+            - option "qwen3.6-27b"
+            - option "qwen3.6-35b-a3b"
+            - option "qwen3.6-plus"
+            - option "qwen3.7-max"
+            - option "qwen3.7-plus"
+            - option "recurrentgemma-2b"
+            - option "riva-translate-4b-instruct"
+            - option "riva-translate-4b-instruct-v1.1"
+            - option "sarvam-m"
+            - option "sea-lion-7b-instruct"
+            - option "seed-oss-36b-instruct"
+            - option "sensenova-6.7-flash-lite"
+            - option "sensenova-u1-fast"
+            - option "sensevoicesmall"
+            - option "solar-10.7b-instruct"
+            - option "starcoder2-15b"
+            - option "step-3.5-flash"
+            - option "step-3.7-flash"
+            - option "stockmark-2-100b-instruct"
+            - option "telespeechasr"
+            - option "veo-2.0-generate-001"
+            - option "veo-3.0-fast-generate-001"
+            - option "veo-3.0-generate-001"
+            - option "veo-3.1-fast-generate-preview"
+            - option "veo-3.1-generate-preview"
+            - option "veo-3.1-lite-generate-preview"
+            - option "vila"
+            - option "wan2.2-i2v-a14b"
+            - option "wan2.2-t2v-a14b"
+            - option "xiyansql-qwencoder-32b-2412"
+            - option "xiyansql-qwencoder-32b-2504"
+            - option "yi-large"
+            - option "z-image"
+            - option "z-image-turbo"
+            - option "zamba2-7b-instruct"
+        - group [ref=e37]:
+          - generic "Parameters" [ref=e38] [cursor=pointer]
+          - generic [ref=e39]:
+            - generic [ref=e40]:
+              - generic [ref=e41]: Temp
+              - spinbutton "Temp" [ref=e42]: "0.7"
+            - generic [ref=e43]:
+              - generic [ref=e44]: Max tokens
+              - spinbutton "Max tokens" [ref=e45]: "4096"
+            - generic [ref=e46]:
+              - generic [ref=e47]: Top P
+              - spinbutton "Top P" [ref=e48]: "1"
+        - group [ref=e49]:
+          - generic "Format & options" [ref=e50] [cursor=pointer]
+        - group [ref=e51]:
+          - generic "System prompt" [ref=e52] [cursor=pointer]
+        - button "Clear chat" [ref=e54] [cursor=pointer]
+      - generic [ref=e55]:
+        - generic [ref=e89]: Send a message to start testing.
+        - generic [ref=e60]:
+          - textbox "Type a message... (Enter to send, Shift+Enter for newline)" [ref=e61]:
+            - /placeholder: Type a message...  (Enter to send, Shift+Enter for newline)
+          - button "Send" [ref=e62] [cursor=pointer]
+        - generic [ref=e64]: Ready.
+  - complementary [ref=e65]:
+    - generic [ref=e66]:
+      - generic [ref=e67]:
+        - heading [level=2] [ref=e68]: Request Detail
+        - paragraph [ref=e69]: Click a request to view its trace and payload.
+      - button [ref=e70] [cursor=pointer]: ×
+  - complementary [ref=e72]:
+    - generic [ref=e73]:
+      - generic [ref=e74]:
+        - heading [level=2] [ref=e75]: Provider
+        - paragraph [ref=e76]: Select a provider to view its models and state.
+      - button [ref=e77] [cursor=pointer]: ×
+  - complementary [ref=e79]:
+    - generic [ref=e80]:
+      - generic [ref=e81]:
+        - heading [level=2] [ref=e82]: Model Details
+        - paragraph [ref=e83]: Artificial Analysis Summary
+      - button [ref=e84] [cursor=pointer]: ×
+  - dialog:
+    - generic:
+      - generic:
+        - heading [level=2]: Confirm action
+        - paragraph: This action needs confirmation.
+    - generic:
+      - button: Cancel
+      - button: Delete
+  - dialog:
+    - generic:
+      - generic:
+        - heading [level=2]: Title
+      - button

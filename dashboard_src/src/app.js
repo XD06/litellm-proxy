@@ -1030,6 +1030,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     }
     renderProviderDrawer(); __mark("providerDrawer");
     bindViewTargetButtons();
+    bindConfigTabs();
     window.__perfMark && window.__perfMark("renderAll.total", performance.now() - __t0);
   }
 
@@ -1039,6 +1040,34 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       button.dataset.boundViewTarget = "1";
       button.addEventListener("click", () => setView(button.dataset.viewTarget || "overview"));
     });
+  }
+
+  function switchConfigTab(tabName) {
+    const tabNav = el("configTabNav");
+    if (!tabNav) return;
+    tabNav.querySelectorAll("button").forEach((b) => b.classList.toggle("is-active", b.dataset.configTab === tabName));
+    document.querySelectorAll("[data-config-tab-panel]").forEach((panel) => {
+      panel.hidden = panel.dataset.configTabPanel !== tabName;
+    });
+    try {
+      localStorage.setItem("proxyConsoleConfigTab", tabName);
+    } catch (_e) {}
+  }
+
+  function bindConfigTabs() {
+    const tabNav = el("configTabNav");
+    if (!tabNav || tabNav.dataset.boundConfigTabs) return;
+    tabNav.dataset.boundConfigTabs = "1";
+    tabNav.addEventListener("click", (event) => {
+      const btn = event.target.closest("[data-config-tab]");
+      if (!btn) return;
+      switchConfigTab(btn.dataset.configTab || "");
+    });
+    // Restore from localStorage on load
+    try {
+      const saved = localStorage.getItem("proxyConsoleConfigTab");
+      if (saved) switchConfigTab(saved);
+    } catch (_e) {}
   }
 
   function renderTimeRangeControl() {
@@ -4257,26 +4286,33 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     const cooldown = retry.cooldown_s || policy.cooldown_s || {};
     const ladder = Array.isArray(retry.key_failure_ladder_s) ? retry.key_failure_ladder_s : [10, 60, 3600];
     const providerPool = Array.isArray(routing.default_provider_pool) ? routing.default_provider_pool.join(", ") : "";
+    const currentSelect = String(routing.provider_select || "priority_failover");
+    const routeModes = [
+      { value: "priority_failover", icon: "bolt", label: "Priority", tip: "priority_failover — Try providers in priority order, failover to next on error" },
+      { value: "round_robin", icon: "rotate", label: "Round-robin", tip: "round_robin — Cycle through providers evenly across requests" },
+      { value: "weighted_rr", icon: "layers", label: "Weighted", tip: "weighted_rr — Distribute by weight (e.g. provider:2 gets 2x traffic of provider:1)" },
+      { value: "random", icon: "dot", label: "Random", tip: "random — Pick a provider at random from the pool" },
+    ];
     target.innerHTML = `
       <div class="policy-control-grid">
         <form id="routingControlForm" class="policy-control-card">
           <div class="policy-control-card-head">
-            <h3>Routing</h3>
-            <p>Attempt budget, provider order, and format preference.</p>
+            <h3>Routing<span class="help-tip" data-tip="Attempt budget, provider order, and format preference.">?</span></h3>
           </div>
           <label class="field">
-            <span>Provider pool</span>
+            <span class="label-with-tip">Provider pool<span class="help-tip" data-tip="Comma-separated provider names used as the default routing pool.">?</span></span>
             <input class="control" name="default_provider_pool" value="${escapeHtml(providerPool)}" placeholder="opencode, deepseek, rawchat" required />
           </label>
-          <div class="form-pair-grid">
+          <div class="form-pair-grid routing-mode-grid">
+            <div class="field">
+              <span class="label-with-tip">Selection mode<span class="help-tip" data-tip="How providers are picked from the pool for each request.">?</span></span>
+              <input type="hidden" name="provider_select" value="${escapeHtml(currentSelect)}" />
+              <div class="icon-btn-group" id="routeModeGroup">
+                ${routeModes.map((m) => `<button type="button" data-route-mode="${escapeHtml(m.value)}" class="${currentSelect === m.value ? "is-active" : ""}" title="${escapeHtml(m.tip)}">${iconSvg(m.icon)}<span>${escapeHtml(m.label)}</span></button>`).join("")}
+              </div>
+            </div>
             <label class="field">
-              <span>Provider select</span>
-              <select class="control" name="provider_select">
-                ${["priority_failover", "round_robin", "weighted_rr", "random"].map((mode) => `<option value="${mode}" ${String(routing.provider_select || "priority_failover") === mode ? "selected" : ""}>${mode}</option>`).join("")}
-              </select>
-            </label>
-            <label class="field">
-              <span>Max attempts</span>
+              <span class="label-with-tip">Max attempts<span class="help-tip" data-tip="Maximum number of provider attempts per request before giving up.">?</span></span>
               <input class="control" name="max_attempts" type="number" min="1" max="50" value="${escapeHtml(routing.max_attempts ?? policy.max_attempts ?? 6)}" required />
             </label>
           </div>
@@ -4284,15 +4320,15 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
             <summary>Timeouts</summary>
             <div class="form-pair-grid" style="margin-top:10px">
               <label class="field">
-                <span>Connect timeout</span>
+                <span class="label-with-tip">Connect<span class="help-tip" data-tip="connect_timeout_s — Seconds to wait for the upstream TCP connection.">?</span></span>
                 <input class="control" name="connect_timeout_s" type="number" min="1" max="3600" value="${escapeHtml(routing.connect_timeout_s ?? policy.connect_timeout_s ?? 15)}" required />
               </label>
               <label class="field">
-                <span>Read timeout</span>
+                <span class="label-with-tip">Read<span class="help-tip" data-tip="read_timeout_s — Seconds to wait for the full upstream response.">?</span></span>
                 <input class="control" name="read_timeout_s" type="number" min="1" max="3600" value="${escapeHtml(routing.read_timeout_s ?? policy.read_timeout_s ?? 120)}" required />
               </label>
               <label class="field">
-                <span>First token timeout</span>
+                <span class="label-with-tip">First token<span class="help-tip" data-tip="first_token_timeout_s — Seconds to wait for the first SSE token (0 = disabled).">?</span></span>
                 <input class="control" name="first_token_timeout_s" type="number" min="0" max="600" value="${escapeHtml(routing.first_token_timeout_s ?? policy.first_token_timeout_s ?? 30)}" required />
               </label>
             </div>
@@ -4302,37 +4338,36 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
 
         <form id="retryControlForm" class="policy-control-card">
           <div class="policy-control-card-head">
-            <h3>Retry</h3>
-            <p>HTTP retry classes and key handling.</p>
+            <h3>Retry<span class="help-tip" data-tip="HTTP retry classes and key handling on failure.">?</span></h3>
           </div>
           <label class="field">
-            <span>Retry HTTP statuses</span>
+            <span class="label-with-tip">Retryable statuses<span class="help-tip" data-tip="HTTP status codes that trigger a retry (e.g. 429, 500, 502, 503, 504).">?</span></span>
             <input class="control" name="retryable_status" value="${escapeHtml(joinList(retry.retryable_status || policy.retryable_status || []))}" placeholder="408, 429, 500, 502, 503, 504" required />
           </label>
           <label class="field">
-            <span>Fatal key statuses</span>
+            <span class="label-with-tip">Fatal key statuses<span class="help-tip" data-tip="HTTP status codes that mark a key as permanently bad (e.g. 401, 403).">?</span></span>
             <input class="control" name="key_fatal_status" value="${escapeHtml(joinList(retry.key_fatal_status || policy.key_fatal_status || []))}" placeholder="401, 403" required />
           </label>
           <details class="policy-advanced">
             <summary>Advanced cooldown & ladder</summary>
             <label class="check-field" style="margin-top:10px">
-              <input type="checkbox" name="respect_retry_after" ${retry.respect_retry_after ?? policy.respect_retry_after ? "checked" : ""} />
-              <span>Respect upstream Retry-After</span>
+              <span class="toggle-switch"><input type="checkbox" name="respect_retry_after" ${retry.respect_retry_after ?? policy.respect_retry_after ? "checked" : ""} /><span class="slider"></span></span>
+              <span class="label-with-tip">Respect Retry-After<span class="help-tip" data-tip="Honor the upstream Retry-After header to extend cooldown duration.">?</span></span>
             </label>
             <div class="form-pair-grid" style="margin-top:8px">
               <label class="field">
-                <span>Same-key retries</span>
+                <span class="label-with-tip">Same-key retries<span class="help-tip" data-tip="same_key_retries — How many times to retry the same key before switching (0-3).">?</span></span>
                 <input class="control" name="same_key_retries" type="number" min="0" max="3" value="${escapeHtml(retry.same_key_retries ?? 1)}" required />
               </label>
               <label class="field">
-                <span>Key failure ladder</span>
+                <span class="label-with-tip">Failure ladder<span class="help-tip" data-tip="key_failure_ladder_s — Escalating cooldown seconds per consecutive key failure (e.g. 10, 60, 3600).">?</span></span>
                 <input class="control" name="key_failure_ladder_s" value="${escapeHtml(joinNumberList(ladder))}" placeholder="10, 60, 3600" required />
               </label>
-              ${cooldownField("rate_limit", "Rate limit cooldown", cooldown.rate_limit ?? 30)}
-              ${cooldownField("server_error", "Server error cooldown", cooldown.server_error ?? 10)}
-              ${cooldownField("network_error", "Network cooldown", cooldown.network_error ?? 10)}
-              ${cooldownField("key_invalid", "Invalid key cooldown", cooldown.key_invalid ?? 3600)}
-              ${cooldownField("quota_or_balance", "Quota cooldown", cooldown.quota_or_balance ?? 3600)}
+              ${cooldownField("rate_limit", "Rate limit", "Rate limit cooldown (seconds)", cooldown.rate_limit ?? 30)}
+              ${cooldownField("server_error", "Server error", "Server error cooldown (seconds)", cooldown.server_error ?? 10)}
+              ${cooldownField("network_error", "Network error", "Network/timeout cooldown (seconds)", cooldown.network_error ?? 10)}
+              ${cooldownField("key_invalid", "Invalid key", "Invalid key cooldown (seconds)", cooldown.key_invalid ?? 3600)}
+              ${cooldownField("quota_or_balance", "Quota/balance", "Quota or balance exhausted cooldown (seconds)", cooldown.quota_or_balance ?? 3600)}
             </div>
           </details>
           <button class="button secondary" type="submit">Save retry</button>
@@ -4343,10 +4378,10 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     bindPolicyControlForms(target);
   }
 
-  function cooldownField(name, label, value) {
+  function cooldownField(name, label, tip, value) {
     return `
       <label class="field">
-        <span>${escapeHtml(label)}</span>
+        <span class="label-with-tip">${escapeHtml(label)}<span class="help-tip" data-tip="${escapeHtml(tip)}">?</span></span>
         <input class="control" name="${escapeHtml(name)}" type="number" min="0" max="86400" value="${escapeHtml(value)}" required />
       </label>
     `;
@@ -4355,6 +4390,16 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
   function bindPolicyControlForms(root) {
     const routingForm = root.querySelector("#routingControlForm");
     if (routingForm) {
+      const routeModeGroup = routingForm.querySelector("#routeModeGroup");
+      if (routeModeGroup) {
+        routeModeGroup.addEventListener("click", (event) => {
+          const btn = event.target.closest("[data-route-mode]");
+          if (!btn) return;
+          const mode = btn.dataset.routeMode || "";
+          routingForm.elements.provider_select.value = mode;
+          routeModeGroup.querySelectorAll("button").forEach((b) => b.classList.toggle("is-active", b === btn));
+        });
+      }
       routingForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         const payload = {
@@ -4402,6 +4447,22 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     root.querySelectorAll(".failure-policy-form").forEach((form) => {
       if (form.dataset.boundfailurepolicyform) return;
       form.dataset.boundfailurepolicyform = "1";
+      const errorType = form.dataset.errorType || "";
+      const storageKey = `proxyConsoleFold_failure_${errorType}`;
+      try {
+        if (localStorage.getItem(storageKey) === "1") form.classList.add("is-open");
+      } catch (_e) {}
+      const header = form.querySelector(".collapsible-card-header");
+      if (header) {
+        header.addEventListener("click", (event) => {
+          if (event.target.closest("select, input, button, .help-tip, .toggle-switch")) return;
+          const willOpen = !form.classList.contains("is-open");
+          form.classList.toggle("is-open");
+          try {
+            localStorage.setItem(storageKey, willOpen ? "1" : "0");
+          } catch (_e) {}
+        });
+      }
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         const payload = {
@@ -4443,9 +4504,11 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
 
   function renderPolicyRule(rule, index) {
     const decision = policyDecision(rule);
+    const headDotTone = decision.retryable ? (decision.disables_key ? "bad" : "warn") : "bad";
     return `
       <article class="policy-rule-card tone-${toneForText(decision.error_type || rule.match || "")}">
         <div class="policy-rule-head">
+          <span class="status-dot ${headDotTone}"></span>
           <span class="rule-index">${String(index + 1).padStart(2, "0")}</span>
           <div>
             <h3>${messageMarkup(rule.match || rule.name || "-")}</h3>
@@ -4453,11 +4516,11 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
           </div>
         </div>
         <div class="policy-decision-strip">
-          ${decisionBadge(decision.retryable ? "retry" : "no retry", decision.retryable ? "ok" : "bad")}
-          ${decisionBadge(rule.retry_next_attempt ? "switch attempt" : "do not switch", rule.retry_next_attempt ? "ok" : "bad")}
-          ${decisionBadge(decision.stop_attempts ? "stop attempts" : "continue", decision.stop_attempts ? "bad" : "ok")}
-          ${decisionBadge(`cooldown ${decision.cooldown_scope || "none"}`, toneForText(decision.cooldown_scope || "none"))}
-          ${decision.disables_key ? decisionBadge("disable key", "bad") : decisionBadge("keep key", "neutral")}
+          ${decisionBadgeWithDot(decision.retryable ? "retry" : "no retry", decision.retryable ? "ok" : "bad")}
+          ${decisionBadgeWithDot(rule.retry_next_attempt ? "switch attempt" : "do not switch", rule.retry_next_attempt ? "ok" : "bad")}
+          ${decisionBadgeWithDot(decision.stop_attempts ? "stop attempts" : "continue", decision.stop_attempts ? "bad" : "ok")}
+          ${decisionBadgeWithDot(`cooldown ${decision.cooldown_scope || "none"}`, toneForText(decision.cooldown_scope || "none"))}
+          ${decisionBadgeWithDot(decision.disables_key ? "disable key" : "keep key", decision.disables_key ? "bad" : "neutral")}
         </div>
         <div class="policy-rule-meta">
           <span>Error</span><strong>${messageMarkup(decision.error_type || "-")}</strong>
@@ -4470,29 +4533,34 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
 
   function failurePolicyCard(errorType, cfg) {
     const scope = cfg.cooldown_scope || "none";
+    const dotTone = scope === "none" ? "off" : scope === "key" ? "warn" : scope === "provider" ? "warn" : "bad";
     return `
-      <form class="failure-policy-card failure-policy-form tone-${toneForText(errorType)}" data-error-type="${escapeHtml(errorType)}">
-        <div class="failure-policy-head">
+      <form class="failure-policy-card failure-policy-form collapsible-card tone-${toneForText(errorType)}" data-error-type="${escapeHtml(errorType)}">
+        <div class="failure-policy-head collapsible-card-header">
+          <span class="status-dot ${dotTone}"></span>
           <h3>${messageMarkup(errorType)}</h3>
+          <span class="badge ${scope === "none" ? "neutral" : "warn"}" style="margin-left:auto">${escapeHtml(scope)}</span>
           <select class="control compact-control" name="cooldown_scope" aria-label="${escapeHtml(errorType)} cooldown scope">
             ${["none", "key", "provider", "key_provider"].map((item) => `<option value="${item}" ${scope === item ? "selected" : ""}>${item}</option>`).join("")}
           </select>
+          <svg class="chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"></path></svg>
         </div>
-        <p>${escapeHtml(failurePolicyDescription(errorType))}</p>
-        <div class="failure-policy-edit-grid">
-          <label class="field">
-            <span>Key cooldown</span>
-            <input class="control" name="cooldown_s" type="number" min="0" max="86400" value="${escapeHtml(cfg.cooldown_s ?? 0)}" required />
-          </label>
-          <label class="field">
-            <span>Provider cooldown</span>
-            <input class="control" name="provider_cooldown_s" type="number" min="0" max="300" value="${escapeHtml(cfg.provider_cooldown_s ?? 0)}" required />
-          </label>
-          <label class="check-field failure-disable-check">
-            <input type="checkbox" name="disables_key" ${cfg.disables_key ? "checked" : ""} />
-            <span>Disable key</span>
-          </label>
-          <button class="button secondary" type="submit">Save policy</button>
+        <div class="collapsible-card-body">
+          <div class="failure-policy-edit-grid">
+            <label class="field">
+              <span class="label-with-tip">Key cooldown<span class="help-tip" data-tip="Cooldown duration (seconds) applied to the key on this error type.">?</span></span>
+              <input class="control" name="cooldown_s" type="number" min="0" max="86400" value="${escapeHtml(cfg.cooldown_s ?? 0)}" required />
+            </label>
+            <label class="field">
+              <span class="label-with-tip">Provider cooldown<span class="help-tip" data-tip="Cooldown duration (seconds) applied to the provider on this error type.">?</span></span>
+              <input class="control" name="provider_cooldown_s" type="number" min="0" max="300" value="${escapeHtml(cfg.provider_cooldown_s ?? 0)}" required />
+            </label>
+            <label class="check-field failure-disable-check">
+              <span class="toggle-switch"><input type="checkbox" name="disables_key" ${cfg.disables_key ? "checked" : ""} /><span class="slider"></span></span>
+              <span class="label-with-tip">Disable key<span class="help-tip" data-tip="${escapeHtml(failurePolicyDescription(errorType))}">?</span></span>
+            </label>
+            <button class="button secondary" type="submit">Save policy</button>
+          </div>
         </div>
       </form>
     `;
@@ -4509,9 +4577,10 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     return "Default failure handling for this error type.";
   }
 
-  function decisionBadge(label, tone) {
+  function decisionBadgeWithDot(label, tone) {
     const safeTone = tone === "success" ? "ok" : tone === "danger" ? "bad" : tone === "warn" ? "warn" : tone;
-    return badge(label, safeTone);
+    const dotClass = safeTone === "ok" ? "ok" : safeTone === "bad" ? "bad" : safeTone === "warn" ? "warn" : "off";
+    return `<span class="badge ${safeTone}"><span class="status-dot ${dotClass}" style="margin-right:4px"></span>${escapeHtml(label)}</span>`;
   }
 
   function policyDecision(rule) {
@@ -4844,62 +4913,70 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
   }
 
   function shortFormatName(format) {
-    if (format === "chat_completions") return "chat";
-    if (format === "anthropic_messages") return "messages";
+    if (format === "chat_completions") return "Chat";
+    if (format === "responses") return "Resp";
+    if (format === "anthropic_messages") return "Anth";
     return String(format || "");
   }
 
   function providerConfigCard(name, provider) {
     const formats = provider.formats || {};
     const keys = Array.isArray(provider.keys) ? provider.keys : [];
+    const isEnabled = provider.enabled !== false;
+    const enabledFmtList = enabledFormats(formats);
+    const dotTone = isEnabled ? "ok" : "off";
     return `
-      <article class="config-provider-card">
-        <div class="config-provider-head">
-          <div>
+      <article class="config-provider-card collapsible-card">
+        <div class="config-provider-head collapsible-card-header">
+          <span class="status-dot ${dotTone}"></span>
+          <div style="flex:1;min-width:0">
             <div class="provider-name">${escapeHtml(name)}</div>
-            <div class="provider-meta">${keys.length} masked keys / ${chipList(enabledFormats(formats), "no enabled formats")}</div>
+            <div class="provider-meta">${keys.length} key${keys.length !== 1 ? "s" : ""} / ${enabledFmtList.length ? enabledFmtList.map(shortFormatName).join(", ") : "no formats"}</div>
           </div>
-          ${badge(provider.enabled === false ? "config off" : "config on", provider.enabled === false ? "bad" : "ok")}
+          <svg class="chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"></path></svg>
         </div>
+        <div class="collapsible-card-body">
+          <div class="config-provider-body-inner">
+            <form class="config-provider-form" data-provider="${escapeHtml(name)}">
+              <label class="field">
+                <span class="label-with-tip">Base URL<span class="help-tip" data-tip="The upstream API endpoint for this provider.">?</span></span>
+                <input class="control" name="base_url" value="${escapeHtml(provider.base_url || "")}" placeholder="https://api.example.com" required />
+              </label>
+              <label class="field">
+                <span class="label-with-tip">Proxy<span class="help-tip" data-tip="Per-provider proxy URL. Leave blank to use the global proxy or direct connection.">?</span></span>
+                <input class="control" name="proxy" value="${escapeHtml(provider.proxy || "")}" placeholder="direct or http://127.0.0.1:8002" />
+              </label>
+              <label class="field">
+                <span class="label-with-tip">User-Agent<span class="help-tip" data-tip="Custom User-Agent header for upstream requests. Blank = inherit default.">?</span></span>
+                <input class="control" name="user_agent" value="${escapeHtml(provider.user_agent || "")}" placeholder="inherit client User-Agent" />
+              </label>
+              <label class="field">
+                <span class="label-with-tip">Priority<span class="help-tip" data-tip="Lower number = higher priority in failover order (e.g. -10 before 0 before 10).">?</span></span>
+                <input class="control" name="priority" type="number" min="-1000" max="1000" step="1" value="${escapeHtml(provider.priority ?? 0)}" />
+              </label>
+              <label class="check-field">
+                <span class="toggle-switch"><input type="checkbox" name="enabled" ${isEnabled ? "checked" : ""} /><span class="slider"></span></span>
+                <span class="label-with-tip">Enabled<span class="help-tip" data-tip="Toggle whether this provider participates in routing.">?</span></span>
+              </label>
+              <button class="button secondary" type="submit">Save provider</button>
+              <button class="button danger icon-action" type="button" data-provider-delete="${escapeHtml(name)}" title="Delete provider" aria-label="Delete provider">${iconSvg("trash")}</button>
+            </form>
 
-        <form class="config-provider-form" data-provider="${escapeHtml(name)}">
-          <label class="field">
-            <span>Base URL</span>
-            <input class="control" name="base_url" value="${escapeHtml(provider.base_url || "")}" placeholder="https://api.example.com" required />
-          </label>
-          <label class="field">
-            <span>Proxy</span>
-            <input class="control" name="proxy" value="${escapeHtml(provider.proxy || "")}" placeholder="direct or http://127.0.0.1:8002" />
-          </label>
-          <label class="field">
-            <span>User-Agent override</span>
-            <input class="control" name="user_agent" value="${escapeHtml(provider.user_agent || "")}" placeholder="inherit client User-Agent" />
-          </label>
-          <label class="field">
-            <span>Priority</span>
-            <input class="control" name="priority" type="number" min="-1000" max="1000" step="1" value="${escapeHtml(provider.priority ?? 0)}" />
-          </label>
-          <label class="check-field">
-            <input type="checkbox" name="enabled" ${provider.enabled === false ? "" : "checked"} />
-            <span>Enabled in config</span>
-          </label>
-          <button class="button secondary" type="submit">Save provider</button>
-          <button class="button danger icon-action" type="button" data-provider-delete="${escapeHtml(name)}" title="Delete provider" aria-label="Delete provider">${iconSvg("trash")}</button>
-        </form>
+            <div class="masked-key-list">
+              ${keys.length ? keys.map((key) => `
+                <span class="tag" title="${escapeHtml(key.key_id || "")}">key ${escapeHtml(key.index)} / ${escapeHtml(key.masked || key.key_id || "-")}</span>
+              `).join("") : `<span class="muted">No keys</span>`}
+            </div>
 
-        <div class="masked-key-list">
-          ${keys.length ? keys.map((key) => `
-            <span class="tag" title="${escapeHtml(key.key_id || "")}">key ${escapeHtml(key.index)} / ${escapeHtml(key.masked || key.key_id || "-")}</span>
-          `).join("") : `<span class="muted">No keys</span>`}
-        </div>
+            <form class="config-key-form" data-provider="${escapeHtml(name)}">
+              <input class="control" name="key" type="password" autocomplete="off" placeholder="new api key" required />
+              <button class="button secondary" type="submit">Add key</button>
+            </form>
 
-        <form class="config-key-form" data-provider="${escapeHtml(name)}">
-          <input class="control" name="key" type="password" autocomplete="off" placeholder="new api key" required />
-          <button class="button secondary" type="submit">Add key</button>
-        </form>
-
-        <div class="format-route-list">
-          ${formatRouteItems(formats, name)}
+            <div class="format-route-list">
+              ${formatRouteItems(formats, name)}
+            </div>
+          </div>
         </div>
       </article>
     `;
@@ -4909,7 +4986,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     return `
       <form class="format-edit-row" data-provider="${escapeHtml(provider)}" data-format="${escapeHtml(fmt)}">
         <label class="check-field">
-          <input type="checkbox" name="enabled" ${config.enabled ? "checked" : ""} />
+          <span class="toggle-switch"><input type="checkbox" name="enabled" ${config.enabled ? "checked" : ""} /><span class="slider"></span></span>
           <span>${escapeHtml(formatLabel(fmt))}</span>
         </label>
         <input class="control" name="path" value="${escapeHtml(config.path || defaultFormatPath(fmt))}" required />
@@ -4932,6 +5009,34 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
   }
 
   function bindConfigProviderForms(root) {
+    root.querySelectorAll(".config-provider-card.collapsible-card").forEach((card) => {
+      if (card.dataset.boundcollapsible) return;
+      card.dataset.boundcollapsible = "1";
+      const providerName = card.querySelector(".provider-name")?.textContent || "";
+      const storageKey = `proxyConsoleFold_provider_${providerName}`;
+      try {
+        if (localStorage.getItem(storageKey) === "1") card.classList.add("is-open");
+      } catch (_e) {}
+      const header = card.querySelector(".collapsible-card-header");
+      if (header) {
+        header.addEventListener("click", (event) => {
+          if (event.target.closest("input, button, select, .help-tip, .toggle-switch")) return;
+          const willOpen = !card.classList.contains("is-open");
+          card.classList.toggle("is-open");
+          try {
+            localStorage.setItem(storageKey, willOpen ? "1" : "0");
+          } catch (_e) {}
+          if (willOpen) {
+            requestAnimationFrame(() => {
+              const rect = card.getBoundingClientRect();
+              if (rect.bottom > window.innerHeight) {
+                card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+              }
+            });
+          }
+        });
+      }
+    });
     root.querySelectorAll("[data-provider-delete]").forEach((button) => {
       if (button.dataset.bounddataproviderdelete) return;
       button.dataset.bounddataproviderdelete = "1";
