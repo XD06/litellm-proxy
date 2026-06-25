@@ -2,6 +2,7 @@ import morphdom from "morphdom";
 import { state } from "./state.js";
 import { timeRanges, REQUEST_PAGE_SIZE, PROVIDERS_PAGE_SIZE, CONFIG_PROVIDERS_PAGE_SIZE, MODEL_ROUTES_PAGE_SIZE, PROVIDER_MODEL_MAP_PAGE_SIZE, AUDIT_PAGE_SIZE, OVERVIEW_PROVIDER_LIMIT, OVERVIEW_FAILURE_LIMIT, USAGE_MODEL_LIMIT, views } from "./constants.js";
 import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessage } from "./api.js";
+import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.js";
 
 
   const el = (id) => document.getElementById(id);
@@ -508,7 +509,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     const messageEl = el("confirmMessage");
     const acceptButton = el("confirmAcceptButton");
     if (!dialog || !backdrop || !titleEl || !messageEl || !acceptButton) {
-      setNotice("Confirmation dialog is unavailable. Refresh the console and try again.");
+      setNotice(t("notice.confirm_unavailable"));
       return Promise.resolve(false);
     }
     if (state.confirmResolve) {
@@ -516,8 +517,8 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       state.confirmResolve = null;
     }
     state.confirmLastFocus = document.activeElement;
-    titleEl.textContent = title || "Confirm action";
-    messageEl.textContent = message || "This action needs confirmation.";
+    titleEl.textContent = title || t("confirm.title_default");
+    messageEl.textContent = message || t("confirm.message_default");
     acceptButton.textContent = acceptLabel;
     backdrop.hidden = false;
     dialog.classList.add("is-open");
@@ -641,8 +642,8 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
 
   function openAddProviderModal() {
     openFormModal({
-      title: "Add Provider",
-      subtitle: "Create a provider with the required connection fields.",
+      title: t("form.add_provider_title"),
+      subtitle: t("form.add_provider_sub"),
       bodyHtml: addProviderModalBody(),
     });
     const form = document.getElementById("addProviderModalForm");
@@ -673,9 +674,9 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
           await apiPost("/-/admin/providers", payload);
           closeFormModal();
           await refreshAll({ quiet: true, staticData: true });
-          setNotice(`Provider ${payload.name} added.`, "ok");
+          setNotice(t("notice.provider_added", { name: payload.name }), "ok");
         } catch (err) {
-          setNotice(`Add provider failed: ${err.message}`);
+          setNotice(t("notice.add_provider_failed", { error: err.message }));
         }
       });
     }
@@ -764,7 +765,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
 
   async function refreshAll({ quiet = false, preserveNotice = false, staticData = false } = {}) {
     if (!state.adminKey) {
-      setConnection(false, "Admin key required");
+      setConnection(false, t("conn.admin_required"));
       showLogin(quiet ? "" : "Admin key is required to load console data.");
       return;
     }
@@ -789,7 +790,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     try {
 
     try {
-      setConnection(null, "Refreshing");
+      setConnection(null, t("conn.reconnecting"));
       // Polling cost is dominated by the metrics payload when recent_requests
       // is large (hundreds of KB carrying the full per-attempt chain). To keep
       // the 5s background poll cheap on every view:
@@ -884,13 +885,13 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       if (!preserveNotice) setNotice("");
       setConnection(true, `Updated ${new Date().toLocaleTimeString()}`);
     } catch (err) {
-      setConnection(false, "Connection error");
+      setConnection(false, t("conn.connection_error"));
       if (isAuthError(err)) {
         clearStoredAdminKey();
         state.adminKey = "";
-        showLogin("Admin key was rejected. Enter the current key to continue.");
+        showLogin(t("auth.invalid"));
       } else {
-        setNotice(`Console refresh failed: ${err.message}`);
+        setNotice(t("notice.refresh_failed", { error: err.message }));
       }
     } finally {
       // Release the re-entrancy lock and, if another refresh was requested
@@ -929,8 +930,8 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       setConnection(true, `Updated ${new Date().toLocaleTimeString()}`);
       return true;
     } catch (err) {
-      setConnection(false, "Connection error");
-      setNotice(`Provider config refresh failed: ${err.message}`, "bad");
+      setConnection(false, t("conn.connection_error"));
+      setNotice(t("notice.config_refresh_failed", { error: err.message }), "bad");
       return false;
     }
   }
@@ -1169,10 +1170,10 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         : "bad";
     const rangeLabel = currentTimeRange().label || state.timeRange;
     target.innerHTML = `
-      ${overviewMetricCard("Requests", fmtInt(traffic.requests), `${fmtInt(counters.requests_in_flight || 0)} in flight`, requestFailureRate >= 0.1 ? "danger" : requestFailureRate > 0 ? "warning" : "info", "activity")}
-      ${overviewMetricCard("Success rate", fmtPct(successRate), `${fmtInt(displaySuccess)} success`, successRate >= 0.98 ? "success" : successRate >= 0.95 ? "info" : successRate >= 0.85 ? "warning" : "danger", "check")}
-      ${overviewMetricCard("First byte", latestLatency === null ? "-" : fmtMs(latestLatency), avgLatency === null ? "no samples" : `avg ${fmtMs(avgLatency)} / max ${fmtMs(maxLatency)}`, toneForLatency(avgLatency || latestLatency || 0), "clock")}
-      ${overviewMetricCard("Active keys", `${fmtInt(keyUsable)}/${fmtInt(keyTotal)}`, `${fmtInt(providerAvailable)}/${fmtInt(providerCount)} providers`, healthTone === "bad" ? "danger" : healthTone === "soft" ? "warning" : healthTone === "warn" ? "info" : "success", "key")}
+      ${overviewMetricCard(t("metric.requests"), fmtInt(traffic.requests), `${fmtInt(counters.requests_in_flight || 0)} ${t("metric.in_flight")}`, requestFailureRate >= 0.1 ? "danger" : requestFailureRate > 0 ? "warning" : "info", "activity")}
+      ${overviewMetricCard(t("kpi.success_rate"), fmtPct(successRate), `${fmtInt(displaySuccess)} ${t("metric.success")}`, successRate >= 0.98 ? "success" : successRate >= 0.95 ? "info" : successRate >= 0.85 ? "warning" : "danger", "check")}
+      ${overviewMetricCard(t("kpi.first_byte"), latestLatency === null ? "-" : fmtMs(latestLatency), avgLatency === null ? t("kpi.no_samples") : `avg ${fmtMs(avgLatency)} / max ${fmtMs(maxLatency)}`, toneForLatency(avgLatency || latestLatency || 0), "clock")}
+      ${overviewMetricCard(t("kpi.active_keys"), `${fmtInt(keyUsable)}/${fmtInt(keyTotal)}`, `${fmtInt(providerAvailable)}/${fmtInt(providerCount)} ${t("metric.providers")}`, healthTone === "bad" ? "danger" : healthTone === "soft" ? "warning" : healthTone === "warn" ? "info" : "success", "key")}
     `;
   }
 
@@ -1339,14 +1340,14 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         <div class="usage-trend-total">
           <span>Consumed tokens</span>
           <strong>${escapeHtml(fmtTokenCount(displayUsage.total_tokens))}</strong>
-          <small>${escapeHtml(fmtInt(displayUsage.total_tokens))} total in the selected window</small>
+          <small>${escapeHtml(fmtInt(displayUsage.total_tokens))} ${t("ov.total_in_window")}</small>
         </div>
         <div class="usage-trend-kpis">
-          ${usageTrendKpi("Input", fmtTokenCount(displayUsage.input_tokens), "usage-input")}
-          ${usageTrendKpi("Output", fmtTokenCount(displayUsage.output_tokens), "usage-output")}
-          ${usageTrendKpi("Requests", fmtInt(totals.requests), "usage-request")}
-          ${usageTrendKpi("Failures", fmtInt(totals.failed), "usage-failure")}
-          ${usageTrendKpi("Success", fmtPct(successRate), "usage-success")}
+          ${usageTrendKpi(t("kpi.input"), fmtTokenCount(displayUsage.input_tokens), "usage-input")}
+          ${usageTrendKpi(t("kpi.output"), fmtTokenCount(displayUsage.output_tokens), "usage-output")}
+          ${usageTrendKpi(t("metric.requests"), fmtInt(totals.requests), "usage-request")}
+          ${usageTrendKpi(t("kpi.failures"), fmtInt(totals.failed), "usage-failure")}
+          ${usageTrendKpi(t("kpi.success"), fmtPct(successRate), "usage-success")}
         </div>
       </div>
       ${renderTrafficComboChart({
@@ -2975,7 +2976,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         });
         await runConfigMutation(form, async () => {
           await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { static_models: models });
-          setNotice(`Static models for ${provider} saved.`, "ok");
+          setNotice(t("notice.static_models_saved", { provider }), "ok");
           form.elements.static_models.value = "";
         });
       });
@@ -2988,11 +2989,11 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         button.disabled = true;
         try {
           await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { static_models: [] });
-          setNotice(`Static models for ${provider} cleared.`, "ok");
+          setNotice(t("notice.static_models_cleared", { provider }), "ok");
           await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
           renderProviderDrawer({ force: true });
         } catch (err) {
-          setNotice(`Failed: ${err.message}`);
+          setNotice(t("notice.failed", { error: err.message }));
         } finally {
           button.disabled = false;
         }
@@ -3009,11 +3010,11 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         button.disabled = true;
         try {
           await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { static_models: models });
-          setNotice(`Static model ${model} removed from ${provider}.`, "ok");
+          setNotice(t("notice.static_model_removed", { model, provider }), "ok");
           await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
           renderProviderDrawer({ force: true });
         } catch (err) {
-          setNotice(`Failed: ${err.message}`);
+          setNotice(t("notice.failed", { error: err.message }));
         } finally {
           button.disabled = false;
         }
@@ -3824,7 +3825,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
           }
           await refreshAll({ quiet: true, staticData: true });
         } catch (err) {
-          setNotice(`Action failed: ${err.message}`);
+          setNotice(t("notice.action_failed", { error: err.message }));
         } finally {
           button.disabled = false;
         }
@@ -3919,20 +3920,20 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         const total = Number(button.dataset.keyDeleteTotal || 0);
         const label = button.dataset.keyDeleteLabel || `key ${keyIndex}`;
         if (!provider || keyIndex === "") return;
-        const lastKeyText = total <= 1 ? " This is the last key; the provider will become unavailable until another key is added." : "";
+        const lastKeyText = total <= 1 ? t("confirm.delete_key.last") : "";
         const confirmed = await openConfirmDialog({
-          title: "Delete key",
-          message: `Delete ${label} from ${provider}?${lastKeyText}`,
-          acceptLabel: "Delete",
+          title: t("confirm.delete_key.title"),
+          message: t("confirm.delete_key.msg", { label, provider }) + lastKeyText,
+          acceptLabel: t("confirm.delete"),
         });
         if (!confirmed) return;
         button.disabled = true;
         try {
           await apiPost(`/-/admin/providers/${encodeURIComponent(provider)}/keys/${encodeURIComponent(keyIndex)}/delete`, { confirm: "delete_key" });
-          setNotice(`Key ${keyIndex} deleted from ${provider}.`, "ok");
+          setNotice(t("notice.key_deleted", { index: keyIndex, provider }), "ok");
           await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
         } catch (err) {
-          setNotice(`Delete key failed: ${err.message}`);
+          setNotice(t("notice.delete_key_failed", { error: err.message }));
         } finally {
           button.disabled = false;
         }
@@ -3953,14 +3954,14 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         const modelSelect = root.querySelector(`[data-key-test-model="${CSS.escape(probeKey)}"]`);
         const model = String(modelSelect?.value || "").trim();
         if (!model) {
-          setNotice("Refresh model capabilities before testing this key.", "info");
+          setNotice(t("notice.refresh_before_test"), "info");
           return;
         }
         if (state.keyProbeInFlight[probeKey]) return;
         state.keyProbeInFlight[probeKey] = true;
         state.keyProbes[probeKey] = { pending: true };
         button.disabled = true;
-        setNotice(`Testing key ${keyIndex} of ${provider} on ${model}...`, "info", { key: toastKey, sticky: true });
+        setNotice(t("notice.testing_key", { index: keyIndex, provider, model }), "info", { key: toastKey, sticky: true });
         try {
           const resp = await apiPost(`/-/admin/providers/${encodeURIComponent(provider)}/keys/${encodeURIComponent(keyIndex)}/test`, { model });
           const result = resp.result || {};
@@ -3969,15 +3970,15 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
             const shownModel = result.requested_model || model;
             const upstreamModel = result.upstream_model && result.upstream_model !== shownModel ? result.upstream_model : "";
             const upstreamText = upstreamModel ? `, upstream ${upstreamModel}` : "";
-            setNotice(`Key ${keyIndex} of ${provider} works on ${shownModel} (${result.format}${upstreamText}, ${fmtInt(result.latency_ms)}ms).`, "ok", { key: toastKey });
+            setNotice(t("notice.key_works", { index: keyIndex, provider, model: shownModel, format: result.format, upstream: upstreamText, latency: fmtInt(result.latency_ms) }), "ok", { key: toastKey });
           } else {
             const detail = result.http_status ? `HTTP ${result.http_status}` : result.error_type || "failed";
-            setNotice(`Key ${keyIndex} of ${provider} failed: ${detail}.`, "bad", { key: toastKey });
+            setNotice(t("notice.key_failed", { index: keyIndex, provider, detail }), "bad", { key: toastKey });
           }
           await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
         } catch (err) {
           state.keyProbes[probeKey] = { ok: false, error_type: "request_error" };
-          setNotice(`Test key failed: ${err.message}`, "bad", { key: toastKey });
+          setNotice(t("notice.test_key_failed", { error: err.message }), "bad", { key: toastKey });
         } finally {
           delete state.keyProbeInFlight[probeKey];
           button.disabled = false;
@@ -4002,11 +4003,11 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         button.disabled = true;
         try {
           await apiPost(`/-/admin/providers/${encodeURIComponent(provider)}/models/refresh`);
-          setNotice(`Models for ${provider} refreshed.`, "ok");
+          setNotice(t("notice.models_refreshed", { provider }), "ok");
           await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
           renderProviderDrawer({ force: true });
         } catch (err) {
-          setNotice(`Model refresh failed: ${err.message}`, "bad");
+          setNotice(t("notice.model_refresh_failed", { error: err.message }), "bad");
         } finally {
           _modelRefreshInFlight.delete(provider);
           button.disabled = false;
@@ -4020,11 +4021,11 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     try {
       await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/models/disabled`, { models });
       if (state.providerModelDrafts) delete state.providerModelDrafts[provider];
-      setNotice(successMessage || `Model settings for ${provider} saved.`, "ok");
+      setNotice(successMessage || t("notice.model_settings_saved", { provider }), "ok");
       await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
       renderProviderDrawer({ force: true });
     } catch (err) {
-      setNotice(`Model setting failed: ${err.message}`, "bad");
+      setNotice(t("notice.model_setting_failed", { error: err.message }), "bad");
     }
   }
 
@@ -4036,12 +4037,12 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         model: nextModel,
         raw_model: rawModel,
       });
-      setNotice(nextModel ? `Model mapping saved for ${provider}.` : `Model mapping reset for ${provider}.`, "ok");
+      setNotice(nextModel ? t("notice.model_mapping_saved", { provider }) : t("notice.model_mapping_reset", { provider }), "ok");
       await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
       renderProviderDrawer({ force: true });
       return true;
     } catch (err) {
-      setNotice(`Model mapping failed: ${err.message}`, "bad");
+      setNotice(t("notice.model_mapping_failed", { error: err.message }), "bad");
       return false;
     }
   }
@@ -4049,7 +4050,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
   function openProviderModelMappingModal({ provider, oldModel, rawModel, isManual }) {
     if (!provider || !oldModel || !rawModel) return;
     openFormModal({
-      title: "Edit model mapping",
+      title: t("modal.edit_mapping_title"),
       subtitle: provider,
       bodyHtml: `
         <form class="model-map-form" data-provider-model-map-form>
@@ -4080,7 +4081,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       const input = form.elements.model;
       const nextModel = String(input?.value || "").trim();
       if (!nextModel && !isManual) {
-        setNotice("Model mapping name is required.", "bad");
+        setNotice(t("notice.model_mapping_required"), "bad");
         input?.focus();
         return;
       }
@@ -4100,7 +4101,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     if (!provider || !fmt) return;
     const current = path || defaultFormatPath(fmt);
     openFormModal({
-      title: "Edit format path",
+      title: t("modal.edit_format_title"),
       subtitle: provider,
       bodyHtml: `
         <form class="format-path-form" data-provider-format-path-form>
@@ -4134,7 +4135,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       const input = form.elements.path;
       const trimmed = String(input?.value || "").trim();
       if (!trimmed) {
-        setNotice("Format path cannot be empty.", "bad");
+        setNotice(t("notice.format_path_empty"), "bad");
         input?.focus();
         return;
       }
@@ -4147,7 +4148,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       if (submit) submit.disabled = true;
       const saved = await runFormatMutation(ownerCard, async () => {
           const resp = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/formats/${encodeURIComponent(fmt)}`, { path: normalized });
-          setNotice(`${provider} ${fmt} path updated.`, "ok");
+          setNotice(t("notice.format_updated", { provider, format: fmt }), "ok");
           return resp;
       });
       if (saved) {
@@ -4288,89 +4289,89 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     const providerPool = Array.isArray(routing.default_provider_pool) ? routing.default_provider_pool.join(", ") : "";
     const currentSelect = String(routing.provider_select || "priority_failover");
     const routeModes = [
-      { value: "priority_failover", icon: "bolt", label: "Priority", tip: "priority_failover — Try providers in priority order, failover to next on error" },
-      { value: "round_robin", icon: "rotate", label: "Round-robin", tip: "round_robin — Cycle through providers evenly across requests" },
-      { value: "weighted_rr", icon: "layers", label: "Weighted", tip: "weighted_rr — Distribute by weight (e.g. provider:2 gets 2x traffic of provider:1)" },
-      { value: "random", icon: "dot", label: "Random", tip: "random — Pick a provider at random from the pool" },
+      { value: "priority_failover", icon: "bolt", label: t("policy.mode_priority"), tip: t("policy.mode_priority_tip") },
+      { value: "round_robin", icon: "rotate", label: t("policy.mode_round_robin"), tip: t("policy.mode_round_robin_tip") },
+      { value: "weighted_rr", icon: "layers", label: t("policy.mode_weighted"), tip: t("policy.mode_weighted_tip") },
+      { value: "random", icon: "dot", label: t("policy.mode_random"), tip: t("policy.mode_random_tip") },
     ];
     target.innerHTML = `
       <div class="policy-control-grid">
         <form id="routingControlForm" class="policy-control-card">
           <div class="policy-control-card-head">
-            <h3>Routing<span class="help-tip" data-tip="Attempt budget, provider order, and format preference.">?</span></h3>
+            <h3>${t("policy.routing")}<span class="help-tip" data-tip="${escapeHtml(t("policy.routing_tip2"))}">?</span></h3>
           </div>
           <label class="field">
-            <span class="label-with-tip">Provider pool<span class="help-tip" data-tip="Comma-separated provider names used as the default routing pool.">?</span></span>
+            <span class="label-with-tip">${t("policy.provider_pool")}<span class="help-tip" data-tip="${escapeHtml(t("policy.provider_pool_tip"))}">?</span></span>
             <input class="control" name="default_provider_pool" value="${escapeHtml(providerPool)}" placeholder="opencode, deepseek, rawchat" required />
           </label>
           <div class="form-pair-grid routing-mode-grid">
             <div class="field">
-              <span class="label-with-tip">Selection mode<span class="help-tip" data-tip="How providers are picked from the pool for each request.">?</span></span>
+              <span class="label-with-tip">${t("policy.selection_mode")}<span class="help-tip" data-tip="${escapeHtml(t("policy.selection_tip"))}">?</span></span>
               <input type="hidden" name="provider_select" value="${escapeHtml(currentSelect)}" />
               <div class="icon-btn-group" id="routeModeGroup">
                 ${routeModes.map((m) => `<button type="button" data-route-mode="${escapeHtml(m.value)}" class="${currentSelect === m.value ? "is-active" : ""}" title="${escapeHtml(m.tip)}">${iconSvg(m.icon)}<span>${escapeHtml(m.label)}</span></button>`).join("")}
               </div>
             </div>
             <label class="field">
-              <span class="label-with-tip">Max attempts<span class="help-tip" data-tip="Maximum number of provider attempts per request before giving up.">?</span></span>
+              <span class="label-with-tip">${t("policy.max_attempts")}<span class="help-tip" data-tip="${escapeHtml(t("policy.max_attempts_tip"))}">?</span></span>
               <input class="control" name="max_attempts" type="number" min="1" max="50" value="${escapeHtml(routing.max_attempts ?? policy.max_attempts ?? 6)}" required />
             </label>
           </div>
           <details class="policy-advanced">
-            <summary>Timeouts</summary>
+            <summary>${t("policy.timeouts")}</summary>
             <div class="form-pair-grid" style="margin-top:10px">
               <label class="field">
-                <span class="label-with-tip">Connect<span class="help-tip" data-tip="connect_timeout_s — Seconds to wait for the upstream TCP connection.">?</span></span>
+                <span class="label-with-tip">${t("policy.connect")}<span class="help-tip" data-tip="${escapeHtml(t("policy.connect_tip"))}">?</span></span>
                 <input class="control" name="connect_timeout_s" type="number" min="1" max="3600" value="${escapeHtml(routing.connect_timeout_s ?? policy.connect_timeout_s ?? 15)}" required />
               </label>
               <label class="field">
-                <span class="label-with-tip">Read<span class="help-tip" data-tip="read_timeout_s — Seconds to wait for the full upstream response.">?</span></span>
+                <span class="label-with-tip">${t("policy.read")}<span class="help-tip" data-tip="${escapeHtml(t("policy.read_tip"))}">?</span></span>
                 <input class="control" name="read_timeout_s" type="number" min="1" max="3600" value="${escapeHtml(routing.read_timeout_s ?? policy.read_timeout_s ?? 120)}" required />
               </label>
               <label class="field">
-                <span class="label-with-tip">First token<span class="help-tip" data-tip="first_token_timeout_s — Seconds to wait for the first SSE token (0 = disabled).">?</span></span>
+                <span class="label-with-tip">${t("policy.first_token")}<span class="help-tip" data-tip="${escapeHtml(t("policy.first_token_tip"))}">?</span></span>
                 <input class="control" name="first_token_timeout_s" type="number" min="0" max="600" value="${escapeHtml(routing.first_token_timeout_s ?? policy.first_token_timeout_s ?? 30)}" required />
               </label>
             </div>
           </details>
-          <button class="button secondary" type="submit">Save routing</button>
+          <button class="button secondary" type="submit">${t("policy.save_routing")}</button>
         </form>
 
         <form id="retryControlForm" class="policy-control-card">
           <div class="policy-control-card-head">
-            <h3>Retry<span class="help-tip" data-tip="HTTP retry classes and key handling on failure.">?</span></h3>
+            <h3>${t("policy.retry")}<span class="help-tip" data-tip="${escapeHtml(t("policy.retry_tip"))}">?</span></h3>
           </div>
           <label class="field">
-            <span class="label-with-tip">Retryable statuses<span class="help-tip" data-tip="HTTP status codes that trigger a retry (e.g. 429, 500, 502, 503, 504).">?</span></span>
+            <span class="label-with-tip">${t("policy.retryable_statuses")}<span class="help-tip" data-tip="${escapeHtml(t("policy.retryable_tip"))}">?</span></span>
             <input class="control" name="retryable_status" value="${escapeHtml(joinList(retry.retryable_status || policy.retryable_status || []))}" placeholder="408, 429, 500, 502, 503, 504" required />
           </label>
           <label class="field">
-            <span class="label-with-tip">Fatal key statuses<span class="help-tip" data-tip="HTTP status codes that mark a key as permanently bad (e.g. 401, 403).">?</span></span>
+            <span class="label-with-tip">${t("policy.fatal_key_statuses")}<span class="help-tip" data-tip="${escapeHtml(t("policy.fatal_tip"))}">?</span></span>
             <input class="control" name="key_fatal_status" value="${escapeHtml(joinList(retry.key_fatal_status || policy.key_fatal_status || []))}" placeholder="401, 403" required />
           </label>
           <details class="policy-advanced">
-            <summary>Advanced cooldown & ladder</summary>
+            <summary>${t("policy.advanced_cooldown")}</summary>
             <label class="check-field" style="margin-top:10px">
               <span class="toggle-switch"><input type="checkbox" name="respect_retry_after" ${retry.respect_retry_after ?? policy.respect_retry_after ? "checked" : ""} /><span class="slider"></span></span>
-              <span class="label-with-tip">Respect Retry-After<span class="help-tip" data-tip="Honor the upstream Retry-After header to extend cooldown duration.">?</span></span>
+              <span class="label-with-tip">${t("policy.respect_retry_after")}<span class="help-tip" data-tip="${escapeHtml(t("policy.respect_tip"))}">?</span></span>
             </label>
             <div class="form-pair-grid" style="margin-top:8px">
               <label class="field">
-                <span class="label-with-tip">Same-key retries<span class="help-tip" data-tip="same_key_retries — How many times to retry the same key before switching (0-3).">?</span></span>
+                <span class="label-with-tip">${t("policy.same_key_retries")}<span class="help-tip" data-tip="${escapeHtml(t("policy.same_key_tip"))}">?</span></span>
                 <input class="control" name="same_key_retries" type="number" min="0" max="3" value="${escapeHtml(retry.same_key_retries ?? 1)}" required />
               </label>
               <label class="field">
-                <span class="label-with-tip">Failure ladder<span class="help-tip" data-tip="key_failure_ladder_s — Escalating cooldown seconds per consecutive key failure (e.g. 10, 60, 3600).">?</span></span>
+                <span class="label-with-tip">${t("policy.failure_ladder")}<span class="help-tip" data-tip="${escapeHtml(t("policy.ladder_tip"))}">?</span></span>
                 <input class="control" name="key_failure_ladder_s" value="${escapeHtml(joinNumberList(ladder))}" placeholder="10, 60, 3600" required />
               </label>
-              ${cooldownField("rate_limit", "Rate limit", "Rate limit cooldown (seconds)", cooldown.rate_limit ?? 30)}
-              ${cooldownField("server_error", "Server error", "Server error cooldown (seconds)", cooldown.server_error ?? 10)}
-              ${cooldownField("network_error", "Network error", "Network/timeout cooldown (seconds)", cooldown.network_error ?? 10)}
-              ${cooldownField("key_invalid", "Invalid key", "Invalid key cooldown (seconds)", cooldown.key_invalid ?? 3600)}
-              ${cooldownField("quota_or_balance", "Quota/balance", "Quota or balance exhausted cooldown (seconds)", cooldown.quota_or_balance ?? 3600)}
+              ${cooldownField("rate_limit", t("policy.cooldown_rate_limit"), t("policy.cooldown_rate_limit_tip"), cooldown.rate_limit ?? 30)}
+              ${cooldownField("server_error", t("policy.cooldown_server_error"), t("policy.cooldown_server_error_tip"), cooldown.server_error ?? 10)}
+              ${cooldownField("network_error", t("policy.cooldown_network_error"), t("policy.cooldown_network_error_tip"), cooldown.network_error ?? 10)}
+              ${cooldownField("key_invalid", t("policy.cooldown_key_invalid"), t("policy.cooldown_key_invalid_tip"), cooldown.key_invalid ?? 3600)}
+              ${cooldownField("quota_or_balance", t("policy.cooldown_quota_or_balance"), t("policy.cooldown_quota_or_balance_tip"), cooldown.quota_or_balance ?? 3600)}
             </div>
           </details>
-          <button class="button secondary" type="submit">Save retry</button>
+          <button class="button secondary" type="submit">${t("policy.save_retry")}</button>
         </form>
       </div>
     `;
@@ -4412,7 +4413,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         };
         await runPolicyMutation(routingForm, async () => {
           await apiPatch("/-/admin/routing", payload);
-          setNotice("Routing settings updated.", "ok");
+          setNotice(t("notice.routing_updated"), "ok");
         });
       });
     }
@@ -4437,7 +4438,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         };
         await runPolicyMutation(retryForm, async () => {
           await apiPatch("/-/admin/retry", payload);
-          setNotice("Retry settings updated.", "ok");
+          setNotice(t("notice.retry_updated"), "ok");
         });
       });
     }
@@ -4474,7 +4475,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         };
         await runPolicyMutation(form, async () => {
           await apiPatch("/-/admin/retry/failure-policies", payload);
-          setNotice(`Failure policy ${payload.error_type} updated.`, "ok");
+          setNotice(t("notice.failure_policy_updated", { type: payload.error_type }), "ok");
         });
       });
     });
@@ -4494,7 +4495,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       }
       await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
     } catch (err) {
-      setNotice(`Policy update failed: ${err.message}`);
+      setNotice(t("notice.policy_failed", { error: err.message }));
     } finally {
       buttons.forEach((button) => {
         button.disabled = false;
@@ -4548,18 +4549,18 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         <div class="collapsible-card-body">
           <div class="failure-policy-edit-grid">
             <label class="field">
-              <span class="label-with-tip">Key cooldown<span class="help-tip" data-tip="Cooldown duration (seconds) applied to the key on this error type.">?</span></span>
+              <span class="label-with-tip">${t("policy.key_cooldown")}<span class="help-tip" data-tip="${escapeHtml(t("policy.key_cooldown_tip"))}">?</span></span>
               <input class="control" name="cooldown_s" type="number" min="0" max="86400" value="${escapeHtml(cfg.cooldown_s ?? 0)}" required />
             </label>
             <label class="field">
-              <span class="label-with-tip">Provider cooldown<span class="help-tip" data-tip="Cooldown duration (seconds) applied to the provider on this error type.">?</span></span>
+              <span class="label-with-tip">${t("policy.provider_cooldown")}<span class="help-tip" data-tip="${escapeHtml(t("policy.provider_cooldown_tip"))}">?</span></span>
               <input class="control" name="provider_cooldown_s" type="number" min="0" max="300" value="${escapeHtml(cfg.provider_cooldown_s ?? 0)}" required />
             </label>
             <label class="check-field failure-disable-check">
               <span class="toggle-switch"><input type="checkbox" name="disables_key" ${cfg.disables_key ? "checked" : ""} /><span class="slider"></span></span>
-              <span class="label-with-tip">Disable key<span class="help-tip" data-tip="${escapeHtml(failurePolicyDescription(errorType))}">?</span></span>
+              <span class="label-with-tip">${t("policy.disable_key")}<span class="help-tip" data-tip="${escapeHtml(failurePolicyDescription(errorType))}">?</span></span>
             </label>
-            <button class="button secondary" type="submit">Save policy</button>
+            <button class="button secondary" type="submit">${t("policy.save_policy")}</button>
           </div>
         </div>
       </form>
@@ -4939,26 +4940,26 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
           <div class="config-provider-body-inner">
             <form class="config-provider-form" data-provider="${escapeHtml(name)}">
               <label class="field">
-                <span class="label-with-tip">Base URL<span class="help-tip" data-tip="The upstream API endpoint for this provider.">?</span></span>
+                <span class="label-with-tip">${t("form.base_url")}<span class="help-tip" data-tip="${escapeHtml(t("form.base_url_tip"))}">?</span></span>
                 <input class="control" name="base_url" value="${escapeHtml(provider.base_url || "")}" placeholder="https://api.example.com" required />
               </label>
               <label class="field">
-                <span class="label-with-tip">Proxy<span class="help-tip" data-tip="Per-provider proxy URL. Leave blank to use the global proxy or direct connection.">?</span></span>
+                <span class="label-with-tip">${t("form.proxy")}<span class="help-tip" data-tip="${escapeHtml(t("form.proxy_tip"))}">?</span></span>
                 <input class="control" name="proxy" value="${escapeHtml(provider.proxy || "")}" placeholder="direct or http://127.0.0.1:8002" />
               </label>
               <label class="field">
-                <span class="label-with-tip">User-Agent<span class="help-tip" data-tip="Custom User-Agent header for upstream requests. Blank = inherit default.">?</span></span>
+                <span class="label-with-tip">${t("form.user_agent")}<span class="help-tip" data-tip="${escapeHtml(t("form.ua_tip"))}">?</span></span>
                 <input class="control" name="user_agent" value="${escapeHtml(provider.user_agent || "")}" placeholder="inherit client User-Agent" />
               </label>
               <label class="field">
-                <span class="label-with-tip">Priority<span class="help-tip" data-tip="Lower number = higher priority in failover order (e.g. -10 before 0 before 10).">?</span></span>
+                <span class="label-with-tip">${t("form.priority")}<span class="help-tip" data-tip="${escapeHtml(t("form.priority_tip"))}">?</span></span>
                 <input class="control" name="priority" type="number" min="-1000" max="1000" step="1" value="${escapeHtml(provider.priority ?? 0)}" />
               </label>
               <label class="check-field">
                 <span class="toggle-switch"><input type="checkbox" name="enabled" ${isEnabled ? "checked" : ""} /><span class="slider"></span></span>
-                <span class="label-with-tip">Enabled<span class="help-tip" data-tip="Toggle whether this provider participates in routing.">?</span></span>
+                <span class="label-with-tip">${t("form.enabled")}<span class="help-tip" data-tip="${escapeHtml(t("form.enabled_tip"))}">?</span></span>
               </label>
-              <button class="button secondary" type="submit">Save provider</button>
+              <button class="button secondary" type="submit">${t("form.save_provider")}</button>
               <button class="button danger icon-action" type="button" data-provider-delete="${escapeHtml(name)}" title="Delete provider" aria-label="Delete provider">${iconSvg("trash")}</button>
             </form>
 
@@ -5044,9 +5045,9 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         const provider = button.dataset.providerDelete || "";
         if (!provider) return;
         const confirmed = await openConfirmDialog({
-          title: "Delete Provider",
-          message: `Delete ${provider}? It will be removed from provider config, route pools, model maps, and capability snapshots.`,
-          acceptLabel: "Delete",
+          title: t("confirm.delete_provider.title"),
+          message: t("confirm.delete_provider.msg", { provider }),
+          acceptLabel: t("confirm.delete"),
         });
         if (!confirmed) return;
         button.disabled = true;
@@ -5056,10 +5057,10 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
           state.openProviderEditors.delete(provider);
           if (state.providerDrawerName === provider) closeProviderDrawer();
           state.forceConfigRender = true;
-          setNotice(`Provider ${provider} deleted.`, "ok");
+          setNotice(t("notice.provider_deleted", { provider }), "ok");
           await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
         } catch (err) {
-          setNotice(`Delete provider failed: ${err.message}`);
+          setNotice(t("notice.delete_provider_failed", { error: err.message }));
         } finally {
           button.disabled = false;
         }
@@ -5081,7 +5082,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         };
         await runConfigMutation(form, async () => {
           await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, payload);
-          setNotice(`Provider ${provider} updated.`, "ok");
+          setNotice(t("notice.provider_updated", { provider }), "ok");
         });
       });
     });
@@ -5099,7 +5100,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         await runConfigMutation(form, async () => {
           await apiPost(`/-/admin/providers/${encodeURIComponent(provider)}/keys`, payload);
           form.reset();
-          setNotice(`Key added to ${provider}.`, "ok");
+          setNotice(t("notice.key_added", { provider }), "ok");
         });
       });
     });
@@ -5114,7 +5115,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         const proxy = String(form.elements.proxy.value || "").trim();
         await runConfigMutation(form, async () => {
           await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/keys/${encodeURIComponent(keyIndex)}`, { proxy });
-          setNotice(`Key ${keyIndex} proxy updated for ${provider}.`, "ok");
+          setNotice(t("notice.key_proxy_updated", { index: keyIndex, provider }), "ok");
         });
       });
     });
@@ -5130,7 +5131,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         const nextEnabled = card.dataset.formatEnabled !== "1";
         await runFormatMutation(card, async () => {
           const resp = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/formats/${encodeURIComponent(fmt)}`, { enabled: nextEnabled });
-          setNotice(`${provider} ${fmt} ${nextEnabled ? "enabled" : "disabled"}.`, "ok");
+          setNotice(t("notice.format_toggled", { provider, format: fmt, state: nextEnabled ? t("notice.enabled") : t("notice.disabled") }), "ok");
           return resp;
         });
       };
@@ -5188,7 +5189,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       Promise.resolve().then(() => refreshProviderConfigView({ preserveNotice: true })).catch(() => {});
       return true;
     } catch (err) {
-      setNotice(`Format update failed: ${err.message}`, "bad");
+      setNotice(t("notice.format_update_failed", { error: err.message }), "bad");
       return false;
     } finally {
       if (card) {
@@ -5212,7 +5213,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       }
       await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
     } catch (err) {
-      setNotice(`Config update failed: ${err.message}`);
+      setNotice(t("notice.config_update_failed", { error: err.message }));
     } finally {
       buttons.forEach((button) => {
         button.disabled = false;
@@ -5598,7 +5599,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
 
     el("pauseButton").addEventListener("click", () => {
       state.paused = !state.paused;
-      el("pauseButton").textContent = state.paused ? "Resume" : "Pause";
+      el("pauseButton").textContent = state.paused ? t("action.resume") : t("action.pause");
       if (!state.paused) refreshAll({ quiet: true });
     });
 
@@ -5664,13 +5665,14 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       const mode = state.allMatchingSelected
         ? (filterCount ? "matching" : "all")
         : ids.length ? "selected" : filterCount ? "matching" : "all";
-      const title = mode === "selected" ? "Delete selected requests" : mode === "matching" ? "Delete matching requests" : "Clear request history";
+      const title = mode === "selected" ? t("confirm.delete_selected.title") : mode === "matching" ? t("confirm.delete_matching.title") : t("confirm.clear_history.title");
+      const plural = (mode === "selected" ? ids.length : Number(state.data.requests?.total || 0)) === 1 ? "" : "s";
       const message = mode === "selected"
-        ? `Delete ${fmtInt(ids.length)} selected request record${ids.length === 1 ? "" : "s"}? Runtime counters are not reset.`
+        ? t("confirm.delete_selected.msg", { count: fmtInt(ids.length), plural })
         : mode === "matching"
-          ? `Delete all ${fmtInt(state.data.requests?.total || 0)} request record${Number(state.data.requests?.total || 0) === 1 ? "" : "s"} matching the current filters? Runtime counters are not reset.`
-          : "Clear all request history, runtime metrics, and diagnostic log records?";
-      const confirmed = await openConfirmDialog({ title, message, acceptLabel: "Delete" });
+          ? t("confirm.delete_matching.msg", { count: fmtInt(state.data.requests?.total || 0), plural })
+          : t("confirm.clear_history.msg");
+      const confirmed = await openConfirmDialog({ title, message, acceptLabel: t("confirm.delete") });
       if (!confirmed) return;
       const button = el("deleteRequestsButton");
       button.disabled = true;
@@ -5699,15 +5701,16 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         }
         state.requestsPage = 0;
         const deleted = result.history?.requests_deleted || result.memory?.recent_requests_deleted || 0;
+        const plural = deleted === 1 ? "" : "s";
         setNotice(
           mode === "all"
-            ? `Request history cleared (${fmtInt(deleted)} records).`
-            : `Deleted ${fmtInt(deleted)} request record${deleted === 1 ? "" : "s"}.`,
+            ? t("notice.request_history_cleared", { count: fmtInt(deleted) })
+            : t("notice.requests_deleted", { count: fmtInt(deleted), plural }),
           "ok",
         );
         await refreshAll({ quiet: true, preserveNotice: true });
       } catch (err) {
-        setNotice(`Delete requests failed: ${err.message}`);
+        setNotice(t("notice.delete_requests_failed", { error: err.message }));
       } finally {
         button.disabled = false;
         updateRequestSelectionUi();
@@ -5738,7 +5741,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         await apiPost("/-/admin/config/reload");
         await refreshAll({ quiet: true, staticData: true });
       } catch (err) {
-        setNotice(`Config reload failed: ${err.message}`);
+        setNotice(t("notice.config_reload_failed", { error: err.message }));
       }
     });
 
@@ -5747,7 +5750,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       const form = event.currentTarget;
       await runConfigMutation(form, async () => {
         await apiPatch("/-/admin/proxy", { proxy: String(form.elements.proxy.value || "").trim() });
-        setNotice("Global proxy updated.", "ok");
+        setNotice(t("notice.global_proxy_updated"), "ok");
       });
     });
 
@@ -5759,9 +5762,9 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         state.data.overlayPreviewStatus = overlay.has_overlay ? "exported" : "empty";
         el("overlayPreview").textContent = JSON.stringify(overlay.overlay || {}, null, 2);
         renderOverlaySafety(state.data.config || {});
-        setNotice("Masked overlay exported to preview.", "ok");
+        setNotice(t("notice.overlay_exported"), "ok");
       } catch (err) {
-        setNotice(`Overlay export failed: ${err.message}`);
+        setNotice(t("notice.overlay_export_failed", { error: err.message }));
       }
     });
 
@@ -5772,19 +5775,19 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         state.data.overlayPreviewStatus = result.preview?.valid ? "valid" : "invalid";
         el("overlayPreview").textContent = JSON.stringify(result.preview || {}, null, 2);
         renderOverlaySafety(state.data.config || {});
-        setNotice("Overlay validation passed.", "ok");
+        setNotice(t("notice.overlay_validated"), "ok");
       } catch (err) {
         state.data.overlayPreviewStatus = "failed";
         renderOverlaySafety(state.data.config || {});
-        setNotice(`Overlay validation failed: ${err.message}`);
+        setNotice(t("notice.overlay_validation_failed", { error: err.message }));
       }
     });
 
     el("clearOverlayButton").addEventListener("click", async () => {
       const confirmed = await openConfirmDialog({
-        title: "Clear runtime overlay",
-        message: "Clear runtime_config overlay and restart runtime objects from base config?",
-        acceptLabel: "Clear",
+        title: t("confirm.clear_overlay.title"),
+        message: t("confirm.clear_overlay.msg"),
+        acceptLabel: t("confirm.clear"),
       });
       if (!confirmed) return;
       try {
@@ -5796,10 +5799,10 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
           null,
           2,
         );
-        setNotice(result.backup_path ? `Overlay cleared. Backup: ${result.backup_path}` : "Overlay cleared.", "ok");
+        setNotice(result.backup_path ? t("notice.overlay_cleared_backup", { path: result.backup_path }) : t("notice.overlay_cleared"), "ok");
         await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
       } catch (err) {
-        setNotice(`Clear overlay failed: ${err.message}`);
+        setNotice(t("notice.clear_overlay_failed", { error: err.message }));
       }
     });
 
@@ -5830,9 +5833,9 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         await apiPost("/-/admin/providers", payload);
         if (formEl && typeof formEl.reset === "function") formEl.reset();
         await refreshAll({ quiet: true, staticData: true });
-        setNotice(`Provider ${payload.name} added.`, "ok");
+        setNotice(t("notice.provider_added", { name: payload.name }), "ok");
       } catch (err) {
-        setNotice(`Add provider failed: ${err.message}`);
+        setNotice(t("notice.add_provider_failed", { error: err.message }));
       }
     });
 
@@ -5846,7 +5849,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       };
       await runConfigMutation(form, async () => {
         await apiPatch("/-/admin/models/routes", payload);
-        setNotice(`Model route ${payload.model} saved.`, "ok");
+        setNotice(t("notice.model_route_saved", { model: payload.model }), "ok");
       });
     });
 
@@ -5877,19 +5880,19 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         const model = deleteButton.dataset.modelRouteDelete || "";
         if (!model) return;
         const confirmed = await openConfirmDialog({
-          title: "Delete model route",
-          message: `Delete model route for ${model}?`,
-          acceptLabel: "Delete",
+          title: t("confirm.delete_route.title"),
+          message: t("confirm.delete_route.msg", { model }),
+          acceptLabel: t("confirm.delete"),
         });
         if (!confirmed) return;
         deleteButton.disabled = true;
         try {
           await apiPost("/-/admin/models/routes/delete", { model });
           state.forceModelRoutesRender = true;
-          setNotice(`Model route ${model} deleted.`, "ok");
+          setNotice(t("notice.model_route_deleted", { model }), "ok");
           await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
         } catch (err) {
-          setNotice(`Delete model route failed: ${err.message}`);
+          setNotice(t("notice.delete_route_failed", { error: err.message }));
         } finally {
           deleteButton.disabled = false;
         }
@@ -6247,9 +6250,11 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
   }
 
   async function init() {
+    initLang();
     installMobileSettings();
     installEvents();
     installTooltip();
+    bindLangToggle();
     const adminKeySource = loadAdminKey();
     loadTimeRange();
     setView(loadSavedView());
@@ -6260,8 +6265,36 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     }
     await openConsoleWithKey(state.adminKey, {
       persist: adminKeySource.fromQuery,
-      checkingMessage: "Checking saved admin key.",
+      checkingMessage: t("auth.checking"),
     });
+  }
+
+  function bindLangToggle() {
+    const btn = el("langToggleButton");
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      setLang(getLang() === "en" ? "zh" : "en");
+    });
+    // Re-render all dynamic content when language changes
+    onLangChange(() => {
+      updateLangToggleLabel();
+      renderAll();
+      // Re-apply static HTML translations
+      applyI18n();
+      // Update view title/subtitle
+      const meta = views[state.view] || views.overview;
+      el("viewTitle").textContent = meta.title;
+      el("viewSubtitle").textContent = meta.subtitle;
+      // Re-render time range label
+      renderTimeRangeControl();
+    });
+    updateLangToggleLabel();
+  }
+
+  function updateLangToggleLabel() {
+    const btn = el("langToggleButton");
+    if (!btn) return;
+    btn.textContent = getLang() === "en" ? "中文" : "EN";
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -6558,7 +6591,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
       pg.models = models.sort();
       pgPopulateModelSelect();
     } catch (err) {
-      pgStatus(`Failed to load models: ${err.message}`);
+      pgStatus(t("pg.load_failed", { error: err.message }));
     }
   }
 
@@ -6672,7 +6705,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
     const stopBtn = el("pgStopButton");
     if (sendBtn) sendBtn.hidden = true;
     if (stopBtn) stopBtn.hidden = false;
-    pgStatus("Sending...");
+    pgStatus(t("pg.sending"));
 
     const body = pgBuildRequest(userText);
     const stream = body.stream !== false;
@@ -6736,14 +6769,14 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
         sentText: userText,
       };
       pgRenderTrace(null);
-      pgStatus("Done.");
+      pgStatus(t("pg.done"));
     } catch (err) {
       if (err.name === "AbortError") {
         assistantMsg.content += "\n[stopped by user]";
-        pgStatus("Stopped.");
+        pgStatus(t("pg.stopped"));
       } else {
         assistantMsg.error = err.message;
-        pgStatus(`Error: ${err.message}`);
+        pgStatus(t("pg.error", { error: err.message }));
       }
       assistantMsg.streaming = false;
       pgRenderMessages({ scroll: "follow" });
@@ -6851,7 +6884,7 @@ import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessag
   function pgClear() {
     pg.messages = [];
     pgRenderTrace(null);
-    pgStatus("Ready.");
+    pgStatus(t("pg.ready"));
     pgRenderMessages({ scroll: "bottom" });
   }
 

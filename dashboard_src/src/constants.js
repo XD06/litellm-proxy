@@ -1,8 +1,10 @@
+import { t } from "./i18n.js";
+
 export const timeRanges = {
-  "30m": { label: "Last 30 minutes", bucket_s: 60, buckets: 30 },
-  "2h": { label: "Last 2 hours", bucket_s: 120, buckets: 60 },
-  "24h": { label: "Last 24 hours", bucket_s: 900, buckets: 96 },
-  "7d": { label: "Last 7 days", bucket_s: 3600, buckets: 168 },
+  "30m": { get label() { return t("ov.last_30m"); }, bucket_s: 60, buckets: 30 },
+  "2h": { get label() { return t("ov.last_2h"); }, bucket_s: 120, buckets: 60 },
+  "24h": { get label() { return t("ov.last_24h"); }, bucket_s: 900, buckets: 96 },
+  "7d": { get label() { return t("ov.last_7d"); }, bucket_s: 3600, buckets: 168 },
 };
 
 export const REQUEST_PAGE_SIZE = 10;
@@ -17,27 +19,27 @@ export const USAGE_MODEL_LIMIT = 5;
 
 export const views = {
   overview: {
-    title: "Overview",
-    subtitle: "Live runtime health and request flow.",
+    get title() { return t("view.overview.title"); },
+    get subtitle() { return t("view.overview.subtitle"); },
   },
   requests: {
-    title: "Requests",
-    subtitle: "request failure details.",
+    get title() { return t("view.requests.title"); },
+    get subtitle() { return t("view.requests.subtitle"); },
   },
   providers: {
-    title: "Providers",
-    subtitle: "Runtime provider and key state.",
+    get title() { return t("view.providers.title"); },
+    get subtitle() { return t("view.providers.subtitle"); },
   },
   policy: {
-    title: "Routing Policy",
-    subtitle: "switching rules.",
+    get title() { return t("view.policy.title"); },
+    get subtitle() { return t("view.policy.subtitle"); },
   },
   config: {
-    title: "Config",
-    subtitle: "configuration and safe edits",
+    get title() { return t("view.config.title"); },
+    get subtitle() { return t("view.config.subtitle"); },
   },
   playground: {
-    title: "Playground",
-    subtitle: "Test models with live routing feedback.",
+    get title() { return t("view.playground.title"); },
+    get subtitle() { return t("view.playground.subtitle"); },
   },
 };

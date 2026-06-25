@@ -1,7 +1,7 @@
 # UI/UX 优化文档 — Config & Routing Policy 界面
 
-> **最后更新**: 2026-06-25 (Round 2 — 不足修复)  
-> **状态**: 阶段一已完成（10/10 项），体验细节修复完成（8/8 项），阶段二待实施  
+> **最后更新**: 2026-06-26 (Round 3 — i18n 国际化)  
+> **状态**: 阶段一已完成（10/10 项），体验细节修复完成（8/8 项），i18n 国际化已完成，阶段二待实施  
 > **后端测试**: `351 passed` ✅ — 本轮优化为纯前端改动，后端 API 无变更  
 > **构建状态**: Vite 构建成功 ✅，产物已同步到 `dashboard/`
 
@@ -843,6 +843,232 @@ function shortFormatName(format) {
 
 ---
 
+## 5a. i18n 国际化实施记录
+
+> **Round 3 (2026-06-26)** — 为整个 Dashboard 界面添加中英文一键切换能力。
+
+### 5a.1 设计决策
+
+| 决策 | 选择 | 原因 |
+|---|---|---|
+| 框架 | 自定义轻量 `t()` 函数 + 字典映射 | 项目体量适中，无需引入 vue-i18n / i18next 等重型库 |
+| 翻译粒度 | 点号分隔 key（`nav.overview`、`notice.provider_added`） | 语义清晰，按功能域分组，便于维护 |
+| 静态文本 | `data-i18n` 属性标记 + `applyI18n()` 批量扫描 | 不侵入 HTML 结构，切换语言时无需逐个 `getElementById` |
+| 属性翻译 | `data-i18n-attr="placeholder:key,title:key2"` | 一个元素可同时翻译多个属性 |
+| Tooltip 翻译 | `data-i18n-tip="key"` → 设置 `data-tip` 属性 | 与项目已有 `installTooltip()` JS 浮动系统无缝对接 |
+| 动态文本 | `t("key")` 函数调用 | JS 渲染函数中直接调用，参数插值用 `{name}` 占位符 |
+| 语言持久化 | `localStorage.proxyConsoleLang` | 刷新后保持用户语言偏好 |
+| 语言检测 | 首次访问自动检测 `navigator.language` | 中文浏览器用户自动看到中文界面 |
+| 专业术语 | 保留原文不翻译 | `Token`、`SSE`、`priority_failover`、`User-Agent` 等技术名保留英文 |
+
+### 5a.2 新增文件: `dashboard_src/src/i18n.js`
+
+**核心 API**:
+
+```javascript
+// 翻译函数，支持参数插值
+t("notice.provider_added", { name: "OpenAI" })  // → "Provider OpenAI added." / "提供商 OpenAI 已添加。"
+
+// 获取/设置当前语言
+getLang()          // → "en" | "zh"
+setLang("zh")      // 切换语言，自动持久化 + 触发监听器
+
+// 初始化（启动时调用一次）
+initLang()         // 从 localStorage 或浏览器语言检测初始化
+
+// 注册语言变更回调
+onLangChange((lang) => { ... })  // 返回 unsubscribe 函数
+
+// 批量扫描 DOM 元素并应用翻译
+applyI18n(document)  // 扫描 data-i18n / data-i18n-attr / data-i18n-tip
+```
+
+**字典结构**: ~450 个翻译条目，覆盖以下功能域:
+
+| 功能域 | key 前缀 | 示例 |
+|---|---|---|
+| App / Brand | `app.*` | `app.title` → "Proxy Console" / "代理控制台" |
+| Auth | `auth.*` | `auth.enter_key` → 登录页提示文字 |
+| Navigation | `nav.*` | `nav.overview` → "Overview" / "概览" |
+| Sidebar Actions | `action.*` | `action.refresh` → "Refresh" / "刷新" |
+| Connection Status | `conn.*` | `conn.connected` → "Connected" / "已连接" |
+| View Titles | `view.*` | `view.overview.title` / `view.overview.subtitle` |
+| Overview Page | `ov.*` / `metric.*` / `kpi.*` | 页面标题、时间范围、指标标签 |
+| Requests View | `req.*` | 筛选器标签、占位符、批量操作 |
+| Providers View | `prov.*` / `pm.*` | 搜索、筛选、抽屉面板、mini 指标 |
+| Routing Policy | `policy.*` | 路由控制、超时、重试、失败策略 |
+| Config View | `cfg.*` | Tab 标签、模型路由、全局代理、高级工具 |
+| Add Provider Form | `form.*` | 表单字段标签和 tooltip |
+| Confirm Dialog | `confirm.*` | 确认对话框标题、消息、按钮 |
+| Toast Notices | `notice.*` | 所有 `setNotice()` 提示消息（含参数插值） |
+| Edit Modals | `modal.*` | 编辑模型映射、编辑格式路径 |
+| Playground | `pg.*` | 请求配置、参数、消息沙箱 |
+| Model Drawer | `model.*` | 模型详情抽屉 |
+| Mobile Settings | `mobile.*` | 移动端设置抽屉 |
+| Misc | `misc.*` | 通用文本 |
+
+### 5a.3 修改文件: `dashboard_src/src/app.js`
+
+**导入**:
+```javascript
+import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.js";
+```
+
+**初始化** (`init()` 函数):
+```javascript
+async function init() {
+  initLang();           // ← 新增：初始化语言
+  installMobileSettings();
+  installEvents();
+  installTooltip();
+  bindLangToggle();     // ← 新增：绑定语言切换按钮
+  // ...
+}
+```
+
+**语言切换** (`bindLangToggle()` 函数):
+```javascript
+function bindLangToggle() {
+  const btn = el("langToggleButton");
+  if (!btn) return;
+  btn.addEventListener("click", () => {
+    setLang(getLang() === "en" ? "zh" : "en");
+  });
+  onLangChange(() => {
+    updateLangToggleLabel();
+    renderAll();         // 重新渲染所有动态内容
+    applyI18n();         // 重新应用静态 HTML 翻译
+    // 更新视图标题/副标题
+  });
+  updateLangToggleLabel();
+}
+
+function updateLangToggleLabel() {
+  const btn = el("langToggleButton");
+  if (!btn) return;
+  btn.textContent = getLang() === "en" ? "中文" : "EN";
+}
+```
+
+**动态文本改造**: 将 `setNotice()`、`openConfirmDialog()` 等数百处硬编码字符串替换为 `t()` 调用:
+
+```javascript
+// 改前
+setNotice(`Provider ${name} added.`);
+
+// 改后
+setNotice(t("notice.provider_added", { name }));
+
+// 改前
+openConfirmDialog({
+  title: "Delete key",
+  message: `Delete ${label} from ${provider}?`,
+  // ...
+});
+
+// 改后
+openConfirmDialog({
+  title: t("confirm.delete_key.title"),
+  message: t("confirm.delete_key.msg", { label, provider }),
+  // ...
+});
+```
+
+### 5a.4 修改文件: `dashboard_src/src/constants.js`
+
+将 `views` 和 `timeRanges` 对象的 `title`/`subtitle`/`label` 属性改为动态 getter，以支持实时语言切换:
+
+```javascript
+// 改前
+export const views = {
+  overview: { title: "Overview", subtitle: "Live runtime health..." },
+};
+
+// 改后
+export const views = {
+  overview: {
+    get title() { return t("view.overview.title"); },
+    get subtitle() { return t("view.overview.subtitle"); },
+  },
+};
+```
+
+### 5a.5 修改文件: `dashboard/index.html`
+
+**语言切换按钮** (sidebar):
+```html
+<button id="langToggleButton" class="button ghost lang-toggle-btn" type="button" title="Switch language">EN / 中</button>
+```
+
+**静态文本标记**: 约 80+ 处元素添加 `data-i18n` / `data-i18n-attr` / `data-i18n-tip` 属性:
+
+```html
+<!-- 文本内容翻译 -->
+<h1 data-i18n="app.title">Proxy Console</h1>
+
+<!-- 属性翻译 -->
+<input placeholder="model" data-i18n-attr="placeholder:req.model_ph" />
+
+<!-- Tooltip 翻译 -->
+<span class="help-tip" data-tip="..." data-i18n-tip="policy.routing_tip">?</span>
+```
+
+**版本标签更新**:
+```html
+<link rel="stylesheet" href="/-/dashboard/styles.css?v=20260626-i18n" />
+<script src="/-/dashboard/app.js?v=20260626-i18n" defer></script>
+```
+
+### 5a.6 修改文件: `dashboard_src/src/styles.css`
+
+新增 `.lang-toggle-btn` 样式（行 324-333）:
+```css
+.lang-toggle-btn {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  opacity: 0.85;
+  padding: 6px 10px;
+}
+.lang-toggle-btn:hover { opacity: 1; }
+```
+
+### 5a.7 专业术语保留策略
+
+以下术语在中文界面中保留英文原文，不进行翻译:
+
+| 术语 | 原因 |
+|---|---|
+| `Token` | 行业标准单位，无通用中文译名 |
+| `SSE` | 技术协议缩写 |
+| `priority_failover` / `round_robin` / `weighted_rr` / `random` | 路由模式技术名，保留在 select option value 中 |
+| `User-Agent` | HTTP 标准头名 |
+| `Retry-After` | HTTP 标准头名 |
+| `chat_completions` / `responses` / `anthropic_messages` | API 格式技术名 |
+| `connect_timeout_s` / `read_timeout_s` / `first_token_timeout_s` | 字段技术名（在 tooltip 中保留） |
+| `key_failure_ladder_s` / `same_key_retries` | 字段技术名（在 tooltip 中保留） |
+| `Anthropic` | 品牌名 |
+| `Artificial Analysis` | 品牌名 |
+
+### 5a.8 涉及文件汇总
+
+| 文件 | 改动类型 | 具体改动 |
+|---|---|---|
+| `dashboard_src/src/i18n.js` | **新增** | 完整 i18n 模块：~450 条翻译字典 + `t()`/`setLang()`/`getLang()`/`initLang()`/`onLangChange()`/`applyI18n()` |
+| `dashboard_src/src/app.js` | 修改 | 导入 i18n 模块；`init()` 调用 `initLang()` + `bindLangToggle()`；数百处硬编码字符串 → `t()` 调用 |
+| `dashboard_src/src/constants.js` | 修改 | `views` 和 `timeRanges` 属性改为 getter，支持实时语言切换 |
+| `dashboard_src/src/styles.css` | 新增 | `.lang-toggle-btn` 样式（~10 行） |
+| `dashboard/index.html` | 修改 | 添加 `langToggleButton`；80+ 处 `data-i18n` / `data-i18n-attr` / `data-i18n-tip` 标记；版本标签更新 |
+
+### 5a.9 遇到的问题与修复
+
+| # | 问题 | 原因 | 修复 |
+|---|---|---|---|
+| I1 | Vite 构建失败 — 语法错误 | 字典中使用了中文引号导致 JS 解析失败 | 修正为标准 ASCII 引号 |
+| I2 | Tooltip 在 i18n 切换后不更新 | `data-tip` 属性需要手动更新 | 使用 `data-i18n-tip` 属性，`applyI18n()` 会自动设置 `data-tip` |
+
+---
+
 ## 6. 构建与部署注意事项
 
 ### 6.1 Vite 构建行为
@@ -869,8 +1095,8 @@ Vite 配置（`dashboard_src/vite.config.js`）:
 
 `index.html` 中的版本标签:
 ```html
-<link rel="stylesheet" href="/-/dashboard/styles.css?v=20260625-uiux-opt" />
-<script src="/-/dashboard/app.js?v=20260625-uiux-opt" defer></script>
+<link rel="stylesheet" href="/-/dashboard/styles.css?v=20260626-i18n" />
+<script src="/-/dashboard/app.js?v=20260626-i18n" defer></script>
 ```
 更新前端后需同步更新 `v=` 参数以强制浏览器刷新缓存。
 
@@ -948,6 +1174,30 @@ cd dashboard_src && npx vite build
 - `dashboard_src/src/app.js` — toggle switch 替换、折叠记忆、Tab 记忆、自动滚动、删除 decisionBadge、data-tooltip→data-tip
 - `dashboard_src/src/styles.css` — 删除 help-tip 伪元素规则、max-height 调整、响应式 media query、toggle 对齐
 - `dashboard/index.html` — data-tooltip→data-tip、version 标签更新
+
+**测试结果**:
+- Vite 构建成功 ✅
+- `python -m pytest tests/ -x -q` 351 passed ✅
+
+### 2026-06-26 Round 3 — i18n 国际化
+
+**已完成改动**:
+1. **新增 `i18n.js` 模块**: 自定义轻量国际化框架，~450 条 en/zh 翻译字典
+2. **`t()` 函数**: 支持点号 key + `{param}` 参数插值
+3. **语言切换**: 侧栏新增 `langToggleButton`，点击在中/英文间切换
+4. **语言持久化**: `localStorage.proxyConsoleLang` 记忆用户偏好
+5. **浏览器自动检测**: 首次访问根据 `navigator.language` 自动选择中/英文
+6. **静态 HTML 翻译**: `data-i18n` / `data-i18n-attr` / `data-i18n-tip` 三种属性标记，`applyI18n()` 批量扫描
+7. **动态文本翻译**: `app.js` 中数百处 `setNotice()` / `openConfirmDialog()` / 渲染函数中的硬编码字符串 → `t()` 调用
+8. **constants.js getter 化**: `views` 和 `timeRanges` 的 `title`/`label` 改为 getter，支持实时语言切换
+9. **专业术语保留**: `Token`、`SSE`、`priority_failover`、`User-Agent` 等技术术语保留英文原文
+
+**涉及文件**:
+- `dashboard_src/src/i18n.js` — 新增，完整 i18n 模块
+- `dashboard_src/src/app.js` — 导入 i18n、绑定语言切换、数百处 t() 替换
+- `dashboard_src/src/constants.js` — views/timeRanges getter 化
+- `dashboard_src/src/styles.css` — `.lang-toggle-btn` 样式
+- `dashboard/index.html` — langToggleButton + 80+ data-i18n 标记 + 版本标签
 
 **测试结果**:
 - Vite 构建成功 ✅

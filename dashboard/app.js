@@ -1,6 +1,6 @@
 (function() {
 	var __vite_style__ = document.createElement("style");
-	__vite_style__.textContent = ":root {\r\n  color-scheme: light;\r\n  --bg: #f4f4f5;\r\n  --surface: #ffffff;\r\n  --surface-raised: #fafafa;\r\n  --surface-soft: #f1f1f3;\r\n  --surface-strong: #e4e4e7;\r\n  --sidebar: #ffffff;\r\n  --sidebar-soft: #f4f4f5;\r\n  --line: #e4e4e7;\r\n  --line-soft: #f0f0f2;\r\n  --line-strong: #d4d4d8;\r\n  --text: #09090b;\r\n  --muted: #52525b;\r\n  --faint: #b97983;\r\n  --accent: #09090b;\r\n  --accent-strong: #18181b;\r\n  --accent-soft: #f4f4f5;\r\n  --success: #14795c;\r\n  --success-soft: #e6f5ee;\r\n  --warning: #d1431f;\r\n  --warning-soft: #fff3dc;\r\n  --danger: #b23a48;\r\n  --danger-soft: #fde8eb;\r\n  --info: #20d264;\r\n  --info-soft: #e8efff;\r\n  --compat: #6f55c4;\r\n  --compat-soft: #f0edff;\r\n  --metric-neutral: #2f3437;\r\n  --metric-requests: #2f3437;\r\n  --metric-success: #14795c;\r\n  --metric-failure: #b36a20;\r\n  --metric-provider: #3267c7;\r\n  --metric-token: #6f55c4;\r\n  --metric-cost: #7a5a25;\r\n  --neutral: #52525b;\r\n  --neutral-soft: #f4f4f5;\r\n  --ok: var(--success);\r\n  --warn: var(--warning);\r\n  --bad: var(--danger);\r\n  --shadow: 0 1px 3px rgba(0, 0, 0, 0.045), 0 1px 2px rgba(0, 0, 0, 0.035);\r\n  --shadow-tight: 0 8px 18px rgba(0, 0, 0, 0.055);\r\n  --mono: ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"Liberation Mono\", monospace;\r\n  --sans: system-ui, -apple-system, BlinkMacSystemFont, \"SF Pro Display\", \"SF Pro Text\", \"Helvetica Neue\", sans-serif;\r\n}\r\n\r\n* {\r\n  box-sizing: border-box;\r\n}\r\n\r\n::-webkit-scrollbar {\r\n  width: 5px;\r\n  height: 5px;\r\n}\r\n::-webkit-scrollbar-track {\r\n  background: transparent;\r\n}\r\n::-webkit-scrollbar-thumb {\r\n  background: var(--line-strong);\r\n  border-radius: 999px;\r\n}\r\n::-webkit-scrollbar-thumb:hover {\r\n  background: var(--muted);\r\n}\r\n::-webkit-scrollbar-corner {\r\n  background: transparent;\r\n}\r\nhtml {\r\n  scrollbar-width: thin;\r\n  scrollbar-color: var(--line-strong) transparent;\r\n}\r\n\r\nhtml {\r\n  scroll-behavior: smooth;\r\n}\r\n\r\nbody {\r\n  margin: 0;\r\n  min-width: 320px;\r\n  background: var(--bg);\r\n  color: var(--text);\r\n  font-family: var(--sans);\r\n  font-size: 13px;\r\n  font-variant-numeric: tabular-nums;\r\n  line-height: 1.5;\r\n  -webkit-font-smoothing: antialiased;\r\n}\r\n\r\nbutton,\r\ninput,\r\nselect {\r\n  font: inherit;\r\n}\r\n\r\nbutton,\r\ninput,\r\nselect,\r\ntextarea {\r\n  outline: none;\r\n}\r\n\r\nbutton:focus-visible,\r\ninput:focus-visible,\r\nselect:focus-visible {\r\n  box-shadow: 0 0 0 3px rgba(47, 52, 55, 0.16);\r\n}\r\n\r\n.shell {\r\n  display: grid;\r\n  grid-template-columns: 240px minmax(0, 1fr);\r\n  min-height: 100dvh;\r\n}\r\n\r\n[hidden] {\r\n  display: none !important;\r\n}\r\n\r\n.login-gate {\r\n  min-height: 100dvh;\r\n  display: grid;\r\n  place-items: center;\r\n  padding: 24px;\r\n  background: var(--bg);\r\n}\r\n\r\n.login-card {\r\n  width: min(420px, 100%);\r\n  display: grid;\r\n  gap: 16px;\r\n  padding: 26px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 10px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.login-mark {\r\n  display: grid;\r\n  width: 34px;\r\n  height: 34px;\r\n  place-items: center;\r\n  border-radius: 7px;\r\n  background: var(--text);\r\n  color: #fff;\r\n  font: 760 11px var(--mono);\r\n}\r\n\r\n.login-card h1 {\r\n  font-size: 24px;\r\n  letter-spacing: 0;\r\n}\r\n\r\n.login-card p {\r\n  margin-top: 6px;\r\n  max-width: 34rem;\r\n  color: var(--muted);\r\n  line-height: 1.45;\r\n}\r\n\r\n.auth-card {\r\n  gap: 18px;\r\n}\r\n\r\n.auth-progress {\r\n  position: relative;\r\n  height: 3px;\r\n  overflow: hidden;\r\n  border-radius: 999px;\r\n  background: var(--surface-soft);\r\n}\r\n\r\n.auth-progress::after {\r\n  position: absolute;\r\n  inset: 0;\r\n  width: 42%;\r\n  border-radius: inherit;\r\n  background: var(--accent);\r\n  content: \"\";\r\n  animation: auth-progress 1.1s ease-in-out infinite;\r\n}\r\n\r\n@keyframes auth-progress {\r\n  0% {\r\n    transform: translateX(-120%);\r\n  }\r\n  100% {\r\n    transform: translateX(260%);\r\n  }\r\n}\r\n\r\n.login-field {\r\n  display: grid;\r\n  gap: 7px;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-weight: 720;\r\n}\r\n\r\n.login-field input {\r\n  min-height: 42px;\r\n  padding: 0 11px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: #fff;\r\n  color: var(--text);\r\n  font-family: var(--mono);\r\n}\r\n\r\n.login-error {\r\n  min-height: 18px;\r\n  color: var(--danger) !important;\r\n  font-size: 12px;\r\n}\r\n\r\n.sidebar {\r\n  position: sticky;\r\n  top: 0;\r\n  height: 100dvh;\r\n  display: flex;\r\n  flex-direction: column;\r\n  border-right: 1px solid var(--line-strong);\r\n  background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);\r\n  box-shadow: 10px 0 26px rgba(9, 9, 11, 0.045);\r\n  color: var(--text);\r\n  z-index: 10;\r\n}\r\n\r\n.sidebar::after {\r\n  position: absolute;\r\n  top: 0;\r\n  right: -1px;\r\n  bottom: 0;\r\n  width: 1px;\r\n  background: linear-gradient(180deg, rgba(9, 9, 11, 0.12), rgba(9, 9, 11, 0.04));\r\n  content: \"\";\r\n  pointer-events: none;\r\n}\r\n\r\n.brand {\r\n  display: flex;\r\n  gap: 10px;\r\n  align-items: center;\r\n  padding: 24px 16px 18px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n}\r\n\r\n.brand-mark {\r\n  display: grid;\r\n  width: 24px;\r\n  height: 24px;\r\n  place-items: center;\r\n  border: 0;\r\n  border-radius: 6px;\r\n  background: var(--text);\r\n  color: #fff;\r\n  font: 760 10px var(--mono);\r\n  letter-spacing: 0;\r\n}\r\n\r\n.brand-title {\r\n  font-size: 14px;\r\n  font-weight: 720;\r\n}\r\n\r\n.brand-subtitle {\r\n  margin-top: 2px;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n}\r\n\r\n.nav {\r\n  display: grid;\r\n  gap: 3px;\r\n  padding: 12px 16px;\r\n}\r\n\r\n.nav-item {\r\n  position: relative;\r\n  width: 100%;\r\n  min-height: 38px;\r\n  padding: 8px 12px;\r\n  border: 1px solid transparent;\r\n  border-radius: 7px;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  text-align: left;\r\n  cursor: pointer;\r\n  font-weight: 560;\r\n  transition: background 160ms ease, color 160ms ease, transform 160ms ease, border-color 160ms ease;\r\n}\r\n\r\n.nav-item:hover {\r\n  border-color: var(--line-soft);\r\n  background: var(--surface);\r\n  color: var(--text);\r\n}\r\n\r\n.nav-item.is-active {\r\n  border-color: var(--line-strong);\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  font-weight: 720;\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.nav-item.is-active::before {\r\n  display: none;\r\n}\r\n\r\n.sidebar-actions {\r\n  display: grid;\r\n  grid-template-columns: 1fr;\r\n  gap: 8px;\r\n  margin-top: auto;\r\n  padding: 12px 16px 8px;\r\n  border-top: 0;\r\n}\r\n\r\n.sidebar-actions .button {\r\n  width: 100%;\r\n  min-width: 0;\r\n}\r\n\r\n.sidebar-footer {\r\n  display: flex;\r\n  gap: 9px;\r\n  align-items: center;\r\n  margin-top: 0;\r\n  padding: 6px 20px 24px;\r\n  border-top: 0;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.dot {\r\n  width: 8px;\r\n  height: 8px;\r\n  border-radius: 999px;\r\n  background: var(--neutral);\r\n}\r\n\r\n.dot.ok {\r\n  background: var(--success);\r\n}\r\n\r\n.dot.bad {\r\n  background: var(--danger);\r\n}\r\n\r\n.workspace {\r\n  min-width: 0;\r\n  width: 100%;\r\n  max-width: 1220px;\r\n  margin: 0 auto;\r\n  padding: 12px 40px 40px;\r\n}\r\n\r\n.topbar {\r\n  position: sticky;\r\n  top: 0;\r\n  z-index: 9;\r\n  display: none;\r\n  gap: 16px;\r\n  align-items: flex-start;\r\n  justify-content: space-between;\r\n  margin: -20px -20px 16px;\r\n  padding: 18px 20px 14px;\r\n  border-bottom: 1px solid var(--line);\r\n  background: rgba(244, 244, 245, 0.88);\r\n  backdrop-filter: blur(18px);\r\n}\r\n\r\nh1,\r\nh2,\r\nh3,\r\np {\r\n  margin: 0;\r\n}\r\n\r\nh1 {\r\n  font-size: 22px;\r\n  line-height: 1.15;\r\n  letter-spacing: 0;\r\n}\r\n\r\nh2 {\r\n  color: var(--text);\r\n  font-size: 14px;\r\n  line-height: 1.35;\r\n  font-weight: 720;\r\n}\r\n\r\n.topbar p,\r\n.panel-head p {\r\n  margin-top: 4px;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.mobile-settings-button,\r\n.mobile-settings-backdrop,\r\n.mobile-settings-drawer {\r\n  display: none;\r\n}\r\n\r\n.button,\r\n.icon-button {\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  cursor: pointer;\r\n  transition: background 150ms ease, border-color 150ms ease, color 150ms ease, transform 120ms ease, box-shadow 150ms ease;\r\n  touch-action: manipulation;\r\n}\r\n\r\n.button {\r\n  min-height: 36px;\r\n  padding: 0 12px;\r\n  font-size: 12.5px;\r\n  font-weight: 680;\r\n}\r\n\r\n.button.icon-action {\r\n  display: inline-grid;\r\n  width: 32px;\r\n  min-width: 32px;\r\n  height: 32px;\r\n  min-height: 32px;\r\n  place-items: center;\r\n  padding: 0;\r\n  font: 780 15px/1 var(--mono);\r\n}\r\n\r\n.button.icon-action span {\r\n  display: block;\r\n  transform: translateY(-0.5px);\r\n}\r\n\r\n.icon-svg {\r\n  width: 16px;\r\n  height: 16px;\r\n  fill: none;\r\n  stroke: currentColor;\r\n  stroke-linecap: round;\r\n  stroke-linejoin: round;\r\n  stroke-width: 2;\r\n  pointer-events: none;\r\n}\r\n\r\n.button.icon-action .icon-svg {\r\n  width: 15px;\r\n  height: 15px;\r\n}\r\n\r\n.button:hover,\r\n.icon-button:hover {\r\n  border-color: #c8c8ce;\r\n  box-shadow: var(--shadow-tight);\r\n}\r\n\r\n.button:active,\r\n.icon-button:active {\r\n  transform: translateY(1px);\r\n  box-shadow: none;\r\n}\r\n\r\n.button:disabled,\r\n.icon-button:disabled {\r\n  cursor: not-allowed;\r\n  opacity: 0.55;\r\n  transform: none;\r\n  box-shadow: none;\r\n}\r\n\r\n.button.primary {\r\n  border-color: var(--accent);\r\n  border-radius: 7px;\r\n  background: var(--accent);\r\n  color: #fff;\r\n}\r\n\r\n.button.primary:hover {\r\n  border-color: var(--accent-strong);\r\n  background: var(--accent-strong);\r\n}\r\n\r\n.button.secondary {\r\n  background: var(--surface);\r\n  color: var(--text);\r\n}\r\n\r\n.button.secondary:hover {\r\n  border-color: #c8c8ce;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.button.ghost {\r\n  border-color: transparent;\r\n  background: transparent;\r\n  color: var(--muted);\r\n}\r\n\r\n.button.ghost:hover {\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n}\r\n\r\n.button.danger {\r\n  border-color: color-mix(in srgb, var(--danger) 24%, white);\r\n  background: var(--danger-soft);\r\n  color: var(--danger);\r\n}\r\n\r\n.icon-button {\r\n  width: 34px;\r\n  height: 34px;\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  font-size: 18px;\r\n}\r\n\r\n.toast-stack {\r\n  position: fixed;\r\n  top: 18px;\r\n  left: 50%;\r\n  z-index: 1200;\r\n  display: flex;\r\n  flex-direction: column;\r\n  align-items: center;\r\n  gap: 10px;\r\n  width: min(360px, calc(100vw - 36px));\r\n  transform: translateX(-50%);\r\n  pointer-events: none;\r\n}\r\n\r\n.toast {\r\n  pointer-events: auto;\r\n  padding: 12px 14px;\r\n  border: 1px solid color-mix(in srgb, var(--danger) 22%, white);\r\n  border-radius: 11px;\r\n  background: color-mix(in srgb, var(--danger) 12%, var(--surface));\r\n  color: var(--danger);\r\n  font-size: 13px;\r\n  font-weight: 640;\r\n  line-height: 1.4;\r\n  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.14);\r\n  opacity: 0;\r\n  transform: translateY(-10px);\r\n  transition: opacity 0.2s ease, transform 0.2s ease;\r\n  width: 100%;\r\n  word-break: break-word;\r\n  overflow-wrap: anywhere;\r\n  white-space: pre-wrap;\r\n  max-height: 80vh;\r\n  overflow-y: auto;\r\n  backdrop-filter: blur(24px);\r\n  -webkit-backdrop-filter: blur(24px);\r\n}\r\n\r\n.toast.toast-in {\r\n  opacity: 1;\r\n  transform: translateY(0);\r\n}\r\n\r\n.toast.toast-leaving {\r\n  opacity: 0;\r\n  transform: translateY(-10px);\r\n}\r\n\r\n.toast[data-tone=\"ok\"] {\r\n  border-color: color-mix(in srgb, var(--success) 22%, white);\r\n  background: color-mix(in srgb, var(--success) 12%, var(--surface));\r\n  color: var(--success);\r\n}\r\n\r\n.toast[data-tone=\"warn\"] {\r\n  border-color: color-mix(in srgb, var(--warning) 22%, white);\r\n  background: color-mix(in srgb, var(--warning) 12%, var(--surface));\r\n  color: var(--warning);\r\n}\r\n\r\n.toast[data-tone=\"info\"] {\r\n  border-color: color-mix(in srgb, var(--info) 26%, white);\r\n  background: color-mix(in srgb, var(--info) 10%, var(--surface));\r\n  color: var(--info);\r\n}\r\n\r\n.notice {\r\n  padding: 11px 12px;\r\n  border: 1px solid color-mix(in srgb, var(--danger) 22%, white);\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--danger) 12%, var(--surface));\r\n  color: var(--danger);\r\n}\r\n\r\n.is-hidden {\r\n  display: none !important;\r\n}\r\n\r\n@keyframes viewFadeIn {\r\n  0% { opacity: 0; transform: translateY(4px); }\r\n  100% { opacity: 1; transform: translateY(0); }\r\n}\r\n\r\n.view {\r\n  display: none;\r\n}\r\n\r\n.view.is-active {\r\n  display: block;\r\n  animation: viewFadeIn 300ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;\r\n}\r\n\r\n.time-range-control {\r\n  display: flex;\r\n  gap: 12px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  margin-bottom: 14px;\r\n  padding: 10px 12px;\r\n  border: 1px solid var(--line);\r\n  border-left: 3px solid var(--text);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.eyebrow {\r\n  display: block;\r\n  color: var(--muted);\r\n  font-size: 10.5px;\r\n  font-weight: 700;\r\n  letter-spacing: 0.04em;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.time-range-control strong {\r\n  display: block;\r\n  margin-top: 3px;\r\n  font-size: 13px;\r\n  line-height: 1.2;\r\n}\r\n\r\n.segmented-control {\r\n  display: inline-grid;\r\n  grid-auto-flow: column;\r\n  gap: 2px;\r\n  padding: 4px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.segmented-button {\r\n  min-width: 48px;\r\n  min-height: 30px;\r\n  padding: 0 10px;\r\n  border: 0;\r\n  border-radius: 5px;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 680;\r\n  cursor: pointer;\r\n  transition: background 160ms ease, color 160ms ease, transform 120ms ease;\r\n}\r\n\r\n.segmented-button:hover {\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n}\r\n\r\n.segmented-button:active {\r\n  transform: translateY(1px);\r\n}\r\n\r\n.segmented-button.is-active {\r\n  background: var(--text);\r\n  color: #fff;\r\n}\r\n\r\n.metric-grid {\r\n  display: none;\r\n  grid-template-columns: repeat(6, minmax(0, 1fr));\r\n  gap: 14px;\r\n  margin-bottom: 24px;\r\n}\r\n\r\n.metric {\r\n  --metric-color: var(--metric-neutral);\r\n  --metric-soft: rgba(47, 52, 55, 0.045);\r\n  position: relative;\r\n  min-height: 108px;\r\n  overflow: hidden;\r\n  padding: 15px 16px;\r\n  border: 1px solid color-mix(in srgb, var(--metric-color) 24%, var(--line));\r\n  border-radius: 9px;\r\n  background:\r\n    linear-gradient(180deg, var(--metric-soft), rgba(255, 255, 255, 0) 58%),\r\n    var(--surface);\r\n  box-shadow: var(--shadow);\r\n  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;\r\n}\r\n\r\n.metric::before {\r\n  content: \"\";\r\n  position: absolute;\r\n  top: 0;\r\n  right: 0;\r\n  left: 0;\r\n  height: 2px;\r\n  background: var(--metric-color);\r\n}\r\n\r\n.metric::after {\r\n  content: \"\";\r\n  position: absolute;\r\n  right: auto;\r\n  bottom: 0;\r\n  left: 0;\r\n  width: var(--metric-progress, 0%);\r\n  height: 3px;\r\n  border-radius: 0 999px 999px 0;\r\n  background: var(--metric-color);\r\n  opacity: 0.72;\r\n  transition: width 260ms ease;\r\n}\r\n\r\n.metric:hover {\r\n  border-color: color-mix(in srgb, var(--metric-color) 42%, var(--line));\r\n  box-shadow: var(--shadow-tight);\r\n}\r\n\r\n.metric:nth-child(1) {\r\n  --metric-color: var(--metric-requests);\r\n  --metric-soft: rgba(47, 52, 55, 0.052);\r\n}\r\n\r\n.metric:nth-child(2) {\r\n  --metric-color: var(--metric-success);\r\n  --metric-soft: rgba(20, 121, 92, 0.08);\r\n}\r\n\r\n.metric:nth-child(3) {\r\n  --metric-color: var(--metric-failure);\r\n  --metric-soft: rgba(179, 106, 32, 0.085);\r\n}\r\n\r\n.metric:nth-child(4) {\r\n  --metric-color: var(--metric-provider);\r\n  --metric-soft: rgba(50, 103, 199, 0.08);\r\n}\r\n\r\n.metric:nth-child(5) {\r\n  --metric-color: var(--metric-token);\r\n  --metric-soft: rgba(111, 85, 196, 0.08);\r\n}\r\n\r\n.metric:nth-child(6) {\r\n  --metric-color: var(--metric-cost);\r\n  --metric-soft: rgba(122, 90, 37, 0.075);\r\n}\r\n\r\n.metric-label {\r\n  display: block;\r\n  color: var(--muted);\r\n  font-size: 10.5px;\r\n  font-weight: 760;\r\n  letter-spacing: 0.045em;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.metric strong {\r\n  display: block;\r\n  margin-top: 8px;\r\n  color: color-mix(in srgb, var(--metric-color) 20%, var(--text));\r\n  font-size: 28px;\r\n  font-weight: 720;\r\n  line-height: 1;\r\n  letter-spacing: 0;\r\n}\r\n\r\n.metric small {\r\n  display: block;\r\n  margin-top: 8px;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.overview-visuals {\r\n  display: grid;\r\n  grid-template-columns: repeat(5, minmax(0, 1fr));\r\n  gap: 10px;\r\n  margin: 0 0 18px;\r\n}\r\n\r\n.visual-card {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  gap: 10px;\r\n  align-items: center;\r\n  min-width: 0;\r\n  min-height: 74px;\r\n  padding: 11px 12px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 10px;\r\n  background:\r\n    linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(244, 244, 245, 0.52)),\r\n    var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.visual-card span,\r\n.visual-card small {\r\n  display: block;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 720;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.visual-card strong {\r\n  display: block;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--text);\r\n  font: 840 18px/1.16 var(--mono);\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.visual-card-icon,\r\n.visual-ring {\r\n  display: grid;\r\n  width: 42px;\r\n  height: 42px;\r\n  place-items: center;\r\n  border-radius: 12px;\r\n}\r\n\r\n.visual-card-icon {\r\n  border: 1px solid var(--line);\r\n  background: var(--surface-raised);\r\n  color: var(--neutral);\r\n}\r\n\r\n.visual-card-icon.tone-success {\r\n  border-color: color-mix(in srgb, var(--success) 18%, var(--line));\r\n  background: var(--success-soft);\r\n  color: var(--success);\r\n}\r\n\r\n.visual-card-icon.tone-warning {\r\n  border-color: color-mix(in srgb, var(--warning) 18%, var(--line));\r\n  background: var(--warning-soft);\r\n  color: var(--warning);\r\n}\r\n\r\n.visual-card-icon.tone-danger {\r\n  border-color: color-mix(in srgb, var(--danger) 18%, var(--line));\r\n  background: var(--danger-soft);\r\n  color: var(--danger);\r\n}\r\n\r\n.visual-card-icon.tone-info {\r\n  border-color: color-mix(in srgb, var(--info) 18%, var(--line));\r\n  background: var(--info-soft);\r\n  color: var(--info);\r\n}\r\n\r\n.visual-card-icon.tone-compat {\r\n  border-color: color-mix(in srgb, var(--compat) 18%, var(--line));\r\n  background: var(--compat-soft);\r\n  color: var(--compat);\r\n}\r\n\r\n.visual-ring {\r\n  --ring-color: var(--neutral);\r\n  --ring-value: 0%;\r\n  background:\r\n    radial-gradient(circle at center, var(--surface) 0 55%, transparent 56%),\r\n    conic-gradient(var(--ring-color) var(--ring-value), var(--line-soft) 0);\r\n}\r\n\r\n.visual-ring strong {\r\n  max-width: 32px;\r\n  font-size: 10.5px;\r\n  text-align: center;\r\n}\r\n\r\n.visual-ring-card.tone-success,\r\n.visual-ring-card.tone-ok {\r\n  --ring-color: var(--success);\r\n  border-color: color-mix(in srgb, var(--success) 18%, var(--line));\r\n}\r\n\r\n.visual-ring-card.tone-warn,\r\n.visual-ring-card.tone-warning {\r\n  --ring-color: var(--warning);\r\n  border-color: color-mix(in srgb, var(--warning) 18%, var(--line));\r\n}\r\n\r\n.visual-ring-card.tone-bad,\r\n.visual-ring-card.tone-danger {\r\n  --ring-color: var(--danger);\r\n  border-color: color-mix(in srgb, var(--danger) 18%, var(--line));\r\n}\r\n\r\n.visual-progress-card {\r\n  --progress-color: var(--neutral);\r\n}\r\n\r\n.visual-progress-card.tone-success,\r\n.visual-progress-card.tone-ok {\r\n  --progress-color: var(--success);\r\n  border-color: color-mix(in srgb, var(--success) 18%, var(--line));\r\n}\r\n\r\n.visual-progress-card.tone-warn,\r\n.visual-progress-card.tone-warning {\r\n  --progress-color: var(--warning);\r\n  border-color: color-mix(in srgb, var(--warning) 18%, var(--line));\r\n}\r\n\r\n.visual-progress-card.tone-bad,\r\n.visual-progress-card.tone-danger {\r\n  --progress-color: var(--danger);\r\n  border-color: color-mix(in srgb, var(--danger) 18%, var(--line));\r\n}\r\n\r\n.visual-progress {\r\n  position: relative;\r\n  height: 5px;\r\n  margin-top: 6px;\r\n  overflow: hidden;\r\n  border-radius: 999px;\r\n  background: var(--line-soft);\r\n}\r\n\r\n.visual-progress::before {\r\n  content: \"\";\r\n  position: absolute;\r\n  inset: 0 auto 0 0;\r\n  width: var(--progress, 0%);\r\n  border-radius: inherit;\r\n  background: var(--progress-color);\r\n}\r\n\r\n.token-split {\r\n  display: flex;\r\n  height: 5px;\r\n  margin-top: 6px;\r\n  overflow: hidden;\r\n  border-radius: 999px;\r\n  background: var(--compat-soft);\r\n}\r\n\r\n.token-split i,\r\n.token-split b {\r\n  display: block;\r\n  min-width: 2px;\r\n  height: 100%;\r\n}\r\n\r\n.token-split i {\r\n  background: var(--info);\r\n}\r\n\r\n.token-split b {\r\n  flex: 1;\r\n  background: var(--compat);\r\n}\r\n\r\n.overview-grid,\r\n.policy-grid,\r\n.config-grid {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 2fr) minmax(340px, 1fr);\r\n  gap: 16px 20px;\r\n}\r\n\r\n.config-grid {\r\n  grid-template-columns: minmax(460px, 1.45fr) minmax(320px, 0.85fr);\r\n  align-items: start;\r\n}\r\n\r\n.config-column {\r\n  display: grid;\r\n  gap: 16px;\r\n  align-content: start;\r\n  min-width: 0;\r\n}\r\n\r\n.config-column > .panel {\r\n  margin-bottom: 0;\r\n}\r\n\r\n.config-status-panel {\r\n  --panel-accent: var(--metric-neutral);\r\n}\r\n\r\n.model-routes-panel {\r\n  --panel-accent: var(--metric-neutral);\r\n}\r\n\r\n.config-provider-panel,\r\n.config-audit-panel,\r\n.config-advanced-panel,\r\n.global-proxy-panel,\r\n.provider-model-map-panel {\r\n  --panel-accent: var(--metric-neutral);\r\n}\r\n\r\n.panel {\r\n  --panel-accent: var(--metric-neutral);\r\n  min-width: 0;\r\n  margin-bottom: 20px;\r\n  overflow: hidden;\r\n  border: 1px solid color-mix(in srgb, var(--panel-accent) 14%, var(--line));\r\n  border-radius: 9px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.overview-grid > .panel:nth-child(1) {\r\n  --panel-accent: var(--success);\r\n}\r\n\r\n.overview-grid > .panel:nth-child(2) {\r\n  --panel-accent: var(--metric-token);\r\n}\r\n\r\n.overview-grid > .panel:nth-child(3) {\r\n  --panel-accent: var(--metric-provider);\r\n}\r\n\r\n.overview-grid > .panel:nth-child(4) {\r\n  --panel-accent: var(--danger);\r\n}\r\n\r\n.panel-wide {\r\n  grid-column: span 1;\r\n}\r\n\r\n.panel-head {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  gap: 10px 16px;\r\n  align-items: flex-start;\r\n  justify-content: space-between;\r\n  padding: 13px 18px;\r\n  border-bottom: 1px solid color-mix(in srgb, var(--panel-accent) 14%, var(--line));\r\n  background:\r\n    linear-gradient(90deg, color-mix(in srgb, var(--panel-accent) 8%, transparent), rgba(255, 255, 255, 0) 52%),\r\n    var(--surface-raised);\r\n}\r\n\r\n.panel-head h2 {\r\n  color: color-mix(in srgb, var(--panel-accent) 16%, var(--text));\r\n  font-size: 14px;\r\n  font-weight: 760;\r\n}\r\n\r\n.panel-head > div {\r\n  min-width: 0;\r\n}\r\n\r\n.panel-head .tag {\r\n  max-width: min(100%, 360px);\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n}\r\n\r\n.tag,\r\n.badge {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  min-height: 22px;\r\n  padding: 0 8px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 6px;\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  font: 680 10.5px var(--mono);\r\n  white-space: nowrap;\r\n}\r\n\r\n.badge.ok {\r\n  border-color: #bbf7d0;\r\n  background: var(--success-soft);\r\n  color: var(--success);\r\n  font-weight: 820;\r\n}\r\n\r\n.badge.warn {\r\n  border-color: #fde68a;\r\n  background: var(--warning-soft);\r\n  color: var(--warning);\r\n  font-weight: 820;\r\n}\r\n\r\n.badge.bad {\r\n  border-color: #fecaca;\r\n  background: var(--danger-soft);\r\n  color: var(--danger);\r\n  font-weight: 820;\r\n}\r\n\r\n.badge.prio-0 {\r\n  color: var(--text);\r\n}\r\n\r\n.badge.prio-1 {\r\n  color: var(--info);\r\n  border-color: color-mix(in srgb, var(--info) 30%, white);\r\n}\r\n\r\n.badge.prio-2 {\r\n  color: var(--warning);\r\n  border-color: color-mix(in srgb, var(--warning) 30%, white);\r\n}\r\n\r\n.badge.prio-3 {\r\n  color: var(--danger);\r\n  border-color: color-mix(in srgb, var(--danger) 30%, white);\r\n  font-weight: 820;\r\n}\r\n\r\n.chart {\r\n  min-height: 332px;\r\n  padding: 15px 18px 16px;\r\n  background: var(--surface);\r\n}\r\n\r\n.traffic-legend {\r\n  display: grid;\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  gap: 9px;\r\n  margin-bottom: 12px;\r\n}\r\n\r\n.traffic-legend-item {\r\n  --series-color: var(--neutral);\r\n  --series-soft: rgba(82, 82, 91, 0.055);\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 9px;\r\n  min-width: 0;\r\n  padding: 10px 11px;\r\n  border: 1px solid color-mix(in srgb, var(--series-color) 20%, var(--line));\r\n  border-radius: 8px;\r\n  background:\r\n    linear-gradient(180deg, var(--series-soft), rgba(255, 255, 255, 0) 70%),\r\n    var(--surface-raised);\r\n}\r\n\r\n.traffic-legend-item.tone-success {\r\n  --series-color: var(--success);\r\n  --series-soft: rgba(20, 121, 92, 0.075);\r\n}\r\n\r\n.traffic-legend-item.tone-danger {\r\n  --series-color: var(--danger);\r\n  --series-soft: rgba(178, 58, 72, 0.075);\r\n}\r\n\r\n.traffic-legend-item.tone-info {\r\n  --series-color: var(--info);\r\n  --series-soft: rgba(50, 103, 199, 0.075);\r\n}\r\n\r\n.traffic-legend-item.tone-compat {\r\n  --series-color: var(--compat);\r\n  --series-soft: rgba(111, 85, 163, 0.075);\r\n}\r\n\r\n.traffic-legend-item > span {\r\n  width: 28px;\r\n  height: 18px;\r\n  border-radius: 5px;\r\n  background:\r\n    linear-gradient(180deg, color-mix(in srgb, var(--series-color) 74%, white), var(--series-color));\r\n  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42);\r\n}\r\n\r\n.traffic-legend-item.tone-info > span {\r\n  background: var(--text);\r\n}\r\n\r\n.traffic-legend-item.tone-compat > span {\r\n  background: #7c3aed;\r\n}\r\n\r\n.traffic-legend-item strong,\r\n.traffic-legend-item small {\r\n  display: block;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.traffic-legend-item strong {\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-weight: 780;\r\n}\r\n\r\n.traffic-legend-item small {\r\n  margin-top: 1px;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n}\r\n\r\n.traffic-chart-shell {\r\n  overflow: hidden;\r\n  border: 1px solid color-mix(in srgb, var(--panel-accent) 12%, var(--line));\r\n  border-radius: 12px;\r\n  background:\r\n    radial-gradient(circle at 82% 4%, color-mix(in srgb, var(--info) 8%, transparent), transparent 34%),\r\n    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 250, 0.92)),\r\n    var(--surface);\r\n  box-shadow:\r\n    inset 0 1px 0 rgba(255, 255, 255, 0.78),\r\n    0 12px 28px rgba(15, 23, 42, 0.045);\r\n}\r\n\r\n.traffic-chart-shell svg {\r\n  display: block;\r\n  width: 100%;\r\n  height: 286px;\r\n}\r\n\r\n.chart-stats {\r\n  display: grid;\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  gap: 8px;\r\n  margin-bottom: 12px;\r\n}\r\n\r\n.chart-stats div {\r\n  min-width: 0;\r\n  padding: 10px 12px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.chart-stats span {\r\n  display: block;\r\n  color: var(--muted);\r\n  font-size: 10.5px;\r\n  font-weight: 700;\r\n  letter-spacing: 0.03em;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.chart-stats strong {\r\n  display: block;\r\n  margin-top: 2px;\r\n  color: var(--text);\r\n  font: 760 16px/1.15 var(--mono);\r\n}\r\n\r\n.chart > svg {\r\n  display: block;\r\n  width: 100%;\r\n  height: 248px;\r\n}\r\n\r\n.chart .axis {\r\n  stroke: color-mix(in srgb, var(--line-strong) 44%, transparent);\r\n  stroke-width: 1;\r\n}\r\n\r\n.traffic-bar {\r\n  opacity: 0.9;\r\n  rx: 4px;\r\n  shape-rendering: geometricPrecision;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.traffic-bar-success {\r\n  fill: url(\"#trafficSuccessBar\");\r\n}\r\n\r\n.traffic-bar-failed {\r\n  fill: url(\"#trafficFailedBar\");\r\n}\r\n\r\n.traffic-firstbyte-area {\r\n  fill: url(\"#trafficFirstByteArea\");\r\n  pointer-events: none;\r\n}\r\n\r\n.traffic-firstbyte-line {\r\n  fill: none;\r\n  stroke: var(--info);\r\n  stroke-linecap: round;\r\n  stroke-linejoin: round;\r\n  stroke-width: 3.4;\r\n  filter: drop-shadow(0 6px 12px color-mix(in srgb, var(--info) 18%, transparent));\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.traffic-firstbyte-dot {\r\n  fill: var(--info);\r\n  stroke: var(--surface);\r\n  stroke-width: 2.2;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.traffic-firstbyte-dot.warn,\r\n.traffic-firstbyte-dot.slow {\r\n  fill: var(--warning);\r\n}\r\n\r\n.traffic-firstbyte-label {\r\n  fill: var(--info);\r\n  font: 760 11px var(--mono);\r\n  paint-order: stroke;\r\n  stroke: var(--surface);\r\n  stroke-linejoin: round;\r\n  stroke-width: 4px;\r\n}\r\n\r\n.chart .line,\r\n.chart .success-line,\r\n.chart .fail-line,\r\n.chart .latency-line {\r\n  fill: none;\r\n  stroke-linecap: round;\r\n  stroke-linejoin: round;\r\n  stroke-width: 3.2;\r\n  filter: none;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.chart .line {\r\n  stroke: var(--text);\r\n  stroke-width: 2.2;\r\n}\r\n\r\n.chart .success-line {\r\n  stroke: var(--success);\r\n}\r\n\r\n.chart .fail-line {\r\n  stroke: var(--danger);\r\n  filter: none;\r\n}\r\n\r\n.chart .latency-line {\r\n  stroke: var(--info);\r\n}\r\n\r\n.chart .success-line-dot,\r\n.chart .fail-line-dot,\r\n.chart .latency-line-dot,\r\n.chart .latency-dot {\r\n  stroke: var(--surface);\r\n  stroke-width: 2;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.chart .success-line-dot {\r\n  fill: var(--success);\r\n}\r\n\r\n.chart .fail-line-dot {\r\n  fill: var(--danger);\r\n}\r\n\r\n.chart .latency-line-dot {\r\n  fill: var(--info);\r\n}\r\n\r\n.traffic-value-label {\r\n  font: 760 11px var(--mono);\r\n  paint-order: stroke;\r\n  stroke: var(--surface);\r\n  stroke-width: 4px;\r\n  stroke-linejoin: round;\r\n}\r\n\r\n.success-line-label {\r\n  fill: var(--success);\r\n}\r\n\r\n.fail-line-label {\r\n  fill: var(--danger);\r\n}\r\n\r\n.latency-line-label {\r\n  fill: var(--info);\r\n}\r\n\r\n.chart .latency-dot.ok {\r\n  fill: var(--success);\r\n}\r\n\r\n.chart .latency-dot.warn {\r\n  fill: var(--warning);\r\n}\r\n\r\n.chart .latency-dot.slow {\r\n  fill: var(--warning);\r\n}\r\n\r\n.chart .animated-line {\r\n  stroke-dasharray: 1;\r\n  stroke-dashoffset: 1;\r\n  animation: drawLine 680ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;\r\n}\r\n\r\n.latency-samples {\r\n  display: flex;\r\n  gap: 6px;\r\n  min-height: 38px;\r\n  margin-top: 8px;\r\n  overflow-x: auto;\r\n  padding-bottom: 2px;\r\n}\r\n\r\n.latency-sample {\r\n  --latency: 12%;\r\n  position: relative;\r\n  display: grid;\r\n  min-width: 88px;\r\n  overflow: hidden;\r\n  padding: 7px 9px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n  color: var(--text);\r\n}\r\n\r\n.latency-sample::before {\r\n  content: \"\";\r\n  position: absolute;\r\n  inset: auto 0 0 0;\r\n  height: 3px;\r\n  width: var(--latency);\r\n  background: var(--success);\r\n}\r\n\r\n.latency-sample.warn::before {\r\n  background: var(--warning);\r\n}\r\n\r\n.latency-sample.slow::before {\r\n  background: var(--warning);\r\n}\r\n\r\n.latency-sample span {\r\n  position: relative;\r\n  font: 760 12px var(--mono);\r\n}\r\n\r\n.latency-sample small {\r\n  position: relative;\r\n  margin-top: 1px;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 10px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.usage-chart {\r\n  display: grid;\r\n  gap: 13px;\r\n  padding: 14px 16px 16px;\r\n}\r\n\r\n.usage-summary {\r\n  display: grid;\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 9px;\r\n}\r\n\r\n.usage-columns {\r\n  display: grid;\r\n  grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  gap: 14px;\r\n}\r\n\r\n.usage-columns.usage-model-only {\r\n  grid-template-columns: 1fr;\r\n}\r\n\r\n.usage-columns section {\r\n  min-width: 0;\r\n}\r\n\r\n.usage-columns h3 {\r\n  margin: 0 0 8px;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 820;\r\n  letter-spacing: 0;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.usage-section-title {\r\n  display: flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  margin-bottom: 8px;\r\n}\r\n\r\n.usage-section-title h3 {\r\n  margin: 0;\r\n}\r\n\r\n.usage-section-title span {\r\n  color: var(--muted);\r\n  font: 680 10.5px var(--mono);\r\n  white-space: nowrap;\r\n}\r\n\r\n.usage-bars {\r\n  display: grid;\r\n  gap: 10px;\r\n}\r\n\r\n.usage-row {\r\n  display: grid;\r\n  gap: 9px;\r\n  min-width: 0;\r\n  padding: 11px 12px;\r\n  border: 1px solid color-mix(in srgb, var(--metric-token) 16%, #d8d8dd);\r\n  border-radius: 8px;\r\n  background:\r\n    linear-gradient(180deg, rgba(111, 85, 196, 0.045), rgba(255, 255, 255, 0) 68%),\r\n    #fff;\r\n}\r\n\r\n.usage-row-head,\r\n.usage-row-foot {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  gap: 8px;\r\n  min-width: 0;\r\n}\r\n\r\n.usage-row-head strong {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 6px;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.usage-model-name {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n}\r\n\r\n.usage-rank {\r\n  display: inline-flex;\r\n  min-width: 28px;\r\n  justify-content: center;\r\n  padding: 1px 5px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 5px;\r\n  background: var(--compat-soft);\r\n  color: var(--compat);\r\n  font: 760 10px var(--mono);\r\n}\r\n\r\n.usage-call-count,\r\n.usage-row-foot span {\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  white-space: nowrap;\r\n}\r\n\r\n.usage-row-foot {\r\n  flex-wrap: wrap;\r\n  justify-content: flex-start;\r\n  gap: 6px 12px;\r\n}\r\n\r\n.usage-row-foot strong {\r\n  color: var(--text);\r\n  font: 760 12px var(--mono);\r\n}\r\n\r\n.usage-track {\r\n  position: relative;\r\n  display: flex;\r\n  gap: 2px;\r\n  height: 7px;\r\n  overflow: hidden;\r\n  border-radius: 999px;\r\n  background: #ededf0;\r\n}\r\n\r\n.usage-fill {\r\n  display: block;\r\n  min-width: 2px;\r\n  height: 100%;\r\n  border-radius: 999px;\r\n}\r\n\r\n.usage-fill.calls {\r\n  background: linear-gradient(90deg, var(--metric-token), color-mix(in srgb, var(--metric-token) 62%, var(--text)));\r\n}\r\n\r\n.usage-track-calls {\r\n  height: 7px;\r\n}\r\n\r\n.provider-health {\r\n  display: grid;\r\n  gap: 10px;\r\n  padding: 12px;\r\n}\r\n\r\n#recentFailures.table-wrap {\r\n  overflow: visible;\r\n}\r\n\r\n.overview-summary-meta {\r\n  display: flex;\r\n  gap: 10px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  min-width: 0;\r\n  padding: 3px 2px 1px;\r\n  color: var(--muted);\r\n  font: 760 11px var(--mono);\r\n  text-transform: uppercase;\r\n}\r\n\r\n.overview-summary-meta span {\r\n  display: inline-flex;\r\n  gap: 6px;\r\n  align-items: center;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.overview-summary-meta .icon-svg {\r\n  width: 14px;\r\n  height: 14px;\r\n}\r\n\r\n.overview-jump-button {\r\n  display: inline-grid;\r\n  width: 28px;\r\n  height: 28px;\r\n  place-items: center;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  cursor: pointer;\r\n  transition: border-color 160ms ease, background 160ms ease, transform 120ms ease;\r\n}\r\n\r\n.overview-jump-button:hover {\r\n  border-color: var(--text);\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.overview-jump-button:active {\r\n  transform: translateY(1px);\r\n}\r\n\r\n.overview-provider-list,\r\n.recent-failure-list {\r\n  display: grid;\r\n  gap: 8px;\r\n}\r\n\r\n.overview-provider-row,\r\n.recent-failure-row {\r\n  --row-tone: var(--neutral);\r\n  display: grid;\r\n  gap: 10px;\r\n  align-items: center;\r\n  width: 100%;\r\n  min-width: 0;\r\n  border: 1px solid color-mix(in srgb, var(--row-tone) 16%, var(--line));\r\n  border-radius: 8px;\r\n  background:\r\n    linear-gradient(90deg, color-mix(in srgb, var(--row-tone) 7%, transparent), rgba(255, 255, 255, 0) 48%),\r\n    var(--surface);\r\n  color: var(--text);\r\n  text-align: left;\r\n  cursor: pointer;\r\n  transition: border-color 160ms ease, background 160ms ease, transform 120ms ease;\r\n}\r\n\r\n.overview-provider-row {\r\n  grid-template-columns: auto minmax(0, 1fr) auto;\r\n  padding: 10px 11px;\r\n}\r\n\r\n.recent-failure-row {\r\n  grid-template-columns: auto minmax(160px, 1fr) auto minmax(160px, 1.2fr);\r\n  padding: 10px 12px;\r\n}\r\n\r\n.overview-provider-row:hover,\r\n.recent-failure-row:hover,\r\n.overview-provider-row:focus-visible,\r\n.recent-failure-row:focus-visible {\r\n  border-color: color-mix(in srgb, var(--row-tone) 38%, var(--line-strong));\r\n  background:\r\n    linear-gradient(90deg, color-mix(in srgb, var(--row-tone) 11%, transparent), rgba(255, 255, 255, 0) 58%),\r\n    var(--surface-raised);\r\n}\r\n\r\n.overview-provider-row:active,\r\n.recent-failure-row:active {\r\n  transform: translateY(1px);\r\n}\r\n\r\n.overview-provider-row.tone-ok,\r\n.recent-failure-row.tone-success {\r\n  --row-tone: var(--success);\r\n}\r\n\r\n.overview-provider-row.tone-warn,\r\n.recent-failure-row.tone-warning {\r\n  --row-tone: var(--warning);\r\n}\r\n\r\n.overview-provider-row.tone-bad,\r\n.recent-failure-row.tone-danger {\r\n  --row-tone: var(--danger);\r\n}\r\n\r\n.overview-provider-main,\r\n.recent-failure-main {\r\n  display: grid;\r\n  gap: 2px;\r\n  min-width: 0;\r\n}\r\n\r\n.overview-provider-main strong,\r\n.recent-failure-main strong {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  font-size: 12px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.overview-provider-main small,\r\n.recent-failure-main small,\r\n.overview-provider-kpi small {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.overview-provider-kpi {\r\n  display: grid;\r\n  justify-items: end;\r\n  min-width: 46px;\r\n}\r\n\r\n.overview-provider-kpi strong {\r\n  font: 820 12px var(--mono);\r\n}\r\n\r\n.recent-failure-status {\r\n  min-width: 0;\r\n}\r\n\r\n.recent-failure-reason {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-card {\r\n  display: grid;\r\n  gap: 9px;\r\n  padding: 12px 13px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.provider-card-head {\r\n  display: flex;\r\n  justify-content: space-between;\r\n  gap: 8px;\r\n}\r\n\r\n.provider-name {\r\n  font-family: var(--mono);\r\n  font-weight: 760;\r\n}\r\n\r\n.provider-name.name-ok {\r\n  color: var(--success);\r\n}\r\n\r\n.provider-name.name-warn {\r\n  color: var(--warning);\r\n}\r\n\r\n.provider-name.name-bad {\r\n  color: var(--danger);\r\n}\r\n\r\n.provider-meta {\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.toolbar {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 8px;\r\n  margin-bottom: 14px;\r\n  padding: 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 9px;\r\n  background: var(--surface-raised);\r\n  box-shadow: var(--shadow-tight);\r\n}\r\n\r\n#requestsToolbar {\r\n  position: relative;\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  gap: 12px;\r\n  align-items: center;\r\n  margin-bottom: 16px;\r\n  padding: 11px;\r\n  border: 1px solid color-mix(in srgb, var(--line-strong) 78%, var(--line));\r\n  border-radius: 11px;\r\n  background: color-mix(in srgb, var(--surface) 92%, var(--surface-raised));\r\n  box-shadow: 0 8px 22px rgba(30, 41, 59, 0.055), 0 1px 2px rgba(30, 41, 59, 0.045);\r\n}\r\n\r\n.request-filter-primary,\r\n.request-bulk-actions,\r\n.request-status-chips,\r\n.advanced-filter-fields {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 8px;\r\n  align-items: center;\r\n  min-width: 0;\r\n}\r\n\r\n.request-filter-title {\r\n  display: grid;\r\n  gap: 1px;\r\n  min-width: 96px;\r\n  padding-right: 4px;\r\n}\r\n\r\n.request-filter-title span {\r\n  color: var(--muted);\r\n  font-size: 10px;\r\n  font-weight: 780;\r\n  letter-spacing: 0.055em;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.request-filter-title strong {\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-weight: 780;\r\n}\r\n\r\n.request-status-chips {\r\n  gap: 6px;\r\n  padding: 3px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 9px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.filter-chip {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  min-height: 28px;\r\n  padding: 0 10px;\r\n  border: 1px solid transparent;\r\n  border-radius: 7px;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 760;\r\n  cursor: pointer;\r\n  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;\r\n}\r\n\r\n.filter-chip:hover,\r\n.filter-chip:focus-visible {\r\n  border-color: var(--line);\r\n  background: var(--surface);\r\n  color: var(--text);\r\n}\r\n\r\n.filter-chip.is-active {\r\n  border-color: color-mix(in srgb, var(--text) 13%, var(--line));\r\n  background: var(--text);\r\n  color: #fff;\r\n}\r\n\r\n.filter-chip.tone-success.is-active {\r\n  border-color: color-mix(in srgb, var(--success) 36%, var(--line));\r\n  background: var(--success);\r\n}\r\n\r\n.filter-chip.tone-danger.is-active {\r\n  border-color: color-mix(in srgb, var(--danger) 38%, var(--line));\r\n  background: var(--danger);\r\n}\r\n\r\n.filter-search-field {\r\n  min-width: 0;\r\n}\r\n\r\n#requestsToolbar .control {\r\n  width: 168px;\r\n  min-height: 34px;\r\n  border-color: color-mix(in srgb, var(--info) 12%, var(--line));\r\n  background: rgba(255, 255, 255, 0.82);\r\n}\r\n\r\n#requestsToolbar .control:focus-visible {\r\n  border-color: color-mix(in srgb, var(--info) 62%, var(--line));\r\n  box-shadow: 0 0 0 3px rgba(50, 103, 199, 0.14);\r\n}\r\n\r\n#requestsToolbar .button.secondary {\r\n  border-color: color-mix(in srgb, var(--text) 86%, var(--line));\r\n  background: var(--text);\r\n  color: #fff;\r\n}\r\n\r\n#requestsToolbar .button.ghost {\r\n  color: color-mix(in srgb, var(--text) 72%, var(--muted));\r\n}\r\n\r\n.advanced-filter-box {\r\n  position: relative;\r\n}\r\n\r\n.advanced-filter-box summary {\r\n  display: inline-flex;\r\n  min-height: 34px;\r\n  align-items: center;\r\n  padding: 0 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface);\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 760;\r\n  cursor: pointer;\r\n  list-style: none;\r\n}\r\n\r\n.advanced-filter-box summary::-webkit-details-marker {\r\n  display: none;\r\n}\r\n\r\n.advanced-filter-box[open] summary {\r\n  border-color: color-mix(in srgb, var(--info) 36%, var(--line));\r\n  color: var(--text);\r\n}\r\n\r\n.advanced-filter-fields {\r\n  position: absolute;\r\n  top: calc(100% + 8px);\r\n  right: 0;\r\n  z-index: 8;\r\n  width: min(520px, calc(100vw - 48px));\r\n  padding: 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 10px;\r\n  background: var(--surface);\r\n  box-shadow: 0 14px 34px rgba(30, 41, 59, 0.14);\r\n}\r\n\r\n.request-bulk-actions {\r\n  justify-content: flex-end;\r\n  padding-left: 12px;\r\n  border-left: 1px solid var(--line-soft);\r\n}\r\n\r\n.selection-count {\r\n  min-width: 78px;\r\n  color: var(--muted);\r\n  font: 720 11px var(--mono);\r\n  text-align: right;\r\n}\r\n\r\n.request-bulk-actions .button {\r\n  gap: 6px;\r\n}\r\n\r\n.request-bulk-actions .icon-svg {\r\n  width: 15px;\r\n  height: 15px;\r\n}\r\n\r\n.sr-only {\r\n  position: absolute;\r\n  width: 1px;\r\n  height: 1px;\r\n  overflow: hidden;\r\n  clip: rect(0, 0, 0, 0);\r\n  white-space: nowrap;\r\n}\r\n\r\n.control {\r\n  min-height: 36px;\r\n  padding: 0 11px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  transition: border-color 160ms ease, box-shadow 160ms ease;\r\n}\r\n\r\n.control:hover {\r\n  border-color: #c8c8ce;\r\n}\r\n\r\n.table-wrap {\r\n  overflow: auto;\r\n}\r\n\r\n#requestsTable.table-wrap {\r\n  overflow-x: hidden;\r\n}\r\n\r\n.request-list-head {\r\n  display: flex;\r\n  gap: 12px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  padding: 10px 14px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n  background: linear-gradient(90deg, rgba(50, 103, 199, 0.04), rgba(255, 255, 255, 0));\r\n}\r\n\r\n.request-page-summary {\r\n  display: flex;\r\n  gap: 6px;\r\n  align-items: baseline;\r\n  min-width: 0;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.request-page-select {\r\n  display: inline-flex;\r\n  gap: 6px;\r\n  align-items: center;\r\n  margin-right: 8px;\r\n  padding-right: 10px;\r\n  border-right: 1px solid var(--line-soft);\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 720;\r\n  white-space: nowrap;\r\n}\r\n\r\n.request-page-select input,\r\n.request-row-select input {\r\n  width: 15px;\r\n  height: 15px;\r\n  margin: 0;\r\n  accent-color: var(--text);\r\n  cursor: pointer;\r\n}\r\n\r\n.request-page-summary strong {\r\n  color: var(--text);\r\n  font: 760 12px var(--mono);\r\n}\r\n\r\n.request-pagination {\r\n  display: inline-flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n  white-space: nowrap;\r\n}\r\n\r\n.request-page-indicator {\r\n  color: var(--muted);\r\n  font: 680 11px var(--mono);\r\n}\r\n\r\n.request-page-vitals {\r\n  display: grid;\r\n  grid-template-columns: repeat(5, minmax(0, 1fr));\r\n  gap: 8px;\r\n  padding: 10px 14px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n  background: color-mix(in srgb, var(--surface-raised) 72%, var(--surface));\r\n}\r\n\r\n.request-vital {\r\n  --vital-color: var(--neutral);\r\n  --vital: 0%;\r\n  position: relative;\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  gap: 2px 8px;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  padding: 8px 9px;\r\n  border: 1px solid color-mix(in srgb, var(--vital-color) 18%, var(--line));\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n}\r\n\r\n.request-vital::after {\r\n  content: \"\";\r\n  position: absolute;\r\n  inset: auto 0 0 0;\r\n  width: var(--vital);\r\n  height: 3px;\r\n  background: var(--vital-color);\r\n  opacity: 0.75;\r\n}\r\n\r\n.request-vital .icon-svg {\r\n  grid-row: 1 / span 2;\r\n  align-self: center;\r\n  color: var(--vital-color);\r\n}\r\n\r\n.request-vital strong {\r\n  overflow: hidden;\r\n  color: var(--text);\r\n  font: 840 13px/1 var(--mono);\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.request-vital small {\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 10px;\r\n  font-weight: 720;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.request-vital-success {\r\n  --vital-color: var(--success);\r\n}\r\n\r\n.request-vital-warning {\r\n  --vital-color: var(--warning);\r\n}\r\n\r\n.request-vital-danger {\r\n  --vital-color: var(--danger);\r\n}\r\n\r\n.request-vital-info {\r\n  --vital-color: var(--info);\r\n}\r\n\r\n.request-vital-compat {\r\n  --vital-color: var(--compat);\r\n}\r\n\r\n.request-summary-list {\r\n  display: grid;\r\n  gap: 0;\r\n}\r\n\r\n.request-summary-row {\r\n  --row-tone: var(--neutral);\r\n  display: grid;\r\n  grid-template-columns: 24px 10px minmax(180px, 1.35fr) minmax(108px, 0.55fr) minmax(145px, 0.9fr) minmax(146px, 0.72fr) 28px;\r\n  gap: 10px;\r\n  align-items: center;\r\n  width: 100%;\r\n  min-width: 0;\r\n  padding: 11px 14px;\r\n  border: 0;\r\n  border-bottom: 1px solid color-mix(in srgb, var(--line-strong) 52%, var(--line-soft));\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  text-align: left;\r\n  cursor: pointer;\r\n  transition: background 140ms ease, box-shadow 140ms ease, border-color 140ms ease;\r\n}\r\n\r\n.request-summary-row:nth-child(even) {\r\n  background: color-mix(in srgb, var(--surface-raised) 62%, var(--surface));\r\n}\r\n\r\n.request-summary-row:hover,\r\n.request-summary-row:focus-visible {\r\n  background: color-mix(in srgb, var(--info-soft) 36%, var(--surface));\r\n  box-shadow: inset 3px 0 0 var(--row-tone);\r\n}\r\n\r\n.request-summary-row.is-selected {\r\n  background: color-mix(in srgb, var(--info-soft) 56%, var(--surface));\r\n  box-shadow: inset 3px 0 0 var(--info);\r\n}\r\n\r\n.request-summary-row.tone-success {\r\n  --row-tone: var(--success);\r\n}\r\n\r\n.request-summary-row.tone-warning {\r\n  --row-tone: var(--warning);\r\n}\r\n\r\n.request-summary-row.tone-danger {\r\n  --row-tone: var(--danger);\r\n}\r\n\r\n.request-row-dot {\r\n  width: 10px;\r\n  height: 10px;\r\n  border-radius: 50%;\r\n  background: var(--row-tone);\r\n  box-shadow: 0 0 0 3px color-mix(in srgb, var(--row-tone) 14%, transparent);\r\n}\r\n\r\n.request-row-select {\r\n  display: grid;\r\n  width: 24px;\r\n  height: 24px;\r\n  place-items: center;\r\n  border: 1px solid transparent;\r\n  border-radius: 7px;\r\n  cursor: pointer;\r\n}\r\n\r\n.request-row-select:hover,\r\n.request-row-select:focus-within {\r\n  border-color: var(--line);\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.request-row-main,\r\n.request-row-status,\r\n.request-row-route,\r\n.request-row-metrics {\r\n  min-width: 0;\r\n}\r\n\r\n.request-row-main {\r\n  display: grid;\r\n  gap: 3px;\r\n}\r\n\r\n.request-row-main strong {\r\n  overflow: hidden;\r\n  font-size: 12.5px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.request-row-main small,\r\n.request-row-metrics small {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 4px 8px;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  line-height: 1.25;\r\n}\r\n\r\n.request-row-main small span {\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.request-row-status {\r\n  display: flex;\r\n  gap: 6px;\r\n  align-items: center;\r\n}\r\n\r\n.request-row-status small {\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n}\r\n\r\n.request-row-route {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n  align-items: center;\r\n}\r\n\r\n.request-provider-pill,\r\n.route-pill {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  min-width: 0;\r\n  max-width: 100%;\r\n  min-height: 22px;\r\n  padding: 2px 7px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 6px;\r\n  background: var(--surface-raised);\r\n  font: 760 11px var(--mono);\r\n}\r\n\r\n.request-provider-pill {\r\n  overflow: hidden;\r\n  color: var(--text);\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.route-pill.ok {\r\n  border-color: color-mix(in srgb, var(--success) 24%, var(--line));\r\n  background: var(--success-soft);\r\n  color: var(--success);\r\n}\r\n\r\n.route-pill.warn {\r\n  border-color: color-mix(in srgb, var(--warning) 24%, var(--line));\r\n  background: var(--warning-soft);\r\n  color: var(--warning);\r\n}\r\n\r\n.route-pill.bad {\r\n  border-color: color-mix(in srgb, var(--danger) 24%, var(--line));\r\n  background: var(--danger-soft);\r\n  color: var(--danger);\r\n}\r\n\r\n.route-pill.neutral {\r\n  color: var(--muted);\r\n}\r\n\r\n.request-row-metrics {\r\n  display: grid;\r\n  gap: 2px;\r\n  justify-items: start;\r\n}\r\n\r\n.request-row-metrics strong {\r\n  font-size: 13px;\r\n}\r\n\r\n.request-row-open {\r\n  display: grid;\r\n  width: 28px;\r\n  height: 28px;\r\n  place-items: center;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 7px;\r\n  color: var(--muted);\r\n}\r\n\r\n.requests-summary-table {\r\n  border-top: 1px solid var(--line);\r\n  table-layout: fixed;\r\n}\r\n\r\n.requests-summary-table th:nth-child(1),\r\n.requests-summary-table td:nth-child(1) {\r\n  width: 16%;\r\n}\r\n\r\n.requests-summary-table th:nth-child(2),\r\n.requests-summary-table td:nth-child(2) {\r\n  width: 15%;\r\n}\r\n\r\n.requests-summary-table th:nth-child(3),\r\n.requests-summary-table td:nth-child(3) {\r\n  width: 25%;\r\n}\r\n\r\n.requests-summary-table th:nth-child(4),\r\n.requests-summary-table td:nth-child(4) {\r\n  width: 16%;\r\n}\r\n\r\n.requests-summary-table th:nth-child(5),\r\n.requests-summary-table td:nth-child(5) {\r\n  width: 14%;\r\n}\r\n\r\n.requests-summary-table th:nth-child(6),\r\n.requests-summary-table td:nth-child(6) {\r\n  width: 14%;\r\n}\r\n\r\n.request-model-cell,\r\n.request-provider-cell,\r\n.request-route-cell,\r\n.request-status-cell {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n}\r\n\r\n.request-time-cell {\r\n  white-space: normal;\r\n}\r\n\r\n.request-usage-cell small {\r\n  display: inline;\r\n  margin-left: 7px;\r\n  color: var(--muted);\r\n  font: 680 11px var(--mono);\r\n}\r\n\r\n.request-usage-cell small::before {\r\n  content: \"/\";\r\n  margin-right: 7px;\r\n  color: var(--faint);\r\n}\r\n\r\ntable {\r\n  width: 100%;\r\n  border-collapse: collapse;\r\n}\r\n\r\nth,\r\ntd {\r\n  padding: 12px 13px;\r\n  border-bottom: 1px solid color-mix(in srgb, var(--line-strong) 58%, var(--line-soft));\r\n  text-align: left;\r\n  vertical-align: top;\r\n}\r\n\r\nth {\r\n  position: sticky;\r\n  top: 0;\r\n  z-index: 1;\r\n  background: var(--surface-raised);\r\n  color: var(--muted);\r\n  font-size: 10.5px;\r\n  font-weight: 720;\r\n  letter-spacing: 0.045em;\r\n  text-transform: uppercase;\r\n}\r\n\r\ntd {\r\n  color: var(--text);\r\n  font-size: 12.5px;\r\n}\r\n\r\ntr.clickable {\r\n  cursor: pointer;\r\n}\r\n\r\ntbody tr {\r\n  position: relative;\r\n  transition: background 140ms ease, box-shadow 140ms ease;\r\n}\r\n\r\ntbody tr:nth-child(even) {\r\n  background: rgba(244, 244, 245, 0.42);\r\n}\r\n\r\ntbody tr:hover,\r\ntr.clickable:hover {\r\n  background: color-mix(in srgb, var(--info-soft) 28%, var(--surface));\r\n  box-shadow: inset 3px 0 0 var(--info);\r\n}\r\n\r\n.mono {\r\n  font-family: var(--mono);\r\n}\r\n\r\n.muted {\r\n  color: var(--muted);\r\n}\r\n\r\n.empty {\r\n  color: var(--muted);\r\n  font-size: 13px;\r\n}\r\n\r\n.pad {\r\n  padding: 15px;\r\n}\r\n\r\n.keyword {\r\n  border-radius: 5px;\r\n  padding: 1px 4px;\r\n  font-weight: 760;\r\n}\r\n\r\n.keyword.danger,\r\n.message-text.danger,\r\n.message-chip.danger {\r\n  color: var(--danger);\r\n}\r\n\r\n.keyword.warn,\r\n.message-text.warn,\r\n.message-chip.warn {\r\n  color: var(--warning);\r\n}\r\n\r\n.keyword.info,\r\n.message-text.info,\r\n.message-chip.info {\r\n  color: var(--info);\r\n}\r\n\r\n.keyword.compat,\r\n.message-text.compat,\r\n.message-chip.compat {\r\n  color: var(--compat);\r\n}\r\n\r\n.keyword.success,\r\n.message-text.success,\r\n.message-chip.success {\r\n  color: var(--success);\r\n}\r\n\r\n.keyword.neutral,\r\n.message-text.neutral,\r\n.message-chip.neutral {\r\n  color: var(--neutral);\r\n}\r\n\r\n.keyword.muted,\r\n.message-text.muted,\r\n.message-chip.muted {\r\n  color: var(--faint);\r\n}\r\n\r\n.keyword.danger {\r\n  background: var(--danger-soft);\r\n}\r\n\r\n.keyword.warn {\r\n  background: var(--warning-soft);\r\n}\r\n\r\n.keyword.info {\r\n  background: var(--info-soft);\r\n}\r\n\r\n.keyword.compat {\r\n  background: var(--compat-soft);\r\n}\r\n\r\n.keyword.success {\r\n  background: var(--success-soft);\r\n}\r\n\r\n.message-text {\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.chip-list {\r\n  display: inline-flex;\r\n  flex-wrap: wrap;\r\n  gap: 5px;\r\n  vertical-align: middle;\r\n}\r\n\r\n.message-chip {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  min-height: 22px;\r\n  padding: 2px 7px;\r\n  border: 1px solid color-mix(in srgb, currentColor 42%, white);\r\n  border-radius: 6px;\r\n  background: color-mix(in srgb, currentColor 15%, white);\r\n  font: 780 11px var(--mono);\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-table {\r\n  display: block;\r\n  overflow: visible;\r\n  padding: 12px;\r\n}\r\n\r\n.provider-card-grid {\r\n  display: grid;\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  align-items: stretch;\r\n  gap: 12px;\r\n}\r\n\r\n.panel-pagination {\r\n  display: flex;\r\n  gap: 10px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  margin-bottom: 10px;\r\n  padding: 8px 10px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--surface-raised) 72%, var(--surface));\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.panel-pagination strong {\r\n  color: var(--text);\r\n  font-family: var(--mono);\r\n}\r\n\r\n.panel-pagination-actions {\r\n  display: inline-flex;\r\n  gap: 7px;\r\n  align-items: center;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-toolbar {\r\n  display: grid;\r\n  grid-template-columns: minmax(220px, 1.4fr) minmax(150px, 0.75fr) minmax(150px, 0.75fr) minmax(150px, 0.75fr) auto;\r\n  gap: 10px;\r\n  align-items: end;\r\n  margin: 0 12px 4px;\r\n  padding: 12px;\r\n  border: 1px solid color-mix(in srgb, var(--info) 10%, var(--line));\r\n  border-radius: 10px;\r\n  background:\r\n    linear-gradient(135deg, color-mix(in srgb, var(--info-soft) 50%, var(--surface)) 0, var(--surface) 52%),\r\n    var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.provider-search-field {\r\n  min-width: 0;\r\n}\r\n\r\n.provider-model-list {\r\n  display: grid;\r\n  gap: 10px;\r\n  padding: 14px;\r\n}\r\n\r\n.model-capability-summary {\r\n  display: grid;\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  gap: 8px;\r\n}\r\n\r\n.model-capability-card {\r\n  display: grid;\r\n  gap: 10px;\r\n  min-width: 0;\r\n  padding: 12px;\r\n  border: 1px solid var(--line);\r\n  border-left: 3px solid var(--neutral);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.model-capability-card.tone-success {\r\n  border-left-color: var(--success);\r\n}\r\n\r\n.model-capability-card.tone-danger {\r\n  border-left-color: var(--danger);\r\n}\r\n\r\n.model-chip-list {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n  min-width: 0;\r\n}\r\n\r\n.model-chip-list .tag,\r\n.model-map-chip {\r\n  max-width: 100%;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.model-map-chip {\r\n  display: grid;\r\n  gap: 2px;\r\n  min-width: 0;\r\n  padding: 5px 8px 6px;\r\n  border: 1px solid color-mix(in srgb, var(--info) 14%, var(--line-soft));\r\n  border-radius: 6px;\r\n  background: color-mix(in srgb, var(--info-soft) 36%, var(--surface));\r\n  font-size: 11px;\r\n  cursor: pointer;\r\n  transition: all 0.12s ease;\r\n}\r\n\r\n.model-map-chip:hover {\r\n  background: color-mix(in srgb, var(--info-soft) 72%, var(--surface));\r\n  border-color: color-mix(in srgb, var(--info) 45%, var(--line));\r\n  transform: translateY(-1px);\r\n  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);\r\n}\r\n\r\n.model-map-chip b,\r\n.model-map-chip small {\r\n  min-width: 0;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.model-map-chip b {\r\n  font-family: var(--mono);\r\n  font-weight: 780;\r\n}\r\n\r\n.model-map-chip small {\r\n  color: var(--muted);\r\n  font-family: var(--mono);\r\n  font-size: 10px;\r\n}\r\n\r\n.provider-model-toolbar {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 8px;\r\n  align-items: center;\r\n  min-width: 0;\r\n}\r\n\r\n.provider-model-search {\r\n  flex: 1 1 180px;\r\n  min-width: 0;\r\n}\r\n\r\n.provider-model-status-filter {\r\n  flex: 0 0 118px;\r\n}\r\n\r\n.provider-model-chip {\r\n  position: relative;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  align-items: start;\r\n  color: inherit;\r\n  font: inherit;\r\n  text-align: left;\r\n}\r\n\r\n.model-chip-toggle,\r\n.model-map-edit-button {\r\n  appearance: none;\r\n  border: 0;\r\n  background: transparent;\r\n  color: inherit;\r\n  font: inherit;\r\n}\r\n\r\n.model-chip-toggle {\r\n  display: grid;\r\n  gap: 2px;\r\n  min-width: 0;\r\n  padding: 0;\r\n  text-align: left;\r\n  cursor: pointer;\r\n}\r\n\r\n.model-map-edit-button {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  width: 22px;\r\n  height: 22px;\r\n  padding: 0;\r\n  border-radius: 5px;\r\n  color: var(--muted);\r\n  cursor: pointer;\r\n}\r\n\r\n.model-map-edit-button:hover {\r\n  color: var(--info);\r\n  background: color-mix(in srgb, var(--info-soft) 64%, transparent);\r\n}\r\n\r\n.model-chip-toggle:focus-visible,\r\n.model-map-edit-button:focus-visible {\r\n  outline: 2px solid color-mix(in srgb, var(--info) 70%, transparent);\r\n  outline-offset: 2px;\r\n}\r\n\r\n.provider-model-chip.is-disabled {\r\n  border-color: color-mix(in srgb, var(--danger) 34%, var(--line));\r\n  background: color-mix(in srgb, var(--danger-soft) 48%, var(--surface));\r\n}\r\n\r\n.provider-model-chip.is-pending {\r\n  outline: 1px dashed color-mix(in srgb, var(--warning) 70%, var(--line));\r\n  outline-offset: 2px;\r\n}\r\n\r\n.provider-model-chip.is-manual-map {\r\n  border-color: color-mix(in srgb, var(--success) 28%, var(--line));\r\n  background: color-mix(in srgb, var(--success-soft) 42%, var(--surface));\r\n}\r\n\r\n.provider-model-chip.is-disabled b {\r\n  color: color-mix(in srgb, var(--danger) 72%, var(--text));\r\n  text-decoration: line-through;\r\n  text-decoration-thickness: 2px;\r\n  text-decoration-color: var(--danger);\r\n}\r\n\r\n.model-pending-note {\r\n  color: color-mix(in srgb, var(--warning) 78%, var(--muted));\r\n}\r\n\r\n.model-price-tip {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  margin-left: 4px;\r\n  vertical-align: -2px;\r\n  color: var(--muted);\r\n  opacity: 0.55;\r\n  cursor: help;\r\n  transition: opacity 0.12s ease;\r\n}\r\n\r\n.model-price-tip .icon-svg {\r\n  width: 12px;\r\n  height: 12px;\r\n}\r\n\r\n.model-price-tip:hover {\r\n  opacity: 1;\r\n  color: var(--info, #3b82f6);\r\n}\r\n\r\n.provider-model-pill .model-price-tip {\r\n  margin-left: 6px;\r\n}\r\n\r\n.static-model-chip {\r\n  position: relative;\r\n  padding-right: 24px;\r\n}\r\n\r\n.static-model-delete {\r\n  position: absolute;\r\n  top: 4px;\r\n  right: 5px;\r\n  width: 16px;\r\n  height: 16px;\r\n  display: grid;\r\n  place-items: center;\r\n  border: 1px solid transparent;\r\n  border-radius: 999px;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  cursor: pointer;\r\n  font-size: 12px;\r\n  line-height: 1;\r\n}\r\n\r\n.static-model-delete:hover {\r\n  border-color: var(--danger);\r\n  color: var(--danger);\r\n  background: color-mix(in srgb, var(--danger) 8%, transparent);\r\n}\r\n\r\n.model-capability-error {\r\n  padding: 8px;\r\n  border: 1px solid var(--danger);\r\n  border-radius: 8px;\r\n  background: var(--danger-soft);\r\n  color: var(--danger);\r\n  font-size: 12px;\r\n  font-weight: 740;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.provider-runtime-card {\r\n  position: relative;\r\n  display: grid;\r\n  min-width: 0;\r\n  gap: 10px;\r\n  padding: 13px;\r\n  border: 1px solid color-mix(in srgb, var(--neutral) 16%, var(--line));\r\n  border-top: 3px solid var(--neutral);\r\n  border-radius: 10px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;\r\n}\r\n\r\n.provider-health-tile {\r\n  min-height: 268px;\r\n  height: 100%;\r\n  cursor: pointer;\r\n}\r\n\r\n.provider-health-tile:hover {\r\n  border-color: color-mix(in srgb, var(--info) 24%, var(--line));\r\n  box-shadow: var(--shadow-tight);\r\n  transform: translateY(-1px);\r\n}\r\n\r\n.provider-health-tile:focus-visible {\r\n  box-shadow: 0 0 0 3px rgba(50, 103, 199, 0.16), var(--shadow-tight);\r\n}\r\n\r\n.provider-runtime-card.is-available {\r\n  border-top-color: var(--success);\r\n}\r\n\r\n.provider-runtime-card.is-degraded,\r\n.provider-runtime-card.is-cooldown,\r\n.provider-runtime-card.is-unavailable {\r\n  border-top-color: var(--warning);\r\n}\r\n\r\n.provider-runtime-card.is-unavailable {\r\n  border-top-color: var(--danger);\r\n}\r\n\r\n.provider-runtime-card.is-disabled {\r\n  border-top-color: var(--faint);\r\n  opacity: 0.76;\r\n}\r\n\r\n.provider-card-topline {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr) auto;\r\n  gap: 9px;\r\n  align-items: start;\r\n  min-width: 0;\r\n}\r\n\r\n.provider-card-badges {\r\n  display: inline-flex;\r\n  flex-wrap: wrap;\r\n  justify-content: flex-end;\r\n  gap: 5px;\r\n  min-width: 0;\r\n}\r\n\r\n.provider-status-dot {\r\n  width: 9px;\r\n  height: 9px;\r\n  margin-top: 6px;\r\n  border-radius: 50%;\r\n  background: var(--neutral);\r\n  box-shadow: 0 0 0 4px color-mix(in srgb, var(--neutral) 12%, transparent);\r\n}\r\n\r\n.provider-status-dot.ok {\r\n  background: var(--success);\r\n  box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 14%, transparent);\r\n}\r\n\r\n.provider-status-dot.warn {\r\n  background: var(--warning);\r\n  box-shadow: 0 0 0 4px color-mix(in srgb, var(--warning) 16%, transparent);\r\n}\r\n\r\n.provider-status-dot.bad {\r\n  background: var(--danger);\r\n  box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 14%, transparent);\r\n}\r\n\r\n.provider-card-models {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n  min-height: 28px;\r\n  align-content: start;\r\n}\r\n\r\n.provider-model-pill,\r\n.provider-model-more,\r\n.format-chip {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  min-width: 0;\r\n  max-width: 100%;\r\n  min-height: 24px;\r\n  padding: 3px 7px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 6px;\r\n  background: var(--surface-raised);\r\n  color: var(--text);\r\n  font: 720 11px/1.2 var(--mono);\r\n}\r\n\r\n.provider-model-pill {\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-model-pill.provider-model-refreshing {\r\n  border-color: var(--accent, #3b82f6);\r\n  background: var(--surface-raised);\r\n  color: var(--text);\r\n  font-weight: 720;\r\n  gap: 6px;\r\n}\r\n\r\n.refresh-spinner {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  width: 14px;\r\n  height: 14px;\r\n  vertical-align: -2px;\r\n}\r\n\r\n.refresh-spinner .icon-svg {\r\n  width: 14px;\r\n  height: 14px;\r\n  animation: refresh-spin 0.9s linear infinite;\r\n}\r\n\r\n@keyframes refresh-spin {\r\n  from { transform: rotate(0deg); }\r\n  to { transform: rotate(360deg); }\r\n}\r\n\r\n.provider-cap-refreshing-badge {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 5px;\r\n}\r\n\r\n.model-capability-refreshing {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n  padding: 8px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 8px;\r\n  background: var(--surface-raised);\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-weight: 740;\r\n}\r\n\r\n.provider-model-more {\r\n  color: var(--info);\r\n  border-color: color-mix(in srgb, var(--info) 18%, var(--line));\r\n  background: color-mix(in srgb, var(--info-soft) 55%, var(--surface));\r\n}\r\n\r\n.format-chip {\r\n  margin-right: 4px;\r\n  min-height: 21px;\r\n  padding: 2px 6px;\r\n  color: var(--info);\r\n  border-color: color-mix(in srgb, var(--info) 18%, var(--line));\r\n  background: color-mix(in srgb, var(--info-soft) 64%, var(--surface));\r\n  font-size: 10px;\r\n}\r\n\r\n.format-chip.tone-compat {\r\n  color: var(--compat);\r\n  border-color: color-mix(in srgb, var(--compat) 18%, var(--line));\r\n  background: color-mix(in srgb, var(--compat-soft) 64%, var(--surface));\r\n}\r\n\r\n.provider-card-metrics {\r\n  display: grid;\r\n  grid-template-columns: repeat(5, minmax(0, 1fr));\r\n  gap: 5px;\r\n}\r\n\r\n.provider-card-metric {\r\n  display: grid;\r\n  grid-template-columns: 16px minmax(0, auto);\r\n  min-width: 0;\r\n  justify-content: start;\r\n  gap: 1px 3px;\r\n  align-items: center;\r\n  min-height: 39px;\r\n  padding: 7px 5px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--surface-raised) 86%, var(--surface));\r\n}\r\n\r\n.provider-card-metric small {\r\n  display: none;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 10px;\r\n  font-weight: 720;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-card-metric b {\r\n  display: grid;\r\n  width: 16px;\r\n  height: 18px;\r\n  place-items: center;\r\n  border-radius: 5px;\r\n  background: transparent;\r\n  color: var(--muted);\r\n}\r\n\r\n.provider-card-metric b .icon-svg {\r\n  width: 12px;\r\n  height: 12px;\r\n}\r\n\r\n.provider-card-metric strong {\r\n  overflow: visible;\r\n  color: var(--text);\r\n  font: 820 13px/1.15 var(--mono);\r\n  text-overflow: clip;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-card-error {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  gap: 7px;\r\n  align-items: center;\r\n  min-height: 34px;\r\n  padding: 8px;\r\n  border: 1px solid color-mix(in srgb, var(--warning) 16%, var(--line));\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--warning-soft) 56%, var(--surface));\r\n}\r\n\r\n.provider-card-error.is-empty {\r\n  border-color: var(--line-soft);\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.provider-card-error span {\r\n  color: var(--muted);\r\n  font-size: 10px;\r\n  font-weight: 780;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.provider-card-error strong {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--text);\r\n  font-size: 11px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-sparkline {\r\n  display: flex;\r\n  align-items: end;\r\n  gap: 2px;\r\n  height: 24px;\r\n  padding: 5px 0 1px;\r\n}\r\n\r\n.provider-spark {\r\n  flex: 1 1 0;\r\n  min-width: 2px;\r\n  height: 14px;\r\n  border-radius: 2px;\r\n  background: var(--line-strong);\r\n}\r\n\r\n.provider-spark.ok {\r\n  background: var(--success);\r\n}\r\n\r\n.provider-spark.warn {\r\n  background: var(--warning);\r\n}\r\n\r\n.provider-spark.bad {\r\n  background: var(--danger);\r\n}\r\n\r\n.provider-spark.neutral {\r\n  background: var(--line-strong);\r\n}\r\n\r\n.provider-card-footer {\r\n  display: flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  margin-top: auto;\r\n  padding-top: 2px;\r\n}\r\n\r\n.provider-config-state {\r\n  color: var(--muted);\r\n  font: 720 11px var(--mono);\r\n}\r\n\r\n.provider-runtime-head,\r\n.key-card-head,\r\n.failure-policy-head {\r\n  display: flex;\r\n  gap: 10px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n}\r\n\r\n.failure-policy-head {\r\n  align-items: center;\r\n}\r\n\r\n.key-card-badges {\r\n  display: inline-flex;\r\n  gap: 6px;\r\n  align-items: center;\r\n  flex-wrap: wrap;\r\n  justify-content: flex-end;\r\n}\r\n\r\n.compact-control {\r\n  width: auto;\r\n  min-width: 142px;\r\n  min-height: 32px;\r\n  padding: 0 9px;\r\n  font-family: var(--mono);\r\n  font-size: 12px;\r\n  font-weight: 720;\r\n}\r\n\r\n.provider-title-block {\r\n  min-width: 0;\r\n}\r\n\r\n.provider-runtime-actions {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n  justify-content: flex-end;\r\n}\r\n\r\n.provider-runtime-actions .button {\r\n  min-height: 30px;\r\n  padding: 0 9px;\r\n  font-size: 11.5px;\r\n}\r\n\r\n.provider-runtime-actions .button.icon-action {\r\n  width: 30px;\r\n  min-width: 30px;\r\n  height: 30px;\r\n  min-height: 30px;\r\n  padding: 0;\r\n}\r\n\r\n.provider-runtime-actions .badge {\r\n  min-height: 30px;\r\n}\r\n\r\n.provider-compact-stats {\r\n  display: grid;\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 7px;\r\n}\r\n\r\n.compact-stat {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  gap: 1px 8px;\r\n  min-width: 0;\r\n  padding: 7px 8px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.compact-stat b,\r\n.compact-stat small {\r\n  color: var(--muted);\r\n  font-size: 10.5px;\r\n  font-weight: 720;\r\n}\r\n\r\n.compact-stat strong {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--text);\r\n  font: 800 13px/1.2 var(--mono);\r\n  text-align: right;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.compact-stat small {\r\n  grid-column: 1 / -1;\r\n  color: var(--faint);\r\n}\r\n\r\n.provider-metrics,\r\n.policy-summary-grid {\r\n  display: grid;\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 8px;\r\n}\r\n\r\n.mini-metric {\r\n  min-width: 0;\r\n  padding: 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.mini-metric span {\n  display: block;\n  min-width: 0;\n  overflow: hidden;\n  color: var(--text);\n  font-size: 11px;\n  font-weight: 780;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}\n\n.mini-metric strong {\n  display: block;\n  min-width: 0;\n  margin-top: 2px;\n  overflow: hidden;\n  color: var(--text);\n  font: 820 17px/1.2 var(--mono);\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}\n\n.mini-metric small {\n  display: block;\n  min-width: 0;\n  margin-top: 2px;\r\n  overflow: hidden;\r\n  color: var(--faint);\r\n  font-size: 10px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.runtime-state-strip,\r\n.policy-decision-strip {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n}\r\n\r\n.provider-runtime-details {\r\n  border-top: 1px solid var(--line-soft);\r\n  padding-top: 4px;\r\n}\r\n\r\n.provider-runtime-details > summary {\r\n  cursor: pointer;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 760;\r\n}\r\n\r\n.provider-runtime-details[open] {\r\n  display: grid;\r\n  gap: 9px;\r\n}\r\n\r\n.provider-runtime-details[open] > summary {\r\n  color: var(--text);\r\n}\r\n\r\n.format-route-list {\r\n  display: grid;\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  gap: 8px;\r\n}\r\n\r\n.format-route {\r\n  position: relative;\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  align-items: center;\r\n  gap: 2px;\r\n  min-width: 0;\r\n  padding: 9px 9px 9px 11px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 10px;\r\n  background: var(--surface);\r\n  opacity: 1;\r\n  transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease, transform 0.06s ease;\r\n}\r\n\r\n.format-route.enabled {\r\n  border-color: color-mix(in srgb, var(--info, #3b82f6) 70%, var(--line));\r\n  background: var(--success-soft);\r\n  box-shadow: 0 0 0 1px color-mix(in srgb, var(--info, #3b82f6) 22%, transparent) inset;\r\n}\r\n\r\n.format-route.enabled b {\r\n  color: black;\r\n}\r\n\r\n.format-route.disabled {\r\n  opacity: 0.55;\r\n}\r\n\r\n.format-route-main {\r\n  display: grid;\r\n  gap: 2px;\r\n  min-width: 0;\r\n}\r\n\r\n.format-route-main b,\r\n.format-route-main small {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.format-route-main b {\r\n  font: 760 11px var(--mono);\r\n}\r\n\r\n.format-route-main small {\r\n  color: var(--muted);\r\n  font: 11px var(--mono);\r\n}\r\n\r\n/* Checkmark badge shown on enabled interactive cards so the selected state is\r\n   unmistakable. Pure CSS, no extra markup needed. */\r\n.format-route.is-interactive.enabled::after {\r\n  content: \"\";\r\n  position: absolute;\r\n  top: 7px;\r\n  right: 42px;\r\n  width: 9px;\r\n  height: 9px;\r\n  border-radius: 50%;\r\n  background: var(--success);\r\n  box-shadow: 0 0 0 2px color-mix(in srgb, var(--info, #3b82f6) 18%, transparent);\r\n}\r\n\r\n.format-route.is-interactive {\r\n  cursor: pointer;\r\n  user-select: none;\r\n}\r\n\r\n.format-route.is-interactive:hover {\r\n  border-color: color-mix(in srgb, var(--info, #3b82f6) 55%, var(--line));\r\n  background: color-mix(in srgb, var(--info, #3b82f6) 6%, var(--surface));\r\n}\r\n\r\n.format-route.is-interactive.enabled:hover {\r\n  background: color-mix(in srgb, var(--info, #3b82f6) 18%, var(--surface));\r\n}\r\n\r\n.format-route.is-interactive:active {\r\n  transform: translateY(1px);\r\n}\r\n\r\n.format-route.is-interactive:focus-visible {\r\n  outline: 2px solid var(--info, #3b82f6);\r\n  outline-offset: 1px;\r\n}\r\n\r\n.format-route-edit {\r\n  position: relative;\r\n  z-index: 1;\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  width: 28px;\r\n  height: 28px;\r\n  margin-left: 8px;\r\n  border: 1px solid transparent;\r\n  border-radius: 7px;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  cursor: pointer;\r\n  transition: color 0.14s ease, background 0.14s ease, border-color 0.14s ease, transform 0.06s ease;\r\n}\r\n\r\n.format-route-edit:hover {\r\n  border-color: var(--line);\r\n  background: var(--surface-raised);\r\n  color: var(--text);\r\n}\r\n\r\n.format-route-edit:active {\r\n  transform: translateY(1px);\r\n}\r\n\r\n.format-route-edit:focus-visible {\r\n  outline: 2px solid var(--info, #3b82f6);\r\n  outline-offset: 1px;\r\n}\r\n\r\n.format-route.is-interactive.is-busy {\r\n  opacity: 0.6;\r\n  pointer-events: none;\r\n}\r\n\r\n.format-route-hint {\r\n  display: block;\r\n  margin-top: 3px;\r\n  font: 600 9px/1.3 var(--mono);\r\n  color: var(--muted);\r\n  opacity: 0.62;\r\n  letter-spacing: 0.02em;\r\n}\r\n\r\n.provider-key-list {\r\n  display: grid;\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  gap: 8px;\r\n}\r\n\r\n.provider-key-card {\r\n  display: grid;\r\n  gap: 9px;\r\n  min-width: 0;\r\n  padding: 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.key-title {\r\n  color: var(--text);\r\n  font-weight: 760;\r\n}\r\n\r\n.provider-key-card .provider-meta {\r\n  font-family: var(--mono);\r\n  color: var(--text);\r\n}\r\n\r\n.key-card-grid {\r\n  display: grid;\r\n  grid-template-columns: auto 1fr;\r\n  gap: 4px 10px;\r\n  font-size: 12px;\r\n}\r\n\r\n.key-card-grid span {\r\n  color: var(--muted);\r\n}\r\n\r\n.key-card-grid strong {\r\n  min-width: 0;\r\n  color: var(--text);\r\n  font-family: var(--mono);\r\n  text-align: right;\r\n}\r\n\r\n.key-actions {\r\n  justify-content: flex-start;\r\n}\r\n\r\n.key-probe-model {\r\n  position: relative;\r\n  flex: 1 1 170px;\r\n  min-width: 0;\r\n}\r\n\r\n.key-probe-trigger {\r\n  width: 100%;\r\n  max-width: 100%;\r\n  justify-content: flex-start;\r\n  text-align: left;\r\n}\r\n\r\n.key-probe-trigger span {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.key-probe-menu {\r\n  position: absolute;\r\n  z-index: 40;\r\n  top: calc(100% + 5px);\r\n  left: 0;\r\n  width: min(360px, calc(100vw - 32px));\r\n  max-width: 100%;\r\n  padding: 7px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n  box-shadow: 0 14px 34px color-mix(in srgb, var(--shadow) 22%, transparent);\r\n}\r\n\r\n.key-probe-search {\r\n  width: 100%;\r\n  min-height: 30px;\r\n  margin-bottom: 6px;\r\n  font-family: var(--mono);\r\n  font-size: 12px;\r\n}\r\n\r\n.key-probe-option-list {\r\n  display: grid;\r\n  gap: 3px;\r\n  max-height: min(260px, 42vh);\r\n  overflow-y: auto;\r\n  overscroll-behavior: contain;\r\n  scrollbar-width: thin;\r\n  scrollbar-color: color-mix(in srgb, var(--muted) 35%, transparent) transparent;\r\n}\r\n\r\n.key-probe-option-list::-webkit-scrollbar {\r\n  width: 6px;\r\n}\r\n\r\n.key-probe-option-list::-webkit-scrollbar-thumb {\r\n  border-radius: 999px;\r\n  background: color-mix(in srgb, var(--muted) 28%, transparent);\r\n}\r\n\r\n.key-probe-option,\r\n.key-probe-empty {\r\n  min-width: 0;\r\n  min-height: 28px;\r\n  padding: 0 7px;\r\n  border: 1px solid transparent;\r\n  border-radius: 5px;\r\n  background: transparent;\r\n  color: var(--text);\r\n  font: 720 11.5px/1.2 var(--mono);\r\n  text-align: left;\r\n}\r\n\r\n.key-probe-option {\r\n  display: flex;\r\n  align-items: center;\r\n  cursor: pointer;\r\n}\r\n\r\n.key-probe-option span {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.key-probe-option:hover,\r\n.key-probe-option.is-selected {\r\n  border-color: color-mix(in srgb, var(--info) 42%, transparent);\r\n  background: var(--info-soft);\r\n  color: var(--info);\r\n}\r\n\r\n.key-probe-empty {\r\n  display: grid;\r\n  place-items: center start;\r\n  color: var(--muted);\r\n}\r\n\r\n.provider-edit-drawer {\r\n  border-top: 1px solid var(--line);\r\n  padding-top: 2px;\r\n}\r\n\r\n.provider-edit-drawer summary,\r\n.raw-config-details summary {\r\n  cursor: pointer;\r\n  color: var(--text);\r\n  font-weight: 820;\r\n}\r\n\r\n.provider-edit-panel {\r\n  display: grid;\r\n  gap: 10px;\r\n  margin-top: 10px;\r\n  padding: 12px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.provider-inline-form {\r\n  display: grid;\r\n  grid-template-columns: minmax(220px, 1.2fr) minmax(180px, 0.8fr) auto auto;\r\n  gap: 8px;\r\n  align-items: end;\r\n}\r\n\r\n.provider-inline-key-form {\r\n  display: grid;\r\n  grid-template-columns: minmax(180px, 1fr) minmax(180px, 0.9fr) auto;\r\n  gap: 8px;\r\n  align-items: end;\r\n}\r\n\r\n.provider-key-chips {\r\n  padding: 2px 0;\r\n}\r\n\r\n.key-proxy-list {\r\n  display: grid;\r\n  gap: 7px;\r\n}\r\n\r\n.key-proxy-row {\r\n  display: grid;\r\n  grid-template-columns: minmax(150px, 0.85fr) minmax(220px, 1fr) auto;\r\n  gap: 8px;\r\n  align-items: end;\r\n  padding: 8px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface);\r\n}\r\n\r\n.key-proxy-id {\r\n  display: grid;\r\n  gap: 2px;\r\n  min-width: 0;\r\n}\r\n\r\n.key-proxy-id strong {\r\n  color: var(--text);\r\n  font-size: 12px;\r\n}\r\n\r\n.key-proxy-id span {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.key-proxy-field {\r\n  min-width: 0;\r\n}\r\n\r\n.provider-format-edit-list {\r\n  grid-template-columns: 1fr;\r\n}\r\n\r\n.actions {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n  justify-content: flex-end;\r\n}\r\n\r\n.actions .button {\r\n  min-height: 31px;\r\n  font-size: 12px;\r\n}\r\n\r\n.policy-summary-grid {\r\n  padding: 14px 14px 0;\r\n}\r\n\r\n.policy-controls {\r\n  padding: 14px;\r\n}\r\n\r\n.policy-control-grid {\r\n  display: grid;\r\n  grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  gap: 12px;\r\n}\r\n\r\n.policy-control-card {\r\n  display: grid;\r\n  gap: 11px;\r\n  min-width: 0;\r\n  padding: 13px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.policy-control-card-head h3 {\r\n  margin: 0 0 4px;\r\n  font-size: 14px;\r\n  font-weight: 820;\r\n}\r\n\r\n.policy-control-card-head p {\r\n  margin: 0;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  line-height: 1.4;\r\n}\r\n\r\n.form-pair-grid {\r\n  display: grid;\r\n  grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  gap: 9px;\r\n}\r\n\r\n.policy-advanced {\r\n  border-top: 1px solid var(--line-soft);\r\n  padding-top: 10px;\r\n  margin-top: 2px;\r\n}\r\n\r\n.policy-advanced > summary {\r\n  cursor: pointer;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 720;\r\n  user-select: none;\r\n  padding: 2px 0;\r\n  list-style: none;\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 5px;\r\n}\r\n\r\n.policy-advanced > summary::before {\r\n  content: \"▸\";\r\n  font-size: 10px;\r\n  transition: transform 140ms ease;\r\n  color: var(--muted);\r\n}\r\n\r\n.policy-advanced[open] > summary::before {\r\n  transform: rotate(90deg);\r\n}\r\n\r\n.policy-advanced > summary:hover {\r\n  color: var(--text);\r\n}\r\n\r\n.policy-card-list,\r\n.failure-policy-list {\r\n  display: grid;\r\n  gap: 10px;\r\n  padding: 14px;\r\n}\r\n\r\n.policy-rule-card,\r\n.failure-policy-card {\r\n  display: grid;\r\n  gap: 10px;\r\n  min-width: 0;\r\n  padding: 12px;\r\n  border: 1px solid var(--line);\r\n  border-left: 3px solid var(--neutral);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.policy-rule-card.tone-danger,\r\n.failure-policy-card.tone-danger {\r\n  border-left-color: var(--danger);\r\n}\r\n\r\n.policy-rule-card.tone-warn,\r\n.failure-policy-card.tone-warn {\r\n  border-left-color: var(--warning);\r\n}\r\n\r\n.policy-rule-card.tone-info,\r\n.failure-policy-card.tone-info {\r\n  border-left-color: var(--info);\r\n}\r\n\r\n.policy-rule-card.tone-compat,\r\n.failure-policy-card.tone-compat {\r\n  border-left-color: var(--compat);\r\n}\r\n\r\n.policy-rule-card.tone-success,\r\n.failure-policy-card.tone-success {\r\n  border-left-color: var(--success);\r\n}\r\n\r\n.policy-rule-head {\r\n  display: grid;\r\n  grid-template-columns: 34px minmax(0, 1fr);\r\n  gap: 10px;\r\n}\r\n\r\n.rule-index {\r\n  display: grid;\r\n  width: 30px;\r\n  height: 30px;\r\n  place-items: center;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  color: var(--muted);\r\n  font: 760 11px var(--mono);\r\n}\r\n\r\n.policy-rule-head h3,\r\n.failure-policy-head h3 {\r\n  margin: 0;\r\n  color: var(--text);\r\n  font-size: 14px;\r\n  font-weight: 820;\r\n  line-height: 1.35;\r\n}\r\n\r\n.policy-rule-head p,\r\n.failure-policy-card p {\r\n  margin-top: 3px;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  line-height: 1.45;\r\n}\r\n\r\n.policy-rule-meta,\r\n.failure-policy-grid {\r\n  display: grid;\r\n  grid-template-columns: minmax(68px, auto) minmax(0, 1fr);\r\n  gap: 5px 10px;\r\n  padding-top: 2px;\r\n  font-size: 12px;\r\n}\r\n\r\n.policy-rule-meta span,\r\n.failure-policy-grid span {\r\n  color: var(--muted);\r\n}\r\n\r\n.policy-rule-meta strong,\r\n.failure-policy-grid strong {\r\n  min-width: 0;\r\n  color: var(--text);\r\n  font-family: var(--mono);\r\n  font-weight: 780;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.failure-policy-edit-grid {\r\n  display: grid;\r\n  grid-template-columns: minmax(130px, 1fr) minmax(130px, 1fr);\r\n  gap: 8px;\r\n  align-items: end;\r\n}\r\n\r\n.failure-disable-check {\r\n  min-height: 36px;\r\n}\r\n\r\n.failure-policy-edit-grid .button {\r\n  justify-self: start;\r\n}\r\n\r\n.code-block {\n  box-sizing: border-box;\n  width: 100%;\n  max-width: 100%;\n  min-width: 0;\n  max-height: 620px;\n  margin: 0;\n  overflow: auto;\n  overflow-wrap: normal;\n  padding: 15px;\n  background: #18181b;\n  color: #f4f4f5;\n  font: 12px/1.58 var(--mono);\n  white-space: pre;\n}\n\r\n.form-grid {\r\n  display: grid;\r\n  gap: 9px;\r\n  padding: 15px;\r\n}\r\n\r\n.form-actions {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 8px;\r\n  align-items: center;\r\n}\r\n\r\n.provider-create-form {\r\n  display: grid;\r\n  grid-template-columns: minmax(150px, 0.8fr) minmax(260px, 1.4fr);\r\n  gap: 10px 12px;\r\n  padding: 13px 16px 14px;\r\n}\r\n\r\n.provider-create-format {\r\n  grid-column: 1 / -1;\r\n}\r\n\r\n.provider-create-form .control {\r\n  min-height: 34px;\r\n}\r\n\r\n.provider-create-actions {\r\n  grid-column: 1 / -1;\r\n}\r\n\r\n.provider-create-form .control {\r\n  width: 100%;\r\n  min-width: 0;\r\n}\r\n\r\n.field-help,\r\n.form-note {\r\n  color: var(--muted);\r\n  font-size: 10.5px;\r\n  font-weight: 560;\r\n  line-height: 1.25;\r\n}\r\n\r\n.field-help {\r\n  margin-top: 1px;\r\n}\r\n\r\n.form-note {\r\n  max-width: 38rem;\r\n}\r\n\r\n.global-proxy-form {\r\n  display: grid;\r\n  grid-template-columns: minmax(220px, 1fr) auto;\r\n  gap: 8px;\r\n  align-items: end;\r\n  padding: 12px 14px 14px;\r\n}\r\n\r\n.global-proxy-form .form-note {\r\n  grid-column: 1 / -1;\r\n}\r\n\r\n.config-primary-panel .panel-head,\r\n.model-routes-panel .panel-head,\r\n.provider-model-map-panel .panel-head,\r\n.config-provider-panel .panel-head,\r\n.global-proxy-panel .panel-head,\r\n.config-status-panel .panel-head,\r\n.config-audit-panel .panel-head {\r\n  padding-top: 11px;\r\n  padding-bottom: 10px;\r\n}\r\n\r\n.model-route-form {\r\n  display: grid;\r\n  grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.4fr) minmax(150px, 0.8fr) auto;\r\n  gap: 9px;\r\n  align-items: end;\r\n  padding: 10px 0 0;\r\n}\r\n\r\n.model-route-editor {\r\n  padding: 10px 12px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n}\r\n\r\n.model-route-editor > summary {\r\n  cursor: pointer;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-weight: 780;\r\n}\r\n\r\n.config-side-column .model-route-form {\r\n  grid-template-columns: minmax(0, 1fr);\r\n  align-items: stretch;\r\n  padding: 10px 0 0;\r\n}\r\n\r\n.config-side-column .model-route-form .form-actions {\r\n  justify-content: flex-start;\r\n}\r\n\r\n.model-route-form .form-actions {\r\n  align-self: end;\r\n}\r\n\r\n.model-route-list {\r\n  display: grid;\r\n  gap: 6px;\r\n  padding: 10px;\r\n}\r\n\r\n.provider-model-map-list {\r\n  display: grid;\r\n  gap: 6px;\r\n  padding: 10px;\r\n}\r\n\r\n.config-provider-page-list,\r\n.model-route-page-list,\r\n.provider-model-map-page-list,\r\n.audit-page-list {\r\n  display: grid;\r\n  gap: 6px;\r\n}\r\n\r\n.model-route-hint {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n  align-items: center;\r\n  padding: 7px 8px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 720;\r\n}\r\n\r\n.model-route-card {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  gap: 8px;\r\n  align-items: center;\r\n  padding: 9px 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.model-route-main,\r\n.model-route-side {\r\n  min-width: 0;\r\n}\r\n\r\n.model-route-main {\r\n  display: grid;\r\n  gap: 5px;\r\n}\r\n\r\n.model-route-provider-list {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n}\r\n\r\n.model-route-side {\r\n  display: grid;\r\n  gap: 5px;\r\n  justify-items: end;\r\n}\r\n\r\n.provider-model-map-card {\r\n  display: grid;\r\n  gap: 8px;\r\n  padding: 9px 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.provider-model-map-head {\r\n  display: flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  min-width: 0;\r\n}\r\n\r\n.provider-model-map-pairs {\r\n  display: grid;\r\n  gap: 5px;\r\n}\r\n\r\n.provider-model-map-pair {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);\r\n  gap: 7px;\r\n  align-items: center;\r\n  padding: 6px 7px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n  font-size: 11px;\r\n}\r\n\r\n.provider-model-map-pair span,\r\n.provider-model-map-pair strong {\r\n  min-width: 0;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.provider-model-map-pair strong {\r\n  color: var(--text);\r\n  font-weight: 760;\r\n}\r\n\r\n.actions.tight {\r\n  gap: 4px;\r\n}\r\n\r\n.compact-action {\r\n  min-height: 30px;\r\n  padding: 0 9px;\r\n  font-size: 11.5px;\r\n}\r\n\r\n.pad-slim {\r\n  padding: 8px 2px 0;\r\n}\r\n\r\n.config-provider-list {\r\n  display: grid;\r\n  gap: 6px;\r\n  padding: 10px;\r\n}\r\n\r\n.config-summary {\r\n  padding: 14px;\r\n}\r\n\r\n.config-summary-compact {\r\n  padding: 10px;\r\n}\r\n\r\n.overlay-safety {\r\n  padding: 12px 0 0;\r\n}\r\n\r\n.config-summary-grid {\r\n  display: grid;\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 8px;\r\n}\r\n\r\n.config-status-grid {\r\n  grid-template-columns: repeat(2, minmax(0, 1fr));\r\n}\r\n\r\n.config-summary-compact .mini-metric {\r\n  padding: 8px;\r\n}\r\n\r\n.config-summary-compact .mini-metric strong {\r\n  font-size: 14px;\r\n}\r\n\r\n.config-path-row {\r\n  display: grid;\r\n  grid-template-columns: 110px minmax(0, 1fr);\r\n  gap: 10px;\r\n  margin-top: 8px;\r\n  padding: 8px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n  font-size: 12px;\r\n}\r\n\r\n.config-path-row span {\r\n  color: var(--muted);\r\n  font-weight: 720;\r\n}\r\n\r\n.config-path-row strong {\r\n  min-width: 0;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.config-provider-summary-card {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto auto;\r\n  gap: 7px 10px;\r\n  align-items: center;\r\n  min-height: 66px;\r\n  padding: 8px 10px;\r\n  border: 1px solid var(--line);\r\n  border-left: 3px solid var(--info);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.config-provider-summary-main,\r\n.config-provider-summary-keys,\r\n.config-provider-summary-formats {\r\n  min-width: 0;\r\n}\r\n\r\n.config-provider-summary-main {\r\n  grid-column: 1;\r\n  grid-row: 1;\r\n}\r\n\r\n.config-provider-summary-badges {\r\n  grid-column: 2;\r\n  grid-row: 1;\r\n  justify-self: end;\r\n  display: inline-flex;\r\n  flex-wrap: wrap;\r\n  justify-content: flex-end;\r\n  gap: 5px;\r\n}\r\n\r\n.config-provider-summary-keys,\r\n.config-provider-summary-formats {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.config-provider-summary-keys {\r\n  grid-column: 1;\r\n  grid-row: 2;\r\n}\r\n\r\n.config-provider-summary-formats {\r\n  grid-column: 2 / span 2;\r\n  grid-row: 2;\r\n  justify-self: end;\r\n}\r\n\r\n.config-provider-summary-card > .button {\r\n  grid-column: 3;\r\n  grid-row: 1;\r\n  justify-self: end;\r\n}\r\n\r\n.config-provider-summary-card .provider-name,\r\n.config-provider-summary-card .provider-meta {\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.audit-list {\r\n  display: grid;\r\n  gap: 8px;\r\n  max-height: 460px;\r\n  overflow: auto;\r\n  padding: 12px;\r\n}\r\n\r\n.audit-item {\r\n  min-width: 0;\r\n  padding: 9px 10px;\r\n  border: 1px solid var(--line);\r\n  border-left-width: 3px;\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n}\r\n\r\n.audit-item.tone-ok {\r\n  border-left-color: var(--success);\r\n}\r\n\r\n.audit-item.tone-bad {\r\n  border-left-color: var(--danger);\r\n}\r\n\r\n.audit-item-title {\r\n  display: flex;\r\n  min-width: 0;\r\n  gap: 8px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n}\r\n\r\n.audit-item-title .mono {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  font-size: 11.5px;\r\n}\r\n\r\n.audit-item-meta {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px 10px;\r\n  margin-top: 4px;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 700;\r\n}\r\n\r\n.audit-detail-details,\r\n.audit-older {\r\n  margin-top: 7px;\r\n}\r\n\r\n.audit-detail-details > summary,\r\n.audit-older > summary {\r\n  cursor: pointer;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 760;\r\n}\r\n\r\n.audit-older-list {\r\n  display: grid;\r\n  gap: 8px;\r\n  margin-top: 8px;\r\n}\r\n\r\n.audit-detail {\r\n  max-height: 120px;\r\n  margin: 6px 0 0;\r\n  overflow: auto;\r\n  padding: 8px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n  color: var(--text);\r\n  font: 11px/1.45 var(--mono);\r\n  white-space: pre-wrap;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.audit-error {\r\n  margin-top: 8px;\r\n  color: var(--danger);\r\n  font-size: 12px;\r\n  font-weight: 750;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.raw-config-details {\n  min-width: 0;\n  padding: 14px;\n}\n\n.raw-config-details .code-block {\n  margin-top: 10px;\n  border: 1px solid var(--line);\n  border-radius: 8px;\n}\n\n.config-advanced-panel {\n  min-width: 0;\n  background: color-mix(in srgb, var(--surface-raised) 66%, var(--surface));\n}\n\n.config-advanced-details {\n  min-width: 0;\n  padding: 13px 14px;\n}\n\r\n.config-advanced-details > summary {\r\n  display: grid;\r\n  gap: 2px;\r\n  cursor: pointer;\r\n  list-style: none;\r\n}\r\n\r\n.config-advanced-details > summary::-webkit-details-marker {\r\n  display: none;\r\n}\r\n\r\n.config-advanced-details > summary span {\r\n  color: var(--text);\r\n  font-size: 13px;\r\n  font-weight: 760;\r\n}\r\n\r\n.config-advanced-details > summary small {\r\n  color: var(--muted);\r\n  font-size: 11.5px;\r\n}\r\n\r\n.config-advanced-details > .actions {\r\n  margin-top: 12px;\r\n}\r\n\r\n.nested-details {\r\n  padding: 10px 0 0;\r\n}\r\n\r\n.config-provider-card {\r\n  display: grid;\r\n  gap: 12px;\r\n  padding: 14px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n}\r\n\r\n.config-provider-card:last-child {\r\n  border-bottom: 0;\r\n}\r\n\r\n.config-provider-head {\r\n  display: flex;\r\n  gap: 10px;\r\n  align-items: flex-start;\r\n  justify-content: space-between;\r\n}\r\n\r\n.config-provider-form,\r\n.config-key-form {\r\n  display: grid;\r\n  gap: 8px;\r\n}\r\n\r\n.field {\r\n  display: grid;\r\n  gap: 5px;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 720;\r\n}\r\n\r\n.field .control {\r\n  width: 100%;\r\n  font-weight: 500;\r\n  min-width: 0;\r\n}\r\n\r\n.check-field {\r\n  display: flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n  min-height: 28px;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-weight: 700;\r\n}\r\n\r\n.check-field input {\r\n  width: 15px;\r\n  height: 15px;\r\n  accent-color: var(--accent);\r\n}\r\n\r\n.masked-key-list {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n}\r\n\r\n.format-edit-list {\r\n  display: grid;\r\n  gap: 7px;\r\n}\r\n\r\n.format-edit-row {\r\n  display: grid;\r\n  grid-template-columns: minmax(156px, 0.8fr) minmax(130px, 1fr) auto;\r\n  gap: 7px;\r\n  align-items: center;\r\n}\r\n\r\n.format-edit-row .control {\r\n  width: 100%;\r\n}\r\n\r\n.drawer {\r\n  position: fixed;\r\n  top: 0;\r\n  right: 0;\r\n  width: min(580px, 100vw);\r\n  height: 100dvh;\r\n  border-left: 1px solid var(--line);\r\n  background: rgba(255, 255, 255, 0.75);\r\n  backdrop-filter: blur(30px) saturate(200%);\r\n  -webkit-backdrop-filter: blur(30px) saturate(200%);\r\n  box-shadow: -24px 0 60px rgba(9, 9, 11, 0);\r\n  transform: translateX(100%);\r\n  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 220ms ease;\r\n  z-index: 20;\r\n}\r\n\r\n.drawer.is-open {\r\n  transform: translateX(0);\r\n  box-shadow: -24px 0 60px rgba(9, 9, 11, 0.1);\r\n}\r\n\r\n#detailDrawer {\r\n  z-index: 36;\r\n}\r\n\r\n.drawer-head {\r\n  display: flex;\r\n  align-items: flex-start;\r\n  justify-content: space-between;\r\n  gap: 12px;\r\n  padding: 17px;\r\n  border-bottom: 1px solid var(--line);\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.drawer-head p {\r\n  margin-top: 4px;\r\n  color: var(--muted);\r\n  font-family: var(--mono);\r\n  font-size: 12px;\r\n}\r\n\r\n.drawer-body {\r\n  height: calc(100dvh - 74px);\r\n  overflow: auto;\r\n  padding: 15px;\r\n}\r\n\r\n.provider-drawer {\r\n  width: min(720px, 100vw);\r\n}\r\n\r\n.provider-drawer-body {\r\n  display: flex;\r\n  flex-direction: column;\r\n  min-height: 0;\r\n  overflow: hidden;\r\n  background:\r\n    radial-gradient(120% 180px at 50% 0, color-mix(in srgb, var(--info, #3b82f6) 7%, transparent) 0, transparent 70%),\r\n    var(--surface);\r\n}\r\n\r\n.provider-drawer-tabs {\r\n  position: relative;\r\n  top: auto;\r\n  flex: 0 0 auto;\r\n  z-index: 2;\r\n  display: grid;\r\n  grid-template-columns: repeat(5, minmax(0, 1fr));\r\n  gap: 5px;\r\n  padding: 4px 0 8px;\r\n  background: color-mix(in srgb, var(--surface) 88%, transparent);\r\n  backdrop-filter: blur(14px) saturate(1.3);\r\n  -webkit-backdrop-filter: blur(14px) saturate(1.3);\r\n}\r\n\r\n.provider-drawer-tab {\r\n  min-width: 0;\r\n  min-height: 32px;\r\n  padding: 0 8px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 9px;\r\n  background: var(--surface);\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 760;\r\n  cursor: pointer;\r\n  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 0.06s ease;\r\n}\r\n\r\n.provider-drawer-tab:hover {\r\n  border-color: color-mix(in srgb, var(--info, #3b82f6) 32%, var(--line));\r\n  background: color-mix(in srgb, var(--info, #3b82f6) 6%, var(--surface));\r\n  color: var(--text);\r\n}\r\n\r\n.provider-drawer-tab:active {\r\n  transform: translateY(1px);\r\n}\r\n\r\n.provider-drawer-tab.is-active {\r\n  border-color: color-mix(in srgb, var(--info, #3b82f6) 55%, var(--line));\r\n  background: color-mix(in srgb, var(--info, #3b82f6) 14%, var(--surface));\r\n  color: color-mix(in srgb, var(--info, #3b82f6) 90%, var(--text));\r\n  box-shadow: 0 0 0 1px color-mix(in srgb, var(--info, #3b82f6) 18%, transparent) inset;\r\n}\r\n\r\n.provider-drawer-section {\r\n  display: grid;\r\n  flex: 1 1 auto;\r\n  gap: 12px;\r\n  align-content: start;\r\n  grid-auto-rows: max-content;\r\n  overflow: auto;\r\n  min-width: 0;\r\n  min-height: 0;\r\n  margin-top: 10px;\r\n  padding-right: 2px;\r\n}\r\n\r\n.provider-models-actions {\r\n  display: flex;\r\n  justify-content: flex-end;\r\n  min-width: 0;\r\n  margin-top: -2px;\r\n}\r\n\r\n.provider-detail-hero {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  gap: 12px;\r\n  align-items: center;\r\n  padding: 14px;\r\n  border: 1px solid var(--line);\r\n  border-top: 3px solid var(--neutral);\r\n  border-radius: 10px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.provider-detail-hero.is-available {\r\n  border-top-color: var(--success);\r\n}\r\n\r\n.provider-detail-hero.is-degraded,\r\n.provider-detail-hero.is-cooldown {\r\n  border-top-color: var(--warning);\r\n}\r\n\r\n.provider-detail-hero.is-unavailable {\r\n  border-top-color: var(--danger);\r\n}\r\n\r\n.provider-detail-hero.is-disabled {\r\n  border-top-color: var(--faint);\r\n}\r\n\r\n.provider-detail-hero > div:first-child {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  gap: 3px 8px;\r\n  align-items: center;\r\n  min-width: 0;\r\n}\r\n\r\n.provider-detail-hero strong,\r\n.provider-detail-hero p {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-detail-hero p {\r\n  grid-column: 2;\r\n  margin: 0;\r\n  color: var(--muted);\r\n  font-family: var(--mono);\r\n  font-size: 11px;\r\n}\r\n\r\n.provider-detail-metrics {\r\n  display: grid;\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 8px;\r\n  align-items: start;\r\n  grid-auto-rows: max-content;\r\n}\r\n\r\n.provider-detail-metrics .mini-metric {\r\n  align-self: start;\r\n}\r\n\r\n.provider-detail-metrics .mini-metric span,\r\n.provider-detail-metrics .mini-metric strong,\r\n.provider-detail-metrics .mini-metric small {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-activity-list,\r\n.provider-route-list {\r\n  display: grid;\r\n  gap: 7px;\r\n}\r\n\r\n.provider-activity-row,\r\n.provider-route-card {\r\n  display: grid;\r\n  min-width: 0;\r\n  align-items: center;\r\n  gap: 8px;\r\n  padding: 9px 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.provider-activity-row {\r\n  grid-template-columns: 10px minmax(110px, 0.8fr) minmax(120px, 0.9fr) minmax(0, 1.2fr) auto;\r\n  width: 100%;\r\n  color: var(--text);\r\n  text-align: left;\r\n  cursor: pointer;\r\n}\r\n\r\n.provider-activity-row:hover {\r\n  border-color: color-mix(in srgb, var(--info) 22%, var(--line));\r\n  background: color-mix(in srgb, var(--info-soft) 32%, var(--surface));\r\n}\r\n\r\n.provider-activity-row strong,\r\n.provider-activity-row span,\r\n.provider-activity-row small,\r\n.provider-activity-row em,\r\n.provider-route-card strong,\r\n.provider-route-card small {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-activity-row small {\r\n  color: var(--muted);\r\n  font-family: var(--mono);\r\n  font-size: 11px;\r\n}\r\n\r\n.provider-activity-row em {\r\n  color: var(--muted);\r\n  font-family: var(--mono);\r\n  font-style: normal;\r\n}\r\n\r\n.provider-route-card {\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n}\r\n\r\n.provider-route-card small {\r\n  display: block;\r\n  margin-top: 2px;\r\n  color: var(--muted);\r\n  font-family: var(--mono);\r\n  font-size: 11px;\r\n}\r\n\r\n.drawer-key-list,\r\n.drawer-format-list,\r\n.provider-drawer-models {\r\n  padding: 0;\r\n}\r\n\r\n.provider-danger-zone {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  gap: 10px;\r\n  align-items: center;\r\n  padding: 12px;\r\n  border: 1px solid color-mix(in srgb, var(--danger) 22%, var(--line));\r\n  border-radius: 10px;\r\n  background: color-mix(in srgb, var(--danger-soft) 52%, var(--surface));\r\n}\r\n\r\n.provider-danger-zone p {\r\n  margin: 2px 0 0;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.provider-danger-zone .icon-action {\r\n  width: 36px;\r\n  min-width: 36px;\r\n  height: 36px;\r\n}\r\n\r\n.confirm-backdrop {\r\n  position: fixed;\r\n  inset: 0;\r\n  z-index: 38;\r\n  background: rgba(9, 9, 11, 0.32);\r\n  backdrop-filter: blur(3px);\r\n}\r\n\r\n.confirm-dialog {\r\n  position: fixed;\r\n  top: 50%;\r\n  left: 50%;\r\n  z-index: 39;\r\n  width: min(420px, calc(100vw - 32px));\r\n  display: grid;\r\n  gap: 18px;\r\n  padding: 18px;\r\n  border: 1px solid var(--line-strong);\r\n  border-radius: 12px;\r\n  background: var(--surface);\r\n  box-shadow: 0 24px 64px rgba(9, 9, 11, 0.2);\r\n  transform: translate(-50%, -48%) scale(0.98);\r\n  opacity: 0;\r\n  pointer-events: none;\r\n  transition: opacity 120ms ease, transform 120ms ease;\r\n}\r\n\r\n.confirm-dialog.is-open {\r\n  transform: translate(-50%, -50%) scale(1);\r\n  opacity: 1;\r\n  pointer-events: auto;\r\n}\r\n\r\n.confirm-head {\r\n  display: grid;\r\n  grid-template-columns: 34px minmax(0, 1fr);\r\n  gap: 12px;\r\n  align-items: start;\r\n}\r\n\r\n.confirm-tone {\r\n  position: relative;\r\n  width: 34px;\r\n  height: 34px;\r\n  border: 1px solid color-mix(in srgb, var(--danger) 24%, white);\r\n  border-radius: 9px;\r\n  background: var(--danger-soft);\r\n}\r\n\r\n.confirm-tone::before {\r\n  position: absolute;\r\n  top: 8px;\r\n  left: 16px;\r\n  width: 2px;\r\n  height: 11px;\r\n  border-radius: 999px;\r\n  background: var(--danger);\r\n  content: \"\";\r\n}\r\n\r\n.confirm-tone::after {\r\n  position: absolute;\r\n  left: 16px;\r\n  bottom: 8px;\r\n  width: 2px;\r\n  height: 2px;\r\n  border-radius: 999px;\r\n  background: var(--danger);\r\n  content: \"\";\r\n}\r\n\r\n.confirm-dialog h2 {\r\n  margin: 0;\r\n  font-size: 15px;\r\n  letter-spacing: 0;\r\n}\r\n\r\n.confirm-dialog p {\r\n  margin: 5px 0 0;\r\n  color: var(--muted);\r\n  line-height: 1.45;\r\n}\r\n\r\n.confirm-actions {\r\n  display: flex;\r\n  justify-content: flex-end;\r\n  gap: 8px;\r\n}\r\n\r\n/* ---- Form modal (Add Provider, etc.) ---- */\r\n.form-modal {\r\n  position: fixed;\r\n  top: 50%;\r\n  left: 50%;\r\n  transform: translate(-50%, -48%) scale(0.97);\r\n  width: min(560px, calc(100vw - 32px));\r\n  max-height: calc(100dvh - 48px);\r\n  display: flex;\r\n  flex-direction: column;\r\n  border: 1px solid var(--line);\r\n  border-radius: 14px;\r\n  background: var(--surface);\r\n  box-shadow: 0 24px 64px rgba(9, 9, 11, 0.2);\r\n  z-index: 39;\r\n  opacity: 0;\r\n  pointer-events: none;\r\n  transition: opacity 180ms ease, transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);\r\n}\r\n\r\n.form-modal.is-open {\r\n  opacity: 1;\r\n  pointer-events: auto;\r\n  transform: translate(-50%, -50%) scale(1);\r\n}\r\n\r\n.form-modal-head {\r\n  display: flex;\r\n  align-items: flex-start;\r\n  justify-content: space-between;\r\n  gap: 12px;\r\n  padding: 18px 20px 14px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n}\r\n\r\n.form-modal-head h2 {\r\n  font-size: 16px;\r\n  font-weight: 780;\r\n}\r\n\r\n.form-modal-head p {\r\n  margin-top: 3px;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.form-modal-body {\r\n  padding: 18px 20px;\r\n  overflow: auto;\r\n  display: grid;\r\n  gap: 14px;\r\n}\r\n\r\n.form-modal .provider-create-form {\r\n  display: grid;\r\n  gap: 12px;\r\n}\r\n\r\n.form-modal .provider-create-form .form-field-inline {\r\n  display: grid;\r\n  grid-template-columns: 1fr;\r\n  gap: 6px;\r\n}\r\n\r\n.form-modal .provider-create-form .form-row-2 {\r\n  display: grid;\r\n  grid-template-columns: 1fr 1fr;\r\n  gap: 10px;\r\n}\r\n\r\n.form-modal .provider-create-form details {\r\n  border-top: 1px solid var(--line-soft);\r\n  padding-top: 10px;\r\n  margin-top: 4px;\r\n}\r\n\r\n.form-modal .provider-create-form summary {\r\n  cursor: pointer;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 720;\r\n  user-select: none;\r\n  padding: 2px 0;\r\n}\r\n\r\n.form-modal .form-actions {\r\n  display: flex;\r\n  justify-content: flex-end;\r\n  gap: 8px;\r\n  border-top: 1px solid var(--line-soft);\r\n  padding-top: 14px;\r\n  margin-top: 4px;\r\n}\r\n\r\n.form-modal.is-model-map-modal,\r\n.form-modal.is-format-path-modal {\r\n  width: min(480px, calc(100vw - 32px));\r\n}\r\n\r\n.form-modal.is-model-map-modal .form-modal-body,\r\n.form-modal.is-format-path-modal .form-modal-body {\r\n  padding-top: 16px;\r\n}\r\n\r\n.model-map-form,\r\n.format-path-form {\r\n  display: grid;\r\n  gap: 14px;\r\n}\r\n\r\n.model-map-field,\r\n.format-path-field {\r\n  display: grid;\r\n  gap: 7px;\r\n}\r\n\r\n.model-map-field span,\r\n.model-map-raw-line span,\r\n.format-path-field span {\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 720;\r\n}\r\n\r\n.model-map-field input,\r\n.format-path-field input {\r\n  width: 100%;\r\n  min-width: 0;\r\n  height: 42px;\r\n  padding: 0 12px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  font: 13px var(--mono-font, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", monospace);\r\n}\r\n\r\n.model-map-field input:focus,\r\n.format-path-field input:focus {\r\n  border-color: color-mix(in srgb, var(--info) 70%, var(--line));\r\n  outline: 3px solid color-mix(in srgb, var(--info-soft) 80%, transparent);\r\n}\r\n\r\n.model-map-raw-line {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  align-items: center;\r\n  gap: 10px;\r\n  min-height: 38px;\r\n  padding: 8px 10px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--surface-muted) 72%, transparent);\r\n}\r\n\r\n.model-map-raw-line code {\r\n  min-width: 0;\r\n  justify-self: end;\r\n  overflow-wrap: anywhere;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  text-align: right;\r\n}\r\n\r\n.model-map-hint {\r\n  margin: -2px 0 0;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.format-path-summary {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  align-items: center;\r\n  gap: 10px;\r\n  padding: 10px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--surface-muted) 72%, transparent);\r\n}\r\n\r\n.format-path-summary > div {\r\n  display: grid;\r\n  gap: 3px;\r\n  min-width: 0;\r\n}\r\n\r\n.format-path-summary strong,\r\n.format-path-summary code {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.format-path-summary strong {\r\n  color: var(--text);\r\n  font-size: 13px;\r\n  font-weight: 780;\r\n}\r\n\r\n.format-path-summary code {\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.format-path-state {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  width: 28px;\r\n  height: 28px;\r\n  border-radius: 8px;\r\n  border: 1px solid var(--line);\r\n  color: var(--muted);\r\n  background: var(--surface);\r\n}\r\n\r\n.format-path-state.is-enabled {\r\n  border-color: color-mix(in srgb, var(--success) 48%, var(--line));\r\n  color: var(--success);\r\n  background: color-mix(in srgb, var(--success-soft) 76%, var(--surface));\r\n}\r\n\r\n.format-path-state.is-disabled {\r\n  border-color: color-mix(in srgb, var(--danger) 42%, var(--line));\r\n  color: var(--danger);\r\n  background: color-mix(in srgb, var(--danger-soft) 76%, var(--surface));\r\n}\r\n\r\n.format-path-hint {\r\n  margin: -4px 0 0;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  line-height: 1.45;\r\n}\r\n\r\n.model-map-actions {\r\n  display: flex;\r\n  justify-content: flex-end;\r\n  gap: 8px;\r\n  padding-top: 12px;\r\n  border-top: 1px solid var(--line-soft);\r\n}\r\n\r\n.model-map-action {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  width: 36px;\r\n  height: 36px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  color: var(--muted);\r\n  cursor: pointer;\r\n}\r\n\r\n.model-map-action:hover {\r\n  color: var(--text);\r\n  background: var(--surface-muted);\r\n}\r\n\r\n.model-map-action.primary {\r\n  border-color: color-mix(in srgb, var(--info) 42%, var(--line));\r\n  background: var(--text);\r\n  color: var(--surface);\r\n}\r\n\r\n.model-map-action.primary:hover {\r\n  background: color-mix(in srgb, var(--text) 88%, var(--info));\r\n}\r\n\r\n.mobile-settings-body {\r\n  display: grid;\r\n  gap: 16px;\r\n  height: calc(100dvh - 74px);\r\n  align-content: start;\r\n  overflow: auto;\r\n  padding: 15px;\r\n}\r\n\r\n.mobile-settings-section {\r\n  display: grid;\r\n  gap: 10px;\r\n  align-content: start;\r\n}\r\n\r\n.mobile-settings-section-title {\r\n  margin: 0;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 780;\r\n  letter-spacing: 0;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.drawer-section-title {\r\n  margin: 10px 0 10px;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 780;\r\n}\r\n\r\n.drawer-section-hint {\r\n  margin-left: 6px;\r\n  color: var(--muted);\r\n  font-size: 10px;\r\n  font-weight: 600;\r\n  opacity: 0.7;\r\n  letter-spacing: 0.01em;\r\n}\r\n\r\n.provider-formats-group {\r\n  margin-top: 14px;\r\n  padding-top: 12px;\r\n  border-top: 1px solid var(--line-soft);\r\n}\r\n\r\n.provider-formats-group .format-route-list {\r\n  margin-top: 2px;\r\n}\r\n\r\n.drawer-kv {\r\n  padding: 13px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.routing-summary-card {\r\n  display: grid;\r\n  gap: 12px;\r\n  margin-bottom: 12px;\r\n  padding: 14px;\r\n  border: 1px solid var(--line);\r\n  border-left: 3px solid var(--neutral);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.routing-summary-card.tone-ok {\r\n  border-left-color: var(--success);\r\n}\r\n\r\n.routing-summary-card.tone-warn {\r\n  border-left-color: var(--warning);\r\n}\r\n\r\n.routing-summary-card.tone-bad {\r\n  border-left-color: var(--danger);\r\n}\r\n\r\n.routing-summary-head {\r\n  display: flex;\r\n  align-items: flex-start;\r\n  justify-content: space-between;\r\n  gap: 12px;\r\n}\r\n\r\n.routing-summary-head h3 {\r\n  margin: 0 0 5px;\r\n  color: var(--text);\r\n  font-size: 14px;\r\n}\r\n\r\n.routing-summary-head p {\r\n  margin: 0;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  line-height: 1.5;\r\n}\r\n\r\n.routing-summary-card .badge,\r\n.routing-summary-card .message-chip {\r\n  justify-self: start;\r\n  width: fit-content;\r\n  max-width: 100%;\r\n}\r\n\r\n.routing-summary-card .chip-list {\r\n  justify-content: flex-start;\r\n}\r\n\r\n.routing-summary-grid,\r\n.routing-next-action {\r\n  display: grid;\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 8px;\r\n}\r\n\r\n.routing-summary-grid span,\r\n.routing-next-action span {\r\n  display: block;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 760;\r\n}\r\n\r\n.routing-summary-grid strong,\r\n.routing-next-action strong {\r\n  display: block;\r\n  min-width: 0;\r\n  overflow-wrap: anywhere;\r\n  color: var(--text);\r\n  font-family: var(--mono);\r\n  font-size: 12px;\r\n}\r\n\r\n.routing-next-action {\r\n  grid-template-columns: 86px minmax(0, 1fr);\r\n  align-items: start;\r\n  padding-top: 10px;\r\n  border-top: 1px solid var(--line);\r\n}\r\n\r\n.route-inline {\r\n  display: grid;\r\n  gap: 5px;\r\n  min-width: 220px;\r\n  max-width: 360px;\r\n}\r\n\r\n.route-inline .badge {\r\n  width: fit-content;\r\n}\r\n\r\n.route-inline .message-text {\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  line-height: 1.35;\r\n}\r\n\r\n.attempt {\r\n  display: grid;\r\n  gap: 9px;\r\n  margin-bottom: 10px;\r\n  padding: 13px;\r\n  border: 1px solid var(--line);\r\n  border-left: 3px solid var(--neutral);\r\n  border-radius: 8px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.attempt.tone-success,\r\n.attempt.tone-ok {\r\n  border-color: color-mix(in srgb, var(--ok) 40%, var(--line));\r\n  border-left-color: var(--success);\r\n}\r\n\r\n.attempt.tone-warn,\r\n.attempt.tone-compat {\r\n  border-color: color-mix(in srgb, var(--warn) 46%, var(--line));\r\n  border-left-color: var(--warning);\r\n}\r\n\r\n.attempt.tone-danger,\r\n.attempt.tone-bad {\r\n  border-color: color-mix(in srgb, var(--bad) 42%, var(--line));\r\n  border-left-color: var(--danger);\r\n}\r\n\r\n.attempt-head {\r\n  display: flex;\r\n  justify-content: space-between;\r\n  gap: 8px;\r\n}\r\n\r\n.attempt-explain {\r\n  display: grid;\r\n  gap: 7px;\r\n  padding: 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n}\r\n\r\n.attempt-explain div {\r\n  display: grid;\r\n  grid-template-columns: 74px minmax(0, 1fr);\r\n  gap: 8px;\r\n}\r\n\r\n.attempt-explain span {\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 760;\r\n}\r\n\r\n.attempt-explain strong {\r\n  min-width: 0;\r\n  overflow-wrap: anywhere;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-weight: 680;\r\n  line-height: 1.45;\r\n}\r\n\r\n.kv-grid {\r\n  display: grid;\r\n  grid-template-columns: 128px minmax(0, 1fr);\r\n  gap: 7px 11px;\r\n  font-size: 12px;\r\n}\r\n\r\n.kv-grid span:nth-child(odd) {\r\n  color: var(--muted);\r\n}\r\n\r\n.kv-grid span:nth-child(even) {\r\n  min-width: 0;\r\n  overflow-wrap: anywhere;\r\n  font-family: var(--mono);\r\n}\r\n\r\n@keyframes viewIn {\r\n  from {\r\n    opacity: 0;\r\n    transform: translateY(4px);\r\n  }\r\n  to {\r\n    opacity: 1;\r\n    transform: translateY(0);\r\n  }\r\n}\r\n\r\n@keyframes drawLine {\r\n  to {\r\n    stroke-dashoffset: 0;\r\n  }\r\n}\r\n\r\n@keyframes barRise {\r\n  from {\r\n    opacity: 0;\r\n    transform: scaleY(0.2);\r\n  }\r\n  to {\r\n    opacity: 1;\r\n    transform: scaleY(1);\r\n  }\r\n}\r\n\r\n/* Modern overview pass: reduce table-like borders and make the dashboard read as a runtime product surface. */\r\n:root {\r\n  --bg: #eef4fb;\r\n  --surface: #ffffff;\r\n  --surface-raised: #f8fbff;\r\n  --surface-soft: #eef5ff;\r\n  --surface-strong: #dce8f6;\r\n  --sidebar: #ffffff;\r\n  --sidebar-soft: #edf5ff;\r\n  --line: #e3edf8;\r\n  --line-soft: #eef4fb;\r\n  --line-strong: #cfdded;\r\n  --text: #111827;\r\n  --muted: #637083;\r\n  --faint: #8994a6;\r\n  --accent: #2563eb;\r\n  --accent-strong: #1d4ed8;\r\n  --accent-soft: #e7f0ff;\r\n  --success: #10b981;\r\n  --success-soft: #e8f8f1;\r\n  --warning: #d97706;\r\n  --warning-soft: #fff4df;\r\n  --danger: #e5485d;\r\n  --danger-soft: #ffedf0;\r\n  --info: #20d264;\r\n  --info-soft: #e8f2ff;\r\n  --compat: #8b5cf6;\r\n  --compat-soft: #f2edff;\r\n  --metric-neutral: #334155;\r\n  --metric-requests: #2563eb;\r\n  --metric-success: #12a474;\r\n  --metric-failure: #e5485d;\r\n  --metric-provider: #0ea5e9;\r\n  --metric-token: #8b5cf6;\r\n  --metric-cost: #d97706;\r\n  --shadow: 0 12px 30px rgba(31, 56, 88, 0.07);\r\n  --shadow-tight: 0 18px 44px rgba(31, 56, 88, 0.11);\r\n}\r\n\r\nbody {\r\n  background:\r\n    linear-gradient(180deg, #f7fbff 0, #eef5fc 330px, #f6f8fb 100%);\r\n}\r\n\r\n.shell {\r\n  grid-template-columns: 248px minmax(0, 1fr);\r\n}\r\n\r\n.sidebar {\r\n  border-right: 0;\r\n  background:\r\n    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 253, 255, 0.96)),\r\n    var(--sidebar);\r\n  box-shadow: 18px 0 46px rgba(31, 56, 88, 0.08);\r\n}\r\n\r\n.sidebar::after {\r\n  right: 0;\r\n  width: 1px;\r\n  background: linear-gradient(180deg, rgba(37, 99, 235, 0.18), rgba(37, 99, 235, 0.04));\r\n}\r\n\r\n.brand {\r\n  padding: 26px 20px 18px;\r\n  border-bottom: 0;\r\n}\r\n\r\n.brand-mark,\r\n.login-mark {\r\n  border-radius: 11px;\r\n  background: linear-gradient(135deg, #2563eb, #0ea5e9);\r\n  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.22);\r\n}\r\n\r\n.brand-title {\r\n  font-size: 15px;\r\n  font-weight: 800;\r\n}\r\n\r\n.nav {\r\n  gap: 6px;\r\n  padding: 12px 14px;\r\n}\r\n\r\n.nav-item {\r\n  min-height: 42px;\r\n  padding: 10px 13px;\r\n  border: 0;\r\n  border-radius: 14px;\r\n  color: #4b5565;\r\n  font-weight: 650;\r\n}\r\n\r\n.nav-item:hover {\r\n  background: rgba(37, 99, 235, 0.06);\r\n  color: var(--accent-strong);\r\n  box-shadow: none;\r\n}\r\n\r\n.nav-item.is-active {\r\n  border: 0;\r\n  background: var(--accent-soft);\r\n  color: var(--accent-strong);\r\n  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.08);\r\n}\r\n\r\n.sidebar-actions {\r\n  gap: 10px;\r\n  padding: 14px 16px 10px;\r\n}\r\n\r\n.button {\r\n  border-radius: 11px;\r\n}\r\n\r\n.button.primary {\r\n  border-color: var(--accent);\r\n  background: var(--accent);\r\n  color: #fff;\r\n  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);\r\n}\r\n\r\n.button.primary:hover {\r\n  border-color: var(--accent-strong);\r\n  background: var(--accent-strong);\r\n  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);\r\n}\r\n\r\n.button.secondary {\r\n  border-color: rgba(148, 163, 184, 0.24);\r\n  background: rgba(255, 255, 255, 0.82);\r\n}\r\n\r\n.workspace {\r\n  max-width: 1480px;\r\n  padding: 24px 44px 48px;\r\n}\r\n\r\n.time-range-control {\r\n  width: fit-content;\r\n  max-width: 100%;\r\n  margin: 0 0 18px auto;\r\n  padding: 8px 10px 8px 14px;\r\n  border: 0;\r\n  border-radius: 18px;\r\n  background: rgba(255, 255, 255, 0.86);\r\n  box-shadow: 0 12px 30px rgba(31, 56, 88, 0.08), inset 0 0 0 1px rgba(207, 221, 237, 0.7);\r\n}\r\n\r\n.time-range-control .eyebrow {\r\n  color: var(--accent);\r\n}\r\n\r\n.time-range-control strong {\r\n  color: var(--text);\r\n}\r\n\r\n.segmented-control {\r\n  border: 0;\r\n  border-radius: 14px;\r\n  background: #edf4fb;\r\n  box-shadow: inset 0 0 0 1px rgba(207, 221, 237, 0.62);\r\n}\r\n\r\n.segmented-button {\r\n  min-height: 34px;\r\n  border-radius: 11px;\r\n}\r\n\r\n.segmented-button.is-active {\r\n  background: #ffffff;\r\n  color: var(--accent-strong);\r\n  box-shadow: 0 8px 18px rgba(31, 56, 88, 0.08);\r\n}\r\n\r\n.overview-visuals {\r\n  grid-template-columns: minmax(280px, 1.35fr) repeat(4, minmax(132px, 1fr));\r\n  gap: 16px;\r\n  margin: 0 0 22px;\r\n  min-width: 0;\r\n}\r\n\r\n.visual-card {\r\n  grid-template-columns: 44px minmax(0, 1fr);\r\n  min-height: 122px;\r\n  gap: 12px;\r\n  padding: 16px;\r\n  min-width: 0;\r\n  border: 0;\r\n  border-radius: 22px;\r\n  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(250, 253, 255, 0.94));\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.visual-card:hover {\r\n  transform: translateY(-1px);\r\n  box-shadow: var(--shadow-tight);\r\n}\r\n\r\n.visual-card-icon,\r\n.visual-ring {\r\n  width: 44px;\r\n  height: 44px;\r\n  border: 0;\r\n  border-radius: 16px;\r\n}\r\n\r\n.visual-card-icon {\r\n  background: var(--surface-soft);\r\n}\r\n\r\n.visual-card-icon.tone-info {\r\n  background: var(--info-soft);\r\n}\r\n\r\n.visual-card-icon.tone-success {\r\n  background: var(--success-soft);\r\n}\r\n\r\n.visual-card-icon.tone-warning {\r\n  background: var(--warning-soft);\r\n}\r\n\r\n.visual-card-icon.tone-danger {\r\n  background: var(--danger-soft);\r\n}\r\n\r\n.visual-card-icon.tone-compat {\r\n  background: var(--compat-soft);\r\n}\r\n\r\n.visual-card span,\r\n.visual-card small {\r\n  color: var(--muted);\r\n  font-weight: 700;\r\n}\r\n\r\n.visual-card small {\r\n  line-height: 1.25;\r\n  white-space: normal;\r\n}\r\n\r\n.visual-card strong {\r\n  margin-top: 4px;\r\n  overflow: visible;\r\n  color: var(--text);\r\n  font-family: var(--sans);\r\n  font-variant-numeric: tabular-nums;\r\n  font-size: 21px;\r\n  font-weight: 850;\r\n  line-height: 1.08;\r\n  text-overflow: clip;\r\n  white-space: normal;\r\n}\r\n\r\n.visual-hero-card {\r\n  grid-column: span 1;\r\n  min-height: 146px;\r\n  align-items: start;\r\n  background:\r\n    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(232, 242, 255, 0.95)),\r\n    var(--surface);\r\n  box-shadow: 0 18px 44px rgba(37, 99, 235, 0.12);\r\n}\r\n\r\n@media (max-width: 1360px) {\r\n  .overview-visuals {\r\n    grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  }\r\n\r\n  .visual-hero-card {\r\n    grid-column: span 2;\r\n  }\r\n}\r\n\r\n@media (max-width: 1180px) {\r\n  .overview-visuals {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  }\r\n\r\n  .visual-hero-card {\r\n    grid-column: 1 / -1;\r\n  }\r\n}\r\n\r\n.visual-hero-card .visual-card-icon {\r\n  color: var(--accent);\r\n  background: #dbeafe;\r\n}\r\n\r\n.visual-hero-card.tone-warning .visual-card-icon {\r\n  color: var(--warning);\r\n  background: var(--warning-soft);\r\n}\r\n\r\n.visual-hero-card.tone-danger .visual-card-icon {\r\n  color: var(--danger);\r\n  background: var(--danger-soft);\r\n}\r\n\r\n.visual-hero-card.tone-warning .visual-hero-meta b {\r\n  background: rgba(217, 119, 6, 0.1);\r\n  color: var(--warning);\r\n}\r\n\r\n.visual-hero-card.tone-danger .visual-hero-meta b {\r\n  background: rgba(229, 72, 93, 0.1);\r\n  color: var(--danger);\r\n}\r\n\r\n.visual-hero-card strong {\r\n  margin-top: 6px;\r\n  font-size: 42px;\r\n  letter-spacing: 0;\r\n  white-space: nowrap;\r\n}\r\n\r\n.visual-hero-card small {\r\n  margin-top: 5px;\r\n  font-size: 12px;\r\n}\r\n\r\n.visual-hero-meta {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 7px;\r\n  margin-top: 12px;\r\n}\r\n\r\n.visual-hero-meta b {\r\n  display: inline-flex;\r\n  min-height: 24px;\r\n  align-items: center;\r\n  padding: 0 9px;\r\n  border-radius: 999px;\r\n  background: rgba(37, 99, 235, 0.08);\r\n  color: var(--accent-strong);\r\n  font: 750 11px var(--mono);\r\n}\r\n\r\n.visual-progress {\r\n  height: 6px;\r\n  background: #edf2f7;\r\n}\r\n\r\n.token-split {\r\n  height: 6px;\r\n}\r\n\r\n.overview-grid {\r\n  grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr);\r\n  gap: 22px;\r\n  align-items: start;\r\n}\r\n\r\n.overview-traffic-panel,\r\n.overview-failures-panel {\r\n  grid-column: 1 / -1;\r\n}\r\n\r\n.panel {\r\n  border: 0;\r\n  border-radius: 24px;\r\n  background: rgba(255, 255, 255, 0.96);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.panel-head {\r\n  padding: 22px 24px 8px;\r\n  border-bottom: 0;\r\n  background: transparent;\r\n}\r\n\r\n.panel-head h2 {\r\n  color: var(--text);\r\n  font-size: 18px;\r\n  font-weight: 820;\r\n}\r\n\r\n.panel-head p {\r\n  margin-top: 3px;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.panel-head .tag {\r\n  border: 0;\r\n  border-radius: 999px;\r\n  background: var(--accent-soft);\r\n  color: var(--accent-strong);\r\n}\r\n\r\n.chart {\r\n  min-height: 420px;\r\n  padding: 8px 24px 24px;\r\n}\r\n\r\n.traffic-legend {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 14px 22px;\r\n  align-items: center;\r\n  margin: 0 0 12px;\r\n  padding: 0 4px;\r\n}\r\n\r\n.traffic-legend-item {\r\n  display: inline-flex;\r\n  gap: 8px;\r\n  padding: 0;\r\n  border: 0;\r\n  background: transparent;\r\n  box-shadow: none;\r\n}\r\n\r\n.traffic-legend-item > span {\r\n  width: 28px;\r\n  height: 4px;\r\n  border-radius: 999px;\r\n  background: var(--series-color);\r\n  box-shadow: none;\r\n}\r\n\r\n.traffic-legend-item.tone-danger > span {\r\n  background-image: repeating-linear-gradient(90deg, #dc2626 0 6px, transparent 6px 10px);\r\n}\r\n\r\n.traffic-legend-item strong {\r\n  font-size: 12px;\r\n}\r\n\r\n.traffic-legend-item small {\r\n  color: var(--faint);\r\n}\r\n\r\n.traffic-chart-shell {\r\n  border: 0;\r\n  border-radius: 22px;\r\n  background: linear-gradient(180deg, #ffffff, #f8fbff);\r\n  box-shadow: inset 0 0 0 1px rgba(207, 221, 237, 0.55);\r\n}\r\n\r\n.traffic-chart-shell svg {\r\n  height: 352px;\r\n}\r\n\r\n.chart .axis {\r\n  stroke: rgba(148, 163, 184, 0.22);\r\n}\r\n\r\n.traffic-axis-label {\r\n  fill: var(--faint);\r\n  font: 650 11px var(--sans);\r\n}\r\n\r\n.traffic-axis-title {\r\n  font-weight: 760;\r\n}\r\n\r\n.traffic-axis-label-info {\r\n  fill: color-mix(in srgb, var(--info) 76%, var(--muted));\r\n}\r\n\r\n.traffic-success-area {\r\n  fill: url(\"#trafficSuccessArea\");\r\n  pointer-events: none;\r\n}\r\n\r\n.traffic-success-line,\r\n.traffic-failed-line,\r\n.traffic-firstbyte-line {\r\n  fill: none;\r\n  stroke-linecap: round;\r\n  stroke-linejoin: round;\r\n  stroke-width: 3.2;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.traffic-success-line {\r\n  stroke: var(--success);\r\n}\r\n\r\n.traffic-failed-line {\r\n  stroke: var(--danger);\r\n  stroke-dasharray: 7 7;\r\n}\r\n\r\n.traffic-firstbyte-line {\r\n  stroke: var(--info);\r\n  filter: drop-shadow(0 8px 14px rgba(47, 128, 237, 0.18));\r\n}\r\n\r\n.traffic-series-dot,\r\n.traffic-firstbyte-dot {\r\n  stroke: #fff;\r\n  stroke-width: 2.4;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.traffic-success-dot {\r\n  fill: var(--success);\r\n}\r\n\r\n.traffic-failed-dot {\r\n  fill: var(--danger);\r\n}\r\n\r\n.traffic-firstbyte-dot {\r\n  fill: var(--info);\r\n}\r\n\r\n.traffic-firstbyte-label {\r\n  fill: var(--info);\r\n  font: 760 11px var(--mono);\r\n}\r\n\r\n.usage-chart {\r\n  gap: 16px;\r\n  padding: 14px 22px 22px;\r\n}\r\n\r\n.usage-summary {\r\n  gap: 12px;\r\n}\r\n\r\n.usage-chart .mini-metric {\r\n  border: 0;\r\n  border-radius: 16px;\r\n  background: linear-gradient(180deg, #f8fbff, #f1f6fd);\r\n  box-shadow: inset 0 0 0 1px rgba(207, 221, 237, 0.48);\r\n}\r\n\r\n.usage-section-title h3 {\r\n  color: var(--text);\r\n  font-size: 13px;\r\n  letter-spacing: 0;\r\n  text-transform: none;\r\n}\r\n\r\n.usage-bars {\r\n  display: grid;\r\n  gap: 10px;\r\n}\r\n\r\n.usage-row {\r\n  border: 0;\r\n  border-radius: 16px;\r\n  background: #f8fbff;\r\n  box-shadow: inset 0 0 0 1px rgba(207, 221, 237, 0.48);\r\n}\r\n\r\n.usage-rank {\r\n  border: 0;\r\n  border-radius: 999px;\r\n  background: var(--compat-soft);\r\n}\r\n\r\n.usage-track {\r\n  height: 8px;\r\n  background: #e6edf7;\r\n}\r\n\r\n.provider-health {\r\n  gap: 10px;\r\n  padding: 14px 18px 20px;\r\n}\r\n\r\n.overview-summary-meta {\r\n  padding: 0 0 4px;\r\n  color: var(--faint);\r\n  font-family: var(--sans);\r\n  font-size: 11px;\r\n  letter-spacing: 0;\r\n  text-transform: none;\r\n}\r\n\r\n.overview-provider-row,\r\n.recent-failure-row {\r\n  border: 0;\r\n  border-radius: 16px;\r\n  background: #f8fbff;\r\n  box-shadow: inset 0 0 0 1px rgba(207, 221, 237, 0.5);\r\n}\r\n\r\n.overview-provider-row:hover,\r\n.recent-failure-row:hover,\r\n.overview-provider-row:focus-visible,\r\n.recent-failure-row:focus-visible {\r\n  background: #ffffff;\r\n  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.2), 0 12px 24px rgba(31, 56, 88, 0.08);\r\n}\r\n\r\n.recent-failure-list {\r\n  padding: 0 18px 18px;\r\n}\r\n\r\n/* Minimalist correction: warm monochrome surface, low shadow, muted semantic color only. */\r\n:root {\r\n  --bg: #f7f6f3;\r\n  --surface: #ffffff;\r\n  --surface-raised: #fbfbfa;\r\n  --surface-soft: #f3f2ef;\r\n  --surface-strong: #eceae6;\r\n  --sidebar: #ffffff;\r\n  --sidebar-soft: #f7f6f3;\r\n  --line: #e8e6e1;\r\n  --line-soft: #efede8;\r\n  --line-strong: #d9d6cf;\r\n  --text: #222320;\r\n  --muted: #6f706a;\r\n  --faint: #9a9a93;\r\n  --accent: #222320;\r\n  --accent-strong: #343530;\r\n  --accent-soft: #f2f1ed;\r\n  --success: #346538;\r\n  --success-soft: #edf3ec;\r\n  --warning: #956400;\r\n  --warning-soft: #fbf3db;\r\n  --danger: #9f2f2d;\r\n  --danger-soft: #fdebec;\r\n  --info: #20d264;\r\n  --info-soft: #e1f3fe;\r\n  --compat: #6f55a3;\r\n  --compat-soft: #eee9f7;\r\n  --metric-neutral: #3f403b;\r\n  --metric-requests: #1f6c9f;\r\n  --metric-success: #346538;\r\n  --metric-failure: #9f2f2d;\r\n  --metric-provider: #53717d;\r\n  --metric-token: #6f55a3;\r\n  --metric-cost: #956400;\r\n  --shadow: 0 2px 10px rgba(34, 35, 32, 0.035);\r\n  --shadow-tight: 0 4px 16px rgba(34, 35, 32, 0.05);\r\n}\r\n\r\nbody {\r\n  background: var(--bg);\r\n}\r\n\r\n.sidebar {\r\n  border-right: 1px solid var(--line);\r\n  background: var(--sidebar);\r\n  box-shadow: none;\r\n}\r\n\r\n.sidebar::after {\r\n  display: none;\r\n}\r\n\r\n.brand {\r\n  border-bottom: 1px solid var(--line-soft);\r\n}\r\n\r\n.brand-mark,\r\n.login-mark {\r\n  background: var(--text);\r\n  box-shadow: none;\r\n}\r\n\r\n.nav-item:hover {\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n}\r\n\r\n.nav-item.is-active {\r\n  background: var(--text);\r\n  color: #fff;\r\n  box-shadow: none;\r\n}\r\n\r\n.button.primary {\r\n  border-color: var(--accent);\r\n  background: var(--accent);\r\n  box-shadow: none;\r\n}\r\n\r\n.button.primary:hover {\r\n  border-color: var(--accent-strong);\r\n  background: var(--accent-strong);\r\n}\r\n\r\n.button.secondary,\r\n.time-range-control,\r\n.segmented-control {\r\n  box-shadow: none;\r\n}\r\n\r\n.time-range-control {\r\n  border: 1px solid var(--line);\r\n  background: var(--surface);\r\n}\r\n\r\n.time-range-control .eyebrow {\r\n  color: var(--muted);\r\n}\r\n\r\n.segmented-control {\r\n  border: 1px solid var(--line);\r\n  background: var(--surface-soft);\r\n}\r\n\r\n.segmented-button.is-active {\r\n  background: var(--text);\r\n  color: #fff;\r\n  box-shadow: none;\r\n}\r\n\r\n.visual-card,\r\n.panel {\r\n  border: 1px solid var(--line);\r\n  border-radius: 12px;\r\n  background: var(--surface);\r\n  box-shadow: none;\r\n}\r\n\r\n.visual-card:hover,\r\n.panel:hover {\r\n  box-shadow: var(--shadow-tight);\r\n}\r\n\r\n.visual-card-icon,\r\n.visual-ring {\r\n  border-radius: 10px;\r\n}\r\n\r\n.visual-hero-card {\r\n  background: var(--surface);\r\n  box-shadow: none;\r\n}\r\n\r\n.visual-hero-card .visual-card-icon {\r\n  color: var(--info);\r\n  background: var(--info-soft);\r\n}\r\n\r\n.visual-hero-card strong {\r\n  color: var(--text);\r\n}\r\n\r\n.visual-hero-meta b {\r\n  background: var(--accent-soft);\r\n  color: var(--text);\r\n}\r\n\r\n.panel-head .tag {\r\n  background: var(--surface-soft);\r\n  color: var(--muted);\r\n}\r\n\r\n.traffic-chart-shell,\r\n.usage-chart .mini-metric,\r\n.usage-row,\r\n.overview-provider-row,\r\n.recent-failure-row {\r\n  border: 1px solid var(--line);\r\n  border-radius: 12px;\r\n  background: var(--surface-raised);\r\n  box-shadow: none;\r\n}\r\n\r\n.traffic-chart-shell {\r\n  background: #fff;\r\n}\r\n\r\n.traffic-firstbyte-line {\r\n  filter: none;\r\n}\r\n\r\n.overview-provider-row:hover,\r\n.recent-failure-row:hover,\r\n.overview-provider-row:focus-visible,\r\n.recent-failure-row:focus-visible {\r\n  background: #fff;\r\n  box-shadow: var(--shadow-tight);\r\n}\r\n\r\n/* Overview mockup skin: crisp operations console, based on design_mockup.html. */\r\n:root {\r\n  /* macOS Aqua/System UI Theme */\r\n  --bg: #f5f5f7;\r\n  --surface: #ffffff;\r\n  --surface-raised: #fbfbfd;\r\n  --surface-soft: #f2f2f7;\r\n  --surface-strong: #e5e5ea;\r\n  --sidebar: rgba(255, 255, 255, 0.75);\r\n  \r\n  /* Mac-style borders rely on transparency */\r\n  --line: rgba(0, 0, 0, 0.14);\r\n  --line-soft: rgba(0, 0, 0, 0.08);\r\n  --line-strong: rgba(0, 0, 0, 0.22);\r\n  \r\n  /* Apple Typography Colors */\r\n  --text: #1d1d1f;\r\n  --muted: #86868b;\r\n  --faint: #d2d2d7;\r\n  \r\n  /* Graphite / Monochrome Accent */\r\n  --accent: #1d1d1f;\r\n  --accent-strong: #000000;\r\n  --accent-soft: rgba(0, 0, 0, 0.04);\r\n  --accent-hover: #3a3a3c;\r\n  \r\n  /* Semantic Colors (Apple HIG) */\r\n  --success: #34c759;\r\n  --success-soft: rgba(52, 199, 89, 0.1);\r\n  --warning: #ff9500;\r\n  --warning-soft: rgba(255, 149, 0, 0.1);\r\n  --danger: #ff3b30;\r\n  --danger-soft: rgba(255, 59, 48, 0.1);\r\n  --info: #86868b;\r\n  --info-soft: rgba(0, 0, 0, 0.05);\r\n  --compat: #1d1d1f; \r\n  --compat-soft: rgba(0, 0, 0, 0.05);\r\n  \r\n  /* Mac Window/Card Elevation */\r\n  --shadow: 0 2px 6px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04);\r\n  --shadow-tight: 0 4px 12px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.05);\r\n}\r\n\r\nbody {\r\n  background: var(--bg);\r\n}\r\n\r\n.shell {\r\n  grid-template-columns: 240px minmax(0, 1fr);\r\n}\r\n\r\n.workspace {\r\n  max-width: 1200px;\r\n  padding: 12px 40px 48px;\r\n}\r\n\r\n.sidebar {\r\n  border-right: 1px solid var(--line);\r\n  background: var(--sidebar);\r\n  backdrop-filter: blur(28px) saturate(200%);\r\n  -webkit-backdrop-filter: blur(28px) saturate(200%);\r\n  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.04);\r\n  z-index: 10;\r\n}\r\n\r\n.brand {\r\n  padding: 24px 16px 28px;\r\n  border-bottom: 0;\r\n}\r\n\r\n.brand-mark,\r\n.login-mark {\r\n  width: 24px;\r\n  height: 24px;\r\n  border-radius: 6px;\r\n  background: var(--text);\r\n  color: #fff;\r\n  font-size: 10px;\r\n  box-shadow: none;\r\n}\r\n\r\n.brand-title {\r\n  font-size: 14px;\r\n  font-weight: 700;\r\n  letter-spacing: 0;\r\n}\r\n\r\n.brand-subtitle {\r\n  color: var(--muted);\r\n}\r\n\r\n.nav {\r\n  gap: 2px;\r\n  padding: 0 16px;\r\n}\r\n\r\n.nav-item {\r\n  min-height: 40px;\r\n  padding: 8px 12px;\r\n  border: 1px solid transparent;\r\n  border-radius: 6px;\r\n  color: var(--muted);\r\n  font-weight: 620;\r\n}\r\n\r\n.nav-item:hover {\r\n  border-color: transparent;\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n}\r\n\r\n.nav-item.is-active {\r\n  border: 1px solid var(--line);\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n  font-weight: 760;\r\n}\r\n\r\n.sidebar-actions {\r\n  gap: 8px;\r\n  padding: 12px 16px 8px;\r\n}\r\n\r\n.button {\r\n  border-radius: 6px;\r\n  box-shadow: none;\r\n}\r\n\r\n.button.primary {\r\n  border-color: var(--accent);\r\n  background: var(--accent);\r\n  color: #fff;\r\n}\r\n\r\n.button.primary:hover {\r\n  border-color: var(--accent-strong);\r\n  background: var(--accent-strong);\r\n}\r\n\r\n.button.secondary {\r\n  border-color: var(--line);\r\n  background: var(--surface);\r\n}\r\n\r\n.overview-page-head {\r\n  display: flex;\r\n  gap: 20px;\r\n  align-items: flex-end;\r\n  justify-content: space-between;\r\n  margin-bottom: 24px;\r\n  padding-top: 16px;\r\n  padding-bottom: 16px;\r\n  border-bottom: 1px solid var(--line);\r\n}\r\n\r\n.overview-page-head h1 {\r\n  color: var(--text);\r\n  font-size: 20px;\r\n  font-weight: 720;\r\n  letter-spacing: 0;\r\n}\r\n\r\n.overview-page-head p {\r\n  margin-top: 4px;\r\n  color: var(--muted);\r\n  font-size: 12.5px;\r\n}\r\n\r\n.overview-page-head .time-range-control {\r\n  margin: 0;\r\n}\r\n\r\n.time-range-control {\r\n  width: fit-content;\r\n  padding: 0;\r\n  border: 0;\r\n  border-left: 0;\r\n  border-radius: 0;\r\n  background: transparent;\r\n}\r\n\r\n.time-range-control > div:first-child {\r\n  display: none;\r\n}\r\n\r\n.segmented-control {\r\n  gap: 2px;\r\n  padding: 3px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.segmented-button {\r\n  min-width: 44px;\r\n  min-height: 30px;\r\n  border-radius: 6px;\r\n  font-size: 12px;\r\n  font-weight: 680;\r\n}\r\n\r\n.segmented-button.is-active {\r\n  background: var(--text);\r\n  color: #fff;\r\n}\r\n\r\n.overview-visuals {\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 16px;\r\n  margin-bottom: 24px;\r\n}\r\n\r\n.visual-card {\r\n  position: relative;\r\n  display: flex;\r\n  min-height: 100px;\r\n  flex-direction: column;\r\n  align-items: stretch;\r\n  justify-content: space-between;\r\n  gap: 10px;\r\n  overflow: hidden;\r\n  padding: 16px 20px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.visual-card::before {\r\n  position: absolute;\r\n  top: 0;\r\n  right: 0;\r\n  left: 0;\r\n  height: 2px;\r\n  background: transparent;\r\n  content: \"\";\r\n}\r\n\r\n.visual-card.accent-info::before {\r\n  background: #3b82f6;\r\n}\r\n\r\n.visual-card.accent-success::before {\r\n  background: #10b981;\r\n}\r\n\r\n.visual-card.accent-warning::before {\r\n  background: #f59e0b;\r\n}\r\n\r\n.visual-card.accent-danger::before {\r\n  background: #ef4444;\r\n}\r\n\r\n.visual-card:hover {\r\n  border-color: rgba(9, 9, 11, 0.14);\r\n  box-shadow: var(--shadow-tight);\r\n  transform: none;\r\n}\r\n\r\n.visual-card .metric-header {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n}\r\n\r\n.visual-card .metric-label {\r\n  color: var(--muted);\r\n  font-size: 10.5px;\r\n  font-weight: 720;\r\n  letter-spacing: 0.05em;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.visual-card .metric-icon {\r\n  display: inline-grid;\r\n  color: var(--faint);\r\n}\r\n\r\n.visual-card .metric-icon .icon-svg {\r\n  width: 15px;\r\n  height: 15px;\r\n}\r\n\r\n.visual-card .metric-val {\r\n  display: block;\r\n  margin: 0;\r\n  overflow: visible;\r\n  color: var(--text);\r\n  font-family: var(--sans);\r\n  font-size: 26px;\r\n  font-weight: 760;\r\n  line-height: 1.05;\r\n  letter-spacing: 0;\r\n  white-space: nowrap;\r\n}\r\n\r\n.visual-card.accent-success .metric-val {\r\n  color: var(--success);\r\n}\r\n\r\n.visual-card.accent-danger .metric-val {\r\n  color: var(--danger);\r\n}\r\n\r\n.visual-card.accent-warning .metric-val {\r\n  color: var(--warning);\r\n}\r\n\r\n.visual-card.accent-info .metric-val {\r\n  color: var(--info);\r\n}\r\n\r\n.visual-card .metric-sub {\r\n  display: flex;\r\n  gap: 5px;\r\n  align-items: center;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 500;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.metric-dot {\r\n  display: inline-block;\r\n  width: 5px;\r\n  min-width: 5px;\r\n  height: 5px;\r\n  border-radius: 50%;\r\n  background: var(--info);\r\n}\r\n\r\n.metric-dot.success {\r\n  background: #16a34a;\r\n}\r\n\r\n.metric-dot.warning {\r\n  background: #d97706;\r\n}\r\n\r\n.metric-dot.danger {\r\n  background: #dc2626;\r\n}\r\n\r\n.overview-grid {\r\n  grid-template-columns: 1fr;\r\n  gap: 24px;\r\n}\r\n\r\n.overview-traffic-panel,\r\n.overview-secondary-layout {\r\n  grid-column: 1 / -1;\r\n}\r\n\r\n.overview-secondary-layout {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1.9fr) minmax(320px, 0.9fr);\r\n  gap: 24px;\r\n  align-items: start;\r\n}\r\n\r\n.overview-main-column,\r\n.overview-side-column {\r\n  display: grid;\r\n  gap: 24px;\r\n  min-width: 0;\r\n  align-content: start;\r\n}\r\n\r\n.panel {\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.panel-head {\r\n  padding: 12px 20px;\r\n  border-bottom: 1px solid var(--line);\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.panel-head h2 {\r\n  color: var(--text);\r\n  font-size: 13px;\r\n  font-weight: 760;\r\n  letter-spacing: 0;\r\n}\r\n\r\n.panel-head p {\r\n  display: none;\r\n}\r\n\r\n.panel-head .tag,\r\n.panel-head .badge {\r\n  min-height: 22px;\r\n  border-radius: 4px;\r\n  font-family: var(--mono);\r\n  font-size: 11px;\r\n  font-weight: 720;\r\n  letter-spacing: 0.02em;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.panel-head .badge.info {\r\n  border-color: #bfdbfe;\r\n  background: #dbeafe;\r\n  color: #1e3a8a;\r\n}\r\n\r\n.chart {\r\n  min-height: 332px;\r\n  padding: 20px;\r\n}\r\n\r\n.traffic-legend {\r\n  gap: 18px;\r\n  margin-bottom: 14px;\r\n  padding: 0;\r\n}\r\n\r\n.traffic-legend-item {\r\n  gap: 8px;\r\n}\r\n\r\n.traffic-legend-item > span {\r\n  width: 28px;\r\n  height: 3px;\r\n  border-radius: 3px;\r\n}\r\n\r\n.traffic-legend-item strong {\r\n  font-size: 12px;\r\n  font-weight: 720;\r\n}\r\n\r\n.traffic-legend-item small {\r\n  color: var(--muted);\r\n  font-family: var(--mono);\r\n  font-size: 10.5px;\r\n}\r\n\r\n.traffic-chart-shell {\r\n  border: 0;\r\n  border-radius: 0;\r\n  background: #fff;\r\n  box-shadow: none;\r\n}\r\n\r\n.traffic-chart-shell svg {\r\n  height: 250px;\r\n}\r\n\r\n.chart .axis {\r\n  stroke: #d4d4d8;\r\n  stroke-dasharray: 2 2;\r\n  stroke-width: 1.2;\r\n}\r\n\r\n.traffic-firstbyte-area,\r\n.traffic-success-area {\r\n  display: none;\r\n}\r\n\r\n.traffic-success-line,\r\n.traffic-failed-line,\r\n.traffic-firstbyte-line {\r\n  stroke-width: 2.8;\r\n  filter: none;\r\n}\r\n\r\n.traffic-firstbyte-line {\r\n  stroke: var(--text);\r\n}\r\n\r\n.traffic-success-line {\r\n  stroke: #3b82f6;\r\n}\r\n\r\n.traffic-failed-line {\r\n  stroke: #dc2626;\r\n  stroke-dasharray: 5 5;\r\n}\r\n\r\n.traffic-firstbyte-dot,\r\n.traffic-series-dot,\r\n.traffic-token-dot {\r\n  stroke: #fff;\r\n  stroke-width: 1.8;\r\n}\r\n\r\n.traffic-token-bar {\r\n  fill: rgba(124, 58, 237, 0.22);\r\n  stroke: rgba(124, 58, 237, 0.72);\r\n  stroke-width: 1;\r\n}\r\n\r\n.traffic-token-dot {\r\n  fill: #7c3aed;\r\n}\r\n\r\n.traffic-firstbyte-label {\r\n  display: none;\r\n}\r\n\r\n.traffic-axis-label {\r\n  fill: #52525b;\r\n  font: 680 11px var(--mono);\r\n}\r\n\r\n.usage-chart {\r\n  grid-template-columns: 1fr;\r\n  align-items: start;\r\n  padding: 20px;\r\n}\r\n\r\n.usage-summary {\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 12px;\r\n}\r\n\r\n.usage-columns.usage-model-only {\r\n  grid-template-columns: 1fr;\r\n}\r\n\r\n.usage-chart .mini-metric,\r\n.usage-row,\r\n.overview-provider-row,\r\n.recent-failure-row {\r\n  border: 1px solid var(--line);\r\n  border-radius: 6px;\r\n  background: var(--surface);\r\n  box-shadow: none;\r\n}\r\n\r\n.usage-chart .mini-metric {\r\n  padding: 12px;\r\n}\r\n\r\n.usage-row {\r\n  padding: 11px 12px;\r\n}\r\n\r\n.provider-health {\r\n  padding: 20px;\r\n}\r\n\r\n.overview-summary-meta {\r\n  color: var(--muted);\r\n  font: 650 11px var(--mono);\r\n  text-transform: uppercase;\r\n}\r\n\r\n.overview-provider-row {\r\n  padding: 12px;\r\n}\r\n\r\n.recent-failure-list {\r\n  padding: 0;\r\n}\r\n\r\n#recentFailures {\r\n  padding: 20px;\r\n}\r\n\r\n.recent-failure-row {\r\n  grid-template-columns: auto minmax(180px, 1fr) auto minmax(180px, 1.1fr);\r\n  padding: 12px;\r\n}\r\n\r\n.recent-failure-list .recent-failure-row.tone-warning .request-row-dot,\r\n#recentFailures .recent-failure-row.tone-warning .request-row-dot {\r\n  background: var(--warning);\r\n}\r\n\r\n.recent-failure-list .recent-failure-row.tone-danger .request-row-dot,\r\n#recentFailures .recent-failure-row.tone-danger .request-row-dot {\r\n  background: var(--danger);\r\n}\r\n\r\n.recent-failure-list .recent-failure-row.tone-success .request-row-dot,\r\n#recentFailures .recent-failure-row.tone-success .request-row-dot {\r\n  background: var(--success);\r\n}\r\n\r\n@media (max-width: 1080px) {\r\n  .shell {\r\n    width: 100%;\r\n    max-width: 100vw;\r\n    overflow-x: clip;\r\n    align-content: start;\r\n    grid-auto-rows: max-content;\r\n    grid-template-columns: minmax(0, 1fr);\r\n  }\r\n\r\n  .sidebar {\r\n    position: static;\r\n    height: auto;\r\n    width: 100%;\r\n    max-width: 100vw;\r\n    align-self: start;\r\n    overflow: hidden;\r\n    border-right: 0;\r\n    border-bottom: 1px solid var(--line-strong);\r\n    box-shadow: 0 8px 18px rgba(9, 9, 11, 0.04);\r\n  }\r\n\r\n  .sidebar::after {\r\n    display: none;\r\n  }\r\n\r\n  .brand {\r\n    padding: 14px 14px 12px;\r\n  }\r\n\r\n  .nav {\r\n    grid-template-columns: repeat(5, minmax(0, 1fr));\r\n    padding: 10px;\r\n  }\r\n\r\n  .nav-item {\r\n    padding: 10px 8px;\r\n    text-align: center;\r\n  }\r\n\r\n  .nav-item.is-active::before {\r\n    right: 18px;\r\n    bottom: 5px;\r\n    left: 18px;\r\n    top: auto;\r\n    width: auto;\r\n    height: 3px;\r\n  }\r\n\r\n  .sidebar-actions {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n    padding: 0 10px 10px;\r\n    border-top: 0;\r\n  }\r\n\r\n  .sidebar-footer {\r\n    display: none;\r\n  }\r\n\r\n  .overview-grid,\r\n  .policy-grid,\r\n  .config-grid {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .overview-secondary-layout {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .overview-traffic-panel,\r\n  .overview-failures-panel,\r\n  .overview-health-panel,\r\n  .overview-usage-panel {\r\n    grid-column: 1 / -1;\r\n  }\r\n\r\n  .metric-grid {\r\n    grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  }\r\n\r\n  .overview-visuals {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  }\r\n\r\n  .usage-chart {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .request-summary-row {\r\n    grid-template-columns: 24px 10px minmax(150px, 1fr) minmax(96px, auto) minmax(122px, 0.8fr) minmax(118px, auto) 28px;\r\n  }\r\n\r\n  .provider-card-grid {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  }\r\n\r\n  .provider-toolbar {\r\n    grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(130px, 0.7fr)) auto;\r\n  }\r\n\r\n  .workspace {\r\n    width: 100%;\r\n    max-width: 100vw;\r\n  }\r\n}\r\n\r\n@media (max-width: 760px) {\r\n  body.is-mobile-settings-open {\r\n    overflow: hidden;\r\n  }\r\n\r\n  .sidebar {\r\n    display: none;\r\n  }\r\n\r\n  .workspace {\r\n    padding: 10px;\r\n  }\r\n\r\n  .topbar {\r\n    display: grid;\r\n    grid-template-columns: minmax(0, 1fr) auto;\r\n    margin: 1px 1px 5px 0px;\r\n    padding: 10px;\r\n    align-items: start;\r\n    background: transparent;\r\n    border: 1px solid var(--line-strong);\r\n    border-radius: 12px;\r\n    box-shadow: var(--shadow);\r\n    \r\n  }\r\n\r\n\r\n\r\n\r\n  \r\n  .brand {\r\n    gap: 10px;\r\n    padding: 10px 12px 9px;\r\n  }\r\n\r\n  .brand-mark {\r\n    width: 32px;\r\n    height: 32px;\r\n    border-radius: 7px;\r\n    font-size: 11px;\r\n  }\r\n\r\n  .brand-title {\r\n    font-size: 14px;\r\n  }\r\n\r\n  .brand-subtitle {\r\n    margin-top: 0;\r\n    font-size: 11px;\r\n  }\r\n\r\n  h1 {\r\n    font-size: 22px;\r\n  }\r\n\r\n  .topbar p {\r\n    margin-top: 2px;\r\n    font-size: 11px;\r\n    line-height: 1.35;\r\n  }\r\n\r\n  .mobile-settings-button {\r\n    display: inline-flex;\r\n    align-items: center;\r\n    justify-content: center;\r\n    justify-self: end;\r\n    min-height: 34px;\r\n    padding: 0 11px;\r\n    white-space: nowrap;\r\n  }\r\n\r\n  .mobile-settings-backdrop {\r\n    position: fixed;\r\n    inset: 0;\r\n    z-index: 28;\r\n    display: block;\r\n    background: rgba(9, 9, 11, 0.28);\r\n    backdrop-filter: blur(2px);\r\n    opacity: 0;\r\n    pointer-events: none;\r\n    transition: opacity 180ms ease;\r\n  }\r\n\r\n  .mobile-settings-backdrop[hidden] {\r\n    display: none;\r\n  }\r\n\r\n  .mobile-settings-backdrop.is-open {\r\n    opacity: 1;\r\n    pointer-events: auto;\r\n  }\r\n\r\n  .mobile-settings-drawer {\r\n    position: fixed;\r\n    top: 0;\r\n    right: 0;\r\n    z-index: 29;\r\n    display: flex;\r\n    width: min(322px, calc(100vw - 42px));\r\n    height: 100dvh;\r\n    flex-direction: column;\r\n    border-left: 1px solid var(--line);\r\n    background: rgba(255, 255, 255, 0.75);\r\n    backdrop-filter: blur(30px) saturate(200%);\r\n    -webkit-backdrop-filter: blur(30px) saturate(200%);\r\n    box-shadow: -22px 0 42px rgba(9, 9, 11, 0);\r\n    transform: translateX(100%);\r\n    transition: transform 190ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 190ms ease;\r\n  }\r\n\r\n  .mobile-settings-drawer.is-open {\r\n    transform: translateX(0);\r\n    box-shadow: -22px 0 42px rgba(9, 9, 11, 0.18);\r\n  }\r\n\r\n  .mobile-settings-drawer .drawer-head {\r\n    display: grid;\r\n    grid-template-columns: minmax(0, 1fr) 34px;\r\n    gap: 10px;\r\n    align-items: center;\r\n    padding: 14px 14px 12px;\r\n    border-bottom: 1px solid color-mix(in srgb, var(--info) 14%, var(--line));\r\n    background: transparent;\r\n  }\r\n\r\n  .mobile-settings-drawer .drawer-head h2 {\r\n    font-size: 16px;\r\n    line-height: 1.15;\r\n  }\r\n\r\n  .mobile-settings-drawer .drawer-head p {\r\n    max-width: 19rem;\r\n    margin-top: 3px;\r\n    color: var(--muted);\r\n    font-family: var(--sans);\r\n    font-size: 11px;\r\n    line-height: 1.35;\r\n  }\r\n\r\n  .mobile-settings-drawer .icon-button {\r\n    width: 34px;\r\n    height: 34px;\r\n    border-color: color-mix(in srgb, var(--info) 18%, var(--line));\r\n    background: color-mix(in srgb, var(--surface) 86%, var(--info-soft));\r\n    font-size: 17px;\r\n  }\r\n\r\n  .mobile-settings-body {\r\n    gap: 11px;\r\n    height: calc(100dvh - 72px);\r\n    padding: 12px;\r\n  }\r\n\r\n  .mobile-settings-section .nav,\r\n  .mobile-settings-section .sidebar-actions,\r\n  .mobile-settings-section .toolbar {\r\n    display: grid;\r\n    gap: 8px;\r\n    justify-content: stretch;\r\n    margin: 0;\r\n    padding: 0;\r\n    border: 0;\r\n    border-radius: 0;\r\n    background: transparent;\r\n    box-shadow: none;\r\n  }\r\n\r\n  .mobile-settings-section {\r\n    gap: 8px;\r\n    padding: 10px;\r\n    border: 1px solid var(--line);\r\n    border-radius: 10px;\r\n    background: color-mix(in srgb, var(--surface) 88%, var(--surface-raised));\r\n    box-shadow: var(--shadow);\r\n  }\r\n\r\n  .mobile-settings-section-title {\r\n    color: color-mix(in srgb, var(--muted) 84%, var(--text));\r\n    font-size: 10px;\r\n    letter-spacing: 0.04em;\r\n  }\r\n\r\n  .mobile-settings-section #requestsToolbar::before {\r\n    display: none;\r\n  }\r\n\r\n  .mobile-settings-section #requestsToolbar,\r\n  #requestsToolbar {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .request-filter-primary,\r\n  .request-bulk-actions {\r\n    width: 100%;\r\n  }\r\n\r\n  .request-filter-title,\r\n  .request-status-chips,\r\n  .filter-search-field,\r\n  #requestsToolbar .control,\r\n  .advanced-filter-box,\r\n  .advanced-filter-box summary {\r\n    width: 100%;\r\n  }\r\n\r\n  .request-status-chips {\r\n    display: grid;\r\n    grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  }\r\n\r\n  .filter-chip {\r\n    text-align: center;\r\n  }\r\n\r\n  .advanced-filter-fields {\r\n    position: static;\r\n    width: 100%;\r\n    margin-top: 8px;\r\n    box-shadow: none;\r\n  }\r\n\r\n  .request-bulk-actions {\r\n    justify-content: stretch;\r\n    padding: 9px 0 0;\r\n    border-top: 1px solid var(--line-soft);\r\n    border-left: 0;\r\n  }\r\n\r\n  .request-bulk-actions .button,\r\n  .selection-count {\r\n    width: 100%;\r\n    justify-content: center;\r\n    text-align: center;\r\n  }\r\n\r\n  .mobile-settings-section .nav {\r\n    grid-template-columns: 1fr;\r\n    width: 100%;\r\n    max-width: none;\r\n    overflow: visible;\r\n  }\r\n\r\n  .mobile-settings-section .nav-item {\r\n    width: 100%;\r\n    min-height: 36px;\r\n    padding: 8px 10px 8px 13px;\r\n    border-color: var(--line-soft);\r\n    background: var(--surface);\r\n    text-align: left;\r\n    white-space: normal;\r\n    box-shadow: none;\r\n  }\r\n\r\n  .mobile-settings-section .nav-item.is-active::before {\r\n    top: 8px;\r\n    right: auto;\r\n    bottom: 8px;\r\n    left: 6px;\r\n    width: 2px;\r\n    height: auto;\r\n  }\r\n\r\n  .mobile-settings-section .nav-item.is-active {\r\n    border-color: color-mix(in srgb, var(--accent) 18%, var(--line));\r\n    background: color-mix(in srgb, var(--accent-soft) 62%, var(--surface));\r\n    box-shadow: none;\r\n  }\r\n\r\n  .mobile-settings-section .nav::-webkit-scrollbar {\r\n    display: none;\r\n  }\r\n\r\n  .mobile-settings-section .nav > *,\r\n  .mobile-settings-section .sidebar-actions > *,\r\n  .mobile-settings-section .toolbar > * {\r\n    width: 100%;\r\n    min-width: 0;\r\n  }\r\n\r\n  .nav {\r\n    width: 100%;\r\n    max-width: 100vw;\r\n  }\r\n\r\n  .time-range-control {\r\n    width: 100%;\r\n    display: grid;\r\n    gap: 8px;\r\n    margin-bottom: 10px;\r\n    padding: 10px;\r\n    border-radius: 8px;\r\n  }\r\n\r\n  .overview-page-head {\r\n    display: block;\r\n    margin-bottom: 12px;\r\n    padding-bottom: 0;\r\n    border-bottom: 0;\r\n  }\r\n\r\n  .overview-page-head > div:first-child {\r\n    display: none;\r\n  }\r\n\r\n  .overview-page-head .time-range-control {\r\n    margin: 0;\r\n  }\r\n\r\n  .segmented-control {\r\n    width: 100%;\r\n    grid-auto-flow: column;\r\n  }\r\n\r\n  .segmented-button {\r\n    min-width: 0;\r\n    padding: 0 6px;\r\n  }\r\n\r\n  .metric-grid {\r\n    gap: 8px;\r\n    grid-template-columns: 1fr 1fr;\r\n    margin-bottom: 8px;\r\n  }\r\n\r\n  .overview-visuals {\r\n    grid-template-columns: 1fr;\r\n    gap: 7px;\r\n    margin: 0 0 8px;\r\n  }\r\n\r\n  .visual-hero-card {\r\n    min-height: 116px;\r\n  }\r\n\r\n  .visual-hero-card strong {\r\n    font-size: 30px;\r\n  }\r\n\r\n  .visual-hero-meta {\r\n    gap: 5px;\r\n    margin-top: 8px;\r\n  }\r\n\r\n  .visual-hero-meta b {\r\n    min-height: 22px;\r\n    padding: 0 7px;\r\n    font-size: 10px;\r\n  }\r\n\r\n  .visual-card {\r\n    min-height: 64px;\r\n    padding: 9px 10px;\r\n    border-radius: 8px;\r\n  }\r\n\r\n  .visual-card-icon,\r\n  .visual-ring {\r\n    width: 36px;\r\n    height: 36px;\r\n    border-radius: 9px;\r\n  }\r\n\r\n  .metric {\r\n    min-height: 76px;\r\n    padding: 10px 11px;\r\n    border-radius: 8px;\r\n  }\r\n\r\n  .metric-label {\r\n    font-size: 11px;\r\n  }\r\n\r\n  .metric strong {\r\n    margin-top: 5px;\r\n    font-size: 23px;\r\n  }\r\n\r\n  .metric small {\r\n    margin-top: 5px;\r\n    font-size: 11px;\r\n    line-height: 1.25;\r\n  }\r\n\r\n  .overview-grid,\r\n  .policy-grid,\r\n  .config-grid {\r\n    gap: 8px;\r\n  }\r\n\r\n  .panel {\r\n    margin-bottom: 8px;\r\n    border-radius: 8px;\r\n  }\r\n\r\n  .panel-head {\r\n    display: grid;\r\n    grid-template-columns: minmax(0, 1fr);\r\n    gap: 8px;\r\n    padding: 10px 11px 9px;\r\n  }\r\n\r\n  .panel-head > .tag,\r\n  .panel-head > .badge,\r\n  .panel-head > .button,\r\n  .panel-head > .actions {\r\n    justify-self: start;\r\n  }\r\n\r\n  .overview-traffic-panel .panel-head {\r\n    gap: 6px;\r\n  }\r\n\r\n  .panel-head > .tag,\r\n  .panel-head > .badge {\r\n    max-width: 100%;\r\n    white-space: normal;\r\n    overflow-wrap: anywhere;\r\n  }\r\n\r\n  .panel-head p {\r\n    display: none;\r\n  }\r\n\r\n  .tag,\r\n  .badge {\r\n    min-height: 21px;\r\n    padding: 0 7px;\r\n    font-size: 10px;\r\n  }\r\n\r\n  .chart {\r\n    min-height: 320px;\r\n    padding: 8px 9px 7px;\r\n  }\r\n\r\n  .traffic-chart-shell {\r\n    border-radius: 14px;\r\n  }\r\n\r\n  .traffic-chart-shell svg {\r\n    height: 282px;\r\n  }\r\n\r\n  .request-page-vitals {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n    gap: 6px;\r\n    padding: 8px;\r\n  }\r\n\r\n  .request-summary-row {\r\n    grid-template-columns: 24px 9px minmax(0, 1fr) 28px;\r\n    gap: 8px;\r\n    padding: 10px;\r\n  }\r\n\r\n  .request-row-status,\r\n  .request-row-route,\r\n  .request-row-metrics {\r\n    grid-column: 3 / -1;\r\n  }\r\n\r\n  .request-row-open {\r\n    grid-column: 4;\r\n    grid-row: 1;\r\n  }\r\n\r\n  .chart-stats {\r\n    gap: 5px;\r\n  }\r\n\r\n  .chart-stats div {\r\n    padding: 7px;\r\n  }\r\n\r\n  .chart-stats span {\r\n    font-size: 10px;\r\n  }\r\n\r\n  .chart-stats strong {\r\n    font-size: 12px;\r\n  }\r\n\r\n  .chart > svg {\r\n    height: 220px;\r\n  }\r\n\r\n  .usage-chart {\r\n    gap: 9px;\r\n    padding: 9px;\r\n  }\r\n\r\n  .usage-summary {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n    gap: 6px;\r\n  }\r\n\r\n  .usage-columns {\r\n    grid-template-columns: 1fr;\r\n    gap: 10px;\r\n  }\r\n\r\n  .usage-row {\r\n    gap: 6px;\r\n    padding: 8px;\r\n  }\r\n\r\n  .usage-row-foot {\r\n    display: grid;\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  }\r\n\r\n  .latency-samples {\r\n    min-height: 38px;\r\n  }\r\n\r\n  .latency-sample {\r\n    min-width: 82px;\r\n    padding: 6px 7px;\r\n  }\r\n\r\n  .provider-health,\r\n  .pad,\r\n  .form-grid,\r\n  .drawer-body,\r\n  .mobile-settings-body {\r\n    padding: 11px;\r\n  }\r\n\r\n  th,\r\n  td {\r\n    padding: 9px 10px;\r\n  }\r\n\r\n  .button {\r\n    min-height: 34px;\r\n  }\r\n\r\n  .control {\r\n    min-height: 34px;\r\n  }\r\n\r\n  .config-provider-card {\r\n    gap: 10px;\r\n    padding: 11px;\r\n  }\r\n\r\n  .config-provider-head,\r\n  .format-edit-row {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .config-provider-head {\r\n    display: grid;\r\n  }\r\n\r\n  .format-edit-row {\r\n    gap: 6px;\r\n  }\r\n\r\n  .provider-runtime-head,\r\n  .key-card-head,\r\n  .failure-policy-head {\r\n    display: grid;\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .compact-control {\r\n    width: 100%;\r\n    min-width: 0;\r\n  }\r\n  .key-probe-menu {\r\n    position: fixed;\r\n    right: 12px;\r\n    left: 12px;\r\n    width: auto;\r\n    max-width: none;\r\n  }\r\n\r\n  .provider-runtime-actions,\r\n  .actions {\r\n    justify-content: flex-start;\r\n  }\r\n\r\n  .provider-card-grid,\r\n  .provider-model-list,\r\n  .policy-card-list,\r\n  .failure-policy-list {\r\n    grid-template-columns: 1fr;\r\n    gap: 8px;\r\n  }\r\n\r\n  .provider-toolbar {\r\n    grid-template-columns: 1fr;\r\n    margin: 0 9px 4px;\r\n    padding: 10px;\r\n  }\r\n\r\n  .recent-failure-row {\r\n    grid-template-columns: auto minmax(0, 1fr) auto;\r\n  }\r\n\r\n  .recent-failure-reason {\r\n    grid-column: 2 / -1;\r\n  }\r\n\r\n  .provider-runtime-card,\r\n  .model-capability-card,\r\n  .policy-rule-card,\r\n  .failure-policy-card {\r\n    gap: 10px;\r\n    padding: 10px;\r\n    border-radius: 8px;\r\n  }\r\n\r\n  .provider-metrics,\r\n  .provider-compact-stats,\r\n  .provider-card-metrics,\r\n  .model-capability-summary,\r\n  .policy-summary-grid {\r\n    grid-template-columns: 1fr 1fr;\r\n    gap: 7px;\r\n  }\r\n\r\n  .provider-detail-metrics {\r\n    grid-template-columns: repeat(3, minmax(0, 1fr));\r\n    gap: 6px;\r\n  }\r\n\r\n  .provider-detail-metrics .mini-metric {\r\n    min-height: 0;\r\n    padding: 6px 7px;\r\n    border-radius: 6px;\r\n  }\r\n\r\n  .provider-detail-metrics .mini-metric span {\r\n    font-size: 10px;\r\n    line-height: 1.1;\r\n  }\r\n\r\n  .provider-detail-metrics .mini-metric strong {\r\n    margin-top: 1px;\r\n    font-size: 12px;\r\n    line-height: 1.1;\r\n  }\r\n\r\n  .provider-detail-metrics .mini-metric small {\r\n    display: none;\r\n  }\r\n\r\n  .provider-health-tile {\r\n    min-height: 0;\r\n  }\r\n\r\n  .provider-card-footer,\r\n  .provider-detail-hero,\r\n  .provider-danger-zone {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .provider-card-footer {\r\n    align-items: stretch;\r\n  }\r\n\r\n  .provider-runtime-actions {\r\n    width: 100%;\r\n  }\r\n\r\n  .provider-runtime-actions .button {\r\n    flex: 1 1 auto;\r\n  }\r\n\r\n  .provider-runtime-actions .button.icon-action {\r\n    flex: 0 0 34px;\r\n  }\r\n\r\n  .provider-drawer {\r\n    width: 100vw;\r\n  }\r\n\r\n  .provider-drawer-tabs {\r\n    grid-template-columns: repeat(6, minmax(94px, 1fr));\r\n    overflow-x: auto;\r\n    padding-bottom: 8px;\r\n  }\r\n\r\n  .provider-activity-row {\r\n    grid-template-columns: 10px minmax(0, 1fr) auto;\r\n  }\r\n\r\n  .provider-activity-row > span:not(.provider-status-dot) {\r\n    grid-column: 2 / -1;\r\n  }\r\n\r\n  .provider-activity-row small {\r\n    display: none;\r\n  }\r\n\r\n  .policy-summary-grid {\r\n    padding: 9px 9px 0;\r\n  }\r\n\r\n  .policy-controls {\r\n    padding: 9px;\r\n  }\r\n\r\n  .policy-control-grid,\r\n  .form-pair-grid,\r\n  .failure-policy-edit-grid,\r\n  .model-route-form {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .policy-control-card {\r\n    padding: 10px;\r\n  }\r\n\r\n  .mini-metric {\r\n    padding: 8px;\r\n  }\r\n\r\n  .mini-metric strong {\r\n    font-size: 13px;\r\n  }\r\n\r\n  .format-route-list,\r\n  .provider-key-list,\r\n  .provider-inline-form,\r\n  .provider-inline-key-form,\r\n  .key-proxy-row,\r\n  .global-proxy-form,\r\n  .provider-create-form,\r\n  .config-summary-grid,\r\n  .config-provider-summary-card,\r\n  .model-route-card {\r\n    grid-template-columns: 1fr;\r\n    gap: 7px;\r\n  }\r\n\r\n  .provider-create-actions,\r\n  .provider-create-format,\r\n  .global-proxy-form .form-note,\r\n  .config-provider-summary-main,\r\n  .config-provider-summary-keys,\r\n  .config-provider-summary-formats,\r\n  .config-provider-summary-card > .badge,\r\n  .config-provider-summary-card > .button {\r\n    grid-column: 1 / -1;\r\n    grid-row: auto;\r\n  }\r\n\r\n  .config-provider-summary-card {\r\n    min-height: 0;\r\n  }\r\n\r\n  .config-provider-summary-card > .badge {\r\n    justify-self: start;\r\n  }\r\n\r\n  .config-provider-summary-card > .button {\r\n    justify-self: start;\r\n  }\r\n\r\n  .model-route-form,\r\n  .model-route-list {\r\n    padding: 9px;\r\n  }\r\n\r\n  .model-route-side {\r\n    justify-items: start;\r\n  }\r\n\r\n  .provider-edit-panel,\r\n  .raw-config-details,\r\n  .overlay-safety,\r\n  .config-summary {\r\n    padding: 9px;\r\n  }\r\n\r\n  .config-path-row {\r\n    grid-template-columns: 1fr;\r\n    gap: 4px;\r\n  }\r\n\r\n  .policy-rule-head {\r\n    grid-template-columns: 28px minmax(0, 1fr);\r\n    gap: 8px;\r\n  }\r\n\r\n  .rule-index {\r\n    width: 26px;\r\n    height: 26px;\r\n    border-radius: 7px;\r\n    font-size: 10px;\r\n  }\r\n\r\n  .kv-grid {\r\n    grid-template-columns: 104px minmax(0, 1fr);\r\n  }\r\n\r\n  .routing-summary-card,\r\n  .attempt {\r\n    padding: 10px;\r\n    border-radius: 8px;\r\n  }\r\n\r\n  .routing-summary-head {\r\n    align-items: flex-start;\r\n  }\r\n\r\n  .routing-summary-grid {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  }\r\n\r\n  .routing-next-action,\r\n  .attempt-explain div {\r\n    grid-template-columns: 1fr;\r\n    gap: 4px;\r\n  }\r\n\r\n  .attempt-explain {\r\n    padding: 8px;\r\n  }\r\n\r\n  .route-inline {\r\n    min-width: 180px;\r\n    max-width: 280px;\r\n  }\r\n\r\n  .view {\r\n    animation: none;\r\n  }\r\n}\r\n\r\n@media (max-width: 420px) {\r\n  .metric-grid {\r\n    grid-template-columns: 1fr 1fr;\r\n  }\r\n\r\n  .routing-summary-head,\r\n  .attempt-head {\r\n    display: grid;\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .routing-summary-grid {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .kv-grid {\r\n    grid-template-columns: 92px minmax(0, 1fr);\r\n  }\r\n}\r\n\r\n@media (max-width: 340px) {\r\n  .metric-grid {\r\n    grid-template-columns: 1fr;\r\n  }\r\n}\r\n\r\n@media (prefers-reduced-motion: reduce) {\r\n  html {\r\n    scroll-behavior: auto;\r\n  }\r\n\r\n  .view,\r\n  .button,\r\n  .icon-button,\r\n  .drawer,\r\n  .nav-item,\r\n  .animated-line {\r\n    animation: none !important;\r\n    transition: none !important;\r\n  }\r\n}\r\n\r\n/* Usage trend chart refresh. Keep this block late so older telemetry chart skins do not leak through. */\r\n.overview-traffic-panel .panel-head {\r\n  align-items: center;\r\n}\r\n\r\n.overview-traffic-panel .panel-head h2 {\r\n  font-size: 15px;\r\n  font-weight: 780;\r\n}\r\n\r\n.overview-traffic-panel .panel-head .badge.info {\r\n  border: 1px solid #e5e7eb;\r\n  background: #fff;\r\n  color: #6b7280;\r\n  text-transform: none;\r\n}\r\n\r\n.overview-traffic-panel .chart {\r\n  min-height: 500px;\r\n  padding: 18px 24px 24px;\r\n  background: #fff;\r\n}\r\n\r\n.usage-trend-overview {\r\n  display: grid;\r\n  grid-template-columns: minmax(250px, 0.62fr) minmax(0, 1.38fr);\r\n  gap: 16px;\r\n  align-items: stretch;\r\n  margin-bottom: 18px;\r\n}\r\n\r\n.usage-trend-total,\r\n.usage-trend-kpi {\r\n  border: 1px solid #eceff3;\r\n  background: #fff;\r\n}\r\n\r\n.usage-trend-total {\r\n  display: grid;\r\n  align-content: center;\r\n  min-height: 112px;\r\n  padding: 18px 22px;\r\n  border-radius: 12px;\r\n  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.035);\r\n}\r\n\r\n.usage-trend-total span,\r\n.usage-trend-kpi span {\r\n  color: #767b85;\r\n  font-size: 12px;\r\n  font-weight: 720;\r\n}\r\n\r\n.usage-trend-total strong {\r\n  margin-top: 6px;\r\n  color: #09090b;\r\n  font: 820 36px/1.02 var(--mono);\r\n  letter-spacing: -0.01em;\r\n}\r\n\r\n.usage-trend-total small {\r\n  margin-top: 8px;\r\n  color: #8b919b;\r\n  font: 650 12px var(--mono);\r\n}\r\n\r\n.usage-trend-kpis {\r\n  display: grid;\r\n  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));\r\n  gap: 10px;\r\n}\r\n\r\n.usage-trend-kpi {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  grid-template-rows: auto auto;\r\n  gap: 6px 8px;\r\n  align-content: center;\r\n  min-height: 112px;\r\n  padding: 14px;\r\n  border-radius: 12px;\r\n}\r\n\r\n.usage-trend-kpi i {\r\n  grid-row: 1 / span 2;\r\n  width: 10px;\r\n  height: 10px;\r\n  margin-top: 4px;\r\n  border-radius: 999px;\r\n  background: #71717a;\r\n  box-shadow: 0 0 0 4px rgba(113, 113, 122, 0.08);\r\n}\r\n\r\n.usage-trend-kpi strong {\r\n  min-width: 0;\r\n  overflow: visible;\r\n  color: #18181b;\r\n  font: 780 19px/1.1 var(--mono);\r\n  overflow-wrap: anywhere;\r\n  white-space: normal;\r\n}\r\n\r\n.usage-trend-kpi.usage-input i {\r\n  background: #2563eb;\r\n  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);\r\n}\r\n\r\n.usage-trend-kpi.usage-output i,\r\n.usage-trend-kpi.usage-success i {\r\n  background: #10b981;\r\n  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);\r\n}\r\n\r\n.usage-trend-kpi.usage-request i {\r\n  background: #f97316;\r\n  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.12);\r\n}\r\n\r\n.usage-trend-kpi.usage-failure i {\r\n  background: #f43f5e;\r\n  box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.11);\r\n}\r\n\r\n.traffic-chart-shell {\r\n  overflow: visible;\r\n  padding: 18px 18px 12px;\r\n  border: 1px solid #dce3ec;\r\n  border-radius: 14px;\r\n  background: #fff;\r\n  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.045);\r\n}\r\n\r\n.traffic-chart-shell svg {\r\n  display: block;\r\n  width: 100%;\r\n  height: 390px;\r\n}\r\n\r\n.traffic-plot-bg {\r\n  fill: #fff;\r\n}\r\n\r\n.chart .traffic-grid-line,\r\n.chart .traffic-x-tick {\r\n  stroke: #e6eaf0;\r\n  stroke-dasharray: 4 5;\r\n  stroke-width: 1;\r\n}\r\n\r\n.chart .traffic-x-tick {\r\n  opacity: 0.46;\r\n}\r\n\r\n.chart .traffic-baseline {\r\n  stroke: #8f98a6;\r\n  stroke-width: 1.5;\r\n}\r\n\r\n.traffic-axis-label {\r\n  fill: #667085;\r\n  font: 760 12px var(--mono);\r\n  paint-order: stroke;\r\n  stroke: #fff;\r\n  stroke-linejoin: round;\r\n  stroke-width: 3px;\r\n}\r\n\r\n.traffic-axis-title {\r\n  fill: #344054;\r\n  font: 820 12px var(--mono);\r\n  letter-spacing: 0.01em;\r\n}\r\n\r\n.traffic-axis-label-info {\r\n  fill: #8a5a22;\r\n}\r\n\r\n.traffic-token-area {\r\n  fill: url(\"#trafficTokenArea\");\r\n  pointer-events: none;\r\n}\r\n\r\n.traffic-plot-bg {\r\n  fill: transparent;\r\n}\r\n\r\n.traffic-total-line,\r\n.traffic-input-line,\r\n.traffic-output-line {\r\n  fill: none;\r\n  stroke-linecap: round;\r\n  stroke-linejoin: round;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.traffic-total-line {\r\n  stroke: #a855f7;\r\n  stroke-width: 2.2;\r\n  filter: drop-shadow(0 4px 6px rgba(168, 85, 247, 0.22));\r\n}\r\n\r\n.traffic-input-line {\r\n  stroke: #3b82f6;\r\n  stroke-width: 1.5;\r\n  stroke-dasharray: 6 4;\r\n}\r\n\r\n.traffic-output-line {\r\n  stroke: #10b981;\r\n  stroke-width: 1.5;\r\n  stroke-dasharray: 2 3;\r\n}\r\n\r\n.traffic-bar-success {\r\n  fill: #10b981;\r\n  opacity: 0.85;\r\n  transition: opacity 0.12s ease;\r\n}\r\n\r\n.traffic-bar-success:hover {\r\n  opacity: 1;\r\n}\r\n\r\n.traffic-bar-fail {\r\n  fill: #ef4444;\r\n  opacity: 0.9;\r\n  transition: opacity 0.12s ease;\r\n}\r\n\r\n.traffic-bar-fail:hover {\r\n  opacity: 1;\r\n}\r\n\r\n.traffic-latency-line {\r\n  fill: none;\r\n  stroke: #f59e0b;\r\n  stroke-width: 2.0;\r\n  stroke-linecap: round;\r\n  stroke-linejoin: round;\r\n  filter: drop-shadow(0 4px 6px rgba(245, 158, 11, 0.22));\r\n}\r\n\r\n.traffic-latency-region {\r\n  fill: url(\"#trafficLatencyArea\");\r\n  pointer-events: none;\r\n}\r\n\r\n.traffic-latency-dot {\r\n  fill: #f59e0b;\r\n  stroke: #ffffff;\r\n  stroke-width: 2;\r\n}\r\n\r\n.traffic-cost-line {\r\n  fill: none;\r\n  stroke: #f59e0b;\r\n  stroke-width: 2.0;\r\n  stroke-linecap: round;\r\n  stroke-linejoin: round;\r\n  filter: drop-shadow(0 4px 6px rgba(245, 158, 11, 0.22));\r\n}\r\n\r\n.traffic-cost-dot {\r\n  fill: #f59e0b;\r\n  stroke: #ffffff;\r\n  stroke-width: 2;\r\n}\r\n\r\n.traffic-trend-dot {\r\n  stroke: #fff;\r\n  stroke-width: 2.4;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.traffic-total-dot {\r\n  fill: #a855f7;\r\n}\r\n\r\n.traffic-input-dot {\r\n  fill: #3b82f6;\r\n}\r\n\r\n.traffic-output-dot {\r\n  fill: #10b981;\r\n}\r\n\r\n.traffic-chart-header {\r\n  display: flex;\r\n  justify-content: space-between;\r\n  align-items: center;\r\n  padding: 14px 20px;\r\n  border-bottom: 1px solid color-mix(in srgb, var(--line) 40%, transparent);\r\n}\r\n\r\n.traffic-chart-header .traffic-trend-legend {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 16px;\r\n  align-items: center;\r\n  padding: 0;\r\n  margin: 0;\r\n}\r\n\r\n.traffic-mode-selectors {\r\n  display: inline-flex;\r\n  background: #f1f5f9;\r\n  padding: 3px;\r\n  border-radius: 99px;\r\n  border: 1px solid #e2e8f0;\r\n}\r\n\r\n.traffic-mode-selectors .pill-toggle {\r\n  background: transparent;\r\n  border: none;\r\n  outline: none;\r\n  font-size: 11px;\r\n  font-weight: 700;\r\n  color: #64748b;\r\n  padding: 6px 12px;\r\n  border-radius: 99px;\r\n  cursor: pointer;\r\n  transition: all 0.15s ease;\r\n  margin: 0;\r\n  height: auto;\r\n  line-height: 1.2;\r\n}\r\n\r\n.traffic-mode-selectors .pill-toggle:hover {\r\n  color: #1e293b;\r\n}\r\n\r\n.traffic-mode-selectors .pill-toggle.is-active {\r\n  background: #ffffff;\r\n  color: #0f172a;\r\n  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);\r\n  font-weight: 800;\r\n}\r\n\r\n.traffic-trend-legend-item {\r\n  display: inline-flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n  color: #475569;\r\n  font-size: 12px;\r\n  font-weight: 600;\r\n}\r\n\r\n.traffic-trend-legend-item i {\r\n  display: inline-block;\r\n  vertical-align: middle;\r\n}\r\n\r\n/* Line series legend indicators (pills/lines) */\r\n.traffic-trend-legend-item.traffic-latency-legend i,\r\n.traffic-trend-legend-item.traffic-total-dot i,\r\n.traffic-trend-legend-item.traffic-input-dot i,\r\n.traffic-trend-legend-item.traffic-output-dot i,\r\n.traffic-trend-legend-item.traffic-cost-legend i {\r\n  width: 18px;\r\n  height: 2px;\r\n  border-radius: 999px;\r\n}\r\n\r\n.traffic-trend-legend-item.traffic-latency-legend i {\r\n  background: #f59e0b;\r\n}\r\n\r\n.traffic-trend-legend-item.traffic-total-dot i {\r\n  background: #a855f7;\r\n}\r\n\r\n.traffic-trend-legend-item.traffic-input-dot i {\r\n  background: repeating-linear-gradient(90deg, #3b82f6 0 6px, transparent 6px 10px);\r\n}\r\n\r\n.traffic-trend-legend-item.traffic-output-dot i {\r\n  background: repeating-linear-gradient(90deg, #10b981 0 3px, transparent 3px 6px);\r\n}\r\n\r\n.traffic-trend-legend-item.traffic-cost-legend i {\r\n  background: #f59e0b;\r\n}\r\n\r\n/* Bar series legend indicators (squares/dots) */\r\n.traffic-trend-legend-item.traffic-bar-success-legend i,\r\n.traffic-trend-legend-item.traffic-bar-fail-legend i {\r\n  width: 11px;\r\n  height: 11px;\r\n  border-radius: 3px;\r\n}\r\n\r\n.traffic-trend-legend-item.traffic-bar-success-legend i {\r\n  background: #10b981;\r\n}\r\n\r\n.traffic-trend-legend-item.traffic-bar-fail-legend i {\r\n  background: #ef4444;\r\n}\r\n\r\n/* Cleaner provider health status dots. */\r\n.provider-status-dot {\r\n  width: 10px;\r\n  height: 10px;\r\n  margin-top: 5px;\r\n  border: 2px solid #fff;\r\n  background: #94a3b8;\r\n  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.18);\r\n}\r\n\r\n.provider-status-dot.ok {\r\n  background: #10b981;\r\n  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.16);\r\n}\r\n\r\n.provider-status-dot.warn {\r\n  background: #f59e0b;\r\n  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);\r\n}\r\n\r\n.provider-status-dot.bad {\r\n  background: #ef4444;\r\n  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.16);\r\n}\r\n\r\n.request-row-dot {\r\n  border: 2px solid #fff;\r\n}\r\n\r\n.recent-failure-list .recent-failure-row.tone-success .request-row-dot,\r\n#recentFailures .recent-failure-row.tone-success .request-row-dot {\r\n  background: #10b981;\r\n  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.16);\r\n}\r\n\r\n.recent-failure-list .recent-failure-row.tone-warning .request-row-dot,\r\n#recentFailures .recent-failure-row.tone-warning .request-row-dot {\r\n  background: #f59e0b;\r\n  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);\r\n}\r\n\r\n.recent-failure-list .recent-failure-row.tone-danger .request-row-dot,\r\n#recentFailures .recent-failure-row.tone-danger .request-row-dot {\r\n  background: #ef4444;\r\n  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.16);\r\n}\r\n\r\n.provider-activity-row .provider-status-dot {\r\n  margin-top: 0;\r\n  flex-shrink: 0;\r\n}\r\n\r\n@media (max-width: 980px) {\r\n  .usage-trend-overview {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .usage-trend-kpis {\r\n    grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  }\r\n}\r\n\r\n@media (max-width: 760px) {\r\n  .overview-traffic-panel .chart {\r\n    min-height: 450px;\r\n    padding: 10px;\r\n  }\r\n\r\n  .usage-trend-total {\r\n    min-height: 96px;\r\n    padding: 15px;\r\n  }\r\n\r\n  .usage-trend-total strong {\r\n    font-size: 28px;\r\n  }\r\n\r\n  .usage-trend-kpis {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n    gap: 8px;\r\n  }\r\n\r\n  .usage-trend-kpi {\r\n    min-height: 78px;\r\n    padding: 11px;\r\n  }\r\n\r\n  .usage-trend-kpi strong {\r\n    font-size: 15px;\r\n  }\r\n\r\n  .traffic-chart-shell {\r\n    padding: 10px 6px 8px;\r\n    border-radius: 12px;\r\n  }\r\n\r\n  .traffic-chart-shell svg {\r\n    height: 300px;\r\n  }\r\n\r\n  .traffic-axis-label {\r\n    font-size: 10px;\r\n  }\r\n}\r\n\r\n/* Final shell polish: brand plaque and unified provider tools. */\r\n.sidebar .brand {\r\n  position: relative;\r\n  gap: 11px;\r\n  margin: 14px 12px 16px;\r\n  padding: 13px 13px 14px;\r\n  border: 1px solid color-mix(in srgb, var(--line-strong) 72%, var(--line));\r\n  border-radius: 11px;\r\n  background:\r\n    linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 74%, #fff) 0%, var(--surface) 100%),\r\n    var(--surface);\r\n  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.055);\r\n}\r\n\r\n.sidebar .brand::after {\r\n  position: absolute;\r\n  right: 12px;\r\n  bottom: -9px;\r\n  left: 12px;\r\n  height: 1px;\r\n  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--line-strong) 80%, transparent), transparent);\r\n  content: \"\";\r\n}\r\n\r\n.sidebar .brand-mark {\r\n  width: 26px;\r\n  height: 26px;\r\n  border-radius: 7px;\r\n  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22) inset, 0 8px 16px rgba(9, 9, 11, 0.12);\r\n}\r\n\r\n.sidebar .brand-title {\r\n  font-size: 13.5px;\r\n  font-weight: 780;\r\n  line-height: 1.15;\r\n}\r\n\r\n.sidebar .brand-subtitle {\r\n  margin-top: 3px;\r\n  color: color-mix(in srgb, var(--muted) 84%, var(--text));\r\n  font-size: 11px;\r\n  line-height: 1.2;\r\n}\r\n\r\n.providers-panel {\r\n  overflow: visible;\r\n}\r\n\r\n.providers-panel .providers-tools {\r\n  border-bottom: 1px solid color-mix(in srgb, var(--line-strong) 64%, var(--line-soft));\r\n  background:\r\n    linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 70%, var(--surface)) 0%, var(--surface) 100%),\r\n    var(--surface);\r\n}\r\n\r\n.providers-tools-head {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  gap: 12px;\r\n  align-items: center;\r\n  padding: 14px 18px 10px;\r\n}\r\n\r\n.providers-tools-head h2 {\r\n  color: var(--text);\r\n  font-size: 15px;\r\n  font-weight: 800;\r\n  letter-spacing: 0;\r\n}\r\n\r\n.providers-tools-head p {\r\n  margin-top: 3px;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  line-height: 1.25;\r\n}\r\n\r\n.providers-tools-head .button {\r\n  min-height: 34px;\r\n}\r\n\r\n#providersView .provider-toolbar {\r\n  grid-template-columns: minmax(240px, 1.55fr) minmax(140px, 0.75fr) minmax(140px, 0.75fr) minmax(140px, 0.75fr) auto;\r\n  gap: 9px;\r\n  align-items: end;\r\n  margin: 0;\r\n  padding: 0 18px 16px;\r\n  border: 0;\r\n  border-radius: 0;\r\n  background: transparent;\r\n  box-shadow: none;\r\n}\r\n\r\n#providersView .provider-toolbar .field {\r\n  gap: 6px;\r\n}\r\n\r\n#providersView .provider-toolbar .field > span {\r\n  color: color-mix(in srgb, var(--muted) 88%, var(--text));\r\n  font-size: 10.5px;\r\n  font-weight: 780;\r\n  letter-spacing: 0.02em;\r\n}\r\n\r\n#providersView .provider-toolbar .control {\r\n  min-height: 36px;\r\n  border-color: color-mix(in srgb, var(--line-strong) 74%, var(--line));\r\n  background: rgba(255, 255, 255, 0.78);\r\n}\r\n\r\n#providersView .provider-toolbar .control:focus-visible {\r\n  border-color: color-mix(in srgb, var(--info) 56%, var(--line));\r\n  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);\r\n}\r\n\r\n#providersView .provider-toolbar #clearProviderFiltersButton {\r\n  min-height: 36px;\r\n  padding-inline: 13px;\r\n  border-color: color-mix(in srgb, var(--line-strong) 68%, var(--line));\r\n}\r\n\r\n#providersView .provider-table {\r\n  padding-top: 12px;\r\n}\r\n\r\n@media (max-width: 1024px) {\r\n  #providersView .provider-toolbar {\r\n    grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(130px, 0.7fr)) auto;\r\n  }\r\n}\r\n\r\n@media (max-width: 760px) {\r\n  .sidebar .brand {\r\n    margin: 10px;\r\n    padding: 11px 12px;\r\n  }\r\n\r\n  .sidebar .brand::after {\r\n    display: none;\r\n  }\r\n\r\n  .providers-tools-head,\r\n  #providersView .provider-toolbar {\r\n    grid-template-columns: 1fr;\r\n    padding-right: 12px;\r\n    padding-left: 12px;\r\n  }\r\n\r\n  .providers-tools-head .button,\r\n  #providersView .provider-toolbar .button,\r\n  #providersView .provider-toolbar .field,\r\n  #providersView .provider-toolbar .control {\r\n    width: 100%;\r\n  }\r\n}\r\n\r\n/* static models form */\r\n.config-static-models-form {\r\n  display: grid;\r\n  gap: 8px;\r\n  padding: 12px 14px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n}\r\n\r\n.config-static-models-form .form-row {\r\n  display: grid;\r\n  gap: 5px;\r\n}\r\n\r\n.config-static-models-form label {\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 720;\r\n}\r\n\r\n.config-static-models-form input[type=\"text\"] {\r\n  width: 100%;\r\n  min-height: 32px;\r\n  padding: 4px 8px;\r\n  background: var(--bg);\r\n  border: 1px solid var(--line);\r\n  border-radius: 6px;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-family: var(--mono, monospace);\r\n  box-sizing: border-box;\r\n}\r\n\r\n.config-static-models-form input[type=\"text\"]:focus {\r\n  outline: none;\r\n  border-color: var(--accent);\r\n}\r\n\r\n.config-static-models-form small.muted {\r\n  font-size: 11px;\r\n  color: var(--muted);\r\n}\r\n\r\n.request-select-all-banner {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  gap: 12px;\r\n  padding: 8px 14px;\r\n  background-color: color-mix(in srgb, var(--accent, #3b82f6) 8%, transparent);\r\n  border-bottom: 1px dashed var(--line-soft);\r\n  font-size: 12px;\r\n  color: var(--text);\r\n  animation: viewIn 0.15s ease-out;\r\n}\r\n\r\n.request-select-all-banner .button.link-action {\r\n  background: none;\r\n  border: none;\r\n  padding: 0;\r\n  color: var(--accent);\r\n  font-weight: 600;\r\n  text-decoration: underline;\r\n  cursor: pointer;\r\n  font-family: inherit;\r\n}\r\n\r\n.request-select-all-banner .button.link-action:hover {\r\n  color: var(--accent-hover, #2563eb);\r\n}\r\n\r\n/* ---- Custom tooltip (Apple-style frosted popover) ---------------------- */\r\n.lp-tip {\r\n  position: fixed;\r\n  top: 0;\r\n  left: 0;\r\n  z-index: 1000;\r\n  max-width: 320px;\r\n  padding: 7px 11px;\r\n  border-radius: 9px;\r\n  background: color-mix(in srgb, #1d1d1f 86%, transparent);\r\n  color: #f5f5f7;\r\n  font: 600 11.5px/1.45 var(--mono);\r\n  letter-spacing: 0.01em;\r\n  box-shadow:\r\n    0 1px 2px rgba(0, 0, 0, 0.18),\r\n    0 8px 24px rgba(0, 0, 0, 0.22);\r\n  backdrop-filter: blur(18px) saturate(1.5);\r\n  -webkit-backdrop-filter: blur(18px) saturate(1.5);\r\n  pointer-events: none;\r\n  opacity: 0;\r\n  /* No transform on the resting state so getBoundingClientRect measures the\r\n     true size during positioning. The entrance transform lives on is-visible\r\n     and animates back to none, which does not affect layout measurement\r\n     because measurement happens before is-visible is added. */\r\n  visibility: hidden;\r\n  transition: opacity 130ms ease, transform 130ms cubic-bezier(0.2, 0.8, 0.2, 1);\r\n}\r\n\r\n.lp-tip.is-below {\r\n  transform-origin: top center;\r\n}\r\n\r\n.lp-tip.is-visible {\r\n  opacity: 1;\r\n  visibility: visible;\r\n  transform: translateY(0) scale(1);\r\n}\r\n\r\n.lp-tip::after {\r\n  content: \"\";\r\n  position: absolute;\r\n  left: 50%;\r\n  bottom: -4px;\r\n  width: 8px;\r\n  height: 8px;\r\n  background: inherit;\r\n  border-radius: 1px;\r\n  transform: translateX(-50%) rotate(45deg);\r\n  box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.12);\r\n}\r\n\r\n.lp-tip.is-below::after {\r\n  bottom: auto;\r\n  top: -4px;\r\n  box-shadow: -1px -1px 2px rgba(0, 0, 0, 0.12);\r\n}\r\n\r\n/* ─── Playground ────────────────────────────────────────── */\r\n\r\n.playground-layout {\r\n  display: grid;\r\n  grid-template-columns: 280px minmax(0, 1fr);\r\n  gap: 0;\r\n  height: calc(100dvh - 58px);\r\n  overflow: hidden;\r\n}\r\n\r\n/* ── Config sidebar ── */\r\n.playground-config {\r\n  display: flex;\r\n  flex-direction: column;\r\n  gap: 0;\r\n  border-right: 1px solid var(--line);\r\n  background: var(--surface);\r\n  overflow-y: auto;\r\n  scrollbar-width: thin;\r\n  scrollbar-color: var(--line-strong) transparent;\r\n}\r\n\r\n.playground-config::-webkit-scrollbar {\r\n  width: 5px;\r\n}\r\n.playground-config::-webkit-scrollbar-thumb {\r\n  background: var(--line-strong);\r\n  border-radius: 3px;\r\n}\r\n\r\n/* Config section header bar */\r\n.pg-config-section {\r\n  border-bottom: 1px solid var(--line-soft);\r\n}\r\n\r\n.pg-config-section summary {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 6px;\r\n  padding: 10px 16px;\r\n  font-size: 10px;\r\n  font-weight: 760;\r\n  text-transform: uppercase;\r\n  letter-spacing: 0.08em;\r\n  color: var(--muted);\r\n  cursor: pointer;\r\n  transition: background 120ms ease, color 120ms ease;\r\n  list-style: none;\r\n  user-select: none;\r\n}\r\n\r\n.pg-config-section summary::-webkit-details-marker {\r\n  display: none;\r\n}\r\n\r\n.pg-config-section summary::before {\r\n  content: \"\";\r\n  display: inline-block;\r\n  width: 6px;\r\n  height: 6px;\r\n  border-right: 1.5px solid var(--line-strong);\r\n  border-bottom: 1.5px solid var(--line-strong);\r\n  transform: rotate(-45deg);\r\n  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1);\r\n  flex-shrink: 0;\r\n}\r\n\r\n.pg-config-section[open] summary::before {\r\n  transform: rotate(45deg);\r\n}\r\n\r\n.pg-config-section summary:hover {\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n}\r\n\r\n.pg-config-body {\r\n  display: grid;\r\n  gap: 10px;\r\n  padding: 4px 16px 14px;\r\n}\r\n\r\n/* Parameter grid */\r\n.pg-param-grid {\r\n  grid-template-columns: 1fr 1fr;\r\n  gap: 8px 10px;\r\n}\r\n\r\n.pg-param {\r\n  display: grid;\r\n  gap: 3px;\r\n}\r\n\r\n.pg-param span {\r\n  font-size: 10px;\r\n  font-weight: 680;\r\n  color: var(--muted);\r\n  letter-spacing: 0.01em;\r\n}\r\n\r\n.pg-param .control {\r\n  min-height: 32px;\r\n  padding: 0 10px;\r\n  font-size: 12px;\r\n  font-family: var(--mono);\r\n  border-radius: 6px;\r\n  transition: border-color 150ms ease, box-shadow 150ms ease;\r\n}\r\n\r\n.pg-param .control:focus-visible {\r\n  border-color: var(--accent);\r\n  box-shadow: 0 0 0 3px rgba(9, 9, 11, 0.08);\r\n}\r\n\r\n/* Model select */\r\n.pg-config-body .control {\r\n  min-height: 32px;\r\n  font-size: 12px;\r\n  border-radius: 6px;\r\n  transition: border-color 150ms ease, box-shadow 150ms ease;\r\n}\r\n\r\n.pg-config-body .control:focus-visible {\r\n  border-color: var(--accent);\r\n  box-shadow: 0 0 0 3px rgba(9, 9, 11, 0.08);\r\n}\r\n\r\n/* Segmented control */\r\n.pg-segment-row {\r\n  margin-bottom: 2px;\r\n}\r\n\r\n.pg-segment-row .segmented-control {\r\n  display: flex;\r\n  border-radius: 6px;\r\n  overflow: hidden;\r\n  border: 1px solid var(--line);\r\n}\r\n\r\n.pg-segment-row .segmented-button {\r\n  flex: 1;\r\n  min-height: 32px;\r\n  font-size: 11px;\r\n  font-weight: 640;\r\n  border: none;\r\n  border-right: 1px solid var(--line);\r\n  background: var(--surface);\r\n  color: var(--muted);\r\n  cursor: pointer;\r\n  transition: background 120ms ease, color 120ms ease;\r\n}\r\n\r\n.pg-segment-row .segmented-button:last-child {\r\n  border-right: none;\r\n}\r\n\r\n.pg-segment-row .segmented-button:hover {\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n}\r\n\r\n.pg-segment-row .segmented-button.is-active {\r\n  background: var(--text);\r\n  color: #fff;\r\n}\r\n\r\n/* Checkbox field */\r\n.pg-config-body .check-field {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n  min-height: 28px;\r\n  font-size: 11.5px;\r\n  font-weight: 580;\r\n  color: var(--text);\r\n  cursor: pointer;\r\n}\r\n\r\n.pg-config-body .check-field input[type=\"checkbox\"] {\r\n  width: 14px;\r\n  height: 14px;\r\n  accent-color: var(--text);\r\n  cursor: pointer;\r\n}\r\n\r\n/* System prompt textarea */\r\n.pg-system-prompt {\r\n  min-height: 56px;\r\n  max-height: 140px;\r\n  resize: vertical;\r\n  font-family: var(--sans);\r\n  font-size: 12px;\r\n  line-height: 1.5;\r\n  border-radius: 6px;\r\n  padding: 8px 10px;\r\n  transition: border-color 150ms ease, box-shadow 150ms ease;\r\n}\r\n\r\n.pg-system-prompt:focus-visible {\r\n  border-color: var(--accent);\r\n  box-shadow: 0 0 0 3px rgba(9, 9, 11, 0.08);\r\n}\r\n\r\n/* Footer */\r\n.pg-config-footer {\r\n  padding: 10px 16px 14px;\r\n  margin-top: auto;\r\n  border-top: 1px solid var(--line-soft);\r\n}\r\n\r\n.pg-config-footer .button {\r\n  width: 100%;\r\n  min-height: 32px;\r\n  font-size: 11.5px;\r\n  font-weight: 640;\r\n  border-radius: 6px;\r\n}\r\n\r\n/* ── Main chat area ── */\r\n.playground-main {\r\n  display: flex;\r\n  flex-direction: column;\r\n  min-width: 0;\r\n  min-height: 0;\r\n  background: var(--bg);\r\n}\r\n\r\n.pg-chat-wrap {\r\n  flex: 1;\r\n  display: flex;\r\n  flex-direction: column;\r\n  min-height: 0;\r\n  overflow: hidden;\r\n}\r\n\r\n.pg-chat {\r\n  flex: 1;\r\n  overflow-y: auto;\r\n  padding: 20px 24px;\r\n  min-height: 0;\r\n  scrollbar-width: thin;\r\n  scrollbar-color: var(--line-strong) transparent;\r\n}\r\n\r\n.pg-chat::-webkit-scrollbar {\r\n  width: 6px;\r\n}\r\n.pg-chat::-webkit-scrollbar-thumb {\r\n  background: var(--line-strong);\r\n  border-radius: 3px;\r\n}\r\n\r\n/* Empty state */\r\n.pg-empty {\r\n  display: flex;\r\n  flex-direction: column;\r\n  align-items: center;\r\n  justify-content: center;\r\n  gap: 10px;\r\n  height: 100%;\r\n  min-height: 200px;\r\n  color: var(--muted);\r\n}\r\n\r\n.pg-empty::before {\r\n  content: \"\";\r\n  display: block;\r\n  width: 32px;\r\n  height: 32px;\r\n  border: 1.5px solid var(--line-strong);\r\n  border-radius: 50%;\r\n  position: relative;\r\n}\r\n\r\n.pg-empty-text {\r\n  font-size: 13px;\r\n  font-weight: 580;\r\n}\r\n\r\n/* Message blocks */\r\n.pg-message {\r\n  margin-bottom: 16px;\r\n  max-width: 760px;\r\n  animation: pg-msg-in 300ms cubic-bezier(0.16, 1, 0.3, 1);\r\n}\r\n\r\n@keyframes pg-msg-in {\r\n  from { opacity: 0; transform: translateY(6px); }\r\n  to   { opacity: 1; transform: translateY(0); }\r\n}\r\n\r\n.pg-message:last-child {\r\n  margin-bottom: 8px;\r\n}\r\n\r\n.pg-message-head {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 7px;\r\n  margin-bottom: 5px;\r\n}\r\n\r\n.pg-message-role {\r\n  font-size: 10px;\r\n  font-weight: 760;\r\n  text-transform: uppercase;\r\n  letter-spacing: 0.06em;\r\n  color: var(--muted);\r\n  font-family: var(--mono);\r\n}\r\n\r\n.pg-message-content {\r\n  padding: 11px 15px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 10px;\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  font-size: 13px;\r\n  line-height: 1.65;\r\n  white-space: pre-wrap;\r\n  word-break: break-word;\r\n  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);\r\n  transition: box-shadow 200ms ease;\r\n}\r\n\r\n.pg-message-content:hover {\r\n  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);\r\n}\r\n\r\n.pg-role-assistant .pg-message-content {\r\n  border-color: color-mix(in srgb, var(--success) 20%, var(--line));\r\n  background: var(--success-soft);\r\n}\r\n\r\n.pg-role-assistant .pg-message-role {\r\n  color: var(--success);\r\n}\r\n\r\n.pg-role-user .pg-message-content {\r\n  border-color: color-mix(in srgb, var(--info) 16%, var(--line));\r\n  background: var(--info-soft);\r\n}\r\n\r\n.pg-role-user .pg-message-role {\r\n  color: color-mix(in srgb, var(--info) 80%, var(--text));\r\n}\r\n\r\n.pg-role-system .pg-message-content {\r\n  border-color: color-mix(in srgb, var(--compat) 18%, var(--line));\r\n  background: var(--compat-soft);\r\n}\r\n\r\n.pg-role-system .pg-message-role {\r\n  color: var(--compat);\r\n}\r\n\r\n.pg-message-error {\r\n  padding: 11px 15px;\r\n  border: 1px solid color-mix(in srgb, var(--danger) 24%, var(--line));\r\n  border-radius: 10px;\r\n  background: var(--danger-soft);\r\n  color: var(--danger);\r\n  font-size: 12.5px;\r\n  font-weight: 600;\r\n  line-height: 1.55;\r\n  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);\r\n}\r\n\r\n.pg-message-meta {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 5px;\r\n  margin-top: 6px;\r\n}\r\n\r\n.pg-message-meta .badge {\r\n  font-size: 10px;\r\n  font-weight: 620;\r\n  font-family: var(--mono);\r\n  min-height: 20px;\r\n  padding: 0 7px;\r\n  border-radius: 4px;\r\n  display: inline-flex;\r\n  align-items: center;\r\n}\r\n\r\n/* Streaming cursor */\r\n.pg-stream-cursor {\r\n  display: inline-block;\r\n  width: 7px;\r\n  height: 15px;\r\n  margin-left: 2px;\r\n  vertical-align: text-bottom;\r\n  background: var(--text);\r\n  border-radius: 1px;\r\n  animation: pg-blink 1s steps(2) infinite;\r\n}\r\n\r\n@keyframes pg-blink {\r\n  0%, 50% { opacity: 1; }\r\n  51%, 100% { opacity: 0; }\r\n}\r\n\r\n/* ── Trace strip ── */\r\n.pg-trace-strip {\r\n  flex-shrink: 0;\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  align-items: center;\r\n  gap: 0;\r\n  padding: 0 24px;\r\n  border-top: 1px solid var(--line-soft);\r\n  background: var(--surface-raised);\r\n  font-size: 11px;\r\n  font-family: var(--mono);\r\n}\r\n\r\n.pg-trace-strip .pg-trace-item {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 5px;\r\n  padding: 7px 12px 7px 0;\r\n  border-right: 1px solid var(--line-soft);\r\n  margin-right: 10px;\r\n}\r\n\r\n.pg-trace-strip .pg-trace-item:last-child {\r\n  border-right: none;\r\n}\r\n\r\n.pg-trace-strip .pg-trace-k {\r\n  color: var(--muted);\r\n  font-size: 9px;\r\n  text-transform: uppercase;\r\n  letter-spacing: 0.06em;\r\n  font-weight: 720;\r\n}\r\n\r\n.pg-trace-strip .pg-trace-v {\r\n  color: var(--text);\r\n  font-weight: 620;\r\n}\r\n\r\n/* ── Model search combobox ── */\r\n.pg-model-combo {\r\n  position: relative;\r\n}\r\n\r\n.pg-model-combo input {\r\n  width: 100%;\r\n}\r\n\r\n.pg-model-dropdown {\r\n  position: absolute;\r\n  top: calc(100% + 2px);\r\n  left: 0;\r\n  right: 0;\r\n  max-height: 260px;\r\n  overflow-y: auto;\r\n  background: var(--surface-raised, #fff);\r\n  border: 1px solid var(--line-soft, #ddd);\r\n  border-radius: 6px;\r\n  z-index: 100;\r\n  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);\r\n}\r\n\r\n.pg-model-option {\r\n  padding: 8px 12px;\r\n  font-size: 12px;\r\n  font-family: var(--mono, monospace);\r\n  cursor: pointer;\r\n  border-bottom: 1px solid var(--line-soft, #eee);\r\n  transition: background 0.12s;\r\n}\r\n\r\n.pg-model-option:last-child {\r\n  border-bottom: none;\r\n}\r\n\r\n.pg-model-option:hover {\r\n  background: var(--surface-soft, #f5f5f5);\r\n}\r\n\r\n.pg-model-option.selected {\r\n  background: var(--accent-soft, #e8f0fe);\r\n  font-weight: 600;\r\n}\r\n\r\n.pg-model-empty {\r\n  padding: 12px;\r\n  font-size: 12px;\r\n  color: var(--muted, #999);\r\n  text-align: center;\r\n}\r\n\r\n/* ── Input bar ── */\r\n.pg-input-bar {\r\n  flex-shrink: 0;\r\n  display: flex;\r\n  gap: 10px;\r\n  align-items: flex-end;\r\n  padding: 12px 20px 10px;\r\n  border-top: 1px solid var(--line);\r\n  background: var(--surface);\r\n  box-shadow: 0 -1px 0 rgba(0, 0, 0, 0.02);\r\n}\r\n\r\n.pg-input {\r\n  flex: 1;\r\n  min-height: 40px;\r\n  max-height: 140px;\r\n  resize: none;\r\n  font-family: var(--sans);\r\n  font-size: 13px;\r\n  line-height: 1.55;\r\n  padding: 9px 13px;\r\n  border-radius: 8px;\r\n  border: 1px solid var(--line);\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  transition: border-color 150ms ease, box-shadow 150ms ease;\r\n}\r\n\r\n.pg-input::placeholder {\r\n  color: var(--line-strong);\r\n}\r\n\r\n.pg-input:focus-visible {\r\n  border-color: var(--accent);\r\n  box-shadow: 0 0 0 3px rgba(9, 9, 11, 0.08);\r\n}\r\n\r\n.pg-send-btn,\r\n.pg-stop-btn {\r\n  min-height: 40px;\r\n  padding: 0 20px;\r\n  font-size: 12.5px;\r\n  font-weight: 680;\r\n  white-space: nowrap;\r\n  border-radius: 8px;\r\n  transition: background 150ms ease, border-color 150ms ease, transform 100ms ease, box-shadow 150ms ease;\r\n}\r\n\r\n.pg-send-btn {\r\n  border: 1px solid var(--text);\r\n  background: var(--text);\r\n  color: #fff;\r\n  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);\r\n}\r\n\r\n.pg-send-btn:hover {\r\n  background: var(--accent-strong);\r\n  border-color: var(--accent-strong);\r\n  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);\r\n}\r\n\r\n.pg-send-btn:active {\r\n  transform: scale(0.97);\r\n}\r\n\r\n.pg-send-btn:disabled {\r\n  opacity: 0.5;\r\n  cursor: not-allowed;\r\n  transform: none;\r\n}\r\n\r\n.pg-stop-btn {\r\n  border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--line));\r\n  background: var(--danger-soft);\r\n  color: var(--danger);\r\n}\r\n\r\n.pg-stop-btn:hover {\r\n  background: color-mix(in srgb, var(--danger) 12%, var(--danger-soft));\r\n  border-color: var(--danger);\r\n}\r\n\r\n.pg-stop-btn:active {\r\n  transform: scale(0.97);\r\n}\r\n\r\n/* ── Status bar ── */\r\n.pg-status-bar {\r\n  flex-shrink: 0;\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n  padding: 5px 20px 7px;\r\n  font-size: 10px;\r\n  font-weight: 560;\r\n  color: var(--muted);\r\n  background: var(--surface);\r\n  border-top: 1px solid var(--line-soft);\r\n  font-family: var(--mono);\r\n  letter-spacing: 0.02em;\r\n}\r\n\r\n.pg-status-bar::before {\r\n  content: \"\";\r\n  display: inline-block;\r\n  width: 6px;\r\n  height: 6px;\r\n  border-radius: 50%;\r\n  background: var(--line-strong);\r\n  flex-shrink: 0;\r\n}\r\n\r\n/* ── Responsive ── */\r\n@media (max-width: 760px) {\r\n  .playground-layout {\r\n    grid-template-columns: 1fr;\r\n    height: auto;\r\n  }\r\n\r\n  .playground-config {\r\n    border-right: none;\r\n    border-bottom: 1px solid var(--line);\r\n    max-height: 40dvh;\r\n  }\r\n\r\n  .playground-main {\r\n    min-height: 50dvh;\r\n  }\r\n\r\n  .pg-chat {\r\n    min-height: 200px;\r\n    padding: 14px 16px;\r\n  }\r\n\r\n  .pg-input-bar {\r\n    padding: 10px 14px 8px;\r\n  }\r\n\r\n  .pg-status-bar {\r\n    padding: 5px 14px 7px;\r\n  }\r\n}\r\n\r\n/* ─── Playground polish override ───────────────────────────────────────── */\r\n\r\n.playground-view {\r\n  height: calc(100dvh - 52px);\r\n  min-height: 560px;\r\n}\r\n\r\n.playground-layout {\r\n  grid-template-columns: minmax(260px, 310px) minmax(0, 1fr);\r\n  gap: 14px;\r\n  height: 100%;\r\n  min-height: 0;\r\n  padding: 0;\r\n  overflow: hidden;\r\n}\r\n\r\n.playground-config,\r\n.playground-main,\r\n.pg-compose-panel {\r\n  border: 1px solid color-mix(in srgb, var(--line-strong) 72%, var(--line));\r\n  background: #fff;\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.playground-config {\r\n  min-height: 0;\r\n  border-radius: 10px;\r\n  border-right: 1px solid color-mix(in srgb, var(--line-strong) 72%, var(--line));\r\n  overflow-x: hidden;\r\n}\r\n\r\n.pg-config-head {\r\n  display: grid;\r\n  gap: 4px;\r\n  padding: 16px 16px 14px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n  background:\r\n    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(250, 250, 250, 0.78)),\r\n    var(--surface);\r\n}\r\n\r\n.pg-config-head h2,\r\n.pg-workbench-head h2 {\r\n  font-size: 15px;\r\n  font-weight: 760;\r\n  line-height: 1.2;\r\n}\r\n\r\n.pg-config-head p {\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  line-height: 1.45;\r\n}\r\n\r\n.pg-config-section {\r\n  border-bottom: 1px solid var(--line-soft);\r\n  background: transparent;\r\n}\r\n\r\n.pg-config-section summary {\r\n  min-height: 38px;\r\n  padding: 10px 16px;\r\n  color: color-mix(in srgb, var(--muted) 86%, var(--text));\r\n  font-size: 10.5px;\r\n  letter-spacing: 0.055em;\r\n}\r\n\r\n.pg-config-section[open] summary {\r\n  color: var(--text);\r\n}\r\n\r\n.pg-config-body {\r\n  gap: 11px;\r\n  padding: 0 16px 16px;\r\n}\r\n\r\n.pg-model-combo {\r\n  z-index: 20;\r\n}\r\n\r\n.pg-model-combo input,\r\n.pg-param .control,\r\n.pg-config-body .control {\r\n  min-height: 36px;\r\n  border-color: color-mix(in srgb, var(--line-strong) 70%, var(--line));\r\n  background: rgba(255, 255, 255, 0.92);\r\n  color: var(--text);\r\n}\r\n\r\n.pg-model-combo input {\r\n  padding-inline: 11px;\r\n  font-family: var(--mono);\r\n}\r\n\r\n.pg-param-grid {\r\n  display: grid;\r\n  grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  gap: 12px;\r\n}\r\n\r\n.pg-param span {\r\n  color: color-mix(in srgb, var(--muted) 90%, var(--text));\r\n  font-size: 10.5px;\r\n  font-weight: 740;\r\n}\r\n\r\n.pg-param .control {\r\n  width: 100%;\r\n}\r\n\r\n.pg-param-wide {\r\n  grid-column: 1 / -1;\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  min-height: 36px;\r\n  padding: 0 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: #fff;\r\n}\r\n\r\n.pg-param:has(#pgStream) {\r\n  align-content: end;\r\n}\r\n\r\n.pg-param #pgStream,\r\n.pg-param #pgIncludeHistory {\r\n  width: 18px;\r\n  height: 18px;\r\n  margin: 8px 0 5px;\r\n  accent-color: var(--text);\r\n}\r\n\r\n.pg-system-prompt {\r\n  min-height: 112px;\r\n  padding: 10px 11px;\r\n  resize: vertical;\r\n}\r\n\r\n.pg-format-selector {\r\n  display: grid;\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  gap: 4px;\r\n  padding: 4px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface-soft);\r\n}\r\n\r\n.pg-format-btn {\r\n  min-width: 0;\r\n  min-height: 32px;\r\n  padding: 0 8px;\r\n  border: 0;\r\n  border-radius: 6px;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  font: 700 11px/1 var(--sans);\r\n  cursor: pointer;\r\n  transition: background 150ms ease, color 150ms ease, box-shadow 150ms ease, transform 120ms ease;\r\n}\r\n\r\n.pg-format-btn:hover {\r\n  background: rgba(255, 255, 255, 0.72);\r\n  color: var(--text);\r\n}\r\n\r\n.pg-format-btn:active {\r\n  transform: translateY(1px);\r\n}\r\n\r\n.pg-format-btn.is-active {\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  box-shadow: 0 1px 4px rgba(9, 9, 11, 0.08);\r\n}\r\n\r\n.playground-main {\r\n  min-height: 0;\r\n  border-radius: 10px;\r\n  overflow: hidden;\r\n  background: #fff;\r\n}\r\n\r\n.pg-workbench-head {\r\n  flex-shrink: 0;\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  gap: 16px;\r\n  padding: 14px 18px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n  background: rgba(255, 255, 255, 0.78);\r\n}\r\n\r\n.pg-status {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 7px;\r\n  min-height: 28px;\r\n  max-width: 50%;\r\n  overflow: hidden;\r\n  padding: 0 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 999px;\r\n  background: var(--surface);\r\n  color: var(--muted);\r\n  font: 680 11px/1 var(--mono);\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.pg-status::before {\r\n  width: 6px;\r\n  height: 6px;\r\n  border-radius: 999px;\r\n  background: var(--success);\r\n  content: \"\";\r\n}\r\n\r\n.pg-chat-wrap {\r\n  min-height: 0;\r\n  background: #fafafa;\r\n}\r\n\r\n.pg-chat-area {\r\n  flex: 1;\r\n  min-height: 0;\r\n  height: 100%;\r\n  overflow-y: auto;\r\n  padding: 26px 28px 30px;\r\n  scrollbar-width: thin;\r\n  scrollbar-color: var(--line-strong) transparent;\r\n}\r\n\r\n.pg-chat-area::-webkit-scrollbar {\r\n  width: 6px;\r\n}\r\n\r\n.pg-chat-area::-webkit-scrollbar-thumb {\r\n  border-radius: 999px;\r\n  background: var(--line-strong);\r\n}\r\n\r\n.pg-empty {\r\n  min-height: 100%;\r\n  gap: 12px;\r\n  color: var(--muted);\r\n}\r\n\r\n.pg-empty::before {\r\n  width: 38px;\r\n  height: 38px;\r\n  border: 1px solid color-mix(in srgb, var(--line-strong) 78%, var(--line));\r\n  background:\r\n    linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(244, 244, 245, 0.74));\r\n  box-shadow: inset 0 0 0 8px rgba(255, 255, 255, 0.45);\r\n}\r\n\r\n.pg-empty-text {\r\n  color: color-mix(in srgb, var(--muted) 88%, var(--text));\r\n  font-size: 13px;\r\n  font-weight: 660;\r\n}\r\n\r\n.pg-message {\r\n  max-width: min(780px, 92%);\r\n  margin-bottom: 18px;\r\n  animation: none;\r\n}\r\n\r\n.pg-role-assistant,\r\n.pg-role-system {\r\n  width: min(780px, 92%);\r\n}\r\n\r\n.pg-role-user {\r\n  width: fit-content;\r\n  max-width: min(520px, 74%);\r\n  margin-left: auto;\r\n}\r\n\r\n.pg-role-user .pg-message-head {\r\n  justify-content: flex-end;\r\n}\r\n\r\n.pg-message-role {\r\n  color: var(--muted);\r\n  font-size: 10px;\r\n  letter-spacing: 0.05em;\r\n}\r\n\r\n.pg-message-content,\r\n.pg-message-error {\r\n  border-radius: 8px;\r\n  font-size: 13px;\r\n  line-height: 1.68;\r\n  box-shadow: none;\r\n}\r\n\r\n.pg-message-content {\r\n  border-color: var(--line);\r\n  background: #fff;\r\n}\r\n\r\n.pg-role-user .pg-message-content {\r\n  border-color: color-mix(in srgb, var(--text) 16%, var(--line));\r\n  background: #f5f5f6;\r\n  color: var(--text);\r\n  padding: 10px 13px;\r\n}\r\n\r\n.pg-role-user .pg-message-role {\r\n  color: var(--text);\r\n}\r\n\r\n.pg-role-assistant .pg-message-content {\r\n  border-color: color-mix(in srgb, var(--success) 14%, var(--line));\r\n  background: #fff;\r\n}\r\n\r\n.pg-thinking {\r\n  margin: 0 0 8px;\r\n  border: 1px solid color-mix(in srgb, var(--compat) 18%, var(--line));\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--compat-soft) 58%, #fff);\r\n  color: var(--text);\r\n  overflow: hidden;\r\n}\r\n\r\n.pg-thinking summary {\r\n  min-height: 32px;\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n  padding: 0 11px;\r\n  color: color-mix(in srgb, var(--compat) 72%, var(--text));\r\n  cursor: pointer;\r\n  font: 700 11px/1 var(--mono);\r\n  list-style: none;\r\n}\r\n\r\n.pg-thinking summary::-webkit-details-marker {\r\n  display: none;\r\n}\r\n\r\n.pg-thinking summary::before {\r\n  width: 6px;\r\n  height: 6px;\r\n  border-radius: 999px;\r\n  background: currentColor;\r\n  opacity: 0.55;\r\n  content: \"\";\r\n}\r\n\r\n.pg-thinking-text {\r\n  max-height: 220px;\r\n  margin: 0;\r\n  padding: 10px 12px 12px;\r\n  overflow: auto;\r\n  border-top: 1px solid color-mix(in srgb, var(--compat) 12%, var(--line));\r\n  color: color-mix(in srgb, var(--muted) 82%, var(--text));\r\n  font: 12px/1.6 var(--mono);\r\n  white-space: pre-wrap;\r\n  word-break: break-word;\r\n}\r\n\r\n.pg-message-content:hover {\r\n  box-shadow: none;\r\n}\r\n\r\n.pg-stream-cursor {\r\n  display: inline-block;\r\n  width: 2px;\r\n  height: 1em;\r\n  margin-left: 3px;\r\n  vertical-align: -0.12em;\r\n  background: color-mix(in srgb, var(--text) 58%, transparent);\r\n  border-radius: 1px;\r\n  animation: none;\r\n}\r\n\r\n.pg-message-meta {\r\n  gap: 6px;\r\n  margin-top: 8px;\r\n}\r\n\r\n.pg-message-meta .badge {\r\n  min-height: 22px;\r\n  border-color: transparent;\r\n  border-radius: 6px;\r\n  background: rgba(255, 255, 255, 0.78);\r\n  color: var(--muted);\r\n}\r\n\r\n.pg-compose-panel {\r\n  flex-shrink: 0;\r\n  border-width: 1px 0 0;\r\n  border-radius: 0;\r\n  background: rgba(255, 255, 255, 0.9);\r\n  box-shadow: 0 -10px 24px rgba(9, 9, 11, 0.045);\r\n}\r\n\r\n.pg-trace-strip {\r\n  min-height: 0;\r\n  padding: 8px 18px 0;\r\n  border-top: 0;\r\n  background: transparent;\r\n}\r\n\r\n.pg-trace-strip[hidden] {\r\n  display: none !important;\r\n}\r\n\r\n.pg-trace-strip .pg-trace-item {\r\n  margin: 0 6px 8px 0;\r\n  padding: 5px 8px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface);\r\n}\r\n\r\n.pg-input-bar {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  gap: 12px;\r\n  align-items: end;\r\n  padding: 12px 18px 16px;\r\n  border-top: 0;\r\n  background: transparent;\r\n  box-shadow: none;\r\n}\r\n\r\n.pg-input {\r\n  min-height: 48px;\r\n  max-height: 150px;\r\n  padding: 12px 13px;\r\n  border-color: color-mix(in srgb, var(--line-strong) 72%, var(--line));\r\n  border-radius: 9px;\r\n  background: #fff;\r\n}\r\n\r\n.pg-input::placeholder {\r\n  color: color-mix(in srgb, var(--muted) 55%, var(--line-strong));\r\n}\r\n\r\n.pg-input-actions {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n}\r\n\r\n.pg-btn {\r\n  min-height: 40px;\r\n  border-radius: 8px;\r\n}\r\n\r\n.pg-send-btn,\r\n.pg-stop-btn {\r\n  min-height: 40px;\r\n}\r\n\r\n.pg-model-dropdown {\r\n  top: calc(100% + 6px);\r\n  border-color: var(--line);\r\n  border-radius: 8px;\r\n  box-shadow: 0 16px 34px rgba(9, 9, 11, 0.14);\r\n}\r\n\r\n.pg-model-option {\r\n  padding: 9px 11px;\r\n}\r\n\r\n.playground-view {\r\n  --pg-scroll-thumb: color-mix(in srgb, var(--muted) 14%, transparent);\r\n  --pg-scroll-thumb-hover: color-mix(in srgb, var(--muted) 28%, transparent);\r\n  --pg-scroll-track: transparent;\r\n}\r\n\r\n.playground-config,\r\n.pg-chat-area,\r\n.pg-model-dropdown,\r\n.pg-thinking-text {\r\n  scrollbar-width: thin;\r\n  scrollbar-color: var(--pg-scroll-thumb) var(--pg-scroll-track);\r\n}\r\n\r\n.playground-config::-webkit-scrollbar,\r\n.pg-chat-area::-webkit-scrollbar,\r\n.pg-model-dropdown::-webkit-scrollbar,\r\n.pg-thinking-text::-webkit-scrollbar {\r\n  width: 3px;\r\n  height: 3px;\r\n}\r\n\r\n.playground-config::-webkit-scrollbar-track,\r\n.pg-chat-area::-webkit-scrollbar-track,\r\n.pg-model-dropdown::-webkit-scrollbar-track,\r\n.pg-thinking-text::-webkit-scrollbar-track {\r\n  background: var(--pg-scroll-track);\r\n}\r\n\r\n.playground-config::-webkit-scrollbar-thumb,\r\n.pg-chat-area::-webkit-scrollbar-thumb,\r\n.pg-model-dropdown::-webkit-scrollbar-thumb,\r\n.pg-thinking-text::-webkit-scrollbar-thumb {\r\n  border-radius: 999px;\r\n  background: var(--pg-scroll-thumb);\r\n}\r\n\r\n.playground-config::-webkit-scrollbar-thumb:hover,\r\n.pg-chat-area::-webkit-scrollbar-thumb:hover,\r\n.pg-model-dropdown::-webkit-scrollbar-thumb:hover,\r\n.pg-thinking-text::-webkit-scrollbar-thumb:hover {\r\n  background: var(--pg-scroll-thumb-hover);\r\n}\r\n\r\n.playground-config::-webkit-scrollbar-corner,\r\n.pg-chat-area::-webkit-scrollbar-corner,\r\n.pg-model-dropdown::-webkit-scrollbar-corner,\r\n.pg-thinking-text::-webkit-scrollbar-corner {\r\n  background: transparent;\r\n}\r\n\r\n@media (max-width: 980px) {\r\n  .playground-view {\r\n    height: auto;\r\n    min-height: 0;\r\n  }\r\n\r\n  .playground-layout {\r\n    grid-template-columns: 1fr;\r\n    overflow: visible;\r\n  }\r\n\r\n  .playground-config {\r\n    max-height: none;\r\n  }\r\n\r\n  .playground-main {\r\n    min-height: 620px;\r\n  }\r\n}\r\n\r\n@media (max-width: 760px) {\r\n  .playground-layout {\r\n    gap: 10px;\r\n  }\r\n\r\n  .pg-config-head,\r\n  .pg-workbench-head {\r\n    padding: 13px 14px;\r\n  }\r\n\r\n  .pg-param-grid {\r\n    grid-template-columns: 1fr 1fr;\r\n  }\r\n\r\n  .pg-format-selector {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .pg-status {\r\n    max-width: 44vw;\r\n  }\r\n\r\n  .pg-chat-area {\r\n    padding: 18px 14px 20px;\r\n  }\r\n\r\n  .pg-message {\r\n    max-width: 100%;\r\n  }\r\n\r\n  .pg-input-bar {\r\n    grid-template-columns: 1fr;\r\n    padding: 10px 12px 12px;\r\n  }\r\n\r\n    .pg-input-actions {\r\n    justify-content: flex-end;\r\n  }\r\n}\r\n\r\n/* ============================================================\r\n   UI/UX Optimization Components (minimalist-ui + ui-ux-pro-max)\r\n   ============================================================ */\r\n\r\n/* G1: Status Dot — semantic color indicator */\r\n.status-dot {\r\n  display: inline-block;\r\n  width: 8px;\r\n  height: 8px;\r\n  border-radius: 50%;\r\n  flex-shrink: 0;\r\n  transition: background 200ms ease;\r\n}\r\n.status-dot.ok { background: var(--success); }\r\n.status-dot.warn { background: var(--warning); }\r\n.status-dot.bad { background: var(--danger); }\r\n.status-dot.off { background: var(--line-strong); }\r\n\r\n/* G2: Help Tip — ? icon (uses existing JS .lp-tip floating tooltip via data-tip) */\r\n.help-tip {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  width: 16px;\r\n  height: 16px;\r\n  border-radius: 50%;\r\n  background: var(--surface-soft);\r\n  color: var(--muted);\r\n  font-size: 10px;\r\n  font-weight: 700;\r\n  cursor: help;\r\n  vertical-align: middle;\r\n  margin-left: 6px;\r\n  flex-shrink: 0;\r\n  transition: background 150ms ease, color 150ms ease;\r\n}\r\n.help-tip:hover {\r\n  background: var(--surface-strong);\r\n  color: var(--text);\r\n}\r\n\r\n/* G3: Toggle Switch — iOS-style checkbox replacement */\r\n.toggle-switch {\r\n  position: relative;\r\n  display: inline-block;\r\n  width: 36px;\r\n  height: 20px;\r\n  flex-shrink: 0;\r\n}\r\n.toggle-switch input {\r\n  opacity: 0;\r\n  width: 0;\r\n  height: 0;\r\n  position: absolute;\r\n}\r\n.toggle-switch .slider {\r\n  position: absolute;\r\n  inset: 0;\r\n  background: var(--line-strong);\r\n  border-radius: 999px;\r\n  transition: background 200ms ease;\r\n  cursor: pointer;\r\n}\r\n.toggle-switch .slider::before {\r\n  content: \"\";\r\n  position: absolute;\r\n  top: 2px;\r\n  left: 2px;\r\n  width: 16px;\r\n  height: 16px;\r\n  background: #fff;\r\n  border-radius: 50%;\r\n  transition: transform 200ms ease;\r\n  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);\r\n}\r\n.toggle-switch input:checked + .slider {\r\n  background: var(--success);\r\n}\r\n.toggle-switch input:checked + .slider::before {\r\n  transform: translateX(16px);\r\n}\r\n.toggle-switch input:focus-visible + .slider {\r\n  outline: 2px solid var(--accent);\r\n  outline-offset: 2px;\r\n}\r\n\r\n/* G4: Icon Button Group — segmented control for choices */\r\n.icon-btn-group {\r\n  display: inline-flex;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  overflow: hidden;\r\n}\r\n.icon-btn-group button {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 6px;\r\n  padding: 7px 12px;\r\n  border: none;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 560;\r\n  cursor: pointer;\r\n  transition: background 150ms ease, color 150ms ease;\r\n  white-space: nowrap;\r\n}\r\n.icon-btn-group button:hover {\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n}\r\n.icon-btn-group button.is-active {\r\n  background: var(--text);\r\n  color: #fff;\r\n}\r\n.icon-btn-group button + button {\r\n  border-left: 1px solid var(--line);\r\n}\r\n.icon-btn-group button svg {\r\n  width: 14px;\r\n  height: 14px;\r\n  flex-shrink: 0;\r\n}\r\n/* Responsive: hide text labels on narrow screens, keep icons */\r\n@media (max-width: 640px) {\r\n  .icon-btn-group button span {\r\n    display: none;\r\n  }\r\n  .icon-btn-group button {\r\n    padding: 8px 10px;\r\n  }\r\n}\r\n/* Toggle switch in check-field: align with label text */\r\n.check-field .toggle-switch {\r\n  margin-right: 2px;\r\n}\r\n\r\n/* G5: Tab Nav — horizontal tab navigation */\r\n.config-tab-nav {\r\n  display: flex;\r\n  gap: 0;\r\n  border-bottom: 1px solid var(--line);\r\n  margin-bottom: 0;\r\n  overflow-x: auto;\r\n  scrollbar-width: none;\r\n}\r\n.config-tab-nav::-webkit-scrollbar {\r\n  display: none;\r\n}\r\n.config-tab-nav button {\r\n  padding: 10px 16px;\r\n  border: none;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 620;\r\n  cursor: pointer;\r\n  border-bottom: 2px solid transparent;\r\n  transition: color 150ms ease, border-color 150ms ease;\r\n  white-space: nowrap;\r\n}\r\n.config-tab-nav button:hover {\r\n  color: var(--text);\r\n}\r\n.config-tab-nav button.is-active {\r\n  color: var(--text);\r\n  border-bottom-color: var(--text);\r\n}\r\n\r\n/* G6: Collapsible Card — expandable container */\r\n.collapsible-card {\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  overflow: hidden;\r\n  transition: box-shadow 200ms ease;\r\n}\r\n.collapsible-card:hover {\r\n  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);\r\n}\r\n.collapsible-card-header {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n  padding: 12px 16px;\r\n  cursor: pointer;\r\n  user-select: none;\r\n  transition: background 150ms ease;\r\n}\r\n.collapsible-card-header:hover {\r\n  background: var(--surface-soft);\r\n}\r\n.collapsible-card-body {\r\n  max-height: 0;\r\n  overflow: hidden;\r\n  transition: max-height 250ms ease-out;\r\n}\r\n.collapsible-card.is-open .collapsible-card-body {\r\n  max-height: 5000px;\r\n}\r\n.collapsible-card .chevron {\r\n  transition: transform 200ms ease;\r\n  flex-shrink: 0;\r\n  color: var(--muted);\r\n}\r\n.collapsible-card.is-open .chevron {\r\n  transform: rotate(90deg);\r\n}\r\n\r\n/* Helper: compact label with help-tip */\r\n.label-with-tip {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 2px;\r\n}\r\n\r\n/* === Collapsible Card overrides for existing cards === */\r\n\r\n/* Config Provider Card as collapsible */\r\n.config-provider-card.collapsible-card {\r\n  display: block;\r\n  padding: 0;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  border-bottom: 1px solid var(--line);\r\n  margin-bottom: 8px;\r\n  overflow: hidden;\r\n  transition: box-shadow 200ms ease;\r\n}\r\n.config-provider-card.collapsible-card:hover {\r\n  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);\r\n}\r\n.config-provider-card .collapsible-card-header {\r\n  padding: 12px 14px;\r\n}\r\n.config-provider-body-inner {\r\n  display: grid;\r\n  gap: 12px;\r\n  padding: 14px;\r\n  border-top: 1px solid var(--line-soft);\r\n}\r\n\r\n/* Failure Policy Card as collapsible */\r\n.failure-policy-card.collapsible-card {\r\n  padding: 0;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  overflow: hidden;\r\n  margin-bottom: 8px;\r\n}\r\n.failure-policy-card .collapsible-card-header {\r\n  padding: 10px 14px;\r\n}\r\n.failure-policy-card .collapsible-card-body .failure-policy-edit-grid {\n  padding: 14px;\n  border-top: 1px solid var(--line-soft);\n}\n\n/* Policy page layout repair */\n#routingControlForm .routing-mode-grid {\n  grid-template-columns: minmax(0, 1fr) minmax(96px, 118px);\n  align-items: end;\n}\n\n#routingControlForm #routeModeGroup {\n  display: grid;\n  grid-template-columns: repeat(2, minmax(0, 1fr));\n  width: 100%;\n}\n\n#routingControlForm #routeModeGroup button {\n  justify-content: center;\n  min-width: 0;\n  padding-inline: 9px;\n}\n\n#routingControlForm #routeModeGroup button span {\n  min-width: 0;\n  overflow: hidden;\n  text-overflow: ellipsis;\n}\n\n.policy-rule-head {\n  grid-template-columns: 8px 34px minmax(0, 1fr);\n  align-items: start;\n}\n\n.policy-rule-head > .status-dot {\n  margin-top: 11px;\n}\n\n.policy-rule-head h3,\n.policy-rule-head p {\n  overflow-wrap: anywhere;\n  word-break: normal;\n}\n\n.policy-rule-head .message-text {\n  white-space: normal;\n}\n\n.failure-policy-head h3 {\n  min-width: 0;\n  overflow-wrap: anywhere;\n}\n\n.failure-policy-card .failure-policy-head {\n  display: grid;\n  grid-template-columns: 8px minmax(0, 1fr) auto 16px;\n  gap: 8px 10px;\n  align-items: center;\n}\n\n.failure-policy-card .failure-policy-head > .status-dot {\n  margin-top: 0;\n}\n\n.failure-policy-card .failure-policy-head h3 {\n  overflow-wrap: normal;\n  word-break: normal;\n}\n\n.failure-policy-card .failure-policy-head .compact-control {\n  grid-column: 2 / -1;\n  width: 100%;\n  min-width: 0;\n}\n\n.failure-policy-card .failure-policy-head .badge {\n  margin-left: 0 !important;\n}\n\n.config-side-column,\n.config-side-column > *,\n.config-side-column .config-tab-panel,\n.config-side-column .panel,\n.config-side-column details,\n.config-side-column summary,\n.config-side-column .actions {\n  box-sizing: border-box;\n  max-width: 100%;\n  min-width: 0;\n}\n\n.config-side-column .config-tab-nav {\n  width: 100%;\n  max-width: 100%;\n}\n\n.config-side-column .config-tab-panel {\n  width: 100%;\n  overflow: hidden;\n}\n\n.config-side-column .panel-head,\n.config-side-column .config-advanced-details > summary {\n  min-width: 0;\n}\n\n.config-side-column .panel-head > div,\n.config-side-column .config-advanced-details > summary span,\n.config-side-column .config-advanced-details > summary small {\n  min-width: 0;\n  overflow: hidden;\n  text-overflow: ellipsis;\n}\n\n.config-side-column .config-advanced-details > .actions {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 8px;\n}\n\n.config-side-column .config-advanced-details > .actions .button {\n  min-width: 0;\n}\n\n@media (max-width: 1120px) {\n  #routingControlForm .routing-mode-grid {\n    grid-template-columns: 1fr;\n  }\n}\n\r\n\r\n\r\n/*$vite$:1*/";
+	__vite_style__.textContent = ":root {\r\n  color-scheme: light;\r\n  --bg: #f4f4f5;\r\n  --surface: #ffffff;\r\n  --surface-raised: #fafafa;\r\n  --surface-soft: #f1f1f3;\r\n  --surface-strong: #e4e4e7;\r\n  --sidebar: #ffffff;\r\n  --sidebar-soft: #f4f4f5;\r\n  --line: #e4e4e7;\r\n  --line-soft: #f0f0f2;\r\n  --line-strong: #d4d4d8;\r\n  --text: #09090b;\r\n  --muted: #52525b;\r\n  --faint: #b97983;\r\n  --accent: #09090b;\r\n  --accent-strong: #18181b;\r\n  --accent-soft: #f4f4f5;\r\n  --success: #14795c;\r\n  --success-soft: #e6f5ee;\r\n  --warning: #d1431f;\r\n  --warning-soft: #fff3dc;\r\n  --danger: #b23a48;\r\n  --danger-soft: #fde8eb;\r\n  --info: #20d264;\r\n  --info-soft: #e8efff;\r\n  --compat: #6f55c4;\r\n  --compat-soft: #f0edff;\r\n  --metric-neutral: #2f3437;\r\n  --metric-requests: #2f3437;\r\n  --metric-success: #14795c;\r\n  --metric-failure: #b36a20;\r\n  --metric-provider: #3267c7;\r\n  --metric-token: #6f55c4;\r\n  --metric-cost: #7a5a25;\r\n  --neutral: #52525b;\r\n  --neutral-soft: #f4f4f5;\r\n  --ok: var(--success);\r\n  --warn: var(--warning);\r\n  --bad: var(--danger);\r\n  --shadow: 0 1px 3px rgba(0, 0, 0, 0.045), 0 1px 2px rgba(0, 0, 0, 0.035);\r\n  --shadow-tight: 0 8px 18px rgba(0, 0, 0, 0.055);\r\n  --mono: ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"Liberation Mono\", monospace;\r\n  --sans: system-ui, -apple-system, BlinkMacSystemFont, \"SF Pro Display\", \"SF Pro Text\", \"Helvetica Neue\", sans-serif;\r\n}\r\n\r\n* {\r\n  box-sizing: border-box;\r\n}\r\n\r\n::-webkit-scrollbar {\r\n  width: 5px;\r\n  height: 5px;\r\n}\r\n::-webkit-scrollbar-track {\r\n  background: transparent;\r\n}\r\n::-webkit-scrollbar-thumb {\r\n  background: var(--line-strong);\r\n  border-radius: 999px;\r\n}\r\n::-webkit-scrollbar-thumb:hover {\r\n  background: var(--muted);\r\n}\r\n::-webkit-scrollbar-corner {\r\n  background: transparent;\r\n}\r\nhtml {\r\n  scrollbar-width: thin;\r\n  scrollbar-color: var(--line-strong) transparent;\r\n}\r\n\r\nhtml {\r\n  scroll-behavior: smooth;\r\n}\r\n\r\nbody {\r\n  margin: 0;\r\n  min-width: 320px;\r\n  background: var(--bg);\r\n  color: var(--text);\r\n  font-family: var(--sans);\r\n  font-size: 13px;\r\n  font-variant-numeric: tabular-nums;\r\n  line-height: 1.5;\r\n  -webkit-font-smoothing: antialiased;\r\n}\r\n\r\nbutton,\r\ninput,\r\nselect {\r\n  font: inherit;\r\n}\r\n\r\nbutton,\r\ninput,\r\nselect,\r\ntextarea {\r\n  outline: none;\r\n}\r\n\r\nbutton:focus-visible,\r\ninput:focus-visible,\r\nselect:focus-visible {\r\n  box-shadow: 0 0 0 3px rgba(47, 52, 55, 0.16);\r\n}\r\n\r\n.shell {\r\n  display: grid;\r\n  grid-template-columns: 240px minmax(0, 1fr);\r\n  min-height: 100dvh;\r\n}\r\n\r\n[hidden] {\r\n  display: none !important;\r\n}\r\n\r\n.login-gate {\r\n  min-height: 100dvh;\r\n  display: grid;\r\n  place-items: center;\r\n  padding: 24px;\r\n  background: var(--bg);\r\n}\r\n\r\n.login-card {\r\n  width: min(420px, 100%);\r\n  display: grid;\r\n  gap: 16px;\r\n  padding: 26px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 10px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.login-mark {\r\n  display: grid;\r\n  width: 34px;\r\n  height: 34px;\r\n  place-items: center;\r\n  border-radius: 7px;\r\n  background: var(--text);\r\n  color: #fff;\r\n  font: 760 11px var(--mono);\r\n}\r\n\r\n.login-card h1 {\r\n  font-size: 24px;\r\n  letter-spacing: 0;\r\n}\r\n\r\n.login-card p {\r\n  margin-top: 6px;\r\n  max-width: 34rem;\r\n  color: var(--muted);\r\n  line-height: 1.45;\r\n}\r\n\r\n.auth-card {\r\n  gap: 18px;\r\n}\r\n\r\n.auth-progress {\r\n  position: relative;\r\n  height: 3px;\r\n  overflow: hidden;\r\n  border-radius: 999px;\r\n  background: var(--surface-soft);\r\n}\r\n\r\n.auth-progress::after {\r\n  position: absolute;\r\n  inset: 0;\r\n  width: 42%;\r\n  border-radius: inherit;\r\n  background: var(--accent);\r\n  content: \"\";\r\n  animation: auth-progress 1.1s ease-in-out infinite;\r\n}\r\n\r\n@keyframes auth-progress {\r\n  0% {\r\n    transform: translateX(-120%);\r\n  }\r\n  100% {\r\n    transform: translateX(260%);\r\n  }\r\n}\r\n\r\n.login-field {\r\n  display: grid;\r\n  gap: 7px;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-weight: 720;\r\n}\r\n\r\n.login-field input {\r\n  min-height: 42px;\r\n  padding: 0 11px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: #fff;\r\n  color: var(--text);\r\n  font-family: var(--mono);\r\n}\r\n\r\n.login-error {\r\n  min-height: 18px;\r\n  color: var(--danger) !important;\r\n  font-size: 12px;\r\n}\r\n\r\n.sidebar {\r\n  position: sticky;\r\n  top: 0;\r\n  height: 100dvh;\r\n  display: flex;\r\n  flex-direction: column;\r\n  border-right: 1px solid var(--line-strong);\r\n  background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);\r\n  box-shadow: 10px 0 26px rgba(9, 9, 11, 0.045);\r\n  color: var(--text);\r\n  z-index: 10;\r\n}\r\n\r\n.sidebar::after {\r\n  position: absolute;\r\n  top: 0;\r\n  right: -1px;\r\n  bottom: 0;\r\n  width: 1px;\r\n  background: linear-gradient(180deg, rgba(9, 9, 11, 0.12), rgba(9, 9, 11, 0.04));\r\n  content: \"\";\r\n  pointer-events: none;\r\n}\r\n\r\n.brand {\r\n  display: flex;\r\n  gap: 10px;\r\n  align-items: center;\r\n  padding: 24px 16px 18px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n}\r\n\r\n.brand-mark {\r\n  display: grid;\r\n  width: 24px;\r\n  height: 24px;\r\n  place-items: center;\r\n  border: 0;\r\n  border-radius: 6px;\r\n  background: var(--text);\r\n  color: #fff;\r\n  font: 760 10px var(--mono);\r\n  letter-spacing: 0;\r\n}\r\n\r\n.brand-title {\r\n  font-size: 14px;\r\n  font-weight: 720;\r\n}\r\n\r\n.brand-subtitle {\r\n  margin-top: 2px;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n}\r\n\r\n.nav {\r\n  display: grid;\r\n  gap: 3px;\r\n  padding: 12px 16px;\r\n}\r\n\r\n.nav-item {\r\n  position: relative;\r\n  width: 100%;\r\n  min-height: 38px;\r\n  padding: 8px 12px;\r\n  border: 1px solid transparent;\r\n  border-radius: 7px;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  text-align: left;\r\n  cursor: pointer;\r\n  font-weight: 560;\r\n  transition: background 160ms ease, color 160ms ease, transform 160ms ease, border-color 160ms ease;\r\n}\r\n\r\n.nav-item:hover {\r\n  border-color: var(--line-soft);\r\n  background: var(--surface);\r\n  color: var(--text);\r\n}\r\n\r\n.nav-item.is-active {\r\n  border-color: var(--line-strong);\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  font-weight: 720;\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.nav-item.is-active::before {\r\n  display: none;\r\n}\r\n\r\n.sidebar-actions {\r\n  display: grid;\r\n  grid-template-columns: 1fr;\r\n  gap: 8px;\r\n  margin-top: auto;\r\n  padding: 12px 16px 8px;\r\n  border-top: 0;\r\n}\r\n\r\n.sidebar-actions .button {\r\n  width: 100%;\r\n  min-width: 0;\r\n}\r\n\r\n.lang-toggle-btn {\r\n  font-size: 12px;\r\n  font-weight: 600;\r\n  letter-spacing: 0.02em;\r\n  opacity: 0.85;\r\n  padding: 6px 10px;\r\n}\r\n.lang-toggle-btn:hover {\r\n  opacity: 1;\r\n}\r\n\r\n.sidebar-footer {\r\n  display: flex;\r\n  gap: 9px;\r\n  align-items: center;\r\n  margin-top: 0;\r\n  padding: 6px 20px 24px;\r\n  border-top: 0;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.dot {\r\n  width: 8px;\r\n  height: 8px;\r\n  border-radius: 999px;\r\n  background: var(--neutral);\r\n}\r\n\r\n.dot.ok {\r\n  background: var(--success);\r\n}\r\n\r\n.dot.bad {\r\n  background: var(--danger);\r\n}\r\n\r\n.workspace {\r\n  min-width: 0;\r\n  width: 100%;\r\n  max-width: 1220px;\r\n  margin: 0 auto;\r\n  padding: 12px 40px 40px;\r\n}\r\n\r\n.topbar {\r\n  position: sticky;\r\n  top: 0;\r\n  z-index: 9;\r\n  display: none;\r\n  gap: 16px;\r\n  align-items: flex-start;\r\n  justify-content: space-between;\r\n  margin: -20px -20px 16px;\r\n  padding: 18px 20px 14px;\r\n  border-bottom: 1px solid var(--line);\r\n  background: rgba(244, 244, 245, 0.88);\r\n  backdrop-filter: blur(18px);\r\n}\r\n\r\nh1,\r\nh2,\r\nh3,\r\np {\r\n  margin: 0;\r\n}\r\n\r\nh1 {\r\n  font-size: 22px;\r\n  line-height: 1.15;\r\n  letter-spacing: 0;\r\n}\r\n\r\nh2 {\r\n  color: var(--text);\r\n  font-size: 14px;\r\n  line-height: 1.35;\r\n  font-weight: 720;\r\n}\r\n\r\n.topbar p,\r\n.panel-head p {\r\n  margin-top: 4px;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.mobile-settings-button,\r\n.mobile-settings-backdrop,\r\n.mobile-settings-drawer {\r\n  display: none;\r\n}\r\n\r\n.button,\r\n.icon-button {\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  cursor: pointer;\r\n  transition: background 150ms ease, border-color 150ms ease, color 150ms ease, transform 120ms ease, box-shadow 150ms ease;\r\n  touch-action: manipulation;\r\n}\r\n\r\n.button {\r\n  min-height: 36px;\r\n  padding: 0 12px;\r\n  font-size: 12.5px;\r\n  font-weight: 680;\r\n}\r\n\r\n.button.icon-action {\r\n  display: inline-grid;\r\n  width: 32px;\r\n  min-width: 32px;\r\n  height: 32px;\r\n  min-height: 32px;\r\n  place-items: center;\r\n  padding: 0;\r\n  font: 780 15px/1 var(--mono);\r\n}\r\n\r\n.button.icon-action span {\r\n  display: block;\r\n  transform: translateY(-0.5px);\r\n}\r\n\r\n.icon-svg {\r\n  width: 16px;\r\n  height: 16px;\r\n  fill: none;\r\n  stroke: currentColor;\r\n  stroke-linecap: round;\r\n  stroke-linejoin: round;\r\n  stroke-width: 2;\r\n  pointer-events: none;\r\n}\r\n\r\n.button.icon-action .icon-svg {\r\n  width: 15px;\r\n  height: 15px;\r\n}\r\n\r\n.button:hover,\r\n.icon-button:hover {\r\n  border-color: #c8c8ce;\r\n  box-shadow: var(--shadow-tight);\r\n}\r\n\r\n.button:active,\r\n.icon-button:active {\r\n  transform: translateY(1px);\r\n  box-shadow: none;\r\n}\r\n\r\n.button:disabled,\r\n.icon-button:disabled {\r\n  cursor: not-allowed;\r\n  opacity: 0.55;\r\n  transform: none;\r\n  box-shadow: none;\r\n}\r\n\r\n.button.primary {\r\n  border-color: var(--accent);\r\n  border-radius: 7px;\r\n  background: var(--accent);\r\n  color: #fff;\r\n}\r\n\r\n.button.primary:hover {\r\n  border-color: var(--accent-strong);\r\n  background: var(--accent-strong);\r\n}\r\n\r\n.button.secondary {\r\n  background: var(--surface);\r\n  color: var(--text);\r\n}\r\n\r\n.button.secondary:hover {\r\n  border-color: #c8c8ce;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.button.ghost {\r\n  border-color: transparent;\r\n  background: transparent;\r\n  color: var(--muted);\r\n}\r\n\r\n.button.ghost:hover {\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n}\r\n\r\n.button.danger {\r\n  border-color: color-mix(in srgb, var(--danger) 24%, white);\r\n  background: var(--danger-soft);\r\n  color: var(--danger);\r\n}\r\n\r\n.icon-button {\r\n  width: 34px;\r\n  height: 34px;\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  font-size: 18px;\r\n}\r\n\r\n.toast-stack {\r\n  position: fixed;\r\n  top: 18px;\r\n  left: 50%;\r\n  z-index: 1200;\r\n  display: flex;\r\n  flex-direction: column;\r\n  align-items: center;\r\n  gap: 10px;\r\n  width: min(360px, calc(100vw - 36px));\r\n  transform: translateX(-50%);\r\n  pointer-events: none;\r\n}\r\n\r\n.toast {\r\n  pointer-events: auto;\r\n  padding: 12px 14px;\r\n  border: 1px solid color-mix(in srgb, var(--danger) 22%, white);\r\n  border-radius: 11px;\r\n  background: color-mix(in srgb, var(--danger) 12%, var(--surface));\r\n  color: var(--danger);\r\n  font-size: 13px;\r\n  font-weight: 640;\r\n  line-height: 1.4;\r\n  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.14);\r\n  opacity: 0;\r\n  transform: translateY(-10px);\r\n  transition: opacity 0.2s ease, transform 0.2s ease;\r\n  width: 100%;\r\n  word-break: break-word;\r\n  overflow-wrap: anywhere;\r\n  white-space: pre-wrap;\r\n  max-height: 80vh;\r\n  overflow-y: auto;\r\n  backdrop-filter: blur(24px);\r\n  -webkit-backdrop-filter: blur(24px);\r\n}\r\n\r\n.toast.toast-in {\r\n  opacity: 1;\r\n  transform: translateY(0);\r\n}\r\n\r\n.toast.toast-leaving {\r\n  opacity: 0;\r\n  transform: translateY(-10px);\r\n}\r\n\r\n.toast[data-tone=\"ok\"] {\r\n  border-color: color-mix(in srgb, var(--success) 22%, white);\r\n  background: color-mix(in srgb, var(--success) 12%, var(--surface));\r\n  color: var(--success);\r\n}\r\n\r\n.toast[data-tone=\"warn\"] {\r\n  border-color: color-mix(in srgb, var(--warning) 22%, white);\r\n  background: color-mix(in srgb, var(--warning) 12%, var(--surface));\r\n  color: var(--warning);\r\n}\r\n\r\n.toast[data-tone=\"info\"] {\r\n  border-color: color-mix(in srgb, var(--info) 26%, white);\r\n  background: color-mix(in srgb, var(--info) 10%, var(--surface));\r\n  color: var(--info);\r\n}\r\n\r\n.notice {\r\n  padding: 11px 12px;\r\n  border: 1px solid color-mix(in srgb, var(--danger) 22%, white);\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--danger) 12%, var(--surface));\r\n  color: var(--danger);\r\n}\r\n\r\n.is-hidden {\r\n  display: none !important;\r\n}\r\n\r\n@keyframes viewFadeIn {\r\n  0% { opacity: 0; transform: translateY(4px); }\r\n  100% { opacity: 1; transform: translateY(0); }\r\n}\r\n\r\n.view {\r\n  display: none;\r\n}\r\n\r\n.view.is-active {\r\n  display: block;\r\n  animation: viewFadeIn 300ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;\r\n}\r\n\r\n.time-range-control {\r\n  display: flex;\r\n  gap: 12px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  margin-bottom: 14px;\r\n  padding: 10px 12px;\r\n  border: 1px solid var(--line);\r\n  border-left: 3px solid var(--text);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.eyebrow {\r\n  display: block;\r\n  color: var(--muted);\r\n  font-size: 10.5px;\r\n  font-weight: 700;\r\n  letter-spacing: 0.04em;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.time-range-control strong {\r\n  display: block;\r\n  margin-top: 3px;\r\n  font-size: 13px;\r\n  line-height: 1.2;\r\n}\r\n\r\n.segmented-control {\r\n  display: inline-grid;\r\n  grid-auto-flow: column;\r\n  gap: 2px;\r\n  padding: 4px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.segmented-button {\r\n  min-width: 48px;\r\n  min-height: 30px;\r\n  padding: 0 10px;\r\n  border: 0;\r\n  border-radius: 5px;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 680;\r\n  cursor: pointer;\r\n  transition: background 160ms ease, color 160ms ease, transform 120ms ease;\r\n}\r\n\r\n.segmented-button:hover {\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n}\r\n\r\n.segmented-button:active {\r\n  transform: translateY(1px);\r\n}\r\n\r\n.segmented-button.is-active {\r\n  background: var(--text);\r\n  color: #fff;\r\n}\r\n\r\n.metric-grid {\r\n  display: none;\r\n  grid-template-columns: repeat(6, minmax(0, 1fr));\r\n  gap: 14px;\r\n  margin-bottom: 24px;\r\n}\r\n\r\n.metric {\r\n  --metric-color: var(--metric-neutral);\r\n  --metric-soft: rgba(47, 52, 55, 0.045);\r\n  position: relative;\r\n  min-height: 108px;\r\n  overflow: hidden;\r\n  padding: 15px 16px;\r\n  border: 1px solid color-mix(in srgb, var(--metric-color) 24%, var(--line));\r\n  border-radius: 9px;\r\n  background:\r\n    linear-gradient(180deg, var(--metric-soft), rgba(255, 255, 255, 0) 58%),\r\n    var(--surface);\r\n  box-shadow: var(--shadow);\r\n  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;\r\n}\r\n\r\n.metric::before {\r\n  content: \"\";\r\n  position: absolute;\r\n  top: 0;\r\n  right: 0;\r\n  left: 0;\r\n  height: 2px;\r\n  background: var(--metric-color);\r\n}\r\n\r\n.metric::after {\r\n  content: \"\";\r\n  position: absolute;\r\n  right: auto;\r\n  bottom: 0;\r\n  left: 0;\r\n  width: var(--metric-progress, 0%);\r\n  height: 3px;\r\n  border-radius: 0 999px 999px 0;\r\n  background: var(--metric-color);\r\n  opacity: 0.72;\r\n  transition: width 260ms ease;\r\n}\r\n\r\n.metric:hover {\r\n  border-color: color-mix(in srgb, var(--metric-color) 42%, var(--line));\r\n  box-shadow: var(--shadow-tight);\r\n}\r\n\r\n.metric:nth-child(1) {\r\n  --metric-color: var(--metric-requests);\r\n  --metric-soft: rgba(47, 52, 55, 0.052);\r\n}\r\n\r\n.metric:nth-child(2) {\r\n  --metric-color: var(--metric-success);\r\n  --metric-soft: rgba(20, 121, 92, 0.08);\r\n}\r\n\r\n.metric:nth-child(3) {\r\n  --metric-color: var(--metric-failure);\r\n  --metric-soft: rgba(179, 106, 32, 0.085);\r\n}\r\n\r\n.metric:nth-child(4) {\r\n  --metric-color: var(--metric-provider);\r\n  --metric-soft: rgba(50, 103, 199, 0.08);\r\n}\r\n\r\n.metric:nth-child(5) {\r\n  --metric-color: var(--metric-token);\r\n  --metric-soft: rgba(111, 85, 196, 0.08);\r\n}\r\n\r\n.metric:nth-child(6) {\r\n  --metric-color: var(--metric-cost);\r\n  --metric-soft: rgba(122, 90, 37, 0.075);\r\n}\r\n\r\n.metric-label {\r\n  display: block;\r\n  color: var(--muted);\r\n  font-size: 10.5px;\r\n  font-weight: 760;\r\n  letter-spacing: 0.045em;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.metric strong {\r\n  display: block;\r\n  margin-top: 8px;\r\n  color: color-mix(in srgb, var(--metric-color) 20%, var(--text));\r\n  font-size: 28px;\r\n  font-weight: 720;\r\n  line-height: 1;\r\n  letter-spacing: 0;\r\n}\r\n\r\n.metric small {\r\n  display: block;\r\n  margin-top: 8px;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.overview-visuals {\r\n  display: grid;\r\n  grid-template-columns: repeat(5, minmax(0, 1fr));\r\n  gap: 10px;\r\n  margin: 0 0 18px;\r\n}\r\n\r\n.visual-card {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  gap: 10px;\r\n  align-items: center;\r\n  min-width: 0;\r\n  min-height: 74px;\r\n  padding: 11px 12px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 10px;\r\n  background:\r\n    linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(244, 244, 245, 0.52)),\r\n    var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.visual-card span,\r\n.visual-card small {\r\n  display: block;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 720;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.visual-card strong {\r\n  display: block;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--text);\r\n  font: 840 18px/1.16 var(--mono);\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.visual-card-icon,\r\n.visual-ring {\r\n  display: grid;\r\n  width: 42px;\r\n  height: 42px;\r\n  place-items: center;\r\n  border-radius: 12px;\r\n}\r\n\r\n.visual-card-icon {\r\n  border: 1px solid var(--line);\r\n  background: var(--surface-raised);\r\n  color: var(--neutral);\r\n}\r\n\r\n.visual-card-icon.tone-success {\r\n  border-color: color-mix(in srgb, var(--success) 18%, var(--line));\r\n  background: var(--success-soft);\r\n  color: var(--success);\r\n}\r\n\r\n.visual-card-icon.tone-warning {\r\n  border-color: color-mix(in srgb, var(--warning) 18%, var(--line));\r\n  background: var(--warning-soft);\r\n  color: var(--warning);\r\n}\r\n\r\n.visual-card-icon.tone-danger {\r\n  border-color: color-mix(in srgb, var(--danger) 18%, var(--line));\r\n  background: var(--danger-soft);\r\n  color: var(--danger);\r\n}\r\n\r\n.visual-card-icon.tone-info {\r\n  border-color: color-mix(in srgb, var(--info) 18%, var(--line));\r\n  background: var(--info-soft);\r\n  color: var(--info);\r\n}\r\n\r\n.visual-card-icon.tone-compat {\r\n  border-color: color-mix(in srgb, var(--compat) 18%, var(--line));\r\n  background: var(--compat-soft);\r\n  color: var(--compat);\r\n}\r\n\r\n.visual-ring {\r\n  --ring-color: var(--neutral);\r\n  --ring-value: 0%;\r\n  background:\r\n    radial-gradient(circle at center, var(--surface) 0 55%, transparent 56%),\r\n    conic-gradient(var(--ring-color) var(--ring-value), var(--line-soft) 0);\r\n}\r\n\r\n.visual-ring strong {\r\n  max-width: 32px;\r\n  font-size: 10.5px;\r\n  text-align: center;\r\n}\r\n\r\n.visual-ring-card.tone-success,\r\n.visual-ring-card.tone-ok {\r\n  --ring-color: var(--success);\r\n  border-color: color-mix(in srgb, var(--success) 18%, var(--line));\r\n}\r\n\r\n.visual-ring-card.tone-warn,\r\n.visual-ring-card.tone-warning {\r\n  --ring-color: var(--warning);\r\n  border-color: color-mix(in srgb, var(--warning) 18%, var(--line));\r\n}\r\n\r\n.visual-ring-card.tone-bad,\r\n.visual-ring-card.tone-danger {\r\n  --ring-color: var(--danger);\r\n  border-color: color-mix(in srgb, var(--danger) 18%, var(--line));\r\n}\r\n\r\n.visual-progress-card {\r\n  --progress-color: var(--neutral);\r\n}\r\n\r\n.visual-progress-card.tone-success,\r\n.visual-progress-card.tone-ok {\r\n  --progress-color: var(--success);\r\n  border-color: color-mix(in srgb, var(--success) 18%, var(--line));\r\n}\r\n\r\n.visual-progress-card.tone-warn,\r\n.visual-progress-card.tone-warning {\r\n  --progress-color: var(--warning);\r\n  border-color: color-mix(in srgb, var(--warning) 18%, var(--line));\r\n}\r\n\r\n.visual-progress-card.tone-bad,\r\n.visual-progress-card.tone-danger {\r\n  --progress-color: var(--danger);\r\n  border-color: color-mix(in srgb, var(--danger) 18%, var(--line));\r\n}\r\n\r\n.visual-progress {\r\n  position: relative;\r\n  height: 5px;\r\n  margin-top: 6px;\r\n  overflow: hidden;\r\n  border-radius: 999px;\r\n  background: var(--line-soft);\r\n}\r\n\r\n.visual-progress::before {\r\n  content: \"\";\r\n  position: absolute;\r\n  inset: 0 auto 0 0;\r\n  width: var(--progress, 0%);\r\n  border-radius: inherit;\r\n  background: var(--progress-color);\r\n}\r\n\r\n.token-split {\r\n  display: flex;\r\n  height: 5px;\r\n  margin-top: 6px;\r\n  overflow: hidden;\r\n  border-radius: 999px;\r\n  background: var(--compat-soft);\r\n}\r\n\r\n.token-split i,\r\n.token-split b {\r\n  display: block;\r\n  min-width: 2px;\r\n  height: 100%;\r\n}\r\n\r\n.token-split i {\r\n  background: var(--info);\r\n}\r\n\r\n.token-split b {\r\n  flex: 1;\r\n  background: var(--compat);\r\n}\r\n\r\n.overview-grid,\r\n.policy-grid,\r\n.config-grid {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 2fr) minmax(340px, 1fr);\r\n  gap: 16px 20px;\r\n}\r\n\r\n.config-grid {\r\n  grid-template-columns: minmax(460px, 1.45fr) minmax(320px, 0.85fr);\r\n  align-items: start;\r\n}\r\n\r\n.config-column {\r\n  display: grid;\r\n  gap: 16px;\r\n  align-content: start;\r\n  min-width: 0;\r\n}\r\n\r\n.config-column > .panel {\r\n  margin-bottom: 0;\r\n}\r\n\r\n.config-status-panel {\r\n  --panel-accent: var(--metric-neutral);\r\n}\r\n\r\n.model-routes-panel {\r\n  --panel-accent: var(--metric-neutral);\r\n}\r\n\r\n.config-provider-panel,\r\n.config-audit-panel,\r\n.config-advanced-panel,\r\n.global-proxy-panel,\r\n.provider-model-map-panel {\r\n  --panel-accent: var(--metric-neutral);\r\n}\r\n\r\n.panel {\r\n  --panel-accent: var(--metric-neutral);\r\n  min-width: 0;\r\n  margin-bottom: 20px;\r\n  overflow: hidden;\r\n  border: 1px solid color-mix(in srgb, var(--panel-accent) 14%, var(--line));\r\n  border-radius: 9px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.overview-grid > .panel:nth-child(1) {\r\n  --panel-accent: var(--success);\r\n}\r\n\r\n.overview-grid > .panel:nth-child(2) {\r\n  --panel-accent: var(--metric-token);\r\n}\r\n\r\n.overview-grid > .panel:nth-child(3) {\r\n  --panel-accent: var(--metric-provider);\r\n}\r\n\r\n.overview-grid > .panel:nth-child(4) {\r\n  --panel-accent: var(--danger);\r\n}\r\n\r\n.panel-wide {\r\n  grid-column: span 1;\r\n}\r\n\r\n.panel-head {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  gap: 10px 16px;\r\n  align-items: flex-start;\r\n  justify-content: space-between;\r\n  padding: 13px 18px;\r\n  border-bottom: 1px solid color-mix(in srgb, var(--panel-accent) 14%, var(--line));\r\n  background:\r\n    linear-gradient(90deg, color-mix(in srgb, var(--panel-accent) 8%, transparent), rgba(255, 255, 255, 0) 52%),\r\n    var(--surface-raised);\r\n}\r\n\r\n.panel-head h2 {\r\n  color: color-mix(in srgb, var(--panel-accent) 16%, var(--text));\r\n  font-size: 14px;\r\n  font-weight: 760;\r\n}\r\n\r\n.panel-head > div {\r\n  min-width: 0;\r\n}\r\n\r\n.panel-head .tag {\r\n  max-width: min(100%, 360px);\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n}\r\n\r\n.tag,\r\n.badge {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  min-height: 22px;\r\n  padding: 0 8px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 6px;\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  font: 680 10.5px var(--mono);\r\n  white-space: nowrap;\r\n}\r\n\r\n.badge.ok {\r\n  border-color: #bbf7d0;\r\n  background: var(--success-soft);\r\n  color: var(--success);\r\n  font-weight: 820;\r\n}\r\n\r\n.badge.warn {\r\n  border-color: #fde68a;\r\n  background: var(--warning-soft);\r\n  color: var(--warning);\r\n  font-weight: 820;\r\n}\r\n\r\n.badge.bad {\r\n  border-color: #fecaca;\r\n  background: var(--danger-soft);\r\n  color: var(--danger);\r\n  font-weight: 820;\r\n}\r\n\r\n.badge.prio-0 {\r\n  color: var(--text);\r\n}\r\n\r\n.badge.prio-1 {\r\n  color: var(--info);\r\n  border-color: color-mix(in srgb, var(--info) 30%, white);\r\n}\r\n\r\n.badge.prio-2 {\r\n  color: var(--warning);\r\n  border-color: color-mix(in srgb, var(--warning) 30%, white);\r\n}\r\n\r\n.badge.prio-3 {\r\n  color: var(--danger);\r\n  border-color: color-mix(in srgb, var(--danger) 30%, white);\r\n  font-weight: 820;\r\n}\r\n\r\n.chart {\r\n  min-height: 332px;\r\n  padding: 15px 18px 16px;\r\n  background: var(--surface);\r\n}\r\n\r\n.traffic-legend {\r\n  display: grid;\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  gap: 9px;\r\n  margin-bottom: 12px;\r\n}\r\n\r\n.traffic-legend-item {\r\n  --series-color: var(--neutral);\r\n  --series-soft: rgba(82, 82, 91, 0.055);\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 9px;\r\n  min-width: 0;\r\n  padding: 10px 11px;\r\n  border: 1px solid color-mix(in srgb, var(--series-color) 20%, var(--line));\r\n  border-radius: 8px;\r\n  background:\r\n    linear-gradient(180deg, var(--series-soft), rgba(255, 255, 255, 0) 70%),\r\n    var(--surface-raised);\r\n}\r\n\r\n.traffic-legend-item.tone-success {\r\n  --series-color: var(--success);\r\n  --series-soft: rgba(20, 121, 92, 0.075);\r\n}\r\n\r\n.traffic-legend-item.tone-danger {\r\n  --series-color: var(--danger);\r\n  --series-soft: rgba(178, 58, 72, 0.075);\r\n}\r\n\r\n.traffic-legend-item.tone-info {\r\n  --series-color: var(--info);\r\n  --series-soft: rgba(50, 103, 199, 0.075);\r\n}\r\n\r\n.traffic-legend-item.tone-compat {\r\n  --series-color: var(--compat);\r\n  --series-soft: rgba(111, 85, 163, 0.075);\r\n}\r\n\r\n.traffic-legend-item > span {\r\n  width: 28px;\r\n  height: 18px;\r\n  border-radius: 5px;\r\n  background:\r\n    linear-gradient(180deg, color-mix(in srgb, var(--series-color) 74%, white), var(--series-color));\r\n  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42);\r\n}\r\n\r\n.traffic-legend-item.tone-info > span {\r\n  background: var(--text);\r\n}\r\n\r\n.traffic-legend-item.tone-compat > span {\r\n  background: #7c3aed;\r\n}\r\n\r\n.traffic-legend-item strong,\r\n.traffic-legend-item small {\r\n  display: block;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.traffic-legend-item strong {\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-weight: 780;\r\n}\r\n\r\n.traffic-legend-item small {\r\n  margin-top: 1px;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n}\r\n\r\n.traffic-chart-shell {\r\n  overflow: hidden;\r\n  border: 1px solid color-mix(in srgb, var(--panel-accent) 12%, var(--line));\r\n  border-radius: 12px;\r\n  background:\r\n    radial-gradient(circle at 82% 4%, color-mix(in srgb, var(--info) 8%, transparent), transparent 34%),\r\n    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 250, 0.92)),\r\n    var(--surface);\r\n  box-shadow:\r\n    inset 0 1px 0 rgba(255, 255, 255, 0.78),\r\n    0 12px 28px rgba(15, 23, 42, 0.045);\r\n}\r\n\r\n.traffic-chart-shell svg {\r\n  display: block;\r\n  width: 100%;\r\n  height: 286px;\r\n}\r\n\r\n.chart-stats {\r\n  display: grid;\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  gap: 8px;\r\n  margin-bottom: 12px;\r\n}\r\n\r\n.chart-stats div {\r\n  min-width: 0;\r\n  padding: 10px 12px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.chart-stats span {\r\n  display: block;\r\n  color: var(--muted);\r\n  font-size: 10.5px;\r\n  font-weight: 700;\r\n  letter-spacing: 0.03em;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.chart-stats strong {\r\n  display: block;\r\n  margin-top: 2px;\r\n  color: var(--text);\r\n  font: 760 16px/1.15 var(--mono);\r\n}\r\n\r\n.chart > svg {\r\n  display: block;\r\n  width: 100%;\r\n  height: 248px;\r\n}\r\n\r\n.chart .axis {\r\n  stroke: color-mix(in srgb, var(--line-strong) 44%, transparent);\r\n  stroke-width: 1;\r\n}\r\n\r\n.traffic-bar {\r\n  opacity: 0.9;\r\n  rx: 4px;\r\n  shape-rendering: geometricPrecision;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.traffic-bar-success {\r\n  fill: url(\"#trafficSuccessBar\");\r\n}\r\n\r\n.traffic-bar-failed {\r\n  fill: url(\"#trafficFailedBar\");\r\n}\r\n\r\n.traffic-firstbyte-area {\r\n  fill: url(\"#trafficFirstByteArea\");\r\n  pointer-events: none;\r\n}\r\n\r\n.traffic-firstbyte-line {\r\n  fill: none;\r\n  stroke: var(--info);\r\n  stroke-linecap: round;\r\n  stroke-linejoin: round;\r\n  stroke-width: 3.4;\r\n  filter: drop-shadow(0 6px 12px color-mix(in srgb, var(--info) 18%, transparent));\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.traffic-firstbyte-dot {\r\n  fill: var(--info);\r\n  stroke: var(--surface);\r\n  stroke-width: 2.2;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.traffic-firstbyte-dot.warn,\r\n.traffic-firstbyte-dot.slow {\r\n  fill: var(--warning);\r\n}\r\n\r\n.traffic-firstbyte-label {\r\n  fill: var(--info);\r\n  font: 760 11px var(--mono);\r\n  paint-order: stroke;\r\n  stroke: var(--surface);\r\n  stroke-linejoin: round;\r\n  stroke-width: 4px;\r\n}\r\n\r\n.chart .line,\r\n.chart .success-line,\r\n.chart .fail-line,\r\n.chart .latency-line {\r\n  fill: none;\r\n  stroke-linecap: round;\r\n  stroke-linejoin: round;\r\n  stroke-width: 3.2;\r\n  filter: none;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.chart .line {\r\n  stroke: var(--text);\r\n  stroke-width: 2.2;\r\n}\r\n\r\n.chart .success-line {\r\n  stroke: var(--success);\r\n}\r\n\r\n.chart .fail-line {\r\n  stroke: var(--danger);\r\n  filter: none;\r\n}\r\n\r\n.chart .latency-line {\r\n  stroke: var(--info);\r\n}\r\n\r\n.chart .success-line-dot,\r\n.chart .fail-line-dot,\r\n.chart .latency-line-dot,\r\n.chart .latency-dot {\r\n  stroke: var(--surface);\r\n  stroke-width: 2;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.chart .success-line-dot {\r\n  fill: var(--success);\r\n}\r\n\r\n.chart .fail-line-dot {\r\n  fill: var(--danger);\r\n}\r\n\r\n.chart .latency-line-dot {\r\n  fill: var(--info);\r\n}\r\n\r\n.traffic-value-label {\r\n  font: 760 11px var(--mono);\r\n  paint-order: stroke;\r\n  stroke: var(--surface);\r\n  stroke-width: 4px;\r\n  stroke-linejoin: round;\r\n}\r\n\r\n.success-line-label {\r\n  fill: var(--success);\r\n}\r\n\r\n.fail-line-label {\r\n  fill: var(--danger);\r\n}\r\n\r\n.latency-line-label {\r\n  fill: var(--info);\r\n}\r\n\r\n.chart .latency-dot.ok {\r\n  fill: var(--success);\r\n}\r\n\r\n.chart .latency-dot.warn {\r\n  fill: var(--warning);\r\n}\r\n\r\n.chart .latency-dot.slow {\r\n  fill: var(--warning);\r\n}\r\n\r\n.chart .animated-line {\r\n  stroke-dasharray: 1;\r\n  stroke-dashoffset: 1;\r\n  animation: drawLine 680ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;\r\n}\r\n\r\n.latency-samples {\r\n  display: flex;\r\n  gap: 6px;\r\n  min-height: 38px;\r\n  margin-top: 8px;\r\n  overflow-x: auto;\r\n  padding-bottom: 2px;\r\n}\r\n\r\n.latency-sample {\r\n  --latency: 12%;\r\n  position: relative;\r\n  display: grid;\r\n  min-width: 88px;\r\n  overflow: hidden;\r\n  padding: 7px 9px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n  color: var(--text);\r\n}\r\n\r\n.latency-sample::before {\r\n  content: \"\";\r\n  position: absolute;\r\n  inset: auto 0 0 0;\r\n  height: 3px;\r\n  width: var(--latency);\r\n  background: var(--success);\r\n}\r\n\r\n.latency-sample.warn::before {\r\n  background: var(--warning);\r\n}\r\n\r\n.latency-sample.slow::before {\r\n  background: var(--warning);\r\n}\r\n\r\n.latency-sample span {\r\n  position: relative;\r\n  font: 760 12px var(--mono);\r\n}\r\n\r\n.latency-sample small {\r\n  position: relative;\r\n  margin-top: 1px;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 10px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.usage-chart {\r\n  display: grid;\r\n  gap: 13px;\r\n  padding: 14px 16px 16px;\r\n}\r\n\r\n.usage-summary {\r\n  display: grid;\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 9px;\r\n}\r\n\r\n.usage-columns {\r\n  display: grid;\r\n  grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  gap: 14px;\r\n}\r\n\r\n.usage-columns.usage-model-only {\r\n  grid-template-columns: 1fr;\r\n}\r\n\r\n.usage-columns section {\r\n  min-width: 0;\r\n}\r\n\r\n.usage-columns h3 {\r\n  margin: 0 0 8px;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 820;\r\n  letter-spacing: 0;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.usage-section-title {\r\n  display: flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  margin-bottom: 8px;\r\n}\r\n\r\n.usage-section-title h3 {\r\n  margin: 0;\r\n}\r\n\r\n.usage-section-title span {\r\n  color: var(--muted);\r\n  font: 680 10.5px var(--mono);\r\n  white-space: nowrap;\r\n}\r\n\r\n.usage-bars {\r\n  display: grid;\r\n  gap: 10px;\r\n}\r\n\r\n.usage-row {\r\n  display: grid;\r\n  gap: 9px;\r\n  min-width: 0;\r\n  padding: 11px 12px;\r\n  border: 1px solid color-mix(in srgb, var(--metric-token) 16%, #d8d8dd);\r\n  border-radius: 8px;\r\n  background:\r\n    linear-gradient(180deg, rgba(111, 85, 196, 0.045), rgba(255, 255, 255, 0) 68%),\r\n    #fff;\r\n}\r\n\r\n.usage-row-head,\r\n.usage-row-foot {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  gap: 8px;\r\n  min-width: 0;\r\n}\r\n\r\n.usage-row-head strong {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 6px;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.usage-model-name {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n}\r\n\r\n.usage-rank {\r\n  display: inline-flex;\r\n  min-width: 28px;\r\n  justify-content: center;\r\n  padding: 1px 5px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 5px;\r\n  background: var(--compat-soft);\r\n  color: var(--compat);\r\n  font: 760 10px var(--mono);\r\n}\r\n\r\n.usage-call-count,\r\n.usage-row-foot span {\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  white-space: nowrap;\r\n}\r\n\r\n.usage-row-foot {\r\n  flex-wrap: wrap;\r\n  justify-content: flex-start;\r\n  gap: 6px 12px;\r\n}\r\n\r\n.usage-row-foot strong {\r\n  color: var(--text);\r\n  font: 760 12px var(--mono);\r\n}\r\n\r\n.usage-track {\r\n  position: relative;\r\n  display: flex;\r\n  gap: 2px;\r\n  height: 7px;\r\n  overflow: hidden;\r\n  border-radius: 999px;\r\n  background: #ededf0;\r\n}\r\n\r\n.usage-fill {\r\n  display: block;\r\n  min-width: 2px;\r\n  height: 100%;\r\n  border-radius: 999px;\r\n}\r\n\r\n.usage-fill.calls {\r\n  background: linear-gradient(90deg, var(--metric-token), color-mix(in srgb, var(--metric-token) 62%, var(--text)));\r\n}\r\n\r\n.usage-track-calls {\r\n  height: 7px;\r\n}\r\n\r\n.provider-health {\r\n  display: grid;\r\n  gap: 10px;\r\n  padding: 12px;\r\n}\r\n\r\n#recentFailures.table-wrap {\r\n  overflow: visible;\r\n}\r\n\r\n.overview-summary-meta {\r\n  display: flex;\r\n  gap: 10px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  min-width: 0;\r\n  padding: 3px 2px 1px;\r\n  color: var(--muted);\r\n  font: 760 11px var(--mono);\r\n  text-transform: uppercase;\r\n}\r\n\r\n.overview-summary-meta span {\r\n  display: inline-flex;\r\n  gap: 6px;\r\n  align-items: center;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.overview-summary-meta .icon-svg {\r\n  width: 14px;\r\n  height: 14px;\r\n}\r\n\r\n.overview-jump-button {\r\n  display: inline-grid;\r\n  width: 28px;\r\n  height: 28px;\r\n  place-items: center;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  cursor: pointer;\r\n  transition: border-color 160ms ease, background 160ms ease, transform 120ms ease;\r\n}\r\n\r\n.overview-jump-button:hover {\r\n  border-color: var(--text);\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.overview-jump-button:active {\r\n  transform: translateY(1px);\r\n}\r\n\r\n.overview-provider-list,\r\n.recent-failure-list {\r\n  display: grid;\r\n  gap: 8px;\r\n}\r\n\r\n.overview-provider-row,\r\n.recent-failure-row {\r\n  --row-tone: var(--neutral);\r\n  display: grid;\r\n  gap: 10px;\r\n  align-items: center;\r\n  width: 100%;\r\n  min-width: 0;\r\n  border: 1px solid color-mix(in srgb, var(--row-tone) 16%, var(--line));\r\n  border-radius: 8px;\r\n  background:\r\n    linear-gradient(90deg, color-mix(in srgb, var(--row-tone) 7%, transparent), rgba(255, 255, 255, 0) 48%),\r\n    var(--surface);\r\n  color: var(--text);\r\n  text-align: left;\r\n  cursor: pointer;\r\n  transition: border-color 160ms ease, background 160ms ease, transform 120ms ease;\r\n}\r\n\r\n.overview-provider-row {\r\n  grid-template-columns: auto minmax(0, 1fr) auto;\r\n  padding: 10px 11px;\r\n}\r\n\r\n.recent-failure-row {\r\n  grid-template-columns: auto minmax(160px, 1fr) auto minmax(160px, 1.2fr);\r\n  padding: 10px 12px;\r\n}\r\n\r\n.overview-provider-row:hover,\r\n.recent-failure-row:hover,\r\n.overview-provider-row:focus-visible,\r\n.recent-failure-row:focus-visible {\r\n  border-color: color-mix(in srgb, var(--row-tone) 38%, var(--line-strong));\r\n  background:\r\n    linear-gradient(90deg, color-mix(in srgb, var(--row-tone) 11%, transparent), rgba(255, 255, 255, 0) 58%),\r\n    var(--surface-raised);\r\n}\r\n\r\n.overview-provider-row:active,\r\n.recent-failure-row:active {\r\n  transform: translateY(1px);\r\n}\r\n\r\n.overview-provider-row.tone-ok,\r\n.recent-failure-row.tone-success {\r\n  --row-tone: var(--success);\r\n}\r\n\r\n.overview-provider-row.tone-warn,\r\n.recent-failure-row.tone-warning {\r\n  --row-tone: var(--warning);\r\n}\r\n\r\n.overview-provider-row.tone-bad,\r\n.recent-failure-row.tone-danger {\r\n  --row-tone: var(--danger);\r\n}\r\n\r\n.overview-provider-main,\r\n.recent-failure-main {\r\n  display: grid;\r\n  gap: 2px;\r\n  min-width: 0;\r\n}\r\n\r\n.overview-provider-main strong,\r\n.recent-failure-main strong {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  font-size: 12px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.overview-provider-main small,\r\n.recent-failure-main small,\r\n.overview-provider-kpi small {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.overview-provider-kpi {\r\n  display: grid;\r\n  justify-items: end;\r\n  min-width: 46px;\r\n}\r\n\r\n.overview-provider-kpi strong {\r\n  font: 820 12px var(--mono);\r\n}\r\n\r\n.recent-failure-status {\r\n  min-width: 0;\r\n}\r\n\r\n.recent-failure-reason {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-card {\r\n  display: grid;\r\n  gap: 9px;\r\n  padding: 12px 13px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.provider-card-head {\r\n  display: flex;\r\n  justify-content: space-between;\r\n  gap: 8px;\r\n}\r\n\r\n.provider-name {\r\n  font-family: var(--mono);\r\n  font-weight: 760;\r\n}\r\n\r\n.provider-name.name-ok {\r\n  color: var(--success);\r\n}\r\n\r\n.provider-name.name-warn {\r\n  color: var(--warning);\r\n}\r\n\r\n.provider-name.name-bad {\r\n  color: var(--danger);\r\n}\r\n\r\n.provider-meta {\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.toolbar {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 8px;\r\n  margin-bottom: 14px;\r\n  padding: 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 9px;\r\n  background: var(--surface-raised);\r\n  box-shadow: var(--shadow-tight);\r\n}\r\n\r\n#requestsToolbar {\r\n  position: relative;\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  gap: 12px;\r\n  align-items: center;\r\n  margin-bottom: 16px;\r\n  padding: 11px;\r\n  border: 1px solid color-mix(in srgb, var(--line-strong) 78%, var(--line));\r\n  border-radius: 11px;\r\n  background: color-mix(in srgb, var(--surface) 92%, var(--surface-raised));\r\n  box-shadow: 0 8px 22px rgba(30, 41, 59, 0.055), 0 1px 2px rgba(30, 41, 59, 0.045);\r\n}\r\n\r\n.request-filter-primary,\r\n.request-bulk-actions,\r\n.request-status-chips,\r\n.advanced-filter-fields {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 8px;\r\n  align-items: center;\r\n  min-width: 0;\r\n}\r\n\r\n.request-filter-title {\r\n  display: grid;\r\n  gap: 1px;\r\n  min-width: 96px;\r\n  padding-right: 4px;\r\n}\r\n\r\n.request-filter-title span {\r\n  color: var(--muted);\r\n  font-size: 10px;\r\n  font-weight: 780;\r\n  letter-spacing: 0.055em;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.request-filter-title strong {\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-weight: 780;\r\n}\r\n\r\n.request-status-chips {\r\n  gap: 6px;\r\n  padding: 3px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 9px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.filter-chip {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  min-height: 28px;\r\n  padding: 0 10px;\r\n  border: 1px solid transparent;\r\n  border-radius: 7px;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 760;\r\n  cursor: pointer;\r\n  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;\r\n}\r\n\r\n.filter-chip:hover,\r\n.filter-chip:focus-visible {\r\n  border-color: var(--line);\r\n  background: var(--surface);\r\n  color: var(--text);\r\n}\r\n\r\n.filter-chip.is-active {\r\n  border-color: color-mix(in srgb, var(--text) 13%, var(--line));\r\n  background: var(--text);\r\n  color: #fff;\r\n}\r\n\r\n.filter-chip.tone-success.is-active {\r\n  border-color: color-mix(in srgb, var(--success) 36%, var(--line));\r\n  background: var(--success);\r\n}\r\n\r\n.filter-chip.tone-danger.is-active {\r\n  border-color: color-mix(in srgb, var(--danger) 38%, var(--line));\r\n  background: var(--danger);\r\n}\r\n\r\n.filter-search-field {\r\n  min-width: 0;\r\n}\r\n\r\n#requestsToolbar .control {\r\n  width: 168px;\r\n  min-height: 34px;\r\n  border-color: color-mix(in srgb, var(--info) 12%, var(--line));\r\n  background: rgba(255, 255, 255, 0.82);\r\n}\r\n\r\n#requestsToolbar .control:focus-visible {\r\n  border-color: color-mix(in srgb, var(--info) 62%, var(--line));\r\n  box-shadow: 0 0 0 3px rgba(50, 103, 199, 0.14);\r\n}\r\n\r\n#requestsToolbar .button.secondary {\r\n  border-color: color-mix(in srgb, var(--text) 86%, var(--line));\r\n  background: var(--text);\r\n  color: #fff;\r\n}\r\n\r\n#requestsToolbar .button.ghost {\r\n  color: color-mix(in srgb, var(--text) 72%, var(--muted));\r\n}\r\n\r\n.advanced-filter-box {\r\n  position: relative;\r\n}\r\n\r\n.advanced-filter-box summary {\r\n  display: inline-flex;\r\n  min-height: 34px;\r\n  align-items: center;\r\n  padding: 0 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface);\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 760;\r\n  cursor: pointer;\r\n  list-style: none;\r\n}\r\n\r\n.advanced-filter-box summary::-webkit-details-marker {\r\n  display: none;\r\n}\r\n\r\n.advanced-filter-box[open] summary {\r\n  border-color: color-mix(in srgb, var(--info) 36%, var(--line));\r\n  color: var(--text);\r\n}\r\n\r\n.advanced-filter-fields {\r\n  position: absolute;\r\n  top: calc(100% + 8px);\r\n  right: 0;\r\n  z-index: 8;\r\n  width: min(520px, calc(100vw - 48px));\r\n  padding: 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 10px;\r\n  background: var(--surface);\r\n  box-shadow: 0 14px 34px rgba(30, 41, 59, 0.14);\r\n}\r\n\r\n.request-bulk-actions {\r\n  justify-content: flex-end;\r\n  padding-left: 12px;\r\n  border-left: 1px solid var(--line-soft);\r\n}\r\n\r\n.selection-count {\r\n  min-width: 78px;\r\n  color: var(--muted);\r\n  font: 720 11px var(--mono);\r\n  text-align: right;\r\n}\r\n\r\n.request-bulk-actions .button {\r\n  gap: 6px;\r\n}\r\n\r\n.request-bulk-actions .icon-svg {\r\n  width: 15px;\r\n  height: 15px;\r\n}\r\n\r\n.sr-only {\r\n  position: absolute;\r\n  width: 1px;\r\n  height: 1px;\r\n  overflow: hidden;\r\n  clip: rect(0, 0, 0, 0);\r\n  white-space: nowrap;\r\n}\r\n\r\n.control {\r\n  min-height: 36px;\r\n  padding: 0 11px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  transition: border-color 160ms ease, box-shadow 160ms ease;\r\n}\r\n\r\n.control:hover {\r\n  border-color: #c8c8ce;\r\n}\r\n\r\n.table-wrap {\r\n  overflow: auto;\r\n}\r\n\r\n#requestsTable.table-wrap {\r\n  overflow-x: hidden;\r\n}\r\n\r\n.request-list-head {\r\n  display: flex;\r\n  gap: 12px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  padding: 10px 14px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n  background: linear-gradient(90deg, rgba(50, 103, 199, 0.04), rgba(255, 255, 255, 0));\r\n}\r\n\r\n.request-page-summary {\r\n  display: flex;\r\n  gap: 6px;\r\n  align-items: baseline;\r\n  min-width: 0;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.request-page-select {\r\n  display: inline-flex;\r\n  gap: 6px;\r\n  align-items: center;\r\n  margin-right: 8px;\r\n  padding-right: 10px;\r\n  border-right: 1px solid var(--line-soft);\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 720;\r\n  white-space: nowrap;\r\n}\r\n\r\n.request-page-select input,\r\n.request-row-select input {\r\n  width: 15px;\r\n  height: 15px;\r\n  margin: 0;\r\n  accent-color: var(--text);\r\n  cursor: pointer;\r\n}\r\n\r\n.request-page-summary strong {\r\n  color: var(--text);\r\n  font: 760 12px var(--mono);\r\n}\r\n\r\n.request-pagination {\r\n  display: inline-flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n  white-space: nowrap;\r\n}\r\n\r\n.request-page-indicator {\r\n  color: var(--muted);\r\n  font: 680 11px var(--mono);\r\n}\r\n\r\n.request-page-vitals {\r\n  display: grid;\r\n  grid-template-columns: repeat(5, minmax(0, 1fr));\r\n  gap: 8px;\r\n  padding: 10px 14px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n  background: color-mix(in srgb, var(--surface-raised) 72%, var(--surface));\r\n}\r\n\r\n.request-vital {\r\n  --vital-color: var(--neutral);\r\n  --vital: 0%;\r\n  position: relative;\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  gap: 2px 8px;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  padding: 8px 9px;\r\n  border: 1px solid color-mix(in srgb, var(--vital-color) 18%, var(--line));\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n}\r\n\r\n.request-vital::after {\r\n  content: \"\";\r\n  position: absolute;\r\n  inset: auto 0 0 0;\r\n  width: var(--vital);\r\n  height: 3px;\r\n  background: var(--vital-color);\r\n  opacity: 0.75;\r\n}\r\n\r\n.request-vital .icon-svg {\r\n  grid-row: 1 / span 2;\r\n  align-self: center;\r\n  color: var(--vital-color);\r\n}\r\n\r\n.request-vital strong {\r\n  overflow: hidden;\r\n  color: var(--text);\r\n  font: 840 13px/1 var(--mono);\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.request-vital small {\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 10px;\r\n  font-weight: 720;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.request-vital-success {\r\n  --vital-color: var(--success);\r\n}\r\n\r\n.request-vital-warning {\r\n  --vital-color: var(--warning);\r\n}\r\n\r\n.request-vital-danger {\r\n  --vital-color: var(--danger);\r\n}\r\n\r\n.request-vital-info {\r\n  --vital-color: var(--info);\r\n}\r\n\r\n.request-vital-compat {\r\n  --vital-color: var(--compat);\r\n}\r\n\r\n.request-summary-list {\r\n  display: grid;\r\n  gap: 0;\r\n}\r\n\r\n.request-summary-row {\r\n  --row-tone: var(--neutral);\r\n  display: grid;\r\n  grid-template-columns: 24px 10px minmax(180px, 1.35fr) minmax(108px, 0.55fr) minmax(145px, 0.9fr) minmax(146px, 0.72fr) 28px;\r\n  gap: 10px;\r\n  align-items: center;\r\n  width: 100%;\r\n  min-width: 0;\r\n  padding: 11px 14px;\r\n  border: 0;\r\n  border-bottom: 1px solid color-mix(in srgb, var(--line-strong) 52%, var(--line-soft));\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  text-align: left;\r\n  cursor: pointer;\r\n  transition: background 140ms ease, box-shadow 140ms ease, border-color 140ms ease;\r\n}\r\n\r\n.request-summary-row:nth-child(even) {\r\n  background: color-mix(in srgb, var(--surface-raised) 62%, var(--surface));\r\n}\r\n\r\n.request-summary-row:hover,\r\n.request-summary-row:focus-visible {\r\n  background: color-mix(in srgb, var(--info-soft) 36%, var(--surface));\r\n  box-shadow: inset 3px 0 0 var(--row-tone);\r\n}\r\n\r\n.request-summary-row.is-selected {\r\n  background: color-mix(in srgb, var(--info-soft) 56%, var(--surface));\r\n  box-shadow: inset 3px 0 0 var(--info);\r\n}\r\n\r\n.request-summary-row.tone-success {\r\n  --row-tone: var(--success);\r\n}\r\n\r\n.request-summary-row.tone-warning {\r\n  --row-tone: var(--warning);\r\n}\r\n\r\n.request-summary-row.tone-danger {\r\n  --row-tone: var(--danger);\r\n}\r\n\r\n.request-row-dot {\r\n  width: 10px;\r\n  height: 10px;\r\n  border-radius: 50%;\r\n  background: var(--row-tone);\r\n  box-shadow: 0 0 0 3px color-mix(in srgb, var(--row-tone) 14%, transparent);\r\n}\r\n\r\n.request-row-select {\r\n  display: grid;\r\n  width: 24px;\r\n  height: 24px;\r\n  place-items: center;\r\n  border: 1px solid transparent;\r\n  border-radius: 7px;\r\n  cursor: pointer;\r\n}\r\n\r\n.request-row-select:hover,\r\n.request-row-select:focus-within {\r\n  border-color: var(--line);\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.request-row-main,\r\n.request-row-status,\r\n.request-row-route,\r\n.request-row-metrics {\r\n  min-width: 0;\r\n}\r\n\r\n.request-row-main {\r\n  display: grid;\r\n  gap: 3px;\r\n}\r\n\r\n.request-row-main strong {\r\n  overflow: hidden;\r\n  font-size: 12.5px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.request-row-main small,\r\n.request-row-metrics small {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 4px 8px;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  line-height: 1.25;\r\n}\r\n\r\n.request-row-main small span {\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.request-row-status {\r\n  display: flex;\r\n  gap: 6px;\r\n  align-items: center;\r\n}\r\n\r\n.request-row-status small {\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n}\r\n\r\n.request-row-route {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n  align-items: center;\r\n}\r\n\r\n.request-provider-pill,\r\n.route-pill {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  min-width: 0;\r\n  max-width: 100%;\r\n  min-height: 22px;\r\n  padding: 2px 7px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 6px;\r\n  background: var(--surface-raised);\r\n  font: 760 11px var(--mono);\r\n}\r\n\r\n.request-provider-pill {\r\n  overflow: hidden;\r\n  color: var(--text);\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.route-pill.ok {\r\n  border-color: color-mix(in srgb, var(--success) 24%, var(--line));\r\n  background: var(--success-soft);\r\n  color: var(--success);\r\n}\r\n\r\n.route-pill.warn {\r\n  border-color: color-mix(in srgb, var(--warning) 24%, var(--line));\r\n  background: var(--warning-soft);\r\n  color: var(--warning);\r\n}\r\n\r\n.route-pill.bad {\r\n  border-color: color-mix(in srgb, var(--danger) 24%, var(--line));\r\n  background: var(--danger-soft);\r\n  color: var(--danger);\r\n}\r\n\r\n.route-pill.neutral {\r\n  color: var(--muted);\r\n}\r\n\r\n.request-row-metrics {\r\n  display: grid;\r\n  gap: 2px;\r\n  justify-items: start;\r\n}\r\n\r\n.request-row-metrics strong {\r\n  font-size: 13px;\r\n}\r\n\r\n.request-row-open {\r\n  display: grid;\r\n  width: 28px;\r\n  height: 28px;\r\n  place-items: center;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 7px;\r\n  color: var(--muted);\r\n}\r\n\r\n.requests-summary-table {\r\n  border-top: 1px solid var(--line);\r\n  table-layout: fixed;\r\n}\r\n\r\n.requests-summary-table th:nth-child(1),\r\n.requests-summary-table td:nth-child(1) {\r\n  width: 16%;\r\n}\r\n\r\n.requests-summary-table th:nth-child(2),\r\n.requests-summary-table td:nth-child(2) {\r\n  width: 15%;\r\n}\r\n\r\n.requests-summary-table th:nth-child(3),\r\n.requests-summary-table td:nth-child(3) {\r\n  width: 25%;\r\n}\r\n\r\n.requests-summary-table th:nth-child(4),\r\n.requests-summary-table td:nth-child(4) {\r\n  width: 16%;\r\n}\r\n\r\n.requests-summary-table th:nth-child(5),\r\n.requests-summary-table td:nth-child(5) {\r\n  width: 14%;\r\n}\r\n\r\n.requests-summary-table th:nth-child(6),\r\n.requests-summary-table td:nth-child(6) {\r\n  width: 14%;\r\n}\r\n\r\n.request-model-cell,\r\n.request-provider-cell,\r\n.request-route-cell,\r\n.request-status-cell {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n}\r\n\r\n.request-time-cell {\r\n  white-space: normal;\r\n}\r\n\r\n.request-usage-cell small {\r\n  display: inline;\r\n  margin-left: 7px;\r\n  color: var(--muted);\r\n  font: 680 11px var(--mono);\r\n}\r\n\r\n.request-usage-cell small::before {\r\n  content: \"/\";\r\n  margin-right: 7px;\r\n  color: var(--faint);\r\n}\r\n\r\ntable {\r\n  width: 100%;\r\n  border-collapse: collapse;\r\n}\r\n\r\nth,\r\ntd {\r\n  padding: 12px 13px;\r\n  border-bottom: 1px solid color-mix(in srgb, var(--line-strong) 58%, var(--line-soft));\r\n  text-align: left;\r\n  vertical-align: top;\r\n}\r\n\r\nth {\r\n  position: sticky;\r\n  top: 0;\r\n  z-index: 1;\r\n  background: var(--surface-raised);\r\n  color: var(--muted);\r\n  font-size: 10.5px;\r\n  font-weight: 720;\r\n  letter-spacing: 0.045em;\r\n  text-transform: uppercase;\r\n}\r\n\r\ntd {\r\n  color: var(--text);\r\n  font-size: 12.5px;\r\n}\r\n\r\ntr.clickable {\r\n  cursor: pointer;\r\n}\r\n\r\ntbody tr {\r\n  position: relative;\r\n  transition: background 140ms ease, box-shadow 140ms ease;\r\n}\r\n\r\ntbody tr:nth-child(even) {\r\n  background: rgba(244, 244, 245, 0.42);\r\n}\r\n\r\ntbody tr:hover,\r\ntr.clickable:hover {\r\n  background: color-mix(in srgb, var(--info-soft) 28%, var(--surface));\r\n  box-shadow: inset 3px 0 0 var(--info);\r\n}\r\n\r\n.mono {\r\n  font-family: var(--mono);\r\n}\r\n\r\n.muted {\r\n  color: var(--muted);\r\n}\r\n\r\n.empty {\r\n  color: var(--muted);\r\n  font-size: 13px;\r\n}\r\n\r\n.pad {\r\n  padding: 15px;\r\n}\r\n\r\n.keyword {\r\n  border-radius: 5px;\r\n  padding: 1px 4px;\r\n  font-weight: 760;\r\n}\r\n\r\n.keyword.danger,\r\n.message-text.danger,\r\n.message-chip.danger {\r\n  color: var(--danger);\r\n}\r\n\r\n.keyword.warn,\r\n.message-text.warn,\r\n.message-chip.warn {\r\n  color: var(--warning);\r\n}\r\n\r\n.keyword.info,\r\n.message-text.info,\r\n.message-chip.info {\r\n  color: var(--info);\r\n}\r\n\r\n.keyword.compat,\r\n.message-text.compat,\r\n.message-chip.compat {\r\n  color: var(--compat);\r\n}\r\n\r\n.keyword.success,\r\n.message-text.success,\r\n.message-chip.success {\r\n  color: var(--success);\r\n}\r\n\r\n.keyword.neutral,\r\n.message-text.neutral,\r\n.message-chip.neutral {\r\n  color: var(--neutral);\r\n}\r\n\r\n.keyword.muted,\r\n.message-text.muted,\r\n.message-chip.muted {\r\n  color: var(--faint);\r\n}\r\n\r\n.keyword.danger {\r\n  background: var(--danger-soft);\r\n}\r\n\r\n.keyword.warn {\r\n  background: var(--warning-soft);\r\n}\r\n\r\n.keyword.info {\r\n  background: var(--info-soft);\r\n}\r\n\r\n.keyword.compat {\r\n  background: var(--compat-soft);\r\n}\r\n\r\n.keyword.success {\r\n  background: var(--success-soft);\r\n}\r\n\r\n.message-text {\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.chip-list {\r\n  display: inline-flex;\r\n  flex-wrap: wrap;\r\n  gap: 5px;\r\n  vertical-align: middle;\r\n}\r\n\r\n.message-chip {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  min-height: 22px;\r\n  padding: 2px 7px;\r\n  border: 1px solid color-mix(in srgb, currentColor 42%, white);\r\n  border-radius: 6px;\r\n  background: color-mix(in srgb, currentColor 15%, white);\r\n  font: 780 11px var(--mono);\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-table {\r\n  display: block;\r\n  overflow: visible;\r\n  padding: 12px;\r\n}\r\n\r\n.provider-card-grid {\r\n  display: grid;\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  align-items: stretch;\r\n  gap: 12px;\r\n}\r\n\r\n.panel-pagination {\r\n  display: flex;\r\n  gap: 10px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  margin-bottom: 10px;\r\n  padding: 8px 10px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--surface-raised) 72%, var(--surface));\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.panel-pagination strong {\r\n  color: var(--text);\r\n  font-family: var(--mono);\r\n}\r\n\r\n.panel-pagination-actions {\r\n  display: inline-flex;\r\n  gap: 7px;\r\n  align-items: center;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-toolbar {\r\n  display: grid;\r\n  grid-template-columns: minmax(220px, 1.4fr) minmax(150px, 0.75fr) minmax(150px, 0.75fr) minmax(150px, 0.75fr) auto;\r\n  gap: 10px;\r\n  align-items: end;\r\n  margin: 0 12px 4px;\r\n  padding: 12px;\r\n  border: 1px solid color-mix(in srgb, var(--info) 10%, var(--line));\r\n  border-radius: 10px;\r\n  background:\r\n    linear-gradient(135deg, color-mix(in srgb, var(--info-soft) 50%, var(--surface)) 0, var(--surface) 52%),\r\n    var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.provider-search-field {\r\n  min-width: 0;\r\n}\r\n\r\n.provider-model-list {\r\n  display: grid;\r\n  gap: 10px;\r\n  padding: 14px;\r\n}\r\n\r\n.model-capability-summary {\r\n  display: grid;\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  gap: 8px;\r\n}\r\n\r\n.model-capability-card {\r\n  display: grid;\r\n  gap: 10px;\r\n  min-width: 0;\r\n  padding: 12px;\r\n  border: 1px solid var(--line);\r\n  border-left: 3px solid var(--neutral);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.model-capability-card.tone-success {\r\n  border-left-color: var(--success);\r\n}\r\n\r\n.model-capability-card.tone-danger {\r\n  border-left-color: var(--danger);\r\n}\r\n\r\n.model-chip-list {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n  min-width: 0;\r\n}\r\n\r\n.model-chip-list .tag,\r\n.model-map-chip {\r\n  max-width: 100%;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.model-map-chip {\r\n  display: grid;\r\n  gap: 2px;\r\n  min-width: 0;\r\n  padding: 5px 8px 6px;\r\n  border: 1px solid color-mix(in srgb, var(--info) 14%, var(--line-soft));\r\n  border-radius: 6px;\r\n  background: color-mix(in srgb, var(--info-soft) 36%, var(--surface));\r\n  font-size: 11px;\r\n  cursor: pointer;\r\n  transition: all 0.12s ease;\r\n}\r\n\r\n.model-map-chip:hover {\r\n  background: color-mix(in srgb, var(--info-soft) 72%, var(--surface));\r\n  border-color: color-mix(in srgb, var(--info) 45%, var(--line));\r\n  transform: translateY(-1px);\r\n  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);\r\n}\r\n\r\n.model-map-chip b,\r\n.model-map-chip small {\r\n  min-width: 0;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.model-map-chip b {\r\n  font-family: var(--mono);\r\n  font-weight: 780;\r\n}\r\n\r\n.model-map-chip small {\r\n  color: var(--muted);\r\n  font-family: var(--mono);\r\n  font-size: 10px;\r\n}\r\n\r\n.provider-model-toolbar {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 8px;\r\n  align-items: center;\r\n  min-width: 0;\r\n}\r\n\r\n.provider-model-search {\r\n  flex: 1 1 180px;\r\n  min-width: 0;\r\n}\r\n\r\n.provider-model-status-filter {\r\n  flex: 0 0 118px;\r\n}\r\n\r\n.provider-model-chip {\r\n  position: relative;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  align-items: start;\r\n  color: inherit;\r\n  font: inherit;\r\n  text-align: left;\r\n}\r\n\r\n.model-chip-toggle,\r\n.model-map-edit-button {\r\n  appearance: none;\r\n  border: 0;\r\n  background: transparent;\r\n  color: inherit;\r\n  font: inherit;\r\n}\r\n\r\n.model-chip-toggle {\r\n  display: grid;\r\n  gap: 2px;\r\n  min-width: 0;\r\n  padding: 0;\r\n  text-align: left;\r\n  cursor: pointer;\r\n}\r\n\r\n.model-map-edit-button {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  width: 22px;\r\n  height: 22px;\r\n  padding: 0;\r\n  border-radius: 5px;\r\n  color: var(--muted);\r\n  cursor: pointer;\r\n}\r\n\r\n.model-map-edit-button:hover {\r\n  color: var(--info);\r\n  background: color-mix(in srgb, var(--info-soft) 64%, transparent);\r\n}\r\n\r\n.model-chip-toggle:focus-visible,\r\n.model-map-edit-button:focus-visible {\r\n  outline: 2px solid color-mix(in srgb, var(--info) 70%, transparent);\r\n  outline-offset: 2px;\r\n}\r\n\r\n.provider-model-chip.is-disabled {\r\n  border-color: color-mix(in srgb, var(--danger) 34%, var(--line));\r\n  background: color-mix(in srgb, var(--danger-soft) 48%, var(--surface));\r\n}\r\n\r\n.provider-model-chip.is-pending {\r\n  outline: 1px dashed color-mix(in srgb, var(--warning) 70%, var(--line));\r\n  outline-offset: 2px;\r\n}\r\n\r\n.provider-model-chip.is-manual-map {\r\n  border-color: color-mix(in srgb, var(--success) 28%, var(--line));\r\n  background: color-mix(in srgb, var(--success-soft) 42%, var(--surface));\r\n}\r\n\r\n.provider-model-chip.is-disabled b {\r\n  color: color-mix(in srgb, var(--danger) 72%, var(--text));\r\n  text-decoration: line-through;\r\n  text-decoration-thickness: 2px;\r\n  text-decoration-color: var(--danger);\r\n}\r\n\r\n.model-pending-note {\r\n  color: color-mix(in srgb, var(--warning) 78%, var(--muted));\r\n}\r\n\r\n.model-price-tip {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  margin-left: 4px;\r\n  vertical-align: -2px;\r\n  color: var(--muted);\r\n  opacity: 0.55;\r\n  cursor: help;\r\n  transition: opacity 0.12s ease;\r\n}\r\n\r\n.model-price-tip .icon-svg {\r\n  width: 12px;\r\n  height: 12px;\r\n}\r\n\r\n.model-price-tip:hover {\r\n  opacity: 1;\r\n  color: var(--info, #3b82f6);\r\n}\r\n\r\n.provider-model-pill .model-price-tip {\r\n  margin-left: 6px;\r\n}\r\n\r\n.static-model-chip {\r\n  position: relative;\r\n  padding-right: 24px;\r\n}\r\n\r\n.static-model-delete {\r\n  position: absolute;\r\n  top: 4px;\r\n  right: 5px;\r\n  width: 16px;\r\n  height: 16px;\r\n  display: grid;\r\n  place-items: center;\r\n  border: 1px solid transparent;\r\n  border-radius: 999px;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  cursor: pointer;\r\n  font-size: 12px;\r\n  line-height: 1;\r\n}\r\n\r\n.static-model-delete:hover {\r\n  border-color: var(--danger);\r\n  color: var(--danger);\r\n  background: color-mix(in srgb, var(--danger) 8%, transparent);\r\n}\r\n\r\n.model-capability-error {\r\n  padding: 8px;\r\n  border: 1px solid var(--danger);\r\n  border-radius: 8px;\r\n  background: var(--danger-soft);\r\n  color: var(--danger);\r\n  font-size: 12px;\r\n  font-weight: 740;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.provider-runtime-card {\r\n  position: relative;\r\n  display: grid;\r\n  min-width: 0;\r\n  gap: 10px;\r\n  padding: 13px;\r\n  border: 1px solid color-mix(in srgb, var(--neutral) 16%, var(--line));\r\n  border-top: 3px solid var(--neutral);\r\n  border-radius: 10px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;\r\n}\r\n\r\n.provider-health-tile {\r\n  min-height: 268px;\r\n  height: 100%;\r\n  cursor: pointer;\r\n}\r\n\r\n.provider-health-tile:hover {\r\n  border-color: color-mix(in srgb, var(--info) 24%, var(--line));\r\n  box-shadow: var(--shadow-tight);\r\n  transform: translateY(-1px);\r\n}\r\n\r\n.provider-health-tile:focus-visible {\r\n  box-shadow: 0 0 0 3px rgba(50, 103, 199, 0.16), var(--shadow-tight);\r\n}\r\n\r\n.provider-runtime-card.is-available {\r\n  border-top-color: var(--success);\r\n}\r\n\r\n.provider-runtime-card.is-degraded,\r\n.provider-runtime-card.is-cooldown,\r\n.provider-runtime-card.is-unavailable {\r\n  border-top-color: var(--warning);\r\n}\r\n\r\n.provider-runtime-card.is-unavailable {\r\n  border-top-color: var(--danger);\r\n}\r\n\r\n.provider-runtime-card.is-disabled {\r\n  border-top-color: var(--faint);\r\n  opacity: 0.76;\r\n}\r\n\r\n.provider-card-topline {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr) auto;\r\n  gap: 9px;\r\n  align-items: start;\r\n  min-width: 0;\r\n}\r\n\r\n.provider-card-badges {\r\n  display: inline-flex;\r\n  flex-wrap: wrap;\r\n  justify-content: flex-end;\r\n  gap: 5px;\r\n  min-width: 0;\r\n}\r\n\r\n.provider-status-dot {\r\n  width: 9px;\r\n  height: 9px;\r\n  margin-top: 6px;\r\n  border-radius: 50%;\r\n  background: var(--neutral);\r\n  box-shadow: 0 0 0 4px color-mix(in srgb, var(--neutral) 12%, transparent);\r\n}\r\n\r\n.provider-status-dot.ok {\r\n  background: var(--success);\r\n  box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 14%, transparent);\r\n}\r\n\r\n.provider-status-dot.warn {\r\n  background: var(--warning);\r\n  box-shadow: 0 0 0 4px color-mix(in srgb, var(--warning) 16%, transparent);\r\n}\r\n\r\n.provider-status-dot.bad {\r\n  background: var(--danger);\r\n  box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 14%, transparent);\r\n}\r\n\r\n.provider-card-models {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n  min-height: 28px;\r\n  align-content: start;\r\n}\r\n\r\n.provider-model-pill,\r\n.provider-model-more,\r\n.format-chip {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  min-width: 0;\r\n  max-width: 100%;\r\n  min-height: 24px;\r\n  padding: 3px 7px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 6px;\r\n  background: var(--surface-raised);\r\n  color: var(--text);\r\n  font: 720 11px/1.2 var(--mono);\r\n}\r\n\r\n.provider-model-pill {\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-model-pill.provider-model-refreshing {\r\n  border-color: var(--accent, #3b82f6);\r\n  background: var(--surface-raised);\r\n  color: var(--text);\r\n  font-weight: 720;\r\n  gap: 6px;\r\n}\r\n\r\n.refresh-spinner {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  width: 14px;\r\n  height: 14px;\r\n  vertical-align: -2px;\r\n}\r\n\r\n.refresh-spinner .icon-svg {\r\n  width: 14px;\r\n  height: 14px;\r\n  animation: refresh-spin 0.9s linear infinite;\r\n}\r\n\r\n@keyframes refresh-spin {\r\n  from { transform: rotate(0deg); }\r\n  to { transform: rotate(360deg); }\r\n}\r\n\r\n.provider-cap-refreshing-badge {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 5px;\r\n}\r\n\r\n.model-capability-refreshing {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n  padding: 8px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 8px;\r\n  background: var(--surface-raised);\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-weight: 740;\r\n}\r\n\r\n.provider-model-more {\r\n  color: var(--info);\r\n  border-color: color-mix(in srgb, var(--info) 18%, var(--line));\r\n  background: color-mix(in srgb, var(--info-soft) 55%, var(--surface));\r\n}\r\n\r\n.format-chip {\r\n  margin-right: 4px;\r\n  min-height: 21px;\r\n  padding: 2px 6px;\r\n  color: var(--info);\r\n  border-color: color-mix(in srgb, var(--info) 18%, var(--line));\r\n  background: color-mix(in srgb, var(--info-soft) 64%, var(--surface));\r\n  font-size: 10px;\r\n}\r\n\r\n.format-chip.tone-compat {\r\n  color: var(--compat);\r\n  border-color: color-mix(in srgb, var(--compat) 18%, var(--line));\r\n  background: color-mix(in srgb, var(--compat-soft) 64%, var(--surface));\r\n}\r\n\r\n.provider-card-metrics {\r\n  display: grid;\r\n  grid-template-columns: repeat(5, minmax(0, 1fr));\r\n  gap: 5px;\r\n}\r\n\r\n.provider-card-metric {\r\n  display: grid;\r\n  grid-template-columns: 16px minmax(0, auto);\r\n  min-width: 0;\r\n  justify-content: start;\r\n  gap: 1px 3px;\r\n  align-items: center;\r\n  min-height: 39px;\r\n  padding: 7px 5px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--surface-raised) 86%, var(--surface));\r\n}\r\n\r\n.provider-card-metric small {\r\n  display: none;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 10px;\r\n  font-weight: 720;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-card-metric b {\r\n  display: grid;\r\n  width: 16px;\r\n  height: 18px;\r\n  place-items: center;\r\n  border-radius: 5px;\r\n  background: transparent;\r\n  color: var(--muted);\r\n}\r\n\r\n.provider-card-metric b .icon-svg {\r\n  width: 12px;\r\n  height: 12px;\r\n}\r\n\r\n.provider-card-metric strong {\r\n  overflow: visible;\r\n  color: var(--text);\r\n  font: 820 13px/1.15 var(--mono);\r\n  text-overflow: clip;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-card-error {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  gap: 7px;\r\n  align-items: center;\r\n  min-height: 34px;\r\n  padding: 8px;\r\n  border: 1px solid color-mix(in srgb, var(--warning) 16%, var(--line));\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--warning-soft) 56%, var(--surface));\r\n}\r\n\r\n.provider-card-error.is-empty {\r\n  border-color: var(--line-soft);\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.provider-card-error span {\r\n  color: var(--muted);\r\n  font-size: 10px;\r\n  font-weight: 780;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.provider-card-error strong {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--text);\r\n  font-size: 11px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-sparkline {\r\n  display: flex;\r\n  align-items: end;\r\n  gap: 2px;\r\n  height: 24px;\r\n  padding: 5px 0 1px;\r\n}\r\n\r\n.provider-spark {\r\n  flex: 1 1 0;\r\n  min-width: 2px;\r\n  height: 14px;\r\n  border-radius: 2px;\r\n  background: var(--line-strong);\r\n}\r\n\r\n.provider-spark.ok {\r\n  background: var(--success);\r\n}\r\n\r\n.provider-spark.warn {\r\n  background: var(--warning);\r\n}\r\n\r\n.provider-spark.bad {\r\n  background: var(--danger);\r\n}\r\n\r\n.provider-spark.neutral {\r\n  background: var(--line-strong);\r\n}\r\n\r\n.provider-card-footer {\r\n  display: flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  margin-top: auto;\r\n  padding-top: 2px;\r\n}\r\n\r\n.provider-config-state {\r\n  color: var(--muted);\r\n  font: 720 11px var(--mono);\r\n}\r\n\r\n.provider-runtime-head,\r\n.key-card-head,\r\n.failure-policy-head {\r\n  display: flex;\r\n  gap: 10px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n}\r\n\r\n.failure-policy-head {\r\n  align-items: center;\r\n}\r\n\r\n.key-card-badges {\r\n  display: inline-flex;\r\n  gap: 6px;\r\n  align-items: center;\r\n  flex-wrap: wrap;\r\n  justify-content: flex-end;\r\n}\r\n\r\n.compact-control {\r\n  width: auto;\r\n  min-width: 142px;\r\n  min-height: 32px;\r\n  padding: 0 9px;\r\n  font-family: var(--mono);\r\n  font-size: 12px;\r\n  font-weight: 720;\r\n}\r\n\r\n.provider-title-block {\r\n  min-width: 0;\r\n}\r\n\r\n.provider-runtime-actions {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n  justify-content: flex-end;\r\n}\r\n\r\n.provider-runtime-actions .button {\r\n  min-height: 30px;\r\n  padding: 0 9px;\r\n  font-size: 11.5px;\r\n}\r\n\r\n.provider-runtime-actions .button.icon-action {\r\n  width: 30px;\r\n  min-width: 30px;\r\n  height: 30px;\r\n  min-height: 30px;\r\n  padding: 0;\r\n}\r\n\r\n.provider-runtime-actions .badge {\r\n  min-height: 30px;\r\n}\r\n\r\n.provider-compact-stats {\r\n  display: grid;\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 7px;\r\n}\r\n\r\n.compact-stat {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  gap: 1px 8px;\r\n  min-width: 0;\r\n  padding: 7px 8px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.compact-stat b,\r\n.compact-stat small {\r\n  color: var(--muted);\r\n  font-size: 10.5px;\r\n  font-weight: 720;\r\n}\r\n\r\n.compact-stat strong {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--text);\r\n  font: 800 13px/1.2 var(--mono);\r\n  text-align: right;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.compact-stat small {\r\n  grid-column: 1 / -1;\r\n  color: var(--faint);\r\n}\r\n\r\n.provider-metrics,\r\n.policy-summary-grid {\r\n  display: grid;\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 8px;\r\n}\r\n\r\n.mini-metric {\r\n  min-width: 0;\r\n  padding: 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.mini-metric span {\r\n  display: block;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--text);\r\n  font-size: 11px;\r\n  font-weight: 780;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.mini-metric strong {\r\n  display: block;\r\n  min-width: 0;\r\n  margin-top: 2px;\r\n  overflow: hidden;\r\n  color: var(--text);\r\n  font: 820 17px/1.2 var(--mono);\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.mini-metric small {\r\n  display: block;\r\n  min-width: 0;\r\n  margin-top: 2px;\r\n  overflow: hidden;\r\n  color: var(--faint);\r\n  font-size: 10px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.runtime-state-strip,\r\n.policy-decision-strip {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n}\r\n\r\n.provider-runtime-details {\r\n  border-top: 1px solid var(--line-soft);\r\n  padding-top: 4px;\r\n}\r\n\r\n.provider-runtime-details > summary {\r\n  cursor: pointer;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 760;\r\n}\r\n\r\n.provider-runtime-details[open] {\r\n  display: grid;\r\n  gap: 9px;\r\n}\r\n\r\n.provider-runtime-details[open] > summary {\r\n  color: var(--text);\r\n}\r\n\r\n.format-route-list {\r\n  display: grid;\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  gap: 8px;\r\n}\r\n\r\n.format-route {\r\n  position: relative;\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  align-items: center;\r\n  gap: 2px;\r\n  min-width: 0;\r\n  padding: 9px 9px 9px 11px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 10px;\r\n  background: var(--surface);\r\n  opacity: 1;\r\n  transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease, transform 0.06s ease;\r\n}\r\n\r\n.format-route.enabled {\r\n  border-color: color-mix(in srgb, var(--info, #3b82f6) 70%, var(--line));\r\n  background: var(--success-soft);\r\n  box-shadow: 0 0 0 1px color-mix(in srgb, var(--info, #3b82f6) 22%, transparent) inset;\r\n}\r\n\r\n.format-route.enabled b {\r\n  color: black;\r\n}\r\n\r\n.format-route.disabled {\r\n  opacity: 0.55;\r\n}\r\n\r\n.format-route-main {\r\n  display: grid;\r\n  gap: 2px;\r\n  min-width: 0;\r\n}\r\n\r\n.format-route-main b,\r\n.format-route-main small {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.format-route-main b {\r\n  font: 760 11px var(--mono);\r\n}\r\n\r\n.format-route-main small {\r\n  color: var(--muted);\r\n  font: 11px var(--mono);\r\n}\r\n\r\n/* Checkmark badge shown on enabled interactive cards so the selected state is\r\n   unmistakable. Pure CSS, no extra markup needed. */\r\n.format-route.is-interactive.enabled::after {\r\n  content: \"\";\r\n  position: absolute;\r\n  top: 7px;\r\n  right: 42px;\r\n  width: 9px;\r\n  height: 9px;\r\n  border-radius: 50%;\r\n  background: var(--success);\r\n  box-shadow: 0 0 0 2px color-mix(in srgb, var(--info, #3b82f6) 18%, transparent);\r\n}\r\n\r\n.format-route.is-interactive {\r\n  cursor: pointer;\r\n  user-select: none;\r\n}\r\n\r\n.format-route.is-interactive:hover {\r\n  border-color: color-mix(in srgb, var(--info, #3b82f6) 55%, var(--line));\r\n  background: color-mix(in srgb, var(--info, #3b82f6) 6%, var(--surface));\r\n}\r\n\r\n.format-route.is-interactive.enabled:hover {\r\n  background: color-mix(in srgb, var(--info, #3b82f6) 18%, var(--surface));\r\n}\r\n\r\n.format-route.is-interactive:active {\r\n  transform: translateY(1px);\r\n}\r\n\r\n.format-route.is-interactive:focus-visible {\r\n  outline: 2px solid var(--info, #3b82f6);\r\n  outline-offset: 1px;\r\n}\r\n\r\n.format-route-edit {\r\n  position: relative;\r\n  z-index: 1;\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  width: 28px;\r\n  height: 28px;\r\n  margin-left: 8px;\r\n  border: 1px solid transparent;\r\n  border-radius: 7px;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  cursor: pointer;\r\n  transition: color 0.14s ease, background 0.14s ease, border-color 0.14s ease, transform 0.06s ease;\r\n}\r\n\r\n.format-route-edit:hover {\r\n  border-color: var(--line);\r\n  background: var(--surface-raised);\r\n  color: var(--text);\r\n}\r\n\r\n.format-route-edit:active {\r\n  transform: translateY(1px);\r\n}\r\n\r\n.format-route-edit:focus-visible {\r\n  outline: 2px solid var(--info, #3b82f6);\r\n  outline-offset: 1px;\r\n}\r\n\r\n.format-route.is-interactive.is-busy {\r\n  opacity: 0.6;\r\n  pointer-events: none;\r\n}\r\n\r\n.format-route-hint {\r\n  display: block;\r\n  margin-top: 3px;\r\n  font: 600 9px/1.3 var(--mono);\r\n  color: var(--muted);\r\n  opacity: 0.62;\r\n  letter-spacing: 0.02em;\r\n}\r\n\r\n.provider-key-list {\r\n  display: grid;\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  gap: 8px;\r\n}\r\n\r\n.provider-key-card {\r\n  display: grid;\r\n  gap: 9px;\r\n  min-width: 0;\r\n  padding: 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.key-title {\r\n  color: var(--text);\r\n  font-weight: 760;\r\n}\r\n\r\n.provider-key-card .provider-meta {\r\n  font-family: var(--mono);\r\n  color: var(--text);\r\n}\r\n\r\n.key-card-grid {\r\n  display: grid;\r\n  grid-template-columns: auto 1fr;\r\n  gap: 4px 10px;\r\n  font-size: 12px;\r\n}\r\n\r\n.key-card-grid span {\r\n  color: var(--muted);\r\n}\r\n\r\n.key-card-grid strong {\r\n  min-width: 0;\r\n  color: var(--text);\r\n  font-family: var(--mono);\r\n  text-align: right;\r\n}\r\n\r\n.key-actions {\r\n  justify-content: flex-start;\r\n}\r\n\r\n.key-probe-model {\r\n  position: relative;\r\n  flex: 1 1 170px;\r\n  min-width: 0;\r\n}\r\n\r\n.key-probe-trigger {\r\n  width: 100%;\r\n  max-width: 100%;\r\n  justify-content: flex-start;\r\n  text-align: left;\r\n}\r\n\r\n.key-probe-trigger span {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.key-probe-menu {\r\n  position: absolute;\r\n  z-index: 40;\r\n  top: calc(100% + 5px);\r\n  left: 0;\r\n  width: min(360px, calc(100vw - 32px));\r\n  max-width: 100%;\r\n  padding: 7px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n  box-shadow: 0 14px 34px color-mix(in srgb, var(--shadow) 22%, transparent);\r\n}\r\n\r\n.key-probe-search {\r\n  width: 100%;\r\n  min-height: 30px;\r\n  margin-bottom: 6px;\r\n  font-family: var(--mono);\r\n  font-size: 12px;\r\n}\r\n\r\n.key-probe-option-list {\r\n  display: grid;\r\n  gap: 3px;\r\n  max-height: min(260px, 42vh);\r\n  overflow-y: auto;\r\n  overscroll-behavior: contain;\r\n  scrollbar-width: thin;\r\n  scrollbar-color: color-mix(in srgb, var(--muted) 35%, transparent) transparent;\r\n}\r\n\r\n.key-probe-option-list::-webkit-scrollbar {\r\n  width: 6px;\r\n}\r\n\r\n.key-probe-option-list::-webkit-scrollbar-thumb {\r\n  border-radius: 999px;\r\n  background: color-mix(in srgb, var(--muted) 28%, transparent);\r\n}\r\n\r\n.key-probe-option,\r\n.key-probe-empty {\r\n  min-width: 0;\r\n  min-height: 28px;\r\n  padding: 0 7px;\r\n  border: 1px solid transparent;\r\n  border-radius: 5px;\r\n  background: transparent;\r\n  color: var(--text);\r\n  font: 720 11.5px/1.2 var(--mono);\r\n  text-align: left;\r\n}\r\n\r\n.key-probe-option {\r\n  display: flex;\r\n  align-items: center;\r\n  cursor: pointer;\r\n}\r\n\r\n.key-probe-option span {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.key-probe-option:hover,\r\n.key-probe-option.is-selected {\r\n  border-color: color-mix(in srgb, var(--info) 42%, transparent);\r\n  background: var(--info-soft);\r\n  color: var(--info);\r\n}\r\n\r\n.key-probe-empty {\r\n  display: grid;\r\n  place-items: center start;\r\n  color: var(--muted);\r\n}\r\n\r\n.provider-edit-drawer {\r\n  border-top: 1px solid var(--line);\r\n  padding-top: 2px;\r\n}\r\n\r\n.provider-edit-drawer summary,\r\n.raw-config-details summary {\r\n  cursor: pointer;\r\n  color: var(--text);\r\n  font-weight: 820;\r\n}\r\n\r\n.provider-edit-panel {\r\n  display: grid;\r\n  gap: 10px;\r\n  margin-top: 10px;\r\n  padding: 12px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.provider-inline-form {\r\n  display: grid;\r\n  grid-template-columns: minmax(220px, 1.2fr) minmax(180px, 0.8fr) auto auto;\r\n  gap: 8px;\r\n  align-items: end;\r\n}\r\n\r\n.provider-inline-key-form {\r\n  display: grid;\r\n  grid-template-columns: minmax(180px, 1fr) minmax(180px, 0.9fr) auto;\r\n  gap: 8px;\r\n  align-items: end;\r\n}\r\n\r\n.provider-key-chips {\r\n  padding: 2px 0;\r\n}\r\n\r\n.key-proxy-list {\r\n  display: grid;\r\n  gap: 7px;\r\n}\r\n\r\n.key-proxy-row {\r\n  display: grid;\r\n  grid-template-columns: minmax(150px, 0.85fr) minmax(220px, 1fr) auto;\r\n  gap: 8px;\r\n  align-items: end;\r\n  padding: 8px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface);\r\n}\r\n\r\n.key-proxy-id {\r\n  display: grid;\r\n  gap: 2px;\r\n  min-width: 0;\r\n}\r\n\r\n.key-proxy-id strong {\r\n  color: var(--text);\r\n  font-size: 12px;\r\n}\r\n\r\n.key-proxy-id span {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.key-proxy-field {\r\n  min-width: 0;\r\n}\r\n\r\n.provider-format-edit-list {\r\n  grid-template-columns: 1fr;\r\n}\r\n\r\n.actions {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n  justify-content: flex-end;\r\n}\r\n\r\n.actions .button {\r\n  min-height: 31px;\r\n  font-size: 12px;\r\n}\r\n\r\n.policy-summary-grid {\r\n  padding: 14px 14px 0;\r\n}\r\n\r\n.policy-controls {\r\n  padding: 14px;\r\n}\r\n\r\n.policy-control-grid {\r\n  display: grid;\r\n  grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  gap: 12px;\r\n}\r\n\r\n.policy-control-card {\r\n  display: grid;\r\n  gap: 11px;\r\n  min-width: 0;\r\n  padding: 13px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.policy-control-card-head h3 {\r\n  margin: 0 0 4px;\r\n  font-size: 14px;\r\n  font-weight: 820;\r\n}\r\n\r\n.policy-control-card-head p {\r\n  margin: 0;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  line-height: 1.4;\r\n}\r\n\r\n.form-pair-grid {\r\n  display: grid;\r\n  grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  gap: 9px;\r\n}\r\n\r\n.policy-advanced {\r\n  border-top: 1px solid var(--line-soft);\r\n  padding-top: 10px;\r\n  margin-top: 2px;\r\n}\r\n\r\n.policy-advanced > summary {\r\n  cursor: pointer;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 720;\r\n  user-select: none;\r\n  padding: 2px 0;\r\n  list-style: none;\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 5px;\r\n}\r\n\r\n.policy-advanced > summary::before {\r\n  content: \"▸\";\r\n  font-size: 10px;\r\n  transition: transform 140ms ease;\r\n  color: var(--muted);\r\n}\r\n\r\n.policy-advanced[open] > summary::before {\r\n  transform: rotate(90deg);\r\n}\r\n\r\n.policy-advanced > summary:hover {\r\n  color: var(--text);\r\n}\r\n\r\n.policy-card-list,\r\n.failure-policy-list {\r\n  display: grid;\r\n  gap: 10px;\r\n  padding: 14px;\r\n}\r\n\r\n.policy-rule-card,\r\n.failure-policy-card {\r\n  display: grid;\r\n  gap: 10px;\r\n  min-width: 0;\r\n  padding: 12px;\r\n  border: 1px solid var(--line);\r\n  border-left: 3px solid var(--neutral);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.policy-rule-card.tone-danger,\r\n.failure-policy-card.tone-danger {\r\n  border-left-color: var(--danger);\r\n}\r\n\r\n.policy-rule-card.tone-warn,\r\n.failure-policy-card.tone-warn {\r\n  border-left-color: var(--warning);\r\n}\r\n\r\n.policy-rule-card.tone-info,\r\n.failure-policy-card.tone-info {\r\n  border-left-color: var(--info);\r\n}\r\n\r\n.policy-rule-card.tone-compat,\r\n.failure-policy-card.tone-compat {\r\n  border-left-color: var(--compat);\r\n}\r\n\r\n.policy-rule-card.tone-success,\r\n.failure-policy-card.tone-success {\r\n  border-left-color: var(--success);\r\n}\r\n\r\n.policy-rule-head {\r\n  display: grid;\r\n  grid-template-columns: 34px minmax(0, 1fr);\r\n  gap: 10px;\r\n}\r\n\r\n.rule-index {\r\n  display: grid;\r\n  width: 30px;\r\n  height: 30px;\r\n  place-items: center;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  color: var(--muted);\r\n  font: 760 11px var(--mono);\r\n}\r\n\r\n.policy-rule-head h3,\r\n.failure-policy-head h3 {\r\n  margin: 0;\r\n  color: var(--text);\r\n  font-size: 14px;\r\n  font-weight: 820;\r\n  line-height: 1.35;\r\n}\r\n\r\n.policy-rule-head p,\r\n.failure-policy-card p {\r\n  margin-top: 3px;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  line-height: 1.45;\r\n}\r\n\r\n.policy-rule-meta,\r\n.failure-policy-grid {\r\n  display: grid;\r\n  grid-template-columns: minmax(68px, auto) minmax(0, 1fr);\r\n  gap: 5px 10px;\r\n  padding-top: 2px;\r\n  font-size: 12px;\r\n}\r\n\r\n.policy-rule-meta span,\r\n.failure-policy-grid span {\r\n  color: var(--muted);\r\n}\r\n\r\n.policy-rule-meta strong,\r\n.failure-policy-grid strong {\r\n  min-width: 0;\r\n  color: var(--text);\r\n  font-family: var(--mono);\r\n  font-weight: 780;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.failure-policy-edit-grid {\r\n  display: grid;\r\n  grid-template-columns: minmax(130px, 1fr) minmax(130px, 1fr);\r\n  gap: 8px;\r\n  align-items: end;\r\n}\r\n\r\n.failure-disable-check {\r\n  min-height: 36px;\r\n}\r\n\r\n.failure-policy-edit-grid .button {\r\n  justify-self: start;\r\n}\r\n\r\n.code-block {\r\n  box-sizing: border-box;\r\n  width: 100%;\r\n  max-width: 100%;\r\n  min-width: 0;\r\n  max-height: 620px;\r\n  margin: 0;\r\n  overflow: auto;\r\n  overflow-wrap: normal;\r\n  padding: 15px;\r\n  background: #18181b;\r\n  color: #f4f4f5;\r\n  font: 12px/1.58 var(--mono);\r\n  white-space: pre;\r\n}\r\n\r\n.form-grid {\r\n  display: grid;\r\n  gap: 9px;\r\n  padding: 15px;\r\n}\r\n\r\n.form-actions {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 8px;\r\n  align-items: center;\r\n}\r\n\r\n.provider-create-form {\r\n  display: grid;\r\n  grid-template-columns: minmax(150px, 0.8fr) minmax(260px, 1.4fr);\r\n  gap: 10px 12px;\r\n  padding: 13px 16px 14px;\r\n}\r\n\r\n.provider-create-format {\r\n  grid-column: 1 / -1;\r\n}\r\n\r\n.provider-create-form .control {\r\n  min-height: 34px;\r\n}\r\n\r\n.provider-create-actions {\r\n  grid-column: 1 / -1;\r\n}\r\n\r\n.provider-create-form .control {\r\n  width: 100%;\r\n  min-width: 0;\r\n}\r\n\r\n.field-help,\r\n.form-note {\r\n  color: var(--muted);\r\n  font-size: 10.5px;\r\n  font-weight: 560;\r\n  line-height: 1.25;\r\n}\r\n\r\n.field-help {\r\n  margin-top: 1px;\r\n}\r\n\r\n.form-note {\r\n  max-width: 38rem;\r\n}\r\n\r\n.global-proxy-form {\r\n  display: grid;\r\n  grid-template-columns: minmax(220px, 1fr) auto;\r\n  gap: 8px;\r\n  align-items: end;\r\n  padding: 12px 14px 14px;\r\n}\r\n\r\n.global-proxy-form .form-note {\r\n  grid-column: 1 / -1;\r\n}\r\n\r\n.config-primary-panel .panel-head,\r\n.model-routes-panel .panel-head,\r\n.provider-model-map-panel .panel-head,\r\n.config-provider-panel .panel-head,\r\n.global-proxy-panel .panel-head,\r\n.config-status-panel .panel-head,\r\n.config-audit-panel .panel-head {\r\n  padding-top: 11px;\r\n  padding-bottom: 10px;\r\n}\r\n\r\n.model-route-form {\r\n  display: grid;\r\n  grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.4fr) minmax(150px, 0.8fr) auto;\r\n  gap: 9px;\r\n  align-items: end;\r\n  padding: 10px 0 0;\r\n}\r\n\r\n.model-route-editor {\r\n  padding: 10px 12px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n}\r\n\r\n.model-route-editor > summary {\r\n  cursor: pointer;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-weight: 780;\r\n}\r\n\r\n.config-side-column .model-route-form {\r\n  grid-template-columns: minmax(0, 1fr);\r\n  align-items: stretch;\r\n  padding: 10px 0 0;\r\n}\r\n\r\n.config-side-column .model-route-form .form-actions {\r\n  justify-content: flex-start;\r\n}\r\n\r\n.model-route-form .form-actions {\r\n  align-self: end;\r\n}\r\n\r\n.model-route-list {\r\n  display: grid;\r\n  gap: 6px;\r\n  padding: 10px;\r\n}\r\n\r\n.provider-model-map-list {\r\n  display: grid;\r\n  gap: 6px;\r\n  padding: 10px;\r\n}\r\n\r\n.config-provider-page-list,\r\n.model-route-page-list,\r\n.provider-model-map-page-list,\r\n.audit-page-list {\r\n  display: grid;\r\n  gap: 6px;\r\n}\r\n\r\n.model-route-hint {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n  align-items: center;\r\n  padding: 7px 8px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 720;\r\n}\r\n\r\n.model-route-card {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  gap: 8px;\r\n  align-items: center;\r\n  padding: 9px 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.model-route-main,\r\n.model-route-side {\r\n  min-width: 0;\r\n}\r\n\r\n.model-route-main {\r\n  display: grid;\r\n  gap: 5px;\r\n}\r\n\r\n.model-route-provider-list {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n}\r\n\r\n.model-route-side {\r\n  display: grid;\r\n  gap: 5px;\r\n  justify-items: end;\r\n}\r\n\r\n.provider-model-map-card {\r\n  display: grid;\r\n  gap: 8px;\r\n  padding: 9px 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.provider-model-map-head {\r\n  display: flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  min-width: 0;\r\n}\r\n\r\n.provider-model-map-pairs {\r\n  display: grid;\r\n  gap: 5px;\r\n}\r\n\r\n.provider-model-map-pair {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);\r\n  gap: 7px;\r\n  align-items: center;\r\n  padding: 6px 7px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n  font-size: 11px;\r\n}\r\n\r\n.provider-model-map-pair span,\r\n.provider-model-map-pair strong {\r\n  min-width: 0;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.provider-model-map-pair strong {\r\n  color: var(--text);\r\n  font-weight: 760;\r\n}\r\n\r\n.actions.tight {\r\n  gap: 4px;\r\n}\r\n\r\n.compact-action {\r\n  min-height: 30px;\r\n  padding: 0 9px;\r\n  font-size: 11.5px;\r\n}\r\n\r\n.pad-slim {\r\n  padding: 8px 2px 0;\r\n}\r\n\r\n.config-provider-list {\r\n  display: grid;\r\n  gap: 6px;\r\n  padding: 10px;\r\n}\r\n\r\n.config-summary {\r\n  padding: 14px;\r\n}\r\n\r\n.config-summary-compact {\r\n  padding: 10px;\r\n}\r\n\r\n.overlay-safety {\r\n  padding: 12px 0 0;\r\n}\r\n\r\n.config-summary-grid {\r\n  display: grid;\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 8px;\r\n}\r\n\r\n.config-status-grid {\r\n  grid-template-columns: repeat(2, minmax(0, 1fr));\r\n}\r\n\r\n.config-summary-compact .mini-metric {\r\n  padding: 8px;\r\n}\r\n\r\n.config-summary-compact .mini-metric strong {\r\n  font-size: 14px;\r\n}\r\n\r\n.config-path-row {\r\n  display: grid;\r\n  grid-template-columns: 110px minmax(0, 1fr);\r\n  gap: 10px;\r\n  margin-top: 8px;\r\n  padding: 8px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n  font-size: 12px;\r\n}\r\n\r\n.config-path-row span {\r\n  color: var(--muted);\r\n  font-weight: 720;\r\n}\r\n\r\n.config-path-row strong {\r\n  min-width: 0;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.config-provider-summary-card {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto auto;\r\n  gap: 7px 10px;\r\n  align-items: center;\r\n  min-height: 66px;\r\n  padding: 8px 10px;\r\n  border: 1px solid var(--line);\r\n  border-left: 3px solid var(--info);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.config-provider-summary-main,\r\n.config-provider-summary-keys,\r\n.config-provider-summary-formats {\r\n  min-width: 0;\r\n}\r\n\r\n.config-provider-summary-main {\r\n  grid-column: 1;\r\n  grid-row: 1;\r\n}\r\n\r\n.config-provider-summary-badges {\r\n  grid-column: 2;\r\n  grid-row: 1;\r\n  justify-self: end;\r\n  display: inline-flex;\r\n  flex-wrap: wrap;\r\n  justify-content: flex-end;\r\n  gap: 5px;\r\n}\r\n\r\n.config-provider-summary-keys,\r\n.config-provider-summary-formats {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.config-provider-summary-keys {\r\n  grid-column: 1;\r\n  grid-row: 2;\r\n}\r\n\r\n.config-provider-summary-formats {\r\n  grid-column: 2 / span 2;\r\n  grid-row: 2;\r\n  justify-self: end;\r\n}\r\n\r\n.config-provider-summary-card > .button {\r\n  grid-column: 3;\r\n  grid-row: 1;\r\n  justify-self: end;\r\n}\r\n\r\n.config-provider-summary-card .provider-name,\r\n.config-provider-summary-card .provider-meta {\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.audit-list {\r\n  display: grid;\r\n  gap: 8px;\r\n  max-height: 460px;\r\n  overflow: auto;\r\n  padding: 12px;\r\n}\r\n\r\n.audit-item {\r\n  min-width: 0;\r\n  padding: 9px 10px;\r\n  border: 1px solid var(--line);\r\n  border-left-width: 3px;\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n}\r\n\r\n.audit-item.tone-ok {\r\n  border-left-color: var(--success);\r\n}\r\n\r\n.audit-item.tone-bad {\r\n  border-left-color: var(--danger);\r\n}\r\n\r\n.audit-item-title {\r\n  display: flex;\r\n  min-width: 0;\r\n  gap: 8px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n}\r\n\r\n.audit-item-title .mono {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  font-size: 11.5px;\r\n}\r\n\r\n.audit-item-meta {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px 10px;\r\n  margin-top: 4px;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 700;\r\n}\r\n\r\n.audit-detail-details,\r\n.audit-older {\r\n  margin-top: 7px;\r\n}\r\n\r\n.audit-detail-details > summary,\r\n.audit-older > summary {\r\n  cursor: pointer;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 760;\r\n}\r\n\r\n.audit-older-list {\r\n  display: grid;\r\n  gap: 8px;\r\n  margin-top: 8px;\r\n}\r\n\r\n.audit-detail {\r\n  max-height: 120px;\r\n  margin: 6px 0 0;\r\n  overflow: auto;\r\n  padding: 8px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n  color: var(--text);\r\n  font: 11px/1.45 var(--mono);\r\n  white-space: pre-wrap;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.audit-error {\r\n  margin-top: 8px;\r\n  color: var(--danger);\r\n  font-size: 12px;\r\n  font-weight: 750;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.raw-config-details {\r\n  min-width: 0;\r\n  padding: 14px;\r\n}\r\n\r\n.raw-config-details .code-block {\r\n  margin-top: 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n}\r\n\r\n.config-advanced-panel {\r\n  min-width: 0;\r\n  background: color-mix(in srgb, var(--surface-raised) 66%, var(--surface));\r\n}\r\n\r\n.config-advanced-details {\r\n  min-width: 0;\r\n  padding: 13px 14px;\r\n}\r\n\r\n.config-advanced-details > summary {\r\n  display: grid;\r\n  gap: 2px;\r\n  cursor: pointer;\r\n  list-style: none;\r\n}\r\n\r\n.config-advanced-details > summary::-webkit-details-marker {\r\n  display: none;\r\n}\r\n\r\n.config-advanced-details > summary span {\r\n  color: var(--text);\r\n  font-size: 13px;\r\n  font-weight: 760;\r\n}\r\n\r\n.config-advanced-details > summary small {\r\n  color: var(--muted);\r\n  font-size: 11.5px;\r\n}\r\n\r\n.config-advanced-details > .actions {\r\n  margin-top: 12px;\r\n}\r\n\r\n.nested-details {\r\n  padding: 10px 0 0;\r\n}\r\n\r\n.config-provider-card {\r\n  display: grid;\r\n  gap: 12px;\r\n  padding: 14px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n}\r\n\r\n.config-provider-card:last-child {\r\n  border-bottom: 0;\r\n}\r\n\r\n.config-provider-head {\r\n  display: flex;\r\n  gap: 10px;\r\n  align-items: flex-start;\r\n  justify-content: space-between;\r\n}\r\n\r\n.config-provider-form,\r\n.config-key-form {\r\n  display: grid;\r\n  gap: 8px;\r\n}\r\n\r\n.field {\r\n  display: grid;\r\n  gap: 5px;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 720;\r\n}\r\n\r\n.field .control {\r\n  width: 100%;\r\n  font-weight: 500;\r\n  min-width: 0;\r\n}\r\n\r\n.check-field {\r\n  display: flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n  min-height: 28px;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-weight: 700;\r\n}\r\n\r\n.check-field input {\r\n  width: 15px;\r\n  height: 15px;\r\n  accent-color: var(--accent);\r\n}\r\n\r\n.masked-key-list {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n}\r\n\r\n.format-edit-list {\r\n  display: grid;\r\n  gap: 7px;\r\n}\r\n\r\n.format-edit-row {\r\n  display: grid;\r\n  grid-template-columns: minmax(156px, 0.8fr) minmax(130px, 1fr) auto;\r\n  gap: 7px;\r\n  align-items: center;\r\n}\r\n\r\n.format-edit-row .control {\r\n  width: 100%;\r\n}\r\n\r\n.drawer {\r\n  position: fixed;\r\n  top: 0;\r\n  right: 0;\r\n  width: min(580px, 100vw);\r\n  height: 100dvh;\r\n  border-left: 1px solid var(--line);\r\n  background: rgba(255, 255, 255, 0.75);\r\n  backdrop-filter: blur(30px) saturate(200%);\r\n  -webkit-backdrop-filter: blur(30px) saturate(200%);\r\n  box-shadow: -24px 0 60px rgba(9, 9, 11, 0);\r\n  transform: translateX(100%);\r\n  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 220ms ease;\r\n  z-index: 20;\r\n}\r\n\r\n.drawer.is-open {\r\n  transform: translateX(0);\r\n  box-shadow: -24px 0 60px rgba(9, 9, 11, 0.1);\r\n}\r\n\r\n#detailDrawer {\r\n  z-index: 36;\r\n}\r\n\r\n.drawer-head {\r\n  display: flex;\r\n  align-items: flex-start;\r\n  justify-content: space-between;\r\n  gap: 12px;\r\n  padding: 17px;\r\n  border-bottom: 1px solid var(--line);\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.drawer-head p {\r\n  margin-top: 4px;\r\n  color: var(--muted);\r\n  font-family: var(--mono);\r\n  font-size: 12px;\r\n}\r\n\r\n.drawer-body {\r\n  height: calc(100dvh - 74px);\r\n  overflow: auto;\r\n  padding: 15px;\r\n}\r\n\r\n.provider-drawer {\r\n  width: min(720px, 100vw);\r\n}\r\n\r\n.provider-drawer-body {\r\n  display: flex;\r\n  flex-direction: column;\r\n  min-height: 0;\r\n  overflow: hidden;\r\n  background:\r\n    radial-gradient(120% 180px at 50% 0, color-mix(in srgb, var(--info, #3b82f6) 7%, transparent) 0, transparent 70%),\r\n    var(--surface);\r\n}\r\n\r\n.provider-drawer-tabs {\r\n  position: relative;\r\n  top: auto;\r\n  flex: 0 0 auto;\r\n  z-index: 2;\r\n  display: grid;\r\n  grid-template-columns: repeat(5, minmax(0, 1fr));\r\n  gap: 5px;\r\n  padding: 4px 0 8px;\r\n  background: color-mix(in srgb, var(--surface) 88%, transparent);\r\n  backdrop-filter: blur(14px) saturate(1.3);\r\n  -webkit-backdrop-filter: blur(14px) saturate(1.3);\r\n}\r\n\r\n.provider-drawer-tab {\r\n  min-width: 0;\r\n  min-height: 32px;\r\n  padding: 0 8px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 9px;\r\n  background: var(--surface);\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 760;\r\n  cursor: pointer;\r\n  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 0.06s ease;\r\n}\r\n\r\n.provider-drawer-tab:hover {\r\n  border-color: color-mix(in srgb, var(--info, #3b82f6) 32%, var(--line));\r\n  background: color-mix(in srgb, var(--info, #3b82f6) 6%, var(--surface));\r\n  color: var(--text);\r\n}\r\n\r\n.provider-drawer-tab:active {\r\n  transform: translateY(1px);\r\n}\r\n\r\n.provider-drawer-tab.is-active {\r\n  border-color: color-mix(in srgb, var(--info, #3b82f6) 55%, var(--line));\r\n  background: color-mix(in srgb, var(--info, #3b82f6) 14%, var(--surface));\r\n  color: color-mix(in srgb, var(--info, #3b82f6) 90%, var(--text));\r\n  box-shadow: 0 0 0 1px color-mix(in srgb, var(--info, #3b82f6) 18%, transparent) inset;\r\n}\r\n\r\n.provider-drawer-section {\r\n  display: grid;\r\n  flex: 1 1 auto;\r\n  gap: 12px;\r\n  align-content: start;\r\n  grid-auto-rows: max-content;\r\n  overflow: auto;\r\n  min-width: 0;\r\n  min-height: 0;\r\n  margin-top: 10px;\r\n  padding-right: 2px;\r\n}\r\n\r\n.provider-models-actions {\r\n  display: flex;\r\n  justify-content: flex-end;\r\n  min-width: 0;\r\n  margin-top: -2px;\r\n}\r\n\r\n.provider-detail-hero {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  gap: 12px;\r\n  align-items: center;\r\n  padding: 14px;\r\n  border: 1px solid var(--line);\r\n  border-top: 3px solid var(--neutral);\r\n  border-radius: 10px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.provider-detail-hero.is-available {\r\n  border-top-color: var(--success);\r\n}\r\n\r\n.provider-detail-hero.is-degraded,\r\n.provider-detail-hero.is-cooldown {\r\n  border-top-color: var(--warning);\r\n}\r\n\r\n.provider-detail-hero.is-unavailable {\r\n  border-top-color: var(--danger);\r\n}\r\n\r\n.provider-detail-hero.is-disabled {\r\n  border-top-color: var(--faint);\r\n}\r\n\r\n.provider-detail-hero > div:first-child {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  gap: 3px 8px;\r\n  align-items: center;\r\n  min-width: 0;\r\n}\r\n\r\n.provider-detail-hero strong,\r\n.provider-detail-hero p {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-detail-hero p {\r\n  grid-column: 2;\r\n  margin: 0;\r\n  color: var(--muted);\r\n  font-family: var(--mono);\r\n  font-size: 11px;\r\n}\r\n\r\n.provider-detail-metrics {\r\n  display: grid;\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 8px;\r\n  align-items: start;\r\n  grid-auto-rows: max-content;\r\n}\r\n\r\n.provider-detail-metrics .mini-metric {\r\n  align-self: start;\r\n}\r\n\r\n.provider-detail-metrics .mini-metric span,\r\n.provider-detail-metrics .mini-metric strong,\r\n.provider-detail-metrics .mini-metric small {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-activity-list,\r\n.provider-route-list {\r\n  display: grid;\r\n  gap: 7px;\r\n}\r\n\r\n.provider-activity-row,\r\n.provider-route-card {\r\n  display: grid;\r\n  min-width: 0;\r\n  align-items: center;\r\n  gap: 8px;\r\n  padding: 9px 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.provider-activity-row {\r\n  grid-template-columns: 10px minmax(110px, 0.8fr) minmax(120px, 0.9fr) minmax(0, 1.2fr) auto;\r\n  width: 100%;\r\n  color: var(--text);\r\n  text-align: left;\r\n  cursor: pointer;\r\n}\r\n\r\n.provider-activity-row:hover {\r\n  border-color: color-mix(in srgb, var(--info) 22%, var(--line));\r\n  background: color-mix(in srgb, var(--info-soft) 32%, var(--surface));\r\n}\r\n\r\n.provider-activity-row strong,\r\n.provider-activity-row span,\r\n.provider-activity-row small,\r\n.provider-activity-row em,\r\n.provider-route-card strong,\r\n.provider-route-card small {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-activity-row small {\r\n  color: var(--muted);\r\n  font-family: var(--mono);\r\n  font-size: 11px;\r\n}\r\n\r\n.provider-activity-row em {\r\n  color: var(--muted);\r\n  font-family: var(--mono);\r\n  font-style: normal;\r\n}\r\n\r\n.provider-route-card {\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n}\r\n\r\n.provider-route-card small {\r\n  display: block;\r\n  margin-top: 2px;\r\n  color: var(--muted);\r\n  font-family: var(--mono);\r\n  font-size: 11px;\r\n}\r\n\r\n.drawer-key-list,\r\n.drawer-format-list,\r\n.provider-drawer-models {\r\n  padding: 0;\r\n}\r\n\r\n.provider-danger-zone {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  gap: 10px;\r\n  align-items: center;\r\n  padding: 12px;\r\n  border: 1px solid color-mix(in srgb, var(--danger) 22%, var(--line));\r\n  border-radius: 10px;\r\n  background: color-mix(in srgb, var(--danger-soft) 52%, var(--surface));\r\n}\r\n\r\n.provider-danger-zone p {\r\n  margin: 2px 0 0;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.provider-danger-zone .icon-action {\r\n  width: 36px;\r\n  min-width: 36px;\r\n  height: 36px;\r\n}\r\n\r\n.confirm-backdrop {\r\n  position: fixed;\r\n  inset: 0;\r\n  z-index: 38;\r\n  background: rgba(9, 9, 11, 0.32);\r\n  backdrop-filter: blur(3px);\r\n}\r\n\r\n.confirm-dialog {\r\n  position: fixed;\r\n  top: 50%;\r\n  left: 50%;\r\n  z-index: 39;\r\n  width: min(420px, calc(100vw - 32px));\r\n  display: grid;\r\n  gap: 18px;\r\n  padding: 18px;\r\n  border: 1px solid var(--line-strong);\r\n  border-radius: 12px;\r\n  background: var(--surface);\r\n  box-shadow: 0 24px 64px rgba(9, 9, 11, 0.2);\r\n  transform: translate(-50%, -48%) scale(0.98);\r\n  opacity: 0;\r\n  pointer-events: none;\r\n  transition: opacity 120ms ease, transform 120ms ease;\r\n}\r\n\r\n.confirm-dialog.is-open {\r\n  transform: translate(-50%, -50%) scale(1);\r\n  opacity: 1;\r\n  pointer-events: auto;\r\n}\r\n\r\n.confirm-head {\r\n  display: grid;\r\n  grid-template-columns: 34px minmax(0, 1fr);\r\n  gap: 12px;\r\n  align-items: start;\r\n}\r\n\r\n.confirm-tone {\r\n  position: relative;\r\n  width: 34px;\r\n  height: 34px;\r\n  border: 1px solid color-mix(in srgb, var(--danger) 24%, white);\r\n  border-radius: 9px;\r\n  background: var(--danger-soft);\r\n}\r\n\r\n.confirm-tone::before {\r\n  position: absolute;\r\n  top: 8px;\r\n  left: 16px;\r\n  width: 2px;\r\n  height: 11px;\r\n  border-radius: 999px;\r\n  background: var(--danger);\r\n  content: \"\";\r\n}\r\n\r\n.confirm-tone::after {\r\n  position: absolute;\r\n  left: 16px;\r\n  bottom: 8px;\r\n  width: 2px;\r\n  height: 2px;\r\n  border-radius: 999px;\r\n  background: var(--danger);\r\n  content: \"\";\r\n}\r\n\r\n.confirm-dialog h2 {\r\n  margin: 0;\r\n  font-size: 15px;\r\n  letter-spacing: 0;\r\n}\r\n\r\n.confirm-dialog p {\r\n  margin: 5px 0 0;\r\n  color: var(--muted);\r\n  line-height: 1.45;\r\n}\r\n\r\n.confirm-actions {\r\n  display: flex;\r\n  justify-content: flex-end;\r\n  gap: 8px;\r\n}\r\n\r\n/* ---- Form modal (Add Provider, etc.) ---- */\r\n.form-modal {\r\n  position: fixed;\r\n  top: 50%;\r\n  left: 50%;\r\n  transform: translate(-50%, -48%) scale(0.97);\r\n  width: min(560px, calc(100vw - 32px));\r\n  max-height: calc(100dvh - 48px);\r\n  display: flex;\r\n  flex-direction: column;\r\n  border: 1px solid var(--line);\r\n  border-radius: 14px;\r\n  background: var(--surface);\r\n  box-shadow: 0 24px 64px rgba(9, 9, 11, 0.2);\r\n  z-index: 39;\r\n  opacity: 0;\r\n  pointer-events: none;\r\n  transition: opacity 180ms ease, transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);\r\n}\r\n\r\n.form-modal.is-open {\r\n  opacity: 1;\r\n  pointer-events: auto;\r\n  transform: translate(-50%, -50%) scale(1);\r\n}\r\n\r\n.form-modal-head {\r\n  display: flex;\r\n  align-items: flex-start;\r\n  justify-content: space-between;\r\n  gap: 12px;\r\n  padding: 18px 20px 14px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n}\r\n\r\n.form-modal-head h2 {\r\n  font-size: 16px;\r\n  font-weight: 780;\r\n}\r\n\r\n.form-modal-head p {\r\n  margin-top: 3px;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.form-modal-body {\r\n  padding: 18px 20px;\r\n  overflow: auto;\r\n  display: grid;\r\n  gap: 14px;\r\n}\r\n\r\n.form-modal .provider-create-form {\r\n  display: grid;\r\n  gap: 12px;\r\n}\r\n\r\n.form-modal .provider-create-form .form-field-inline {\r\n  display: grid;\r\n  grid-template-columns: 1fr;\r\n  gap: 6px;\r\n}\r\n\r\n.form-modal .provider-create-form .form-row-2 {\r\n  display: grid;\r\n  grid-template-columns: 1fr 1fr;\r\n  gap: 10px;\r\n}\r\n\r\n.form-modal .provider-create-form details {\r\n  border-top: 1px solid var(--line-soft);\r\n  padding-top: 10px;\r\n  margin-top: 4px;\r\n}\r\n\r\n.form-modal .provider-create-form summary {\r\n  cursor: pointer;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 720;\r\n  user-select: none;\r\n  padding: 2px 0;\r\n}\r\n\r\n.form-modal .form-actions {\r\n  display: flex;\r\n  justify-content: flex-end;\r\n  gap: 8px;\r\n  border-top: 1px solid var(--line-soft);\r\n  padding-top: 14px;\r\n  margin-top: 4px;\r\n}\r\n\r\n.form-modal.is-model-map-modal,\r\n.form-modal.is-format-path-modal {\r\n  width: min(480px, calc(100vw - 32px));\r\n}\r\n\r\n.form-modal.is-model-map-modal .form-modal-body,\r\n.form-modal.is-format-path-modal .form-modal-body {\r\n  padding-top: 16px;\r\n}\r\n\r\n.model-map-form,\r\n.format-path-form {\r\n  display: grid;\r\n  gap: 14px;\r\n}\r\n\r\n.model-map-field,\r\n.format-path-field {\r\n  display: grid;\r\n  gap: 7px;\r\n}\r\n\r\n.model-map-field span,\r\n.model-map-raw-line span,\r\n.format-path-field span {\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 720;\r\n}\r\n\r\n.model-map-field input,\r\n.format-path-field input {\r\n  width: 100%;\r\n  min-width: 0;\r\n  height: 42px;\r\n  padding: 0 12px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  font: 13px var(--mono-font, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", monospace);\r\n}\r\n\r\n.model-map-field input:focus,\r\n.format-path-field input:focus {\r\n  border-color: color-mix(in srgb, var(--info) 70%, var(--line));\r\n  outline: 3px solid color-mix(in srgb, var(--info-soft) 80%, transparent);\r\n}\r\n\r\n.model-map-raw-line {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  align-items: center;\r\n  gap: 10px;\r\n  min-height: 38px;\r\n  padding: 8px 10px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--surface-muted) 72%, transparent);\r\n}\r\n\r\n.model-map-raw-line code {\r\n  min-width: 0;\r\n  justify-self: end;\r\n  overflow-wrap: anywhere;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  text-align: right;\r\n}\r\n\r\n.model-map-hint {\r\n  margin: -2px 0 0;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.format-path-summary {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  align-items: center;\r\n  gap: 10px;\r\n  padding: 10px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--surface-muted) 72%, transparent);\r\n}\r\n\r\n.format-path-summary > div {\r\n  display: grid;\r\n  gap: 3px;\r\n  min-width: 0;\r\n}\r\n\r\n.format-path-summary strong,\r\n.format-path-summary code {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.format-path-summary strong {\r\n  color: var(--text);\r\n  font-size: 13px;\r\n  font-weight: 780;\r\n}\r\n\r\n.format-path-summary code {\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.format-path-state {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  width: 28px;\r\n  height: 28px;\r\n  border-radius: 8px;\r\n  border: 1px solid var(--line);\r\n  color: var(--muted);\r\n  background: var(--surface);\r\n}\r\n\r\n.format-path-state.is-enabled {\r\n  border-color: color-mix(in srgb, var(--success) 48%, var(--line));\r\n  color: var(--success);\r\n  background: color-mix(in srgb, var(--success-soft) 76%, var(--surface));\r\n}\r\n\r\n.format-path-state.is-disabled {\r\n  border-color: color-mix(in srgb, var(--danger) 42%, var(--line));\r\n  color: var(--danger);\r\n  background: color-mix(in srgb, var(--danger-soft) 76%, var(--surface));\r\n}\r\n\r\n.format-path-hint {\r\n  margin: -4px 0 0;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  line-height: 1.45;\r\n}\r\n\r\n.model-map-actions {\r\n  display: flex;\r\n  justify-content: flex-end;\r\n  gap: 8px;\r\n  padding-top: 12px;\r\n  border-top: 1px solid var(--line-soft);\r\n}\r\n\r\n.model-map-action {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  width: 36px;\r\n  height: 36px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  color: var(--muted);\r\n  cursor: pointer;\r\n}\r\n\r\n.model-map-action:hover {\r\n  color: var(--text);\r\n  background: var(--surface-muted);\r\n}\r\n\r\n.model-map-action.primary {\r\n  border-color: color-mix(in srgb, var(--info) 42%, var(--line));\r\n  background: var(--text);\r\n  color: var(--surface);\r\n}\r\n\r\n.model-map-action.primary:hover {\r\n  background: color-mix(in srgb, var(--text) 88%, var(--info));\r\n}\r\n\r\n.mobile-settings-body {\r\n  display: grid;\r\n  gap: 16px;\r\n  height: calc(100dvh - 74px);\r\n  align-content: start;\r\n  overflow: auto;\r\n  padding: 15px;\r\n}\r\n\r\n.mobile-settings-section {\r\n  display: grid;\r\n  gap: 10px;\r\n  align-content: start;\r\n}\r\n\r\n.mobile-settings-section-title {\r\n  margin: 0;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 780;\r\n  letter-spacing: 0;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.drawer-section-title {\r\n  margin: 10px 0 10px;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 780;\r\n}\r\n\r\n.drawer-section-hint {\r\n  margin-left: 6px;\r\n  color: var(--muted);\r\n  font-size: 10px;\r\n  font-weight: 600;\r\n  opacity: 0.7;\r\n  letter-spacing: 0.01em;\r\n}\r\n\r\n.provider-formats-group {\r\n  margin-top: 14px;\r\n  padding-top: 12px;\r\n  border-top: 1px solid var(--line-soft);\r\n}\r\n\r\n.provider-formats-group .format-route-list {\r\n  margin-top: 2px;\r\n}\r\n\r\n.drawer-kv {\r\n  padding: 13px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.routing-summary-card {\r\n  display: grid;\r\n  gap: 12px;\r\n  margin-bottom: 12px;\r\n  padding: 14px;\r\n  border: 1px solid var(--line);\r\n  border-left: 3px solid var(--neutral);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.routing-summary-card.tone-ok {\r\n  border-left-color: var(--success);\r\n}\r\n\r\n.routing-summary-card.tone-warn {\r\n  border-left-color: var(--warning);\r\n}\r\n\r\n.routing-summary-card.tone-bad {\r\n  border-left-color: var(--danger);\r\n}\r\n\r\n.routing-summary-head {\r\n  display: flex;\r\n  align-items: flex-start;\r\n  justify-content: space-between;\r\n  gap: 12px;\r\n}\r\n\r\n.routing-summary-head h3 {\r\n  margin: 0 0 5px;\r\n  color: var(--text);\r\n  font-size: 14px;\r\n}\r\n\r\n.routing-summary-head p {\r\n  margin: 0;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  line-height: 1.5;\r\n}\r\n\r\n.routing-summary-card .badge,\r\n.routing-summary-card .message-chip {\r\n  justify-self: start;\r\n  width: fit-content;\r\n  max-width: 100%;\r\n}\r\n\r\n.routing-summary-card .chip-list {\r\n  justify-content: flex-start;\r\n}\r\n\r\n.routing-summary-grid,\r\n.routing-next-action {\r\n  display: grid;\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 8px;\r\n}\r\n\r\n.routing-summary-grid span,\r\n.routing-next-action span {\r\n  display: block;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 760;\r\n}\r\n\r\n.routing-summary-grid strong,\r\n.routing-next-action strong {\r\n  display: block;\r\n  min-width: 0;\r\n  overflow-wrap: anywhere;\r\n  color: var(--text);\r\n  font-family: var(--mono);\r\n  font-size: 12px;\r\n}\r\n\r\n.routing-next-action {\r\n  grid-template-columns: 86px minmax(0, 1fr);\r\n  align-items: start;\r\n  padding-top: 10px;\r\n  border-top: 1px solid var(--line);\r\n}\r\n\r\n.route-inline {\r\n  display: grid;\r\n  gap: 5px;\r\n  min-width: 220px;\r\n  max-width: 360px;\r\n}\r\n\r\n.route-inline .badge {\r\n  width: fit-content;\r\n}\r\n\r\n.route-inline .message-text {\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  line-height: 1.35;\r\n}\r\n\r\n.attempt {\r\n  display: grid;\r\n  gap: 9px;\r\n  margin-bottom: 10px;\r\n  padding: 13px;\r\n  border: 1px solid var(--line);\r\n  border-left: 3px solid var(--neutral);\r\n  border-radius: 8px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.attempt.tone-success,\r\n.attempt.tone-ok {\r\n  border-color: color-mix(in srgb, var(--ok) 40%, var(--line));\r\n  border-left-color: var(--success);\r\n}\r\n\r\n.attempt.tone-warn,\r\n.attempt.tone-compat {\r\n  border-color: color-mix(in srgb, var(--warn) 46%, var(--line));\r\n  border-left-color: var(--warning);\r\n}\r\n\r\n.attempt.tone-danger,\r\n.attempt.tone-bad {\r\n  border-color: color-mix(in srgb, var(--bad) 42%, var(--line));\r\n  border-left-color: var(--danger);\r\n}\r\n\r\n.attempt-head {\r\n  display: flex;\r\n  justify-content: space-between;\r\n  gap: 8px;\r\n}\r\n\r\n.attempt-explain {\r\n  display: grid;\r\n  gap: 7px;\r\n  padding: 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n}\r\n\r\n.attempt-explain div {\r\n  display: grid;\r\n  grid-template-columns: 74px minmax(0, 1fr);\r\n  gap: 8px;\r\n}\r\n\r\n.attempt-explain span {\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 760;\r\n}\r\n\r\n.attempt-explain strong {\r\n  min-width: 0;\r\n  overflow-wrap: anywhere;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-weight: 680;\r\n  line-height: 1.45;\r\n}\r\n\r\n.kv-grid {\r\n  display: grid;\r\n  grid-template-columns: 128px minmax(0, 1fr);\r\n  gap: 7px 11px;\r\n  font-size: 12px;\r\n}\r\n\r\n.kv-grid span:nth-child(odd) {\r\n  color: var(--muted);\r\n}\r\n\r\n.kv-grid span:nth-child(even) {\r\n  min-width: 0;\r\n  overflow-wrap: anywhere;\r\n  font-family: var(--mono);\r\n}\r\n\r\n@keyframes viewIn {\r\n  from {\r\n    opacity: 0;\r\n    transform: translateY(4px);\r\n  }\r\n  to {\r\n    opacity: 1;\r\n    transform: translateY(0);\r\n  }\r\n}\r\n\r\n@keyframes drawLine {\r\n  to {\r\n    stroke-dashoffset: 0;\r\n  }\r\n}\r\n\r\n@keyframes barRise {\r\n  from {\r\n    opacity: 0;\r\n    transform: scaleY(0.2);\r\n  }\r\n  to {\r\n    opacity: 1;\r\n    transform: scaleY(1);\r\n  }\r\n}\r\n\r\n/* Modern overview pass: reduce table-like borders and make the dashboard read as a runtime product surface. */\r\n:root {\r\n  --bg: #eef4fb;\r\n  --surface: #ffffff;\r\n  --surface-raised: #f8fbff;\r\n  --surface-soft: #eef5ff;\r\n  --surface-strong: #dce8f6;\r\n  --sidebar: #ffffff;\r\n  --sidebar-soft: #edf5ff;\r\n  --line: #e3edf8;\r\n  --line-soft: #eef4fb;\r\n  --line-strong: #cfdded;\r\n  --text: #111827;\r\n  --muted: #637083;\r\n  --faint: #8994a6;\r\n  --accent: #2563eb;\r\n  --accent-strong: #1d4ed8;\r\n  --accent-soft: #e7f0ff;\r\n  --success: #10b981;\r\n  --success-soft: #e8f8f1;\r\n  --warning: #d97706;\r\n  --warning-soft: #fff4df;\r\n  --danger: #e5485d;\r\n  --danger-soft: #ffedf0;\r\n  --info: #20d264;\r\n  --info-soft: #e8f2ff;\r\n  --compat: #8b5cf6;\r\n  --compat-soft: #f2edff;\r\n  --metric-neutral: #334155;\r\n  --metric-requests: #2563eb;\r\n  --metric-success: #12a474;\r\n  --metric-failure: #e5485d;\r\n  --metric-provider: #0ea5e9;\r\n  --metric-token: #8b5cf6;\r\n  --metric-cost: #d97706;\r\n  --shadow: 0 12px 30px rgba(31, 56, 88, 0.07);\r\n  --shadow-tight: 0 18px 44px rgba(31, 56, 88, 0.11);\r\n}\r\n\r\nbody {\r\n  background:\r\n    linear-gradient(180deg, #f7fbff 0, #eef5fc 330px, #f6f8fb 100%);\r\n}\r\n\r\n.shell {\r\n  grid-template-columns: 248px minmax(0, 1fr);\r\n}\r\n\r\n.sidebar {\r\n  border-right: 0;\r\n  background:\r\n    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 253, 255, 0.96)),\r\n    var(--sidebar);\r\n  box-shadow: 18px 0 46px rgba(31, 56, 88, 0.08);\r\n}\r\n\r\n.sidebar::after {\r\n  right: 0;\r\n  width: 1px;\r\n  background: linear-gradient(180deg, rgba(37, 99, 235, 0.18), rgba(37, 99, 235, 0.04));\r\n}\r\n\r\n.brand {\r\n  padding: 26px 20px 18px;\r\n  border-bottom: 0;\r\n}\r\n\r\n.brand-mark,\r\n.login-mark {\r\n  border-radius: 11px;\r\n  background: linear-gradient(135deg, #2563eb, #0ea5e9);\r\n  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.22);\r\n}\r\n\r\n.brand-title {\r\n  font-size: 15px;\r\n  font-weight: 800;\r\n}\r\n\r\n.nav {\r\n  gap: 6px;\r\n  padding: 12px 14px;\r\n}\r\n\r\n.nav-item {\r\n  min-height: 42px;\r\n  padding: 10px 13px;\r\n  border: 0;\r\n  border-radius: 14px;\r\n  color: #4b5565;\r\n  font-weight: 650;\r\n}\r\n\r\n.nav-item:hover {\r\n  background: rgba(37, 99, 235, 0.06);\r\n  color: var(--accent-strong);\r\n  box-shadow: none;\r\n}\r\n\r\n.nav-item.is-active {\r\n  border: 0;\r\n  background: var(--accent-soft);\r\n  color: var(--accent-strong);\r\n  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.08);\r\n}\r\n\r\n.sidebar-actions {\r\n  gap: 10px;\r\n  padding: 14px 16px 10px;\r\n}\r\n\r\n.button {\r\n  border-radius: 11px;\r\n}\r\n\r\n.button.primary {\r\n  border-color: var(--accent);\r\n  background: var(--accent);\r\n  color: #fff;\r\n  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);\r\n}\r\n\r\n.button.primary:hover {\r\n  border-color: var(--accent-strong);\r\n  background: var(--accent-strong);\r\n  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);\r\n}\r\n\r\n.button.secondary {\r\n  border-color: rgba(148, 163, 184, 0.24);\r\n  background: rgba(255, 255, 255, 0.82);\r\n}\r\n\r\n.workspace {\r\n  max-width: 1480px;\r\n  padding: 24px 44px 48px;\r\n}\r\n\r\n.time-range-control {\r\n  width: fit-content;\r\n  max-width: 100%;\r\n  margin: 0 0 18px auto;\r\n  padding: 8px 10px 8px 14px;\r\n  border: 0;\r\n  border-radius: 18px;\r\n  background: rgba(255, 255, 255, 0.86);\r\n  box-shadow: 0 12px 30px rgba(31, 56, 88, 0.08), inset 0 0 0 1px rgba(207, 221, 237, 0.7);\r\n}\r\n\r\n.time-range-control .eyebrow {\r\n  color: var(--accent);\r\n}\r\n\r\n.time-range-control strong {\r\n  color: var(--text);\r\n}\r\n\r\n.segmented-control {\r\n  border: 0;\r\n  border-radius: 14px;\r\n  background: #edf4fb;\r\n  box-shadow: inset 0 0 0 1px rgba(207, 221, 237, 0.62);\r\n}\r\n\r\n.segmented-button {\r\n  min-height: 34px;\r\n  border-radius: 11px;\r\n}\r\n\r\n.segmented-button.is-active {\r\n  background: #ffffff;\r\n  color: var(--accent-strong);\r\n  box-shadow: 0 8px 18px rgba(31, 56, 88, 0.08);\r\n}\r\n\r\n.overview-visuals {\r\n  grid-template-columns: minmax(280px, 1.35fr) repeat(4, minmax(132px, 1fr));\r\n  gap: 16px;\r\n  margin: 0 0 22px;\r\n  min-width: 0;\r\n}\r\n\r\n.visual-card {\r\n  grid-template-columns: 44px minmax(0, 1fr);\r\n  min-height: 122px;\r\n  gap: 12px;\r\n  padding: 16px;\r\n  min-width: 0;\r\n  border: 0;\r\n  border-radius: 22px;\r\n  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(250, 253, 255, 0.94));\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.visual-card:hover {\r\n  transform: translateY(-1px);\r\n  box-shadow: var(--shadow-tight);\r\n}\r\n\r\n.visual-card-icon,\r\n.visual-ring {\r\n  width: 44px;\r\n  height: 44px;\r\n  border: 0;\r\n  border-radius: 16px;\r\n}\r\n\r\n.visual-card-icon {\r\n  background: var(--surface-soft);\r\n}\r\n\r\n.visual-card-icon.tone-info {\r\n  background: var(--info-soft);\r\n}\r\n\r\n.visual-card-icon.tone-success {\r\n  background: var(--success-soft);\r\n}\r\n\r\n.visual-card-icon.tone-warning {\r\n  background: var(--warning-soft);\r\n}\r\n\r\n.visual-card-icon.tone-danger {\r\n  background: var(--danger-soft);\r\n}\r\n\r\n.visual-card-icon.tone-compat {\r\n  background: var(--compat-soft);\r\n}\r\n\r\n.visual-card span,\r\n.visual-card small {\r\n  color: var(--muted);\r\n  font-weight: 700;\r\n}\r\n\r\n.visual-card small {\r\n  line-height: 1.25;\r\n  white-space: normal;\r\n}\r\n\r\n.visual-card strong {\r\n  margin-top: 4px;\r\n  overflow: visible;\r\n  color: var(--text);\r\n  font-family: var(--sans);\r\n  font-variant-numeric: tabular-nums;\r\n  font-size: 21px;\r\n  font-weight: 850;\r\n  line-height: 1.08;\r\n  text-overflow: clip;\r\n  white-space: normal;\r\n}\r\n\r\n.visual-hero-card {\r\n  grid-column: span 1;\r\n  min-height: 146px;\r\n  align-items: start;\r\n  background:\r\n    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(232, 242, 255, 0.95)),\r\n    var(--surface);\r\n  box-shadow: 0 18px 44px rgba(37, 99, 235, 0.12);\r\n}\r\n\r\n@media (max-width: 1360px) {\r\n  .overview-visuals {\r\n    grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  }\r\n\r\n  .visual-hero-card {\r\n    grid-column: span 2;\r\n  }\r\n}\r\n\r\n@media (max-width: 1180px) {\r\n  .overview-visuals {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  }\r\n\r\n  .visual-hero-card {\r\n    grid-column: 1 / -1;\r\n  }\r\n}\r\n\r\n.visual-hero-card .visual-card-icon {\r\n  color: var(--accent);\r\n  background: #dbeafe;\r\n}\r\n\r\n.visual-hero-card.tone-warning .visual-card-icon {\r\n  color: var(--warning);\r\n  background: var(--warning-soft);\r\n}\r\n\r\n.visual-hero-card.tone-danger .visual-card-icon {\r\n  color: var(--danger);\r\n  background: var(--danger-soft);\r\n}\r\n\r\n.visual-hero-card.tone-warning .visual-hero-meta b {\r\n  background: rgba(217, 119, 6, 0.1);\r\n  color: var(--warning);\r\n}\r\n\r\n.visual-hero-card.tone-danger .visual-hero-meta b {\r\n  background: rgba(229, 72, 93, 0.1);\r\n  color: var(--danger);\r\n}\r\n\r\n.visual-hero-card strong {\r\n  margin-top: 6px;\r\n  font-size: 42px;\r\n  letter-spacing: 0;\r\n  white-space: nowrap;\r\n}\r\n\r\n.visual-hero-card small {\r\n  margin-top: 5px;\r\n  font-size: 12px;\r\n}\r\n\r\n.visual-hero-meta {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 7px;\r\n  margin-top: 12px;\r\n}\r\n\r\n.visual-hero-meta b {\r\n  display: inline-flex;\r\n  min-height: 24px;\r\n  align-items: center;\r\n  padding: 0 9px;\r\n  border-radius: 999px;\r\n  background: rgba(37, 99, 235, 0.08);\r\n  color: var(--accent-strong);\r\n  font: 750 11px var(--mono);\r\n}\r\n\r\n.visual-progress {\r\n  height: 6px;\r\n  background: #edf2f7;\r\n}\r\n\r\n.token-split {\r\n  height: 6px;\r\n}\r\n\r\n.overview-grid {\r\n  grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr);\r\n  gap: 22px;\r\n  align-items: start;\r\n}\r\n\r\n.overview-traffic-panel,\r\n.overview-failures-panel {\r\n  grid-column: 1 / -1;\r\n}\r\n\r\n.panel {\r\n  border: 0;\r\n  border-radius: 24px;\r\n  background: rgba(255, 255, 255, 0.96);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.panel-head {\r\n  padding: 22px 24px 8px;\r\n  border-bottom: 0;\r\n  background: transparent;\r\n}\r\n\r\n.panel-head h2 {\r\n  color: var(--text);\r\n  font-size: 18px;\r\n  font-weight: 820;\r\n}\r\n\r\n.panel-head p {\r\n  margin-top: 3px;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.panel-head .tag {\r\n  border: 0;\r\n  border-radius: 999px;\r\n  background: var(--accent-soft);\r\n  color: var(--accent-strong);\r\n}\r\n\r\n.chart {\r\n  min-height: 420px;\r\n  padding: 8px 24px 24px;\r\n}\r\n\r\n.traffic-legend {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 14px 22px;\r\n  align-items: center;\r\n  margin: 0 0 12px;\r\n  padding: 0 4px;\r\n}\r\n\r\n.traffic-legend-item {\r\n  display: inline-flex;\r\n  gap: 8px;\r\n  padding: 0;\r\n  border: 0;\r\n  background: transparent;\r\n  box-shadow: none;\r\n}\r\n\r\n.traffic-legend-item > span {\r\n  width: 28px;\r\n  height: 4px;\r\n  border-radius: 999px;\r\n  background: var(--series-color);\r\n  box-shadow: none;\r\n}\r\n\r\n.traffic-legend-item.tone-danger > span {\r\n  background-image: repeating-linear-gradient(90deg, #dc2626 0 6px, transparent 6px 10px);\r\n}\r\n\r\n.traffic-legend-item strong {\r\n  font-size: 12px;\r\n}\r\n\r\n.traffic-legend-item small {\r\n  color: var(--faint);\r\n}\r\n\r\n.traffic-chart-shell {\r\n  border: 0;\r\n  border-radius: 22px;\r\n  background: linear-gradient(180deg, #ffffff, #f8fbff);\r\n  box-shadow: inset 0 0 0 1px rgba(207, 221, 237, 0.55);\r\n}\r\n\r\n.traffic-chart-shell svg {\r\n  height: 352px;\r\n}\r\n\r\n.chart .axis {\r\n  stroke: rgba(148, 163, 184, 0.22);\r\n}\r\n\r\n.traffic-axis-label {\r\n  fill: var(--faint);\r\n  font: 650 11px var(--sans);\r\n}\r\n\r\n.traffic-axis-title {\r\n  font-weight: 760;\r\n}\r\n\r\n.traffic-axis-label-info {\r\n  fill: color-mix(in srgb, var(--info) 76%, var(--muted));\r\n}\r\n\r\n.traffic-success-area {\r\n  fill: url(\"#trafficSuccessArea\");\r\n  pointer-events: none;\r\n}\r\n\r\n.traffic-success-line,\r\n.traffic-failed-line,\r\n.traffic-firstbyte-line {\r\n  fill: none;\r\n  stroke-linecap: round;\r\n  stroke-linejoin: round;\r\n  stroke-width: 3.2;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.traffic-success-line {\r\n  stroke: var(--success);\r\n}\r\n\r\n.traffic-failed-line {\r\n  stroke: var(--danger);\r\n  stroke-dasharray: 7 7;\r\n}\r\n\r\n.traffic-firstbyte-line {\r\n  stroke: var(--info);\r\n  filter: drop-shadow(0 8px 14px rgba(47, 128, 237, 0.18));\r\n}\r\n\r\n.traffic-series-dot,\r\n.traffic-firstbyte-dot {\r\n  stroke: #fff;\r\n  stroke-width: 2.4;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.traffic-success-dot {\r\n  fill: var(--success);\r\n}\r\n\r\n.traffic-failed-dot {\r\n  fill: var(--danger);\r\n}\r\n\r\n.traffic-firstbyte-dot {\r\n  fill: var(--info);\r\n}\r\n\r\n.traffic-firstbyte-label {\r\n  fill: var(--info);\r\n  font: 760 11px var(--mono);\r\n}\r\n\r\n.usage-chart {\r\n  gap: 16px;\r\n  padding: 14px 22px 22px;\r\n}\r\n\r\n.usage-summary {\r\n  gap: 12px;\r\n}\r\n\r\n.usage-chart .mini-metric {\r\n  border: 0;\r\n  border-radius: 16px;\r\n  background: linear-gradient(180deg, #f8fbff, #f1f6fd);\r\n  box-shadow: inset 0 0 0 1px rgba(207, 221, 237, 0.48);\r\n}\r\n\r\n.usage-section-title h3 {\r\n  color: var(--text);\r\n  font-size: 13px;\r\n  letter-spacing: 0;\r\n  text-transform: none;\r\n}\r\n\r\n.usage-bars {\r\n  display: grid;\r\n  gap: 10px;\r\n}\r\n\r\n.usage-row {\r\n  border: 0;\r\n  border-radius: 16px;\r\n  background: #f8fbff;\r\n  box-shadow: inset 0 0 0 1px rgba(207, 221, 237, 0.48);\r\n}\r\n\r\n.usage-rank {\r\n  border: 0;\r\n  border-radius: 999px;\r\n  background: var(--compat-soft);\r\n}\r\n\r\n.usage-track {\r\n  height: 8px;\r\n  background: #e6edf7;\r\n}\r\n\r\n.provider-health {\r\n  gap: 10px;\r\n  padding: 14px 18px 20px;\r\n}\r\n\r\n.overview-summary-meta {\r\n  padding: 0 0 4px;\r\n  color: var(--faint);\r\n  font-family: var(--sans);\r\n  font-size: 11px;\r\n  letter-spacing: 0;\r\n  text-transform: none;\r\n}\r\n\r\n.overview-provider-row,\r\n.recent-failure-row {\r\n  border: 0;\r\n  border-radius: 16px;\r\n  background: #f8fbff;\r\n  box-shadow: inset 0 0 0 1px rgba(207, 221, 237, 0.5);\r\n}\r\n\r\n.overview-provider-row:hover,\r\n.recent-failure-row:hover,\r\n.overview-provider-row:focus-visible,\r\n.recent-failure-row:focus-visible {\r\n  background: #ffffff;\r\n  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.2), 0 12px 24px rgba(31, 56, 88, 0.08);\r\n}\r\n\r\n.recent-failure-list {\r\n  padding: 0 18px 18px;\r\n}\r\n\r\n/* Minimalist correction: warm monochrome surface, low shadow, muted semantic color only. */\r\n:root {\r\n  --bg: #f7f6f3;\r\n  --surface: #ffffff;\r\n  --surface-raised: #fbfbfa;\r\n  --surface-soft: #f3f2ef;\r\n  --surface-strong: #eceae6;\r\n  --sidebar: #ffffff;\r\n  --sidebar-soft: #f7f6f3;\r\n  --line: #e8e6e1;\r\n  --line-soft: #efede8;\r\n  --line-strong: #d9d6cf;\r\n  --text: #222320;\r\n  --muted: #6f706a;\r\n  --faint: #9a9a93;\r\n  --accent: #222320;\r\n  --accent-strong: #343530;\r\n  --accent-soft: #f2f1ed;\r\n  --success: #346538;\r\n  --success-soft: #edf3ec;\r\n  --warning: #956400;\r\n  --warning-soft: #fbf3db;\r\n  --danger: #9f2f2d;\r\n  --danger-soft: #fdebec;\r\n  --info: #20d264;\r\n  --info-soft: #e1f3fe;\r\n  --compat: #6f55a3;\r\n  --compat-soft: #eee9f7;\r\n  --metric-neutral: #3f403b;\r\n  --metric-requests: #1f6c9f;\r\n  --metric-success: #346538;\r\n  --metric-failure: #9f2f2d;\r\n  --metric-provider: #53717d;\r\n  --metric-token: #6f55a3;\r\n  --metric-cost: #956400;\r\n  --shadow: 0 2px 10px rgba(34, 35, 32, 0.035);\r\n  --shadow-tight: 0 4px 16px rgba(34, 35, 32, 0.05);\r\n}\r\n\r\nbody {\r\n  background: var(--bg);\r\n}\r\n\r\n.sidebar {\r\n  border-right: 1px solid var(--line);\r\n  background: var(--sidebar);\r\n  box-shadow: none;\r\n}\r\n\r\n.sidebar::after {\r\n  display: none;\r\n}\r\n\r\n.brand {\r\n  border-bottom: 1px solid var(--line-soft);\r\n}\r\n\r\n.brand-mark,\r\n.login-mark {\r\n  background: var(--text);\r\n  box-shadow: none;\r\n}\r\n\r\n.nav-item:hover {\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n}\r\n\r\n.nav-item.is-active {\r\n  background: var(--text);\r\n  color: #fff;\r\n  box-shadow: none;\r\n}\r\n\r\n.button.primary {\r\n  border-color: var(--accent);\r\n  background: var(--accent);\r\n  box-shadow: none;\r\n}\r\n\r\n.button.primary:hover {\r\n  border-color: var(--accent-strong);\r\n  background: var(--accent-strong);\r\n}\r\n\r\n.button.secondary,\r\n.time-range-control,\r\n.segmented-control {\r\n  box-shadow: none;\r\n}\r\n\r\n.time-range-control {\r\n  border: 1px solid var(--line);\r\n  background: var(--surface);\r\n}\r\n\r\n.time-range-control .eyebrow {\r\n  color: var(--muted);\r\n}\r\n\r\n.segmented-control {\r\n  border: 1px solid var(--line);\r\n  background: var(--surface-soft);\r\n}\r\n\r\n.segmented-button.is-active {\r\n  background: var(--text);\r\n  color: #fff;\r\n  box-shadow: none;\r\n}\r\n\r\n.visual-card,\r\n.panel {\r\n  border: 1px solid var(--line);\r\n  border-radius: 12px;\r\n  background: var(--surface);\r\n  box-shadow: none;\r\n}\r\n\r\n.visual-card:hover,\r\n.panel:hover {\r\n  box-shadow: var(--shadow-tight);\r\n}\r\n\r\n.visual-card-icon,\r\n.visual-ring {\r\n  border-radius: 10px;\r\n}\r\n\r\n.visual-hero-card {\r\n  background: var(--surface);\r\n  box-shadow: none;\r\n}\r\n\r\n.visual-hero-card .visual-card-icon {\r\n  color: var(--info);\r\n  background: var(--info-soft);\r\n}\r\n\r\n.visual-hero-card strong {\r\n  color: var(--text);\r\n}\r\n\r\n.visual-hero-meta b {\r\n  background: var(--accent-soft);\r\n  color: var(--text);\r\n}\r\n\r\n.panel-head .tag {\r\n  background: var(--surface-soft);\r\n  color: var(--muted);\r\n}\r\n\r\n.traffic-chart-shell,\r\n.usage-chart .mini-metric,\r\n.usage-row,\r\n.overview-provider-row,\r\n.recent-failure-row {\r\n  border: 1px solid var(--line);\r\n  border-radius: 12px;\r\n  background: var(--surface-raised);\r\n  box-shadow: none;\r\n}\r\n\r\n.traffic-chart-shell {\r\n  background: #fff;\r\n}\r\n\r\n.traffic-firstbyte-line {\r\n  filter: none;\r\n}\r\n\r\n.overview-provider-row:hover,\r\n.recent-failure-row:hover,\r\n.overview-provider-row:focus-visible,\r\n.recent-failure-row:focus-visible {\r\n  background: #fff;\r\n  box-shadow: var(--shadow-tight);\r\n}\r\n\r\n/* Overview mockup skin: crisp operations console, based on design_mockup.html. */\r\n:root {\r\n  /* macOS Aqua/System UI Theme */\r\n  --bg: #f5f5f7;\r\n  --surface: #ffffff;\r\n  --surface-raised: #fbfbfd;\r\n  --surface-soft: #f2f2f7;\r\n  --surface-strong: #e5e5ea;\r\n  --sidebar: rgba(255, 255, 255, 0.75);\r\n  \r\n  /* Mac-style borders rely on transparency */\r\n  --line: rgba(0, 0, 0, 0.14);\r\n  --line-soft: rgba(0, 0, 0, 0.08);\r\n  --line-strong: rgba(0, 0, 0, 0.22);\r\n  \r\n  /* Apple Typography Colors */\r\n  --text: #1d1d1f;\r\n  --muted: #86868b;\r\n  --faint: #d2d2d7;\r\n  \r\n  /* Graphite / Monochrome Accent */\r\n  --accent: #1d1d1f;\r\n  --accent-strong: #000000;\r\n  --accent-soft: rgba(0, 0, 0, 0.04);\r\n  --accent-hover: #3a3a3c;\r\n  \r\n  /* Semantic Colors (Apple HIG) */\r\n  --success: #34c759;\r\n  --success-soft: rgba(52, 199, 89, 0.1);\r\n  --warning: #ff9500;\r\n  --warning-soft: rgba(255, 149, 0, 0.1);\r\n  --danger: #ff3b30;\r\n  --danger-soft: rgba(255, 59, 48, 0.1);\r\n  --info: #86868b;\r\n  --info-soft: rgba(0, 0, 0, 0.05);\r\n  --compat: #1d1d1f; \r\n  --compat-soft: rgba(0, 0, 0, 0.05);\r\n  \r\n  /* Mac Window/Card Elevation */\r\n  --shadow: 0 2px 6px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04);\r\n  --shadow-tight: 0 4px 12px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.05);\r\n}\r\n\r\nbody {\r\n  background: var(--bg);\r\n}\r\n\r\n.shell {\r\n  grid-template-columns: 240px minmax(0, 1fr);\r\n}\r\n\r\n.workspace {\r\n  max-width: 1200px;\r\n  padding: 12px 40px 48px;\r\n}\r\n\r\n.sidebar {\r\n  border-right: 1px solid var(--line);\r\n  background: var(--sidebar);\r\n  backdrop-filter: blur(28px) saturate(200%);\r\n  -webkit-backdrop-filter: blur(28px) saturate(200%);\r\n  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.04);\r\n  z-index: 10;\r\n}\r\n\r\n.brand {\r\n  padding: 24px 16px 28px;\r\n  border-bottom: 0;\r\n}\r\n\r\n.brand-mark,\r\n.login-mark {\r\n  width: 24px;\r\n  height: 24px;\r\n  border-radius: 6px;\r\n  background: var(--text);\r\n  color: #fff;\r\n  font-size: 10px;\r\n  box-shadow: none;\r\n}\r\n\r\n.brand-title {\r\n  font-size: 14px;\r\n  font-weight: 700;\r\n  letter-spacing: 0;\r\n}\r\n\r\n.brand-subtitle {\r\n  color: var(--muted);\r\n}\r\n\r\n.nav {\r\n  gap: 2px;\r\n  padding: 0 16px;\r\n}\r\n\r\n.nav-item {\r\n  min-height: 40px;\r\n  padding: 8px 12px;\r\n  border: 1px solid transparent;\r\n  border-radius: 6px;\r\n  color: var(--muted);\r\n  font-weight: 620;\r\n}\r\n\r\n.nav-item:hover {\r\n  border-color: transparent;\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n}\r\n\r\n.nav-item.is-active {\r\n  border: 1px solid var(--line);\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n  font-weight: 760;\r\n}\r\n\r\n.sidebar-actions {\r\n  gap: 8px;\r\n  padding: 12px 16px 8px;\r\n}\r\n\r\n.button {\r\n  border-radius: 6px;\r\n  box-shadow: none;\r\n}\r\n\r\n.button.primary {\r\n  border-color: var(--accent);\r\n  background: var(--accent);\r\n  color: #fff;\r\n}\r\n\r\n.button.primary:hover {\r\n  border-color: var(--accent-strong);\r\n  background: var(--accent-strong);\r\n}\r\n\r\n.button.secondary {\r\n  border-color: var(--line);\r\n  background: var(--surface);\r\n}\r\n\r\n.overview-page-head {\r\n  display: flex;\r\n  gap: 20px;\r\n  align-items: flex-end;\r\n  justify-content: space-between;\r\n  margin-bottom: 24px;\r\n  padding-top: 16px;\r\n  padding-bottom: 16px;\r\n  border-bottom: 1px solid var(--line);\r\n}\r\n\r\n.overview-page-head h1 {\r\n  color: var(--text);\r\n  font-size: 20px;\r\n  font-weight: 720;\r\n  letter-spacing: 0;\r\n}\r\n\r\n.overview-page-head p {\r\n  margin-top: 4px;\r\n  color: var(--muted);\r\n  font-size: 12.5px;\r\n}\r\n\r\n.overview-page-head .time-range-control {\r\n  margin: 0;\r\n}\r\n\r\n.time-range-control {\r\n  width: fit-content;\r\n  padding: 0;\r\n  border: 0;\r\n  border-left: 0;\r\n  border-radius: 0;\r\n  background: transparent;\r\n}\r\n\r\n.time-range-control > div:first-child {\r\n  display: none;\r\n}\r\n\r\n.segmented-control {\r\n  gap: 2px;\r\n  padding: 3px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.segmented-button {\r\n  min-width: 44px;\r\n  min-height: 30px;\r\n  border-radius: 6px;\r\n  font-size: 12px;\r\n  font-weight: 680;\r\n}\r\n\r\n.segmented-button.is-active {\r\n  background: var(--text);\r\n  color: #fff;\r\n}\r\n\r\n.overview-visuals {\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 16px;\r\n  margin-bottom: 24px;\r\n}\r\n\r\n.visual-card {\r\n  position: relative;\r\n  display: flex;\r\n  min-height: 100px;\r\n  flex-direction: column;\r\n  align-items: stretch;\r\n  justify-content: space-between;\r\n  gap: 10px;\r\n  overflow: hidden;\r\n  padding: 16px 20px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.visual-card::before {\r\n  position: absolute;\r\n  top: 0;\r\n  right: 0;\r\n  left: 0;\r\n  height: 2px;\r\n  background: transparent;\r\n  content: \"\";\r\n}\r\n\r\n.visual-card.accent-info::before {\r\n  background: #3b82f6;\r\n}\r\n\r\n.visual-card.accent-success::before {\r\n  background: #10b981;\r\n}\r\n\r\n.visual-card.accent-warning::before {\r\n  background: #f59e0b;\r\n}\r\n\r\n.visual-card.accent-danger::before {\r\n  background: #ef4444;\r\n}\r\n\r\n.visual-card:hover {\r\n  border-color: rgba(9, 9, 11, 0.14);\r\n  box-shadow: var(--shadow-tight);\r\n  transform: none;\r\n}\r\n\r\n.visual-card .metric-header {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n}\r\n\r\n.visual-card .metric-label {\r\n  color: var(--muted);\r\n  font-size: 10.5px;\r\n  font-weight: 720;\r\n  letter-spacing: 0.05em;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.visual-card .metric-icon {\r\n  display: inline-grid;\r\n  color: var(--faint);\r\n}\r\n\r\n.visual-card .metric-icon .icon-svg {\r\n  width: 15px;\r\n  height: 15px;\r\n}\r\n\r\n.visual-card .metric-val {\r\n  display: block;\r\n  margin: 0;\r\n  overflow: visible;\r\n  color: var(--text);\r\n  font-family: var(--sans);\r\n  font-size: 26px;\r\n  font-weight: 760;\r\n  line-height: 1.05;\r\n  letter-spacing: 0;\r\n  white-space: nowrap;\r\n}\r\n\r\n.visual-card.accent-success .metric-val {\r\n  color: var(--success);\r\n}\r\n\r\n.visual-card.accent-danger .metric-val {\r\n  color: var(--danger);\r\n}\r\n\r\n.visual-card.accent-warning .metric-val {\r\n  color: var(--warning);\r\n}\r\n\r\n.visual-card.accent-info .metric-val {\r\n  color: var(--info);\r\n}\r\n\r\n.visual-card .metric-sub {\r\n  display: flex;\r\n  gap: 5px;\r\n  align-items: center;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 500;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.metric-dot {\r\n  display: inline-block;\r\n  width: 5px;\r\n  min-width: 5px;\r\n  height: 5px;\r\n  border-radius: 50%;\r\n  background: var(--info);\r\n}\r\n\r\n.metric-dot.success {\r\n  background: #16a34a;\r\n}\r\n\r\n.metric-dot.warning {\r\n  background: #d97706;\r\n}\r\n\r\n.metric-dot.danger {\r\n  background: #dc2626;\r\n}\r\n\r\n.overview-grid {\r\n  grid-template-columns: 1fr;\r\n  gap: 24px;\r\n}\r\n\r\n.overview-traffic-panel,\r\n.overview-secondary-layout {\r\n  grid-column: 1 / -1;\r\n}\r\n\r\n.overview-secondary-layout {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1.9fr) minmax(320px, 0.9fr);\r\n  gap: 24px;\r\n  align-items: start;\r\n}\r\n\r\n.overview-main-column,\r\n.overview-side-column {\r\n  display: grid;\r\n  gap: 24px;\r\n  min-width: 0;\r\n  align-content: start;\r\n}\r\n\r\n.panel {\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.panel-head {\r\n  padding: 12px 20px;\r\n  border-bottom: 1px solid var(--line);\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.panel-head h2 {\r\n  color: var(--text);\r\n  font-size: 13px;\r\n  font-weight: 760;\r\n  letter-spacing: 0;\r\n}\r\n\r\n.panel-head p {\r\n  display: none;\r\n}\r\n\r\n.panel-head .tag,\r\n.panel-head .badge {\r\n  min-height: 22px;\r\n  border-radius: 4px;\r\n  font-family: var(--mono);\r\n  font-size: 11px;\r\n  font-weight: 720;\r\n  letter-spacing: 0.02em;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.panel-head .badge.info {\r\n  border-color: #bfdbfe;\r\n  background: #dbeafe;\r\n  color: #1e3a8a;\r\n}\r\n\r\n.chart {\r\n  min-height: 332px;\r\n  padding: 20px;\r\n}\r\n\r\n.traffic-legend {\r\n  gap: 18px;\r\n  margin-bottom: 14px;\r\n  padding: 0;\r\n}\r\n\r\n.traffic-legend-item {\r\n  gap: 8px;\r\n}\r\n\r\n.traffic-legend-item > span {\r\n  width: 28px;\r\n  height: 3px;\r\n  border-radius: 3px;\r\n}\r\n\r\n.traffic-legend-item strong {\r\n  font-size: 12px;\r\n  font-weight: 720;\r\n}\r\n\r\n.traffic-legend-item small {\r\n  color: var(--muted);\r\n  font-family: var(--mono);\r\n  font-size: 10.5px;\r\n}\r\n\r\n.traffic-chart-shell {\r\n  border: 0;\r\n  border-radius: 0;\r\n  background: #fff;\r\n  box-shadow: none;\r\n}\r\n\r\n.traffic-chart-shell svg {\r\n  height: 250px;\r\n}\r\n\r\n.chart .axis {\r\n  stroke: #d4d4d8;\r\n  stroke-dasharray: 2 2;\r\n  stroke-width: 1.2;\r\n}\r\n\r\n.traffic-firstbyte-area,\r\n.traffic-success-area {\r\n  display: none;\r\n}\r\n\r\n.traffic-success-line,\r\n.traffic-failed-line,\r\n.traffic-firstbyte-line {\r\n  stroke-width: 2.8;\r\n  filter: none;\r\n}\r\n\r\n.traffic-firstbyte-line {\r\n  stroke: var(--text);\r\n}\r\n\r\n.traffic-success-line {\r\n  stroke: #3b82f6;\r\n}\r\n\r\n.traffic-failed-line {\r\n  stroke: #dc2626;\r\n  stroke-dasharray: 5 5;\r\n}\r\n\r\n.traffic-firstbyte-dot,\r\n.traffic-series-dot,\r\n.traffic-token-dot {\r\n  stroke: #fff;\r\n  stroke-width: 1.8;\r\n}\r\n\r\n.traffic-token-bar {\r\n  fill: rgba(124, 58, 237, 0.22);\r\n  stroke: rgba(124, 58, 237, 0.72);\r\n  stroke-width: 1;\r\n}\r\n\r\n.traffic-token-dot {\r\n  fill: #7c3aed;\r\n}\r\n\r\n.traffic-firstbyte-label {\r\n  display: none;\r\n}\r\n\r\n.traffic-axis-label {\r\n  fill: #52525b;\r\n  font: 680 11px var(--mono);\r\n}\r\n\r\n.usage-chart {\r\n  grid-template-columns: 1fr;\r\n  align-items: start;\r\n  padding: 20px;\r\n}\r\n\r\n.usage-summary {\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 12px;\r\n}\r\n\r\n.usage-columns.usage-model-only {\r\n  grid-template-columns: 1fr;\r\n}\r\n\r\n.usage-chart .mini-metric,\r\n.usage-row,\r\n.overview-provider-row,\r\n.recent-failure-row {\r\n  border: 1px solid var(--line);\r\n  border-radius: 6px;\r\n  background: var(--surface);\r\n  box-shadow: none;\r\n}\r\n\r\n.usage-chart .mini-metric {\r\n  padding: 12px;\r\n}\r\n\r\n.usage-row {\r\n  padding: 11px 12px;\r\n}\r\n\r\n.provider-health {\r\n  padding: 20px;\r\n}\r\n\r\n.overview-summary-meta {\r\n  color: var(--muted);\r\n  font: 650 11px var(--mono);\r\n  text-transform: uppercase;\r\n}\r\n\r\n.overview-provider-row {\r\n  padding: 12px;\r\n}\r\n\r\n.recent-failure-list {\r\n  padding: 0;\r\n}\r\n\r\n#recentFailures {\r\n  padding: 20px;\r\n}\r\n\r\n.recent-failure-row {\r\n  grid-template-columns: auto minmax(180px, 1fr) auto minmax(180px, 1.1fr);\r\n  padding: 12px;\r\n}\r\n\r\n.recent-failure-list .recent-failure-row.tone-warning .request-row-dot,\r\n#recentFailures .recent-failure-row.tone-warning .request-row-dot {\r\n  background: var(--warning);\r\n}\r\n\r\n.recent-failure-list .recent-failure-row.tone-danger .request-row-dot,\r\n#recentFailures .recent-failure-row.tone-danger .request-row-dot {\r\n  background: var(--danger);\r\n}\r\n\r\n.recent-failure-list .recent-failure-row.tone-success .request-row-dot,\r\n#recentFailures .recent-failure-row.tone-success .request-row-dot {\r\n  background: var(--success);\r\n}\r\n\r\n@media (max-width: 1080px) {\r\n  .shell {\r\n    width: 100%;\r\n    max-width: 100vw;\r\n    overflow-x: clip;\r\n    align-content: start;\r\n    grid-auto-rows: max-content;\r\n    grid-template-columns: minmax(0, 1fr);\r\n  }\r\n\r\n  .sidebar {\r\n    position: static;\r\n    height: auto;\r\n    width: 100%;\r\n    max-width: 100vw;\r\n    align-self: start;\r\n    overflow: hidden;\r\n    border-right: 0;\r\n    border-bottom: 1px solid var(--line-strong);\r\n    box-shadow: 0 8px 18px rgba(9, 9, 11, 0.04);\r\n  }\r\n\r\n  .sidebar::after {\r\n    display: none;\r\n  }\r\n\r\n  .brand {\r\n    padding: 14px 14px 12px;\r\n  }\r\n\r\n  .nav {\r\n    grid-template-columns: repeat(5, minmax(0, 1fr));\r\n    padding: 10px;\r\n  }\r\n\r\n  .nav-item {\r\n    padding: 10px 8px;\r\n    text-align: center;\r\n  }\r\n\r\n  .nav-item.is-active::before {\r\n    right: 18px;\r\n    bottom: 5px;\r\n    left: 18px;\r\n    top: auto;\r\n    width: auto;\r\n    height: 3px;\r\n  }\r\n\r\n  .sidebar-actions {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n    padding: 0 10px 10px;\r\n    border-top: 0;\r\n  }\r\n\r\n  .sidebar-footer {\r\n    display: none;\r\n  }\r\n\r\n  .overview-grid,\r\n  .policy-grid,\r\n  .config-grid {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .overview-secondary-layout {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .overview-traffic-panel,\r\n  .overview-failures-panel,\r\n  .overview-health-panel,\r\n  .overview-usage-panel {\r\n    grid-column: 1 / -1;\r\n  }\r\n\r\n  .metric-grid {\r\n    grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  }\r\n\r\n  .overview-visuals {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  }\r\n\r\n  .usage-chart {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .request-summary-row {\r\n    grid-template-columns: 24px 10px minmax(150px, 1fr) minmax(96px, auto) minmax(122px, 0.8fr) minmax(118px, auto) 28px;\r\n  }\r\n\r\n  .provider-card-grid {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  }\r\n\r\n  .provider-toolbar {\r\n    grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(130px, 0.7fr)) auto;\r\n  }\r\n\r\n  .workspace {\r\n    width: 100%;\r\n    max-width: 100vw;\r\n  }\r\n}\r\n\r\n@media (max-width: 760px) {\r\n  body.is-mobile-settings-open {\r\n    overflow: hidden;\r\n  }\r\n\r\n  .sidebar {\r\n    display: none;\r\n  }\r\n\r\n  .workspace {\r\n    padding: 10px;\r\n  }\r\n\r\n  .topbar {\r\n    display: grid;\r\n    grid-template-columns: minmax(0, 1fr) auto;\r\n    margin: 1px 1px 5px 0px;\r\n    padding: 10px;\r\n    align-items: start;\r\n    background: transparent;\r\n    border: 1px solid var(--line-strong);\r\n    border-radius: 12px;\r\n    box-shadow: var(--shadow);\r\n    \r\n  }\r\n\r\n\r\n\r\n\r\n  \r\n  .brand {\r\n    gap: 10px;\r\n    padding: 10px 12px 9px;\r\n  }\r\n\r\n  .brand-mark {\r\n    width: 32px;\r\n    height: 32px;\r\n    border-radius: 7px;\r\n    font-size: 11px;\r\n  }\r\n\r\n  .brand-title {\r\n    font-size: 14px;\r\n  }\r\n\r\n  .brand-subtitle {\r\n    margin-top: 0;\r\n    font-size: 11px;\r\n  }\r\n\r\n  h1 {\r\n    font-size: 22px;\r\n  }\r\n\r\n  .topbar p {\r\n    margin-top: 2px;\r\n    font-size: 11px;\r\n    line-height: 1.35;\r\n  }\r\n\r\n  .mobile-settings-button {\r\n    display: inline-flex;\r\n    align-items: center;\r\n    justify-content: center;\r\n    justify-self: end;\r\n    min-height: 34px;\r\n    padding: 0 11px;\r\n    white-space: nowrap;\r\n  }\r\n\r\n  .mobile-settings-backdrop {\r\n    position: fixed;\r\n    inset: 0;\r\n    z-index: 28;\r\n    display: block;\r\n    background: rgba(9, 9, 11, 0.28);\r\n    backdrop-filter: blur(2px);\r\n    opacity: 0;\r\n    pointer-events: none;\r\n    transition: opacity 180ms ease;\r\n  }\r\n\r\n  .mobile-settings-backdrop[hidden] {\r\n    display: none;\r\n  }\r\n\r\n  .mobile-settings-backdrop.is-open {\r\n    opacity: 1;\r\n    pointer-events: auto;\r\n  }\r\n\r\n  .mobile-settings-drawer {\r\n    position: fixed;\r\n    top: 0;\r\n    right: 0;\r\n    z-index: 29;\r\n    display: flex;\r\n    width: min(322px, calc(100vw - 42px));\r\n    height: 100dvh;\r\n    flex-direction: column;\r\n    border-left: 1px solid var(--line);\r\n    background: rgba(255, 255, 255, 0.75);\r\n    backdrop-filter: blur(30px) saturate(200%);\r\n    -webkit-backdrop-filter: blur(30px) saturate(200%);\r\n    box-shadow: -22px 0 42px rgba(9, 9, 11, 0);\r\n    transform: translateX(100%);\r\n    transition: transform 190ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 190ms ease;\r\n  }\r\n\r\n  .mobile-settings-drawer.is-open {\r\n    transform: translateX(0);\r\n    box-shadow: -22px 0 42px rgba(9, 9, 11, 0.18);\r\n  }\r\n\r\n  .mobile-settings-drawer .drawer-head {\r\n    display: grid;\r\n    grid-template-columns: minmax(0, 1fr) 34px;\r\n    gap: 10px;\r\n    align-items: center;\r\n    padding: 14px 14px 12px;\r\n    border-bottom: 1px solid color-mix(in srgb, var(--info) 14%, var(--line));\r\n    background: transparent;\r\n  }\r\n\r\n  .mobile-settings-drawer .drawer-head h2 {\r\n    font-size: 16px;\r\n    line-height: 1.15;\r\n  }\r\n\r\n  .mobile-settings-drawer .drawer-head p {\r\n    max-width: 19rem;\r\n    margin-top: 3px;\r\n    color: var(--muted);\r\n    font-family: var(--sans);\r\n    font-size: 11px;\r\n    line-height: 1.35;\r\n  }\r\n\r\n  .mobile-settings-drawer .icon-button {\r\n    width: 34px;\r\n    height: 34px;\r\n    border-color: color-mix(in srgb, var(--info) 18%, var(--line));\r\n    background: color-mix(in srgb, var(--surface) 86%, var(--info-soft));\r\n    font-size: 17px;\r\n  }\r\n\r\n  .mobile-settings-body {\r\n    gap: 11px;\r\n    height: calc(100dvh - 72px);\r\n    padding: 12px;\r\n  }\r\n\r\n  .mobile-settings-section .nav,\r\n  .mobile-settings-section .sidebar-actions,\r\n  .mobile-settings-section .toolbar {\r\n    display: grid;\r\n    gap: 8px;\r\n    justify-content: stretch;\r\n    margin: 0;\r\n    padding: 0;\r\n    border: 0;\r\n    border-radius: 0;\r\n    background: transparent;\r\n    box-shadow: none;\r\n  }\r\n\r\n  .mobile-settings-section {\r\n    gap: 8px;\r\n    padding: 10px;\r\n    border: 1px solid var(--line);\r\n    border-radius: 10px;\r\n    background: color-mix(in srgb, var(--surface) 88%, var(--surface-raised));\r\n    box-shadow: var(--shadow);\r\n  }\r\n\r\n  .mobile-settings-section-title {\r\n    color: color-mix(in srgb, var(--muted) 84%, var(--text));\r\n    font-size: 10px;\r\n    letter-spacing: 0.04em;\r\n  }\r\n\r\n  .mobile-settings-section #requestsToolbar::before {\r\n    display: none;\r\n  }\r\n\r\n  .mobile-settings-section #requestsToolbar,\r\n  #requestsToolbar {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .request-filter-primary,\r\n  .request-bulk-actions {\r\n    width: 100%;\r\n  }\r\n\r\n  .request-filter-title,\r\n  .request-status-chips,\r\n  .filter-search-field,\r\n  #requestsToolbar .control,\r\n  .advanced-filter-box,\r\n  .advanced-filter-box summary {\r\n    width: 100%;\r\n  }\r\n\r\n  .request-status-chips {\r\n    display: grid;\r\n    grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  }\r\n\r\n  .filter-chip {\r\n    text-align: center;\r\n  }\r\n\r\n  .advanced-filter-fields {\r\n    position: static;\r\n    width: 100%;\r\n    margin-top: 8px;\r\n    box-shadow: none;\r\n  }\r\n\r\n  .request-bulk-actions {\r\n    justify-content: stretch;\r\n    padding: 9px 0 0;\r\n    border-top: 1px solid var(--line-soft);\r\n    border-left: 0;\r\n  }\r\n\r\n  .request-bulk-actions .button,\r\n  .selection-count {\r\n    width: 100%;\r\n    justify-content: center;\r\n    text-align: center;\r\n  }\r\n\r\n  .mobile-settings-section .nav {\r\n    grid-template-columns: 1fr;\r\n    width: 100%;\r\n    max-width: none;\r\n    overflow: visible;\r\n  }\r\n\r\n  .mobile-settings-section .nav-item {\r\n    width: 100%;\r\n    min-height: 36px;\r\n    padding: 8px 10px 8px 13px;\r\n    border-color: var(--line-soft);\r\n    background: var(--surface);\r\n    text-align: left;\r\n    white-space: normal;\r\n    box-shadow: none;\r\n  }\r\n\r\n  .mobile-settings-section .nav-item.is-active::before {\r\n    top: 8px;\r\n    right: auto;\r\n    bottom: 8px;\r\n    left: 6px;\r\n    width: 2px;\r\n    height: auto;\r\n  }\r\n\r\n  .mobile-settings-section .nav-item.is-active {\r\n    border-color: color-mix(in srgb, var(--accent) 18%, var(--line));\r\n    background: color-mix(in srgb, var(--accent-soft) 62%, var(--surface));\r\n    box-shadow: none;\r\n  }\r\n\r\n  .mobile-settings-section .nav::-webkit-scrollbar {\r\n    display: none;\r\n  }\r\n\r\n  .mobile-settings-section .nav > *,\r\n  .mobile-settings-section .sidebar-actions > *,\r\n  .mobile-settings-section .toolbar > * {\r\n    width: 100%;\r\n    min-width: 0;\r\n  }\r\n\r\n  .nav {\r\n    width: 100%;\r\n    max-width: 100vw;\r\n  }\r\n\r\n  .time-range-control {\r\n    width: 100%;\r\n    display: grid;\r\n    gap: 8px;\r\n    margin-bottom: 10px;\r\n    padding: 10px;\r\n    border-radius: 8px;\r\n  }\r\n\r\n  .overview-page-head {\r\n    display: block;\r\n    margin-bottom: 12px;\r\n    padding-bottom: 0;\r\n    border-bottom: 0;\r\n  }\r\n\r\n  .overview-page-head > div:first-child {\r\n    display: none;\r\n  }\r\n\r\n  .overview-page-head .time-range-control {\r\n    margin: 0;\r\n  }\r\n\r\n  .segmented-control {\r\n    width: 100%;\r\n    grid-auto-flow: column;\r\n  }\r\n\r\n  .segmented-button {\r\n    min-width: 0;\r\n    padding: 0 6px;\r\n  }\r\n\r\n  .metric-grid {\r\n    gap: 8px;\r\n    grid-template-columns: 1fr 1fr;\r\n    margin-bottom: 8px;\r\n  }\r\n\r\n  .overview-visuals {\r\n    grid-template-columns: 1fr;\r\n    gap: 7px;\r\n    margin: 0 0 8px;\r\n  }\r\n\r\n  .visual-hero-card {\r\n    min-height: 116px;\r\n  }\r\n\r\n  .visual-hero-card strong {\r\n    font-size: 30px;\r\n  }\r\n\r\n  .visual-hero-meta {\r\n    gap: 5px;\r\n    margin-top: 8px;\r\n  }\r\n\r\n  .visual-hero-meta b {\r\n    min-height: 22px;\r\n    padding: 0 7px;\r\n    font-size: 10px;\r\n  }\r\n\r\n  .visual-card {\r\n    min-height: 64px;\r\n    padding: 9px 10px;\r\n    border-radius: 8px;\r\n  }\r\n\r\n  .visual-card-icon,\r\n  .visual-ring {\r\n    width: 36px;\r\n    height: 36px;\r\n    border-radius: 9px;\r\n  }\r\n\r\n  .metric {\r\n    min-height: 76px;\r\n    padding: 10px 11px;\r\n    border-radius: 8px;\r\n  }\r\n\r\n  .metric-label {\r\n    font-size: 11px;\r\n  }\r\n\r\n  .metric strong {\r\n    margin-top: 5px;\r\n    font-size: 23px;\r\n  }\r\n\r\n  .metric small {\r\n    margin-top: 5px;\r\n    font-size: 11px;\r\n    line-height: 1.25;\r\n  }\r\n\r\n  .overview-grid,\r\n  .policy-grid,\r\n  .config-grid {\r\n    gap: 8px;\r\n  }\r\n\r\n  .panel {\r\n    margin-bottom: 8px;\r\n    border-radius: 8px;\r\n  }\r\n\r\n  .panel-head {\r\n    display: grid;\r\n    grid-template-columns: minmax(0, 1fr);\r\n    gap: 8px;\r\n    padding: 10px 11px 9px;\r\n  }\r\n\r\n  .panel-head > .tag,\r\n  .panel-head > .badge,\r\n  .panel-head > .button,\r\n  .panel-head > .actions {\r\n    justify-self: start;\r\n  }\r\n\r\n  .overview-traffic-panel .panel-head {\r\n    gap: 6px;\r\n  }\r\n\r\n  .panel-head > .tag,\r\n  .panel-head > .badge {\r\n    max-width: 100%;\r\n    white-space: normal;\r\n    overflow-wrap: anywhere;\r\n  }\r\n\r\n  .panel-head p {\r\n    display: none;\r\n  }\r\n\r\n  .tag,\r\n  .badge {\r\n    min-height: 21px;\r\n    padding: 0 7px;\r\n    font-size: 10px;\r\n  }\r\n\r\n  .chart {\r\n    min-height: 320px;\r\n    padding: 8px 9px 7px;\r\n  }\r\n\r\n  .traffic-chart-shell {\r\n    border-radius: 14px;\r\n  }\r\n\r\n  .traffic-chart-shell svg {\r\n    height: 282px;\r\n  }\r\n\r\n  .request-page-vitals {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n    gap: 6px;\r\n    padding: 8px;\r\n  }\r\n\r\n  .request-summary-row {\r\n    grid-template-columns: 24px 9px minmax(0, 1fr) 28px;\r\n    gap: 8px;\r\n    padding: 10px;\r\n  }\r\n\r\n  .request-row-status,\r\n  .request-row-route,\r\n  .request-row-metrics {\r\n    grid-column: 3 / -1;\r\n  }\r\n\r\n  .request-row-open {\r\n    grid-column: 4;\r\n    grid-row: 1;\r\n  }\r\n\r\n  .chart-stats {\r\n    gap: 5px;\r\n  }\r\n\r\n  .chart-stats div {\r\n    padding: 7px;\r\n  }\r\n\r\n  .chart-stats span {\r\n    font-size: 10px;\r\n  }\r\n\r\n  .chart-stats strong {\r\n    font-size: 12px;\r\n  }\r\n\r\n  .chart > svg {\r\n    height: 220px;\r\n  }\r\n\r\n  .usage-chart {\r\n    gap: 9px;\r\n    padding: 9px;\r\n  }\r\n\r\n  .usage-summary {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n    gap: 6px;\r\n  }\r\n\r\n  .usage-columns {\r\n    grid-template-columns: 1fr;\r\n    gap: 10px;\r\n  }\r\n\r\n  .usage-row {\r\n    gap: 6px;\r\n    padding: 8px;\r\n  }\r\n\r\n  .usage-row-foot {\r\n    display: grid;\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  }\r\n\r\n  .latency-samples {\r\n    min-height: 38px;\r\n  }\r\n\r\n  .latency-sample {\r\n    min-width: 82px;\r\n    padding: 6px 7px;\r\n  }\r\n\r\n  .provider-health,\r\n  .pad,\r\n  .form-grid,\r\n  .drawer-body,\r\n  .mobile-settings-body {\r\n    padding: 11px;\r\n  }\r\n\r\n  th,\r\n  td {\r\n    padding: 9px 10px;\r\n  }\r\n\r\n  .button {\r\n    min-height: 34px;\r\n  }\r\n\r\n  .control {\r\n    min-height: 34px;\r\n  }\r\n\r\n  .config-provider-card {\r\n    gap: 10px;\r\n    padding: 11px;\r\n  }\r\n\r\n  .config-provider-head,\r\n  .format-edit-row {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .config-provider-head {\r\n    display: grid;\r\n  }\r\n\r\n  .format-edit-row {\r\n    gap: 6px;\r\n  }\r\n\r\n  .provider-runtime-head,\r\n  .key-card-head,\r\n  .failure-policy-head {\r\n    display: grid;\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .compact-control {\r\n    width: 100%;\r\n    min-width: 0;\r\n  }\r\n  .key-probe-menu {\r\n    position: fixed;\r\n    right: 12px;\r\n    left: 12px;\r\n    width: auto;\r\n    max-width: none;\r\n  }\r\n\r\n  .provider-runtime-actions,\r\n  .actions {\r\n    justify-content: flex-start;\r\n  }\r\n\r\n  .provider-card-grid,\r\n  .provider-model-list,\r\n  .policy-card-list,\r\n  .failure-policy-list {\r\n    grid-template-columns: 1fr;\r\n    gap: 8px;\r\n  }\r\n\r\n  .provider-toolbar {\r\n    grid-template-columns: 1fr;\r\n    margin: 0 9px 4px;\r\n    padding: 10px;\r\n  }\r\n\r\n  .recent-failure-row {\r\n    grid-template-columns: auto minmax(0, 1fr) auto;\r\n  }\r\n\r\n  .recent-failure-reason {\r\n    grid-column: 2 / -1;\r\n  }\r\n\r\n  .provider-runtime-card,\r\n  .model-capability-card,\r\n  .policy-rule-card,\r\n  .failure-policy-card {\r\n    gap: 10px;\r\n    padding: 10px;\r\n    border-radius: 8px;\r\n  }\r\n\r\n  .provider-metrics,\r\n  .provider-compact-stats,\r\n  .provider-card-metrics,\r\n  .model-capability-summary,\r\n  .policy-summary-grid {\r\n    grid-template-columns: 1fr 1fr;\r\n    gap: 7px;\r\n  }\r\n\r\n  .provider-detail-metrics {\r\n    grid-template-columns: repeat(3, minmax(0, 1fr));\r\n    gap: 6px;\r\n  }\r\n\r\n  .provider-detail-metrics .mini-metric {\r\n    min-height: 0;\r\n    padding: 6px 7px;\r\n    border-radius: 6px;\r\n  }\r\n\r\n  .provider-detail-metrics .mini-metric span {\r\n    font-size: 10px;\r\n    line-height: 1.1;\r\n  }\r\n\r\n  .provider-detail-metrics .mini-metric strong {\r\n    margin-top: 1px;\r\n    font-size: 12px;\r\n    line-height: 1.1;\r\n  }\r\n\r\n  .provider-detail-metrics .mini-metric small {\r\n    display: none;\r\n  }\r\n\r\n  .provider-health-tile {\r\n    min-height: 0;\r\n  }\r\n\r\n  .provider-card-footer,\r\n  .provider-detail-hero,\r\n  .provider-danger-zone {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .provider-card-footer {\r\n    align-items: stretch;\r\n  }\r\n\r\n  .provider-runtime-actions {\r\n    width: 100%;\r\n  }\r\n\r\n  .provider-runtime-actions .button {\r\n    flex: 1 1 auto;\r\n  }\r\n\r\n  .provider-runtime-actions .button.icon-action {\r\n    flex: 0 0 34px;\r\n  }\r\n\r\n  .provider-drawer {\r\n    width: 100vw;\r\n  }\r\n\r\n  .provider-drawer-tabs {\r\n    grid-template-columns: repeat(6, minmax(94px, 1fr));\r\n    overflow-x: auto;\r\n    padding-bottom: 8px;\r\n  }\r\n\r\n  .provider-activity-row {\r\n    grid-template-columns: 10px minmax(0, 1fr) auto;\r\n  }\r\n\r\n  .provider-activity-row > span:not(.provider-status-dot) {\r\n    grid-column: 2 / -1;\r\n  }\r\n\r\n  .provider-activity-row small {\r\n    display: none;\r\n  }\r\n\r\n  .policy-summary-grid {\r\n    padding: 9px 9px 0;\r\n  }\r\n\r\n  .policy-controls {\r\n    padding: 9px;\r\n  }\r\n\r\n  .policy-control-grid,\r\n  .form-pair-grid,\r\n  .failure-policy-edit-grid,\r\n  .model-route-form {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .policy-control-card {\r\n    padding: 10px;\r\n  }\r\n\r\n  .mini-metric {\r\n    padding: 8px;\r\n  }\r\n\r\n  .mini-metric strong {\r\n    font-size: 13px;\r\n  }\r\n\r\n  .format-route-list,\r\n  .provider-key-list,\r\n  .provider-inline-form,\r\n  .provider-inline-key-form,\r\n  .key-proxy-row,\r\n  .global-proxy-form,\r\n  .provider-create-form,\r\n  .config-summary-grid,\r\n  .config-provider-summary-card,\r\n  .model-route-card {\r\n    grid-template-columns: 1fr;\r\n    gap: 7px;\r\n  }\r\n\r\n  .provider-create-actions,\r\n  .provider-create-format,\r\n  .global-proxy-form .form-note,\r\n  .config-provider-summary-main,\r\n  .config-provider-summary-keys,\r\n  .config-provider-summary-formats,\r\n  .config-provider-summary-card > .badge,\r\n  .config-provider-summary-card > .button {\r\n    grid-column: 1 / -1;\r\n    grid-row: auto;\r\n  }\r\n\r\n  .config-provider-summary-card {\r\n    min-height: 0;\r\n  }\r\n\r\n  .config-provider-summary-card > .badge {\r\n    justify-self: start;\r\n  }\r\n\r\n  .config-provider-summary-card > .button {\r\n    justify-self: start;\r\n  }\r\n\r\n  .model-route-form,\r\n  .model-route-list {\r\n    padding: 9px;\r\n  }\r\n\r\n  .model-route-side {\r\n    justify-items: start;\r\n  }\r\n\r\n  .provider-edit-panel,\r\n  .raw-config-details,\r\n  .overlay-safety,\r\n  .config-summary {\r\n    padding: 9px;\r\n  }\r\n\r\n  .config-path-row {\r\n    grid-template-columns: 1fr;\r\n    gap: 4px;\r\n  }\r\n\r\n  .policy-rule-head {\r\n    grid-template-columns: 28px minmax(0, 1fr);\r\n    gap: 8px;\r\n  }\r\n\r\n  .rule-index {\r\n    width: 26px;\r\n    height: 26px;\r\n    border-radius: 7px;\r\n    font-size: 10px;\r\n  }\r\n\r\n  .kv-grid {\r\n    grid-template-columns: 104px minmax(0, 1fr);\r\n  }\r\n\r\n  .routing-summary-card,\r\n  .attempt {\r\n    padding: 10px;\r\n    border-radius: 8px;\r\n  }\r\n\r\n  .routing-summary-head {\r\n    align-items: flex-start;\r\n  }\r\n\r\n  .routing-summary-grid {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  }\r\n\r\n  .routing-next-action,\r\n  .attempt-explain div {\r\n    grid-template-columns: 1fr;\r\n    gap: 4px;\r\n  }\r\n\r\n  .attempt-explain {\r\n    padding: 8px;\r\n  }\r\n\r\n  .route-inline {\r\n    min-width: 180px;\r\n    max-width: 280px;\r\n  }\r\n\r\n  .view {\r\n    animation: none;\r\n  }\r\n}\r\n\r\n@media (max-width: 420px) {\r\n  .metric-grid {\r\n    grid-template-columns: 1fr 1fr;\r\n  }\r\n\r\n  .routing-summary-head,\r\n  .attempt-head {\r\n    display: grid;\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .routing-summary-grid {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .kv-grid {\r\n    grid-template-columns: 92px minmax(0, 1fr);\r\n  }\r\n}\r\n\r\n@media (max-width: 340px) {\r\n  .metric-grid {\r\n    grid-template-columns: 1fr;\r\n  }\r\n}\r\n\r\n@media (prefers-reduced-motion: reduce) {\r\n  html {\r\n    scroll-behavior: auto;\r\n  }\r\n\r\n  .view,\r\n  .button,\r\n  .icon-button,\r\n  .drawer,\r\n  .nav-item,\r\n  .animated-line {\r\n    animation: none !important;\r\n    transition: none !important;\r\n  }\r\n}\r\n\r\n/* Usage trend chart refresh. Keep this block late so older telemetry chart skins do not leak through. */\r\n.overview-traffic-panel .panel-head {\r\n  align-items: center;\r\n}\r\n\r\n.overview-traffic-panel .panel-head h2 {\r\n  font-size: 15px;\r\n  font-weight: 780;\r\n}\r\n\r\n.overview-traffic-panel .panel-head .badge.info {\r\n  border: 1px solid #e5e7eb;\r\n  background: #fff;\r\n  color: #6b7280;\r\n  text-transform: none;\r\n}\r\n\r\n.overview-traffic-panel .chart {\r\n  min-height: 500px;\r\n  padding: 18px 24px 24px;\r\n  background: #fff;\r\n}\r\n\r\n.usage-trend-overview {\r\n  display: grid;\r\n  grid-template-columns: minmax(250px, 0.62fr) minmax(0, 1.38fr);\r\n  gap: 16px;\r\n  align-items: stretch;\r\n  margin-bottom: 18px;\r\n}\r\n\r\n.usage-trend-total,\r\n.usage-trend-kpi {\r\n  border: 1px solid #eceff3;\r\n  background: #fff;\r\n}\r\n\r\n.usage-trend-total {\r\n  display: grid;\r\n  align-content: center;\r\n  min-height: 112px;\r\n  padding: 18px 22px;\r\n  border-radius: 12px;\r\n  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.035);\r\n}\r\n\r\n.usage-trend-total span,\r\n.usage-trend-kpi span {\r\n  color: #767b85;\r\n  font-size: 12px;\r\n  font-weight: 720;\r\n}\r\n\r\n.usage-trend-total strong {\r\n  margin-top: 6px;\r\n  color: #09090b;\r\n  font: 820 36px/1.02 var(--mono);\r\n  letter-spacing: -0.01em;\r\n}\r\n\r\n.usage-trend-total small {\r\n  margin-top: 8px;\r\n  color: #8b919b;\r\n  font: 650 12px var(--mono);\r\n}\r\n\r\n.usage-trend-kpis {\r\n  display: grid;\r\n  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));\r\n  gap: 10px;\r\n}\r\n\r\n.usage-trend-kpi {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  grid-template-rows: auto auto;\r\n  gap: 6px 8px;\r\n  align-content: center;\r\n  min-height: 112px;\r\n  padding: 14px;\r\n  border-radius: 12px;\r\n}\r\n\r\n.usage-trend-kpi i {\r\n  grid-row: 1 / span 2;\r\n  width: 10px;\r\n  height: 10px;\r\n  margin-top: 4px;\r\n  border-radius: 999px;\r\n  background: #71717a;\r\n  box-shadow: 0 0 0 4px rgba(113, 113, 122, 0.08);\r\n}\r\n\r\n.usage-trend-kpi strong {\r\n  min-width: 0;\r\n  overflow: visible;\r\n  color: #18181b;\r\n  font: 780 19px/1.1 var(--mono);\r\n  overflow-wrap: anywhere;\r\n  white-space: normal;\r\n}\r\n\r\n.usage-trend-kpi.usage-input i {\r\n  background: #2563eb;\r\n  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);\r\n}\r\n\r\n.usage-trend-kpi.usage-output i,\r\n.usage-trend-kpi.usage-success i {\r\n  background: #10b981;\r\n  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);\r\n}\r\n\r\n.usage-trend-kpi.usage-request i {\r\n  background: #f97316;\r\n  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.12);\r\n}\r\n\r\n.usage-trend-kpi.usage-failure i {\r\n  background: #f43f5e;\r\n  box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.11);\r\n}\r\n\r\n.traffic-chart-shell {\r\n  overflow: visible;\r\n  padding: 18px 18px 12px;\r\n  border: 1px solid #dce3ec;\r\n  border-radius: 14px;\r\n  background: #fff;\r\n  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.045);\r\n}\r\n\r\n.traffic-chart-shell svg {\r\n  display: block;\r\n  width: 100%;\r\n  height: 390px;\r\n}\r\n\r\n.traffic-plot-bg {\r\n  fill: #fff;\r\n}\r\n\r\n.chart .traffic-grid-line,\r\n.chart .traffic-x-tick {\r\n  stroke: #e6eaf0;\r\n  stroke-dasharray: 4 5;\r\n  stroke-width: 1;\r\n}\r\n\r\n.chart .traffic-x-tick {\r\n  opacity: 0.46;\r\n}\r\n\r\n.chart .traffic-baseline {\r\n  stroke: #8f98a6;\r\n  stroke-width: 1.5;\r\n}\r\n\r\n.traffic-axis-label {\r\n  fill: #667085;\r\n  font: 760 12px var(--mono);\r\n  paint-order: stroke;\r\n  stroke: #fff;\r\n  stroke-linejoin: round;\r\n  stroke-width: 3px;\r\n}\r\n\r\n.traffic-axis-title {\r\n  fill: #344054;\r\n  font: 820 12px var(--mono);\r\n  letter-spacing: 0.01em;\r\n}\r\n\r\n.traffic-axis-label-info {\r\n  fill: #8a5a22;\r\n}\r\n\r\n.traffic-token-area {\r\n  fill: url(\"#trafficTokenArea\");\r\n  pointer-events: none;\r\n}\r\n\r\n.traffic-plot-bg {\r\n  fill: transparent;\r\n}\r\n\r\n.traffic-total-line,\r\n.traffic-input-line,\r\n.traffic-output-line {\r\n  fill: none;\r\n  stroke-linecap: round;\r\n  stroke-linejoin: round;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.traffic-total-line {\r\n  stroke: #a855f7;\r\n  stroke-width: 2.2;\r\n  filter: drop-shadow(0 4px 6px rgba(168, 85, 247, 0.22));\r\n}\r\n\r\n.traffic-input-line {\r\n  stroke: #3b82f6;\r\n  stroke-width: 1.5;\r\n  stroke-dasharray: 6 4;\r\n}\r\n\r\n.traffic-output-line {\r\n  stroke: #10b981;\r\n  stroke-width: 1.5;\r\n  stroke-dasharray: 2 3;\r\n}\r\n\r\n.traffic-bar-success {\r\n  fill: #10b981;\r\n  opacity: 0.85;\r\n  transition: opacity 0.12s ease;\r\n}\r\n\r\n.traffic-bar-success:hover {\r\n  opacity: 1;\r\n}\r\n\r\n.traffic-bar-fail {\r\n  fill: #ef4444;\r\n  opacity: 0.9;\r\n  transition: opacity 0.12s ease;\r\n}\r\n\r\n.traffic-bar-fail:hover {\r\n  opacity: 1;\r\n}\r\n\r\n.traffic-latency-line {\r\n  fill: none;\r\n  stroke: #f59e0b;\r\n  stroke-width: 2.0;\r\n  stroke-linecap: round;\r\n  stroke-linejoin: round;\r\n  filter: drop-shadow(0 4px 6px rgba(245, 158, 11, 0.22));\r\n}\r\n\r\n.traffic-latency-region {\r\n  fill: url(\"#trafficLatencyArea\");\r\n  pointer-events: none;\r\n}\r\n\r\n.traffic-latency-dot {\r\n  fill: #f59e0b;\r\n  stroke: #ffffff;\r\n  stroke-width: 2;\r\n}\r\n\r\n.traffic-cost-line {\r\n  fill: none;\r\n  stroke: #f59e0b;\r\n  stroke-width: 2.0;\r\n  stroke-linecap: round;\r\n  stroke-linejoin: round;\r\n  filter: drop-shadow(0 4px 6px rgba(245, 158, 11, 0.22));\r\n}\r\n\r\n.traffic-cost-dot {\r\n  fill: #f59e0b;\r\n  stroke: #ffffff;\r\n  stroke-width: 2;\r\n}\r\n\r\n.traffic-trend-dot {\r\n  stroke: #fff;\r\n  stroke-width: 2.4;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.traffic-total-dot {\r\n  fill: #a855f7;\r\n}\r\n\r\n.traffic-input-dot {\r\n  fill: #3b82f6;\r\n}\r\n\r\n.traffic-output-dot {\r\n  fill: #10b981;\r\n}\r\n\r\n.traffic-chart-header {\r\n  display: flex;\r\n  justify-content: space-between;\r\n  align-items: center;\r\n  padding: 14px 20px;\r\n  border-bottom: 1px solid color-mix(in srgb, var(--line) 40%, transparent);\r\n}\r\n\r\n.traffic-chart-header .traffic-trend-legend {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 16px;\r\n  align-items: center;\r\n  padding: 0;\r\n  margin: 0;\r\n}\r\n\r\n.traffic-mode-selectors {\r\n  display: inline-flex;\r\n  background: #f1f5f9;\r\n  padding: 3px;\r\n  border-radius: 99px;\r\n  border: 1px solid #e2e8f0;\r\n}\r\n\r\n.traffic-mode-selectors .pill-toggle {\r\n  background: transparent;\r\n  border: none;\r\n  outline: none;\r\n  font-size: 11px;\r\n  font-weight: 700;\r\n  color: #64748b;\r\n  padding: 6px 12px;\r\n  border-radius: 99px;\r\n  cursor: pointer;\r\n  transition: all 0.15s ease;\r\n  margin: 0;\r\n  height: auto;\r\n  line-height: 1.2;\r\n}\r\n\r\n.traffic-mode-selectors .pill-toggle:hover {\r\n  color: #1e293b;\r\n}\r\n\r\n.traffic-mode-selectors .pill-toggle.is-active {\r\n  background: #ffffff;\r\n  color: #0f172a;\r\n  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);\r\n  font-weight: 800;\r\n}\r\n\r\n.traffic-trend-legend-item {\r\n  display: inline-flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n  color: #475569;\r\n  font-size: 12px;\r\n  font-weight: 600;\r\n}\r\n\r\n.traffic-trend-legend-item i {\r\n  display: inline-block;\r\n  vertical-align: middle;\r\n}\r\n\r\n/* Line series legend indicators (pills/lines) */\r\n.traffic-trend-legend-item.traffic-latency-legend i,\r\n.traffic-trend-legend-item.traffic-total-dot i,\r\n.traffic-trend-legend-item.traffic-input-dot i,\r\n.traffic-trend-legend-item.traffic-output-dot i,\r\n.traffic-trend-legend-item.traffic-cost-legend i {\r\n  width: 18px;\r\n  height: 2px;\r\n  border-radius: 999px;\r\n}\r\n\r\n.traffic-trend-legend-item.traffic-latency-legend i {\r\n  background: #f59e0b;\r\n}\r\n\r\n.traffic-trend-legend-item.traffic-total-dot i {\r\n  background: #a855f7;\r\n}\r\n\r\n.traffic-trend-legend-item.traffic-input-dot i {\r\n  background: repeating-linear-gradient(90deg, #3b82f6 0 6px, transparent 6px 10px);\r\n}\r\n\r\n.traffic-trend-legend-item.traffic-output-dot i {\r\n  background: repeating-linear-gradient(90deg, #10b981 0 3px, transparent 3px 6px);\r\n}\r\n\r\n.traffic-trend-legend-item.traffic-cost-legend i {\r\n  background: #f59e0b;\r\n}\r\n\r\n/* Bar series legend indicators (squares/dots) */\r\n.traffic-trend-legend-item.traffic-bar-success-legend i,\r\n.traffic-trend-legend-item.traffic-bar-fail-legend i {\r\n  width: 11px;\r\n  height: 11px;\r\n  border-radius: 3px;\r\n}\r\n\r\n.traffic-trend-legend-item.traffic-bar-success-legend i {\r\n  background: #10b981;\r\n}\r\n\r\n.traffic-trend-legend-item.traffic-bar-fail-legend i {\r\n  background: #ef4444;\r\n}\r\n\r\n/* Cleaner provider health status dots. */\r\n.provider-status-dot {\r\n  width: 10px;\r\n  height: 10px;\r\n  margin-top: 5px;\r\n  border: 2px solid #fff;\r\n  background: #94a3b8;\r\n  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.18);\r\n}\r\n\r\n.provider-status-dot.ok {\r\n  background: #10b981;\r\n  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.16);\r\n}\r\n\r\n.provider-status-dot.warn {\r\n  background: #f59e0b;\r\n  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);\r\n}\r\n\r\n.provider-status-dot.bad {\r\n  background: #ef4444;\r\n  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.16);\r\n}\r\n\r\n.request-row-dot {\r\n  border: 2px solid #fff;\r\n}\r\n\r\n.recent-failure-list .recent-failure-row.tone-success .request-row-dot,\r\n#recentFailures .recent-failure-row.tone-success .request-row-dot {\r\n  background: #10b981;\r\n  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.16);\r\n}\r\n\r\n.recent-failure-list .recent-failure-row.tone-warning .request-row-dot,\r\n#recentFailures .recent-failure-row.tone-warning .request-row-dot {\r\n  background: #f59e0b;\r\n  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);\r\n}\r\n\r\n.recent-failure-list .recent-failure-row.tone-danger .request-row-dot,\r\n#recentFailures .recent-failure-row.tone-danger .request-row-dot {\r\n  background: #ef4444;\r\n  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.16);\r\n}\r\n\r\n.provider-activity-row .provider-status-dot {\r\n  margin-top: 0;\r\n  flex-shrink: 0;\r\n}\r\n\r\n@media (max-width: 980px) {\r\n  .usage-trend-overview {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .usage-trend-kpis {\r\n    grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  }\r\n}\r\n\r\n@media (max-width: 760px) {\r\n  .overview-traffic-panel .chart {\r\n    min-height: 450px;\r\n    padding: 10px;\r\n  }\r\n\r\n  .usage-trend-total {\r\n    min-height: 96px;\r\n    padding: 15px;\r\n  }\r\n\r\n  .usage-trend-total strong {\r\n    font-size: 28px;\r\n  }\r\n\r\n  .usage-trend-kpis {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n    gap: 8px;\r\n  }\r\n\r\n  .usage-trend-kpi {\r\n    min-height: 78px;\r\n    padding: 11px;\r\n  }\r\n\r\n  .usage-trend-kpi strong {\r\n    font-size: 15px;\r\n  }\r\n\r\n  .traffic-chart-shell {\r\n    padding: 10px 6px 8px;\r\n    border-radius: 12px;\r\n  }\r\n\r\n  .traffic-chart-shell svg {\r\n    height: 300px;\r\n  }\r\n\r\n  .traffic-axis-label {\r\n    font-size: 10px;\r\n  }\r\n}\r\n\r\n/* Final shell polish: brand plaque and unified provider tools. */\r\n.sidebar .brand {\r\n  position: relative;\r\n  gap: 11px;\r\n  margin: 14px 12px 16px;\r\n  padding: 13px 13px 14px;\r\n  border: 1px solid color-mix(in srgb, var(--line-strong) 72%, var(--line));\r\n  border-radius: 11px;\r\n  background:\r\n    linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 74%, #fff) 0%, var(--surface) 100%),\r\n    var(--surface);\r\n  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.055);\r\n}\r\n\r\n.sidebar .brand::after {\r\n  position: absolute;\r\n  right: 12px;\r\n  bottom: -9px;\r\n  left: 12px;\r\n  height: 1px;\r\n  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--line-strong) 80%, transparent), transparent);\r\n  content: \"\";\r\n}\r\n\r\n.sidebar .brand-mark {\r\n  width: 26px;\r\n  height: 26px;\r\n  border-radius: 7px;\r\n  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22) inset, 0 8px 16px rgba(9, 9, 11, 0.12);\r\n}\r\n\r\n.sidebar .brand-title {\r\n  font-size: 13.5px;\r\n  font-weight: 780;\r\n  line-height: 1.15;\r\n}\r\n\r\n.sidebar .brand-subtitle {\r\n  margin-top: 3px;\r\n  color: color-mix(in srgb, var(--muted) 84%, var(--text));\r\n  font-size: 11px;\r\n  line-height: 1.2;\r\n}\r\n\r\n.providers-panel {\r\n  overflow: visible;\r\n}\r\n\r\n.providers-panel .providers-tools {\r\n  border-bottom: 1px solid color-mix(in srgb, var(--line-strong) 64%, var(--line-soft));\r\n  background:\r\n    linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 70%, var(--surface)) 0%, var(--surface) 100%),\r\n    var(--surface);\r\n}\r\n\r\n.providers-tools-head {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  gap: 12px;\r\n  align-items: center;\r\n  padding: 14px 18px 10px;\r\n}\r\n\r\n.providers-tools-head h2 {\r\n  color: var(--text);\r\n  font-size: 15px;\r\n  font-weight: 800;\r\n  letter-spacing: 0;\r\n}\r\n\r\n.providers-tools-head p {\r\n  margin-top: 3px;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  line-height: 1.25;\r\n}\r\n\r\n.providers-tools-head .button {\r\n  min-height: 34px;\r\n}\r\n\r\n#providersView .provider-toolbar {\r\n  grid-template-columns: minmax(240px, 1.55fr) minmax(140px, 0.75fr) minmax(140px, 0.75fr) minmax(140px, 0.75fr) auto;\r\n  gap: 9px;\r\n  align-items: end;\r\n  margin: 0;\r\n  padding: 0 18px 16px;\r\n  border: 0;\r\n  border-radius: 0;\r\n  background: transparent;\r\n  box-shadow: none;\r\n}\r\n\r\n#providersView .provider-toolbar .field {\r\n  gap: 6px;\r\n}\r\n\r\n#providersView .provider-toolbar .field > span {\r\n  color: color-mix(in srgb, var(--muted) 88%, var(--text));\r\n  font-size: 10.5px;\r\n  font-weight: 780;\r\n  letter-spacing: 0.02em;\r\n}\r\n\r\n#providersView .provider-toolbar .control {\r\n  min-height: 36px;\r\n  border-color: color-mix(in srgb, var(--line-strong) 74%, var(--line));\r\n  background: rgba(255, 255, 255, 0.78);\r\n}\r\n\r\n#providersView .provider-toolbar .control:focus-visible {\r\n  border-color: color-mix(in srgb, var(--info) 56%, var(--line));\r\n  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);\r\n}\r\n\r\n#providersView .provider-toolbar #clearProviderFiltersButton {\r\n  min-height: 36px;\r\n  padding-inline: 13px;\r\n  border-color: color-mix(in srgb, var(--line-strong) 68%, var(--line));\r\n}\r\n\r\n#providersView .provider-table {\r\n  padding-top: 12px;\r\n}\r\n\r\n@media (max-width: 1024px) {\r\n  #providersView .provider-toolbar {\r\n    grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(130px, 0.7fr)) auto;\r\n  }\r\n}\r\n\r\n@media (max-width: 760px) {\r\n  .sidebar .brand {\r\n    margin: 10px;\r\n    padding: 11px 12px;\r\n  }\r\n\r\n  .sidebar .brand::after {\r\n    display: none;\r\n  }\r\n\r\n  .providers-tools-head,\r\n  #providersView .provider-toolbar {\r\n    grid-template-columns: 1fr;\r\n    padding-right: 12px;\r\n    padding-left: 12px;\r\n  }\r\n\r\n  .providers-tools-head .button,\r\n  #providersView .provider-toolbar .button,\r\n  #providersView .provider-toolbar .field,\r\n  #providersView .provider-toolbar .control {\r\n    width: 100%;\r\n  }\r\n}\r\n\r\n/* static models form */\r\n.config-static-models-form {\r\n  display: grid;\r\n  gap: 8px;\r\n  padding: 12px 14px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n}\r\n\r\n.config-static-models-form .form-row {\r\n  display: grid;\r\n  gap: 5px;\r\n}\r\n\r\n.config-static-models-form label {\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 720;\r\n}\r\n\r\n.config-static-models-form input[type=\"text\"] {\r\n  width: 100%;\r\n  min-height: 32px;\r\n  padding: 4px 8px;\r\n  background: var(--bg);\r\n  border: 1px solid var(--line);\r\n  border-radius: 6px;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-family: var(--mono, monospace);\r\n  box-sizing: border-box;\r\n}\r\n\r\n.config-static-models-form input[type=\"text\"]:focus {\r\n  outline: none;\r\n  border-color: var(--accent);\r\n}\r\n\r\n.config-static-models-form small.muted {\r\n  font-size: 11px;\r\n  color: var(--muted);\r\n}\r\n\r\n.request-select-all-banner {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  gap: 12px;\r\n  padding: 8px 14px;\r\n  background-color: color-mix(in srgb, var(--accent, #3b82f6) 8%, transparent);\r\n  border-bottom: 1px dashed var(--line-soft);\r\n  font-size: 12px;\r\n  color: var(--text);\r\n  animation: viewIn 0.15s ease-out;\r\n}\r\n\r\n.request-select-all-banner .button.link-action {\r\n  background: none;\r\n  border: none;\r\n  padding: 0;\r\n  color: var(--accent);\r\n  font-weight: 600;\r\n  text-decoration: underline;\r\n  cursor: pointer;\r\n  font-family: inherit;\r\n}\r\n\r\n.request-select-all-banner .button.link-action:hover {\r\n  color: var(--accent-hover, #2563eb);\r\n}\r\n\r\n/* ---- Custom tooltip (Apple-style frosted popover) ---------------------- */\r\n.lp-tip {\r\n  position: fixed;\r\n  top: 0;\r\n  left: 0;\r\n  z-index: 1000;\r\n  max-width: 320px;\r\n  padding: 7px 11px;\r\n  border-radius: 9px;\r\n  background: color-mix(in srgb, #1d1d1f 86%, transparent);\r\n  color: #f5f5f7;\r\n  font: 600 11.5px/1.45 var(--mono);\r\n  letter-spacing: 0.01em;\r\n  box-shadow:\r\n    0 1px 2px rgba(0, 0, 0, 0.18),\r\n    0 8px 24px rgba(0, 0, 0, 0.22);\r\n  backdrop-filter: blur(18px) saturate(1.5);\r\n  -webkit-backdrop-filter: blur(18px) saturate(1.5);\r\n  pointer-events: none;\r\n  opacity: 0;\r\n  /* No transform on the resting state so getBoundingClientRect measures the\r\n     true size during positioning. The entrance transform lives on is-visible\r\n     and animates back to none, which does not affect layout measurement\r\n     because measurement happens before is-visible is added. */\r\n  visibility: hidden;\r\n  transition: opacity 130ms ease, transform 130ms cubic-bezier(0.2, 0.8, 0.2, 1);\r\n}\r\n\r\n.lp-tip.is-below {\r\n  transform-origin: top center;\r\n}\r\n\r\n.lp-tip.is-visible {\r\n  opacity: 1;\r\n  visibility: visible;\r\n  transform: translateY(0) scale(1);\r\n}\r\n\r\n.lp-tip::after {\r\n  content: \"\";\r\n  position: absolute;\r\n  left: 50%;\r\n  bottom: -4px;\r\n  width: 8px;\r\n  height: 8px;\r\n  background: inherit;\r\n  border-radius: 1px;\r\n  transform: translateX(-50%) rotate(45deg);\r\n  box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.12);\r\n}\r\n\r\n.lp-tip.is-below::after {\r\n  bottom: auto;\r\n  top: -4px;\r\n  box-shadow: -1px -1px 2px rgba(0, 0, 0, 0.12);\r\n}\r\n\r\n/* ─── Playground ────────────────────────────────────────── */\r\n\r\n.playground-layout {\r\n  display: grid;\r\n  grid-template-columns: 280px minmax(0, 1fr);\r\n  gap: 0;\r\n  height: calc(100dvh - 58px);\r\n  overflow: hidden;\r\n}\r\n\r\n/* ── Config sidebar ── */\r\n.playground-config {\r\n  display: flex;\r\n  flex-direction: column;\r\n  gap: 0;\r\n  border-right: 1px solid var(--line);\r\n  background: var(--surface);\r\n  overflow-y: auto;\r\n  scrollbar-width: thin;\r\n  scrollbar-color: var(--line-strong) transparent;\r\n}\r\n\r\n.playground-config::-webkit-scrollbar {\r\n  width: 5px;\r\n}\r\n.playground-config::-webkit-scrollbar-thumb {\r\n  background: var(--line-strong);\r\n  border-radius: 3px;\r\n}\r\n\r\n/* Config section header bar */\r\n.pg-config-section {\r\n  border-bottom: 1px solid var(--line-soft);\r\n}\r\n\r\n.pg-config-section summary {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 6px;\r\n  padding: 10px 16px;\r\n  font-size: 10px;\r\n  font-weight: 760;\r\n  text-transform: uppercase;\r\n  letter-spacing: 0.08em;\r\n  color: var(--muted);\r\n  cursor: pointer;\r\n  transition: background 120ms ease, color 120ms ease;\r\n  list-style: none;\r\n  user-select: none;\r\n}\r\n\r\n.pg-config-section summary::-webkit-details-marker {\r\n  display: none;\r\n}\r\n\r\n.pg-config-section summary::before {\r\n  content: \"\";\r\n  display: inline-block;\r\n  width: 6px;\r\n  height: 6px;\r\n  border-right: 1.5px solid var(--line-strong);\r\n  border-bottom: 1.5px solid var(--line-strong);\r\n  transform: rotate(-45deg);\r\n  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1);\r\n  flex-shrink: 0;\r\n}\r\n\r\n.pg-config-section[open] summary::before {\r\n  transform: rotate(45deg);\r\n}\r\n\r\n.pg-config-section summary:hover {\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n}\r\n\r\n.pg-config-body {\r\n  display: grid;\r\n  gap: 10px;\r\n  padding: 4px 16px 14px;\r\n}\r\n\r\n/* Parameter grid */\r\n.pg-param-grid {\r\n  grid-template-columns: 1fr 1fr;\r\n  gap: 8px 10px;\r\n}\r\n\r\n.pg-param {\r\n  display: grid;\r\n  gap: 3px;\r\n}\r\n\r\n.pg-param span {\r\n  font-size: 10px;\r\n  font-weight: 680;\r\n  color: var(--muted);\r\n  letter-spacing: 0.01em;\r\n}\r\n\r\n.pg-param .control {\r\n  min-height: 32px;\r\n  padding: 0 10px;\r\n  font-size: 12px;\r\n  font-family: var(--mono);\r\n  border-radius: 6px;\r\n  transition: border-color 150ms ease, box-shadow 150ms ease;\r\n}\r\n\r\n.pg-param .control:focus-visible {\r\n  border-color: var(--accent);\r\n  box-shadow: 0 0 0 3px rgba(9, 9, 11, 0.08);\r\n}\r\n\r\n/* Model select */\r\n.pg-config-body .control {\r\n  min-height: 32px;\r\n  font-size: 12px;\r\n  border-radius: 6px;\r\n  transition: border-color 150ms ease, box-shadow 150ms ease;\r\n}\r\n\r\n.pg-config-body .control:focus-visible {\r\n  border-color: var(--accent);\r\n  box-shadow: 0 0 0 3px rgba(9, 9, 11, 0.08);\r\n}\r\n\r\n/* Segmented control */\r\n.pg-segment-row {\r\n  margin-bottom: 2px;\r\n}\r\n\r\n.pg-segment-row .segmented-control {\r\n  display: flex;\r\n  border-radius: 6px;\r\n  overflow: hidden;\r\n  border: 1px solid var(--line);\r\n}\r\n\r\n.pg-segment-row .segmented-button {\r\n  flex: 1;\r\n  min-height: 32px;\r\n  font-size: 11px;\r\n  font-weight: 640;\r\n  border: none;\r\n  border-right: 1px solid var(--line);\r\n  background: var(--surface);\r\n  color: var(--muted);\r\n  cursor: pointer;\r\n  transition: background 120ms ease, color 120ms ease;\r\n}\r\n\r\n.pg-segment-row .segmented-button:last-child {\r\n  border-right: none;\r\n}\r\n\r\n.pg-segment-row .segmented-button:hover {\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n}\r\n\r\n.pg-segment-row .segmented-button.is-active {\r\n  background: var(--text);\r\n  color: #fff;\r\n}\r\n\r\n/* Checkbox field */\r\n.pg-config-body .check-field {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n  min-height: 28px;\r\n  font-size: 11.5px;\r\n  font-weight: 580;\r\n  color: var(--text);\r\n  cursor: pointer;\r\n}\r\n\r\n.pg-config-body .check-field input[type=\"checkbox\"] {\r\n  width: 14px;\r\n  height: 14px;\r\n  accent-color: var(--text);\r\n  cursor: pointer;\r\n}\r\n\r\n/* System prompt textarea */\r\n.pg-system-prompt {\r\n  min-height: 56px;\r\n  max-height: 140px;\r\n  resize: vertical;\r\n  font-family: var(--sans);\r\n  font-size: 12px;\r\n  line-height: 1.5;\r\n  border-radius: 6px;\r\n  padding: 8px 10px;\r\n  transition: border-color 150ms ease, box-shadow 150ms ease;\r\n}\r\n\r\n.pg-system-prompt:focus-visible {\r\n  border-color: var(--accent);\r\n  box-shadow: 0 0 0 3px rgba(9, 9, 11, 0.08);\r\n}\r\n\r\n/* Footer */\r\n.pg-config-footer {\r\n  padding: 10px 16px 14px;\r\n  margin-top: auto;\r\n  border-top: 1px solid var(--line-soft);\r\n}\r\n\r\n.pg-config-footer .button {\r\n  width: 100%;\r\n  min-height: 32px;\r\n  font-size: 11.5px;\r\n  font-weight: 640;\r\n  border-radius: 6px;\r\n}\r\n\r\n/* ── Main chat area ── */\r\n.playground-main {\r\n  display: flex;\r\n  flex-direction: column;\r\n  min-width: 0;\r\n  min-height: 0;\r\n  background: var(--bg);\r\n}\r\n\r\n.pg-chat-wrap {\r\n  flex: 1;\r\n  display: flex;\r\n  flex-direction: column;\r\n  min-height: 0;\r\n  overflow: hidden;\r\n}\r\n\r\n.pg-chat {\r\n  flex: 1;\r\n  overflow-y: auto;\r\n  padding: 20px 24px;\r\n  min-height: 0;\r\n  scrollbar-width: thin;\r\n  scrollbar-color: var(--line-strong) transparent;\r\n}\r\n\r\n.pg-chat::-webkit-scrollbar {\r\n  width: 6px;\r\n}\r\n.pg-chat::-webkit-scrollbar-thumb {\r\n  background: var(--line-strong);\r\n  border-radius: 3px;\r\n}\r\n\r\n/* Empty state */\r\n.pg-empty {\r\n  display: flex;\r\n  flex-direction: column;\r\n  align-items: center;\r\n  justify-content: center;\r\n  gap: 10px;\r\n  height: 100%;\r\n  min-height: 200px;\r\n  color: var(--muted);\r\n}\r\n\r\n.pg-empty::before {\r\n  content: \"\";\r\n  display: block;\r\n  width: 32px;\r\n  height: 32px;\r\n  border: 1.5px solid var(--line-strong);\r\n  border-radius: 50%;\r\n  position: relative;\r\n}\r\n\r\n.pg-empty-text {\r\n  font-size: 13px;\r\n  font-weight: 580;\r\n}\r\n\r\n/* Message blocks */\r\n.pg-message {\r\n  margin-bottom: 16px;\r\n  max-width: 760px;\r\n  animation: pg-msg-in 300ms cubic-bezier(0.16, 1, 0.3, 1);\r\n}\r\n\r\n@keyframes pg-msg-in {\r\n  from { opacity: 0; transform: translateY(6px); }\r\n  to   { opacity: 1; transform: translateY(0); }\r\n}\r\n\r\n.pg-message:last-child {\r\n  margin-bottom: 8px;\r\n}\r\n\r\n.pg-message-head {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 7px;\r\n  margin-bottom: 5px;\r\n}\r\n\r\n.pg-message-role {\r\n  font-size: 10px;\r\n  font-weight: 760;\r\n  text-transform: uppercase;\r\n  letter-spacing: 0.06em;\r\n  color: var(--muted);\r\n  font-family: var(--mono);\r\n}\r\n\r\n.pg-message-content {\r\n  padding: 11px 15px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 10px;\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  font-size: 13px;\r\n  line-height: 1.65;\r\n  white-space: pre-wrap;\r\n  word-break: break-word;\r\n  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);\r\n  transition: box-shadow 200ms ease;\r\n}\r\n\r\n.pg-message-content:hover {\r\n  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);\r\n}\r\n\r\n.pg-role-assistant .pg-message-content {\r\n  border-color: color-mix(in srgb, var(--success) 20%, var(--line));\r\n  background: var(--success-soft);\r\n}\r\n\r\n.pg-role-assistant .pg-message-role {\r\n  color: var(--success);\r\n}\r\n\r\n.pg-role-user .pg-message-content {\r\n  border-color: color-mix(in srgb, var(--info) 16%, var(--line));\r\n  background: var(--info-soft);\r\n}\r\n\r\n.pg-role-user .pg-message-role {\r\n  color: color-mix(in srgb, var(--info) 80%, var(--text));\r\n}\r\n\r\n.pg-role-system .pg-message-content {\r\n  border-color: color-mix(in srgb, var(--compat) 18%, var(--line));\r\n  background: var(--compat-soft);\r\n}\r\n\r\n.pg-role-system .pg-message-role {\r\n  color: var(--compat);\r\n}\r\n\r\n.pg-message-error {\r\n  padding: 11px 15px;\r\n  border: 1px solid color-mix(in srgb, var(--danger) 24%, var(--line));\r\n  border-radius: 10px;\r\n  background: var(--danger-soft);\r\n  color: var(--danger);\r\n  font-size: 12.5px;\r\n  font-weight: 600;\r\n  line-height: 1.55;\r\n  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);\r\n}\r\n\r\n.pg-message-meta {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 5px;\r\n  margin-top: 6px;\r\n}\r\n\r\n.pg-message-meta .badge {\r\n  font-size: 10px;\r\n  font-weight: 620;\r\n  font-family: var(--mono);\r\n  min-height: 20px;\r\n  padding: 0 7px;\r\n  border-radius: 4px;\r\n  display: inline-flex;\r\n  align-items: center;\r\n}\r\n\r\n/* Streaming cursor */\r\n.pg-stream-cursor {\r\n  display: inline-block;\r\n  width: 7px;\r\n  height: 15px;\r\n  margin-left: 2px;\r\n  vertical-align: text-bottom;\r\n  background: var(--text);\r\n  border-radius: 1px;\r\n  animation: pg-blink 1s steps(2) infinite;\r\n}\r\n\r\n@keyframes pg-blink {\r\n  0%, 50% { opacity: 1; }\r\n  51%, 100% { opacity: 0; }\r\n}\r\n\r\n/* ── Trace strip ── */\r\n.pg-trace-strip {\r\n  flex-shrink: 0;\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  align-items: center;\r\n  gap: 0;\r\n  padding: 0 24px;\r\n  border-top: 1px solid var(--line-soft);\r\n  background: var(--surface-raised);\r\n  font-size: 11px;\r\n  font-family: var(--mono);\r\n}\r\n\r\n.pg-trace-strip .pg-trace-item {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 5px;\r\n  padding: 7px 12px 7px 0;\r\n  border-right: 1px solid var(--line-soft);\r\n  margin-right: 10px;\r\n}\r\n\r\n.pg-trace-strip .pg-trace-item:last-child {\r\n  border-right: none;\r\n}\r\n\r\n.pg-trace-strip .pg-trace-k {\r\n  color: var(--muted);\r\n  font-size: 9px;\r\n  text-transform: uppercase;\r\n  letter-spacing: 0.06em;\r\n  font-weight: 720;\r\n}\r\n\r\n.pg-trace-strip .pg-trace-v {\r\n  color: var(--text);\r\n  font-weight: 620;\r\n}\r\n\r\n/* ── Model search combobox ── */\r\n.pg-model-combo {\r\n  position: relative;\r\n}\r\n\r\n.pg-model-combo input {\r\n  width: 100%;\r\n}\r\n\r\n.pg-model-dropdown {\r\n  position: absolute;\r\n  top: calc(100% + 2px);\r\n  left: 0;\r\n  right: 0;\r\n  max-height: 260px;\r\n  overflow-y: auto;\r\n  background: var(--surface-raised, #fff);\r\n  border: 1px solid var(--line-soft, #ddd);\r\n  border-radius: 6px;\r\n  z-index: 100;\r\n  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);\r\n}\r\n\r\n.pg-model-option {\r\n  padding: 8px 12px;\r\n  font-size: 12px;\r\n  font-family: var(--mono, monospace);\r\n  cursor: pointer;\r\n  border-bottom: 1px solid var(--line-soft, #eee);\r\n  transition: background 0.12s;\r\n}\r\n\r\n.pg-model-option:last-child {\r\n  border-bottom: none;\r\n}\r\n\r\n.pg-model-option:hover {\r\n  background: var(--surface-soft, #f5f5f5);\r\n}\r\n\r\n.pg-model-option.selected {\r\n  background: var(--accent-soft, #e8f0fe);\r\n  font-weight: 600;\r\n}\r\n\r\n.pg-model-empty {\r\n  padding: 12px;\r\n  font-size: 12px;\r\n  color: var(--muted, #999);\r\n  text-align: center;\r\n}\r\n\r\n/* ── Input bar ── */\r\n.pg-input-bar {\r\n  flex-shrink: 0;\r\n  display: flex;\r\n  gap: 10px;\r\n  align-items: flex-end;\r\n  padding: 12px 20px 10px;\r\n  border-top: 1px solid var(--line);\r\n  background: var(--surface);\r\n  box-shadow: 0 -1px 0 rgba(0, 0, 0, 0.02);\r\n}\r\n\r\n.pg-input {\r\n  flex: 1;\r\n  min-height: 40px;\r\n  max-height: 140px;\r\n  resize: none;\r\n  font-family: var(--sans);\r\n  font-size: 13px;\r\n  line-height: 1.55;\r\n  padding: 9px 13px;\r\n  border-radius: 8px;\r\n  border: 1px solid var(--line);\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  transition: border-color 150ms ease, box-shadow 150ms ease;\r\n}\r\n\r\n.pg-input::placeholder {\r\n  color: var(--line-strong);\r\n}\r\n\r\n.pg-input:focus-visible {\r\n  border-color: var(--accent);\r\n  box-shadow: 0 0 0 3px rgba(9, 9, 11, 0.08);\r\n}\r\n\r\n.pg-send-btn,\r\n.pg-stop-btn {\r\n  min-height: 40px;\r\n  padding: 0 20px;\r\n  font-size: 12.5px;\r\n  font-weight: 680;\r\n  white-space: nowrap;\r\n  border-radius: 8px;\r\n  transition: background 150ms ease, border-color 150ms ease, transform 100ms ease, box-shadow 150ms ease;\r\n}\r\n\r\n.pg-send-btn {\r\n  border: 1px solid var(--text);\r\n  background: var(--text);\r\n  color: #fff;\r\n  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);\r\n}\r\n\r\n.pg-send-btn:hover {\r\n  background: var(--accent-strong);\r\n  border-color: var(--accent-strong);\r\n  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);\r\n}\r\n\r\n.pg-send-btn:active {\r\n  transform: scale(0.97);\r\n}\r\n\r\n.pg-send-btn:disabled {\r\n  opacity: 0.5;\r\n  cursor: not-allowed;\r\n  transform: none;\r\n}\r\n\r\n.pg-stop-btn {\r\n  border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--line));\r\n  background: var(--danger-soft);\r\n  color: var(--danger);\r\n}\r\n\r\n.pg-stop-btn:hover {\r\n  background: color-mix(in srgb, var(--danger) 12%, var(--danger-soft));\r\n  border-color: var(--danger);\r\n}\r\n\r\n.pg-stop-btn:active {\r\n  transform: scale(0.97);\r\n}\r\n\r\n/* ── Status bar ── */\r\n.pg-status-bar {\r\n  flex-shrink: 0;\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n  padding: 5px 20px 7px;\r\n  font-size: 10px;\r\n  font-weight: 560;\r\n  color: var(--muted);\r\n  background: var(--surface);\r\n  border-top: 1px solid var(--line-soft);\r\n  font-family: var(--mono);\r\n  letter-spacing: 0.02em;\r\n}\r\n\r\n.pg-status-bar::before {\r\n  content: \"\";\r\n  display: inline-block;\r\n  width: 6px;\r\n  height: 6px;\r\n  border-radius: 50%;\r\n  background: var(--line-strong);\r\n  flex-shrink: 0;\r\n}\r\n\r\n/* ── Responsive ── */\r\n@media (max-width: 760px) {\r\n  .playground-layout {\r\n    grid-template-columns: 1fr;\r\n    height: auto;\r\n  }\r\n\r\n  .playground-config {\r\n    border-right: none;\r\n    border-bottom: 1px solid var(--line);\r\n    max-height: 40dvh;\r\n  }\r\n\r\n  .playground-main {\r\n    min-height: 50dvh;\r\n  }\r\n\r\n  .pg-chat {\r\n    min-height: 200px;\r\n    padding: 14px 16px;\r\n  }\r\n\r\n  .pg-input-bar {\r\n    padding: 10px 14px 8px;\r\n  }\r\n\r\n  .pg-status-bar {\r\n    padding: 5px 14px 7px;\r\n  }\r\n}\r\n\r\n/* ─── Playground polish override ───────────────────────────────────────── */\r\n\r\n.playground-view {\r\n  height: calc(100dvh - 52px);\r\n  min-height: 560px;\r\n}\r\n\r\n.playground-layout {\r\n  grid-template-columns: minmax(260px, 310px) minmax(0, 1fr);\r\n  gap: 14px;\r\n  height: 100%;\r\n  min-height: 0;\r\n  padding: 0;\r\n  overflow: hidden;\r\n}\r\n\r\n.playground-config,\r\n.playground-main,\r\n.pg-compose-panel {\r\n  border: 1px solid color-mix(in srgb, var(--line-strong) 72%, var(--line));\r\n  background: #fff;\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.playground-config {\r\n  min-height: 0;\r\n  border-radius: 10px;\r\n  border-right: 1px solid color-mix(in srgb, var(--line-strong) 72%, var(--line));\r\n  overflow-x: hidden;\r\n}\r\n\r\n.pg-config-head {\r\n  display: grid;\r\n  gap: 4px;\r\n  padding: 16px 16px 14px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n  background:\r\n    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(250, 250, 250, 0.78)),\r\n    var(--surface);\r\n}\r\n\r\n.pg-config-head h2,\r\n.pg-workbench-head h2 {\r\n  font-size: 15px;\r\n  font-weight: 760;\r\n  line-height: 1.2;\r\n}\r\n\r\n.pg-config-head p {\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  line-height: 1.45;\r\n}\r\n\r\n.pg-config-section {\r\n  border-bottom: 1px solid var(--line-soft);\r\n  background: transparent;\r\n}\r\n\r\n.pg-config-section summary {\r\n  min-height: 38px;\r\n  padding: 10px 16px;\r\n  color: color-mix(in srgb, var(--muted) 86%, var(--text));\r\n  font-size: 10.5px;\r\n  letter-spacing: 0.055em;\r\n}\r\n\r\n.pg-config-section[open] summary {\r\n  color: var(--text);\r\n}\r\n\r\n.pg-config-body {\r\n  gap: 11px;\r\n  padding: 0 16px 16px;\r\n}\r\n\r\n.pg-model-combo {\r\n  z-index: 20;\r\n}\r\n\r\n.pg-model-combo input,\r\n.pg-param .control,\r\n.pg-config-body .control {\r\n  min-height: 36px;\r\n  border-color: color-mix(in srgb, var(--line-strong) 70%, var(--line));\r\n  background: rgba(255, 255, 255, 0.92);\r\n  color: var(--text);\r\n}\r\n\r\n.pg-model-combo input {\r\n  padding-inline: 11px;\r\n  font-family: var(--mono);\r\n}\r\n\r\n.pg-param-grid {\r\n  display: grid;\r\n  grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  gap: 12px;\r\n}\r\n\r\n.pg-param span {\r\n  color: color-mix(in srgb, var(--muted) 90%, var(--text));\r\n  font-size: 10.5px;\r\n  font-weight: 740;\r\n}\r\n\r\n.pg-param .control {\r\n  width: 100%;\r\n}\r\n\r\n.pg-param-wide {\r\n  grid-column: 1 / -1;\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  min-height: 36px;\r\n  padding: 0 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: #fff;\r\n}\r\n\r\n.pg-param:has(#pgStream) {\r\n  align-content: end;\r\n}\r\n\r\n.pg-param #pgStream,\r\n.pg-param #pgIncludeHistory {\r\n  width: 18px;\r\n  height: 18px;\r\n  margin: 8px 0 5px;\r\n  accent-color: var(--text);\r\n}\r\n\r\n.pg-system-prompt {\r\n  min-height: 112px;\r\n  padding: 10px 11px;\r\n  resize: vertical;\r\n}\r\n\r\n.pg-format-selector {\r\n  display: grid;\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  gap: 4px;\r\n  padding: 4px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface-soft);\r\n}\r\n\r\n.pg-format-btn {\r\n  min-width: 0;\r\n  min-height: 32px;\r\n  padding: 0 8px;\r\n  border: 0;\r\n  border-radius: 6px;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  font: 700 11px/1 var(--sans);\r\n  cursor: pointer;\r\n  transition: background 150ms ease, color 150ms ease, box-shadow 150ms ease, transform 120ms ease;\r\n}\r\n\r\n.pg-format-btn:hover {\r\n  background: rgba(255, 255, 255, 0.72);\r\n  color: var(--text);\r\n}\r\n\r\n.pg-format-btn:active {\r\n  transform: translateY(1px);\r\n}\r\n\r\n.pg-format-btn.is-active {\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  box-shadow: 0 1px 4px rgba(9, 9, 11, 0.08);\r\n}\r\n\r\n.playground-main {\r\n  min-height: 0;\r\n  border-radius: 10px;\r\n  overflow: hidden;\r\n  background: #fff;\r\n}\r\n\r\n.pg-workbench-head {\r\n  flex-shrink: 0;\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  gap: 16px;\r\n  padding: 14px 18px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n  background: rgba(255, 255, 255, 0.78);\r\n}\r\n\r\n.pg-status {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 7px;\r\n  min-height: 28px;\r\n  max-width: 50%;\r\n  overflow: hidden;\r\n  padding: 0 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 999px;\r\n  background: var(--surface);\r\n  color: var(--muted);\r\n  font: 680 11px/1 var(--mono);\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.pg-status::before {\r\n  width: 6px;\r\n  height: 6px;\r\n  border-radius: 999px;\r\n  background: var(--success);\r\n  content: \"\";\r\n}\r\n\r\n.pg-chat-wrap {\r\n  min-height: 0;\r\n  background: #fafafa;\r\n}\r\n\r\n.pg-chat-area {\r\n  flex: 1;\r\n  min-height: 0;\r\n  height: 100%;\r\n  overflow-y: auto;\r\n  padding: 26px 28px 30px;\r\n  scrollbar-width: thin;\r\n  scrollbar-color: var(--line-strong) transparent;\r\n}\r\n\r\n.pg-chat-area::-webkit-scrollbar {\r\n  width: 6px;\r\n}\r\n\r\n.pg-chat-area::-webkit-scrollbar-thumb {\r\n  border-radius: 999px;\r\n  background: var(--line-strong);\r\n}\r\n\r\n.pg-empty {\r\n  min-height: 100%;\r\n  gap: 12px;\r\n  color: var(--muted);\r\n}\r\n\r\n.pg-empty::before {\r\n  width: 38px;\r\n  height: 38px;\r\n  border: 1px solid color-mix(in srgb, var(--line-strong) 78%, var(--line));\r\n  background:\r\n    linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(244, 244, 245, 0.74));\r\n  box-shadow: inset 0 0 0 8px rgba(255, 255, 255, 0.45);\r\n}\r\n\r\n.pg-empty-text {\r\n  color: color-mix(in srgb, var(--muted) 88%, var(--text));\r\n  font-size: 13px;\r\n  font-weight: 660;\r\n}\r\n\r\n.pg-message {\r\n  max-width: min(780px, 92%);\r\n  margin-bottom: 18px;\r\n  animation: none;\r\n}\r\n\r\n.pg-role-assistant,\r\n.pg-role-system {\r\n  width: min(780px, 92%);\r\n}\r\n\r\n.pg-role-user {\r\n  width: fit-content;\r\n  max-width: min(520px, 74%);\r\n  margin-left: auto;\r\n}\r\n\r\n.pg-role-user .pg-message-head {\r\n  justify-content: flex-end;\r\n}\r\n\r\n.pg-message-role {\r\n  color: var(--muted);\r\n  font-size: 10px;\r\n  letter-spacing: 0.05em;\r\n}\r\n\r\n.pg-message-content,\r\n.pg-message-error {\r\n  border-radius: 8px;\r\n  font-size: 13px;\r\n  line-height: 1.68;\r\n  box-shadow: none;\r\n}\r\n\r\n.pg-message-content {\r\n  border-color: var(--line);\r\n  background: #fff;\r\n}\r\n\r\n.pg-role-user .pg-message-content {\r\n  border-color: color-mix(in srgb, var(--text) 16%, var(--line));\r\n  background: #f5f5f6;\r\n  color: var(--text);\r\n  padding: 10px 13px;\r\n}\r\n\r\n.pg-role-user .pg-message-role {\r\n  color: var(--text);\r\n}\r\n\r\n.pg-role-assistant .pg-message-content {\r\n  border-color: color-mix(in srgb, var(--success) 14%, var(--line));\r\n  background: #fff;\r\n}\r\n\r\n.pg-thinking {\r\n  margin: 0 0 8px;\r\n  border: 1px solid color-mix(in srgb, var(--compat) 18%, var(--line));\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--compat-soft) 58%, #fff);\r\n  color: var(--text);\r\n  overflow: hidden;\r\n}\r\n\r\n.pg-thinking summary {\r\n  min-height: 32px;\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n  padding: 0 11px;\r\n  color: color-mix(in srgb, var(--compat) 72%, var(--text));\r\n  cursor: pointer;\r\n  font: 700 11px/1 var(--mono);\r\n  list-style: none;\r\n}\r\n\r\n.pg-thinking summary::-webkit-details-marker {\r\n  display: none;\r\n}\r\n\r\n.pg-thinking summary::before {\r\n  width: 6px;\r\n  height: 6px;\r\n  border-radius: 999px;\r\n  background: currentColor;\r\n  opacity: 0.55;\r\n  content: \"\";\r\n}\r\n\r\n.pg-thinking-text {\r\n  max-height: 220px;\r\n  margin: 0;\r\n  padding: 10px 12px 12px;\r\n  overflow: auto;\r\n  border-top: 1px solid color-mix(in srgb, var(--compat) 12%, var(--line));\r\n  color: color-mix(in srgb, var(--muted) 82%, var(--text));\r\n  font: 12px/1.6 var(--mono);\r\n  white-space: pre-wrap;\r\n  word-break: break-word;\r\n}\r\n\r\n.pg-message-content:hover {\r\n  box-shadow: none;\r\n}\r\n\r\n.pg-stream-cursor {\r\n  display: inline-block;\r\n  width: 2px;\r\n  height: 1em;\r\n  margin-left: 3px;\r\n  vertical-align: -0.12em;\r\n  background: color-mix(in srgb, var(--text) 58%, transparent);\r\n  border-radius: 1px;\r\n  animation: none;\r\n}\r\n\r\n.pg-message-meta {\r\n  gap: 6px;\r\n  margin-top: 8px;\r\n}\r\n\r\n.pg-message-meta .badge {\r\n  min-height: 22px;\r\n  border-color: transparent;\r\n  border-radius: 6px;\r\n  background: rgba(255, 255, 255, 0.78);\r\n  color: var(--muted);\r\n}\r\n\r\n.pg-compose-panel {\r\n  flex-shrink: 0;\r\n  border-width: 1px 0 0;\r\n  border-radius: 0;\r\n  background: rgba(255, 255, 255, 0.9);\r\n  box-shadow: 0 -10px 24px rgba(9, 9, 11, 0.045);\r\n}\r\n\r\n.pg-trace-strip {\r\n  min-height: 0;\r\n  padding: 8px 18px 0;\r\n  border-top: 0;\r\n  background: transparent;\r\n}\r\n\r\n.pg-trace-strip[hidden] {\r\n  display: none !important;\r\n}\r\n\r\n.pg-trace-strip .pg-trace-item {\r\n  margin: 0 6px 8px 0;\r\n  padding: 5px 8px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface);\r\n}\r\n\r\n.pg-input-bar {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  gap: 12px;\r\n  align-items: end;\r\n  padding: 12px 18px 16px;\r\n  border-top: 0;\r\n  background: transparent;\r\n  box-shadow: none;\r\n}\r\n\r\n.pg-input {\r\n  min-height: 48px;\r\n  max-height: 150px;\r\n  padding: 12px 13px;\r\n  border-color: color-mix(in srgb, var(--line-strong) 72%, var(--line));\r\n  border-radius: 9px;\r\n  background: #fff;\r\n}\r\n\r\n.pg-input::placeholder {\r\n  color: color-mix(in srgb, var(--muted) 55%, var(--line-strong));\r\n}\r\n\r\n.pg-input-actions {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n}\r\n\r\n.pg-btn {\r\n  min-height: 40px;\r\n  border-radius: 8px;\r\n}\r\n\r\n.pg-send-btn,\r\n.pg-stop-btn {\r\n  min-height: 40px;\r\n}\r\n\r\n.pg-model-dropdown {\r\n  top: calc(100% + 6px);\r\n  border-color: var(--line);\r\n  border-radius: 8px;\r\n  box-shadow: 0 16px 34px rgba(9, 9, 11, 0.14);\r\n}\r\n\r\n.pg-model-option {\r\n  padding: 9px 11px;\r\n}\r\n\r\n.playground-view {\r\n  --pg-scroll-thumb: color-mix(in srgb, var(--muted) 14%, transparent);\r\n  --pg-scroll-thumb-hover: color-mix(in srgb, var(--muted) 28%, transparent);\r\n  --pg-scroll-track: transparent;\r\n}\r\n\r\n.playground-config,\r\n.pg-chat-area,\r\n.pg-model-dropdown,\r\n.pg-thinking-text {\r\n  scrollbar-width: thin;\r\n  scrollbar-color: var(--pg-scroll-thumb) var(--pg-scroll-track);\r\n}\r\n\r\n.playground-config::-webkit-scrollbar,\r\n.pg-chat-area::-webkit-scrollbar,\r\n.pg-model-dropdown::-webkit-scrollbar,\r\n.pg-thinking-text::-webkit-scrollbar {\r\n  width: 3px;\r\n  height: 3px;\r\n}\r\n\r\n.playground-config::-webkit-scrollbar-track,\r\n.pg-chat-area::-webkit-scrollbar-track,\r\n.pg-model-dropdown::-webkit-scrollbar-track,\r\n.pg-thinking-text::-webkit-scrollbar-track {\r\n  background: var(--pg-scroll-track);\r\n}\r\n\r\n.playground-config::-webkit-scrollbar-thumb,\r\n.pg-chat-area::-webkit-scrollbar-thumb,\r\n.pg-model-dropdown::-webkit-scrollbar-thumb,\r\n.pg-thinking-text::-webkit-scrollbar-thumb {\r\n  border-radius: 999px;\r\n  background: var(--pg-scroll-thumb);\r\n}\r\n\r\n.playground-config::-webkit-scrollbar-thumb:hover,\r\n.pg-chat-area::-webkit-scrollbar-thumb:hover,\r\n.pg-model-dropdown::-webkit-scrollbar-thumb:hover,\r\n.pg-thinking-text::-webkit-scrollbar-thumb:hover {\r\n  background: var(--pg-scroll-thumb-hover);\r\n}\r\n\r\n.playground-config::-webkit-scrollbar-corner,\r\n.pg-chat-area::-webkit-scrollbar-corner,\r\n.pg-model-dropdown::-webkit-scrollbar-corner,\r\n.pg-thinking-text::-webkit-scrollbar-corner {\r\n  background: transparent;\r\n}\r\n\r\n@media (max-width: 980px) {\r\n  .playground-view {\r\n    height: auto;\r\n    min-height: 0;\r\n  }\r\n\r\n  .playground-layout {\r\n    grid-template-columns: 1fr;\r\n    overflow: visible;\r\n  }\r\n\r\n  .playground-config {\r\n    max-height: none;\r\n  }\r\n\r\n  .playground-main {\r\n    min-height: 620px;\r\n  }\r\n}\r\n\r\n@media (max-width: 760px) {\r\n  .playground-layout {\r\n    gap: 10px;\r\n  }\r\n\r\n  .pg-config-head,\r\n  .pg-workbench-head {\r\n    padding: 13px 14px;\r\n  }\r\n\r\n  .pg-param-grid {\r\n    grid-template-columns: 1fr 1fr;\r\n  }\r\n\r\n  .pg-format-selector {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .pg-status {\r\n    max-width: 44vw;\r\n  }\r\n\r\n  .pg-chat-area {\r\n    padding: 18px 14px 20px;\r\n  }\r\n\r\n  .pg-message {\r\n    max-width: 100%;\r\n  }\r\n\r\n  .pg-input-bar {\r\n    grid-template-columns: 1fr;\r\n    padding: 10px 12px 12px;\r\n  }\r\n\r\n    .pg-input-actions {\r\n    justify-content: flex-end;\r\n  }\r\n}\r\n\r\n/* ============================================================\r\n   UI/UX Optimization Components (minimalist-ui + ui-ux-pro-max)\r\n   ============================================================ */\r\n\r\n/* G1: Status Dot — semantic color indicator */\r\n.status-dot {\r\n  display: inline-block;\r\n  width: 8px;\r\n  height: 8px;\r\n  border-radius: 50%;\r\n  flex-shrink: 0;\r\n  transition: background 200ms ease;\r\n}\r\n.status-dot.ok { background: var(--success); }\r\n.status-dot.warn { background: var(--warning); }\r\n.status-dot.bad { background: var(--danger); }\r\n.status-dot.off { background: var(--line-strong); }\r\n\r\n/* G2: Help Tip — ? icon (uses existing JS .lp-tip floating tooltip via data-tip) */\r\n.help-tip {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  width: 16px;\r\n  height: 16px;\r\n  border-radius: 50%;\r\n  background: var(--surface-soft);\r\n  color: var(--muted);\r\n  font-size: 10px;\r\n  font-weight: 700;\r\n  cursor: help;\r\n  vertical-align: middle;\r\n  margin-left: 6px;\r\n  flex-shrink: 0;\r\n  transition: background 150ms ease, color 150ms ease;\r\n}\r\n.help-tip:hover {\r\n  background: var(--surface-strong);\r\n  color: var(--text);\r\n}\r\n\r\n/* G3: Toggle Switch — iOS-style checkbox replacement */\r\n.toggle-switch {\r\n  position: relative;\r\n  display: inline-block;\r\n  width: 36px;\r\n  height: 20px;\r\n  flex-shrink: 0;\r\n}\r\n.toggle-switch input {\r\n  opacity: 0;\r\n  width: 0;\r\n  height: 0;\r\n  position: absolute;\r\n}\r\n.toggle-switch .slider {\r\n  position: absolute;\r\n  inset: 0;\r\n  background: var(--line-strong);\r\n  border-radius: 999px;\r\n  transition: background 200ms ease;\r\n  cursor: pointer;\r\n}\r\n.toggle-switch .slider::before {\r\n  content: \"\";\r\n  position: absolute;\r\n  top: 2px;\r\n  left: 2px;\r\n  width: 16px;\r\n  height: 16px;\r\n  background: #fff;\r\n  border-radius: 50%;\r\n  transition: transform 200ms ease;\r\n  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);\r\n}\r\n.toggle-switch input:checked + .slider {\r\n  background: var(--success);\r\n}\r\n.toggle-switch input:checked + .slider::before {\r\n  transform: translateX(16px);\r\n}\r\n.toggle-switch input:focus-visible + .slider {\r\n  outline: 2px solid var(--accent);\r\n  outline-offset: 2px;\r\n}\r\n\r\n/* G4: Icon Button Group — segmented control for choices */\r\n.icon-btn-group {\r\n  display: inline-flex;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  overflow: hidden;\r\n}\r\n.icon-btn-group button {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 6px;\r\n  padding: 7px 12px;\r\n  border: none;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 560;\r\n  cursor: pointer;\r\n  transition: background 150ms ease, color 150ms ease;\r\n  white-space: nowrap;\r\n}\r\n.icon-btn-group button:hover {\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n}\r\n.icon-btn-group button.is-active {\r\n  background: var(--text);\r\n  color: #fff;\r\n}\r\n.icon-btn-group button + button {\r\n  border-left: 1px solid var(--line);\r\n}\r\n.icon-btn-group button svg {\r\n  width: 14px;\r\n  height: 14px;\r\n  flex-shrink: 0;\r\n}\r\n/* Responsive: hide text labels on narrow screens, keep icons */\r\n@media (max-width: 640px) {\r\n  .icon-btn-group button span {\r\n    display: none;\r\n  }\r\n  .icon-btn-group button {\r\n    padding: 8px 10px;\r\n  }\r\n}\r\n/* Toggle switch in check-field: align with label text */\r\n.check-field .toggle-switch {\r\n  margin-right: 2px;\r\n}\r\n\r\n/* G5: Tab Nav — horizontal tab navigation */\r\n.config-tab-nav {\r\n  display: flex;\r\n  gap: 0;\r\n  border-bottom: 1px solid var(--line);\r\n  margin-bottom: 0;\r\n  overflow-x: auto;\r\n  scrollbar-width: none;\r\n}\r\n.config-tab-nav::-webkit-scrollbar {\r\n  display: none;\r\n}\r\n.config-tab-nav button {\r\n  padding: 10px 16px;\r\n  border: none;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 620;\r\n  cursor: pointer;\r\n  border-bottom: 2px solid transparent;\r\n  transition: color 150ms ease, border-color 150ms ease;\r\n  white-space: nowrap;\r\n}\r\n.config-tab-nav button:hover {\r\n  color: var(--text);\r\n}\r\n.config-tab-nav button.is-active {\r\n  color: var(--text);\r\n  border-bottom-color: var(--text);\r\n}\r\n\r\n/* G6: Collapsible Card — expandable container */\r\n.collapsible-card {\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  overflow: hidden;\r\n  transition: box-shadow 200ms ease;\r\n}\r\n.collapsible-card:hover {\r\n  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);\r\n}\r\n.collapsible-card-header {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n  padding: 12px 16px;\r\n  cursor: pointer;\r\n  user-select: none;\r\n  transition: background 150ms ease;\r\n}\r\n.collapsible-card-header:hover {\r\n  background: var(--surface-soft);\r\n}\r\n.collapsible-card-body {\r\n  max-height: 0;\r\n  overflow: hidden;\r\n  transition: max-height 250ms ease-out;\r\n}\r\n.collapsible-card.is-open .collapsible-card-body {\r\n  max-height: 5000px;\r\n}\r\n.collapsible-card .chevron {\r\n  transition: transform 200ms ease;\r\n  flex-shrink: 0;\r\n  color: var(--muted);\r\n}\r\n.collapsible-card.is-open .chevron {\r\n  transform: rotate(90deg);\r\n}\r\n\r\n/* Helper: compact label with help-tip */\r\n.label-with-tip {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 2px;\r\n}\r\n\r\n/* === Collapsible Card overrides for existing cards === */\r\n\r\n/* Config Provider Card as collapsible */\r\n.config-provider-card.collapsible-card {\r\n  display: block;\r\n  padding: 0;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  border-bottom: 1px solid var(--line);\r\n  margin-bottom: 8px;\r\n  overflow: hidden;\r\n  transition: box-shadow 200ms ease;\r\n}\r\n.config-provider-card.collapsible-card:hover {\r\n  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);\r\n}\r\n.config-provider-card .collapsible-card-header {\r\n  padding: 12px 14px;\r\n}\r\n.config-provider-body-inner {\r\n  display: grid;\r\n  gap: 12px;\r\n  padding: 14px;\r\n  border-top: 1px solid var(--line-soft);\r\n}\r\n\r\n/* Failure Policy Card as collapsible */\r\n.failure-policy-card.collapsible-card {\r\n  padding: 0;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  overflow: hidden;\r\n  margin-bottom: 8px;\r\n}\r\n.failure-policy-card .collapsible-card-header {\r\n  padding: 10px 14px;\r\n}\r\n.failure-policy-card .collapsible-card-body .failure-policy-edit-grid {\r\n  padding: 14px;\r\n  border-top: 1px solid var(--line-soft);\r\n}\r\n\r\n/* Policy page layout repair */\r\n#routingControlForm .routing-mode-grid {\r\n  grid-template-columns: minmax(0, 1fr) minmax(96px, 118px);\r\n  align-items: end;\r\n}\r\n\r\n#routingControlForm #routeModeGroup {\r\n  display: grid;\r\n  grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  width: 100%;\r\n}\r\n\r\n#routingControlForm #routeModeGroup button {\r\n  justify-content: center;\r\n  min-width: 0;\r\n  padding-inline: 9px;\r\n}\r\n\r\n#routingControlForm #routeModeGroup button span {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n}\r\n\r\n.policy-rule-head {\r\n  grid-template-columns: 8px 34px minmax(0, 1fr);\r\n  align-items: start;\r\n}\r\n\r\n.policy-rule-head > .status-dot {\r\n  margin-top: 11px;\r\n}\r\n\r\n.policy-rule-head h3,\r\n.policy-rule-head p {\r\n  overflow-wrap: anywhere;\r\n  word-break: normal;\r\n}\r\n\r\n.policy-rule-head .message-text {\r\n  white-space: normal;\r\n}\r\n\r\n.failure-policy-head h3 {\r\n  min-width: 0;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.failure-policy-card .failure-policy-head {\r\n  display: grid;\r\n  grid-template-columns: 8px minmax(0, 1fr) auto 16px;\r\n  gap: 8px 10px;\r\n  align-items: center;\r\n}\r\n\r\n.failure-policy-card .failure-policy-head > .status-dot {\r\n  margin-top: 0;\r\n}\r\n\r\n.failure-policy-card .failure-policy-head h3 {\r\n  overflow-wrap: normal;\r\n  word-break: normal;\r\n}\r\n\r\n.failure-policy-card .failure-policy-head .compact-control {\r\n  grid-column: 2 / -1;\r\n  width: 100%;\r\n  min-width: 0;\r\n}\r\n\r\n.failure-policy-card .failure-policy-head .badge {\r\n  margin-left: 0 !important;\r\n}\r\n\r\n.config-side-column,\r\n.config-side-column > *,\r\n.config-side-column .config-tab-panel,\r\n.config-side-column .panel,\r\n.config-side-column details,\r\n.config-side-column summary,\r\n.config-side-column .actions {\r\n  box-sizing: border-box;\r\n  max-width: 100%;\r\n  min-width: 0;\r\n}\r\n\r\n.config-side-column .config-tab-nav {\r\n  width: 100%;\r\n  max-width: 100%;\r\n}\r\n\r\n.config-side-column .config-tab-panel {\r\n  width: 100%;\r\n  overflow: hidden;\r\n}\r\n\r\n.config-side-column .panel-head,\r\n.config-side-column .config-advanced-details > summary {\r\n  min-width: 0;\r\n}\r\n\r\n.config-side-column .panel-head > div,\r\n.config-side-column .config-advanced-details > summary span,\r\n.config-side-column .config-advanced-details > summary small {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n}\r\n\r\n.config-side-column .config-advanced-details > .actions {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 8px;\r\n}\r\n\r\n.config-side-column .config-advanced-details > .actions .button {\r\n  min-width: 0;\r\n}\r\n\r\n@media (max-width: 1120px) {\r\n  #routingControlForm .routing-mode-grid {\r\n    grid-template-columns: 1fr;\r\n  }\r\n}\r\n\r\n\r\n\r\n/*$vite$:1*/";
 	document.head.appendChild(__vite_style__);
 	//#region \0rolldown/runtime.js
 	var __esmMin = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
@@ -498,55 +498,1784 @@
 		};
 	}));
 	//#endregion
+	//#region src/i18n.js
+	/**
+	* Translate a key with optional parameter interpolation.
+	* @param {string} key - Dot-notation key, e.g. "nav.overview"
+	* @param {Record<string, string|number>} [params] - Interpolation params, e.g. { name: "OpenAI" }
+	* @returns {string} Translated string, or the key itself if not found.
+	*/
+	function t(key, params) {
+		const entry = dict[key];
+		if (!entry) return key;
+		let text = entry[_lang] || entry.en || key;
+		if (params) for (const [k, v] of Object.entries(params)) text = text.replace(new RegExp(`\\{${k}\\}`, "g"), String(v));
+		return text;
+	}
+	/** Get the current language code. */
+	function getLang() {
+		return _lang;
+	}
+	/** Set the language, persist to localStorage, and notify listeners. */
+	function setLang(lang) {
+		if (lang !== "en" && lang !== "zh") return;
+		if (lang === _lang) return;
+		_lang = lang;
+		try {
+			localStorage.setItem(STORAGE_KEY, lang);
+		} catch (_e) {}
+		applyI18n();
+		_listeners.forEach((fn) => {
+			try {
+				fn(lang);
+			} catch (_e) {}
+		});
+	}
+	/** Register a callback that fires when the language changes. Returns an unsubscribe function. */
+	function onLangChange(fn) {
+		_listeners.add(fn);
+		return () => _listeners.delete(fn);
+	}
+	/**
+	* Scan the document for [data-i18n] and [data-i18n-attr] attributes and apply translations.
+	*
+	* - data-i18n="key" → sets textContent
+	* - data-i18n-attr="placeholder:key,title:key2" → sets attribute values
+	* - data-i18n-tip="key" → sets data-tip attribute (for custom tooltip system)
+	*/
+	function applyI18n(root = document) {
+		root.querySelectorAll("[data-i18n]").forEach((node) => {
+			const key = node.getAttribute("data-i18n");
+			if (key) node.textContent = t(key);
+		});
+		root.querySelectorAll("[data-i18n-attr]").forEach((node) => {
+			const spec = node.getAttribute("data-i18n-attr") || "";
+			for (const pair of spec.split(",")) {
+				const [attr, key] = pair.split(":").map((s) => s.trim());
+				if (attr && key) node.setAttribute(attr, t(key));
+			}
+		});
+		root.querySelectorAll("[data-i18n-tip]").forEach((node) => {
+			const key = node.getAttribute("data-i18n-tip");
+			if (key) node.setAttribute("data-tip", t(key));
+		});
+	}
+	/** Initialize language from localStorage or browser preference. Call once on startup. */
+	function initLang() {
+		try {
+			const saved = localStorage.getItem(STORAGE_KEY);
+			if (saved === "en" || saved === "zh") _lang = saved;
+			else _lang = (navigator.language || "en").toLowerCase().startsWith("zh") ? "zh" : "en";
+		} catch (_e) {
+			_lang = DEFAULT_LANG;
+		}
+		applyI18n();
+		return _lang;
+	}
+	var STORAGE_KEY, DEFAULT_LANG, _lang, _listeners, dict;
+	var init_i18n = __esmMin((() => {
+		STORAGE_KEY = "proxyConsoleLang";
+		DEFAULT_LANG = "en";
+		_lang = DEFAULT_LANG;
+		_listeners = /* @__PURE__ */ new Set();
+		dict = {
+			"app.title": {
+				en: "Proxy Console",
+				zh: "代理控制台"
+			},
+			"app.subtitle": {
+				en: "Runtime operations",
+				zh: "运行时管理"
+			},
+			"auth.checking": {
+				en: "Checking console access.",
+				zh: "正在检查控制台访问权限。"
+			},
+			"auth.enter_key": {
+				en: "Enter the admin key to open runtime operations.",
+				zh: "输入管理员密钥以打开运行时管理。"
+			},
+			"auth.admin_key": {
+				en: "Admin key",
+				zh: "管理员密钥"
+			},
+			"auth.admin_key_ph": {
+				en: "admin key",
+				zh: "管理员密钥"
+			},
+			"auth.enter": {
+				en: "Enter console",
+				zh: "进入控制台"
+			},
+			"auth.invalid": {
+				en: "Invalid admin key.",
+				zh: "管理员密钥无效。"
+			},
+			"nav.overview": {
+				en: "Overview",
+				zh: "概览"
+			},
+			"nav.requests": {
+				en: "Requests",
+				zh: "请求"
+			},
+			"nav.providers": {
+				en: "Providers",
+				zh: "提供商"
+			},
+			"nav.policy": {
+				en: "Routing Policy",
+				zh: "路由策略"
+			},
+			"nav.config": {
+				en: "Config",
+				zh: "配置"
+			},
+			"nav.playground": {
+				en: "Playground",
+				zh: "测试场"
+			},
+			"action.refresh": {
+				en: "Refresh",
+				zh: "刷新"
+			},
+			"action.pause": {
+				en: "Pause",
+				zh: "暂停"
+			},
+			"action.resume": {
+				en: "Resume",
+				zh: "继续"
+			},
+			"action.more_settings": {
+				en: "More settings",
+				zh: "更多设置"
+			},
+			"conn.connected": {
+				en: "Connected",
+				zh: "已连接"
+			},
+			"conn.disconnected": {
+				en: "Not connected",
+				zh: "未连接"
+			},
+			"conn.paused": {
+				en: "Paused",
+				zh: "已暂停"
+			},
+			"conn.connection_error": {
+				en: "Connection error",
+				zh: "连接错误"
+			},
+			"conn.admin_required": {
+				en: "Admin key required",
+				zh: "需要管理员密钥"
+			},
+			"conn.reconnecting": {
+				en: "Reconnecting…",
+				zh: "重连中…"
+			},
+			"view.overview.title": {
+				en: "Overview",
+				zh: "概览"
+			},
+			"view.overview.subtitle": {
+				en: "Live runtime health and request flow.",
+				zh: "实时运行状态与请求流量。"
+			},
+			"view.requests.title": {
+				en: "Requests",
+				zh: "请求"
+			},
+			"view.requests.subtitle": {
+				en: "request failure details.",
+				zh: "请求失败详情。"
+			},
+			"view.providers.title": {
+				en: "Providers",
+				zh: "提供商"
+			},
+			"view.providers.subtitle": {
+				en: "Runtime provider and key state.",
+				zh: "运行时提供商与密钥状态。"
+			},
+			"view.policy.title": {
+				en: "Routing Policy",
+				zh: "路由策略"
+			},
+			"view.policy.subtitle": {
+				en: "switching rules.",
+				zh: "切换规则。"
+			},
+			"view.config.title": {
+				en: "Config",
+				zh: "配置"
+			},
+			"view.config.subtitle": {
+				en: "configuration and safe edits",
+				zh: "配置与安全编辑"
+			},
+			"view.playground.title": {
+				en: "Playground",
+				zh: "测试场"
+			},
+			"view.playground.subtitle": {
+				en: "Test models with live routing feedback.",
+				zh: "测试模型并获取实时路由反馈。"
+			},
+			"ov.health_metrics": {
+				en: "Live health metrics and proxy request traffic flow.",
+				zh: "实时健康指标与代理请求流量。"
+			},
+			"ov.time_range": {
+				en: "Time range",
+				zh: "时间范围"
+			},
+			"ov.last_30m": {
+				en: "Last 30 minutes",
+				zh: "近 30 分钟"
+			},
+			"ov.last_2h": {
+				en: "Last 2 hours",
+				zh: "近 2 小时"
+			},
+			"ov.last_24h": {
+				en: "Last 24 hours",
+				zh: "近 24 小时"
+			},
+			"ov.last_7d": {
+				en: "Last 7 days",
+				zh: "近 7 天"
+			},
+			"ov.selected_window": {
+				en: "selected window",
+				zh: "所选时段"
+			},
+			"ov.usage_trend": {
+				en: "Usage Trend",
+				zh: "使用趋势"
+			},
+			"ov.usage_trend_desc": {
+				en: "Token flow, request volume, and failures in the selected window.",
+				zh: "所选时段内的 Token 流量、请求量和失败情况。"
+			},
+			"ov.recent_failures": {
+				en: "Recent Failure Trace",
+				zh: "近期失败追踪"
+			},
+			"ov.recent_failures_desc": {
+				en: "Latest failed or recovered requests.",
+				zh: "最近的失败或恢复请求。"
+			},
+			"ov.top_model_usage": {
+				en: "Top Model Usage",
+				zh: "模型用量排行"
+			},
+			"ov.top_model_desc": {
+				en: "Tokens and top models in the selected window.",
+				zh: "所选时段内的 Token 与热门模型。"
+			},
+			"ov.token_usage": {
+				en: "token usage",
+				zh: "Token 用量"
+			},
+			"ov.upstream_health": {
+				en: "Upstream Health status",
+				zh: "上游健康状态"
+			},
+			"ov.upstream_health_desc": {
+				en: "Providers that need attention.",
+				zh: "需要关注的提供商。"
+			},
+			"ov.no_providers": {
+				en: "No providers",
+				zh: "暂无提供商"
+			},
+			"ov.total_in_window": {
+				en: "total in the selected window",
+				zh: "所选时段内总计"
+			},
+			"metric.requests": {
+				en: "Requests",
+				zh: "请求"
+			},
+			"metric.success_rate": {
+				en: "Success Rate",
+				zh: "成功率"
+			},
+			"metric.attempt_failures": {
+				en: "Attempt Failures",
+				zh: "尝试失败"
+			},
+			"metric.providers": {
+				en: "Providers",
+				zh: "提供商"
+			},
+			"metric.tokens": {
+				en: "Tokens",
+				zh: "Token"
+			},
+			"metric.cost": {
+				en: "Est. Cost",
+				zh: "预估费用"
+			},
+			"metric.in_flight": {
+				en: "in flight",
+				zh: "进行中"
+			},
+			"metric.success": {
+				en: "success",
+				zh: "成功"
+			},
+			"metric.failed_attempts": {
+				en: "failed attempts",
+				zh: "次失败"
+			},
+			"metric.available": {
+				en: "available",
+				zh: "可用"
+			},
+			"metric.input_output": {
+				en: "0 input / 0 output",
+				zh: "0 输入 / 0 输出"
+			},
+			"metric.configured_pricing": {
+				en: "configured pricing only",
+				zh: "仅按已配置价格"
+			},
+			"kpi.success_rate": {
+				en: "Success rate",
+				zh: "成功率"
+			},
+			"kpi.first_byte": {
+				en: "First byte",
+				zh: "首字节延迟"
+			},
+			"kpi.active_keys": {
+				en: "Active keys",
+				zh: "可用密钥"
+			},
+			"kpi.input": {
+				en: "Input",
+				zh: "输入"
+			},
+			"kpi.output": {
+				en: "Output",
+				zh: "输出"
+			},
+			"kpi.failures": {
+				en: "Failures",
+				zh: "失败"
+			},
+			"kpi.no_samples": {
+				en: "no samples",
+				zh: "无样本"
+			},
+			"kpi.estimated": {
+				en: "estimated",
+				zh: "预估"
+			},
+			"kpi.tokens": {
+				en: "tokens",
+				zh: "Token"
+			},
+			"req.all": {
+				en: "All",
+				zh: "全部"
+			},
+			"req.success": {
+				en: "Success",
+				zh: "成功"
+			},
+			"req.failed": {
+				en: "Failed",
+				zh: "失败"
+			},
+			"req.model": {
+				en: "Model",
+				zh: "模型"
+			},
+			"req.model_ph": {
+				en: "model",
+				zh: "模型"
+			},
+			"req.provider": {
+				en: "Provider",
+				zh: "提供商"
+			},
+			"req.provider_ph": {
+				en: "provider",
+				zh: "提供商"
+			},
+			"req.more": {
+				en: "More",
+				zh: "更多"
+			},
+			"req.error_type_ph": {
+				en: "error type",
+				zh: "错误类型"
+			},
+			"req.reason_ph": {
+				en: "failure reason",
+				zh: "失败原因"
+			},
+			"req.status_ph": {
+				en: "attempt status",
+				zh: "尝试状态"
+			},
+			"req.apply": {
+				en: "Apply",
+				zh: "应用"
+			},
+			"req.clear": {
+				en: "Clear",
+				zh: "清除"
+			},
+			"req.selected_count": {
+				en: "0 selected",
+				zh: "已选 0 条"
+			},
+			"req.delete_title": {
+				en: "Delete requests",
+				zh: "删除请求"
+			},
+			"req.recent": {
+				en: "Recent request records.",
+				zh: "最近请求记录。"
+			},
+			"req.detail_title": {
+				en: "Request Detail",
+				zh: "请求详情"
+			},
+			"req.detail_subtitle": {
+				en: "Click a request to view its trace and payload.",
+				zh: "点击请求查看其追踪和负载。"
+			},
+			"req.select": {
+				en: "Select request",
+				zh: "选择请求"
+			},
+			"req.no_records": {
+				en: "No request records",
+				zh: "暂无请求记录"
+			},
+			"prov.title": {
+				en: "Providers",
+				zh: "提供商"
+			},
+			"prov.desc": {
+				en: "Runtime health, model coverage, key state, and routing readiness.",
+				zh: "运行状态、模型覆盖、密钥状态与路由就绪情况。"
+			},
+			"prov.add": {
+				en: "Add Provider",
+				zh: "添加提供商"
+			},
+			"prov.search": {
+				en: "Search",
+				zh: "搜索"
+			},
+			"prov.search_ph": {
+				en: "provider, model, base url",
+				zh: "提供商、模型、基础 URL"
+			},
+			"prov.format": {
+				en: "Format",
+				zh: "格式"
+			},
+			"prov.all_formats": {
+				en: "All formats",
+				zh: "所有格式"
+			},
+			"prov.status": {
+				en: "Status",
+				zh: "状态"
+			},
+			"prov.all_status": {
+				en: "All status",
+				zh: "所有状态"
+			},
+			"prov.normal": {
+				en: "Normal",
+				zh: "正常"
+			},
+			"prov.degraded": {
+				en: "Degraded",
+				zh: "降级"
+			},
+			"prov.cooldown": {
+				en: "Cooldown",
+				zh: "冷却中"
+			},
+			"prov.unavailable": {
+				en: "Unavailable",
+				zh: "不可用"
+			},
+			"prov.disabled": {
+				en: "Disabled",
+				zh: "已禁用"
+			},
+			"prov.keys": {
+				en: "Keys",
+				zh: "密钥"
+			},
+			"prov.all_keys": {
+				en: "All keys",
+				zh: "所有密钥"
+			},
+			"prov.has_usable": {
+				en: "Has usable key",
+				zh: "有可用密钥"
+			},
+			"prov.partial_usable": {
+				en: "Partial usable",
+				zh: "部分可用"
+			},
+			"prov.no_usable": {
+				en: "No usable keys",
+				zh: "无可用密钥"
+			},
+			"prov.key_cooldown": {
+				en: "Key cooldown",
+				zh: "密钥冷却"
+			},
+			"prov.no_config": {
+				en: "No provider config loaded",
+				zh: "未加载提供商配置"
+			},
+			"prov.no_capabilities": {
+				en: "No model capabilities loaded",
+				zh: "未加载模型能力"
+			},
+			"prov.no_providers_configured": {
+				en: "No providers configured",
+				zh: "未配置提供商"
+			},
+			"prov.drawer_title": {
+				en: "Provider",
+				zh: "提供商"
+			},
+			"prov.drawer_subtitle": {
+				en: "Select a provider to view its models and state.",
+				zh: "选择一个提供商查看其模型和状态。"
+			},
+			"prov.clear_cooldown": {
+				en: "Clear cooldown",
+				zh: "清除冷却"
+			},
+			"prov.disable": {
+				en: "Disable",
+				zh: "禁用"
+			},
+			"prov.enable": {
+				en: "Enable",
+				zh: "启用"
+			},
+			"prov.disable_key": {
+				en: "Disable key",
+				zh: "禁用密钥"
+			},
+			"prov.enable_key": {
+				en: "Enable key",
+				zh: "启用密钥"
+			},
+			"prov.clear_key_state": {
+				en: "Clear key state",
+				zh: "清除密钥状态"
+			},
+			"pm.keys": {
+				en: "Keys",
+				zh: "密钥"
+			},
+			"pm.usable": {
+				en: "usable",
+				zh: "可用"
+			},
+			"pm.priority": {
+				en: "Priority",
+				zh: "优先级"
+			},
+			"pm.higher_first": {
+				en: "higher first",
+				zh: "越小越优先"
+			},
+			"pm.success": {
+				en: "Success",
+				zh: "成功率"
+			},
+			"pm.recent": {
+				en: "recent",
+				zh: "近期"
+			},
+			"pm.avg_first_byte": {
+				en: "Avg first byte",
+				zh: "平均首字节"
+			},
+			"pm.successful_calls": {
+				en: "successful calls",
+				zh: "成功调用"
+			},
+			"pm.last_first_byte": {
+				en: "Last first byte",
+				zh: "最近首字节"
+			},
+			"pm.latest_success": {
+				en: "latest success",
+				zh: "最近成功"
+			},
+			"pm.runtime_on": {
+				en: "Runtime on",
+				zh: "运行中"
+			},
+			"pm.cooldown_m": {
+				en: "Cooldown",
+				zh: "冷却"
+			},
+			"pm.fails": {
+				en: "Fails",
+				zh: "失败"
+			},
+			"pm.runtime": {
+				en: "runtime",
+				zh: "运行时"
+			},
+			"pm.capability": {
+				en: "Capability",
+				zh: "能力"
+			},
+			"pm.models": {
+				en: "Models",
+				zh: "模型"
+			},
+			"pm.disabled_m": {
+				en: "Disabled",
+				zh: "已禁用"
+			},
+			"pm.fetched": {
+				en: "Fetched",
+				zh: "获取时间"
+			},
+			"pm.routes": {
+				en: "Routes",
+				zh: "路由"
+			},
+			"pm.provider": {
+				en: "provider",
+				zh: "提供商"
+			},
+			"pm.default_pool": {
+				en: "Default pool",
+				zh: "默认池"
+			},
+			"pm.route_models": {
+				en: "Route models",
+				zh: "路由模型"
+			},
+			"pm.explicit": {
+				en: "explicit",
+				zh: "显式"
+			},
+			"pm.provider_select": {
+				en: "Provider select",
+				zh: "提供商选择"
+			},
+			"pm.default": {
+				en: "default",
+				zh: "默认"
+			},
+			"pm.max_attempts": {
+				en: "Max attempts",
+				zh: "最大尝试"
+			},
+			"pm.request": {
+				en: "request",
+				zh: "请求"
+			},
+			"pm.models_source": {
+				en: "Models source",
+				zh: "模型来源"
+			},
+			"pm.config": {
+				en: "config",
+				zh: "配置"
+			},
+			"pm.union_models": {
+				en: "Union models",
+				zh: "合并模型"
+			},
+			"pm.canonical_ids": {
+				en: "canonical ids",
+				zh: "标准 ID"
+			},
+			"pm.configured": {
+				en: "configured",
+				zh: "已配置"
+			},
+			"pm.mapped": {
+				en: "Mapped",
+				zh: "已映射"
+			},
+			"pm.available": {
+				en: "available",
+				zh: "可用"
+			},
+			"pm.snapshot": {
+				en: "snapshot",
+				zh: "快照"
+			},
+			"pm.yes": {
+				en: "yes",
+				zh: "是"
+			},
+			"pm.no": {
+				en: "no",
+				zh: "否"
+			},
+			"pm.on": {
+				en: "on",
+				zh: "开"
+			},
+			"pm.off": {
+				en: "off",
+				zh: "关"
+			},
+			"pm.refreshing": {
+				en: "refreshing",
+				zh: "刷新中"
+			},
+			"pm.not_fetched": {
+				en: "not fetched",
+				zh: "未获取"
+			},
+			"policy.routing_controls": {
+				en: "Routing Controls",
+				zh: "路由控制"
+			},
+			"policy.routing_tip": {
+				en: "Safe runtime-overlay edits for common scheduling and retry settings.",
+				zh: "安全地通过运行时覆盖编辑常用调度和重试设置。"
+			},
+			"policy.rule_table": {
+				en: "Rule Table",
+				zh: "规则表"
+			},
+			"policy.rule_tip": {
+				en: "How requests move across attempts.",
+				zh: "请求在多次尝试间的流转方式。"
+			},
+			"policy.failure_policies": {
+				en: "Failure Policies",
+				zh: "失败策略"
+			},
+			"policy.failure_tip": {
+				en: "Cooldown and disable behavior by error type.",
+				zh: "按错误类型设置冷却和禁用行为。"
+			},
+			"policy.routing": {
+				en: "Routing",
+				zh: "路由"
+			},
+			"policy.routing_tip2": {
+				en: "Attempt budget, provider order, and format preference.",
+				zh: "尝试预算、提供商顺序和格式偏好。"
+			},
+			"policy.provider_pool": {
+				en: "Provider pool",
+				zh: "提供商池"
+			},
+			"policy.provider_pool_tip": {
+				en: "Comma-separated provider names used as the default routing pool.",
+				zh: "逗号分隔的提供商名称，用作默认路由池。"
+			},
+			"policy.selection_mode": {
+				en: "Selection mode",
+				zh: "选择模式"
+			},
+			"policy.selection_tip": {
+				en: "How providers are picked from the pool for each request.",
+				zh: "每次请求如何从池中选择提供商。"
+			},
+			"policy.max_attempts": {
+				en: "Max attempts",
+				zh: "最大尝试次数"
+			},
+			"policy.max_attempts_tip": {
+				en: "Maximum number of provider attempts per request before giving up.",
+				zh: "每个请求放弃前的最大提供商尝试次数。"
+			},
+			"policy.connect": {
+				en: "Connect",
+				zh: "连接"
+			},
+			"policy.connect_tip": {
+				en: "connect_timeout_s — Seconds to wait for the upstream TCP connection.",
+				zh: "connect_timeout_s — 等待上游 TCP 连接的秒数。"
+			},
+			"policy.read": {
+				en: "Read",
+				zh: "读取"
+			},
+			"policy.read_tip": {
+				en: "read_timeout_s — Seconds to wait for the full upstream response.",
+				zh: "read_timeout_s — 等待完整上游响应的秒数。"
+			},
+			"policy.first_token": {
+				en: "First token",
+				zh: "首 Token"
+			},
+			"policy.first_token_tip": {
+				en: "first_token_timeout_s — Seconds to wait for the first SSE token (0 = disabled).",
+				zh: "first_token_timeout_s — 等待首个 SSE Token 的秒数（0 = 禁用）。"
+			},
+			"policy.retry": {
+				en: "Retry",
+				zh: "重试"
+			},
+			"policy.retry_tip": {
+				en: "HTTP retry classes and key handling on failure.",
+				zh: "HTTP 重试类别和失败时的密钥处理。"
+			},
+			"policy.retryable_statuses": {
+				en: "Retryable statuses",
+				zh: "可重试状态码"
+			},
+			"policy.retryable_tip": {
+				en: "HTTP status codes that trigger a retry (e.g. 429, 500, 502, 503, 504).",
+				zh: "触发重试的 HTTP 状态码（如 429、500、502、503、504）。"
+			},
+			"policy.fatal_key_statuses": {
+				en: "Fatal key statuses",
+				zh: "致命密钥状态码"
+			},
+			"policy.fatal_tip": {
+				en: "HTTP status codes that mark a key as permanently bad (e.g. 401, 403).",
+				zh: "将密钥标记为永久失效的 HTTP 状态码（如 401、403）。"
+			},
+			"policy.respect_retry_after": {
+				en: "Respect Retry-After",
+				zh: "尊重 Retry-After"
+			},
+			"policy.respect_tip": {
+				en: "Honor the upstream Retry-After header to extend cooldown duration.",
+				zh: "遵从上游 Retry-After 头以延长冷却时长。"
+			},
+			"policy.same_key_retries": {
+				en: "Same-key retries",
+				zh: "同密钥重试"
+			},
+			"policy.same_key_tip": {
+				en: "same_key_retries — How many times to retry the same key before switching (0-3).",
+				zh: "same_key_retries — 切换前重试同一密钥的次数（0-3）。"
+			},
+			"policy.failure_ladder": {
+				en: "Failure ladder",
+				zh: "失败阶梯"
+			},
+			"policy.ladder_tip": {
+				en: "key_failure_ladder_s — Escalating cooldown seconds per consecutive key failure (e.g. 10, 60, 3600).",
+				zh: "key_failure_ladder_s — 每次连续密钥失败的递增冷却秒数（如 10, 60, 3600）。"
+			},
+			"policy.key_cooldown": {
+				en: "Key cooldown",
+				zh: "密钥冷却"
+			},
+			"policy.key_cooldown_tip": {
+				en: "Cooldown duration (seconds) applied to the key on this error type.",
+				zh: "此错误类型下密钥的冷却时长（秒）。"
+			},
+			"policy.provider_cooldown": {
+				en: "Provider cooldown",
+				zh: "提供商冷却"
+			},
+			"policy.provider_cooldown_tip": {
+				en: "Cooldown duration (seconds) applied to the provider on this error type.",
+				zh: "此错误类型下提供商的冷却时长（秒）。"
+			},
+			"policy.save_routing": {
+				en: "Save routing",
+				zh: "保存路由"
+			},
+			"policy.save_retry": {
+				en: "Save retry",
+				zh: "保存重试"
+			},
+			"policy.save_policy": {
+				en: "Save policy",
+				zh: "保存策略"
+			},
+			"policy.timeouts": {
+				en: "Timeouts",
+				zh: "超时设置"
+			},
+			"policy.advanced_cooldown": {
+				en: "Advanced cooldown & ladder",
+				zh: "高级冷却与阶梯"
+			},
+			"policy.disable_key": {
+				en: "Disable key",
+				zh: "禁用密钥"
+			},
+			"policy.mode_priority": {
+				en: "Priority",
+				zh: "优先级"
+			},
+			"policy.mode_priority_tip": {
+				en: "priority_failover — Try providers in priority order, failover to next on error",
+				zh: "priority_failover — 按优先级顺序尝试提供商，出错时故障转移到下一个"
+			},
+			"policy.mode_round_robin": {
+				en: "Round-robin",
+				zh: "轮询"
+			},
+			"policy.mode_round_robin_tip": {
+				en: "round_robin — Cycle through providers evenly across requests",
+				zh: "round_robin — 在请求间均匀轮换提供商"
+			},
+			"policy.mode_weighted": {
+				en: "Weighted",
+				zh: "加权"
+			},
+			"policy.mode_weighted_tip": {
+				en: "weighted_rr — Distribute by weight (e.g. provider:2 gets 2x traffic of provider:1)",
+				zh: "weighted_rr — 按权重分配（如 provider:2 获得 provider:1 的 2 倍流量）"
+			},
+			"policy.mode_random": {
+				en: "Random",
+				zh: "随机"
+			},
+			"policy.mode_random_tip": {
+				en: "random — Pick a provider at random from the pool",
+				zh: "random — 从池中随机选择一个提供商"
+			},
+			"policy.cooldown_rate_limit": {
+				en: "Rate limit",
+				zh: "速率限制"
+			},
+			"policy.cooldown_rate_limit_tip": {
+				en: "Rate limit cooldown (seconds)",
+				zh: "速率限制冷却时长（秒）"
+			},
+			"policy.cooldown_server_error": {
+				en: "Server error",
+				zh: "服务器错误"
+			},
+			"policy.cooldown_server_error_tip": {
+				en: "Server error cooldown (seconds)",
+				zh: "服务器错误冷却时长（秒）"
+			},
+			"policy.cooldown_network_error": {
+				en: "Network error",
+				zh: "网络错误"
+			},
+			"policy.cooldown_network_error_tip": {
+				en: "Network/timeout cooldown (seconds)",
+				zh: "网络/超时冷却时长（秒）"
+			},
+			"policy.cooldown_key_invalid": {
+				en: "Invalid key",
+				zh: "密钥无效"
+			},
+			"policy.cooldown_key_invalid_tip": {
+				en: "Invalid key cooldown (seconds)",
+				zh: "密钥无效冷却时长（秒）"
+			},
+			"policy.cooldown_quota_or_balance": {
+				en: "Quota/balance",
+				zh: "配额/余额"
+			},
+			"policy.cooldown_quota_or_balance_tip": {
+				en: "Quota or balance exhausted cooldown (seconds)",
+				zh: "配额或余额耗尽冷却时长（秒）"
+			},
+			"cfg.providers": {
+				en: "Providers",
+				zh: "提供商"
+			},
+			"cfg.providers_tip": {
+				en: "Edit existing provider config. To add a new provider, use the Add Provider button on the Providers page.",
+				zh: "编辑现有提供商配置。要添加新提供商，请使用提供商页面的「添加提供商」按钮。"
+			},
+			"cfg.audit_trail": {
+				en: "Audit Trail",
+				zh: "审计日志"
+			},
+			"cfg.audit_tip": {
+				en: "Recent admin mutations with masked details.",
+				zh: "最近的管理操作（详情已脱敏）。"
+			},
+			"cfg.no_audit": {
+				en: "No audit events recorded",
+				zh: "暂无审计记录"
+			},
+			"cfg.tab_routes": {
+				en: "Routes",
+				zh: "路由"
+			},
+			"cfg.tab_map": {
+				en: "Map",
+				zh: "映射"
+			},
+			"cfg.tab_runtime": {
+				en: "Runtime",
+				zh: "运行时"
+			},
+			"cfg.tab_proxy": {
+				en: "Proxy",
+				zh: "代理"
+			},
+			"cfg.tab_advanced": {
+				en: "Advanced",
+				zh: "高级"
+			},
+			"cfg.model_routes": {
+				en: "Model Routes",
+				zh: "模型路由"
+			},
+			"cfg.model_routes_tip": {
+				en: "Map one client model to a weighted provider pool.",
+				zh: "将一个客户端模型映射到加权提供商池。"
+			},
+			"cfg.add_edit_route": {
+				en: "Add or edit route",
+				zh: "添加或编辑路由"
+			},
+			"cfg.client_model": {
+				en: "Client model",
+				zh: "客户端模型"
+			},
+			"cfg.provider_order": {
+				en: "Provider order",
+				zh: "提供商顺序"
+			},
+			"cfg.provider_order_help": {
+				en: "provider:weight:priority, comma separated. Priority is optional and overrides provider config.",
+				zh: "provider:weight:priority，逗号分隔。priority 为可选，会覆盖提供商配置。"
+			},
+			"cfg.selection": {
+				en: "Selection",
+				zh: "选择"
+			},
+			"cfg.save_route": {
+				en: "Save route",
+				zh: "保存路由"
+			},
+			"cfg.no_routes": {
+				en: "No model routes configured",
+				zh: "未配置模型路由"
+			},
+			"cfg.provider_model_map": {
+				en: "Provider Model Map",
+				zh: "提供商模型映射"
+			},
+			"cfg.pmm_tip": {
+				en: "Provider-specific model name overrides.",
+				zh: "提供商特定的模型名称覆盖。"
+			},
+			"cfg.no_pmm": {
+				en: "No provider model overrides configured",
+				zh: "未配置提供商模型覆盖"
+			},
+			"cfg.runtime_config": {
+				en: "Runtime Config",
+				zh: "运行时配置"
+			},
+			"cfg.runtime_tip": {
+				en: "Masked status for the active configuration.",
+				zh: "当前活动配置的脱敏状态。"
+			},
+			"cfg.reload": {
+				en: "Reload",
+				zh: "重新加载"
+			},
+			"cfg.no_config": {
+				en: "No config loaded",
+				zh: "未加载配置"
+			},
+			"cfg.global_proxy": {
+				en: "Global Proxy",
+				zh: "全局代理"
+			},
+			"cfg.global_proxy_tip": {
+				en: "Lowest-priority fallback for providers without their own proxy.",
+				zh: "没有独立代理的提供商的最低优先级回退。"
+			},
+			"cfg.proxy_url": {
+				en: "Proxy URL",
+				zh: "代理 URL"
+			},
+			"cfg.proxy_url_tip": {
+				en: "Blank means direct unless a provider or key proxy is set.",
+				zh: "留空表示直连，除非设置了提供商或密钥代理。"
+			},
+			"cfg.save_global_proxy": {
+				en: "Save global proxy",
+				zh: "保存全局代理"
+			},
+			"cfg.advanced_tools": {
+				en: "Advanced overlay tools",
+				zh: "高级覆盖工具"
+			},
+			"cfg.advanced_desc": {
+				en: "Validate, export masked JSON, or clear runtime_config.",
+				zh: "验证、导出脱敏 JSON 或清除 runtime_config。"
+			},
+			"cfg.validate": {
+				en: "Validate",
+				zh: "验证"
+			},
+			"cfg.export_masked": {
+				en: "Export masked",
+				zh: "导出脱敏"
+			},
+			"cfg.clear_overlay": {
+				en: "Clear overlay",
+				zh: "清除覆盖"
+			},
+			"cfg.no_overlay": {
+				en: "No overlay status loaded",
+				zh: "未加载覆盖状态"
+			},
+			"cfg.show_preview": {
+				en: "Show overlay preview",
+				zh: "显示覆盖预览"
+			},
+			"cfg.raw_snapshot": {
+				en: "Raw Snapshot",
+				zh: "原始快照"
+			},
+			"cfg.raw_tip": {
+				en: "Masked JSON for debugging.",
+				zh: "用于调试的脱敏 JSON。"
+			},
+			"cfg.show_json": {
+				en: "Show masked JSON",
+				zh: "显示脱敏 JSON"
+			},
+			"form.add_provider_title": {
+				en: "Add Provider",
+				zh: "添加提供商"
+			},
+			"form.add_provider_sub": {
+				en: "Create a provider with the required connection fields.",
+				zh: "创建一个包含必填连接字段的提供商。"
+			},
+			"form.base_url": {
+				en: "Base URL",
+				zh: "基础 URL"
+			},
+			"form.base_url_tip": {
+				en: "The upstream API endpoint for this provider.",
+				zh: "此提供商的上游 API 端点。"
+			},
+			"form.proxy": {
+				en: "Proxy",
+				zh: "代理"
+			},
+			"form.proxy_tip": {
+				en: "Per-provider proxy URL. Leave blank to use the global proxy or direct connection.",
+				zh: "每提供商代理 URL。留空则使用全局代理或直连。"
+			},
+			"form.user_agent": {
+				en: "User-Agent",
+				zh: "User-Agent"
+			},
+			"form.ua_tip": {
+				en: "Custom User-Agent header for upstream requests. Blank = inherit default.",
+				zh: "上游请求的自定义 User-Agent 头。留空 = 继承默认值。"
+			},
+			"form.priority": {
+				en: "Priority",
+				zh: "优先级"
+			},
+			"form.priority_tip": {
+				en: "Lower number = higher priority in failover order (e.g. -10 before 0 before 10).",
+				zh: "数字越小 = 故障转移顺序中优先级越高（如 -10 先于 0 先于 10）。"
+			},
+			"form.enabled": {
+				en: "Enabled",
+				zh: "启用"
+			},
+			"form.enabled_tip": {
+				en: "Toggle whether this provider participates in routing.",
+				zh: "切换此提供商是否参与路由。"
+			},
+			"form.save": {
+				en: "Save",
+				zh: "保存"
+			},
+			"form.cancel": {
+				en: "Cancel",
+				zh: "取消"
+			},
+			"form.save_provider": {
+				en: "Save provider",
+				zh: "保存提供商"
+			},
+			"confirm.title_default": {
+				en: "Confirm action",
+				zh: "确认操作"
+			},
+			"confirm.delete": {
+				en: "Delete",
+				zh: "删除"
+			},
+			"confirm.clear": {
+				en: "Clear",
+				zh: "清除"
+			},
+			"confirm.message_default": {
+				en: "This action needs confirmation.",
+				zh: "此操作需要确认。"
+			},
+			"confirm.close": {
+				en: "Close",
+				zh: "关闭"
+			},
+			"confirm.delete_key.title": {
+				en: "Delete key",
+				zh: "删除密钥"
+			},
+			"confirm.delete_key.msg": {
+				en: "Delete {label} from {provider}?",
+				zh: "从 {provider} 删除 {label}？"
+			},
+			"confirm.delete_key.last": {
+				en: " This is the last key; the provider will become unavailable until another key is added.",
+				zh: " 这是最后一个密钥；在添加新密钥之前，该提供商将不可用。"
+			},
+			"confirm.delete_provider.title": {
+				en: "Delete Provider",
+				zh: "删除提供商"
+			},
+			"confirm.delete_provider.msg": {
+				en: "Delete {provider}? It will be removed from provider config, route pools, model maps, and capability snapshots.",
+				zh: "删除 {provider}？它将从提供商配置、路由池、模型映射和能力快照中移除。"
+			},
+			"confirm.clear_overlay.title": {
+				en: "Clear runtime overlay",
+				zh: "清除运行时覆盖"
+			},
+			"confirm.clear_overlay.msg": {
+				en: "Clear runtime_config overlay and restart runtime objects from base config?",
+				zh: "清除 runtime_config 覆盖并从基础配置重启运行时对象？"
+			},
+			"confirm.delete_route.title": {
+				en: "Delete model route",
+				zh: "删除模型路由"
+			},
+			"confirm.delete_route.msg": {
+				en: "Delete model route for {model}?",
+				zh: "删除模型 {model} 的路由？"
+			},
+			"confirm.delete_selected.title": {
+				en: "Delete selected requests",
+				zh: "删除所选请求"
+			},
+			"confirm.delete_matching.title": {
+				en: "Delete matching requests",
+				zh: "删除匹配的请求"
+			},
+			"confirm.clear_history.title": {
+				en: "Clear request history",
+				zh: "清除请求历史"
+			},
+			"confirm.delete_selected.msg": {
+				en: "Delete {count} selected request record{plural}? Runtime counters are not reset.",
+				zh: "删除 {count} 条已选请求记录？运行时计数器不会重置。"
+			},
+			"confirm.delete_matching.msg": {
+				en: "Delete all {count} request record{plural} matching the current filters? Runtime counters are not reset.",
+				zh: "删除所有 {count} 条匹配当前筛选条件的请求记录？运行时计数器不会重置。"
+			},
+			"confirm.clear_history.msg": {
+				en: "Clear all request history, runtime metrics, and diagnostic log records?",
+				zh: "清除所有请求历史、运行时指标和诊断日志记录？"
+			},
+			"notice.provider_added": {
+				en: "Provider {name} added.",
+				zh: "提供商 {name} 已添加。"
+			},
+			"notice.add_provider_failed": {
+				en: "Add provider failed: {error}",
+				zh: "添加提供商失败：{error}"
+			},
+			"notice.refresh_failed": {
+				en: "Console refresh failed: {error}",
+				zh: "控制台刷新失败：{error}"
+			},
+			"notice.config_refresh_failed": {
+				en: "Provider config refresh failed: {error}",
+				zh: "提供商配置刷新失败：{error}"
+			},
+			"notice.static_models_saved": {
+				en: "Static models for {provider} saved.",
+				zh: "{provider} 的静态模型已保存。"
+			},
+			"notice.static_models_cleared": {
+				en: "Static models for {provider} cleared.",
+				zh: "{provider} 的静态模型已清除。"
+			},
+			"notice.static_model_removed": {
+				en: "Static model {model} removed from {provider}.",
+				zh: "静态模型 {model} 已从 {provider} 移除。"
+			},
+			"notice.failed": {
+				en: "Failed: {error}",
+				zh: "失败：{error}"
+			},
+			"notice.action_failed": {
+				en: "Action failed: {error}",
+				zh: "操作失败：{error}"
+			},
+			"notice.key_deleted": {
+				en: "Key {index} deleted from {provider}.",
+				zh: "密钥 {index} 已从 {provider} 删除。"
+			},
+			"notice.delete_key_failed": {
+				en: "Delete key failed: {error}",
+				zh: "删除密钥失败：{error}"
+			},
+			"notice.refresh_before_test": {
+				en: "Refresh model capabilities before testing this key.",
+				zh: "测试此密钥前请先刷新模型能力。"
+			},
+			"notice.testing_key": {
+				en: "Testing key {index} of {provider} on {model}...",
+				zh: "正在测试 {provider} 的密钥 {index}（模型 {model}）..."
+			},
+			"notice.key_works": {
+				en: "Key {index} of {provider} works on {model} ({format}{upstream}, {latency}ms).",
+				zh: "{provider} 的密钥 {index} 在 {model} 上可用（{format}{upstream}，{latency}ms）。"
+			},
+			"notice.key_failed": {
+				en: "Key {index} of {provider} failed: {detail}.",
+				zh: "{provider} 的密钥 {index} 失败：{detail}。"
+			},
+			"notice.test_key_failed": {
+				en: "Test key failed: {error}",
+				zh: "测试密钥失败：{error}"
+			},
+			"notice.models_refreshed": {
+				en: "Models for {provider} refreshed.",
+				zh: "{provider} 的模型已刷新。"
+			},
+			"notice.model_refresh_failed": {
+				en: "Model refresh failed: {error}",
+				zh: "模型刷新失败：{error}"
+			},
+			"notice.model_settings_saved": {
+				en: "Model settings for {provider} saved.",
+				zh: "{provider} 的模型设置已保存。"
+			},
+			"notice.model_setting_failed": {
+				en: "Model setting failed: {error}",
+				zh: "模型设置失败：{error}"
+			},
+			"notice.model_mapping_saved": {
+				en: "Model mapping saved for {provider}.",
+				zh: "{provider} 的模型映射已保存。"
+			},
+			"notice.model_mapping_reset": {
+				en: "Model mapping reset for {provider}.",
+				zh: "{provider} 的模型映射已重置。"
+			},
+			"notice.model_mapping_failed": {
+				en: "Model mapping failed: {error}",
+				zh: "模型映射失败：{error}"
+			},
+			"notice.model_mapping_required": {
+				en: "Model mapping name is required.",
+				zh: "模型映射名称为必填项。"
+			},
+			"notice.format_path_empty": {
+				en: "Format path cannot be empty.",
+				zh: "格式路径不能为空。"
+			},
+			"notice.format_updated": {
+				en: "{provider} {format} path updated.",
+				zh: "{provider} 的 {format} 路径已更新。"
+			},
+			"notice.routing_updated": {
+				en: "Routing settings updated.",
+				zh: "路由设置已更新。"
+			},
+			"notice.retry_updated": {
+				en: "Retry settings updated.",
+				zh: "重试设置已更新。"
+			},
+			"notice.failure_policy_updated": {
+				en: "Failure policy {type} updated.",
+				zh: "失败策略 {type} 已更新。"
+			},
+			"notice.policy_failed": {
+				en: "Policy update failed: {error}",
+				zh: "策略更新失败：{error}"
+			},
+			"notice.provider_deleted": {
+				en: "Provider {provider} deleted.",
+				zh: "提供商 {provider} 已删除。"
+			},
+			"notice.delete_provider_failed": {
+				en: "Delete provider failed: {error}",
+				zh: "删除提供商失败：{error}"
+			},
+			"notice.provider_updated": {
+				en: "Provider {provider} updated.",
+				zh: "提供商 {provider} 已更新。"
+			},
+			"notice.key_added": {
+				en: "Key added to {provider}.",
+				zh: "密钥已添加到 {provider}。"
+			},
+			"notice.key_proxy_updated": {
+				en: "Key {index} proxy updated for {provider}.",
+				zh: "{provider} 的密钥 {index} 代理已更新。"
+			},
+			"notice.format_toggled": {
+				en: "{provider} {format} {state}.",
+				zh: "{provider} 的 {format} 已{state}。"
+			},
+			"notice.enabled": {
+				en: "enabled",
+				zh: "启用"
+			},
+			"notice.disabled": {
+				en: "disabled",
+				zh: "禁用"
+			},
+			"notice.format_update_failed": {
+				en: "Format update failed: {error}",
+				zh: "格式更新失败：{error}"
+			},
+			"notice.config_update_failed": {
+				en: "Config update failed: {error}",
+				zh: "配置更新失败：{error}"
+			},
+			"notice.request_history_cleared": {
+				en: "Request history cleared ({count} records).",
+				zh: "请求历史已清除（{count} 条记录）。"
+			},
+			"notice.requests_deleted": {
+				en: "Deleted {count} request record{plural}.",
+				zh: "已删除 {count} 条请求记录。"
+			},
+			"notice.delete_requests_failed": {
+				en: "Delete requests failed: {error}",
+				zh: "删除请求失败：{error}"
+			},
+			"notice.config_reload_failed": {
+				en: "Config reload failed: {error}",
+				zh: "配置重新加载失败：{error}"
+			},
+			"notice.global_proxy_updated": {
+				en: "Global proxy updated.",
+				zh: "全局代理已更新。"
+			},
+			"notice.overlay_exported": {
+				en: "Masked overlay exported to preview.",
+				zh: "脱敏覆盖已导出到预览。"
+			},
+			"notice.overlay_export_failed": {
+				en: "Overlay export failed: {error}",
+				zh: "覆盖导出失败：{error}"
+			},
+			"notice.overlay_validated": {
+				en: "Overlay validation passed.",
+				zh: "覆盖验证通过。"
+			},
+			"notice.overlay_validation_failed": {
+				en: "Overlay validation failed: {error}",
+				zh: "覆盖验证失败：{error}"
+			},
+			"notice.overlay_cleared_backup": {
+				en: "Overlay cleared. Backup: {path}",
+				zh: "覆盖已清除。备份：{path}"
+			},
+			"notice.overlay_cleared": {
+				en: "Overlay cleared.",
+				zh: "覆盖已清除。"
+			},
+			"notice.clear_overlay_failed": {
+				en: "Clear overlay failed: {error}",
+				zh: "清除覆盖失败：{error}"
+			},
+			"notice.model_route_deleted": {
+				en: "Model route {model} deleted.",
+				zh: "模型路由 {model} 已删除。"
+			},
+			"notice.model_route_saved": {
+				en: "Model route {model} saved.",
+				zh: "模型路由 {model} 已保存。"
+			},
+			"notice.delete_route_failed": {
+				en: "Delete model route failed: {error}",
+				zh: "删除模型路由失败：{error}"
+			},
+			"notice.confirm_unavailable": {
+				en: "Confirmation dialog is unavailable. Refresh the console and try again.",
+				zh: "确认对话框不可用。请刷新控制台后重试。"
+			},
+			"modal.edit_mapping_title": {
+				en: "Edit model mapping",
+				zh: "编辑模型映射"
+			},
+			"modal.edit_format_title": {
+				en: "Edit format path",
+				zh: "编辑格式路径"
+			},
+			"pg.eyebrow": {
+				en: "Playground",
+				zh: "测试场"
+			},
+			"pg.setup": {
+				en: "Request setup",
+				zh: "请求配置"
+			},
+			"pg.setup_desc": {
+				en: "Choose the model, client format, and generation controls for this test run.",
+				zh: "选择此测试运行的模型、客户端格式和生成参数。"
+			},
+			"pg.model": {
+				en: "Model",
+				zh: "模型"
+			},
+			"pg.search_model": {
+				en: "Search model...",
+				zh: "搜索模型..."
+			},
+			"pg.parameters": {
+				en: "Parameters",
+				zh: "参数"
+			},
+			"pg.temp": {
+				en: "Temp",
+				zh: "温度"
+			},
+			"pg.max_tokens": {
+				en: "Max tokens",
+				zh: "最大 Token"
+			},
+			"pg.top_p": {
+				en: "Top P",
+				zh: "Top P"
+			},
+			"pg.stream": {
+				en: "Stream",
+				zh: "流式"
+			},
+			"pg.include_history": {
+				en: "Include history",
+				zh: "包含历史"
+			},
+			"pg.system_prompt": {
+				en: "System Prompt",
+				zh: "系统提示词"
+			},
+			"pg.system_ph": {
+				en: "Optional system prompt...",
+				zh: "可选的系统提示词..."
+			},
+			"pg.api_format": {
+				en: "API Format",
+				zh: "API 格式"
+			},
+			"pg.chat": {
+				en: "Chat",
+				zh: "Chat"
+			},
+			"pg.responses": {
+				en: "Responses",
+				zh: "Responses"
+			},
+			"pg.anthropic": {
+				en: "Anthropic",
+				zh: "Anthropic"
+			},
+			"pg.live_test": {
+				en: "Live test",
+				zh: "实时测试"
+			},
+			"pg.sandbox": {
+				en: "Message sandbox",
+				zh: "消息沙箱"
+			},
+			"pg.ready": {
+				en: "Ready.",
+				zh: "就绪。"
+			},
+			"pg.input_ph": {
+				en: "Type a message... (Enter to send, Shift+Enter for newline)",
+				zh: "输入消息...（Enter 发送，Shift+Enter 换行）"
+			},
+			"pg.clear": {
+				en: "Clear",
+				zh: "清除"
+			},
+			"pg.stop": {
+				en: "Stop",
+				zh: "停止"
+			},
+			"pg.send": {
+				en: "Send",
+				zh: "发送"
+			},
+			"pg.sending": {
+				en: "Sending...",
+				zh: "发送中..."
+			},
+			"pg.done": {
+				en: "Done.",
+				zh: "完成。"
+			},
+			"pg.stopped": {
+				en: "Stopped.",
+				zh: "已停止。"
+			},
+			"pg.error": {
+				en: "Error: {error}",
+				zh: "错误：{error}"
+			},
+			"pg.load_failed": {
+				en: "Failed to load models: {error}",
+				zh: "加载模型失败：{error}"
+			},
+			"model.drawer_title": {
+				en: "Model Details",
+				zh: "模型详情"
+			},
+			"model.drawer_subtitle": {
+				en: "Artificial Analysis Summary",
+				zh: "Artificial Analysis 摘要"
+			},
+			"mobile.sections": {
+				en: "Sections",
+				zh: "栏目"
+			},
+			"mobile.runtime": {
+				en: "Runtime",
+				zh: "运行时"
+			},
+			"mobile.request_filters": {
+				en: "Request filters",
+				zh: "请求筛选"
+			},
+			"mobile.close": {
+				en: "Close settings",
+				zh: "关闭设置"
+			},
+			"mobile.nav_desc": {
+				en: "Navigation, runtime controls, and view filters.",
+				zh: "导航、运行时控制和视图筛选。"
+			},
+			"misc.mono": {
+				en: "mono",
+				zh: "mono"
+			},
+			"misc.open_providers": {
+				en: "Open Providers",
+				zh: "打开提供商"
+			},
+			"misc.open_requests": {
+				en: "Open Requests",
+				zh: "打开请求"
+			},
+			"misc.priority_total": {
+				en: "priority / total",
+				zh: "优先 / 总计"
+			},
+			"misc.key_cooldown_short": {
+				en: "key cooldown",
+				zh: "密钥冷却"
+			},
+			"misc.pricing_for": {
+				en: "Pricing for {model}",
+				zh: "{model} 的定价"
+			}
+		};
+	}));
+	//#endregion
 	//#region src/constants.js
 	var timeRanges, views;
 	var init_constants = __esmMin((() => {
+		init_i18n();
 		timeRanges = {
 			"30m": {
-				label: "Last 30 minutes",
+				get label() {
+					return t("ov.last_30m");
+				},
 				bucket_s: 60,
 				buckets: 30
 			},
 			"2h": {
-				label: "Last 2 hours",
+				get label() {
+					return t("ov.last_2h");
+				},
 				bucket_s: 120,
 				buckets: 60
 			},
 			"24h": {
-				label: "Last 24 hours",
+				get label() {
+					return t("ov.last_24h");
+				},
 				bucket_s: 900,
 				buckets: 96
 			},
 			"7d": {
-				label: "Last 7 days",
+				get label() {
+					return t("ov.last_7d");
+				},
 				bucket_s: 3600,
 				buckets: 168
 			}
 		};
 		views = {
 			overview: {
-				title: "Overview",
-				subtitle: "Live runtime health and request flow."
+				get title() {
+					return t("view.overview.title");
+				},
+				get subtitle() {
+					return t("view.overview.subtitle");
+				}
 			},
 			requests: {
-				title: "Requests",
-				subtitle: "request failure details."
+				get title() {
+					return t("view.requests.title");
+				},
+				get subtitle() {
+					return t("view.requests.subtitle");
+				}
 			},
 			providers: {
-				title: "Providers",
-				subtitle: "Runtime provider and key state."
+				get title() {
+					return t("view.providers.title");
+				},
+				get subtitle() {
+					return t("view.providers.subtitle");
+				}
 			},
 			policy: {
-				title: "Routing Policy",
-				subtitle: "switching rules."
+				get title() {
+					return t("view.policy.title");
+				},
+				get subtitle() {
+					return t("view.policy.subtitle");
+				}
 			},
 			config: {
-				title: "Config",
-				subtitle: "configuration and safe edits"
+				get title() {
+					return t("view.config.title");
+				},
+				get subtitle() {
+					return t("view.config.subtitle");
+				}
 			},
 			playground: {
-				title: "Playground",
-				subtitle: "Test models with live routing feedback."
+				get title() {
+					return t("view.playground.title");
+				},
+				get subtitle() {
+					return t("view.playground.subtitle");
+				}
 			}
 		};
 	}));
@@ -610,6 +2339,7 @@
 		init_state();
 		init_constants();
 		init_api();
+		init_i18n();
 		var el = (id) => document.getElementById(id);
 		var qsa = (selector) => Array.from(document.querySelectorAll(selector));
 		window.__perf = {
@@ -1101,7 +2831,7 @@
 			const messageEl = el("confirmMessage");
 			const acceptButton = el("confirmAcceptButton");
 			if (!dialog || !backdrop || !titleEl || !messageEl || !acceptButton) {
-				setNotice("Confirmation dialog is unavailable. Refresh the console and try again.");
+				setNotice(t("notice.confirm_unavailable"));
 				return Promise.resolve(false);
 			}
 			if (state.confirmResolve) {
@@ -1109,8 +2839,8 @@
 				state.confirmResolve = null;
 			}
 			state.confirmLastFocus = document.activeElement;
-			titleEl.textContent = title || "Confirm action";
-			messageEl.textContent = message || "This action needs confirmation.";
+			titleEl.textContent = title || t("confirm.title_default");
+			messageEl.textContent = message || t("confirm.message_default");
 			acceptButton.textContent = acceptLabel;
 			backdrop.hidden = false;
 			dialog.classList.add("is-open");
@@ -1216,8 +2946,8 @@
 		}
 		function openAddProviderModal() {
 			openFormModal({
-				title: "Add Provider",
-				subtitle: "Create a provider with the required connection fields.",
+				title: t("form.add_provider_title"),
+				subtitle: t("form.add_provider_sub"),
 				bodyHtml: addProviderModalBody()
 			});
 			const form = document.getElementById("addProviderModalForm");
@@ -1260,9 +2990,9 @@
 						quiet: true,
 						staticData: true
 					});
-					setNotice(`Provider ${payload.name} added.`, "ok");
+					setNotice(t("notice.provider_added", { name: payload.name }), "ok");
 				} catch (err) {
-					setNotice(`Add provider failed: ${err.message}`);
+					setNotice(t("notice.add_provider_failed", { error: err.message }));
 				}
 			});
 			const cancel = document.getElementById("addProviderModalCancel");
@@ -1322,7 +3052,7 @@
 		}
 		async function refreshAll({ quiet = false, preserveNotice = false, staticData = false } = {}) {
 			if (!state.adminKey) {
-				setConnection(false, "Admin key required");
+				setConnection(false, t("conn.admin_required"));
 				showLogin(quiet ? "" : "Admin key is required to load console data.");
 				return;
 			}
@@ -1339,7 +3069,7 @@
 			_refreshInFlight = true;
 			try {
 				try {
-					setConnection(null, "Refreshing");
+					setConnection(null, t("conn.reconnecting"));
 					const view = state.view || "overview";
 					const needTimeseries = !quiet || view === "overview" || state.forceTimeseriesFetch;
 					const needRequests = !quiet || view === "requests" || state.forceRequestsFetch;
@@ -1408,12 +3138,12 @@
 					if (!preserveNotice) setNotice("");
 					setConnection(true, `Updated ${(/* @__PURE__ */ new Date()).toLocaleTimeString()}`);
 				} catch (err) {
-					setConnection(false, "Connection error");
+					setConnection(false, t("conn.connection_error"));
 					if (isAuthError(err)) {
 						clearStoredAdminKey();
 						state.adminKey = "";
-						showLogin("Admin key was rejected. Enter the current key to continue.");
-					} else setNotice(`Console refresh failed: ${err.message}`);
+						showLogin(t("auth.invalid"));
+					} else setNotice(t("notice.refresh_failed", { error: err.message }));
 				} finally {
 					_refreshInFlight = false;
 					if (_refreshWanted) {
@@ -1443,8 +3173,8 @@
 				setConnection(true, `Updated ${(/* @__PURE__ */ new Date()).toLocaleTimeString()}`);
 				return true;
 			} catch (err) {
-				setConnection(false, "Connection error");
-				setNotice(`Provider config refresh failed: ${err.message}`, "bad");
+				setConnection(false, t("conn.connection_error"));
+				setNotice(t("notice.config_refresh_failed", { error: err.message }), "bad");
 				return false;
 			}
 		}
@@ -1642,10 +3372,10 @@
 			const healthTone = providerPct >= .9 && keyPct >= .9 && failureRate < .05 ? "ok" : providerPct >= .5 && keyPct >= .5 && failureRate < .2 ? "warn" : providerPct > 0 && keyPct > 0 ? "soft" : "bad";
 			currentTimeRange().label || state.timeRange;
 			target.innerHTML = `
-      ${overviewMetricCard("Requests", fmtInt(traffic.requests), `${fmtInt(counters.requests_in_flight || 0)} in flight`, requestFailureRate >= .1 ? "danger" : requestFailureRate > 0 ? "warning" : "info", "activity")}
-      ${overviewMetricCard("Success rate", fmtPct(successRate), `${fmtInt(displaySuccess)} success`, successRate >= .98 ? "success" : successRate >= .95 ? "info" : successRate >= .85 ? "warning" : "danger", "check")}
-      ${overviewMetricCard("First byte", latestLatency === null ? "-" : fmtMs(latestLatency), avgLatency === null ? "no samples" : `avg ${fmtMs(avgLatency)} / max ${fmtMs(maxLatency)}`, toneForLatency(avgLatency || latestLatency || 0), "clock")}
-      ${overviewMetricCard("Active keys", `${fmtInt(keyUsable)}/${fmtInt(keyTotal)}`, `${fmtInt(providerAvailable)}/${fmtInt(providerCount)} providers`, healthTone === "bad" ? "danger" : healthTone === "soft" ? "warning" : healthTone === "warn" ? "info" : "success", "key")}
+      ${overviewMetricCard(t("metric.requests"), fmtInt(traffic.requests), `${fmtInt(counters.requests_in_flight || 0)} ${t("metric.in_flight")}`, requestFailureRate >= .1 ? "danger" : requestFailureRate > 0 ? "warning" : "info", "activity")}
+      ${overviewMetricCard(t("kpi.success_rate"), fmtPct(successRate), `${fmtInt(displaySuccess)} ${t("metric.success")}`, successRate >= .98 ? "success" : successRate >= .95 ? "info" : successRate >= .85 ? "warning" : "danger", "check")}
+      ${overviewMetricCard(t("kpi.first_byte"), latestLatency === null ? "-" : fmtMs(latestLatency), avgLatency === null ? t("kpi.no_samples") : `avg ${fmtMs(avgLatency)} / max ${fmtMs(maxLatency)}`, toneForLatency(avgLatency || latestLatency || 0), "clock")}
+      ${overviewMetricCard(t("kpi.active_keys"), `${fmtInt(keyUsable)}/${fmtInt(keyTotal)}`, `${fmtInt(providerAvailable)}/${fmtInt(providerCount)} ${t("metric.providers")}`, healthTone === "bad" ? "danger" : healthTone === "soft" ? "warning" : healthTone === "warn" ? "info" : "success", "key")}
     `;
 		}
 		function overviewMetricCard(label, value, hint, tone, icon) {
@@ -1777,14 +3507,14 @@
         <div class="usage-trend-total">
           <span>Consumed tokens</span>
           <strong>${escapeHtml(fmtTokenCount(displayUsage.total_tokens))}</strong>
-          <small>${escapeHtml(fmtInt(displayUsage.total_tokens))} total in the selected window</small>
+          <small>${escapeHtml(fmtInt(displayUsage.total_tokens))} ${t("ov.total_in_window")}</small>
         </div>
         <div class="usage-trend-kpis">
-          ${usageTrendKpi("Input", fmtTokenCount(displayUsage.input_tokens), "usage-input")}
-          ${usageTrendKpi("Output", fmtTokenCount(displayUsage.output_tokens), "usage-output")}
-          ${usageTrendKpi("Requests", fmtInt(totals.requests), "usage-request")}
-          ${usageTrendKpi("Failures", fmtInt(totals.failed), "usage-failure")}
-          ${usageTrendKpi("Success", fmtPct(successRate), "usage-success")}
+          ${usageTrendKpi(t("kpi.input"), fmtTokenCount(displayUsage.input_tokens), "usage-input")}
+          ${usageTrendKpi(t("kpi.output"), fmtTokenCount(displayUsage.output_tokens), "usage-output")}
+          ${usageTrendKpi(t("metric.requests"), fmtInt(totals.requests), "usage-request")}
+          ${usageTrendKpi(t("kpi.failures"), fmtInt(totals.failed), "usage-failure")}
+          ${usageTrendKpi(t("kpi.success"), fmtPct(successRate), "usage-success")}
         </div>
       </div>
       ${renderTrafficComboChart({
@@ -3205,7 +4935,7 @@
 					});
 					await runConfigMutation(form, async () => {
 						await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { static_models: models });
-						setNotice(`Static models for ${provider} saved.`, "ok");
+						setNotice(t("notice.static_models_saved", { provider }), "ok");
 						form.elements.static_models.value = "";
 					});
 				});
@@ -3218,7 +4948,7 @@
 					button.disabled = true;
 					try {
 						await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { static_models: [] });
-						setNotice(`Static models for ${provider} cleared.`, "ok");
+						setNotice(t("notice.static_models_cleared", { provider }), "ok");
 						await refreshAll({
 							quiet: true,
 							preserveNotice: true,
@@ -3226,7 +4956,7 @@
 						});
 						renderProviderDrawer({ force: true });
 					} catch (err) {
-						setNotice(`Failed: ${err.message}`);
+						setNotice(t("notice.failed", { error: err.message }));
 					} finally {
 						button.disabled = false;
 					}
@@ -3243,7 +4973,10 @@
 					button.disabled = true;
 					try {
 						await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { static_models: models });
-						setNotice(`Static model ${model} removed from ${provider}.`, "ok");
+						setNotice(t("notice.static_model_removed", {
+							model,
+							provider
+						}), "ok");
 						await refreshAll({
 							quiet: true,
 							preserveNotice: true,
@@ -3251,7 +4984,7 @@
 						});
 						renderProviderDrawer({ force: true });
 					} catch (err) {
-						setNotice(`Failed: ${err.message}`);
+						setNotice(t("notice.failed", { error: err.message }));
 					} finally {
 						button.disabled = false;
 					}
@@ -3970,7 +5703,7 @@
 							staticData: true
 						});
 					} catch (err) {
-						setNotice(`Action failed: ${err.message}`);
+						setNotice(t("notice.action_failed", { error: err.message }));
 					} finally {
 						button.disabled = false;
 					}
@@ -4060,22 +5793,29 @@
 					const total = Number(button.dataset.keyDeleteTotal || 0);
 					const label = button.dataset.keyDeleteLabel || `key ${keyIndex}`;
 					if (!provider || keyIndex === "") return;
+					const lastKeyText = total <= 1 ? t("confirm.delete_key.last") : "";
 					if (!await openConfirmDialog({
-						title: "Delete key",
-						message: `Delete ${label} from ${provider}?${total <= 1 ? " This is the last key; the provider will become unavailable until another key is added." : ""}`,
-						acceptLabel: "Delete"
+						title: t("confirm.delete_key.title"),
+						message: t("confirm.delete_key.msg", {
+							label,
+							provider
+						}) + lastKeyText,
+						acceptLabel: t("confirm.delete")
 					})) return;
 					button.disabled = true;
 					try {
 						await apiPost(`/-/admin/providers/${encodeURIComponent(provider)}/keys/${encodeURIComponent(keyIndex)}/delete`, { confirm: "delete_key" });
-						setNotice(`Key ${keyIndex} deleted from ${provider}.`, "ok");
+						setNotice(t("notice.key_deleted", {
+							index: keyIndex,
+							provider
+						}), "ok");
 						await refreshAll({
 							quiet: true,
 							preserveNotice: true,
 							staticData: true
 						});
 					} catch (err) {
-						setNotice(`Delete key failed: ${err.message}`);
+						setNotice(t("notice.delete_key_failed", { error: err.message }));
 					} finally {
 						button.disabled = false;
 					}
@@ -4095,14 +5835,18 @@
 					const modelSelect = root.querySelector(`[data-key-test-model="${CSS.escape(probeKey)}"]`);
 					const model = String(modelSelect?.value || "").trim();
 					if (!model) {
-						setNotice("Refresh model capabilities before testing this key.", "info");
+						setNotice(t("notice.refresh_before_test"), "info");
 						return;
 					}
 					if (state.keyProbeInFlight[probeKey]) return;
 					state.keyProbeInFlight[probeKey] = true;
 					state.keyProbes[probeKey] = { pending: true };
 					button.disabled = true;
-					setNotice(`Testing key ${keyIndex} of ${provider} on ${model}...`, "info", {
+					setNotice(t("notice.testing_key", {
+						index: keyIndex,
+						provider,
+						model
+					}), "info", {
 						key: toastKey,
 						sticky: true
 					});
@@ -4113,8 +5857,19 @@
 							const shownModel = result.requested_model || model;
 							const upstreamModel = result.upstream_model && result.upstream_model !== shownModel ? result.upstream_model : "";
 							const upstreamText = upstreamModel ? `, upstream ${upstreamModel}` : "";
-							setNotice(`Key ${keyIndex} of ${provider} works on ${shownModel} (${result.format}${upstreamText}, ${fmtInt(result.latency_ms)}ms).`, "ok", { key: toastKey });
-						} else setNotice(`Key ${keyIndex} of ${provider} failed: ${result.http_status ? `HTTP ${result.http_status}` : result.error_type || "failed"}.`, "bad", { key: toastKey });
+							setNotice(t("notice.key_works", {
+								index: keyIndex,
+								provider,
+								model: shownModel,
+								format: result.format,
+								upstream: upstreamText,
+								latency: fmtInt(result.latency_ms)
+							}), "ok", { key: toastKey });
+						} else setNotice(t("notice.key_failed", {
+							index: keyIndex,
+							provider,
+							detail: result.http_status ? `HTTP ${result.http_status}` : result.error_type || "failed"
+						}), "bad", { key: toastKey });
 						await refreshAll({
 							quiet: true,
 							preserveNotice: true,
@@ -4125,7 +5880,7 @@
 							ok: false,
 							error_type: "request_error"
 						};
-						setNotice(`Test key failed: ${err.message}`, "bad", { key: toastKey });
+						setNotice(t("notice.test_key_failed", { error: err.message }), "bad", { key: toastKey });
 					} finally {
 						delete state.keyProbeInFlight[probeKey];
 						button.disabled = false;
@@ -4146,7 +5901,7 @@
 					button.disabled = true;
 					try {
 						await apiPost(`/-/admin/providers/${encodeURIComponent(provider)}/models/refresh`);
-						setNotice(`Models for ${provider} refreshed.`, "ok");
+						setNotice(t("notice.models_refreshed", { provider }), "ok");
 						await refreshAll({
 							quiet: true,
 							preserveNotice: true,
@@ -4154,7 +5909,7 @@
 						});
 						renderProviderDrawer({ force: true });
 					} catch (err) {
-						setNotice(`Model refresh failed: ${err.message}`, "bad");
+						setNotice(t("notice.model_refresh_failed", { error: err.message }), "bad");
 					} finally {
 						_modelRefreshInFlight.delete(provider);
 						button.disabled = false;
@@ -4167,7 +5922,7 @@
 			try {
 				await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/models/disabled`, { models });
 				if (state.providerModelDrafts) delete state.providerModelDrafts[provider];
-				setNotice(successMessage || `Model settings for ${provider} saved.`, "ok");
+				setNotice(successMessage || t("notice.model_settings_saved", { provider }), "ok");
 				await refreshAll({
 					quiet: true,
 					preserveNotice: true,
@@ -4175,7 +5930,7 @@
 				});
 				renderProviderDrawer({ force: true });
 			} catch (err) {
-				setNotice(`Model setting failed: ${err.message}`, "bad");
+				setNotice(t("notice.model_setting_failed", { error: err.message }), "bad");
 			}
 		}
 		async function updateProviderModelMapping(provider, oldModel, rawModel, nextModel) {
@@ -4186,7 +5941,7 @@
 					model: nextModel,
 					raw_model: rawModel
 				});
-				setNotice(nextModel ? `Model mapping saved for ${provider}.` : `Model mapping reset for ${provider}.`, "ok");
+				setNotice(nextModel ? t("notice.model_mapping_saved", { provider }) : t("notice.model_mapping_reset", { provider }), "ok");
 				await refreshAll({
 					quiet: true,
 					preserveNotice: true,
@@ -4195,14 +5950,14 @@
 				renderProviderDrawer({ force: true });
 				return true;
 			} catch (err) {
-				setNotice(`Model mapping failed: ${err.message}`, "bad");
+				setNotice(t("notice.model_mapping_failed", { error: err.message }), "bad");
 				return false;
 			}
 		}
 		function openProviderModelMappingModal({ provider, oldModel, rawModel, isManual }) {
 			if (!provider || !oldModel || !rawModel) return;
 			openFormModal({
-				title: "Edit model mapping",
+				title: t("modal.edit_mapping_title"),
 				subtitle: provider,
 				bodyHtml: `
         <form class="model-map-form" data-provider-model-map-form>
@@ -4233,7 +5988,7 @@
 				const input = form.elements.model;
 				const nextModel = String(input?.value || "").trim();
 				if (!nextModel && !isManual) {
-					setNotice("Model mapping name is required.", "bad");
+					setNotice(t("notice.model_mapping_required"), "bad");
 					input?.focus();
 					return;
 				}
@@ -4251,7 +6006,7 @@
 			if (!provider || !fmt) return;
 			const current = path || defaultFormatPath(fmt);
 			openFormModal({
-				title: "Edit format path",
+				title: t("modal.edit_format_title"),
 				subtitle: provider,
 				bodyHtml: `
         <form class="format-path-form" data-provider-format-path-form>
@@ -4285,7 +6040,7 @@
 				const input = form.elements.path;
 				const trimmed = String(input?.value || "").trim();
 				if (!trimmed) {
-					setNotice("Format path cannot be empty.", "bad");
+					setNotice(t("notice.format_path_empty"), "bad");
 					input?.focus();
 					return;
 				}
@@ -4298,7 +6053,10 @@
 				if (submit) submit.disabled = true;
 				if (await runFormatMutation(ownerCard, async () => {
 					const resp = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/formats/${encodeURIComponent(fmt)}`, { path: normalized });
-					setNotice(`${provider} ${fmt} path updated.`, "ok");
+					setNotice(t("notice.format_updated", {
+						provider,
+						format: fmt
+					}), "ok");
 					return resp;
 				})) closeFormModal();
 				else if (submit) submit.disabled = false;
@@ -4421,109 +6179,110 @@
 			];
 			const providerPool = Array.isArray(routing.default_provider_pool) ? routing.default_provider_pool.join(", ") : "";
 			const currentSelect = String(routing.provider_select || "priority_failover");
-			target.innerHTML = `
-      <div class="policy-control-grid">
-        <form id="routingControlForm" class="policy-control-card">
-          <div class="policy-control-card-head">
-            <h3>Routing<span class="help-tip" data-tip="Attempt budget, provider order, and format preference.">?</span></h3>
-          </div>
-          <label class="field">
-            <span class="label-with-tip">Provider pool<span class="help-tip" data-tip="Comma-separated provider names used as the default routing pool.">?</span></span>
-            <input class="control" name="default_provider_pool" value="${escapeHtml(providerPool)}" placeholder="opencode, deepseek, rawchat" required />
-          </label>
-          <div class="form-pair-grid routing-mode-grid">
-            <div class="field">
-              <span class="label-with-tip">Selection mode<span class="help-tip" data-tip="How providers are picked from the pool for each request.">?</span></span>
-              <input type="hidden" name="provider_select" value="${escapeHtml(currentSelect)}" />
-              <div class="icon-btn-group" id="routeModeGroup">
-                ${[
+			const routeModes = [
 				{
 					value: "priority_failover",
 					icon: "bolt",
-					label: "Priority",
-					tip: "priority_failover — Try providers in priority order, failover to next on error"
+					label: t("policy.mode_priority"),
+					tip: t("policy.mode_priority_tip")
 				},
 				{
 					value: "round_robin",
 					icon: "rotate",
-					label: "Round-robin",
-					tip: "round_robin — Cycle through providers evenly across requests"
+					label: t("policy.mode_round_robin"),
+					tip: t("policy.mode_round_robin_tip")
 				},
 				{
 					value: "weighted_rr",
 					icon: "layers",
-					label: "Weighted",
-					tip: "weighted_rr — Distribute by weight (e.g. provider:2 gets 2x traffic of provider:1)"
+					label: t("policy.mode_weighted"),
+					tip: t("policy.mode_weighted_tip")
 				},
 				{
 					value: "random",
 					icon: "dot",
-					label: "Random",
-					tip: "random — Pick a provider at random from the pool"
+					label: t("policy.mode_random"),
+					tip: t("policy.mode_random_tip")
 				}
-			].map((m) => `<button type="button" data-route-mode="${escapeHtml(m.value)}" class="${currentSelect === m.value ? "is-active" : ""}" title="${escapeHtml(m.tip)}">${iconSvg(m.icon)}<span>${escapeHtml(m.label)}</span></button>`).join("")}
+			];
+			target.innerHTML = `
+      <div class="policy-control-grid">
+        <form id="routingControlForm" class="policy-control-card">
+          <div class="policy-control-card-head">
+            <h3>${t("policy.routing")}<span class="help-tip" data-tip="${escapeHtml(t("policy.routing_tip2"))}">?</span></h3>
+          </div>
+          <label class="field">
+            <span class="label-with-tip">${t("policy.provider_pool")}<span class="help-tip" data-tip="${escapeHtml(t("policy.provider_pool_tip"))}">?</span></span>
+            <input class="control" name="default_provider_pool" value="${escapeHtml(providerPool)}" placeholder="opencode, deepseek, rawchat" required />
+          </label>
+          <div class="form-pair-grid routing-mode-grid">
+            <div class="field">
+              <span class="label-with-tip">${t("policy.selection_mode")}<span class="help-tip" data-tip="${escapeHtml(t("policy.selection_tip"))}">?</span></span>
+              <input type="hidden" name="provider_select" value="${escapeHtml(currentSelect)}" />
+              <div class="icon-btn-group" id="routeModeGroup">
+                ${routeModes.map((m) => `<button type="button" data-route-mode="${escapeHtml(m.value)}" class="${currentSelect === m.value ? "is-active" : ""}" title="${escapeHtml(m.tip)}">${iconSvg(m.icon)}<span>${escapeHtml(m.label)}</span></button>`).join("")}
               </div>
             </div>
             <label class="field">
-              <span class="label-with-tip">Max attempts<span class="help-tip" data-tip="Maximum number of provider attempts per request before giving up.">?</span></span>
+              <span class="label-with-tip">${t("policy.max_attempts")}<span class="help-tip" data-tip="${escapeHtml(t("policy.max_attempts_tip"))}">?</span></span>
               <input class="control" name="max_attempts" type="number" min="1" max="50" value="${escapeHtml(routing.max_attempts ?? policy.max_attempts ?? 6)}" required />
             </label>
           </div>
           <details class="policy-advanced">
-            <summary>Timeouts</summary>
+            <summary>${t("policy.timeouts")}</summary>
             <div class="form-pair-grid" style="margin-top:10px">
               <label class="field">
-                <span class="label-with-tip">Connect<span class="help-tip" data-tip="connect_timeout_s — Seconds to wait for the upstream TCP connection.">?</span></span>
+                <span class="label-with-tip">${t("policy.connect")}<span class="help-tip" data-tip="${escapeHtml(t("policy.connect_tip"))}">?</span></span>
                 <input class="control" name="connect_timeout_s" type="number" min="1" max="3600" value="${escapeHtml(routing.connect_timeout_s ?? policy.connect_timeout_s ?? 15)}" required />
               </label>
               <label class="field">
-                <span class="label-with-tip">Read<span class="help-tip" data-tip="read_timeout_s — Seconds to wait for the full upstream response.">?</span></span>
+                <span class="label-with-tip">${t("policy.read")}<span class="help-tip" data-tip="${escapeHtml(t("policy.read_tip"))}">?</span></span>
                 <input class="control" name="read_timeout_s" type="number" min="1" max="3600" value="${escapeHtml(routing.read_timeout_s ?? policy.read_timeout_s ?? 120)}" required />
               </label>
               <label class="field">
-                <span class="label-with-tip">First token<span class="help-tip" data-tip="first_token_timeout_s — Seconds to wait for the first SSE token (0 = disabled).">?</span></span>
+                <span class="label-with-tip">${t("policy.first_token")}<span class="help-tip" data-tip="${escapeHtml(t("policy.first_token_tip"))}">?</span></span>
                 <input class="control" name="first_token_timeout_s" type="number" min="0" max="600" value="${escapeHtml(routing.first_token_timeout_s ?? policy.first_token_timeout_s ?? 30)}" required />
               </label>
             </div>
           </details>
-          <button class="button secondary" type="submit">Save routing</button>
+          <button class="button secondary" type="submit">${t("policy.save_routing")}</button>
         </form>
 
         <form id="retryControlForm" class="policy-control-card">
           <div class="policy-control-card-head">
-            <h3>Retry<span class="help-tip" data-tip="HTTP retry classes and key handling on failure.">?</span></h3>
+            <h3>${t("policy.retry")}<span class="help-tip" data-tip="${escapeHtml(t("policy.retry_tip"))}">?</span></h3>
           </div>
           <label class="field">
-            <span class="label-with-tip">Retryable statuses<span class="help-tip" data-tip="HTTP status codes that trigger a retry (e.g. 429, 500, 502, 503, 504).">?</span></span>
+            <span class="label-with-tip">${t("policy.retryable_statuses")}<span class="help-tip" data-tip="${escapeHtml(t("policy.retryable_tip"))}">?</span></span>
             <input class="control" name="retryable_status" value="${escapeHtml(joinList(retry.retryable_status || policy.retryable_status || []))}" placeholder="408, 429, 500, 502, 503, 504" required />
           </label>
           <label class="field">
-            <span class="label-with-tip">Fatal key statuses<span class="help-tip" data-tip="HTTP status codes that mark a key as permanently bad (e.g. 401, 403).">?</span></span>
+            <span class="label-with-tip">${t("policy.fatal_key_statuses")}<span class="help-tip" data-tip="${escapeHtml(t("policy.fatal_tip"))}">?</span></span>
             <input class="control" name="key_fatal_status" value="${escapeHtml(joinList(retry.key_fatal_status || policy.key_fatal_status || []))}" placeholder="401, 403" required />
           </label>
           <details class="policy-advanced">
-            <summary>Advanced cooldown & ladder</summary>
+            <summary>${t("policy.advanced_cooldown")}</summary>
             <label class="check-field" style="margin-top:10px">
               <span class="toggle-switch"><input type="checkbox" name="respect_retry_after" ${retry.respect_retry_after ?? policy.respect_retry_after ? "checked" : ""} /><span class="slider"></span></span>
-              <span class="label-with-tip">Respect Retry-After<span class="help-tip" data-tip="Honor the upstream Retry-After header to extend cooldown duration.">?</span></span>
+              <span class="label-with-tip">${t("policy.respect_retry_after")}<span class="help-tip" data-tip="${escapeHtml(t("policy.respect_tip"))}">?</span></span>
             </label>
             <div class="form-pair-grid" style="margin-top:8px">
               <label class="field">
-                <span class="label-with-tip">Same-key retries<span class="help-tip" data-tip="same_key_retries — How many times to retry the same key before switching (0-3).">?</span></span>
+                <span class="label-with-tip">${t("policy.same_key_retries")}<span class="help-tip" data-tip="${escapeHtml(t("policy.same_key_tip"))}">?</span></span>
                 <input class="control" name="same_key_retries" type="number" min="0" max="3" value="${escapeHtml(retry.same_key_retries ?? 1)}" required />
               </label>
               <label class="field">
-                <span class="label-with-tip">Failure ladder<span class="help-tip" data-tip="key_failure_ladder_s — Escalating cooldown seconds per consecutive key failure (e.g. 10, 60, 3600).">?</span></span>
+                <span class="label-with-tip">${t("policy.failure_ladder")}<span class="help-tip" data-tip="${escapeHtml(t("policy.ladder_tip"))}">?</span></span>
                 <input class="control" name="key_failure_ladder_s" value="${escapeHtml(joinNumberList(ladder))}" placeholder="10, 60, 3600" required />
               </label>
-              ${cooldownField("rate_limit", "Rate limit", "Rate limit cooldown (seconds)", cooldown.rate_limit ?? 30)}
-              ${cooldownField("server_error", "Server error", "Server error cooldown (seconds)", cooldown.server_error ?? 10)}
-              ${cooldownField("network_error", "Network error", "Network/timeout cooldown (seconds)", cooldown.network_error ?? 10)}
-              ${cooldownField("key_invalid", "Invalid key", "Invalid key cooldown (seconds)", cooldown.key_invalid ?? 3600)}
-              ${cooldownField("quota_or_balance", "Quota/balance", "Quota or balance exhausted cooldown (seconds)", cooldown.quota_or_balance ?? 3600)}
+              ${cooldownField("rate_limit", t("policy.cooldown_rate_limit"), t("policy.cooldown_rate_limit_tip"), cooldown.rate_limit ?? 30)}
+              ${cooldownField("server_error", t("policy.cooldown_server_error"), t("policy.cooldown_server_error_tip"), cooldown.server_error ?? 10)}
+              ${cooldownField("network_error", t("policy.cooldown_network_error"), t("policy.cooldown_network_error_tip"), cooldown.network_error ?? 10)}
+              ${cooldownField("key_invalid", t("policy.cooldown_key_invalid"), t("policy.cooldown_key_invalid_tip"), cooldown.key_invalid ?? 3600)}
+              ${cooldownField("quota_or_balance", t("policy.cooldown_quota_or_balance"), t("policy.cooldown_quota_or_balance_tip"), cooldown.quota_or_balance ?? 3600)}
             </div>
           </details>
-          <button class="button secondary" type="submit">Save retry</button>
+          <button class="button secondary" type="submit">${t("policy.save_retry")}</button>
         </form>
       </div>
     `;
@@ -4561,7 +6320,7 @@
 					};
 					await runPolicyMutation(routingForm, async () => {
 						await apiPatch("/-/admin/routing", payload);
-						setNotice("Routing settings updated.", "ok");
+						setNotice(t("notice.routing_updated"), "ok");
 					});
 				});
 			}
@@ -4584,7 +6343,7 @@
 				};
 				await runPolicyMutation(retryForm, async () => {
 					await apiPatch("/-/admin/retry", payload);
-					setNotice("Retry settings updated.", "ok");
+					setNotice(t("notice.retry_updated"), "ok");
 				});
 			});
 		}
@@ -4616,7 +6375,7 @@
 					};
 					await runPolicyMutation(form, async () => {
 						await apiPatch("/-/admin/retry/failure-policies", payload);
-						setNotice(`Failure policy ${payload.error_type} updated.`, "ok");
+						setNotice(t("notice.failure_policy_updated", { type: payload.error_type }), "ok");
 					});
 				});
 			});
@@ -4637,7 +6396,7 @@
 					staticData: true
 				});
 			} catch (err) {
-				setNotice(`Policy update failed: ${err.message}`);
+				setNotice(t("notice.policy_failed", { error: err.message }));
 			} finally {
 				buttons.forEach((button) => {
 					button.disabled = false;
@@ -4694,18 +6453,18 @@
         <div class="collapsible-card-body">
           <div class="failure-policy-edit-grid">
             <label class="field">
-              <span class="label-with-tip">Key cooldown<span class="help-tip" data-tip="Cooldown duration (seconds) applied to the key on this error type.">?</span></span>
+              <span class="label-with-tip">${t("policy.key_cooldown")}<span class="help-tip" data-tip="${escapeHtml(t("policy.key_cooldown_tip"))}">?</span></span>
               <input class="control" name="cooldown_s" type="number" min="0" max="86400" value="${escapeHtml(cfg.cooldown_s ?? 0)}" required />
             </label>
             <label class="field">
-              <span class="label-with-tip">Provider cooldown<span class="help-tip" data-tip="Cooldown duration (seconds) applied to the provider on this error type.">?</span></span>
+              <span class="label-with-tip">${t("policy.provider_cooldown")}<span class="help-tip" data-tip="${escapeHtml(t("policy.provider_cooldown_tip"))}">?</span></span>
               <input class="control" name="provider_cooldown_s" type="number" min="0" max="300" value="${escapeHtml(cfg.provider_cooldown_s ?? 0)}" required />
             </label>
             <label class="check-field failure-disable-check">
               <span class="toggle-switch"><input type="checkbox" name="disables_key" ${cfg.disables_key ? "checked" : ""} /><span class="slider"></span></span>
-              <span class="label-with-tip">Disable key<span class="help-tip" data-tip="${escapeHtml(failurePolicyDescription(errorType))}">?</span></span>
+              <span class="label-with-tip">${t("policy.disable_key")}<span class="help-tip" data-tip="${escapeHtml(failurePolicyDescription(errorType))}">?</span></span>
             </label>
-            <button class="button secondary" type="submit">Save policy</button>
+            <button class="button secondary" type="submit">${t("policy.save_policy")}</button>
           </div>
         </div>
       </form>
@@ -5066,9 +6825,9 @@
 					const provider = button.dataset.providerDelete || "";
 					if (!provider) return;
 					if (!await openConfirmDialog({
-						title: "Delete Provider",
-						message: `Delete ${provider}? It will be removed from provider config, route pools, model maps, and capability snapshots.`,
-						acceptLabel: "Delete"
+						title: t("confirm.delete_provider.title"),
+						message: t("confirm.delete_provider.msg", { provider }),
+						acceptLabel: t("confirm.delete")
 					})) return;
 					button.disabled = true;
 					try {
@@ -5077,14 +6836,14 @@
 						state.openProviderEditors.delete(provider);
 						if (state.providerDrawerName === provider) closeProviderDrawer();
 						state.forceConfigRender = true;
-						setNotice(`Provider ${provider} deleted.`, "ok");
+						setNotice(t("notice.provider_deleted", { provider }), "ok");
 						await refreshAll({
 							quiet: true,
 							preserveNotice: true,
 							staticData: true
 						});
 					} catch (err) {
-						setNotice(`Delete provider failed: ${err.message}`);
+						setNotice(t("notice.delete_provider_failed", { error: err.message }));
 					} finally {
 						button.disabled = false;
 					}
@@ -5105,7 +6864,7 @@
 					};
 					await runConfigMutation(form, async () => {
 						await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, payload);
-						setNotice(`Provider ${provider} updated.`, "ok");
+						setNotice(t("notice.provider_updated", { provider }), "ok");
 					});
 				});
 			});
@@ -5122,7 +6881,7 @@
 					await runConfigMutation(form, async () => {
 						await apiPost(`/-/admin/providers/${encodeURIComponent(provider)}/keys`, payload);
 						form.reset();
-						setNotice(`Key added to ${provider}.`, "ok");
+						setNotice(t("notice.key_added", { provider }), "ok");
 					});
 				});
 			});
@@ -5136,7 +6895,10 @@
 					const proxy = String(form.elements.proxy.value || "").trim();
 					await runConfigMutation(form, async () => {
 						await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/keys/${encodeURIComponent(keyIndex)}`, { proxy });
-						setNotice(`Key ${keyIndex} proxy updated for ${provider}.`, "ok");
+						setNotice(t("notice.key_proxy_updated", {
+							index: keyIndex,
+							provider
+						}), "ok");
 					});
 				});
 			});
@@ -5150,7 +6912,11 @@
 					const nextEnabled = card.dataset.formatEnabled !== "1";
 					await runFormatMutation(card, async () => {
 						const resp = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/formats/${encodeURIComponent(fmt)}`, { enabled: nextEnabled });
-						setNotice(`${provider} ${fmt} ${nextEnabled ? "enabled" : "disabled"}.`, "ok");
+						setNotice(t("notice.format_toggled", {
+							provider,
+							format: fmt,
+							state: nextEnabled ? t("notice.enabled") : t("notice.disabled")
+						}), "ok");
 						return resp;
 					});
 				};
@@ -5201,7 +6967,7 @@
 				Promise.resolve().then(() => refreshProviderConfigView({ preserveNotice: true })).catch(() => {});
 				return true;
 			} catch (err) {
-				setNotice(`Format update failed: ${err.message}`, "bad");
+				setNotice(t("notice.format_update_failed", { error: err.message }), "bad");
 				return false;
 			} finally {
 				if (card) {
@@ -5226,7 +6992,7 @@
 					staticData: true
 				});
 			} catch (err) {
-				setNotice(`Config update failed: ${err.message}`);
+				setNotice(t("notice.config_update_failed", { error: err.message }));
 			} finally {
 				buttons.forEach((button) => {
 					button.disabled = false;
@@ -5523,7 +7289,7 @@
 			});
 			el("pauseButton").addEventListener("click", () => {
 				state.paused = !state.paused;
-				el("pauseButton").textContent = state.paused ? "Resume" : "Pause";
+				el("pauseButton").textContent = state.paused ? t("action.resume") : t("action.pause");
 				if (!state.paused) refreshAll({ quiet: true });
 			});
 			qsa("[data-time-range]").forEach((button) => {
@@ -5594,10 +7360,18 @@
 				const filters = activeRequestFilters();
 				const filterCount = Object.keys(filters).length;
 				const mode = state.allMatchingSelected ? filterCount ? "matching" : "all" : ids.length ? "selected" : filterCount ? "matching" : "all";
+				const title = mode === "selected" ? t("confirm.delete_selected.title") : mode === "matching" ? t("confirm.delete_matching.title") : t("confirm.clear_history.title");
+				const plural = (mode === "selected" ? ids.length : Number(state.data.requests?.total || 0)) === 1 ? "" : "s";
 				if (!await openConfirmDialog({
-					title: mode === "selected" ? "Delete selected requests" : mode === "matching" ? "Delete matching requests" : "Clear request history",
-					message: mode === "selected" ? `Delete ${fmtInt(ids.length)} selected request record${ids.length === 1 ? "" : "s"}? Runtime counters are not reset.` : mode === "matching" ? `Delete all ${fmtInt(state.data.requests?.total || 0)} request record${Number(state.data.requests?.total || 0) === 1 ? "" : "s"} matching the current filters? Runtime counters are not reset.` : "Clear all request history, runtime metrics, and diagnostic log records?",
-					acceptLabel: "Delete"
+					title,
+					message: mode === "selected" ? t("confirm.delete_selected.msg", {
+						count: fmtInt(ids.length),
+						plural
+					}) : mode === "matching" ? t("confirm.delete_matching.msg", {
+						count: fmtInt(state.data.requests?.total || 0),
+						plural
+					}) : t("confirm.clear_history.msg"),
+					acceptLabel: t("confirm.delete")
 				})) return;
 				const button = el("deleteRequestsButton");
 				button.disabled = true;
@@ -5626,13 +7400,17 @@
 					}
 					state.requestsPage = 0;
 					const deleted = result.history?.requests_deleted || result.memory?.recent_requests_deleted || 0;
-					setNotice(mode === "all" ? `Request history cleared (${fmtInt(deleted)} records).` : `Deleted ${fmtInt(deleted)} request record${deleted === 1 ? "" : "s"}.`, "ok");
+					const plural = deleted === 1 ? "" : "s";
+					setNotice(mode === "all" ? t("notice.request_history_cleared", { count: fmtInt(deleted) }) : t("notice.requests_deleted", {
+						count: fmtInt(deleted),
+						plural
+					}), "ok");
 					await refreshAll({
 						quiet: true,
 						preserveNotice: true
 					});
 				} catch (err) {
-					setNotice(`Delete requests failed: ${err.message}`);
+					setNotice(t("notice.delete_requests_failed", { error: err.message }));
 				} finally {
 					button.disabled = false;
 					updateRequestSelectionUi();
@@ -5665,7 +7443,7 @@
 						staticData: true
 					});
 				} catch (err) {
-					setNotice(`Config reload failed: ${err.message}`);
+					setNotice(t("notice.config_reload_failed", { error: err.message }));
 				}
 			});
 			el("globalProxyForm").addEventListener("submit", async (event) => {
@@ -5673,7 +7451,7 @@
 				const form = event.currentTarget;
 				await runConfigMutation(form, async () => {
 					await apiPatch("/-/admin/proxy", { proxy: String(form.elements.proxy.value || "").trim() });
-					setNotice("Global proxy updated.", "ok");
+					setNotice(t("notice.global_proxy_updated"), "ok");
 				});
 			});
 			el("exportOverlayButton").addEventListener("click", async () => {
@@ -5684,9 +7462,9 @@
 					state.data.overlayPreviewStatus = overlay.has_overlay ? "exported" : "empty";
 					el("overlayPreview").textContent = JSON.stringify(overlay.overlay || {}, null, 2);
 					renderOverlaySafety(state.data.config || {});
-					setNotice("Masked overlay exported to preview.", "ok");
+					setNotice(t("notice.overlay_exported"), "ok");
 				} catch (err) {
-					setNotice(`Overlay export failed: ${err.message}`);
+					setNotice(t("notice.overlay_export_failed", { error: err.message }));
 				}
 			});
 			el("validateOverlayButton").addEventListener("click", async () => {
@@ -5696,18 +7474,18 @@
 					state.data.overlayPreviewStatus = result.preview?.valid ? "valid" : "invalid";
 					el("overlayPreview").textContent = JSON.stringify(result.preview || {}, null, 2);
 					renderOverlaySafety(state.data.config || {});
-					setNotice("Overlay validation passed.", "ok");
+					setNotice(t("notice.overlay_validated"), "ok");
 				} catch (err) {
 					state.data.overlayPreviewStatus = "failed";
 					renderOverlaySafety(state.data.config || {});
-					setNotice(`Overlay validation failed: ${err.message}`);
+					setNotice(t("notice.overlay_validation_failed", { error: err.message }));
 				}
 			});
 			el("clearOverlayButton").addEventListener("click", async () => {
 				if (!await openConfirmDialog({
-					title: "Clear runtime overlay",
-					message: "Clear runtime_config overlay and restart runtime objects from base config?",
-					acceptLabel: "Clear"
+					title: t("confirm.clear_overlay.title"),
+					message: t("confirm.clear_overlay.msg"),
+					acceptLabel: t("confirm.clear")
 				})) return;
 				try {
 					const result = await apiPost("/-/admin/config/overlay/clear", { confirm: "clear_runtime_overlay" });
@@ -5718,14 +7496,14 @@
 						backup_path: result.backup_path || "",
 						config: result.config || {}
 					}, null, 2);
-					setNotice(result.backup_path ? `Overlay cleared. Backup: ${result.backup_path}` : "Overlay cleared.", "ok");
+					setNotice(result.backup_path ? t("notice.overlay_cleared_backup", { path: result.backup_path }) : t("notice.overlay_cleared"), "ok");
 					await refreshAll({
 						quiet: true,
 						preserveNotice: true,
 						staticData: true
 					});
 				} catch (err) {
-					setNotice(`Clear overlay failed: ${err.message}`);
+					setNotice(t("notice.clear_overlay_failed", { error: err.message }));
 				}
 			});
 			el("addProviderForm")?.addEventListener("submit", async (event) => {
@@ -5768,9 +7546,9 @@
 						quiet: true,
 						staticData: true
 					});
-					setNotice(`Provider ${payload.name} added.`, "ok");
+					setNotice(t("notice.provider_added", { name: payload.name }), "ok");
 				} catch (err) {
-					setNotice(`Add provider failed: ${err.message}`);
+					setNotice(t("notice.add_provider_failed", { error: err.message }));
 				}
 			});
 			el("modelRouteForm").addEventListener("submit", async (event) => {
@@ -5783,7 +7561,7 @@
 				};
 				await runConfigMutation(form, async () => {
 					await apiPatch("/-/admin/models/routes", payload);
-					setNotice(`Model route ${payload.model} saved.`, "ok");
+					setNotice(t("notice.model_route_saved", { model: payload.model }), "ok");
 				});
 			});
 			el("clearModelRouteFormButton").addEventListener("click", () => {
@@ -5812,22 +7590,22 @@
 					const model = deleteButton.dataset.modelRouteDelete || "";
 					if (!model) return;
 					if (!await openConfirmDialog({
-						title: "Delete model route",
-						message: `Delete model route for ${model}?`,
-						acceptLabel: "Delete"
+						title: t("confirm.delete_route.title"),
+						message: t("confirm.delete_route.msg", { model }),
+						acceptLabel: t("confirm.delete")
 					})) return;
 					deleteButton.disabled = true;
 					try {
 						await apiPost("/-/admin/models/routes/delete", { model });
 						state.forceModelRoutesRender = true;
-						setNotice(`Model route ${model} deleted.`, "ok");
+						setNotice(t("notice.model_route_deleted", { model }), "ok");
 						await refreshAll({
 							quiet: true,
 							preserveNotice: true,
 							staticData: true
 						});
 					} catch (err) {
-						setNotice(`Delete model route failed: ${err.message}`);
+						setNotice(t("notice.delete_route_failed", { error: err.message }));
 					} finally {
 						deleteButton.disabled = false;
 					}
@@ -6127,9 +7905,11 @@
 			});
 		}
 		async function init() {
+			initLang();
 			installMobileSettings();
 			installEvents();
 			installTooltip();
+			bindLangToggle();
 			const adminKeySource = loadAdminKey();
 			loadTimeRange();
 			setView(loadSavedView());
@@ -6140,8 +7920,30 @@
 			}
 			await openConsoleWithKey(state.adminKey, {
 				persist: adminKeySource.fromQuery,
-				checkingMessage: "Checking saved admin key."
+				checkingMessage: t("auth.checking")
 			});
+		}
+		function bindLangToggle() {
+			const btn = el("langToggleButton");
+			if (!btn) return;
+			btn.addEventListener("click", () => {
+				setLang(getLang() === "en" ? "zh" : "en");
+			});
+			onLangChange(() => {
+				updateLangToggleLabel();
+				renderAll();
+				applyI18n();
+				const meta = views[state.view] || views.overview;
+				el("viewTitle").textContent = meta.title;
+				el("viewSubtitle").textContent = meta.subtitle;
+				renderTimeRangeControl();
+			});
+			updateLangToggleLabel();
+		}
+		function updateLangToggleLabel() {
+			const btn = el("langToggleButton");
+			if (!btn) return;
+			btn.textContent = getLang() === "en" ? "中文" : "EN";
 		}
 		var pg = {
 			models: [],
@@ -6407,7 +8209,7 @@
 				pg.models = (data?.data || data?.models || []).map((m) => m.id || m).sort();
 				pgPopulateModelSelect();
 			} catch (err) {
-				pgStatus(`Failed to load models: ${err.message}`);
+				pgStatus(t("pg.load_failed", { error: err.message }));
 			}
 		}
 		function pgPopulateModelSelect() {
@@ -6520,7 +8322,7 @@
 			const stopBtn = el("pgStopButton");
 			if (sendBtn) sendBtn.hidden = true;
 			if (stopBtn) stopBtn.hidden = false;
-			pgStatus("Sending...");
+			pgStatus(t("pg.sending"));
 			const body = pgBuildRequest(userText);
 			const stream = body.stream !== false;
 			const endpoint = pgEndpoint();
@@ -6569,14 +8371,14 @@
 				pgRenderMessages({ scroll: "follow" });
 				assistantMsg.clientFormat || pg.format, assistantMsg.provider, assistantMsg.keyIndex, assistantMsg.keyMasked, assistantMsg.upstreamFormat || pg.format, assistantMsg.providerModel, assistantMsg.firstByteMs ?? pg.firstByteMs, assistantMsg.totalMs, assistantMsg.usage;
 				pgRenderTrace(null);
-				pgStatus("Done.");
+				pgStatus(t("pg.done"));
 			} catch (err) {
 				if (err.name === "AbortError") {
 					assistantMsg.content += "\n[stopped by user]";
-					pgStatus("Stopped.");
+					pgStatus(t("pg.stopped"));
 				} else {
 					assistantMsg.error = err.message;
-					pgStatus(`Error: ${err.message}`);
+					pgStatus(t("pg.error", { error: err.message }));
 				}
 				assistantMsg.streaming = false;
 				pgRenderMessages({ scroll: "follow" });
@@ -6662,7 +8464,7 @@
 		function pgClear() {
 			pg.messages = [];
 			pgRenderTrace(null);
-			pgStatus("Ready.");
+			pgStatus(t("pg.ready"));
 			pgRenderMessages({ scroll: "bottom" });
 		}
 		function pgBindEvents() {

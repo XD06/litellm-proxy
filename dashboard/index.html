@@ -5,15 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Proxy Console</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231f2933'/%3E%3Cpath d='M8 22V10h4v9h9v3H8Zm7-7V10h9v3h-5v5h-4Z' fill='%23f3efe7'/%3E%3C/svg%3E" />
-    <link rel="stylesheet" href="/-/dashboard/styles.css?v=20260625-uiux-opt2" />
+    <link rel="stylesheet" href="/-/dashboard/styles.css?v=20260626-i18n" />
   </head>
   <body class="is-auth-checking">
     <section id="authChecking" class="login-gate auth-checking">
       <div class="login-card auth-card" role="status" aria-live="polite">
         <div class="login-mark">LP</div>
         <div>
-          <h1>Proxy Console</h1>
-          <p id="authCheckingText">Checking console access.</p>
+          <h1 data-i18n="app.title">Proxy Console</h1>
+          <p id="authCheckingText" data-i18n="auth.checking">Checking console access.</p>
         </div>
         <div class="auth-progress" aria-hidden="true"></div>
       </div>
@@ -23,14 +23,14 @@
       <form id="loginForm" class="login-card" autocomplete="off">
         <div class="login-mark">LP</div>
         <div>
-          <h1>Proxy Console</h1>
-          <p>Enter the admin key to open runtime operations.</p>
+          <h1 data-i18n="app.title">Proxy Console</h1>
+          <p data-i18n="auth.enter_key">Enter the admin key to open runtime operations.</p>
         </div>
         <label class="login-field">
-          <span>Admin key</span>
-          <input id="loginAdminKeyInput" type="password" autocomplete="off" placeholder="admin key" />
+          <span data-i18n="auth.admin_key">Admin key</span>
+          <input id="loginAdminKeyInput" type="password" autocomplete="off" placeholder="admin key" data-i18n-attr="placeholder:auth.admin_key_ph" />
         </label>
-        <button id="loginButton" class="button primary" type="submit">Enter console</button>
+        <button id="loginButton" class="button primary" type="submit" data-i18n="auth.enter">Enter console</button>
         <p id="loginError" class="login-error" aria-live="polite"></p>
       </form>
     </section>
@@ -40,33 +40,34 @@
         <div class="brand">
           <div class="brand-mark">LP</div>
           <div>
-            <div class="brand-title">Proxy Console</div>
-            <div class="brand-subtitle">Runtime operations</div>
+            <div class="brand-title" data-i18n="app.title">Proxy Console</div>
+            <div class="brand-subtitle" data-i18n="app.subtitle">Runtime operations</div>
           </div>
         </div>
         <nav id="sectionNav" class="nav" aria-label="Console sections">
-          <button class="nav-item is-active" data-view="overview">Overview</button>
-          <button class="nav-item" data-view="requests">Requests</button>
-          <button class="nav-item" data-view="providers">Providers</button>
-          <button class="nav-item" data-view="policy">Routing Policy</button>
-          <button class="nav-item" data-view="config">Config</button>
-          <button class="nav-item" data-view="playground">Playground</button>
+          <button class="nav-item is-active" data-view="overview" data-i18n="nav.overview">Overview</button>
+          <button class="nav-item" data-view="requests" data-i18n="nav.requests">Requests</button>
+          <button class="nav-item" data-view="providers" data-i18n="nav.providers">Providers</button>
+          <button class="nav-item" data-view="policy" data-i18n="nav.policy">Routing Policy</button>
+          <button class="nav-item" data-view="config" data-i18n="nav.config">Config</button>
+          <button class="nav-item" data-view="playground" data-i18n="nav.playground">Playground</button>
         </nav>
         <div id="sidebarActions" class="sidebar-actions" aria-label="Runtime controls">
-          <button id="refreshButton" class="button primary">Refresh</button>
-          <button id="pauseButton" class="button secondary">Pause</button>
+          <button id="refreshButton" class="button primary" data-i18n="action.refresh">Refresh</button>
+          <button id="pauseButton" class="button secondary" data-i18n="action.pause">Pause</button>
+          <button id="langToggleButton" class="button ghost lang-toggle-btn" type="button" title="Switch language">EN / 中</button>
         </div>
         <div class="sidebar-footer">
           <span class="dot" id="connectionDot"></span>
-          <span id="connectionText">Not connected</span>
+          <span id="connectionText" data-i18n="conn.disconnected">Not connected</span>
         </div>
       </aside>
 
       <main class="workspace">
         <header class="topbar">
           <div>
-            <h1 id="viewTitle">Overview</h1>
-            <p id="viewSubtitle">Live runtime health and request flow.</p>
+            <h1 id="viewTitle" data-i18n="view.overview.title">Overview</h1>
+            <p id="viewSubtitle" data-i18n="view.overview.subtitle">Live runtime health and request flow.</p>
           </div>
           <button
             id="mobileSettingsButton"
@@ -74,6 +75,7 @@
             type="button"
             aria-controls="mobileSettingsDrawer"
             aria-expanded="false"
+            data-i18n="action.more_settings"
           >
             More settings
           </button>
@@ -84,13 +86,13 @@
         <section id="overviewView" class="view is-active">
           <div class="overview-page-head">
             <div>
-              <h1>Overview</h1>
-              <p>Live health metrics and proxy request traffic flow.</p>
+              <h1 data-i18n="view.overview.title">Overview</h1>
+              <p data-i18n="ov.health_metrics">Live health metrics and proxy request traffic flow.</p>
             </div>
             <div id="timeRangeControl" class="time-range-control" aria-label="Overview time range">
               <div>
-                <span class="eyebrow">Time range</span>
-                <strong id="timeRangeLabel">Last 30 minutes</strong>
+                <span class="eyebrow" data-i18n="ov.time_range">Time range</span>
+                <strong id="timeRangeLabel" data-i18n="ov.last_30m">Last 30 minutes</strong>
               </div>
               <div class="segmented-control" role="group" aria-label="Select chart time range">
                 <button class="segmented-button is-active" type="button" data-time-range="30m">30m</button>
@@ -102,34 +104,34 @@
           </div>
           <div class="metric-grid" hidden>
             <article class="metric">
-              <span class="metric-label">Requests</span>
+              <span class="metric-label" data-i18n="metric.requests">Requests</span>
               <strong id="metricRequests">0</strong>
               <small id="metricRequestsSub">0 in flight</small>
             </article>
             <article class="metric">
-              <span class="metric-label">Success Rate</span>
+              <span class="metric-label" data-i18n="metric.success_rate">Success Rate</span>
               <strong id="metricSuccessRate">0%</strong>
               <small id="metricSuccessSub">0 success</small>
             </article>
             <article class="metric">
-              <span class="metric-label">Attempt Failures</span>
+              <span class="metric-label" data-i18n="metric.attempt_failures">Attempt Failures</span>
               <strong id="metricAttemptFailureRate">0%</strong>
               <small id="metricAttemptSub">0 failed attempts</small>
             </article>
             <article class="metric">
-              <span class="metric-label">Providers</span>
+              <span class="metric-label" data-i18n="metric.providers">Providers</span>
               <strong id="metricProviders">0/0</strong>
-              <small id="metricProvidersSub">available</small>
+              <small id="metricProvidersSub" data-i18n="metric.available">available</small>
             </article>
             <article class="metric">
-              <span class="metric-label">Tokens</span>
+              <span class="metric-label" data-i18n="metric.tokens">Tokens</span>
               <strong id="metricTokens">0</strong>
               <small id="metricTokensSub">0 input / 0 output</small>
             </article>
             <article class="metric">
-              <span class="metric-label">Est. Cost</span>
+              <span class="metric-label" data-i18n="metric.cost">Est. Cost</span>
               <strong id="metricCost">$0</strong>
-              <small id="metricCostSub">configured pricing only</small>
+              <small id="metricCostSub" data-i18n="metric.configured_pricing">configured pricing only</small>
             </article>
           </div>
           <div id="overviewVisuals" class="overview-visuals" aria-label="Runtime visual summary"></div>
@@ -138,10 +140,10 @@
             <section class="panel panel-wide overview-traffic-panel">
               <div class="panel-head">
                 <div>
-                  <h2>Usage Trend</h2>
-                  <p>Token flow, request volume, and failures in the selected window.</p>
+                  <h2 data-i18n="ov.usage_trend">Usage Trend</h2>
+                  <p data-i18n="ov.usage_trend_desc">Token flow, request volume, and failures in the selected window.</p>
                 </div>
-                <span class="badge info" id="chartWindow">selected window</span>
+                <span class="badge info" id="chartWindow" data-i18n="ov.selected_window">selected window</span>
               </div>
               <div id="trafficChart" class="chart"></div>
             </section>
@@ -151,8 +153,8 @@
                 <section class="panel panel-wide overview-failures-panel">
                   <div class="panel-head">
                     <div>
-                      <h2>Recent Failure Trace</h2>
-                      <p>Latest failed or recovered requests.</p>
+                      <h2 data-i18n="ov.recent_failures">Recent Failure Trace</h2>
+                      <p data-i18n="ov.recent_failures_desc">Latest failed or recovered requests.</p>
                     </div>
                   </div>
                   <div id="recentFailures" class="table-wrap"></div>
@@ -161,10 +163,10 @@
                 <section class="panel panel-wide overview-usage-panel">
                   <div class="panel-head">
                     <div>
-                      <h2>Top Model Usage</h2>
-                      <p>Tokens and top models in the selected window.</p>
+                      <h2 data-i18n="ov.top_model_usage">Top Model Usage</h2>
+                      <p data-i18n="ov.top_model_desc">Tokens and top models in the selected window.</p>
                     </div>
-                    <span id="usageWindow" class="tag">token usage</span>
+                    <span id="usageWindow" class="tag" data-i18n="ov.token_usage">token usage</span>
                   </div>
                   <div id="usageChart" class="usage-chart"></div>
                 </section>
@@ -174,11 +176,11 @@
                 <section class="panel overview-health-panel">
                   <div class="panel-head">
                     <div>
-                      <h2>Upstream Health status</h2>
-                      <p>Providers that need attention.</p>
+                      <h2 data-i18n="ov.upstream_health">Upstream Health status</h2>
+                      <p data-i18n="ov.upstream_health_desc">Providers that need attention.</p>
                     </div>
                   </div>
-                  <div id="providerHealth" class="provider-health empty">No providers</div>
+                  <div id="providerHealth" class="provider-health empty" data-i18n="ov.no_providers">No providers</div>
                 </section>
               </div>
             </div>
@@ -189,39 +191,39 @@
           <div id="requestsToolbar" class="toolbar request-filter-bar">
             <div class="request-filter-primary">
               <div class="request-status-chips" aria-label="Request status filters">
-                <button class="filter-chip is-active" type="button" data-request-status="">All</button>
-                <button class="filter-chip tone-success" type="button" data-request-status="success">Success</button>
-                <button class="filter-chip tone-danger" type="button" data-request-status="failed">Failed</button>
+                <button class="filter-chip is-active" type="button" data-request-status="" data-i18n="req.all">All</button>
+                <button class="filter-chip tone-success" type="button" data-request-status="success" data-i18n="req.success">Success</button>
+                <button class="filter-chip tone-danger" type="button" data-request-status="failed" data-i18n="req.failed">Failed</button>
               </div>
               <label class="filter-search-field">
-                <span class="sr-only">Model</span>
-                <input id="filterModel" class="control" placeholder="model" />
+                <span class="sr-only" data-i18n="req.model">Model</span>
+                <input id="filterModel" class="control" placeholder="model" data-i18n-attr="placeholder:req.model_ph" />
               </label>
               <label class="filter-search-field">
-                <span class="sr-only">Provider</span>
-                <input id="filterProvider" class="control" placeholder="provider" />
+                <span class="sr-only" data-i18n="req.provider">Provider</span>
+                <input id="filterProvider" class="control" placeholder="provider" data-i18n-attr="placeholder:req.provider_ph" />
               </label>
               <details class="advanced-filter-box">
-                <summary>More</summary>
+                <summary data-i18n="req.more">More</summary>
                 <div class="advanced-filter-fields">
-                  <input id="filterErrorType" class="control" placeholder="error type" />
-                  <input id="filterReason" class="control" placeholder="failure reason" />
-                  <input id="filterHttpStatus" class="control" placeholder="attempt status" />
+                  <input id="filterErrorType" class="control" placeholder="error type" data-i18n-attr="placeholder:req.error_type_ph" />
+                  <input id="filterReason" class="control" placeholder="failure reason" data-i18n-attr="placeholder:req.reason_ph" />
+                  <input id="filterHttpStatus" class="control" placeholder="attempt status" data-i18n-attr="placeholder:req.status_ph" />
                 </div>
               </details>
-              <button id="applyFiltersButton" class="button secondary compact-action" type="button">Apply</button>
-              <button id="clearFiltersButton" class="button ghost compact-action" type="button">Clear</button>
+              <button id="applyFiltersButton" class="button secondary compact-action" type="button" data-i18n="req.apply">Apply</button>
+              <button id="clearFiltersButton" class="button ghost compact-action" type="button" data-i18n="req.clear">Clear</button>
             </div>
             <div class="request-bulk-actions">
-              <span id="requestSelectedCount" class="selection-count">0 selected</span>
-              <button id="deleteRequestsButton" class="button danger compact-action icon-action" type="button" title="Delete requests" aria-label="Delete requests"></button>
+              <span id="requestSelectedCount" class="selection-count" data-i18n="req.selected_count">0 selected</span>
+              <button id="deleteRequestsButton" class="button danger compact-action icon-action" type="button" title="Delete requests" aria-label="Delete requests" data-i18n-attr="title:req.delete_title,aria-label:req.delete_title"></button>
             </div>
           </div>
           <section class="panel">
             <div class="panel-head">
               <div>
-                <h2>Requests</h2>
-                <p id="requestCountLabel">Recent request records.</p>
+                <h2 data-i18n="nav.requests">Requests</h2>
+                <p id="requestCountLabel" data-i18n="req.recent">Recent request records.</p>
               </div>
             </div>
             <div id="requestsTable" class="table-wrap"></div>
@@ -233,51 +235,51 @@
             <div class="providers-tools">
               <div class="providers-tools-head">
                 <div>
-                  <h2>Providers</h2>
-                  <p>Runtime health, model coverage, key state, and routing readiness.</p>
+                  <h2 data-i18n="prov.title">Providers</h2>
+                  <p data-i18n="prov.desc">Runtime health, model coverage, key state, and routing readiness.</p>
                 </div>
-                <button id="openAddProviderModal" class="button primary" type="button">Add Provider</button>
+                <button id="openAddProviderModal" class="button primary" type="button" data-i18n="prov.add">Add Provider</button>
               </div>
               <div id="providerToolbar" class="provider-toolbar">
                 <label class="field provider-search-field">
-                  <span>Search</span>
-                  <input id="providerSearchInput" class="control" placeholder="provider, model, base url" />
+                  <span data-i18n="prov.search">Search</span>
+                  <input id="providerSearchInput" class="control" placeholder="provider, model, base url" data-i18n-attr="placeholder:prov.search_ph" />
                 </label>
                 <label class="field">
-                  <span>Format</span>
+                  <span data-i18n="prov.format">Format</span>
                   <select id="providerFormatFilter" class="control">
-                    <option value="">All formats</option>
+                    <option value="" data-i18n="prov.all_formats">All formats</option>
                     <option value="chat_completions">OpenAI Chat</option>
                     <option value="responses">Responses</option>
                     <option value="anthropic_messages">Anthropic</option>
                   </select>
                 </label>
                 <label class="field">
-                  <span>Status</span>
+                  <span data-i18n="prov.status">Status</span>
                   <select id="providerStatusFilter" class="control">
-                    <option value="">All status</option>
-                    <option value="normal">Normal</option>
-                    <option value="degraded">Degraded</option>
-                    <option value="cooldown">Cooldown</option>
-                    <option value="unavailable">Unavailable</option>
-                    <option value="disabled">Disabled</option>
+                    <option value="" data-i18n="prov.all_status">All status</option>
+                    <option value="normal" data-i18n="prov.normal">Normal</option>
+                    <option value="degraded" data-i18n="prov.degraded">Degraded</option>
+                    <option value="cooldown" data-i18n="prov.cooldown">Cooldown</option>
+                    <option value="unavailable" data-i18n="prov.unavailable">Unavailable</option>
+                    <option value="disabled" data-i18n="prov.disabled">Disabled</option>
                   </select>
                 </label>
                 <label class="field">
-                  <span>Keys</span>
+                  <span data-i18n="prov.keys">Keys</span>
                   <select id="providerKeyFilter" class="control">
-                    <option value="">All keys</option>
-                    <option value="usable">Has usable key</option>
-                    <option value="partial">Partial usable</option>
-                    <option value="none">No usable keys</option>
-                    <option value="cooldown">Key cooldown</option>
+                    <option value="" data-i18n="prov.all_keys">All keys</option>
+                    <option value="usable" data-i18n="prov.has_usable">Has usable key</option>
+                    <option value="partial" data-i18n="prov.partial_usable">Partial usable</option>
+                    <option value="none" data-i18n="prov.no_usable">No usable keys</option>
+                    <option value="cooldown" data-i18n="prov.key_cooldown">Key cooldown</option>
                   </select>
                 </label>
-                <button id="clearProviderFiltersButton" class="button secondary" type="button">Clear</button>
+                <button id="clearProviderFiltersButton" class="button secondary" type="button" data-i18n="req.clear">Clear</button>
               </div>
             </div>
             <div id="providersTable" class="provider-table"></div>
-            <div id="modelCapabilities" class="provider-model-list empty" hidden>No model capabilities loaded</div>
+            <div id="modelCapabilities" class="provider-model-list empty" hidden data-i18n="prov.no_capabilities">No model capabilities loaded</div>
           </section>
         </section>
 
@@ -285,7 +287,7 @@
           <section class="panel">
             <div class="panel-head">
               <div>
-                <h2>Routing Controls<span class="help-tip" data-tip="Safe runtime-overlay edits for common scheduling and retry settings.">?</span></h2>
+                <h2 data-i18n="policy.routing_controls">Routing Controls<span class="help-tip" data-tip="Safe runtime-overlay edits for common scheduling and retry settings." data-i18n-tip="policy.routing_tip">?</span></h2>
               </div>
             </div>
             <div id="policyControls" class="policy-controls"></div>
@@ -294,7 +296,7 @@
             <section class="panel">
               <div class="panel-head">
                 <div>
-                  <h2>Rule Table<span class="help-tip" data-tip="How requests move across attempts.">?</span></h2>
+                  <h2 data-i18n="policy.rule_table">Rule Table<span class="help-tip" data-tip="How requests move across attempts." data-i18n-tip="policy.rule_tip">?</span></h2>
                 </div>
               </div>
               <div id="ruleTable" class="table-wrap"></div>
@@ -302,7 +304,7 @@
             <section class="panel">
               <div class="panel-head">
                 <div>
-                  <h2>Failure Policies<span class="help-tip" data-tip="Cooldown and disable behavior by error type.">?</span></h2>
+                  <h2 data-i18n="policy.failure_policies">Failure Policies<span class="help-tip" data-tip="Cooldown and disable behavior by error type." data-i18n-tip="policy.failure_tip">?</span></h2>
                 </div>
               </div>
               <div id="failurePoliciesTable" class="table-wrap"></div>
@@ -316,52 +318,52 @@
               <section class="panel config-provider-panel">
                 <div class="panel-head">
                   <div>
-                    <h2>Providers<span class="help-tip" data-tip="Edit existing provider config. To add a new provider, use the Add Provider button on the Providers page.">?</span></h2>
+                    <h2 data-i18n="cfg.providers">Providers<span class="help-tip" data-tip="Edit existing provider config. To add a new provider, use the Add Provider button on the Providers page." data-i18n-tip="cfg.providers_tip">?</span></h2>
                   </div>
                 </div>
-                <div id="configProviders" class="config-provider-list empty">No provider config loaded</div>
+                <div id="configProviders" class="config-provider-list empty" data-i18n="prov.no_config">No provider config loaded</div>
               </section>
 
               <section class="panel config-audit-panel">
                 <div class="panel-head">
                   <div>
-                    <h2>Audit Trail<span class="help-tip" data-tip="Recent admin mutations with masked details.">?</span></h2>
+                    <h2 data-i18n="cfg.audit_trail">Audit Trail<span class="help-tip" data-tip="Recent admin mutations with masked details." data-i18n-tip="cfg.audit_tip">?</span></h2>
                   </div>
                 </div>
-                <div id="auditTrail" class="audit-list empty">No audit events recorded</div>
+                <div id="auditTrail" class="audit-list empty" data-i18n="cfg.no_audit">No audit events recorded</div>
               </section>
             </div>
 
             <div class="config-column config-side-column">
               <div class="config-tab-nav" id="configTabNav" role="tablist">
-                <button class="is-active" type="button" data-config-tab="routes" role="tab">Routes</button>
-                <button type="button" data-config-tab="map" role="tab">Map</button>
-                <button type="button" data-config-tab="runtime" role="tab">Runtime</button>
-                <button type="button" data-config-tab="proxy" role="tab">Proxy</button>
-                <button type="button" data-config-tab="advanced" role="tab">Advanced</button>
+                <button class="is-active" type="button" data-config-tab="routes" role="tab" data-i18n="cfg.tab_routes">Routes</button>
+                <button type="button" data-config-tab="map" role="tab" data-i18n="cfg.tab_map">Map</button>
+                <button type="button" data-config-tab="runtime" role="tab" data-i18n="cfg.tab_runtime">Runtime</button>
+                <button type="button" data-config-tab="proxy" role="tab" data-i18n="cfg.tab_proxy">Proxy</button>
+                <button type="button" data-config-tab="advanced" role="tab" data-i18n="cfg.tab_advanced">Advanced</button>
               </div>
 
               <div class="config-tab-panel" data-config-tab-panel="routes">
               <section id="modelRoutesPanel" class="panel model-routes-panel">
                 <div class="panel-head">
                   <div>
-                    <h2>Model Routes<span class="help-tip" data-tip="Map one client model to a weighted provider pool.">?</span></h2>
+                    <h2 data-i18n="cfg.model_routes">Model Routes<span class="help-tip" data-tip="Map one client model to a weighted provider pool." data-i18n-tip="cfg.model_routes_tip">?</span></h2>
                   </div>
                 </div>
                 <details id="modelRouteEditor" class="model-route-editor">
-                  <summary>Add or edit route</summary>
+                  <summary data-i18n="cfg.add_edit_route">Add or edit route</summary>
                   <form id="modelRouteForm" class="model-route-form">
                     <label class="field">
-                      <span>Client model</span>
+                      <span data-i18n="cfg.client_model">Client model</span>
                       <input class="control" name="model" placeholder="deepseek-v4-flash" required />
                     </label>
                     <label class="field">
-                      <span>Provider order</span>
+                      <span data-i18n="cfg.provider_order">Provider order</span>
                       <input class="control" name="providers" placeholder="opencode:1:100, deepseek:1:90" required />
-                      <small class="field-help">provider:weight:priority, comma separated. Priority is optional and overrides provider config.</small>
+                      <small class="field-help" data-i18n="cfg.provider_order_help">provider:weight:priority, comma separated. Priority is optional and overrides provider config.</small>
                     </label>
                     <label class="field">
-                      <span>Selection</span>
+                      <span data-i18n="cfg.selection">Selection</span>
                       <select class="control" name="provider_select">
                         <option value="priority_failover">priority_failover</option>
                         <option value="round_robin">round_robin</option>
@@ -370,12 +372,12 @@
                       </select>
                     </label>
                     <div class="form-actions">
-                      <button class="button primary" type="submit">Save route</button>
-                      <button id="clearModelRouteFormButton" class="button ghost" type="button">Clear</button>
+                      <button class="button primary" type="submit" data-i18n="cfg.save_route">Save route</button>
+                      <button id="clearModelRouteFormButton" class="button ghost" type="button" data-i18n="req.clear">Clear</button>
                     </div>
                   </form>
                 </details>
-                <div id="modelRoutes" class="model-route-list empty">No model routes configured</div>
+                <div id="modelRoutes" class="model-route-list empty" data-i18n="cfg.no_routes">No model routes configured</div>
               </section>
 
               </div>
@@ -384,10 +386,10 @@
               <section class="panel provider-model-map-panel">
                 <div class="panel-head">
                   <div>
-                    <h2>Provider Model Map<span class="help-tip" data-tip="Provider-specific model name overrides.">?</span></h2>
+                    <h2 data-i18n="cfg.provider_model_map">Provider Model Map<span class="help-tip" data-tip="Provider-specific model name overrides." data-i18n-tip="cfg.pmm_tip">?</span></h2>
                   </div>
                 </div>
-                <div id="providerModelMap" class="provider-model-map-list empty">No provider model overrides configured</div>
+                <div id="providerModelMap" class="provider-model-map-list empty" data-i18n="cfg.no_pmm">No provider model overrides configured</div>
               </section>
               </div>
 
@@ -395,11 +397,11 @@
               <section class="panel config-status-panel">
                 <div class="panel-head">
                   <div>
-                    <h2>Runtime Config<span class="help-tip" data-tip="Masked status for the active configuration.">?</span></h2>
+                    <h2 data-i18n="cfg.runtime_config">Runtime Config<span class="help-tip" data-tip="Masked status for the active configuration." data-i18n-tip="cfg.runtime_tip">?</span></h2>
                   </div>
-                  <button id="reloadConfigButton" class="button secondary">Reload</button>
+                  <button id="reloadConfigButton" class="button secondary" data-i18n="cfg.reload">Reload</button>
                 </div>
-                <div id="configSummary" class="config-summary config-summary-compact">No config loaded</div>
+                <div id="configSummary" class="config-summary config-summary-compact" data-i18n="cfg.no_config">No config loaded</div>
               </section>
               </div>
 
@@ -407,15 +409,15 @@
               <section class="panel global-proxy-panel">
                 <div class="panel-head">
                   <div>
-                    <h2>Global Proxy<span class="help-tip" data-tip="Lowest-priority fallback for providers without their own proxy.">?</span></h2>
+                    <h2 data-i18n="cfg.global_proxy">Global Proxy<span class="help-tip" data-tip="Lowest-priority fallback for providers without their own proxy." data-i18n-tip="cfg.global_proxy_tip">?</span></h2>
                   </div>
                 </div>
                 <form id="globalProxyForm" class="global-proxy-form">
                   <label class="field">
-                    <span class="label-with-tip">Proxy URL<span class="help-tip" data-tip="Blank means direct unless a provider or key proxy is set.">?</span></span>
+                    <span class="label-with-tip" data-i18n="cfg.proxy_url">Proxy URL<span class="help-tip" data-tip="Blank means direct unless a provider or key proxy is set." data-i18n-tip="cfg.proxy_url_tip">?</span></span>
                     <input class="control" name="proxy" placeholder="direct or http://127.0.0.1:8002" />
                   </label>
-                  <button class="button secondary" type="submit">Save global proxy</button>
+                  <button class="button secondary" type="submit" data-i18n="cfg.save_global_proxy">Save global proxy</button>
                 </form>
               </section>
               </div>
@@ -424,17 +426,17 @@
               <section id="overlaySafetyPanel" class="panel config-advanced-panel">
                 <details class="config-advanced-details">
                   <summary>
-                    <span>Advanced overlay tools</span>
-                    <small>Validate, export masked JSON, or clear runtime_config.</small>
+                    <span data-i18n="cfg.advanced_tools">Advanced overlay tools</span>
+                    <small data-i18n="cfg.advanced_desc">Validate, export masked JSON, or clear runtime_config.</small>
                   </summary>
                   <div class="actions">
-                    <button id="validateOverlayButton" class="button secondary" type="button">Validate</button>
-                    <button id="exportOverlayButton" class="button secondary" type="button">Export masked</button>
-                    <button id="clearOverlayButton" class="button danger" type="button">Clear overlay</button>
+                    <button id="validateOverlayButton" class="button secondary" type="button" data-i18n="cfg.validate">Validate</button>
+                    <button id="exportOverlayButton" class="button secondary" type="button" data-i18n="cfg.export_masked">Export masked</button>
+                    <button id="clearOverlayButton" class="button danger" type="button" data-i18n="cfg.clear_overlay">Clear overlay</button>
                   </div>
-                  <div id="overlaySafety" class="overlay-safety">No overlay status loaded</div>
+                  <div id="overlaySafety" class="overlay-safety" data-i18n="cfg.no_overlay">No overlay status loaded</div>
                   <details class="raw-config-details nested-details">
-                    <summary>Show overlay preview</summary>
+                    <summary data-i18n="cfg.show_preview">Show overlay preview</summary>
                     <pre id="overlayPreview" class="code-block">{}</pre>
                   </details>
                 </details>
@@ -443,11 +445,11 @@
               <section class="panel config-advanced-panel">
                 <div class="panel-head">
                   <div>
-                    <h2>Raw Snapshot<span class="help-tip" data-tip="Masked JSON for debugging.">?</span></h2>
+                    <h2 data-i18n="cfg.raw_snapshot">Raw Snapshot<span class="help-tip" data-tip="Masked JSON for debugging." data-i18n-tip="cfg.raw_tip">?</span></h2>
                   </div>
                 </div>
                 <details class="raw-config-details">
-                  <summary>Show masked JSON</summary>
+                  <summary data-i18n="cfg.show_json">Show masked JSON</summary>
                   <pre id="configSnapshot" class="code-block">{}</pre>
                 </details>
               </section>
@@ -460,43 +462,43 @@
           <div class="playground-layout">
             <aside class="playground-config">
               <div class="pg-config-head">
-                <span class="eyebrow">Playground</span>
-                <h2>Request setup</h2>
-                <p>Choose the model, client format, and generation controls for this test run.</p>
+                <span class="eyebrow" data-i18n="pg.eyebrow">Playground</span>
+                <h2 data-i18n="pg.setup">Request setup</h2>
+                <p data-i18n="pg.setup_desc">Choose the model, client format, and generation controls for this test run.</p>
               </div>
               <details class="pg-config-section" open>
-                <summary>Model</summary>
+                <summary data-i18n="pg.model">Model</summary>
                 <div class="pg-config-body">
                   <div class="pg-model-combo" id="pgModelCombo">
-                    <input id="pgModelSearch" class="control" type="text" placeholder="Search model..." autocomplete="off" />
+                    <input id="pgModelSearch" class="control" type="text" placeholder="Search model..." autocomplete="off" data-i18n-attr="placeholder:pg.search_model" />
                     <div class="pg-model-dropdown" id="pgModelDropdown" hidden></div>
                   </div>
                   <input id="pgModel" type="hidden" />
                 </div>
               </details>
               <details class="pg-config-section" open>
-                <summary>Parameters</summary>
+                <summary data-i18n="pg.parameters">Parameters</summary>
                 <div class="pg-config-body pg-param-grid">
-                  <label class="pg-param"><span>Temp</span><input id="pgTemperature" class="control" type="number" min="0" max="2" step="0.1" value="0.7" /></label>
-                  <label class="pg-param"><span>Max tokens</span><input id="pgMaxTokens" class="control" type="number" min="1" max="65536" step="1" value="4096" /></label>
-                  <label class="pg-param"><span>Top P</span><input id="pgTopP" class="control" type="number" min="0" max="1" step="0.05" value="1" /></label>
-                  <label class="pg-param"><span>Stream</span><input id="pgStream" type="checkbox" checked /></label>
-                  <label class="pg-param pg-param-wide"><span>Include history</span><input id="pgIncludeHistory" type="checkbox" /></label>
+                  <label class="pg-param"><span data-i18n="pg.temp">Temp</span><input id="pgTemperature" class="control" type="number" min="0" max="2" step="0.1" value="0.7" /></label>
+                  <label class="pg-param"><span data-i18n="pg.max_tokens">Max tokens</span><input id="pgMaxTokens" class="control" type="number" min="1" max="65536" step="1" value="4096" /></label>
+                  <label class="pg-param"><span data-i18n="pg.top_p">Top P</span><input id="pgTopP" class="control" type="number" min="0" max="1" step="0.05" value="1" /></label>
+                  <label class="pg-param"><span data-i18n="pg.stream">Stream</span><input id="pgStream" type="checkbox" checked /></label>
+                  <label class="pg-param pg-param-wide"><span data-i18n="pg.include_history">Include history</span><input id="pgIncludeHistory" type="checkbox" /></label>
                 </div>
               </details>
               <details class="pg-config-section">
-                <summary>System Prompt</summary>
+                <summary data-i18n="pg.system_prompt">System Prompt</summary>
                 <div class="pg-config-body">
-                  <textarea id="pgSystemPrompt" class="control" rows="4" placeholder="Optional system prompt..."></textarea>
+                  <textarea id="pgSystemPrompt" class="control" rows="4" placeholder="Optional system prompt..." data-i18n-attr="placeholder:pg.system_ph"></textarea>
                 </div>
               </details>
               <details class="pg-config-section">
-                <summary>API Format</summary>
+                <summary data-i18n="pg.api_format">API Format</summary>
                 <div class="pg-config-body">
                   <div class="pg-format-selector">
-                    <button class="pg-format-btn is-active" type="button" data-pg-format="chat_completions">Chat</button>
-                    <button class="pg-format-btn" type="button" data-pg-format="responses">Responses</button>
-                    <button class="pg-format-btn" type="button" data-pg-format="anthropic_messages">Anthropic</button>
+                    <button class="pg-format-btn is-active" type="button" data-pg-format="chat_completions" data-i18n="pg.chat">Chat</button>
+                    <button class="pg-format-btn" type="button" data-pg-format="responses" data-i18n="pg.responses">Responses</button>
+                    <button class="pg-format-btn" type="button" data-pg-format="anthropic_messages" data-i18n="pg.anthropic">Anthropic</button>
                   </div>
                 </div>
               </details>
@@ -505,10 +507,10 @@
             <div class="playground-main">
               <header class="pg-workbench-head">
                 <div>
-                  <span class="eyebrow">Live test</span>
-                  <h2>Message sandbox</h2>
+                  <span class="eyebrow" data-i18n="pg.live_test">Live test</span>
+                  <h2 data-i18n="pg.sandbox">Message sandbox</h2>
                 </div>
-                <span id="pgStatusText" class="pg-status">Ready.</span>
+                <span id="pgStatusText" class="pg-status" data-i18n="pg.ready">Ready.</span>
               </header>
               <div class="pg-chat-wrap">
                 <div id="pgChat" class="pg-chat-area"></div>
@@ -516,11 +518,11 @@
               <div class="pg-compose-panel">
                 <div id="pgTraceStrip" class="pg-trace-strip" hidden></div>
                 <div class="pg-input-bar">
-                  <textarea id="pgChatInput" class="pg-input" placeholder="Type a message... (Enter to send, Shift+Enter for newline)" rows="2"></textarea>
+                  <textarea id="pgChatInput" class="pg-input" placeholder="Type a message... (Enter to send, Shift+Enter for newline)" rows="2" data-i18n-attr="placeholder:pg.input_ph"></textarea>
                   <div class="pg-input-actions">
-                  <button id="pgClearButton" class="button secondary pg-btn">Clear</button>
-                  <button id="pgStopButton" class="button danger pg-btn" hidden>Stop</button>
-                  <button id="pgSendButton" class="button primary pg-btn">Send</button>
+                  <button id="pgClearButton" class="button secondary pg-btn" data-i18n="pg.clear">Clear</button>
+                  <button id="pgStopButton" class="button danger pg-btn" hidden data-i18n="pg.stop">Stop</button>
+                  <button id="pgSendButton" class="button primary pg-btn" data-i18n="pg.send">Send</button>
                   </div>
                 </div>
               </div>
@@ -532,10 +534,10 @@
       <aside id="detailDrawer" class="drawer" aria-hidden="true">
         <div class="drawer-head">
           <div>
-            <h2>Request Detail</h2>
-            <p id="drawerSubtitle">Click a request to view its trace and payload.</p>
+            <h2 data-i18n="req.detail_title">Request Detail</h2>
+            <p id="drawerSubtitle" data-i18n="req.detail_subtitle">Click a request to view its trace and payload.</p>
           </div>
-          <button id="closeDrawerButton" class="icon-button" aria-label="Close">×</button>
+          <button id="closeDrawerButton" class="icon-button" aria-label="Close" data-i18n-attr="aria-label:confirm.close">×</button>
         </div>
         <div id="drawerBody" class="drawer-body"></div>
       </aside>
@@ -543,10 +545,10 @@
       <aside id="providerDrawer" class="drawer provider-drawer" aria-hidden="true">
         <div class="drawer-head">
           <div>
-            <h2 id="providerDrawerTitle">Provider</h2>
-            <p id="providerDrawerSubtitle">Select a provider to view its models and state.</p>
+            <h2 id="providerDrawerTitle" data-i18n="prov.drawer_title">Provider</h2>
+            <p id="providerDrawerSubtitle" data-i18n="prov.drawer_subtitle">Select a provider to view its models and state.</p>
           </div>
-          <button id="closeProviderDrawerButton" class="icon-button" aria-label="Close">×</button>
+          <button id="closeProviderDrawerButton" class="icon-button" aria-label="Close" data-i18n-attr="aria-label:confirm.close">×</button>
         </div>
         <div id="providerDrawerBody" class="drawer-body provider-drawer-body"></div>
       </aside>
@@ -554,10 +556,10 @@
       <aside id="modelDrawer" class="drawer model-drawer" aria-hidden="true">
         <div class="drawer-head">
           <div>
-            <h2 id="modelDrawerTitle">Model Details</h2>
-            <p id="modelDrawerSubtitle">Artificial Analysis Summary</p>
+            <h2 id="modelDrawerTitle" data-i18n="model.drawer_title">Model Details</h2>
+            <p id="modelDrawerSubtitle" data-i18n="model.drawer_subtitle">Artificial Analysis Summary</p>
           </div>
-          <button id="closeModelDrawerButton" class="icon-button" aria-label="Close">×</button>
+          <button id="closeModelDrawerButton" class="icon-button" aria-label="Close" data-i18n-attr="aria-label:confirm.close">×</button>
         </div>
         <div id="modelDrawerBody" class="drawer-body"></div>
       </aside>
@@ -567,13 +569,13 @@
         <div class="confirm-head">
           <span id="confirmTone" class="confirm-tone danger"></span>
           <div>
-            <h2 id="confirmTitle">Confirm action</h2>
-            <p id="confirmMessage">This action needs confirmation.</p>
+            <h2 id="confirmTitle" data-i18n="confirm.title_default">Confirm action</h2>
+            <p id="confirmMessage" data-i18n="confirm.message_default">This action needs confirmation.</p>
           </div>
         </div>
         <div class="confirm-actions">
-          <button id="confirmCancelButton" class="button secondary" type="button">Cancel</button>
-          <button id="confirmAcceptButton" class="button danger" type="button">Delete</button>
+          <button id="confirmCancelButton" class="button secondary" type="button" data-i18n="form.cancel">Cancel</button>
+          <button id="confirmAcceptButton" class="button danger" type="button" data-i18n="confirm.delete">Delete</button>
         </div>
       </section>
 
@@ -585,7 +587,7 @@
             <h2 id="formModalTitle">Title</h2>
             <p id="formModalSubtitle"></p>
           </div>
-          <button id="formModalClose" class="button icon-action" type="button" aria-label="Close" title="Close"></button>
+          <button id="formModalClose" class="button icon-action" type="button" aria-label="Close" title="Close" data-i18n-attr="aria-label:confirm.close,title:confirm.close"></button>
         </div>
         <div id="formModalBody" class="form-modal-body"></div>
       </section>
@@ -594,28 +596,28 @@
       <aside id="mobileSettingsDrawer" class="mobile-settings-drawer" aria-hidden="true">
         <div class="drawer-head">
           <div>
-            <h2>More settings</h2>
-            <p>Navigation, runtime controls, and view filters.</p>
+            <h2 data-i18n="action.more_settings">More settings</h2>
+            <p data-i18n="mobile.nav_desc">Navigation, runtime controls, and view filters.</p>
           </div>
-          <button id="closeMobileSettingsButton" class="icon-button" aria-label="Close settings">×</button>
+          <button id="closeMobileSettingsButton" class="icon-button" aria-label="Close settings" data-i18n-attr="aria-label:mobile.close">×</button>
         </div>
         <div class="mobile-settings-body">
           <section class="mobile-settings-section">
-            <h3 class="mobile-settings-section-title">Sections</h3>
+            <h3 class="mobile-settings-section-title" data-i18n="mobile.sections">Sections</h3>
             <div id="mobileNavActions"></div>
           </section>
           <section class="mobile-settings-section">
-            <h3 class="mobile-settings-section-title">Runtime</h3>
+            <h3 class="mobile-settings-section-title" data-i18n="mobile.runtime">Runtime</h3>
             <div id="mobileGlobalActions"></div>
           </section>
           <section id="mobileContextSection" class="mobile-settings-section is-hidden">
-            <h3 class="mobile-settings-section-title">Request filters</h3>
+            <h3 class="mobile-settings-section-title" data-i18n="mobile.request_filters">Request filters</h3>
             <div id="mobileContextActions"></div>
           </section>
         </div>
       </aside>
     </div>
 
-    <script src="/-/dashboard/app.js?v=20260625-uiux-opt2" defer></script>
+    <script src="/-/dashboard/app.js?v=20260626-i18n" defer></script>
   </body>
 </html>

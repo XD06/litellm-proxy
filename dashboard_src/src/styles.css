@@ -321,6 +321,17 @@ select:focus-visible {
   min-width: 0;
 }
 
+.lang-toggle-btn {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  opacity: 0.85;
+  padding: 6px 10px;
+}
+.lang-toggle-btn:hover {
+  opacity: 1;
+}
+
 .sidebar-footer {
   display: flex;
   gap: 9px;

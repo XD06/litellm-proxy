@@ -321,6 +321,17 @@ select:focus-visible {
   min-width: 0;
 }
 
+.lang-toggle-btn {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  opacity: 0.85;
+  padding: 6px 10px;
+}
+.lang-toggle-btn:hover {
+  opacity: 1;
+}
+
 .sidebar-footer {
   display: flex;
   gap: 9px;
@@ -3337,20 +3348,29 @@ tr.clickable:hover {
 
 .mini-metric span {
   display: block;
+  min-width: 0;
+  overflow: hidden;
   color: var(--text);
   font-size: 11px;
   font-weight: 780;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mini-metric strong {
   display: block;
+  min-width: 0;
   margin-top: 2px;
+  overflow: hidden;
   color: var(--text);
   font: 820 17px/1.2 var(--mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mini-metric small {
   display: block;
+  min-width: 0;
   margin-top: 2px;
   overflow: hidden;
   color: var(--faint);
@@ -3969,13 +3989,19 @@ tr.clickable:hover {
 }
 
 .code-block {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   max-height: 620px;
   margin: 0;
   overflow: auto;
+  overflow-wrap: normal;
   padding: 15px;
   background: #18181b;
   color: #f4f4f5;
   font: 12px/1.58 var(--mono);
+  white-space: pre;
 }
 
 .form-grid {
@@ -4435,6 +4461,7 @@ tr.clickable:hover {
 }
 
 .raw-config-details {
+  min-width: 0;
   padding: 14px;
 }
 
@@ -4445,10 +4472,12 @@ tr.clickable:hover {
 }
 
 .config-advanced-panel {
+  min-width: 0;
   background: color-mix(in srgb, var(--surface-raised) 66%, var(--surface));
 }
 
 .config-advanced-details {
+  min-width: 0;
   padding: 13px 14px;
 }
 
@@ -10103,6 +10132,131 @@ body {
 .failure-policy-card .collapsible-card-body .failure-policy-edit-grid {
   padding: 14px;
   border-top: 1px solid var(--line-soft);
+}
+
+/* Policy page layout repair */
+#routingControlForm .routing-mode-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(96px, 118px);
+  align-items: end;
+}
+
+#routingControlForm #routeModeGroup {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+}
+
+#routingControlForm #routeModeGroup button {
+  justify-content: center;
+  min-width: 0;
+  padding-inline: 9px;
+}
+
+#routingControlForm #routeModeGroup button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.policy-rule-head {
+  grid-template-columns: 8px 34px minmax(0, 1fr);
+  align-items: start;
+}
+
+.policy-rule-head > .status-dot {
+  margin-top: 11px;
+}
+
+.policy-rule-head h3,
+.policy-rule-head p {
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.policy-rule-head .message-text {
+  white-space: normal;
+}
+
+.failure-policy-head h3 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.failure-policy-card .failure-policy-head {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto 16px;
+  gap: 8px 10px;
+  align-items: center;
+}
+
+.failure-policy-card .failure-policy-head > .status-dot {
+  margin-top: 0;
+}
+
+.failure-policy-card .failure-policy-head h3 {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.failure-policy-card .failure-policy-head .compact-control {
+  grid-column: 2 / -1;
+  width: 100%;
+  min-width: 0;
+}
+
+.failure-policy-card .failure-policy-head .badge {
+  margin-left: 0 !important;
+}
+
+.config-side-column,
+.config-side-column > *,
+.config-side-column .config-tab-panel,
+.config-side-column .panel,
+.config-side-column details,
+.config-side-column summary,
+.config-side-column .actions {
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.config-side-column .config-tab-nav {
+  width: 100%;
+  max-width: 100%;
+}
+
+.config-side-column .config-tab-panel {
+  width: 100%;
+  overflow: hidden;
+}
+
+.config-side-column .panel-head,
+.config-side-column .config-advanced-details > summary {
+  min-width: 0;
+}
+
+.config-side-column .panel-head > div,
+.config-side-column .config-advanced-details > summary span,
+.config-side-column .config-advanced-details > summary small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.config-side-column .config-advanced-details > .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.config-side-column .config-advanced-details > .actions .button {
+  min-width: 0;
+}
+
+@media (max-width: 1120px) {
+  #routingControlForm .routing-mode-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 
