@@ -4727,26 +4727,27 @@
 			const pad = 4;
 			const safeId = String(providerName || "x").replace(/[^a-zA-Z0-9_-]/g, "_");
 			const gradId = `pmc-${safeId}-${Math.random().toString(36).slice(2, 6)}`;
-			const FAST = 800;
-			const SLOW = 2500;
+			const GREEN_MAX = 2e3;
+			const AMBER_MAX = 5e3;
 			const TIER_COLOR = {
 				fast: "var(--pmc-green)",
 				med: "var(--pmc-amber)",
 				slow: "var(--pmc-red)"
 			};
 			function latencyTier(ms) {
-				if (ms <= FAST) return "fast";
-				if (ms <= SLOW) return "med";
+				if (ms <= GREEN_MAX) return "fast";
+				if (ms <= AMBER_MAX) return "med";
 				return "slow";
 			}
 			const latencies = events.map((e) => Number(e.latencyMs) || 0);
 			const avgLat = latencies.length ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length) : 0;
 			const maxLat = latencies.length ? Math.max(...latencies) : 0;
 			const total = events.length;
+			const avgTier = latencyTier(avgLat);
 			const legendHTML = `
       <div class="pmc-legend">
         <span class="pmc-legend-label">TTFB</span>
-        <span class="pmc-legend-val" style="color:${TIER_COLOR[latencyTier(avgLat)]}">${fmtCompactMs(avgLat)}</span>
+        <span class="pmc-legend-val" style="color:${TIER_COLOR[avgTier]}">${fmtCompactMs(avgLat)}</span>
         <span class="pmc-legend-sep"></span>
         <span class="pmc-legend-meta">${total} calls · max ${fmtCompactMs(maxLat)}</span>
       </div>`;
@@ -4774,7 +4775,7 @@
             <span class="pmc-axis-label muted">no data</span>
           </div>
         </div>`;
-			const scaleMax = Math.max(maxLat, SLOW * 1.15);
+			const scaleMax = Math.max(maxLat, AMBER_MAX * 1.15);
 			function latToY(ms) {
 				return pad + (1 - Math.min(1, ms / scaleMax)) * (H - 2 * pad);
 			}
@@ -4792,8 +4793,9 @@
 			const areaPath = linePath + ` L ${points[n - 1].x.toFixed(1)} ${H} L ${points[0].x.toFixed(1)} ${H} Z`;
 			const refTop = (H * .25).toFixed(1);
 			const refBot = (H * .75).toFixed(1);
+			const tierColor = TIER_COLOR[avgTier];
 			const markers = points.map((p) => {
-				return `<line x1="${p.x.toFixed(1)}" y1="${(p.y - .5).toFixed(1)}" x2="${p.x.toFixed(1)}" y2="${(p.y + .5).toFixed(1)}" stroke="var(--pmc-green)" stroke-width="1.5" stroke-linecap="round" vector-effect="non-scaling-stroke" />`;
+				return `<line x1="${p.x.toFixed(1)}" y1="${(p.y - .5).toFixed(1)}" x2="${p.x.toFixed(1)}" y2="${(p.y + .5).toFixed(1)}" stroke="${tierColor}" stroke-width="1.5" stroke-linecap="round" vector-effect="non-scaling-stroke" />`;
 			}).join("");
 			return `
       <div class="provider-chart-block">
@@ -4802,14 +4804,14 @@
           <svg class="provider-mini-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="Latency chart for ${escapeHtml(providerName)}">
             <defs>
               <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="var(--pmc-green)" stop-opacity="0.28" />
-                <stop offset="100%" stop-color="var(--pmc-green)" stop-opacity="0.02" />
+                <stop offset="0%" stop-color="${tierColor}" stop-opacity="0.28" />
+                <stop offset="100%" stop-color="${tierColor}" stop-opacity="0.02" />
               </linearGradient>
             </defs>
             <line x1="0" y1="${refTop}" x2="${W}" y2="${refTop}" stroke="var(--line-soft)" stroke-width="0.3" stroke-dasharray="2 4" />
             <line x1="0" y1="${refBot}" x2="${W}" y2="${refBot}" stroke="var(--line-soft)" stroke-width="0.3" stroke-dasharray="2 4" />
             <path d="${areaPath}" fill="url(#${gradId})" />
-            <path d="${linePath}" fill="none" stroke="var(--pmc-green)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
+            <path d="${linePath}" fill="none" stroke="${tierColor}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
             ${markers}
           </svg>
         </div>

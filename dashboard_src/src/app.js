@@ -2773,14 +2773,14 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const safeId = String(providerName || "x").replace(/[^a-zA-Z0-9_-]/g, "_");
     const gradId = `pmc-${safeId}-${Math.random().toString(36).slice(2, 6)}`;
 
-    // Latency thresholds (ms): fast ≤ 800, medium ≤ 2500, slow > 2500
-    const FAST = 800;
-    const SLOW = 2500;
+    // Latency thresholds (ms): green ≤ 2000, amber ≤ 5000, red > 5000
+    const GREEN_MAX = 2000;
+    const AMBER_MAX = 5000;
     const TIER_COLOR = { fast: "var(--pmc-green)", med: "var(--pmc-amber)", slow: "var(--pmc-red)" };
 
     function latencyTier(ms) {
-      if (ms <= FAST) return "fast";
-      if (ms <= SLOW) return "med";
+      if (ms <= GREEN_MAX) return "fast";
+      if (ms <= AMBER_MAX) return "med";
       return "slow";
     }
 
@@ -2828,8 +2828,8 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         </div>`;
     }
 
-    // Dynamic scale: ensure SLOW threshold is visible, cap at actual max
-    const scaleMax = Math.max(maxLat, SLOW * 1.15);
+    // Dynamic scale: ensure AMBER threshold is visible, cap at actual max
+    const scaleMax = Math.max(maxLat, AMBER_MAX * 1.15);
 
     // Map latency → y: 0ms = bottom, high latency = top
     function latToY(ms) {
@@ -2852,10 +2852,11 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const refTop = (H * 0.25).toFixed(1);
     const refBot = (H * 0.75).toFixed(1);
 
-    // Per-point markers — uniform green, small dots
+    // Per-point markers — color follows avg tier, small dots
+    const tierColor = TIER_COLOR[avgTier];
     const markers = points
       .map((p) => {
-        return `<line x1="${p.x.toFixed(1)}" y1="${(p.y - 0.5).toFixed(1)}" x2="${p.x.toFixed(1)}" y2="${(p.y + 0.5).toFixed(1)}" stroke="var(--pmc-green)" stroke-width="1.5" stroke-linecap="round" vector-effect="non-scaling-stroke" />`;
+        return `<line x1="${p.x.toFixed(1)}" y1="${(p.y - 0.5).toFixed(1)}" x2="${p.x.toFixed(1)}" y2="${(p.y + 0.5).toFixed(1)}" stroke="${tierColor}" stroke-width="1.5" stroke-linecap="round" vector-effect="non-scaling-stroke" />`;
       })
       .join("");
 
@@ -2866,14 +2867,14 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           <svg class="provider-mini-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="Latency chart for ${escapeHtml(providerName)}">
             <defs>
               <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="var(--pmc-green)" stop-opacity="0.28" />
-                <stop offset="100%" stop-color="var(--pmc-green)" stop-opacity="0.02" />
+                <stop offset="0%" stop-color="${tierColor}" stop-opacity="0.28" />
+                <stop offset="100%" stop-color="${tierColor}" stop-opacity="0.02" />
               </linearGradient>
             </defs>
             <line x1="0" y1="${refTop}" x2="${W}" y2="${refTop}" stroke="var(--line-soft)" stroke-width="0.3" stroke-dasharray="2 4" />
             <line x1="0" y1="${refBot}" x2="${W}" y2="${refBot}" stroke="var(--line-soft)" stroke-width="0.3" stroke-dasharray="2 4" />
             <path d="${areaPath}" fill="url(#${gradId})" />
-            <path d="${linePath}" fill="none" stroke="var(--pmc-green)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
+            <path d="${linePath}" fill="none" stroke="${tierColor}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
             ${markers}
           </svg>
         </div>
