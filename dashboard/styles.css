@@ -38,6 +38,11 @@
   --ok: var(--success);
   --warn: var(--warning);
   --bad: var(--danger);
+  /* Provider mini-chart palette — single accent for line/area/dots */
+  --pmc-accent: var(--accent);
+  --pmc-green: var(--success);
+  --pmc-amber: var(--warning);
+  --pmc-red: var(--danger);
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.045), 0 1px 2px rgba(0, 0, 0, 0.035);
   --shadow-tight: 0 8px 18px rgba(0, 0, 0, 0.055);
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
@@ -5761,6 +5766,10 @@ tr.clickable:hover {
   --metric-provider: #0ea5e9;
   --metric-token: #8b5cf6;
   --metric-cost: #d97706;
+  --pmc-accent: #2563eb;
+  --pmc-green: #12a474;
+  --pmc-amber: #d97706;
+  --pmc-red: #e5485d;
   --shadow: 0 12px 30px rgba(31, 56, 88, 0.07);
   --shadow-tight: 0 18px 44px rgba(31, 56, 88, 0.11);
 }
@@ -6357,6 +6366,10 @@ body {
   --metric-provider: #53717d;
   --metric-token: #6f55a3;
   --metric-cost: #956400;
+  --pmc-accent: #1f6c9f;
+  --pmc-green: #346538;
+  --pmc-amber: #956400;
+  --pmc-red: #9f2f2d;
   --shadow: 0 2px 10px rgba(34, 35, 32, 0.035);
   --shadow-tight: 0 4px 16px rgba(34, 35, 32, 0.05);
 }
@@ -6539,7 +6552,10 @@ body {
   --info-soft: rgba(0, 0, 0, 0.05);
   --compat: #1d1d1f; 
   --compat-soft: rgba(0, 0, 0, 0.05);
-  
+  --pmc-accent: #007aff;
+  --pmc-green: #34c759;
+  --pmc-amber: #ff9500;
+  --pmc-red: #ff3b30;
   /* Mac Window/Card Elevation */
   --shadow: 0 2px 6px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04);
   --shadow-tight: 0 4px 12px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.05);

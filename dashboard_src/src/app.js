@@ -2776,17 +2776,12 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     // Latency thresholds (ms): fast ≤ 800, medium ≤ 2500, slow > 2500
     const FAST = 800;
     const SLOW = 2500;
-    const C_GREEN = "34,165,107";
-    const C_YELLOW = "232,163,23";
-    const C_RED = "229,72,77";
+    const TIER_COLOR = { fast: "var(--pmc-green)", med: "var(--pmc-amber)", slow: "var(--pmc-red)" };
 
     function latencyTier(ms) {
       if (ms <= FAST) return "fast";
       if (ms <= SLOW) return "med";
       return "slow";
-    }
-    function tierRGB(tier) {
-      return tier === "fast" ? C_GREEN : tier === "med" ? C_YELLOW : C_RED;
     }
 
     // Stats — 0ms is valid (means TTFB was 0 or unrecorded), treat as 0
@@ -2795,13 +2790,12 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const maxLat = latencies.length ? Math.max(...latencies) : 0;
     const total = events.length;
 
-    // Legend — clean single-row design
+    // Legend — TTFB value colored by avg tier, everything else neutral
     const avgTier = latencyTier(avgLat);
-    const avgRGB = tierRGB(avgTier);
     const legendHTML = `
       <div class="pmc-legend">
         <span class="pmc-legend-label">TTFB</span>
-        <span class="pmc-legend-val" style="color:rgb(${avgRGB})">${fmtCompactMs(avgLat)}</span>
+        <span class="pmc-legend-val" style="color:${TIER_COLOR[avgTier]}">${fmtCompactMs(avgLat)}</span>
         <span class="pmc-legend-sep"></span>
         <span class="pmc-legend-meta">${total} calls · max ${fmtCompactMs(maxLat)}</span>
       </div>`;
@@ -2822,8 +2816,6 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
                 </pattern>
               </defs>
               <rect width="${W}" height="${H}" fill="url(#pmc-grid-${safeId})" opacity="0.7" />
-              <line x1="0" y1="${(H * 0.15).toFixed(1)}" x2="${W}" y2="${(H * 0.15).toFixed(1)}" stroke="var(--line)" stroke-width="0.3" stroke-dasharray="2 3" />
-              <line x1="0" y1="${(H * 0.85).toFixed(1)}" x2="${W}" y2="${(H * 0.85).toFixed(1)}" stroke="var(--line)" stroke-width="0.3" stroke-dasharray="2 3" />
               <line x1="0" y1="${(H * 0.5).toFixed(1)}" x2="${W}" y2="${(H * 0.5).toFixed(1)}" stroke="var(--line-strong)" stroke-width="0.3" stroke-dasharray="4 3" />
               <circle cx="${W * 0.5}" cy="${H * 0.5}" r="2" fill="var(--line-strong)" class="pmc-pulse-dot" />
             </svg>
@@ -2849,30 +2841,23 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const points = events.map((event, i) => {
       const x = n === 1 ? W * 0.5 : pad + (i / (n - 1)) * (W - 2 * pad);
       const lat = Number(event.latencyMs) || 0;
-      return { x, y: latToY(lat), latency: lat, tier: latencyTier(lat) };
+      return { x, y: latToY(lat), latency: lat };
     });
 
-    const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
+    // Smooth bezier path for the line
+    const linePath = smoothPathD(points);
     const areaPath = linePath + ` L ${points[n - 1].x.toFixed(1)} ${H} L ${points[0].x.toFixed(1)} ${H} Z`;
 
-    // Threshold line positions
-    const fastY = latToY(FAST);
-    const slowY = latToY(SLOW);
-    const fastPct = ((fastY / H) * 100).toFixed(0);
-    const slowPct = ((slowY / H) * 100).toFixed(0);
+    // Subtle reference lines at 25% / 75% — neutral color, no tier semantics
+    const refTop = (H * 0.25).toFixed(1);
+    const refBot = (H * 0.75).toFixed(1);
 
-    // Per-point colored markers — use vertical ticks with non-scaling-stroke
-    // so they render as crisp dots regardless of viewBox stretching.
+    // Per-point markers — uniform green, small dots
     const markers = points
       .map((p) => {
-        const rgb = tierRGB(p.tier);
-        return `<line x1="${p.x.toFixed(1)}" y1="${(p.y - 0.6).toFixed(1)}" x2="${p.x.toFixed(1)}" y2="${(p.y + 0.6).toFixed(1)}" stroke="rgb(${rgb})" stroke-width="2" stroke-linecap="round" vector-effect="non-scaling-stroke" />`;
+        return `<line x1="${p.x.toFixed(1)}" y1="${(p.y - 0.5).toFixed(1)}" x2="${p.x.toFixed(1)}" y2="${(p.y + 0.5).toFixed(1)}" stroke="var(--pmc-green)" stroke-width="1.5" stroke-linecap="round" vector-effect="non-scaling-stroke" />`;
       })
       .join("");
-
-    // Stroke color = latest latency tier
-    const latestLat = points[points.length - 1].latency;
-    const latestHex = `rgb(${tierRGB(latencyTier(latestLat))})`;
 
     return `
       <div class="provider-chart-block">
@@ -2881,16 +2866,14 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           <svg class="provider-mini-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="Latency chart for ${escapeHtml(providerName)}">
             <defs>
               <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="rgba(${C_RED},0.30)" />
-                <stop offset="${slowPct}%" stop-color="rgba(${C_YELLOW},0.20)" />
-                <stop offset="${fastPct}%" stop-color="rgba(${C_GREEN},0.10)" />
-                <stop offset="100%" stop-color="rgba(${C_GREEN},0.02)" />
+                <stop offset="0%" stop-color="var(--pmc-amber)" stop-opacity="0.30" />
+                <stop offset="100%" stop-color="var(--pmc-amber)" stop-opacity="0.03" />
               </linearGradient>
             </defs>
-            <line x1="0" y1="${fastY.toFixed(1)}" x2="${W}" y2="${fastY.toFixed(1)}" stroke="rgba(${C_GREEN},0.3)" stroke-width="0.3" stroke-dasharray="2 3" />
-            <line x1="0" y1="${slowY.toFixed(1)}" x2="${W}" y2="${slowY.toFixed(1)}" stroke="rgba(${C_RED},0.3)" stroke-width="0.3" stroke-dasharray="2 3" />
+            <line x1="0" y1="${refTop}" x2="${W}" y2="${refTop}" stroke="var(--line-soft)" stroke-width="0.3" stroke-dasharray="2 4" />
+            <line x1="0" y1="${refBot}" x2="${W}" y2="${refBot}" stroke="var(--line-soft)" stroke-width="0.3" stroke-dasharray="2 4" />
             <path d="${areaPath}" fill="url(#${gradId})" />
-            <path d="${linePath}" fill="none" stroke="${latestHex}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="miter" vector-effect="non-scaling-stroke" />
+            <path d="${linePath}" fill="none" stroke="var(--pmc-green)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
             ${markers}
           </svg>
         </div>
