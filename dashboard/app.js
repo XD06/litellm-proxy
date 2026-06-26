@@ -4802,8 +4802,8 @@
           <svg class="provider-mini-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="Latency chart for ${escapeHtml(providerName)}">
             <defs>
               <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="var(--pmc-amber)" stop-opacity="0.30" />
-                <stop offset="100%" stop-color="var(--pmc-amber)" stop-opacity="0.03" />
+                <stop offset="0%" stop-color="var(--pmc-green)" stop-opacity="0.28" />
+                <stop offset="100%" stop-color="var(--pmc-green)" stop-opacity="0.02" />
               </linearGradient>
             </defs>
             <line x1="0" y1="${refTop}" x2="${W}" y2="${refTop}" stroke="var(--line-soft)" stroke-width="0.3" stroke-dasharray="2 4" />
