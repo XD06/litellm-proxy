@@ -4681,7 +4681,7 @@
         </div>
         <div class="provider-card-state-row">
           <span class="provider-state-badge tone-${view.runtimeState.badge}">${escapeHtml(view.runtimeState.label)}</span>
-          <span class="provider-state-note">${escapeHtml(`${fmtInt(modelCount)} models · ${fmtInt(keyUsable)}/${fmtInt(keyTotal)} keys`)}</span>
+          <span class="provider-state-note">${escapeHtml(`${fmtInt(modelCount)} models · ${fmtInt(keyUsable)}/${fmtInt(keyTotal)} keys${view.keyStats.cooldown > 0 ? ` · ${fmtInt(view.keyStats.cooldown)} cooldown` : ""}`)}</span>
         </div>
 
         <div class="provider-card-models">

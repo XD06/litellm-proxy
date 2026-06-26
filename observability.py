@@ -515,6 +515,12 @@ class ProxyObservability:
                 entry = ensure(name)
                 if str(attempt.get("outcome") or "") == "success":
                     entry["success"] = True
+                    # Capture per-attempt duration so failover latency is
+                    # attributed only to the provider that actually served
+                    # the request, not inflated by prior failed attempts.
+                    dur = int(attempt.get("duration_ms") or 0)
+                    if dur > 0:
+                        entry["duration_ms"] = dur
                 else:
                     reason = attempt.get("reason") or attempt.get("error_type") or ""
                     if reason and not entry.get("failed_reason"):
@@ -533,7 +539,11 @@ class ProxyObservability:
                 else:
                     tone = "bad"
                 reason = entry.get("failed_reason") or (item.get("error") if tone != "ok" else "") or request_status
-                latency = first_byte_ms if (success_here or final_success) and first_byte_ms > 0 else 0
+                # Use per-attempt duration_ms (only counts this provider's
+                # own attempt time) instead of global first_byte_ms (which
+                # includes time spent on prior failed providers).
+                attempt_dur = int(entry.get("duration_ms") or 0)
+                latency = attempt_dur if (success_here or final_success) and attempt_dur > 0 else 0
                 event = {
                     "requestId": str(item.get("request_id") or ""),
                     "ts": int(item.get("finished_at") or 0),
