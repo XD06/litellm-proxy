@@ -811,7 +811,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
 
       const fetches = {
         metrics: apiGet("/-/admin/metrics"),
-        providerActivity: apiGet("/-/admin/provider-activity?limit=60"),
+        providerActivity: apiGet("/-/admin/provider-activity?limit=60&include_events=1"),
       };
       if (needStaticAdminData) {
         fetches.status = apiGet("/-/admin/status");
@@ -2673,55 +2673,52 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
   }
 
   function providerRuntimeCard(view) {
-    const keyText = `${fmtInt(view.keyStats.usable)}/${fmtInt(view.keyStats.total)}`;
-    const successText = view.activity.successRate === null ? "-" : fmtPct(view.activity.successRate);
-    const latencyText = view.activity.latestLatency ? fmtCompactMs(view.activity.latestLatency) : "-";
-    const avgLatencyText = view.activity.avgLatency ? `${fmtCompactMs(view.activity.avgLatency)} avg` : "no first byte";
+    const keyUsable = view.keyStats.usable;
+    const keyTotal = view.keyStats.total;
+    const keyTone = keyUsable === 0 && keyTotal > 0 ? "bad" : keyUsable < keyTotal ? "warn" : "ok";
+    const successRate = view.activity.successRate;
+    const successText = successRate === null ? "—" : fmtPct(successRate);
+    const latencyText = view.activity.latestLatency ? fmtCompactMs(view.activity.latestLatency) : "—";
     const modelCount = view.modelItems.length;
     const primaryModels = view.modelItems.slice(0, 3);
     const recentError = view.activity.lastError?.reason || "";
-    const configEnabled = view.config.enabled === false ? "config off" : "config on";
-    const priorityText = `P${fmtInt(view.priority)}`;
+    const isDisabled = view.runtimeState.id === "disabled";
+    const successTone = successRate === null ? "neutral" : successRate >= 0.9 ? "ok" : successRate >= 0.5 ? "warn" : "bad";
+    const latencyTone = view.activity.latestLatency ? (view.activity.latestLatency <= 800 ? "ok" : view.activity.latestLatency <= 2500 ? "warn" : "bad") : "neutral";
     return `
-      <article class="provider-runtime-card provider-health-tile ${view.runtimeState.tone}" data-provider-card="${escapeHtml(view.name)}" tabindex="0">
+      <article class="provider-runtime-card provider-health-tile ${view.runtimeState.tone}" data-provider-card="${escapeHtml(view.name)}">
         <div class="provider-card-topline">
           <span class="provider-status-dot ${view.runtimeState.badge}"></span>
           <div class="provider-title-block">
             <div class="provider-name name-${view.runtimeState.badge}" title="${escapeHtml(view.name)}">${escapeHtml(view.name)}</div>
-            <div class="provider-meta">${view.formatNames.length ? view.formatNames.map(formatChip).join("") : `<span class="muted">no enabled formats</span>`}</div>
+            <div class="provider-meta">${view.formatNames.length ? view.formatNames.map(formatChip).join("") : `<span class="muted">No formats</span>`}</div>
           </div>
-          <div class="provider-card-badges">
-            ${badge(priorityText, priorityBadgeTone(view.priority))}
-            ${badge(view.runtimeState.label, view.runtimeState.badge)}
-          </div>
+          <button class="provider-card-settings-btn" type="button" data-provider-open="${escapeHtml(view.name)}" title="Settings" aria-label="Provider settings">${iconSvg("settings")}</button>
+        </div>
+        <div class="provider-card-state-row">
+          <span class="provider-state-badge tone-${view.runtimeState.badge}">${escapeHtml(view.runtimeState.label)}</span>
+          <span class="provider-state-note">${escapeHtml(`${fmtInt(modelCount)} models · ${fmtInt(keyUsable)}/${fmtInt(keyTotal)} keys`)}</span>
         </div>
 
         <div class="provider-card-models">
           ${view.capability.status === "pending"
-            ? `<span class="provider-model-pill provider-model-refreshing" title="Models are being discovered in the background">${refreshSpinner()} Refreshing models…</span>`
+            ? `<span class="provider-model-pill provider-model-refreshing" title="Models are being discovered in the background">${refreshSpinner()} Refreshing…</span>`
             : primaryModels.length
-              ? primaryModels.map((item) => `<span class="provider-model-pill" title="${escapeHtml(item.title)}">${escapeHtml(item.label)}${modelPriceTooltip(item.label)}</span>`).join("")
-              : `<span class="muted">No discovered models</span>`}
+              ? primaryModels.map((item) => `<span class="provider-model-pill" title="${escapeHtml(item.title)}">${escapeHtml(item.label)}</span>`).join("")
+              : `<span class="muted">No models</span>`}
           ${view.capability.status !== "pending" && modelCount > primaryModels.length ? `<span class="provider-model-more">+${fmtInt(modelCount - primaryModels.length)}</span>` : ""}
         </div>
 
-        <div class="provider-card-metrics">
-          ${providerMetric("Keys", keyText, view.keyStats.cooldown ? `${fmtInt(view.keyStats.cooldown)} cooldown` : "usable")}
-          ${providerMetric("Priority", fmtInt(view.priority), "route order")}
-          ${providerMetric("Models", fmtInt(modelCount), view.capability.status === "pending" ? "refreshing" : (view.capability.status || "capability"))}
-          ${providerMetric("Success", successText, `${fmtInt(view.activity.total)} recent`)}
-          ${providerMetric("First byte", latencyText, avgLatencyText)}
-        </div>
+        ${providerMiniChart(view.activity, view.name)}
 
-        <div class="provider-card-error ${recentError ? "" : "is-empty"}">
-          <span>Last issue</span>
-          <strong>${recentError ? messageMarkup(recentError) : "No recent provider issue"}</strong>
-        </div>
-
-        ${providerSparkline(view.activity)}
+        ${recentError ? `<div class="provider-card-error"><span class="provider-card-error-icon">${iconSvg("alert")}</span><strong>${messageMarkup(recentError)}</strong></div>` : ""}
 
         <div class="provider-card-footer">
-          <span class="provider-config-state">${escapeHtml(configEnabled)}</span>
+          <div class="provider-card-stats">
+            ${compactStatInline("key", `${fmtInt(keyUsable)}/${fmtInt(keyTotal)}`, keyTone)}
+            ${compactStatInline("activity", successText, successTone)}
+            ${compactStatInline("clock", latencyText, latencyTone)}
+          </div>
           <div class="provider-runtime-actions">
             <button class="button primary compact-action icon-action" type="button" data-provider-open="${escapeHtml(view.name)}" title="Details" aria-label="Details">${iconSvg("info")}</button>
             ${actionButton(view.runtime.runtime_enabled !== false ? "Disable" : "Enable", `/providers/${encodeURIComponent(view.name)}/${view.runtime.runtime_enabled !== false ? "disable" : "enable"}`, view.runtime.runtime_enabled !== false ? "danger" : "secondary", { iconOnly: true })}
@@ -2730,6 +2727,10 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         </div>
       </article>
     `;
+  }
+
+  function compactStatInline(iconName, value, tone) {
+    return `<span class="provider-stat ${tone || ""}" title="${escapeHtml(value)}">${iconSvg(iconName)}<strong>${escapeHtml(value)}</strong></span>`;
   }
 
   function providerMetric(label, value, hint) {
@@ -2763,18 +2764,159 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     return String(fmt || "");
   }
 
-  function providerSparkline(activity) {
-    // Provider cards request a bounded event list for the sparkline; older
-    // payloads or failed polls may still omit it, so keep the placeholder path.
-    const raw = Array.isArray(activity?.events) ? activity.events.slice(-24) : [];
-    const events = raw.length ? raw : Array.from({ length: 24 }, () => ({ tone: "neutral", reason: "No recent calls" }));
+  function providerMiniChart(activity, providerName) {
+    const allEvents = Array.isArray(activity?.events) ? activity.events : [];
+    const events = allEvents.slice(-30);
+    const W = 100;
+    const H = 56;
+    const pad = 4;
+    const safeId = String(providerName || "x").replace(/[^a-zA-Z0-9_-]/g, "_");
+    const gradId = `pmc-${safeId}-${Math.random().toString(36).slice(2, 6)}`;
+
+    // Latency thresholds (ms): fast ≤ 800, medium ≤ 2500, slow > 2500
+    const FAST = 800;
+    const SLOW = 2500;
+    const C_GREEN = "34,165,107";
+    const C_YELLOW = "232,163,23";
+    const C_RED = "229,72,77";
+
+    function latencyTier(ms) {
+      if (ms <= FAST) return "fast";
+      if (ms <= SLOW) return "med";
+      return "slow";
+    }
+    function tierRGB(tier) {
+      return tier === "fast" ? C_GREEN : tier === "med" ? C_YELLOW : C_RED;
+    }
+
+    // Stats — 0ms is valid (means TTFB was 0 or unrecorded), treat as 0
+    const latencies = events.map((e) => Number(e.latencyMs) || 0);
+    const avgLat = latencies.length ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length) : 0;
+    const maxLat = latencies.length ? Math.max(...latencies) : 0;
+    const total = events.length;
+
+    // Legend — clean single-row design
+    const avgTier = latencyTier(avgLat);
+    const avgRGB = tierRGB(avgTier);
+    const legendHTML = `
+      <div class="pmc-legend">
+        <span class="pmc-legend-label">TTFB</span>
+        <span class="pmc-legend-val" style="color:rgb(${avgRGB})">${fmtCompactMs(avgLat)}</span>
+        <span class="pmc-legend-sep"></span>
+        <span class="pmc-legend-meta">${total} calls · max ${fmtCompactMs(maxLat)}</span>
+      </div>`;
+
+    // --- Empty state ---
+    if (!events.length) {
+      return `
+        <div class="provider-chart-block is-empty">
+          <div class="pmc-legend">
+            <span class="pmc-legend-label">TTFB</span>
+            <span class="pmc-legend-val muted">—</span>
+          </div>
+          <div class="pmc-chart-wrap">
+            <svg class="provider-mini-chart is-empty" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="No recent activity">
+              <defs>
+                <pattern id="pmc-grid-${safeId}" x="0" y="0" width="20" height="10" patternUnits="userSpaceOnUse">
+                  <path d="M 20 0 L 0 0 0 10" fill="none" stroke="var(--line-soft)" stroke-width="0.3" />
+                </pattern>
+              </defs>
+              <rect width="${W}" height="${H}" fill="url(#pmc-grid-${safeId})" opacity="0.7" />
+              <line x1="0" y1="${(H * 0.15).toFixed(1)}" x2="${W}" y2="${(H * 0.15).toFixed(1)}" stroke="var(--line)" stroke-width="0.3" stroke-dasharray="2 3" />
+              <line x1="0" y1="${(H * 0.85).toFixed(1)}" x2="${W}" y2="${(H * 0.85).toFixed(1)}" stroke="var(--line)" stroke-width="0.3" stroke-dasharray="2 3" />
+              <line x1="0" y1="${(H * 0.5).toFixed(1)}" x2="${W}" y2="${(H * 0.5).toFixed(1)}" stroke="var(--line-strong)" stroke-width="0.3" stroke-dasharray="4 3" />
+              <circle cx="${W * 0.5}" cy="${H * 0.5}" r="2" fill="var(--line-strong)" class="pmc-pulse-dot" />
+            </svg>
+            <span class="pmc-empty-label">${iconSvg("activity")}</span>
+          </div>
+          <div class="pmc-axis">
+            <span class="pmc-axis-label">—</span>
+            <span class="pmc-axis-label muted">no data</span>
+          </div>
+        </div>`;
+    }
+
+    // Dynamic scale: ensure SLOW threshold is visible, cap at actual max
+    const scaleMax = Math.max(maxLat, SLOW * 1.15);
+
+    // Map latency → y: 0ms = bottom, high latency = top
+    function latToY(ms) {
+      const ratio = Math.min(1, ms / scaleMax);
+      return pad + (1 - ratio) * (H - 2 * pad);
+    }
+
+    const n = events.length;
+    const points = events.map((event, i) => {
+      const x = n === 1 ? W * 0.5 : pad + (i / (n - 1)) * (W - 2 * pad);
+      const lat = Number(event.latencyMs) || 0;
+      return { x, y: latToY(lat), latency: lat, tier: latencyTier(lat) };
+    });
+
+    const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
+    const areaPath = linePath + ` L ${points[n - 1].x.toFixed(1)} ${H} L ${points[0].x.toFixed(1)} ${H} Z`;
+
+    // Threshold line positions
+    const fastY = latToY(FAST);
+    const slowY = latToY(SLOW);
+    const fastPct = ((fastY / H) * 100).toFixed(0);
+    const slowPct = ((slowY / H) * 100).toFixed(0);
+
+    // Per-point colored markers — use vertical ticks with non-scaling-stroke
+    // so they render as crisp dots regardless of viewBox stretching.
+    const markers = points
+      .map((p) => {
+        const rgb = tierRGB(p.tier);
+        return `<line x1="${p.x.toFixed(1)}" y1="${(p.y - 0.6).toFixed(1)}" x2="${p.x.toFixed(1)}" y2="${(p.y + 0.6).toFixed(1)}" stroke="rgb(${rgb})" stroke-width="2" stroke-linecap="round" vector-effect="non-scaling-stroke" />`;
+      })
+      .join("");
+
+    // Stroke color = latest latency tier
+    const latestLat = points[points.length - 1].latency;
+    const latestHex = `rgb(${tierRGB(latencyTier(latestLat))})`;
+
     return `
-      <div class="provider-sparkline" aria-label="Recent provider attempts">
-        ${events.map((event) => `
-          <span class="provider-spark ${escapeHtml(event.tone)}" title="${escapeHtml(`${fmtDate(event.ts)} / ${event.model || "-"} / ${event.reason || event.status || "-"}`)}"></span>
-        `).join("")}
-      </div>
-    `;
+      <div class="provider-chart-block">
+        ${legendHTML}
+        <div class="pmc-chart-wrap">
+          <svg class="provider-mini-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="Latency chart for ${escapeHtml(providerName)}">
+            <defs>
+              <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="rgba(${C_RED},0.30)" />
+                <stop offset="${slowPct}%" stop-color="rgba(${C_YELLOW},0.20)" />
+                <stop offset="${fastPct}%" stop-color="rgba(${C_GREEN},0.10)" />
+                <stop offset="100%" stop-color="rgba(${C_GREEN},0.02)" />
+              </linearGradient>
+            </defs>
+            <line x1="0" y1="${fastY.toFixed(1)}" x2="${W}" y2="${fastY.toFixed(1)}" stroke="rgba(${C_GREEN},0.3)" stroke-width="0.3" stroke-dasharray="2 3" />
+            <line x1="0" y1="${slowY.toFixed(1)}" x2="${W}" y2="${slowY.toFixed(1)}" stroke="rgba(${C_RED},0.3)" stroke-width="0.3" stroke-dasharray="2 3" />
+            <path d="${areaPath}" fill="url(#${gradId})" />
+            <path d="${linePath}" fill="none" stroke="${latestHex}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="miter" vector-effect="non-scaling-stroke" />
+            ${markers}
+          </svg>
+        </div>
+        <div class="pmc-axis">
+          <span class="pmc-axis-label">now</span>
+          <span class="pmc-axis-label muted">avg ${fmtCompactMs(avgLat)} · max ${fmtCompactMs(maxLat)}</span>
+        </div>
+      </div>`;
+  }
+
+  function smoothPathD(points) {
+    if (!points.length) return "";
+    if (points.length === 1) return `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
+    let d = `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = points[i - 1] || points[i];
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const p3 = points[i + 2] || p2;
+      const cp1x = p1.x + (p2.x - p0.x) / 6;
+      const cp1y = p1.y + (p2.y - p0.y) / 6;
+      const cp2x = p2.x - (p3.x - p1.x) / 6;
+      const cp2y = p2.y - (p3.y - p1.y) / 6;
+      d += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+    }
+    return d;
   }
 
   function bindProviderCards(target) {
@@ -2784,21 +2926,6 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       button.addEventListener("click", (event) => {
         event.stopPropagation();
         openProviderDrawer(button.dataset.providerOpen || "");
-      });
-    });
-    target.querySelectorAll("[data-provider-card]").forEach((card) => {
-      if (card.dataset.bounddataprovidercard) return;
-      card.dataset.bounddataprovidercard = "1";
-      const open = () => openProviderDrawer(card.dataset.providerCard || "");
-      card.addEventListener("click", (event) => {
-        if (event.target.closest("button, input, select, textarea, a, summary, details, form")) return;
-        open();
-      });
-      card.addEventListener("keydown", (event) => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        if (event.target.closest("button, input, select, textarea, a")) return;
-        event.preventDefault();
-        open();
       });
     });
   }
@@ -3796,7 +3923,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       "eye-off": `<path d="M3 3l18 18"></path><path d="M10.6 10.6A3 3 0 0 0 13.4 13.4"></path><path d="M7.4 7.4C4.3 9 2.5 12 2.5 12s3.5 6 9.5 6c1.5 0 2.8-.4 4-1"></path><path d="M10 6.2A10.6 10.6 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-2.6 3.2"></path>`,
       save: `<path d="M5 3h12l2 2v16H5z"></path><path d="M8 3v6h8V3"></path><path d="M8 21v-7h8v7"></path>`,
       undo: `<path d="M9 7H4v5"></path><path d="M4 12a8 8 0 1 0 2.3-5.7L4 7"></path>`,
-      settings: `<path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"></path><path d="M4 12h2"></path><path d="M18 12h2"></path><path d="M12 4v2"></path><path d="M12 18v2"></path><path d="M5.6 5.6 7 7"></path><path d="M17 17l1.4 1.4"></path><path d="M18.4 5.6 17 7"></path><path d="M7 17l-1.4 1.4"></path>`,
+      settings: `<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle>`,
       dot: `<circle cx="12" cy="12" r="2"></circle>`,
       bolt: `<path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"></path>`,
     };
@@ -4305,7 +4432,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
             <input class="control" name="default_provider_pool" value="${escapeHtml(providerPool)}" placeholder="opencode, deepseek, rawchat" required />
           </label>
           <div class="form-pair-grid routing-mode-grid">
-            <div class="field">
+            <div class="field selection-mode-field">
               <span class="label-with-tip">${t("policy.selection_mode")}<span class="help-tip" data-tip="${escapeHtml(t("policy.selection_tip"))}">?</span></span>
               <input type="hidden" name="provider_select" value="${escapeHtml(currentSelect)}" />
               <div class="icon-btn-group" id="routeModeGroup">

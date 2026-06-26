@@ -9,7 +9,7 @@ services:
       PROXY_PORT: "4894"
       PROXY_LOG_DIR: /app/proxy_logs
     ports:
-      - "4894:4894"
+      - "127.0.0.1:4894:4894"
     volumes:
       - ./config.json:/app/config.json:ro
       - ./runtime_config.json:/app/runtime_config.json
