@@ -710,6 +710,111 @@ class StreamAdapterTests(unittest.TestCase):
         ]
         self.assertEqual(thinking_deltas, ["plan"])
 
+    def test_stream_responses_sse_to_anthropic_no_duplicate_when_item_id_mismatch(self):
+        """Delta events streamed text, then output_item.done arrives with a
+        different item id.  The adapter must NOT re-emit the full text as a
+        duplicate content_block_delta."""
+        output = io.BytesIO()
+        lines = [
+            b"event: response.output_item.added\n",
+            sse_data(
+                {
+                    "type": "response.output_item.added",
+                    "output_index": 0,
+                    "item": {"id": "rs_1", "type": "reasoning", "summary": []},
+                }
+            ),
+            b"event: response.reasoning_summary_text.delta\n",
+            sse_data(
+                {
+                    "type": "response.reasoning_summary_text.delta",
+                    "item_id": "rs_1",
+                    "output_index": 0,
+                    "summary_index": 0,
+                    "delta": "thinking",
+                }
+            ),
+            b"event: response.output_item.done\n",
+            sse_data(
+                {
+                    "type": "response.output_item.done",
+                    "output_index": 0,
+                    # Different id than the delta's item_id="rs_1"
+                    "item": {
+                        "id": "rs_DIFFERENT",
+                        "type": "reasoning",
+                        "summary": [{"type": "summary_text", "text": "thinking"}],
+                    },
+                }
+            ),
+            b"event: response.output_item.added\n",
+            sse_data(
+                {
+                    "type": "response.output_item.added",
+                    "output_index": 1,
+                    "item": {"id": "msg_1", "type": "message", "role": "assistant", "content": []},
+                }
+            ),
+            b"event: response.output_text.delta\n",
+            sse_data({"type": "response.output_text.delta", "item_id": "msg_1", "output_index": 1, "delta": "hel"}),
+            b"event: response.output_text.delta\n",
+            sse_data({"type": "response.output_text.delta", "item_id": "msg_1", "output_index": 1, "delta": "lo"}),
+            b"event: response.output_item.done\n",
+            sse_data(
+                {
+                    "type": "response.output_item.done",
+                    "output_index": 1,
+                    # Different id than the delta's item_id="msg_1"
+                    "item": {
+                        "id": "msg_DIFFERENT",
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [{"type": "output_text", "text": "hello"}],
+                    },
+                }
+            ),
+            b"event: response.completed\n",
+            sse_data(
+                {
+                    "type": "response.completed",
+                    "response": {
+                        "id": "resp_1",
+                        "status": "completed",
+                        "usage": {"input_tokens": 2, "output_tokens": 3, "total_tokens": 5},
+                    },
+                }
+            ),
+        ]
+
+        result = stream_responses_sse_to_anthropic([], output, "client-model", initial_lines=lines)
+
+        # Verify final assembled content
+        content_types = [c["type"] for c in result["content"]]
+        self.assertIn("thinking", content_types)
+        self.assertIn("text", content_types)
+        thinking_block = [c for c in result["content"] if c["type"] == "thinking"][0]
+        text_block = [c for c in result["content"] if c["type"] == "text"][0]
+        self.assertEqual(thinking_block["thinking"], "thinking")
+        self.assertEqual(text_block["text"], "hello")
+
+        events = parse_sse_events(output.getvalue().decode("utf-8"))
+        # Collect all thinking_delta and text_delta events
+        thinking_deltas = [
+            data["delta"]["thinking"]
+            for event, data in events
+            if event == "content_block_delta" and data["delta"]["type"] == "thinking_delta"
+        ]
+        text_deltas = [
+            data["delta"]["text"]
+            for event, data in events
+            if event == "content_block_delta" and data["delta"]["type"] == "text_delta"
+        ]
+
+        # Reasoning should only appear once (from delta), not duplicated
+        self.assertEqual(thinking_deltas, ["thinking"])
+        # Text should only appear as deltas, not re-emitted as full "hello"
+        self.assertEqual(text_deltas, ["hel", "lo"])
+
     def test_stream_responses_sse_to_openai_chat_emits_text_reasoning_tool_and_usage(self):
         output = io.BytesIO()
         lines = [
@@ -821,6 +926,146 @@ class StreamAdapterTests(unittest.TestCase):
         self.assertEqual(message["reasoning_content"], "plan")
         chunks = parse_chat_sse_chunks(output.getvalue().decode("utf-8"))
         self.assertIn("plan", [c["choices"][0]["delta"].get("reasoning_content") for c in chunks if c.get("choices")])
+
+    def test_stream_responses_sse_to_openai_chat_no_duplicate_when_item_id_mismatch(self):
+        """Delta events streamed text, then output_item.done arrives with a
+        different item id.  The adapter must NOT re-emit the full text as a
+        duplicate delta."""
+        output = io.BytesIO()
+        lines = [
+            b"event: response.output_item.added\n",
+            sse_data(
+                {
+                    "type": "response.output_item.added",
+                    "output_index": 0,
+                    "item": {"id": "rs_1", "type": "reasoning", "summary": []},
+                }
+            ),
+            b"event: response.reasoning_summary_text.delta\n",
+            sse_data(
+                {
+                    "type": "response.reasoning_summary_text.delta",
+                    "item_id": "rs_1",
+                    "output_index": 0,
+                    "summary_index": 0,
+                    "delta": "thinking",
+                }
+            ),
+            b"event: response.output_item.done\n",
+            sse_data(
+                {
+                    "type": "response.output_item.done",
+                    "output_index": 0,
+                    # Different id than the delta's item_id="rs_1"
+                    "item": {
+                        "id": "rs_DIFFERENT",
+                        "type": "reasoning",
+                        "summary": [{"type": "summary_text", "text": "thinking"}],
+                    },
+                }
+            ),
+            b"event: response.output_item.added\n",
+            sse_data(
+                {
+                    "type": "response.output_item.added",
+                    "output_index": 1,
+                    "item": {"id": "msg_1", "type": "message", "role": "assistant", "content": []},
+                }
+            ),
+            b"event: response.output_text.delta\n",
+            sse_data({"type": "response.output_text.delta", "item_id": "msg_1", "output_index": 1, "delta": "hel"}),
+            b"event: response.output_text.delta\n",
+            sse_data({"type": "response.output_text.delta", "item_id": "msg_1", "output_index": 1, "delta": "lo"}),
+            b"event: response.output_item.done\n",
+            sse_data(
+                {
+                    "type": "response.output_item.done",
+                    "output_index": 1,
+                    # Different id than the delta's item_id="msg_1"
+                    "item": {
+                        "id": "msg_DIFFERENT",
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [{"type": "output_text", "text": "hello"}],
+                    },
+                }
+            ),
+            b"event: response.completed\n",
+            sse_data(
+                {
+                    "type": "response.completed",
+                    "response": {
+                        "id": "resp_1",
+                        "status": "completed",
+                        "usage": {"input_tokens": 2, "output_tokens": 3, "total_tokens": 5},
+                    },
+                }
+            ),
+        ]
+
+        result = stream_responses_sse_to_openai_chat([], output, "client-model", initial_lines=lines)
+
+        message = result["choices"][0]["message"]
+        self.assertEqual(message["reasoning_content"], "thinking")
+        self.assertEqual(message["content"], "hello")
+
+        chunks = parse_chat_sse_chunks(output.getvalue().decode("utf-8"))
+        # Collect all reasoning_content and content deltas
+        reasoning_deltas = [c["choices"][0]["delta"].get("reasoning_content") for c in chunks if c.get("choices")]
+        content_deltas = [c["choices"][0]["delta"].get("content") for c in chunks if c.get("choices")]
+        reasoning_deltas = [d for d in reasoning_deltas if d]
+        content_deltas = [d for d in content_deltas if d]
+
+        # Reasoning should only appear once (from deltas), not duplicated
+        self.assertEqual(reasoning_deltas, ["thinking"])
+        # Text should only appear as deltas, not re-emitted as full "hello"
+        self.assertEqual(content_deltas, ["hel", "lo"])
+
+    def test_stream_responses_sse_to_openai_chat_no_duplicate_without_output_item_added(self):
+        """Provider sends deltas without output_item.added, then sends
+        output_item.done.  Even without the added event, the adapter should
+        not duplicate content."""
+        output = io.BytesIO()
+        lines = [
+            # No output_item.added event — deltas come first
+            b"event: response.output_text.delta\n",
+            sse_data({"type": "response.output_text.delta", "output_index": 0, "delta": "hi"}),
+            b"event: response.output_item.done\n",
+            sse_data(
+                {
+                    "type": "response.output_item.done",
+                    "output_index": 0,
+                    "item": {
+                        "id": "msg_1",
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [{"type": "output_text", "text": "hi"}],
+                    },
+                }
+            ),
+            b"event: response.completed\n",
+            sse_data(
+                {
+                    "type": "response.completed",
+                    "response": {
+                        "id": "resp_1",
+                        "status": "completed",
+                        "usage": {"input_tokens": 1, "output_tokens": 1, "total_tokens": 2},
+                    },
+                }
+            ),
+        ]
+
+        result = stream_responses_sse_to_openai_chat([], output, "client-model", initial_lines=lines)
+
+        message = result["choices"][0]["message"]
+        self.assertEqual(message["content"], "hi")
+
+        chunks = parse_chat_sse_chunks(output.getvalue().decode("utf-8"))
+        content_deltas = [c["choices"][0]["delta"].get("content") for c in chunks if c.get("choices")]
+        content_deltas = [d for d in content_deltas if d]
+        # Should only have the delta, not a duplicate full text
+        self.assertEqual(content_deltas, ["hi"])
 
     def test_stream_anthropic_sse_to_openai_chat_emits_text_reasoning_tool_and_usage(self):
         output = io.BytesIO()

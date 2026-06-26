@@ -379,7 +379,7 @@ class ModelRegistryTests(unittest.TestCase):
         self.assertEqual([m["id"] for m in first["data"]], ["alpha-model"])
         self.assertEqual([m["id"] for m in second["data"]], ["alpha-model"])
 
-    def test_provider_refresh_error_preserves_last_known_model_in_union_snapshot(self):
+    def test_provider_refresh_error_removes_stale_model_from_union_snapshot(self):
         cfg = registry_config("union")
         cfg["models"]["provider_model_capabilities"] = {
             "alpha": {
@@ -388,7 +388,14 @@ class ModelRegistryTests(unittest.TestCase):
                 "models": ["alpha/raw"],
                 "canonical_map": {"alpha-model": "alpha/raw"},
                 "formats": ["chat_completions"],
-            }
+            },
+            "beta": {
+                "status": "ok",
+                "fetched_at": 123,
+                "models": ["beta/raw"],
+                "canonical_map": {"beta-model": "beta/raw"},
+                "formats": ["chat_completions"],
+            },
         }
         model_registry.rebuild_models_union_snapshot(cfg, FakeRouter())
         client = FakeUpstreamClient({"https://alpha.example": RuntimeError("network failed for alpha-key")})
@@ -397,7 +404,11 @@ class ModelRegistryTests(unittest.TestCase):
         result = model_registry.models_from_capabilities(cfg, FakeRouter())
 
         self.assertEqual(cfg["models"]["provider_model_capabilities"]["alpha"]["status"], "error")
-        self.assertEqual([m["id"] for m in result["data"]], ["alpha-model"])
+        # Error-status provider alpha should NOT contribute stale models.
+        model_ids = [m["id"] for m in result["data"]]
+        self.assertNotIn("alpha-model", model_ids)
+        # Healthy provider beta should still contribute its models.
+        self.assertIn("beta-model", model_ids)
         self.assertNotIn("alpha-key", cfg["models"]["provider_model_capabilities"]["alpha"]["error"])
 
     def test_models_from_capabilities_includes_configured_models(self):

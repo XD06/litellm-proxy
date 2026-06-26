@@ -467,7 +467,7 @@ def rebuild_models_union_snapshot(config: Dict[str, Any], router=None) -> Dict[s
                 pcfg = providers_cfg.get(provider_name) or {}
                 if not pcfg.get("enabled", True):
                     continue
-                if not isinstance(entry, dict) or entry.get("status") not in ("ok", "error", "pending"):
+                if not isinstance(entry, dict) or entry.get("status") not in ("ok", "pending"):
                     continue
                 canonical_map = entry.get("canonical_map") or {}
                 if isinstance(canonical_map, dict) and canonical_map:

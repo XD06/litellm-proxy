@@ -1405,6 +1405,12 @@ def stream_responses_sse_to_anthropic(
     text_or_tool_seen = False
     first_byte_received = False
     stream_start_time = time.time()
+    # Global accumulators for all text/reasoning emitted via deltas across all
+    # items.  Used by the duplicate-guard in finalize_item / output_text.done to
+    # detect when content was already streamed (e.g. when upstream item IDs are
+    # inconsistent between delta and done events).
+    _anthropic_text_buf = ""
+    _anthropic_reasoning_buf = ""
 
     def sse(event, data):
         wfile.write(f"event: {event}\n".encode())
@@ -1481,6 +1487,7 @@ def stream_responses_sse_to_anthropic(
         return "\n".join([part for part in parts if part])
 
     def emit_reasoning(text, item):
+        nonlocal _anthropic_reasoning_buf
         if not text:
             return
         # Anthropic block ordering requires thinking before text/tool. If text
@@ -1488,6 +1495,7 @@ def stream_responses_sse_to_anthropic(
         # block; only retain the text on the item so non-streaming/history
         # consumers still see it.
         item["thinking"] = (item.get("thinking") or "") + text
+        _anthropic_reasoning_buf += text
         if text_or_tool_seen:
             return
         idx = ensure_block("thinking", item)
@@ -1503,10 +1511,11 @@ def stream_responses_sse_to_anthropic(
         wfile.flush()
 
     def emit_text(text, item):
-        nonlocal text_or_tool_seen
+        nonlocal text_or_tool_seen, _anthropic_text_buf
         if not text:
             return
         text_or_tool_seen = True
+        _anthropic_text_buf += text
         idx = ensure_block("text", item)
         item["text"] = (item.get("text") or "") + text
         sse(
@@ -1536,18 +1545,36 @@ def stream_responses_sse_to_anthropic(
         )
         wfile.flush()
 
-    def finalize_item(item):
+    def finalize_item(item, output_index=None):
         if not isinstance(item, dict):
             return
-        existing = remember_item(item) or item
+        # Try to find the existing item by output_index first.  Some providers
+        # send delta events with an item_id / output_index that does not match
+        # the ``id`` field on the ``output_item.done`` payload.  When that
+        # happens, ``remember_item`` would create a brand-new entry (without the
+        # streamed text/reasoning) and we would re-emit the full content as a
+        # duplicate delta.  Matching by output_index is more reliable because
+        # the index is positional and stable across the item lifecycle.
+        existing = None
+        if isinstance(output_index, int) and 0 <= output_index < len(item_order):
+            existing = items.get(item_order[output_index])
+        if existing is not None:
+            existing.update({k: v for k, v in item.items() if v is not None})
+        else:
+            existing = remember_item(item) or item
+
         item_type = existing.get("type")
         if item_type == "reasoning":
             if not existing.get("thinking"):
-                emit_reasoning(reasoning_from_item(existing), existing)
+                reasoning_text = reasoning_from_item(existing)
+                if reasoning_text and not _already_streamed(_anthropic_reasoning_buf, reasoning_text):
+                    emit_reasoning(reasoning_text, existing)
             close_open_block()
         elif item_type == "message":
             if not existing.get("text"):
-                emit_text(text_from_response_content(existing), existing)
+                text = text_from_response_content(existing)
+                if text and not _already_streamed(_anthropic_text_buf, text):
+                    emit_text(text, existing)
             close_open_block()
         elif item_type == "function_call":
             args = existing.get("arguments") or ""
@@ -1574,7 +1601,7 @@ def stream_responses_sse_to_anthropic(
             remember_item(payload.get("item") or {})
             return
         if event_type == "response.output_item.done":
-            finalize_item(payload.get("item") or {})
+            finalize_item(payload.get("item") or {}, output_index=payload.get("output_index"))
             return
         if event_type == "response.output_text.delta":
             item = item_by_payload(payload) or remember_item({"id": payload.get("item_id"), "type": "message"}) or {}
@@ -1583,7 +1610,9 @@ def stream_responses_sse_to_anthropic(
         if event_type == "response.output_text.done":
             item = item_by_payload(payload) or remember_item({"id": payload.get("item_id"), "type": "message"}) or {}
             if not item.get("text"):
-                emit_text(str(payload.get("text") or ""), item)
+                text = str(payload.get("text") or "")
+                if text and not _already_streamed(_anthropic_text_buf, text):
+                    emit_text(text, item)
             close_open_block()
             return
         if event_type in (
@@ -1601,7 +1630,9 @@ def stream_responses_sse_to_anthropic(
         ):
             item = item_by_payload(payload) or remember_item({"id": payload.get("item_id"), "type": "reasoning"}) or {}
             if not item.get("thinking"):
-                emit_reasoning(_responses_reasoning_text_from_payload(payload), item)
+                reasoning_text = _responses_reasoning_text_from_payload(payload)
+                if reasoning_text and not _already_streamed(_anthropic_reasoning_buf, reasoning_text):
+                    emit_reasoning(reasoning_text, item)
             close_open_block()
             return
         if event_type == "response.function_call_arguments.delta":
@@ -1868,13 +1899,36 @@ def stream_responses_sse_to_openai_chat(
                 parts.append(summary["text"])
         return "\n".join([part for part in parts if part])
 
-    def finalize_item(item):
-        existing = remember_item(item) or item
+    def finalize_item(item, output_index=None):
+        # Try to find the existing item by output_index first.  Some providers
+        # send delta events with an item_id / output_index that does not match
+        # the ``id`` field on the ``output_item.done`` payload.  When that
+        # happens, ``remember_item`` would create a brand-new entry (without the
+        # streamed text/reasoning) and we would re-emit the full content as a
+        # duplicate delta.  Matching by output_index is more reliable because
+        # the index is positional and stable across the item lifecycle.
+        existing = None
+        if isinstance(output_index, int) and 0 <= output_index < len(item_order):
+            existing = items.get(item_order[output_index])
+        if existing is not None:
+            # Merge the done item's fields (content, summary, etc.) into the
+            # already-tracked item without creating a new dict entry.
+            existing.update({k: v for k, v in item.items() if v is not None})
+        else:
+            existing = remember_item(item) or item
+
         item_type = existing.get("type")
         if item_type == "reasoning" and not existing.get("reasoning_content"):
-            emit_reasoning(reasoning_from_item(existing), existing)
+            reasoning_text = reasoning_from_item(existing)
+            # Guard: skip if this reasoning was already streamed via deltas
+            # (happens when item tracking failed due to id mismatch).
+            if reasoning_text and not _already_streamed(reasoning_buf, reasoning_text):
+                emit_reasoning(reasoning_text, existing)
         elif item_type == "message" and not existing.get("text"):
-            emit_text(text_from_response_content(existing), existing)
+            text = text_from_response_content(existing)
+            # Guard: skip if this text was already streamed via deltas.
+            if text and not _already_streamed(content_buf, text):
+                emit_text(text, existing)
         elif item_type == "function_call":
             ensure_tool_started(existing)
             if existing.get("arguments") and not existing.get("_arguments_streamed"):
@@ -1901,7 +1955,7 @@ def stream_responses_sse_to_openai_chat(
                 ensure_tool_started(item)
             return
         if event_type == "response.output_item.done":
-            finalize_item(payload.get("item") or {})
+            finalize_item(payload.get("item") or {}, output_index=payload.get("output_index"))
             return
         if event_type == "response.output_text.delta":
             item = item_by_payload(payload) or remember_item({"id": payload.get("item_id"), "type": "message"}) or {}
@@ -1910,7 +1964,9 @@ def stream_responses_sse_to_openai_chat(
         if event_type == "response.output_text.done":
             item = item_by_payload(payload) or remember_item({"id": payload.get("item_id"), "type": "message"}) or {}
             if not item.get("text"):
-                emit_text(str(payload.get("text") or ""), item)
+                text = str(payload.get("text") or "")
+                if text and not _already_streamed(content_buf, text):
+                    emit_text(text, item)
             return
         if event_type in (
             "response.reasoning_summary_text.delta",
@@ -1927,7 +1983,9 @@ def stream_responses_sse_to_openai_chat(
         ):
             item = item_by_payload(payload) or remember_item({"id": payload.get("item_id"), "type": "reasoning"}) or {}
             if not item.get("reasoning_content"):
-                emit_reasoning(_responses_reasoning_text_from_payload(payload), item)
+                reasoning_text = _responses_reasoning_text_from_payload(payload)
+                if reasoning_text and not _already_streamed(reasoning_buf, reasoning_text):
+                    emit_reasoning(reasoning_text, item)
             return
         if event_type == "response.function_call_arguments.delta":
             item = item_by_payload(payload) or remember_item({"id": payload.get("item_id"), "type": "function_call"}) or {}
@@ -2237,6 +2295,19 @@ def _responses_finish_to_anthropic_stop(finish_reason: Optional[str], status: Op
     if finish_reason in ("stop", "end_turn", None, ""):
         return "end_turn"
     return str(finish_reason)
+
+
+def _already_streamed(buffer: str, text: str) -> bool:
+    """Check whether *text* was already emitted as streaming deltas.
+
+    Used by ``response.output_item.done`` / ``response.output_text.done``
+    handlers to avoid re-emitting the full content as a duplicate delta when
+    the upstream provider's item tracking is inconsistent (e.g. delta events
+    carry a different ``item_id`` than the ``output_item.done`` payload).
+    """
+    if not buffer or not text:
+        return False
+    return buffer.endswith(text)
 
 
 def _responses_reasoning_text_from_payload(payload: Dict[str, Any]) -> str:
