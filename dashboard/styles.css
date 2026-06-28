@@ -3003,6 +3003,36 @@ tr.clickable:hover {
   height: 16px;
 }
 
+.priority-chip {
+  margin-right: 4px;
+  min-height: 21px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  color: var(--muted);
+  background: var(--surface-soft);
+}
+
+.priority-chip.prio-hi {
+  color: #fff;
+  background: #09090b;
+}
+
+.priority-chip.prio-mid {
+  color: var(--text);
+  background: #d4d4d8;
+}
+
+.priority-chip.prio-lo {
+  color: var(--muted);
+  background: var(--surface-soft);
+}
+
 .provider-status-dot {
   width: 10px;
   height: 10px;
@@ -7873,19 +7903,18 @@ body {
   }
 
   .provider-card-footer {
-    align-items: stretch;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .provider-card-stats {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
   }
 
   .provider-runtime-actions {
-    width: 100%;
-  }
-
-  .provider-runtime-actions .button {
-    flex: 1 1 auto;
-  }
-
-  .provider-runtime-actions .button.icon-action {
-    flex: 0 0 34px;
+    flex-shrink: 0;
   }
 
   .provider-drawer {

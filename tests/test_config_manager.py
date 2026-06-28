@@ -397,7 +397,7 @@ class ConfigManagerTests(unittest.TestCase):
 
         self.assertNotIn("alpha", cfg["models"].get("provider_model_map") or {})
 
-    def test_update_provider_model_mapping_replaces_existing_raw_claim(self):
+    def test_update_provider_model_mapping_allows_multiple_canonical_for_same_raw(self):
         _config_path, overlay_path = self.temp_paths()
         mgr = config_manager.RuntimeConfigManager(base_config(), overlay_path=overlay_path)
         mgr.update_provider_model_mapping(
@@ -409,13 +409,13 @@ class ConfigManagerTests(unittest.TestCase):
 
         cfg = mgr.update_provider_model_mapping(
             "alpha",
-            old_model="auto-alpha",
             model="renamed-alpha",
             raw_model="vendor/alpha",
         )
 
-        self.assertNotIn("client-alpha", cfg["models"]["provider_model_map"]["alpha"])
-        self.assertEqual(cfg["models"]["provider_model_map"]["alpha"]["renamed-alpha"], "vendor/alpha")
+        pmap = cfg["models"]["provider_model_map"]["alpha"]
+        self.assertEqual(pmap["client-alpha"], "vendor/alpha")
+        self.assertEqual(pmap["renamed-alpha"], "vendor/alpha")
 
     def test_update_failure_policy_write_overlay(self):
         _config_path, overlay_path = self.temp_paths()

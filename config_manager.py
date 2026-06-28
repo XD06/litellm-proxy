@@ -391,9 +391,6 @@ class RuntimeConfigManager:
         if old_model_id and old_model_id != new_model:
             provider_map.pop(old_model_id, None)
         if new_model:
-            for existing_model, existing_raw in list(provider_map.items()):
-                if str(existing_raw or "").strip() == raw_model_id and str(existing_model or "") != new_model:
-                    provider_map.pop(existing_model, None)
             provider_map[new_model] = raw_model_id
         elif old_model_id:
             provider_map.pop(old_model_id, None)

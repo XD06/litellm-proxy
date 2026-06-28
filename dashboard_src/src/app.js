@@ -2691,7 +2691,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           <span class="provider-status-dot ${view.runtimeState.badge}"></span>
           <div class="provider-title-block">
             <div class="provider-name name-${view.runtimeState.badge}" title="${escapeHtml(view.name)}">${escapeHtml(view.name)}</div>
-            <div class="provider-meta">${view.formatNames.length ? view.formatNames.map(formatChip).join("") : `<span class="muted">No formats</span>`}</div>
+            <div class="provider-meta">${view.formatNames.length ? view.formatNames.map(formatChip).join("") : `<span class="muted">No formats</span>`}<span class="priority-chip prio-${view.priority <= 0 ? "hi" : view.priority <= 5 ? "mid" : "lo"}" title="Priority ${view.priority} (lower = higher precedence)">P${view.priority}</span></div>
           </div>
           <button class="provider-card-settings-btn" type="button" data-provider-open="${escapeHtml(view.name)}" title="Settings" aria-label="Provider settings">${iconSvg("settings")}</button>
         </div>
@@ -5385,7 +5385,8 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       ${renderRoutingSummary(summary)}
       <div class="kv-grid drawer-kv">
         <span>Status</span><span>${detail.status_code ? statusBadge(detail.status, detail.status_code) : messageMarkup(detail.state || "-")}</span>
-        <span>Model</span><span>${escapeHtml(detail.model || "-")}</span>
+        <span>Client Model</span><span class="mono">${escapeHtml(detail.model || "-")}</span>
+        <span>Upstream Model</span><span class="mono">${(() => { const um = [...new Set(attempts.map(a => a.provider_model).filter(Boolean))]; return um.length ? chipList(um) : escapeHtml("-"); })()}</span>
         <span>Client</span><span>${chipList([detail.client_format || "-"])}</span>
         <span>Endpoint</span><span>${messageMarkup(detail.endpoint || "-")}</span>
         <span>Path</span><span>${escapeHtml(detail.path || "-")}</span>
@@ -5419,7 +5420,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         <div class="kv-grid">
           <span>Key</span><span>${escapeHtml(keyLabel)}</span>
           <span>Key ID</span><span>${escapeHtml(maskedKey)}</span>
-          <span>Provider Model</span><span>${escapeHtml(attempt.provider_model || "-")}</span>
+          <span>Upstream Model ID</span><span class="mono">${escapeHtml(attempt.provider_model || "-")}</span>
           <span>Upstream Format</span><span>${chipList([attempt.upstream_format || "-"])}</span>
           <span>Duration</span><span>${attempt.duration_ms ? escapeHtml(fmtMs(attempt.duration_ms)) : escapeHtml("-")}</span>
           <span>HTTP Status</span><span>${attempt.http_status ? statusBadge("", attempt.http_status) : escapeHtml("-")}</span>
