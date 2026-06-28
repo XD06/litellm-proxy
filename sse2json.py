@@ -315,7 +315,7 @@ def _apply_runtime_config(new_config: dict) -> None:
     global CONFIG, ROUTER, UPSTREAM_CLIENT, OBSERVABILITY, AUDIT, RUNTIME
     old_router = ROUTER
     old_obs = OBSERVABILITY
-    old_caps = ((CONFIG.get("models") or {}).get("provider_model_capabilities") or {}) if CONFIG else {}
+    old_caps = dict(((CONFIG.get("models") or {}).get("provider_model_capabilities") or {})) if CONFIG else {}
     new_config = apply_env_overlays(new_config)
     # Preserve provider model capabilities across runtime config reloads.
     # Without this, key probes can lose discovered model choices after edits.
