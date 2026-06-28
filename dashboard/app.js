@@ -4675,7 +4675,7 @@
           <span class="provider-status-dot ${view.runtimeState.badge}"></span>
           <div class="provider-title-block">
             <div class="provider-name name-${view.runtimeState.badge}" title="${escapeHtml(view.name)}">${escapeHtml(view.name)}</div>
-            <div class="provider-meta">${view.formatNames.length ? view.formatNames.map(formatChip).join("") : `<span class="muted">No formats</span>`}<span class="priority-chip prio-${view.priority <= 0 ? "hi" : view.priority <= 5 ? "mid" : "lo"}" title="Priority ${view.priority} (lower = higher precedence)">P${view.priority}</span></div>
+            <div class="provider-meta">${view.formatNames.length ? view.formatNames.map(formatChip).join("") : `<span class="muted">No formats</span>`}<span class="priority-chip prio-${view.priority >= 10 ? "hi" : view.priority >= 5 ? "mid" : "lo"}" title="Priority ${view.priority}">P${view.priority}</span></div>
           </div>
           <button class="provider-card-settings-btn" type="button" data-provider-open="${escapeHtml(view.name)}" title="Settings" aria-label="Provider settings">${iconSvg("settings")}</button>
         </div>
