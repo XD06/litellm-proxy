@@ -417,6 +417,36 @@ class ConfigManagerTests(unittest.TestCase):
         self.assertEqual(pmap["client-alpha"], "vendor/alpha")
         self.assertEqual(pmap["renamed-alpha"], "vendor/alpha")
 
+    def test_update_provider_model_mapping_tombstones_base_config_entry(self):
+        """When renaming a mapping that exists in base config, the old name
+        must be tombstoned (None) in the overlay so it doesn't resurrect
+        on the next _deep_merge."""
+        _config_path, overlay_path = self.temp_paths()
+        base = base_config()
+        base["models"]["provider_model_map"] = {
+            "alpha": {"old-name": "vendor/alpha"}
+        }
+        mgr = config_manager.RuntimeConfigManager(base, overlay_path=overlay_path)
+
+        cfg = mgr.update_provider_model_mapping(
+            "alpha",
+            old_model="old-name",
+            model="new-name",
+            raw_model="vendor/alpha",
+        )
+
+        # Merged config should have new-name but NOT old-name
+        pmap = cfg["models"]["provider_model_map"]["alpha"]
+        self.assertEqual(pmap["new-name"], "vendor/alpha")
+        self.assertNotIn("old-name", pmap)
+
+        # Overlay should have a tombstone for old-name
+        with open(overlay_path, "r", encoding="utf-8") as f:
+            overlay = json.load(f)
+        overlay_pmap = overlay["models"]["provider_model_map"]["alpha"]
+        self.assertIsNone(overlay_pmap["old-name"])
+        self.assertEqual(overlay_pmap["new-name"], "vendor/alpha")
+
     def test_update_failure_policy_write_overlay(self):
         _config_path, overlay_path = self.temp_paths()
         mgr = config_manager.RuntimeConfigManager(base_config(), overlay_path=overlay_path)

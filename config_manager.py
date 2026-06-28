@@ -381,25 +381,43 @@ class RuntimeConfigManager:
         if not isinstance(models, dict):
             models = {}
             overlay["models"] = models
-        provider_maps = copy.deepcopy((self.config.get("models") or {}).get("provider_model_map") or {})
-        if not isinstance(provider_maps, dict):
-            provider_maps = {}
-        provider_map = copy.deepcopy(provider_maps.get(provider) or {})
-        if not isinstance(provider_map, dict):
-            provider_map = {}
+
+        # Read the overlay's own provider_model_map (NOT the merged config).
+        # This ensures we only carry forward the user's explicit overrides;
+        # base-config entries are handled via tombstones so they don't
+        # "resurrect" after being renamed or deleted.
+        overlay_maps = models.get("provider_model_map")
+        if not isinstance(overlay_maps, dict):
+            overlay_maps = {}
+        overlay_map = copy.deepcopy(overlay_maps.get(provider) or {})
+        if not isinstance(overlay_map, dict):
+            overlay_map = {}
+
+        # Determine which old_model entries exist in base config so we can
+        # tombstone them instead of merely popping (which would let the base
+        # entry reappear after _deep_merge).
+        base_maps = (self.base_config.get("models") or {}).get("provider_model_map") or {}
+        base_map = base_maps.get(provider) if isinstance(base_maps, dict) else None
+        base_map = base_map if isinstance(base_map, dict) else {}
 
         if old_model_id and old_model_id != new_model:
-            provider_map.pop(old_model_id, None)
+            if old_model_id in base_map:
+                overlay_map[old_model_id] = None  # tombstone
+            else:
+                overlay_map.pop(old_model_id, None)
         if new_model:
-            provider_map[new_model] = raw_model_id
+            overlay_map[new_model] = raw_model_id
         elif old_model_id:
-            provider_map.pop(old_model_id, None)
+            if old_model_id in base_map:
+                overlay_map[old_model_id] = None  # tombstone
+            else:
+                overlay_map.pop(old_model_id, None)
 
-        if provider_map:
-            provider_maps[provider] = provider_map
+        if overlay_map:
+            overlay_maps[provider] = overlay_map
         else:
-            provider_maps.pop(provider, None)
-        models["provider_model_map"] = provider_maps
+            overlay_maps.pop(provider, None)
+        models["provider_model_map"] = overlay_maps
         return self._commit_overlay(overlay)
 
     def _remove_provider_from_routes(self, overlay_models: Dict[str, Any], provider: str) -> None:
@@ -834,6 +852,12 @@ class RuntimeConfigManager:
                 if isinstance(entries, dict):
                     for provider in [name for name, value in entries.items() if value is None]:
                         entries.pop(provider, None)
+                    # Also remove individual None tombstones inside each provider's map
+                    if field == "provider_model_map":
+                        for prov_name, prov_map in entries.items():
+                            if isinstance(prov_map, dict):
+                                for key in [k for k, v in prov_map.items() if v is None]:
+                                    prov_map.pop(key, None)
         return normalized
 
     def _commit_overlay(self, overlay: Dict[str, Any]) -> Dict[str, Any]:
