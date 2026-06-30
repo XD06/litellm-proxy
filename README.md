@@ -52,6 +52,19 @@ python sse2json.py
 
 Use the `server.admin_key` from `config.json` to log in to the dashboard.
 
+## Screenshots
+
+<table>
+  <tr>
+    <td width="50%" align="center"><img src="assets/overview.png" alt="Overview Dashboard" /></td>
+    <td width="50%" align="center"><img src="assets/provider.png" alt="Provider Detail" /></td>
+  </tr>
+  <tr>
+    <td width="50%" align="center"><img src="assets/requests.png" alt="Request History" /></td>
+    <td width="50%" align="center"><img src="assets/playground.png" alt="Playground" /></td>
+  </tr>
+</table>
+
 ## Docker / VPS
 
 ```bash

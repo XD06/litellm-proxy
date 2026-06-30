@@ -52,6 +52,19 @@ python sse2json.py
 
 使用 `config.json` 中的 `server.admin_key` 登录控制台。
 
+## 截图
+
+<table>
+  <tr>
+    <td width="50%" align="center"><img src="assets/overview.png" alt="概览面板" /></td>
+    <td width="50%" align="center"><img src="assets/provider.png" alt="供应商详情" /></td>
+  </tr>
+  <tr>
+    <td width="50%" align="center"><img src="assets/requests.png" alt="请求历史" /></td>
+    <td width="50%" align="center"><img src="assets/playground.png" alt="Playground" /></td>
+  </tr>
+</table>
+
 ## Docker / VPS
 
 ```bash
