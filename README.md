@@ -273,4 +273,4 @@ More architecture context: [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md)
 
 ## License
 
-No license file is currently included. Treat usage and redistribution as private unless a license is added.
+[MIT](LICENSE)
