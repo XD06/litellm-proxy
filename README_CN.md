@@ -4,6 +4,17 @@
 
 [English](README.md) | **中文**
 
+<table>
+  <tr>
+    <td width="50%" align="center"><img src="assets/overview.png" alt="概览面板" /></td>
+    <td width="50%" align="center"><img src="assets/provider.png" alt="供应商详情" /></td>
+  </tr>
+  <tr>
+    <td width="50%" align="center"><img src="assets/requests.png" alt="请求历史" /></td>
+    <td width="50%" align="center"><img src="assets/playground.png" alt="Playground" /></td>
+  </tr>
+</table>
+
 一个格式感知的 LLM API 代理，接受 OpenAI Chat Completions、OpenAI Responses 和 Anthropic Messages 三种格式的请求，在多个供应商和密钥之间智能路由并自动故障转移，必要时在不同格式之间进行转换——全部通过内置 Web 控制台管理。
 
 客户端通过路径选择 API 格式，每个供应商声明其上游格式。代理优先使用同格式直通以提升速度，仅在回退供应商使用不同格式时才进行转换。
@@ -51,19 +62,6 @@ python sse2json.py
 | `http://127.0.0.1:4894/health` | 健康检查 |
 
 使用 `config.json` 中的 `server.admin_key` 登录控制台。
-
-## 截图
-
-<table>
-  <tr>
-    <td width="50%" align="center"><img src="assets/overview.png" alt="概览面板" /></td>
-    <td width="50%" align="center"><img src="assets/provider.png" alt="供应商详情" /></td>
-  </tr>
-  <tr>
-    <td width="50%" align="center"><img src="assets/requests.png" alt="请求历史" /></td>
-    <td width="50%" align="center"><img src="assets/playground.png" alt="Playground" /></td>
-  </tr>
-</table>
 
 ## Docker / VPS
 

@@ -4,6 +4,17 @@
 
 **English** | [中文](README_CN.md)
 
+<table>
+  <tr>
+    <td width="50%" align="center"><img src="assets/overview.png" alt="Overview Dashboard" /></td>
+    <td width="50%" align="center"><img src="assets/provider.png" alt="Provider Detail" /></td>
+  </tr>
+  <tr>
+    <td width="50%" align="center"><img src="assets/requests.png" alt="Request History" /></td>
+    <td width="50%" align="center"><img src="assets/playground.png" alt="Playground" /></td>
+  </tr>
+</table>
+
 A format-aware LLM API proxy that accepts OpenAI Chat Completions, OpenAI Responses, and Anthropic Messages requests, routes them across multiple providers and keys with failover, and converts between formats when needed — all managed through a built-in web dashboard.
 
 The client picks the API shape by path; each provider declares its upstream format. The proxy prefers same-format pass-through for speed and only converts when a fallback provider uses a different format.
@@ -51,19 +62,6 @@ python sse2json.py
 | `http://127.0.0.1:4894/health` | Health check |
 
 Use the `server.admin_key` from `config.json` to log in to the dashboard.
-
-## Screenshots
-
-<table>
-  <tr>
-    <td width="50%" align="center"><img src="assets/overview.png" alt="Overview Dashboard" /></td>
-    <td width="50%" align="center"><img src="assets/provider.png" alt="Provider Detail" /></td>
-  </tr>
-  <tr>
-    <td width="50%" align="center"><img src="assets/requests.png" alt="Request History" /></td>
-    <td width="50%" align="center"><img src="assets/playground.png" alt="Playground" /></td>
-  </tr>
-</table>
 
 ## Docker / VPS
 
