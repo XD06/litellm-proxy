@@ -437,6 +437,177 @@ def _apply_env_overlays(cfg: Dict[str, Any]) -> Dict[str, Any]:
     return _deep_merge(cfg, overlay)
 
 
+# ---------------------------------------------------------------------------
+# Zero-config: well-known environment variable → provider preset mapping.
+# When no config.json exists and the default provider still has a placeholder
+# key, the proxy scans os.environ for any of these variables and auto-
+# generates provider entries so the user can start the proxy with zero
+# configuration file edits.
+# ---------------------------------------------------------------------------
+PROVIDER_ENV_PRESETS: Dict[str, Dict[str, Any]] = {
+    "OPENAI_API_KEY": {
+        "name": "openai",
+        "base_url": "https://api.openai.com",
+        "formats": {"chat_completions": True, "responses": True},
+        "priority": 10,
+    },
+    "ANTHROPIC_API_KEY": {
+        "name": "anthropic",
+        "base_url": "https://api.anthropic.com",
+        "formats": {"anthropic_messages": True},
+        "priority": 10,
+    },
+    "DEEPSEEK_API_KEY": {
+        "name": "deepseek",
+        "base_url": "https://api.deepseek.com",
+        "formats": {"chat_completions": True},
+        "priority": 8,
+    },
+    "GROQ_API_KEY": {
+        "name": "groq",
+        "base_url": "https://api.groq.com/openai",
+        "formats": {"chat_completions": True},
+        "priority": 7,
+    },
+    "OPENROUTER_API_KEY": {
+        "name": "openrouter",
+        "base_url": "https://openrouter.ai/api",
+        "formats": {"chat_completions": True},
+        "priority": 6,
+    },
+    "MISTRAL_API_KEY": {
+        "name": "mistral",
+        "base_url": "https://api.mistral.ai",
+        "formats": {"chat_completions": True},
+        "priority": 7,
+    },
+    "TOGETHER_AI_API_KEY": {
+        "name": "together",
+        "base_url": "https://api.together.xyz",
+        "formats": {"chat_completions": True},
+        "priority": 6,
+    },
+    "FIREWORKS_API_KEY": {
+        "name": "fireworks",
+        "base_url": "https://api.fireworks.ai/inference",
+        "formats": {"chat_completions": True},
+        "priority": 6,
+    },
+    "PERPLEXITY_API_KEY": {
+        "name": "perplexity",
+        "base_url": "https://api.perplexity.ai",
+        "formats": {"chat_completions": True},
+        "priority": 5,
+    },
+    "XAI_API_KEY": {
+        "name": "xai",
+        "base_url": "https://api.x.ai",
+        "formats": {"chat_completions": True},
+        "priority": 7,
+    },
+    "SILICONFLOW_API_KEY": {
+        "name": "siliconflow",
+        "base_url": "https://api.siliconflow.cn",
+        "formats": {"chat_completions": True},
+        "priority": 6,
+    },
+    "MOONSHOT_API_KEY": {
+        "name": "moonshot",
+        "base_url": "https://api.moonshot.cn",
+        "formats": {"chat_completions": True},
+        "priority": 6,
+    },
+    "ZHIPUAI_API_KEY": {
+        "name": "zhipuai",
+        "base_url": "https://open.bigmodel.cn/api/paas",
+        "formats": {"chat_completions": True},
+        "priority": 6,
+    },
+    "DASHSCOPE_API_KEY": {
+        "name": "dashscope",
+        "base_url": "https://dashscope.aliyuncs.com/compatible-mode",
+        "formats": {"chat_completions": True},
+        "priority": 6,
+    },
+    "VOLC_API_KEY": {
+        "name": "volcengine",
+        "base_url": "https://ark.cn-beijing.volces.com/api",
+        "formats": {"chat_completions": True},
+        "priority": 6,
+    },
+}
+
+# Reverse lookup: env var name → provider name (for fast membership tests)
+_ENV_TO_PROVIDER_NAME = {env: preset["name"] for env, preset in PROVIDER_ENV_PRESETS.items()}
+
+
+def _is_placeholder_key(key_value: str) -> bool:
+    """Check if a key string is the default placeholder."""
+    return not key_value or key_value in ("your key", "your-key", "YOUR_KEY", "")
+
+
+def generate_config_from_env() -> Dict[str, Any]:
+    """Scan os.environ for well-known API key variables and generate provider configs.
+
+    Returns a dict with a "providers" key containing all detected providers,
+    and a "routing.default_provider_pool" listing them in priority order.
+    Returns an empty dict if no known env vars are found.
+    """
+    detected: list[tuple[str, str, Dict[str, Any]]] = []  # (env_var, key_value, preset)
+
+    for env_var, preset in PROVIDER_ENV_PRESETS.items():
+        key_value = os.environ.get(env_var, "").strip()
+        if not key_value:
+            continue
+        detected.append((env_var, key_value, preset))
+
+    if not detected:
+        return {}
+
+    providers: Dict[str, Any] = {}
+    pool: list[str] = []
+
+    # Sort by priority descending so highest-priority providers come first.
+    detected.sort(key=lambda item: item[2].get("priority", 0), reverse=True)
+
+    for env_var, key_value, preset in detected:
+        name = preset["name"]
+        provider_cfg: Dict[str, Any] = {
+            "base_url": preset["base_url"],
+            "keys": [key_value],
+            "headers": {"User-Agent": "Mozilla/5.0"},
+            "enabled": True,
+        }
+        # Apply format flags
+        formats = preset.get("formats") or {}
+        for fmt, enabled in formats.items():
+            if fmt in SUPPORTED_FORMATS and enabled:
+                provider_cfg.setdefault("formats", {})[fmt] = {"enabled": True, "path": DEFAULT_FORMAT_PATHS[fmt]}
+        if "priority" in preset:
+            provider_cfg["priority"] = preset["priority"]
+        providers[name] = provider_cfg
+        pool.append(name)
+
+    result: Dict[str, Any] = {"providers": providers}
+    if pool:
+        result["routing"] = {"default_provider_pool": pool}
+    return result
+
+
+def _has_real_providers(cfg: Dict[str, Any]) -> bool:
+    """Check if the config has at least one provider with a non-placeholder key."""
+    providers = cfg.get("providers") or {}
+    for pcfg in providers.values():
+        if not isinstance(pcfg, dict):
+            continue
+        keys = pcfg.get("keys") or []
+        for key in keys:
+            kv = key if isinstance(key, str) else (key.get("key") if isinstance(key, dict) else "")
+            if not _is_placeholder_key(kv):
+                return True
+    return False
+
+
 def _configured_config_path() -> str:
     return os.environ.get("PROXY_CONFIG_PATH") or os.path.join(os.path.dirname(__file__), "config.json")
 
@@ -445,12 +616,20 @@ def _configured_runtime_config_path() -> str:
     return os.environ.get("PROXY_RUNTIME_CONFIG_PATH") or os.path.join(os.path.dirname(__file__), "runtime_config.json")
 
 
+# Module-level flag: set to True when zero-config providers were injected
+# so the startup code can print a helpful banner.
+ZERO_CONFIG_ACTIVE: bool = False
+
+
 def load_base_config(*, apply_env: bool = True) -> Dict[str, Any]:
+    global ZERO_CONFIG_ACTIVE
+    ZERO_CONFIG_ACTIVE = False
     cfg = _default_config()
 
     config_path = _configured_config_path()
+    config_file_exists = os.path.exists(config_path)
 
-    if os.path.exists(config_path):
+    if config_file_exists:
         try:
             with open(config_path, "r", encoding="utf-8-sig") as f:
                 file_cfg = json.load(f)
@@ -462,6 +641,18 @@ def load_base_config(*, apply_env: bool = True) -> Dict[str, Any]:
         except Exception:
             # 配置文件解析失败时，回退到默认配置（保持可启动性）
             pass
+
+    # Zero-config: if no config file exists (or the config still has only
+    # the placeholder default provider), scan environment variables for
+    # well-known API keys and auto-generate provider entries.
+    if not config_file_exists or not _has_real_providers(cfg):
+        env_cfg = generate_config_from_env()
+        if env_cfg.get("providers"):
+            # Replace placeholder default provider with env-detected providers.
+            cfg["providers"] = env_cfg["providers"]
+            if env_cfg.get("routing", {}).get("default_provider_pool"):
+                cfg.setdefault("routing", {})["default_provider_pool"] = env_cfg["routing"]["default_provider_pool"]
+            ZERO_CONFIG_ACTIVE = True
 
     if apply_env:
         cfg = _apply_env_overlays(cfg)

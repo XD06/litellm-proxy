@@ -90,6 +90,9 @@ class AdminRoutesMixin:
                 history_dropped = int(OBSERVABILITY._history.dropped_count())
             except Exception:
                 pass
+            # Include zero-config and provider-preset info so the dashboard
+            # can render its guided onboarding experience.
+            from config_loader import PROVIDER_ENV_PRESETS, ZERO_CONFIG_ACTIVE
             return self._resp_json(
                 {
                     "status": "ok",
@@ -97,6 +100,17 @@ class AdminRoutesMixin:
                     "router": ROUTER.snapshot(),
                     "policy": scheduler_policy.policy_snapshot(CONFIG),
                     "history_dropped": history_dropped,
+                    "zero_config": bool(ZERO_CONFIG_ACTIVE),
+                    "provider_presets": [
+                        {
+                            "env_var": env_var,
+                            "name": preset["name"],
+                            "base_url": preset["base_url"],
+                            "formats": list(preset.get("formats", {}).keys()),
+                            "priority": preset.get("priority", 0),
+                        }
+                        for env_var, preset in PROVIDER_ENV_PRESETS.items()
+                    ],
                 }
             )
         if endpoint == "metrics":
@@ -131,6 +145,15 @@ class AdminRoutesMixin:
                 name, limit=int(params.get("limit", 60) or 60)
             )
             return self._resp_json({"provider": name, "activity": entry})
+        if endpoint == "health/scores":
+            # Per-provider health scores (0–100) combining success rate,
+            # latency, key availability, and cooldown state. Used by the
+            # dashboard's failover health overview widget.
+            router_snap = ROUTER.snapshot()
+            scores = OBSERVABILITY.provider_health_scores(router_snapshot=router_snap)
+            # Feed scores back to the router for auto routing mode.
+            ROUTER.update_health_scores(scores)
+            return self._resp_json(scores)
         if endpoint == "routing":
             return self._resp_json(
                 {
@@ -520,6 +543,52 @@ class AdminRoutesMixin:
                 self._audit_admin_event("config_overlay_compact_failed", target="config/overlay", status="failed", error=str(e))
                 return self._resp_json({"error": {"message": str(e)}}, 400)
 
+        if parts == ["models", "infer-mapping"]:
+            body = self._read_json_body()
+            if isinstance(body, tuple):
+                return self._resp_json(body[0], body[1])
+            model = str((body or {}).get("model") or "").strip()
+            if not model:
+                return self._resp_json({"error": {"message": "model is required"}}, 400)
+            auto_apply = bool((body or {}).get("auto_apply", False))
+            matches = model_registry.find_providers_for_model(CONFIG, model)
+            if auto_apply and matches:
+                for entry in matches:
+                    provider = entry["provider"]
+                    raw_model = entry["raw_model"]
+                    CONFIG_MANAGER.update_provider_model_mapping(
+                        provider,
+                        model=model,
+                        raw_model=raw_model,
+                        old_model="",
+                    )
+                model_registry.clear_cache()
+                model_registry.rebuild_models_union_snapshot(CONFIG_MANAGER.config, ROUTER)
+                _apply_runtime_config(CONFIG_MANAGER.config)
+                self._audit_admin_event(
+                    "model_mapping_auto_inferred",
+                    target=model,
+                    detail={"matches": matches, "auto_applied": True},
+                )
+                return self._resp_json({
+                    "action": "model_mapping_inferred",
+                    "model": model,
+                    "matches": matches,
+                    "auto_applied": True,
+                    "config": CONFIG_MANAGER.snapshot(),
+                })
+            self._audit_admin_event(
+                "model_mapping_inferred",
+                target=model,
+                detail={"matches": matches, "auto_applied": False},
+            )
+            return self._resp_json({
+                "action": "model_mapping_inferred",
+                "model": model,
+                "matches": matches,
+                "auto_applied": False,
+            })
+
         if parts == ["providers"]:
             body = self._read_json_body()
             if isinstance(body, tuple):
@@ -853,6 +922,25 @@ class AdminRoutesMixin:
                 _apply_runtime_config(CONFIG_MANAGER.config)
                 self._audit_admin_event("global_proxy_updated", target="proxy", detail=body or {})
                 return self._resp_json({"action": "global_proxy_updated", "config": CONFIG_MANAGER.snapshot()})
+
+            # --- Hot-reload endpoints (lightweight, no full config rebuild) ---
+            if len(parts) == 3 and parts[0] == "providers" and parts[2] == "priority":
+                provider = parts[1]
+                if provider not in (CONFIG.get("providers") or {}):
+                    return self._resp_json({"error": {"message": f"unknown provider: {provider}"}}, 404)
+                priority = int((body or {}).get("priority", 0))
+                ROUTER.update_provider_priority(provider, priority)
+                self._audit_admin_event("provider_priority_hot_updated", target=f"{provider}/priority", detail={"priority": priority})
+                return self._resp_json({"action": "provider_priority_updated", "provider": provider, "priority": priority, "hot_reload": True})
+
+            if len(parts) == 3 and parts[0] == "providers" and parts[2] == "weight":
+                provider = parts[1]
+                if provider not in (CONFIG.get("providers") or {}):
+                    return self._resp_json({"error": {"message": f"unknown provider: {provider}"}}, 404)
+                weight = max(1, int((body or {}).get("weight", 1)))
+                ROUTER.update_provider_weight(provider, weight)
+                self._audit_admin_event("provider_weight_hot_updated", target=f"{provider}/weight", detail={"weight": weight})
+                return self._resp_json({"action": "provider_weight_updated", "provider": provider, "weight": weight, "hot_reload": True})
 
             if len(parts) == 2 and parts[0] == "providers":
                 provider = parts[1]

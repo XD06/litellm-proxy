@@ -1253,5 +1253,113 @@ class ResponsesSequenceNumberTests(unittest.TestCase):
         self.assertEqual(seqs, list(range(1, len(seqs) + 1)))
 
 
+class ToolCallArgumentRobustnessTests(unittest.TestCase):
+    """Verify _parse_tool_arguments preserves raw content on parse failure."""
+
+    def test_valid_json_returns_parsed_dict(self):
+        from stream_adapters import _parse_tool_arguments
+
+        result = _parse_tool_arguments('{"query": "hello"}')
+        self.assertEqual(result, {"query": "hello"})
+
+    def test_empty_string_returns_empty_dict(self):
+        from stream_adapters import _parse_tool_arguments
+
+        self.assertEqual(_parse_tool_arguments(""), {})
+        self.assertEqual(_parse_tool_arguments("   "), {})
+
+    def test_invalid_json_preserves_raw(self):
+        from stream_adapters import _parse_tool_arguments
+
+        # Fragmented/incomplete JSON that might arrive from a flaky upstream
+        result = _parse_tool_arguments('{"q": "hel')
+        self.assertIn("_raw", result)
+        self.assertEqual(result["_raw"], '{"q": "hel')
+
+    def test_non_dict_json_preserves_raw(self):
+        from stream_adapters import _parse_tool_arguments
+
+        # A bare string or list — not a valid tool input dict
+        result = _parse_tool_arguments('"just a string"')
+        self.assertIn("_raw", result)
+        self.assertEqual(result["_raw"], '"just a string"')
+
+    def test_valid_empty_dict(self):
+        from stream_adapters import _parse_tool_arguments
+
+        result = _parse_tool_arguments("{}")
+        self.assertEqual(result, {})
+
+    def test_stream_openai_sse_to_anthropic_preserves_broken_tool_args(self):
+        """When tool call argument buffer is invalid JSON, the content_log
+        should preserve the raw string instead of discarding it as {}."""
+        output = io.BytesIO()
+        # Send a tool call with arguments that will never form valid JSON
+        lines = [
+            sse_data(
+                {
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [
+                                    {
+                                        "index": 0,
+                                        "id": "call_broken",
+                                        "type": "function",
+                                        "function": {"name": "broken_fn", "arguments": "{not valid"},
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ),
+            sse_data({"choices": [{"delta": {}, "finish_reason": "tool_calls"}],
+                      "usage": {"prompt_tokens": 1, "completion_tokens": 1}}),
+        ]
+
+        result = stream_openai_sse_to_anthropic([], output, "client-model", initial_lines=lines)
+
+        self.assertEqual(result["stop_reason"], "tool_use")
+        tool_use_block = result["content"][0]
+        self.assertEqual(tool_use_block["type"], "tool_use")
+        self.assertEqual(tool_use_block["name"], "broken_fn")
+        # The raw broken JSON should be preserved, not lost as {}
+        self.assertIn("_raw", tool_use_block["input"])
+        self.assertEqual(tool_use_block["input"]["_raw"], "{not valid")
+
+    def test_stream_openai_sse_to_anthropic_valid_tool_args_unchanged(self):
+        """Valid tool call arguments should still parse correctly (no regression)."""
+        output = io.BytesIO()
+        lines = [
+            sse_data(
+                {
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [
+                                    {
+                                        "index": 0,
+                                        "id": "call_ok",
+                                        "type": "function",
+                                        "function": {"name": "lookup", "arguments": "{\"q\":"},
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ),
+            sse_data({"choices": [{"delta": {"tool_calls": [{"index": 0, "function": {"arguments": "\"x\"}"}}]}}]}),
+            sse_data({"choices": [{"delta": {}, "finish_reason": "tool_calls"}],
+                      "usage": {"prompt_tokens": 1, "completion_tokens": 1}}),
+        ]
+
+        result = stream_openai_sse_to_anthropic([], output, "client-model", initial_lines=lines)
+
+        tool_use_block = result["content"][0]
+        self.assertEqual(tool_use_block["input"], {"q": "x"})
+
+
 if __name__ == "__main__":
     unittest.main()

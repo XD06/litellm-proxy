@@ -3,7 +3,11 @@ import unittest
 from unittest.mock import patch
 
 import sse2json
-from format_adapters import ANTHROPIC, CHAT, convert_request, convert_response
+from format_adapters import ANTHROPIC, CHAT, RESPONSES, convert_request, convert_response
+
+
+def same_model(name):
+    return name
 from protocol_adapters import (
     anthropic_message_to_openai_chat_response,
     openai_chat_request_to_anthropic_request,
@@ -476,6 +480,306 @@ class ConversionTests(unittest.TestCase):
         self.assertEqual(resp["choices"][0]["message"]["content"], "answer")
         self.assertEqual(resp["choices"][0]["message"]["tool_calls"][0]["id"], "call_1")
         self.assertEqual(resp["usage"], {"prompt_tokens": 4, "completion_tokens": 6, "total_tokens": 10})
+
+
+class MultimodalConversionTests(unittest.TestCase):
+    """Tests for image content cross-format conversion."""
+
+    # ---- Anthropic → OpenAI Chat ----
+
+    def test_anthropic_url_image_to_openai(self):
+        """Anthropic image with URL source → OpenAI image_url."""
+        req = {
+            "model": "m",
+            "max_tokens": 100,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "What is this?"},
+                        {"type": "image", "source": {"type": "url", "url": "https://example.com/cat.png"}},
+                    ],
+                }
+            ],
+        }
+        payload = convert_request(ANTHROPIC, CHAT, req, resolve_model=same_model)
+        msg = payload["messages"][0]
+        self.assertEqual(msg["role"], "user")
+        self.assertIsInstance(msg["content"], list)
+        parts = msg["content"]
+        self.assertEqual(parts[0], {"type": "text", "text": "What is this?"})
+        self.assertEqual(parts[1], {"type": "image_url", "image_url": {"url": "https://example.com/cat.png"}})
+
+    def test_anthropic_base64_image_to_openai(self):
+        """Anthropic image with base64 source → OpenAI data URL."""
+        req = {
+            "model": "m",
+            "max_tokens": 100,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {"type": "base64", "media_type": "image/jpeg", "data": "abc123"},
+                        },
+                    ],
+                }
+            ],
+        }
+        payload = convert_request(ANTHROPIC, CHAT, req, resolve_model=same_model)
+        parts = payload["messages"][0]["content"]
+        self.assertEqual(parts[0]["type"], "image_url")
+        self.assertEqual(parts[0]["image_url"]["url"], "data:image/jpeg;base64,abc123")
+
+    def test_anthropic_mixed_text_and_image_to_openai(self):
+        """Anthropic mixed content (text + image + text) → OpenAI multipart."""
+        req = {
+            "model": "m",
+            "max_tokens": 100,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Look at this:"},
+                        {"type": "image", "source": {"type": "url", "url": "https://example.com/img.png"}},
+                        {"type": "text", "text": "Is it a dog?"},
+                    ],
+                }
+            ],
+        }
+        payload = convert_request(ANTHROPIC, CHAT, req, resolve_model=same_model)
+        parts = payload["messages"][0]["content"]
+        self.assertIsInstance(parts, list)
+        self.assertEqual(len(parts), 3)
+        self.assertEqual(parts[0]["type"], "text")
+        self.assertEqual(parts[1]["type"], "image_url")
+        self.assertEqual(parts[2]["type"], "text")
+
+    def test_anthropic_multiple_images_to_openai(self):
+        """Anthropic with multiple images → OpenAI with multiple image_url parts."""
+        req = {
+            "model": "m",
+            "max_tokens": 100,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image", "source": {"type": "url", "url": "https://a.com/1.png"}},
+                        {"type": "image", "source": {"type": "url", "url": "https://a.com/2.png"}},
+                    ],
+                }
+            ],
+        }
+        payload = convert_request(ANTHROPIC, CHAT, req, resolve_model=same_model)
+        parts = payload["messages"][0]["content"]
+        self.assertEqual(len(parts), 2)
+        self.assertTrue(all(p["type"] == "image_url" for p in parts))
+
+    # ---- OpenAI Chat → Anthropic ----
+
+    def test_openai_url_image_to_anthropic(self):
+        """OpenAI image_url with URL → Anthropic image block."""
+        req = {
+            "model": "m",
+            "max_tokens": 100,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "What is this?"},
+                        {"type": "image_url", "image_url": {"url": "https://example.com/cat.png"}},
+                    ],
+                }
+            ],
+        }
+        payload = convert_request(CHAT, ANTHROPIC, req, resolve_model=same_model)
+        msg = payload["messages"][0]
+        self.assertEqual(msg["role"], "user")
+        self.assertIsInstance(msg["content"], list)
+        blocks = msg["content"]
+        self.assertEqual(blocks[0], {"type": "text", "text": "What is this?"})
+        self.assertEqual(blocks[1]["type"], "image")
+        self.assertEqual(blocks[1]["source"]["type"], "url")
+        self.assertEqual(blocks[1]["source"]["url"], "https://example.com/cat.png")
+
+    def test_openai_base64_image_to_anthropic(self):
+        """OpenAI image_url with data URL → Anthropic image base64 block."""
+        req = {
+            "model": "m",
+            "max_tokens": 100,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image_url", "image_url": {"url": "data:image/png;base64,xyz789"}},
+                    ],
+                }
+            ],
+        }
+        payload = convert_request(CHAT, ANTHROPIC, req, resolve_model=same_model)
+        blocks = payload["messages"][0]["content"]
+        self.assertEqual(blocks[0]["type"], "image")
+        self.assertEqual(blocks[0]["source"]["type"], "base64")
+        self.assertEqual(blocks[0]["source"]["media_type"], "image/png")
+        self.assertEqual(blocks[0]["source"]["data"], "xyz789")
+
+    def test_openai_mixed_content_to_anthropic_preserves_text_only(self):
+        """Pure text messages still work when no images are present."""
+        req = {
+            "model": "m",
+            "max_tokens": 100,
+            "messages": [
+                {"role": "user", "content": "hello"},
+            ],
+        }
+        payload = convert_request(CHAT, ANTHROPIC, req, resolve_model=same_model)
+        self.assertEqual(payload["messages"][0], {"role": "user", "content": "hello"})
+
+    # ---- OpenAI Chat → Responses ----
+
+    def test_openai_image_to_responses(self):
+        """OpenAI image_url → Responses input_image."""
+        req = {
+            "model": "m",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "describe"},
+                        {"type": "image_url", "image_url": {"url": "https://example.com/img.png"}},
+                    ],
+                }
+            ],
+        }
+        payload = convert_request(CHAT, RESPONSES, req, resolve_model=same_model)
+        user_item = payload["input"][0]
+        self.assertEqual(user_item["role"], "user")
+        parts = user_item["content"]
+        self.assertEqual(parts[0], {"type": "input_text", "text": "describe"})
+        self.assertEqual(parts[1], {"type": "input_image", "image_url": "https://example.com/img.png"})
+
+    # ---- Responses → OpenAI Chat ----
+
+    def test_responses_image_to_openai(self):
+        """Responses input_image → OpenAI image_url."""
+        req = {
+            "model": "m",
+            "input": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "input_text", "text": "describe"},
+                        {"type": "input_image", "image_url": "https://example.com/img.png"},
+                    ],
+                }
+            ],
+        }
+        payload = convert_request(RESPONSES, CHAT, req, resolve_model=same_model)
+        msg = payload["messages"][0]
+        self.assertEqual(msg["role"], "user")
+        self.assertIsInstance(msg["content"], list)
+        parts = msg["content"]
+        self.assertEqual(parts[0], {"type": "text", "text": "describe"})
+        self.assertEqual(parts[1], {"type": "image_url", "image_url": {"url": "https://example.com/img.png"}})
+
+    # ---- Hub path: Anthropic → Responses (via Chat) ----
+
+    def test_anthropic_image_to_responses_via_hub(self):
+        """Anthropic image → Responses input_image (two-step hub conversion)."""
+        req = {
+            "model": "m",
+            "max_tokens": 100,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "look"},
+                        {"type": "image", "source": {"type": "url", "url": "https://example.com/img.png"}},
+                    ],
+                }
+            ],
+        }
+        payload = convert_request(ANTHROPIC, RESPONSES, req, resolve_model=same_model)
+        user_item = payload["input"][0]
+        self.assertEqual(user_item["role"], "user")
+        parts = user_item["content"]
+        self.assertEqual(parts[0], {"type": "input_text", "text": "look"})
+        self.assertEqual(parts[1], {"type": "input_image", "image_url": "https://example.com/img.png"})
+
+    # ---- Hub path: Responses → Anthropic (via Chat) ----
+
+    def test_responses_image_to_anthropic_via_hub(self):
+        """Responses input_image → Anthropic image block (two-step hub conversion)."""
+        req = {
+            "model": "m",
+            "input": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "input_text", "text": "look"},
+                        {"type": "input_image", "image_url": "https://example.com/img.png"},
+                    ],
+                }
+            ],
+        }
+        payload = convert_request(RESPONSES, ANTHROPIC, req, resolve_model=same_model)
+        msg = payload["messages"][0]
+        self.assertEqual(msg["role"], "user")
+        self.assertIsInstance(msg["content"], list)
+        blocks = msg["content"]
+        self.assertEqual(blocks[0], {"type": "text", "text": "look"})
+        self.assertEqual(blocks[1]["type"], "image")
+        self.assertEqual(blocks[1]["source"]["type"], "url")
+        self.assertEqual(blocks[1]["source"]["url"], "https://example.com/img.png")
+
+    # ---- Backward compatibility: no images = existing behavior ----
+
+    def test_text_only_anthropic_to_openai_unchanged(self):
+        """Ensure text-only Anthropic messages still produce string content (not list)."""
+        req = {
+            "model": "m",
+            "max_tokens": 100,
+            "messages": [
+                {"role": "user", "content": [{"type": "text", "text": "hello"}]},
+            ],
+        }
+        payload = convert_request(ANTHROPIC, CHAT, req, resolve_model=same_model)
+        self.assertEqual(payload["messages"][0]["content"], "hello")
+
+    def test_text_only_openai_to_anthropic_unchanged(self):
+        """Ensure text-only OpenAI messages still produce string content (not list)."""
+        req = {
+            "model": "m",
+            "max_tokens": 100,
+            "messages": [
+                {"role": "user", "content": "hello"},
+            ],
+        }
+        payload = convert_request(CHAT, ANTHROPIC, req, resolve_model=same_model)
+        self.assertEqual(payload["messages"][0], {"role": "user", "content": "hello"})
+
+    def test_text_only_openai_to_responses_unchanged(self):
+        """Ensure text-only OpenAI → Responses still produces input_text."""
+        req = {
+            "model": "m",
+            "messages": [
+                {"role": "user", "content": "hello"},
+            ],
+        }
+        payload = convert_request(CHAT, RESPONSES, req, resolve_model=same_model)
+        self.assertEqual(payload["input"][0], {"role": "user", "content": [{"type": "input_text", "text": "hello"}]})
+
+    def test_text_only_responses_to_openai_unchanged(self):
+        """Ensure text-only Responses → OpenAI still produces string content."""
+        req = {
+            "model": "m",
+            "input": [
+                {"role": "user", "content": [{"type": "input_text", "text": "hello"}]},
+            ],
+        }
+        payload = convert_request(RESPONSES, CHAT, req, resolve_model=same_model)
+        self.assertEqual(payload["messages"][0]["content"], "hello")
 
 
 if __name__ == "__main__":

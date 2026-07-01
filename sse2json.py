@@ -21,7 +21,7 @@ import model_discovery_queue
 import scheduler_policy
 from audit_store import AdminAuditStore
 from config_manager import ConfigValidationError, RuntimeConfigManager
-from config_loader import apply_env_overlays, load_base_config, load_config
+from config_loader import apply_env_overlays, load_base_config, load_config, ZERO_CONFIG_ACTIVE
 from format_adapters import ANTHROPIC, CHAT, RESPONSES, convert_request, convert_response
 from observability import ProxyObservability
 from proxy_utils import key_value
@@ -258,13 +258,39 @@ def _load_router_state() -> None:
         print(f"[proxy] router state load failed: {e}", flush=True)
 
 
+def _update_health_scores() -> None:
+    """Compute provider health scores and feed them to the router for auto mode."""
+    try:
+        router = ROUTER
+        obs = OBSERVABILITY
+        if router is None or obs is None:
+            return
+        snap = router.snapshot()
+        scores = obs.provider_health_scores(router_snapshot=snap)
+        router.update_health_scores(scores)
+    except Exception:
+        pass
+
+
 def _start_state_autosave() -> None:
     """Start background runtime state autosave."""
     def _loop():
         while True:
             time.sleep(_ROUTER_STATE_INTERVAL_S)
             _save_router_state()
+            _update_health_scores()
     t = threading.Thread(target=_loop, name="router-state-saver", daemon=True)
+    t.start()
+
+
+def _start_health_score_updater() -> None:
+    """Start a lightweight background loop that refreshes provider health
+    scores every 15 seconds for the auto routing mode."""
+    def _loop():
+        while True:
+            time.sleep(15)
+            _update_health_scores()
+    t = threading.Thread(target=_loop, name="health-score-updater", daemon=True)
     t.start()
 
 
@@ -2294,6 +2320,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                                 bwfile,
                                 initial_lines=initial_lines,
                                 collect_usage=_native_stream_usage_mode(CONFIG) != "off",
+                                client_format="chat_completions",
                             )
                         elif attempt.upstream_format == RESPONSES:
                             stream_resp = stream_responses_sse_to_openai_chat(
@@ -2596,6 +2623,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                                 bwfile,
                                 initial_lines=initial_lines,
                                 collect_usage=_native_stream_usage_mode(CONFIG) != "off",
+                                client_format="responses",
                             )
                         elif attempt.upstream_format == CHAT:
                             stream_resp = stream_openai_sse_to_responses(
@@ -2978,6 +3006,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                                     bwfile,
                                     initial_lines=initial_lines,
                                     collect_usage=_native_stream_usage_mode(CONFIG) != "off",
+                                    client_format="anthropic_messages",
                                 )
                                 anth_resp = {"streamed": True, "native": True, "usage": native_usage}
                             elif attempt.upstream_format == RESPONSES:
@@ -3371,12 +3400,91 @@ def _prefetch_model_summaries():
         print(f"[proxy] Failed to start prefetcher: {e}", flush=True)
 
 
+def main():
+    """CLI entry point. Supports --config, --port, --host, --init."""
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        prog="litellm-proxy",
+        description="Format-aware LLM API proxy with 3-format conversion, smart routing & web dashboard.",
+    )
+    parser.add_argument("--config", type=str, default=None, help="Path to config.json (default: auto-detect)")
+    parser.add_argument("--port", type=int, default=None, help="Override server.port (default: 4894)")
+    parser.add_argument("--host", type=str, default=None, help="Override server.host (default: 0.0.0.0)")
+    parser.add_argument("--init", action="store_true", help="Create config.json from template and exit")
+    args = parser.parse_args()
+
+    # --init: create a config from the example and exit
+    if args.init:
+        import shutil
+        example = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.example.jsonc")
+        target = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+        if os.path.exists(target):
+            print(f"config.json already exists at {target}")
+            return
+        if os.path.exists(example):
+            shutil.copy2(example, target)
+            print(f"Created config.json from template. Edit it and add your API keys, then run:")
+            print(f"  python sse2json.py")
+        else:
+            print("Template config.example.jsonc not found. Please create config.json manually.")
+        return
+
+    # Apply CLI overrides to environment so they get picked up by config loader
+    if args.config:
+        os.environ["PROXY_CONFIG_PATH"] = args.config
+    if args.port:
+        os.environ["PROXY_PORT"] = str(args.port)
+    if args.host:
+        os.environ["PROXY_HOST"] = args.host
+
+    # Restore runtime state before model prefetch.
+    _load_router_state()
+    _prefetch_model_summaries()
+    # Start autosave before serving requests.
+    _start_state_autosave()
+    _start_health_score_updater()
+
+    # Start the background model-discovery queue.
+    _start_model_discovery_queue()
+
+    # Re-read host/port in case CLI overrides changed them
+    global HOST, PORT, MAX_WORKERS
+    PORT = int((CONFIG.get("server") or {}).get("port", 4894))
+    HOST = str((CONFIG.get("server") or {}).get("host", "0.0.0.0")).strip() or "0.0.0.0"
+    MAX_WORKERS = int((CONFIG.get("server") or {}).get("max_workers", 20))
+
+    s = _ThreadPoolHTTPServer((HOST, PORT), Handler, max_workers=MAX_WORKERS)
+    s.timeout = 0.5
+    log_info = f" (debug logging ON)" if DEBUG_LOG else ""
+    print(f"Proxy on http://localhost:{PORT}/v1/messages", flush=True)
+    print(f"Bind: {HOST}:{PORT}  Workers: {MAX_WORKERS}  Logs: {LOG_DIR}{log_info}", flush=True)
+    if ZERO_CONFIG_ACTIVE:
+        providers = list((CONFIG.get("providers") or {}).keys())
+        print(f"[proxy] Zero-config mode: detected {len(providers)} provider(s) from environment variables: {', '.join(providers)}", flush=True)
+        print(f"[proxy] Tip: create config.json for full control, or open the dashboard to configure providers.", flush=True)
+    if HOST in ("0.0.0.0", "::"):
+        print(
+            "[proxy][WARN] Bound to all interfaces; the proxy and Admin API are reachable "
+            "from the network and protected only by the admin key. "
+            "Set server.host to 127.0.0.1 to restrict to localhost.",
+            flush=True,
+        )
+    try:
+        s.serve_forever()
+    except KeyboardInterrupt:
+        print("\n[proxy] Shutting down...", flush=True)
+        _save_router_state()
+        s.server_close()
+
+
 if __name__ == "__main__":
     # Restore runtime state before model prefetch.
     _load_router_state()
     _prefetch_model_summaries()
     # Start autosave before serving requests.
     _start_state_autosave()
+    _start_health_score_updater()
 
     # Start the background model-discovery queue. This replaces the previous
     # one-shot union fetch that ran with an 8s total timeout and silently
@@ -3393,6 +3501,10 @@ if __name__ == "__main__":
     log_info = f" (debug logging ON)" if DEBUG_LOG else ""
     print(f"Proxy on http://localhost:{PORT}/v1/messages", flush=True)
     print(f"Bind: {HOST}:{PORT}  Workers: {MAX_WORKERS}  Logs: {LOG_DIR}{log_info}", flush=True)
+    if ZERO_CONFIG_ACTIVE:
+        providers = list((CONFIG.get("providers") or {}).keys())
+        print(f"[proxy] Zero-config mode: detected {len(providers)} provider(s) from environment variables: {', '.join(providers)}", flush=True)
+        print(f"[proxy] Tip: create config.json for full control, or open the dashboard to configure providers.", flush=True)
     if HOST in ("0.0.0.0", "::"):
         print(
             "[proxy][WARN] Bound to all interfaces; the proxy and Admin API are reachable "

@@ -81,6 +81,27 @@ def sse_data_payload(line: str) -> Optional[str]:
     return payload.strip()
 
 
+def _parse_tool_arguments(buffer: str) -> Dict[str, Any]:
+    """Parse a buffered tool-call arguments string into a dict.
+
+    When the final buffer is valid JSON, returns the parsed dict.
+    When parsing fails, returns ``{"_raw": buffer}`` so the original
+    content is preserved instead of being silently discarded as ``{}``.
+    An empty or whitespace-only buffer returns ``{}`` (matching the
+    previous behaviour for truly empty arguments).
+    """
+    if not buffer or not buffer.strip():
+        return {}
+    try:
+        parsed = json.loads(buffer)
+        if isinstance(parsed, dict):
+            return parsed
+        # Non-dict JSON (e.g. a bare string or list) — wrap it.
+        return {"_raw": buffer}
+    except (json.JSONDecodeError, TypeError):
+        return {"_raw": buffer}
+
+
 def sse_event_name(line: str) -> Optional[str]:
     """Return the name of an SSE `event:` line, or None if not an event line."""
     if not line.startswith("event:"):
@@ -174,25 +195,55 @@ def relay_sse_stream(
     *,
     collect_usage: bool = True,
     read_timeout_s: Optional[int] = None,
-) -> Dict[str, int]:
+    client_format: str = "chat_completions",
+) -> Optional[Dict[str, int]]:
+    """Pass-through raw SSE bytes from upstream to client.
+
+    On upstream interruption *after* bytes have been written to the client,
+    sends a format-appropriate error/close event and returns ``None`` so the
+    caller can record the interruption.  Returns the accumulated usage dict
+    on success.
+    """
     usage = empty_usage()
     timeout_switched = False
-    for raw in initial_lines or []:
-        if not timeout_switched and read_timeout_s:
-            set_response_read_timeout(upstream, read_timeout_s)
-            timeout_switched = True
-        wfile.write(raw)
-        wfile.flush()
-        if collect_usage:
-            usage = _merge_usage(usage, _usage_from_sse_line(raw))
-    for raw in upstream:
-        if not timeout_switched and read_timeout_s:
-            set_response_read_timeout(upstream, read_timeout_s)
-            timeout_switched = True
-        wfile.write(raw)
-        wfile.flush()
-        if collect_usage:
-            usage = _merge_usage(usage, _usage_from_sse_line(raw))
+    first_byte_received = False
+    try:
+        for raw in initial_lines or []:
+            if not timeout_switched and read_timeout_s:
+                set_response_read_timeout(upstream, read_timeout_s)
+                timeout_switched = True
+            wfile.write(raw)
+            wfile.flush()
+            first_byte_received = True
+            if collect_usage:
+                usage = _merge_usage(usage, _usage_from_sse_line(raw))
+        for raw in upstream:
+            if not timeout_switched and read_timeout_s:
+                set_response_read_timeout(upstream, read_timeout_s)
+                timeout_switched = True
+            wfile.write(raw)
+            wfile.flush()
+            first_byte_received = True
+            if collect_usage:
+                usage = _merge_usage(usage, _usage_from_sse_line(raw))
+    except Exception as e:
+        err_text = f"[Stream interrupted: {type(e).__name__}]"
+        print(f"[proxy] {err_text}: {str(e)[:200]}", flush=True)
+        # Best-effort graceful close — send a format-appropriate terminal
+        # event so the client sees a clean end-of-stream instead of a hang.
+        try:
+            if client_format == "anthropic_messages":
+                wfile.write(b'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"input_tokens":0,"output_tokens":0}}\n\n')
+                wfile.write(b'event: message_stop\ndata: {"type":"message_stop"}\n\n')
+            elif client_format == "responses":
+                wfile.write(b'event: response.failed\ndata: {"type":"response.failed","response":{"status":"failed","error":{"message":"[Stream interrupted]"}}}\n\n')
+            else:
+                # Chat Completions (default)
+                wfile.write(b'data: [DONE]\n\n')
+            wfile.flush()
+        except Exception:
+            pass
+        return None
     return usage
 
 
@@ -520,10 +571,7 @@ def stream_openai_sse_to_anthropic(
         content_log.append({"type": "text", "text": content_buf})
     for idx in sorted(tool_calls_buf):
         tc = tool_calls_buf[idx]
-        try:
-            args = json.loads(tc["function"]["arguments"])
-        except (json.JSONDecodeError, TypeError):
-            args = {}
+        args = _parse_tool_arguments(tc["function"]["arguments"])
         content_log.append(
             {
                 "type": "tool_use",
@@ -1752,10 +1800,7 @@ def stream_responses_sse_to_anthropic(
         elif item_type == "message" and item.get("text"):
             content_log.append({"type": "text", "text": item.get("text") or ""})
         elif item_type == "function_call":
-            try:
-                tool_input = json.loads(item.get("arguments") or "{}")
-            except (json.JSONDecodeError, TypeError):
-                tool_input = {}
+            tool_input = _parse_tool_arguments(item.get("arguments") or "")
             content_log.append(
                 {
                     "type": "tool_use",

@@ -1,6 +1,6 @@
 # LLM API Proxy — 3-Format Conversion · Smart Routing · Web Dashboard
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/downloads/) [![Tests](https://img.shields.io/badge/Tests-356%20passed-brightgreen.svg)](#development) [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](#docker--vps) [![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-ff69b4.svg)](https://github.com/XD06/litellm-proxy/pulls)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/downloads/) [![CI](https://github.com/XD06/litellm-proxy/actions/workflows/ci.yml/badge.svg)](https://github.com/XD06/litellm-proxy/actions/workflows/ci.yml) [![Docker](https://img.shields.io/docker/pulls/xd06/litellm-proxy.svg)](https://hub.docker.com/r/xd06/litellm-proxy) [![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-ff69b4.svg)](https://github.com/XD06/litellm-proxy/pulls)
 
 **English** | [中文](README_CN.md)
 
@@ -24,7 +24,7 @@ The client picks the API shape by path; each provider declares its upstream form
 ## Features
 
 - **Three-Format Conversion** — Bidirectional conversion between `chat_completions` ↔ `responses` ↔ `anthropic_messages`, including streaming SSE with text, reasoning/thinking blocks, and tool calls.
-- **Smart Routing** — Priority-based failover, round-robin, weighted rotation, and random selection across providers and keys, with per-key/per-provider cooldown, retry policies, and candidate de-duplication.
+- **Smart Routing** — Priority-based failover, round-robin, weighted rotation, random selection, and **auto mode** with real-time health-score-based priority adjustment, across providers and keys, with per-key/per-provider cooldown, retry policies, and candidate de-duplication.
 - **Web Dashboard** — Provider health cards with latency charts, request history with per-attempt traces, routing config, failure policies, model mapping, and audit logs. All edits go to a runtime overlay — `config.json` is never rewritten.
 - **Observability** — SQLite-persisted request history, per-attempt latency attribution, routing explainability, token/cost estimation, and masked key logging.
 - **Runtime Config** — Three-layer overlay (`config.json → runtime_config.json → env vars`) with tombstone-based deletion so base-config entries don't resurrect.
@@ -33,7 +33,29 @@ The client picks the API shape by path; each provider declares its upstream form
 
 ## Quick Start
 
-### Windows
+### Zero-Config (Environment Variables)
+
+No config file needed — just set API keys as environment variables:
+
+```bash
+export OPENAI_API_KEY=sk-...
+export DEEPSEEK_API_KEY=sk-...
+python sse2json.py
+# Proxy auto-detects providers from env vars and starts immediately
+```
+
+### Via pip (PyPI)
+
+```bash
+pip install litellm-proxy
+litellm-proxy                          # Start with auto-config
+litellm-proxy --init                   # Create config.json from template
+litellm-proxy --config my.json --port 8080  # Custom config & port
+```
+
+### From Source
+
+#### Windows
 
 ```powershell
 copy config.example.jsonc config.json
@@ -41,7 +63,7 @@ copy config.example.jsonc config.json
 python sse2json.py
 ```
 
-### Linux / macOS
+#### Linux / macOS
 
 ```bash
 cp config.example.jsonc config.json
@@ -64,6 +86,23 @@ python sse2json.py
 Use the `server.admin_key` from `config.json` to log in to the dashboard.
 
 ## Docker / VPS
+
+### Pull from Docker Hub
+
+```bash
+docker pull xd06/litellm-proxy:latest
+
+docker run -d --name litellm-proxy \
+  -p 4894:4894 \
+  -v ./config.json:/app/config.json:ro \
+  -v ./runtime_config.json:/app/runtime_config.json \
+  -v ./tmp:/app/tmp \
+  -v ./proxy_logs:/app/proxy_logs \
+  -v ./data:/app/data \
+  xd06/litellm-proxy:latest
+```
+
+### Build from Source
 
 ```bash
 git clone https://github.com/XD06/litellm-proxy.git
@@ -234,6 +273,10 @@ cd dashboard_src && npm install && npm run build
 - Keep port `4894` bound to localhost unless you intentionally expose it.
 - Never commit `config.json`, `runtime_config.json`, logs, caches, or SQLite data.
 - Admin API responses and history records always keep provider keys masked.
+
+## Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, code style, and PR process.
 
 ## License
 

@@ -651,6 +651,93 @@ def resolve_provider_model(config: Dict[str, Any], provider: str, canonical_mode
     return canonical_model
 
 
+def find_providers_for_model(
+    config: Dict[str, Any], canonical_model: str
+) -> List[Dict[str, Any]]:
+    """Find all providers that can serve *canonical_model*.
+
+    Returns a list of dicts, each containing:
+    - ``provider``: provider name
+    - ``raw_model``: the upstream model id to use
+    - ``match_type``: ``"exact"`` (found in canonical_map), ``"manual"``
+      (found in provider_model_map), or ``"fuzzy"`` (normalised match)
+
+    This is the reverse lookup that powers the Dashboard's "auto-infer"
+    button: given a client-requested model name, discover which providers
+    already have an equivalent upstream model.
+    """
+    if not canonical_model:
+        return []
+    model = str(canonical_model).strip()
+    lower_model = model.lower()
+    safe_model = _safe_model_id(model)
+
+    models_cfg = config.get("models") or {}
+    caps = models_cfg.get("provider_model_capabilities") or {}
+    manual_maps = models_cfg.get("provider_model_map") or {}
+
+    results: List[Dict[str, Any]] = []
+    seen_providers: set = set()
+
+    # 1. Check manual provider_model_map first (highest priority)
+    for provider, pmap in manual_maps.items():
+        if not isinstance(pmap, dict):
+            continue
+        if model in pmap or lower_model in pmap:
+            raw = str(pmap.get(model) or pmap.get(lower_model) or "")
+            if raw:
+                results.append({"provider": str(provider), "raw_model": raw, "match_type": "manual"})
+                seen_providers.add(str(provider))
+
+    # 2. Check discovered canonical_map (exact match)
+    for provider, entry in caps.items():
+        provider = str(provider)
+        if provider in seen_providers:
+            continue
+        if not isinstance(entry, dict) or entry.get("status") != "ok":
+            continue
+        canonical_map = entry.get("canonical_map") or {}
+        if not isinstance(canonical_map, dict):
+            continue
+        raw = canonical_map.get(model) or canonical_map.get(lower_model)
+        if raw:
+            results.append({"provider": provider, "raw_model": str(raw), "match_type": "exact"})
+            seen_providers.add(provider)
+
+    # 3. Fuzzy matching: normalise both sides and compare
+    if safe_model:
+        for provider, entry in caps.items():
+            provider = str(provider)
+            if provider in seen_providers:
+                continue
+            if not isinstance(entry, dict) or entry.get("status") != "ok":
+                continue
+            canonical_map = entry.get("canonical_map") or {}
+            if not isinstance(canonical_map, dict):
+                continue
+            for canon, raw in canonical_map.items():
+                if _safe_model_id(str(canon)) == safe_model:
+                    results.append({"provider": provider, "raw_model": str(raw), "match_type": "fuzzy"})
+                    seen_providers.add(provider)
+                    break
+
+    return results
+
+
+def infer_model_mapping(
+    config: Dict[str, Any], canonical_model: str
+) -> Dict[str, str]:
+    """Infer a ``{provider: raw_model}`` mapping for *canonical_model*.
+
+    Convenience wrapper around :func:`find_providers_for_model` that returns
+    a simple dict suitable for direct insertion into ``provider_model_map``.
+    """
+    return {
+        entry["provider"]: entry["raw_model"]
+        for entry in find_providers_for_model(config, canonical_model)
+    }
+
+
 def provider_supports_model(
     config: Dict[str, Any],
     provider: str,

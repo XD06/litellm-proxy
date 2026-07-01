@@ -53,13 +53,17 @@
           <button class="nav-item" data-view="playground" data-i18n="nav.playground">Playground</button>
         </nav>
         <div id="sidebarActions" class="sidebar-actions" aria-label="Runtime controls">
-          <button id="refreshButton" class="button primary" data-i18n="action.refresh">Refresh</button>
-          <button id="pauseButton" class="button secondary" data-i18n="action.pause">Pause</button>
-          <button id="langToggleButton" class="button ghost lang-toggle-btn" type="button" title="Switch language">EN / 中</button>
+          <button id="refreshButton" class="button icon-button" type="button" title="Refresh" aria-label="Refresh">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>
+          </button>
+          <button id="pauseButton" class="button icon-button" type="button" title="Pause" aria-label="Pause">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+          </button>
         </div>
         <div class="sidebar-footer">
           <span class="dot" id="connectionDot"></span>
           <span id="connectionText" data-i18n="conn.disconnected">Not connected</span>
+          <button id="langToggleButton" class="lang-toggle-link" type="button" title="Switch language">zh / 中</button>
         </div>
       </aside>
 
@@ -135,6 +139,7 @@
             </article>
           </div>
           <div id="overviewVisuals" class="overview-visuals" aria-label="Runtime visual summary"></div>
+          <div id="onboardingBanner"></div>
 
           <div class="overview-grid">
             <section class="panel panel-wide overview-traffic-panel">
@@ -182,6 +187,14 @@
                   </div>
                   <div id="providerHealth" class="provider-health empty" data-i18n="ov.no_providers">No providers</div>
                 </section>
+                <section class="panel overview-health-score-panel">
+                  <div class="panel-head">
+                    <div>
+                      <h2>Failover Health</h2>
+                      <p>Provider health scores based on success rate, latency, and key availability.</p>
+                    </div>
+                  </div>
+                  <div id="healthOverview" class="health-overview"></div>
               </div>
             </div>
           </div>

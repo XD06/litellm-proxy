@@ -15,7 +15,7 @@ import scheduler_policy
 from proxy_utils import key_proxy, key_value, resolve_proxy_url
 
 
-PROVIDER_SELECT_MODES = ("priority_failover", "round_robin", "weighted_rr", "random")
+PROVIDER_SELECT_MODES = ("priority_failover", "round_robin", "weighted_rr", "random", "auto")
 FORMAT_PREFERENCE_MODES = ("priority_first", "native_first")
 
 
@@ -126,6 +126,15 @@ class UpstreamRouter:
         self._providers_state: Dict[str, _ProviderState] = {}
         self._keys_state: Dict[Tuple[str, int], _KeyState] = {}
         self._attempt_static_cache: Dict[Tuple[str, str], Tuple[str, Dict[str, str], set, Tuple[str, ...], str, str]] = {}
+
+        # Health scores for auto routing mode (updated externally via
+        # update_health_scores()).
+        self._health_scores: Dict[str, Any] = {}
+
+        # Runtime overrides for hot-reload of priority/weight without
+        # rebuilding the entire router.
+        self._runtime_priorities: Dict[str, int] = {}
+        self._runtime_weights: Dict[str, int] = {}
 
         self._init_states()
 
@@ -511,6 +520,9 @@ class UpstreamRouter:
             old_keys = dict(old_router._keys_state)
             old_rr = dict(old_router._rr_model)
             old_providers_cfg = old_router.cfg.get("providers") or {}
+            old_runtime_priorities = dict(old_router._runtime_priorities)
+            old_runtime_weights = dict(old_router._runtime_weights)
+            old_health_scores = dict(old_router._health_scores)
         with self._lock:
             for p, ps in old_providers.items():
                 if p in providers_cfg:
@@ -530,6 +542,10 @@ class UpstreamRouter:
                         self._keys_state[(p, new_idx)] = ks
                         break
             self._rr_model.update(old_rr)
+            # Preserve runtime overrides and health scores across config reloads.
+            self._runtime_priorities.update(old_runtime_priorities)
+            self._runtime_weights.update(old_runtime_weights)
+            self._health_scores = old_health_scores
 
     def dump_state(self) -> Dict[str, Any]:
         """序列化可持久化的运行时状态（不含原始 key 值）。
@@ -635,17 +651,86 @@ class UpstreamRouter:
             ps = self._providers_state.setdefault(provider, _ProviderState())
             ps.cooldown_until = max(ps.cooldown_until, time.time() + 2.0)
 
+    def update_health_scores(self, scores: Dict[str, Any]) -> None:
+        """Store the latest provider health scores for auto routing mode.
+
+        Called externally (e.g. from the admin status endpoint or a
+        background loop) with the output of
+        ``ProxyObservability.provider_health_scores()``.
+        """
+        self._health_scores = scores or {}
+
+    def update_provider_priority(self, provider: str, priority: int) -> None:
+        """Hot-update a single provider's priority without rebuilding Router.
+        The override takes effect immediately for subsequent ``iter_attempts``
+        calls and persists until cleared with ``clear_runtime_overrides`` or
+        a full ``_apply_runtime_config`` rebuild.
+        """
+        with self._lock:
+            self._runtime_priorities[str(provider)] = int(priority)
+
+    def update_provider_weight(self, provider: str, weight: int) -> None:
+        """Hot-update a single provider's weight (used in weighted_rr mode)."""
+        with self._lock:
+            self._runtime_weights[str(provider)] = max(1, int(weight))
+
+    def clear_runtime_overrides(self, provider: Optional[str] = None) -> None:
+        """Clear runtime priority/weight overrides.
+
+        If *provider* is given, only that provider's overrides are cleared.
+        Otherwise all overrides are removed.
+        """
+        with self._lock:
+            if provider is None:
+                self._runtime_priorities.clear()
+                self._runtime_weights.clear()
+            else:
+                self._runtime_priorities.pop(str(provider), None)
+                self._runtime_weights.pop(str(provider), None)
+
+    def _auto_adjusted_priority(self, provider: str, base_priority: int) -> int:
+        """Adjust provider priority based on health scores for auto mode.
+
+        Penalty tiers:
+        - score >= 75 → no penalty (healthy)
+        - score 50–74 → −5  (minor degradation)
+        - score 25–49 → −10 (significant degradation)
+        - score < 25  → −20 (severe degradation)
+        """
+        score_data = (self._health_scores.get("providers") or {}).get(provider)
+        if not isinstance(score_data, dict):
+            return base_priority
+        score = int(score_data.get("score", 100) or 100)
+        if score >= 75:
+            return base_priority
+        elif score >= 50:
+            return base_priority - 5
+        elif score >= 25:
+            return base_priority - 10
+        else:
+            return base_priority - 20
+
     def _provider_priority(self, provider: str, override: Optional[Any] = None) -> int:
         if override is not None:
             try:
                 return int(override)
             except Exception:
                 return 0
+        rp = self._runtime_priorities.get(provider)
+        if rp is not None:
+            return rp
         pcfg = (self.cfg.get("providers") or {}).get(provider) or {}
         try:
             return int(pcfg.get("priority", 0) or 0)
         except Exception:
             return 0
+
+    def _provider_weight(self, provider: str, config_weight: int = 1) -> int:
+        """Return the effective weight, honouring runtime overrides."""
+        rw = self._runtime_weights.get(provider)
+        if rw is not None:
+            return max(1, rw)
+        return max(1, config_weight)
 
     def _manual_filter_active(self, canonical_model: str, provider_items: List[_ProviderItem]) -> bool:
         if not canonical_model:
@@ -801,6 +886,13 @@ class UpstreamRouter:
 
         provider_items = self._select_provider_items(canonical_model)
         provider_select = self._provider_select_mode(canonical_model)
+
+        # In auto mode, adjust priorities based on health scores, then fall
+        # through to priority_failover ordering.
+        auto_active = provider_select == "auto"
+        if auto_active:
+            provider_select = "priority_failover"
+
         native: List[Tuple[str, int, int, str]] = []
         fallback: List[Tuple[str, int, int, str]] = []
 
@@ -809,11 +901,15 @@ class UpstreamRouter:
             upstream_format = self._first_supported_format(provider, format_order)
             if not upstream_format:
                 continue
-            item = (provider, item.weight, item.priority, upstream_format)
+            priority = item.priority
+            if auto_active:
+                priority = self._auto_adjusted_priority(provider, priority)
+            weight = self._provider_weight(provider, item.weight)
+            item_tuple = (provider, weight, priority, upstream_format)
             if upstream_format == client_format:
-                native.append(item)
+                native.append(item_tuple)
             else:
-                fallback.append(item)
+                fallback.append(item_tuple)
 
         # priority_first: provider priority decides global order; native wins
         # only as a tiebreaker at equal priority. native_first: legacy behavior,

@@ -462,6 +462,125 @@ class ProxyObservability:
                 entry.pop("events", None)
         return summary
 
+    def provider_health_scores(
+        self, router_snapshot: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """Compute a 0–100 health score for each provider.
+
+        The score combines four signals:
+        - **Success rate** (0–50 pts): based on recent attempt outcomes.
+        - **Latency** (0–20 pts): penalised when avg latency exceeds thresholds.
+        - **Key availability** (0–20 pts): fraction of usable / total keys.
+        - **Availability state** (0–10 pts): docked if provider is in cooldown
+          or hard-failed.
+
+        Returns ``{"providers": {name: {score, grade, ...}}, "overall": int}``.
+        """
+        activity = self.provider_activity_summary(limit=60, include_events=False)
+        providers_state = {}
+        if router_snapshot and isinstance(router_snapshot.get("providers"), dict):
+            providers_state = router_snapshot["providers"]
+
+        result: Dict[str, Any] = {"providers": {}, "overall": 0}
+        scores: list[int] = []
+
+        # Gather all provider names from both activity and router state.
+        all_names = set(activity.keys()) | set(providers_state.keys())
+
+        for name in sorted(all_names):
+            act = activity.get(name) or {}
+            state = providers_state.get(name) or {}
+
+            # --- Success rate component (0–50) ---
+            total = int(act.get("total") or 0)
+            ok = int(act.get("ok") or 0)
+            bad = int(act.get("bad") or 0)
+            if total > 0:
+                success_rate = ok / total
+            else:
+                success_rate = 1.0  # no data → assume healthy
+            success_pts = round(success_rate * 50)
+
+            # --- Latency component (0–20) ---
+            avg_latency = int(act.get("avgLatency") or 0)
+            if avg_latency == 0:
+                latency_pts = 20  # no data → full marks
+            elif avg_latency < 800:
+                latency_pts = 20
+            elif avg_latency < 2500:
+                latency_pts = 14
+            elif avg_latency < 6000:
+                latency_pts = 8
+            else:
+                latency_pts = 2
+
+            # --- Key availability component (0–20) ---
+            key_total = int(state.get("key_count") or 0)
+            key_usable = int(state.get("available_key_count") or 0)
+            if key_total > 0:
+                key_pts = round((key_usable / key_total) * 20)
+            else:
+                key_pts = 20  # no key data → assume fine
+
+            # --- Availability state component (0–10) ---
+            config_enabled = bool(state.get("config_enabled", True))
+            runtime_enabled = bool(state.get("runtime_enabled", True))
+            available = bool(state.get("available", True))
+            has_hard_failure = bool(state.get("has_hard_failure", False))
+            cooldown = int(state.get("cooldown_remaining_s") or 0)
+
+            if not config_enabled or not runtime_enabled:
+                avail_pts = 0
+            elif has_hard_failure:
+                avail_pts = 2
+            elif cooldown > 0:
+                avail_pts = 4
+            elif not available:
+                avail_pts = 5
+            else:
+                avail_pts = 10
+
+            score = success_pts + latency_pts + key_pts + avail_pts
+            score = max(0, min(100, score))
+
+            # Grade
+            if score >= 90:
+                grade = "excellent"
+            elif score >= 75:
+                grade = "good"
+            elif score >= 50:
+                grade = "fair"
+            elif score >= 25:
+                grade = "poor"
+            else:
+                grade = "critical"
+
+            result["providers"][name] = {
+                "score": score,
+                "grade": grade,
+                "success_rate": round(success_rate, 4) if total > 0 else None,
+                "avg_latency_ms": avg_latency,
+                "key_usable": key_usable,
+                "key_total": key_total,
+                "available": available,
+                "cooldown_remaining_s": cooldown,
+                "has_hard_failure": has_hard_failure,
+                "config_enabled": config_enabled,
+                "runtime_enabled": runtime_enabled,
+                "last_error": act.get("lastError"),
+                "components": {
+                    "success": success_pts,
+                    "latency": latency_pts,
+                    "keys": key_pts,
+                    "availability": avail_pts,
+                },
+            }
+            scores.append(score)
+
+        # Overall score = average of all provider scores (or 100 if none).
+        result["overall"] = round(sum(scores) / len(scores)) if scores else 100
+        return result
+
     def provider_activity_for(
         self, provider: str, limit: int = 60
     ) -> Optional[Dict[str, Any]]:

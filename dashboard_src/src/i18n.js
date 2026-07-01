@@ -263,6 +263,8 @@ const dict = {
   "policy.mode_weighted_tip": { en: "weighted_rr — Distribute by weight (e.g. provider:2 gets 2x traffic of provider:1)", zh: "weighted_rr — 按权重分配（如 provider:2 获得 provider:1 的 2 倍流量）" },
   "policy.mode_random": { en: "Random", zh: "随机" },
   "policy.mode_random_tip": { en: "random — Pick a provider at random from the pool", zh: "random — 从池中随机选择一个提供商" },
+  "policy.mode_auto": { en: "Smart", zh: "智能" },
+  "policy.mode_auto_tip": { en: "auto — Priority-based routing with real-time health-score adjustment. Degraded providers are automatically deprioritized.", zh: "auto — 基于优先级的路由，结合实时健康度自动调整。降级的提供商会被自动降低优先级。" },
 
   // ---- Cooldown fields ----
   "policy.cooldown_rate_limit": { en: "Rate limit", zh: "速率限制" },

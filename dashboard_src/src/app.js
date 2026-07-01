@@ -1,4 +1,4 @@
-import morphdom from "morphdom";
+﻿import morphdom from "morphdom";
 import { state } from "./state.js";
 import { timeRanges, REQUEST_PAGE_SIZE, PROVIDERS_PAGE_SIZE, CONFIG_PROVIDERS_PAGE_SIZE, MODEL_ROUTES_PAGE_SIZE, PROVIDER_MODEL_MAP_PAGE_SIZE, AUDIT_PAGE_SIZE, OVERVIEW_PROVIDER_LIMIT, OVERVIEW_FAILURE_LIMIT, USAGE_MODEL_LIMIT, views } from "./constants.js";
 import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessage } from "./api.js";
@@ -589,9 +589,30 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     state.formModalLastFocus = null;
   }
 
+  // Provider preset templates for the Add Provider modal.
+  const PROVIDER_PRESETS = [
+    { name: "openai", base_url: "https://api.openai.com", format: "chat_completions", label: "OpenAI", env_var: "OPENAI_API_KEY", priority: 10 },
+    { name: "anthropic", base_url: "https://api.anthropic.com", format: "anthropic_messages", label: "Anthropic", env_var: "ANTHROPIC_API_KEY", priority: 10 },
+    { name: "deepseek", base_url: "https://api.deepseek.com", format: "chat_completions", label: "DeepSeek", env_var: "DEEPSEEK_API_KEY", priority: 8 },
+    { name: "groq", base_url: "https://api.groq.com/openai", format: "chat_completions", label: "Groq", env_var: "GROQ_API_KEY", priority: 7 },
+    { name: "openrouter", base_url: "https://openrouter.ai/api", format: "chat_completions", label: "OpenRouter", env_var: "OPENROUTER_API_KEY", priority: 6 },
+    { name: "xai", base_url: "https://api.x.ai", format: "chat_completions", label: "xAI", env_var: "XAI_API_KEY", priority: 7 },
+    { name: "mistral", base_url: "https://api.mistral.ai", format: "chat_completions", label: "Mistral", env_var: "MISTRAL_API_KEY", priority: 7 },
+    { name: "siliconflow", base_url: "https://api.siliconflow.cn", format: "chat_completions", label: "SiliconFlow", env_var: "SILICONFLOW_API_KEY", priority: 6 },
+    { name: "moonshot", base_url: "https://api.moonshot.cn", format: "chat_completions", label: "Moonshot", env_var: "MOONSHOT_API_KEY", priority: 6 },
+    { name: "together", base_url: "https://api.together.xyz", format: "chat_completions", label: "Together", env_var: "TOGETHER_AI_API_KEY", priority: 6 },
+  ];
+
   function addProviderModalBody() {
+    const presetsHtml = PROVIDER_PRESETS.map((p) =>
+      `<button type="button" class="provider-preset-chip" data-preset='${JSON.stringify(p)}' title="Fill from ${escapeHtml(p.label)} preset">${escapeHtml(p.label)}</button>`
+    ).join("");
     return `
       <form id="addProviderModalForm" class="provider-create-form">
+        <div class="provider-preset-section">
+          <span class="provider-preset-label">Quick fill:</span>
+          <div class="provider-preset-chips">${presetsHtml}</div>
+        </div>
         <label class="field form-field-inline">
           <span>Provider name</span>
           <input class="control" name="name" required placeholder="my-provider" autocomplete="off" />
@@ -682,6 +703,22 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     }
     const cancel = document.getElementById("addProviderModalCancel");
     if (cancel) cancel.addEventListener("click", closeFormModal);
+    // Bind preset chips: fill form fields from the selected preset.
+    document.querySelectorAll(".provider-preset-chip").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        try {
+          const preset = JSON.parse(chip.getAttribute("data-preset") || "{}");
+          const nameField = form.querySelector('[name="name"]');
+          const urlField = form.querySelector('[name="base_url"]');
+          const formatField = form.querySelector('[name="format"]');
+          const priorityField = form.querySelector('[name="priority"]');
+          if (preset.name && nameField) nameField.value = preset.name;
+          if (preset.base_url && urlField) urlField.value = preset.base_url;
+          if (preset.format && formatField) formatField.value = preset.format;
+          if (preset.priority != null && priorityField) priorityField.value = preset.priority;
+        } catch (_e) { /* ignore */ }
+      });
+    });
   }
 
   function collectModelNames(status, config) {
@@ -812,6 +849,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       const fetches = {
         metrics: apiGet("/-/admin/metrics"),
         providerActivity: apiGet("/-/admin/provider-activity?limit=60&include_events=1"),
+        healthScores: apiGet("/-/admin/health/scores"),
       };
       if (needStaticAdminData) {
         fetches.status = apiGet("/-/admin/status");
@@ -837,6 +875,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         const pa = result.providerActivity || {};
         state.data.providerActivity = pa.providers || pa || {};
       }
+      if (result.healthScores !== undefined) state.data.healthScores = result.healthScores;
       if (result.timeseries !== undefined) state.data.timeseries = result.timeseries;
       if (result.status !== undefined) state.data.status = result.status;
       if (result.models !== undefined) {
@@ -1011,11 +1050,13 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       __ta = t;
     };
     if (view === "overview") {
+      renderOnboardingBanner(); __mark("onboarding");
       renderMetrics(); __mark("metrics");
       renderOverviewVisuals(); __mark("visuals");
       renderTrafficChart(); __mark("traffic");
       renderUsageChart(); __mark("usage");
       renderProviderHealth(); __mark("providerHealth");
+      renderHealthOverview(); __mark("healthOverview");
       renderRecentFailures(); __mark("recentFailures");
     } else if (view === "requests") {
       renderRequestsTable(); __mark("requestsTable");
@@ -1892,6 +1933,105 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     if (view.activity.lastError) return 4;
     if (view.keyStats.cooldown > 0) return 5;
     return 10;
+  }
+
+  function renderOnboardingBanner() {
+    const target = el("onboardingBanner");
+    if (!target) return;
+    const status = state.data.status || {};
+    const config = state.data.config || {};
+    const providers = config.providers || {};
+    const providerNames = Object.keys(providers);
+    const zeroConfig = !!status.zero_config;
+    // Show banner when zero-config is active or no providers are configured.
+    const hasProviders = providerNames.length > 0 && providerNames.some((name) => {
+      const p = providers[name];
+      return p && p.keys && Array.isArray(p.keys) && p.keys.length > 0;
+    });
+    if (!zeroConfig && hasProviders) {
+      target.innerHTML = "";
+      target.style.display = "none";
+      return;
+    }
+    target.style.display = "";
+    const presets = status.provider_presets || [];
+    const presetChips = presets.length
+      ? `<div class="onboarding-presets">
+          <span class="onboarding-presets-label">Detected env vars (zero-config):</span>
+          ${presets.slice(0, 6).map((p) => `<span class="onboarding-preset-chip" title="${escapeHtml(p.env_var)}">${escapeHtml(p.name)}</span>`).join("")}
+        </div>`
+      : "";
+    target.innerHTML = `
+      <div class="onboarding-banner">
+        <div class="onboarding-banner-icon">${iconSvg("settings")}</div>
+        <div class="onboarding-banner-content">
+          <h3>${zeroConfig ? "Zero-config mode active" : "Welcome! Get started in seconds"}</h3>
+          <p>${zeroConfig
+            ? "Providers were auto-detected from environment variables. Create a config.json for full control, or add more providers below."
+            : "No providers are configured yet. Set environment variables like OPENAI_API_KEY for zero-config, or manually add a provider."}</p>
+          ${presetChips}
+          <div class="onboarding-banner-actions">
+            <button class="button primary" type="button" id="onboardingAddProvider" data-goto-modal="addProvider">Add Provider</button>
+            <button class="button secondary" type="button" data-view-target="config">View Config</button>
+          </div>
+        </div>
+      </div>
+    `;
+    const addBtn = document.getElementById("onboardingAddProvider");
+    if (addBtn) addBtn.addEventListener("click", openAddProviderModal);
+    bindViewTargetButtons();
+  }
+
+  function renderHealthOverview() {
+    const target = el("healthOverview");
+    if (!target) return;
+    const hs = state.data.healthScores;
+    if (!hs || !hs.providers) {
+      target.innerHTML = "";
+      return;
+    }
+    const overall = hs.overall || 0;
+    const providers = hs.providers;
+    const names = Object.keys(providers);
+    if (!names.length) {
+      target.innerHTML = `<div class="health-overview-empty">No provider health data</div>`;
+      return;
+    }
+    // Sort by score ascending (worst first) so problem providers are visible.
+    names.sort((a, b) => (providers[a].score || 0) - (providers[b].score || 0));
+    const overallGrade = overall >= 90 ? "excellent" : overall >= 75 ? "good" : overall >= 50 ? "fair" : overall >= 25 ? "poor" : "critical";
+    const overallTone = overall >= 75 ? "success" : overall >= 50 ? "warning" : "danger";
+    target.innerHTML = `
+      <div class="health-overview-header">
+        <div class="health-overview-score tone-${escapeHtml(overallTone)}">
+          <span class="health-score-ring ${escapeHtml(overallGrade)}">
+            <strong>${fmtInt(overall)}</strong>
+            <small>/ 100</small>
+          </span>
+          <span class="health-score-label">${escapeHtml(overallGrade)}</span>
+        </div>
+        <div class="health-overview-meta">
+          <span>${iconSvg("server")} ${fmtInt(names.length)} ${names.length !== 1 ? "providers" : "provider"}</span>
+        </div>
+      </div>
+      <div class="health-overview-list">
+        ${names.map((name) => {
+          const p = providers[name];
+          const tone = p.score >= 75 ? "ok" : p.score >= 50 ? "warn" : p.score >= 25 ? "soft" : "bad";
+          const gradeLabel = p.grade || "unknown";
+          return `
+            <div class="health-provider-row tone-${escapeHtml(tone)}" data-provider-card="${escapeHtml(name)}">
+              <span class="health-provider-name mono">${escapeHtml(name)}</span>
+              <div class="health-provider-bar">
+                <div class="health-provider-bar-fill tone-${escapeHtml(tone)}" style="width:${Math.max(2, Math.min(100, p.score))}%"></div>
+              </div>
+              <span class="health-provider-score">${fmtInt(p.score)}</span>
+              <span class="health-provider-grade grade-${escapeHtml(gradeLabel)}">${escapeHtml(gradeLabel)}</span>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
   }
 
   function enabledFormats(formats) {
@@ -3369,14 +3509,27 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const routing = state.data.config?.routing || {};
     const defaultPool = Array.isArray(routing.default_provider_pool) ? routing.default_provider_pool : [];
     const routeRows = providerRoutingRows(view.name);
+    const currentMode = routing.provider_select || "priority_failover";
     return `
       <section class="provider-drawer-section">
         <div class="provider-detail-metrics">
-          ${miniMetric("Default pool", defaultPool.includes(view.name) ? "yes" : "no", routing.provider_select || "priority_failover")}
+          ${miniMetric("Default pool", defaultPool.includes(view.name) ? "yes" : "no", currentMode)}
           ${miniMetric("Priority", fmtInt(view.priority), "provider")}
           ${miniMetric("Route models", fmtInt(routeRows.length), "explicit")}
-          ${miniMetric("Provider select", routing.provider_select || "priority_failover", "default")}
+          ${miniMetric("Provider select", currentMode, "default")}
           ${miniMetric("Max attempts", fmtInt(routing.max_attempts), "request")}
+        </div>
+        <div class="provider-hot-reload-controls">
+          <div class="hot-reload-row">
+            <label class="field hot-reload-field">
+              <span>Quick priority (hot-reload)</span>
+              <div class="hot-reload-input-row">
+                <input class="control" type="number" min="-1000" max="1000" step="1" value="${escapeHtml(view.priority ?? 0)}" data-hot-priority="${escapeHtml(view.name)}" />
+                <button class="button secondary compact-action" type="button" data-hot-priority-apply="${escapeHtml(view.name)}">Apply</button>
+              </div>
+              <small class="muted">Instantly updates priority without full config reload</small>
+            </label>
+          </div>
         </div>
         <div class="provider-route-list">
           ${routeRows.length ? routeRows.slice(0, 50).map((row) => `
@@ -3385,7 +3538,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
                 <strong class="mono">${escapeHtml(row.model)}</strong>
                 <small>${escapeHtml(row.providerText)}</small>
               </div>
-              ${badge(row.select || routing.provider_select || "priority_failover", "info")}
+              ${badge(row.select || currentMode, "info")}
             </article>
           `).join("") + (routeRows.length > 50 ? `<div class="pad-slim muted">+ ${routeRows.length - 50} more routes...</div>` : "") : `<div class="empty pad-slim">No explicit model route includes this provider</div>`}
         </div>
@@ -4401,6 +4554,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const currentSelect = String(routing.provider_select || "priority_failover");
     const routeModes = [
       { value: "priority_failover", icon: "bolt", label: t("policy.mode_priority"), tip: t("policy.mode_priority_tip") },
+      { value: "auto", icon: "zap", label: t("policy.mode_auto"), tip: t("policy.mode_auto_tip") },
       { value: "round_robin", icon: "rotate", label: t("policy.mode_round_robin"), tip: t("policy.mode_round_robin_tip") },
       { value: "weighted_rr", icon: "layers", label: t("policy.mode_weighted"), tip: t("policy.mode_weighted_tip") },
       { value: "random", icon: "dot", label: t("policy.mode_random"), tip: t("policy.mode_random_tip") },
@@ -5172,6 +5326,28 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
         } catch (err) {
           setNotice(t("notice.delete_provider_failed", { error: err.message }));
+        } finally {
+          button.disabled = false;
+        }
+      });
+    });
+
+    root.querySelectorAll("[data-hot-priority-apply]").forEach((button) => {
+      if (button.dataset.boundHotPriority) return;
+      button.dataset.boundHotPriority = "1";
+      button.addEventListener("click", async () => {
+        const provider = button.dataset.hotPriorityApply || "";
+        if (!provider) return;
+        const input = root.querySelector(`[data-hot-priority="${CSS.escape(provider)}"]`);
+        if (!input) return;
+        const priority = Number(input.value || 0);
+        button.disabled = true;
+        try {
+          await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/priority`, { priority });
+          setNotice(`Priority for ${provider} hot-updated to ${priority}.`, "ok");
+          await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
+        } catch (err) {
+          setNotice(`Hot-reload priority failed: ${err.message}`);
         } finally {
           button.disabled = false;
         }
@@ -6406,7 +6582,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
   function updateLangToggleLabel() {
     const btn = el("langToggleButton");
     if (!btn) return;
-    btn.textContent = getLang() === "en" ? "中文" : "EN";
+    btn.textContent = getLang() === "en" ? "中" : "EN";
   }
 
   // ─────────────────────────────────────────────────────────────

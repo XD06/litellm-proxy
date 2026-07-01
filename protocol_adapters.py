@@ -44,12 +44,19 @@ def to_openai_request(req: Dict[str, Any], *, resolve_model: Callable[[str], str
         if isinstance(content, list):
             text_parts, thinking_parts, tool_results, tool_uses = [], [], [], []
 
+            ordered_parts = []
+
             for block in content:
                 btype = block.get("type", "")
                 if btype == "text":
                     text_parts.append(block.get("text", ""))
+                    ordered_parts.append({"type": "text", "text": block.get("text", "")})
                 elif btype == "thinking":
                     thinking_parts.append(block.get("thinking", ""))
+                elif btype == "image":
+                    img = _anthropic_image_to_openai(block)
+                    if img:
+                        ordered_parts.append(img)
                 elif btype == "tool_result":
                     result_content = block.get("content", "")
                     if isinstance(result_content, list):
@@ -94,12 +101,20 @@ def to_openai_request(req: Dict[str, Any], *, resolve_model: Callable[[str], str
             elif role == "user" and tool_results:
                 msgs.extend(tool_results)
                 all_text = text_parts + thinking_parts
-                if all_text:
+                has_images = any(p["type"] == "image_url" for p in ordered_parts)
+                if has_images:
+                    if ordered_parts:
+                        msgs.append({"role": "user", "content": ordered_parts})
+                elif all_text:
                     msgs.append({"role": "user", "content": "\n".join(all_text)})
             else:
-                all_text = text_parts + thinking_parts
-                combined = "\n".join(all_text) if all_text else ""
-                msgs.append({"role": role, "content": combined if combined else ""})
+                has_images = any(p["type"] == "image_url" for p in ordered_parts)
+                if has_images:
+                    msgs.append({"role": role, "content": ordered_parts})
+                else:
+                    all_text = text_parts + thinking_parts
+                    combined = "\n".join(all_text) if all_text else ""
+                    msgs.append({"role": role, "content": combined if combined else ""})
         else:
             oa_msg = {"role": role, "content": m.get("content") or ""}
             if role == "assistant" and m.get("reasoning_content") is not None:
@@ -204,6 +219,99 @@ def to_anthropic_message(upstream_resp: Dict[str, Any], original_model: Optional
     }
 
 
+def _anthropic_image_to_openai(block: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Convert an Anthropic image block to an OpenAI image_url content part."""
+    source = block.get("source") or {}
+    src_type = str(source.get("type") or "")
+    if src_type == "url":
+        url = str(source.get("url") or "")
+        if not url:
+            return None
+        return {"type": "image_url", "image_url": {"url": url}}
+    if src_type == "base64":
+        media_type = str(source.get("media_type") or "image/png")
+        data = str(source.get("data") or "")
+        if not data:
+            return None
+        return {"type": "image_url", "image_url": {"url": f"data:{media_type};base64,{data}"}}
+    return None
+
+
+def _openai_image_to_anthropic(block: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Convert an OpenAI image_url content part to an Anthropic image block."""
+    url = ""
+    image_url = block.get("image_url")
+    if isinstance(image_url, dict):
+        url = str(image_url.get("url") or "")
+    elif isinstance(image_url, str):
+        url = image_url
+    if not url:
+        return None
+    # data:image/png;base64,...
+    if url.startswith("data:"):
+        header, _, data = url.partition(",")
+        # header: data:<media_type>;base64
+        media_type = "image/png"
+        if ";" in header and "/" in header:
+            media_type = header.split(":")[1].split(";")[0] if ":" in header else "image/png"
+        return {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": data}}
+    return {"type": "image", "source": {"type": "url", "url": url}}
+
+
+def _openai_image_to_responses(block: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Convert an OpenAI image_url content part to a Responses input_image item."""
+    url = ""
+    image_url = block.get("image_url")
+    if isinstance(image_url, dict):
+        url = str(image_url.get("url") or "")
+    elif isinstance(image_url, str):
+        url = image_url
+    if not url:
+        return None
+    return {"type": "input_image", "image_url": url}
+
+
+def _responses_image_to_openai(block: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Convert a Responses input_image item to an OpenAI image_url content part."""
+    url = str(block.get("image_url") or "")
+    if not url:
+        return None
+    return {"type": "image_url", "image_url": {"url": url}}
+
+
+def _has_openai_image_content(content: Any) -> bool:
+    """Check if OpenAI chat content list contains image_url blocks."""
+    if not isinstance(content, list):
+        return False
+    return any(isinstance(b, dict) and b.get("type") == "image_url" for b in content)
+
+
+def _openai_content_parts_with_images(content: Any) -> list:
+    """Convert OpenAI chat content list to parts, preserving images.
+    Returns a list of content parts (text + image_url), or empty list."""
+    parts = []
+    if not isinstance(content, list):
+        text = _chat_content_to_text(content)
+        if text:
+            parts.append({"type": "text", "text": text})
+        return parts
+    for block in content:
+        if not isinstance(block, dict):
+            if isinstance(block, str) and block:
+                parts.append({"type": "text", "text": block})
+            continue
+        btype = block.get("type")
+        if btype == "text":
+            text = str(block.get("text") or "")
+            if text:
+                parts.append({"type": "text", "text": text})
+        elif btype == "image_url":
+            img = _openai_image_to_anthropic(block)
+            if img:
+                parts.append(img)
+    return parts
+
+
 def _responses_content_to_text(content: Any) -> str:
     if content is None:
         return ""
@@ -281,7 +389,34 @@ def _responses_input_item_to_chat_messages(item: Any) -> list:
     if role:
         if role == "developer":
             role = "system"
-        content = _responses_content_to_text(item.get("content"))
+        raw_content = item.get("content")
+        # Check if content contains image blocks
+        has_images = False
+        if isinstance(raw_content, list):
+            for cb in raw_content:
+                if isinstance(cb, dict) and cb.get("type") == "input_image":
+                    has_images = True
+                    break
+        if has_images:
+            content_parts = []
+            for cb in raw_content:
+                if not isinstance(cb, dict):
+                    if isinstance(cb, str) and cb:
+                        content_parts.append({"type": "text", "text": cb})
+                    continue
+                ctype = cb.get("type")
+                if ctype in ("input_text", "output_text", "text"):
+                    text = str(cb.get("text") or "")
+                    if text:
+                        content_parts.append({"type": "text", "text": text})
+                elif ctype == "input_image":
+                    img = _responses_image_to_openai(cb)
+                    if img:
+                        content_parts.append(img)
+            if content_parts:
+                return [{"role": role, "content": content_parts}]
+            return []
+        content = _responses_content_to_text(raw_content)
         if content or role in ("assistant", "tool"):
             return [{"role": role, "content": content}]
 
@@ -546,7 +681,12 @@ def openai_chat_request_to_anthropic_request(
             continue
 
         if role == "user":
-            messages.append({"role": "user", "content": _chat_content_to_text(msg.get("content"))})
+            raw_content = msg.get("content")
+            if _has_openai_image_content(raw_content):
+                blocks = _openai_content_parts_with_images(raw_content)
+                messages.append({"role": "user", "content": blocks if blocks else ""})
+            else:
+                messages.append({"role": "user", "content": _chat_content_to_text(raw_content)})
 
     payload: Dict[str, Any] = {
         "model": resolve_model(req.get("model", "")),
@@ -688,7 +828,30 @@ def openai_chat_request_to_responses_request(
                 )
             continue
         if role == "user":
-            input_items.append({"role": "user", "content": [{"type": "input_text", "text": text}]})
+            raw_content = msg.get("content")
+            if _has_openai_image_content(raw_content):
+                content_parts = []
+                if isinstance(raw_content, list):
+                    for block in raw_content:
+                        if not isinstance(block, dict):
+                            if isinstance(block, str) and block:
+                                content_parts.append({"type": "input_text", "text": block})
+                            continue
+                        btype = block.get("type")
+                        if btype == "text":
+                            text = str(block.get("text") or "")
+                            if text:
+                                content_parts.append({"type": "input_text", "text": text})
+                        elif btype == "image_url":
+                            img = _openai_image_to_responses(block)
+                            if img:
+                                content_parts.append(img)
+                if content_parts:
+                    input_items.append({"role": "user", "content": content_parts})
+                else:
+                    input_items.append({"role": "user", "content": [{"type": "input_text", "text": ""}]})
+            else:
+                input_items.append({"role": "user", "content": [{"type": "input_text", "text": text}]})
 
     payload: Dict[str, Any] = {
         "model": resolve_model(req.get("model", "")),
