@@ -61,10 +61,13 @@ jobs:
       - name: Smoke test (main branch only)
         if: github.ref == 'refs/heads/main'
         run: |
+          echo '{"server":{"host":"0.0.0.0","port":4894,"admin_key":"ci-test"},"providers":{},"routing":{"default_provider_pool":[],"max_attempts":1},"models":{}}' > /tmp/ci-config.json
+          echo '{}' > /tmp/ci-runtime.json
           docker run -d --name smoke-test -p 4894:4894 \
-            -v ${{ github.workspace }}/config.example.json:/app/config.json:ro \
+            -v /tmp/ci-config.json:/app/config.json:ro \
+            -v /tmp/ci-runtime.json:/app/runtime_config.json \
             xd06/litellm-proxy:latest
-          sleep 5
+          sleep 3
           curl -sf http://127.0.0.1:4894/health || (docker logs smoke-test && exit 1)
           docker stop smoke-test || true
           docker rm smoke-test || true
