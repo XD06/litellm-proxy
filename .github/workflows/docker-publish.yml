@@ -17,7 +17,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            xd06/litellm-proxy
+            dsk3/litellm-proxy
             ghcr.io/xd06/litellm-proxy
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
@@ -66,7 +66,7 @@ jobs:
           docker run -d --name smoke-test -p 4894:4894 \
             -v /tmp/ci-config.json:/app/config.json:ro \
             -v /tmp/ci-runtime.json:/app/runtime_config.json \
-            xd06/litellm-proxy:latest
+            dsk3/litellm-proxy:latest
           sleep 3
           curl -sf http://127.0.0.1:4894/health || (docker logs smoke-test && exit 1)
           docker stop smoke-test || true

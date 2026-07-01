@@ -1,6 +1,6 @@
 # LLM API Proxy — 3-Format Conversion · Smart Routing · Web Dashboard
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/downloads/) [![CI](https://github.com/XD06/litellm-proxy/actions/workflows/ci.yml/badge.svg)](https://github.com/XD06/litellm-proxy/actions/workflows/ci.yml) [![Docker](https://img.shields.io/docker/pulls/xd06/litellm-proxy.svg)](https://hub.docker.com/r/xd06/litellm-proxy) [![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-ff69b4.svg)](https://github.com/XD06/litellm-proxy/pulls)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/downloads/) [![CI](https://github.com/XD06/litellm-proxy/actions/workflows/ci.yml/badge.svg)](https://github.com/XD06/litellm-proxy/actions/workflows/ci.yml) [![Docker](https://img.shields.io/docker/pulls/dsk3/litellm-proxy.svg)](https://hub.docker.com/r/dsk3/litellm-proxy) [![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-ff69b4.svg)](https://github.com/XD06/litellm-proxy/pulls)
 
 **English** | [中文](README_CN.md)
 
@@ -90,7 +90,7 @@ Use the `server.admin_key` from `config.json` to log in to the dashboard.
 ### Pull from Docker Hub
 
 ```bash
-docker pull xd06/litellm-proxy:latest
+docker pull dsk3/litellm-proxy:latest
 
 docker run -d --name litellm-proxy \
   -p 4894:4894 \
@@ -99,7 +99,7 @@ docker run -d --name litellm-proxy \
   -v ./tmp:/app/tmp \
   -v ./proxy_logs:/app/proxy_logs \
   -v ./data:/app/data \
-  xd06/litellm-proxy:latest
+  dsk3/litellm-proxy:latest
 ```
 
 ### Build from Source
