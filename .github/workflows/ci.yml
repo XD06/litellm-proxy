@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Compile-check core modules
+        run: |
+          python -m py_compile sse2json.py config_loader.py config_manager.py router.py upstream_client.py stream_adapters.py protocol_adapters.py format_adapters.py request_routes.py observability.py history_store.py model_registry.py scheduler_policy.py admin_routes.py usage_accounting.py
+
+      - name: Run tests
+        run: |
+          python -m pytest tests/ -q
+
+  dashboard-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check dashboard bundle syntax
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - run: node --check dashboard/app.js
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t litellm-proxy-ci .
+
+      - name: Smoke test - health check
+        run: |
+          docker run -d --name proxy-ci -p 4894:4894 \
+            -v ${{ github.workspace }}/config.example.json:/app/config.json:ro \
+            -v ${{ github.workspace }}/runtime_config.json:/app/runtime_config.json \
+            litellm-proxy-ci
+          sleep 5
+          curl -sf http://127.0.0.1:4894/health || (docker logs proxy-ci && exit 1)
+          docker stop proxy-ci || true
+          docker rm proxy-ci || true
