@@ -47,7 +47,7 @@ class AdminAuditStore:
         item = {
             "id": f"audit_{int(time.time() * 1000)}_{os.getpid()}",
             "ts": int(time.time()),
-            "iso": datetime.datetime.now(datetime.UTC).replace(microsecond=0).isoformat(),
+            "iso": datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat(),
             "action": str(action or "unknown"),
             "target": str(target or ""),
             "status": str(status or "success"),

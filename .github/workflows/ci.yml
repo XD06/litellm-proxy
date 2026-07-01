@@ -58,11 +58,14 @@ jobs:
 
       - name: Smoke test - health check
         run: |
+          # Create a minimal config with no upstream providers to avoid DNS failures in CI
+          echo '{"server":{"host":"0.0.0.0","port":4894,"admin_key":"ci-test"},"providers":{},"routing":{"default_provider_pool":[],"max_attempts":1},"models":{}}' > /tmp/ci-config.json
+          echo '{}' > /tmp/ci-runtime.json
           docker run -d --name proxy-ci -p 4894:4894 \
-            -v ${{ github.workspace }}/config.example.json:/app/config.json:ro \
-            -v ${{ github.workspace }}/runtime_config.json:/app/runtime_config.json \
+            -v /tmp/ci-config.json:/app/config.json:ro \
+            -v /tmp/ci-runtime.json:/app/runtime_config.json \
             litellm-proxy-ci
-          sleep 5
+          sleep 3
           curl -sf http://127.0.0.1:4894/health || (docker logs proxy-ci && exit 1)
           docker stop proxy-ci || true
           docker rm proxy-ci || true
