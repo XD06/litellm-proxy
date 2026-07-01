@@ -451,6 +451,162 @@ class RuntimeSwapConsistencyTests(unittest.TestCase):
             for name, value in originals.items():
                 setattr(sse2json, name, value)
 
+    def test_save_router_state_uses_consistent_runtime_snapshot(self):
+        """_save_router_state must use _request_runtime() so that router state
+        and model capabilities come from the same config snapshot, preventing
+        a torn read during concurrent config hot-swap."""
+        import json
+
+        cfg_a = {
+            "providers": {"alpha": {"base_url": "https://a.test", "keys": ["k1"]}},
+            "models": {"provider_model_capabilities": {
+                "alpha": {"status": "ok", "models": ["alpha-model"], "canonical_map": {}},
+            }},
+            "routing": {},
+        }
+        router_a = UpstreamRouter(cfg_a)
+        router_a._keys_state[("alpha", 0)].fails = 7
+
+        from upstream_client import OpenAIUpstreamClient
+        from audit_store import AdminAuditStore
+        client_a = OpenAIUpstreamClient(cfg_a)
+        obs_a = ProxyObservability(cfg_a)
+        audit_a = AdminAuditStore(cfg_a)
+        bundle_a = sse2json.RuntimeContext(cfg_a, router_a, client_a, obs_a, audit_a)
+
+        originals = {
+            "CONFIG": sse2json.CONFIG,
+            "ROUTER": sse2json.ROUTER,
+            "UPSTREAM_CLIENT": sse2json.UPSTREAM_CLIENT,
+            "OBSERVABILITY": sse2json.OBSERVABILITY,
+            "AUDIT": sse2json.AUDIT,
+            "RUNTIME": sse2json.RUNTIME,
+            "MODEL_DISCOVERY_QUEUE": sse2json.MODEL_DISCOVERY_QUEUE,
+        }
+
+        tmpdir = tempfile.mkdtemp()
+        state_file = os.path.join(tmpdir, "router_state.json")
+        try:
+            # Install bundle_a as the consistent runtime
+            sse2json.RUNTIME = bundle_a
+            sse2json.CONFIG = cfg_a
+            sse2json.ROUTER = router_a
+            sse2json.UPSTREAM_CLIENT = client_a
+            sse2json.OBSERVABILITY = obs_a
+            sse2json.AUDIT = audit_a
+            sse2json.MODEL_DISCOVERY_QUEUE = None
+
+            with patch.object(sse2json, "_ROUTER_STATE_FILE", state_file):
+                sse2json._save_router_state()
+
+            with open(state_file, "r", encoding="utf-8") as f:
+                state = json.load(f)
+
+            # Router state must come from bundle_a's router
+            self.assertIn("alpha", state["router"]["providers"])
+            # The key state must reflect the seeded fails count
+            alpha_key = state["router"]["keys"].get("alpha\x000") or {}
+            self.assertEqual(alpha_key.get("fails"), 7)
+            # Model capabilities must come from bundle_a's config
+            self.assertIn("alpha", state["model_capabilities"])
+            self.assertEqual(state["model_capabilities"]["alpha"]["status"], "ok")
+        finally:
+            for name, value in originals.items():
+                setattr(sse2json, name, value)
+
+    def test_save_router_state_never_produces_torn_state_under_swap(self):
+        """Concurrent _save_router_state calls during config hot-swap must
+        never produce a state file where router providers and model
+        capabilities come from different configs."""
+        import json
+        import threading
+
+        def _make_bundle(tag):
+            cfg = {
+                "providers": {tag: {"base_url": f"https://{tag}.test", "keys": [f"k-{tag}"]}},
+                "models": {"provider_model_capabilities": {
+                    tag: {"status": "ok", "models": [f"{tag}-model"], "canonical_map": {}},
+                }},
+                "routing": {},
+            }
+            router = UpstreamRouter(cfg)
+            from upstream_client import OpenAIUpstreamClient
+            from audit_store import AdminAuditStore
+            client = OpenAIUpstreamClient(cfg)
+            obs = ProxyObservability(cfg)
+            audit = AdminAuditStore(cfg)
+            return sse2json.RuntimeContext(cfg, router, client, obs, audit), cfg
+
+        bundle_a, cfg_a = _make_bundle("alpha")
+        bundle_b, cfg_b = _make_bundle("beta")
+
+        originals = {
+            "CONFIG": sse2json.CONFIG,
+            "ROUTER": sse2json.ROUTER,
+            "UPSTREAM_CLIENT": sse2json.UPSTREAM_CLIENT,
+            "OBSERVABILITY": sse2json.OBSERVABILITY,
+            "AUDIT": sse2json.AUDIT,
+            "RUNTIME": sse2json.RUNTIME,
+            "MODEL_DISCOVERY_QUEUE": sse2json.MODEL_DISCOVERY_QUEUE,
+        }
+
+        tmpdir = tempfile.mkdtemp()
+        state_file = os.path.join(tmpdir, "router_state.json")
+        torn_states = []
+        save_count = [0]
+
+        try:
+            # Install bundle_a as the initial consistent runtime
+            sse2json.RUNTIME = bundle_a
+            sse2json.CONFIG = cfg_a
+            sse2json.ROUTER = bundle_a.router
+            sse2json.UPSTREAM_CLIENT = bundle_a.upstream_client
+            sse2json.OBSERVABILITY = bundle_a.observability
+            sse2json.AUDIT = bundle_a.audit
+            sse2json.MODEL_DISCOVERY_QUEUE = None
+
+            stop = threading.Event()
+
+            def saver():
+                while not stop.is_set():
+                    with patch.object(sse2json, "_ROUTER_STATE_FILE", state_file):
+                        sse2json._save_router_state()
+                    save_count[0] += 1
+                    # Read and validate the saved state is not torn
+                    try:
+                        with open(state_file, "r", encoding="utf-8") as f:
+                            state = json.load(f)
+                        router_providers = set(state.get("router", {}).get("providers", {}).keys())
+                        cap_providers = set(state.get("model_capabilities", {}).keys())
+                        # The providers in router state and model capabilities
+                        # must be the same set — they come from the same config.
+                        if router_providers != cap_providers:
+                            torn_states.append((router_providers, cap_providers))
+                    except Exception:
+                        pass
+
+            t = threading.Thread(target=saver, daemon=True)
+            t.start()
+
+            # Hammer the swap between A and B while saving
+            for _ in range(100):
+                target = bundle_b if sse2json.RUNTIME is bundle_a else bundle_a
+                sse2json.RUNTIME = target
+                sse2json.CONFIG = target.config
+                sse2json.ROUTER = target.router
+                sse2json.UPSTREAM_CLIENT = target.upstream_client
+                sse2json.OBSERVABILITY = target.observability
+                sse2json.AUDIT = target.audit
+
+            stop.set()
+            t.join(timeout=5)
+            self.assertFalse(t.is_alive(), "saver thread did not stop")
+            self.assertGreater(save_count[0], 0, "saver never ran")
+            self.assertEqual(torn_states, [], f"observed torn states: {torn_states[:5]}")
+        finally:
+            for name, value in originals.items():
+                setattr(sse2json, name, value)
+
 
 if __name__ == "__main__":
     unittest.main()

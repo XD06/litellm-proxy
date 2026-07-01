@@ -147,5 +147,73 @@ class SetResponseReadTimeoutTests(unittest.TestCase):
         self.assertFalse(set_response_read_timeout(resp, 10))
 
 
+class HTTPResponseLineWrapperTests(unittest.TestCase):
+    """Tests for HTTPResponseLineWrapper exception handling.
+
+    The wrapper must NOT swallow network errors (ConnectionResetError,
+    socket.timeout, etc.) because callers like relay_sse_stream rely on
+    exceptions to detect stream interruption, send a graceful close event
+    to the client, and report the provider failure. Only ValueError
+    (closed-response) should be swallowed, as it indicates an intentional
+    close by another thread.
+    """
+    def _make_wrapper(self, *, closed=False, readline_side_effect=None, read_side_effect=None):
+        from upstream_client import HTTPResponseLineWrapper
+        resp = Mock()
+        resp.closed = closed
+        if readline_side_effect is not None:
+            resp.readline.side_effect = readline_side_effect
+        if read_side_effect is not None:
+            resp.read.side_effect = read_side_effect
+        return HTTPResponseLineWrapper(resp)
+
+    def test_readline_returns_empty_when_closed(self):
+        wrapper = self._make_wrapper(closed=True)
+        self.assertEqual(wrapper.readline(), b"")
+
+    def test_readline_swallows_value_error_for_closed_response(self):
+        # ValueError is raised when the response is closed by another thread
+        # mid-read. This should be treated as clean EOF.
+        wrapper = self._make_wrapper(readline_side_effect=ValueError("I/O on closed file"))
+        self.assertEqual(wrapper.readline(), b"")
+
+    def test_readline_propagates_connection_reset(self):
+        wrapper = self._make_wrapper(readline_side_effect=ConnectionResetError("reset"))
+        with self.assertRaises(ConnectionResetError):
+            wrapper.readline()
+
+    def test_readline_propagates_socket_timeout(self):
+        wrapper = self._make_wrapper(readline_side_effect=socket.timeout("timed out"))
+        with self.assertRaises(socket.timeout):
+            wrapper.readline()
+
+    def test_readline_propagates_os_error(self):
+        wrapper = self._make_wrapper(readline_side_effect=OSError("broken pipe"))
+        with self.assertRaises(OSError):
+            wrapper.readline()
+
+    def test_read_swallows_value_error(self):
+        wrapper = self._make_wrapper(read_side_effect=ValueError("closed"))
+        self.assertEqual(wrapper.read(), b"")
+
+    def test_read_propagates_connection_reset(self):
+        wrapper = self._make_wrapper(read_side_effect=ConnectionResetError("reset"))
+        with self.assertRaises(ConnectionResetError):
+            wrapper.read()
+
+    def test_iteration_ends_on_clean_eof(self):
+        # Normal EOF: readline returns b"" then StopIteration
+        wrapper = self._make_wrapper(readline_side_effect=[b"data: hello\n", b""])
+        lines = list(wrapper)
+        self.assertEqual(lines, [b"data: hello\n"])
+
+    def test_iteration_propagates_network_error(self):
+        wrapper = self._make_wrapper(
+            readline_side_effect=[b"data: hello\n", ConnectionResetError("reset")]
+        )
+        with self.assertRaises(ConnectionResetError):
+            list(wrapper)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -2814,6 +2814,11 @@
 					localStorage.setItem("proxyConsoleAdminKey", state.adminKey);
 				} catch (_err) {}
 				showConsole();
+				if (persist) try {
+					const url = new URL(window.location.href);
+					url.searchParams.delete("admin_key");
+					window.history.replaceState(null, "", url.toString());
+				} catch (_err) {}
 				setView(loadSavedView());
 				renderAll();
 				await refreshAll({ quiet: true });
@@ -8272,7 +8277,7 @@
 			startTime: null
 		};
 		function pgEsc(s) {
-			return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+			return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 		}
 		function pgEndpoint() {
 			if (pg.format === "anthropic_messages") return "/v1/messages";

@@ -2,6 +2,7 @@ import json
 import errno
 import os
 import tempfile
+import threading
 import unittest
 from unittest.mock import patch
 
@@ -659,6 +660,41 @@ class ConfigManagerTests(unittest.TestCase):
             mgr.update_model_route({"model": "m", "providers": "alpha:1, alpha:2"})
         with self.assertRaises(config_manager.ConfigValidationError):
             mgr.update_model_route({"model": "m", "providers": "alpha", "provider_select": "sticky"})
+
+    def test_concurrent_overlay_commits_no_lost_update(self):
+        """Two threads concurrently mutate the overlay via _commit_overlay.
+
+        Without the commit lock, both threads start from the same overlay
+        snapshot and the second writer silently overwrites the first (lost
+        update). With the lock, all mutations are serialized and persisted.
+        """
+        _config_path, overlay_path = self.temp_paths()
+        mgr = config_manager.RuntimeConfigManager(base_config(), overlay_path=overlay_path)
+
+        # Each thread adds a distinct provider via the public API, which goes
+        # through _commit_overlay internally.
+        def add_provider(name):
+            mgr.add_provider(name, {"base_url": f"https://{name}.example", "keys": [f"{name}-key"]})
+
+        threads = [threading.Thread(target=add_provider, args=(name,))
+                   for name in ("beta", "gamma", "delta")]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        # All three providers must be present in the in-memory config.
+        cfg = mgr.snapshot()
+        self.assertIn("beta", cfg["providers"])
+        self.assertIn("gamma", cfg["providers"])
+        self.assertIn("delta", cfg["providers"])
+
+        # All three must also be persisted to disk (no lost write).
+        with open(overlay_path, "r", encoding="utf-8") as f:
+            overlay = json.load(f)
+        self.assertIn("beta", overlay["providers"])
+        self.assertIn("gamma", overlay["providers"])
+        self.assertIn("delta", overlay["providers"])
 
     @staticmethod
     def restore_env(name, value):

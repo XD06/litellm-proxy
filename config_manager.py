@@ -8,7 +8,9 @@ import json
 import os
 import re
 import tempfile
+import threading
 import time
+from contextlib import contextmanager
 from typing import Any, Dict, Optional, Tuple
 
 from config_loader import SUPPORTED_FORMATS, _deep_merge, _normalize_config
@@ -47,6 +49,29 @@ class RuntimeConfigManager:
         self.base_config = copy.deepcopy(base_config or {})
         self.overlay = self._read_overlay()
         self.config = self._normalized_merged()
+        # Process-level lock that serializes the full read-modify-write-persist
+        # sequence in _commit_overlay. Without this, two concurrent admin
+        # mutations can each start from the same prior overlay snapshot and the
+        # second write silently overwrites the first (lost update). The
+        # temp-file + os.replace pattern in _write_overlay makes a single write
+        # crash-safe, but does not prevent this lost-update class.
+        self._commit_lock = threading.RLock()
+
+    @contextmanager
+    def _locked_overlay(self):
+        """Context manager that serializes the full read-modify-write cycle.
+
+        Yields a fresh deep copy of the current overlay. On clean exit the
+        (possibly mutated) overlay is pruned, persisted, and self.overlay /
+        self.config are updated. On exception, no commit occurs.
+        """
+        with self._commit_lock:
+            overlay = copy.deepcopy(self.overlay)
+            yield overlay
+            overlay = self._prune_overlay_tombstones(overlay)
+            self._write_overlay(overlay)
+            self.overlay = overlay
+            self.config = self._normalized_merged()
 
     def snapshot(self) -> Dict[str, Any]:
         return self._config_view(self.config)
@@ -73,22 +98,23 @@ class RuntimeConfigManager:
         }
 
     def clear_overlay(self) -> Dict[str, Any]:
-        backup_path = ""
-        if os.path.exists(self.overlay_path):
-            backup_path = f"{self.overlay_path}.bak.{int(time.time())}"
-            try:
-                os.replace(self.overlay_path, backup_path)
-            except OSError as e:
-                if e.errno not in (errno.EBUSY, errno.EXDEV):
-                    raise
-                self._copy_file(self.overlay_path, backup_path)
-                with open(self.overlay_path, "w", encoding="utf-8") as f:
-                    f.write("{}\n")
-                    f.flush()
-                    os.fsync(f.fileno())
-        self.overlay = {}
-        self.config = self._normalized_merged()
-        return {"backup_path": backup_path, "config": self.config}
+        with self._commit_lock:
+            backup_path = ""
+            if os.path.exists(self.overlay_path):
+                backup_path = f"{self.overlay_path}.bak.{int(time.time())}"
+                try:
+                    os.replace(self.overlay_path, backup_path)
+                except OSError as e:
+                    if e.errno not in (errno.EBUSY, errno.EXDEV):
+                        raise
+                    self._copy_file(self.overlay_path, backup_path)
+                    with open(self.overlay_path, "w", encoding="utf-8") as f:
+                        f.write("{}\n")
+                        f.flush()
+                        os.fsync(f.fileno())
+            self.overlay = {}
+            self.config = self._normalized_merged()
+            return {"backup_path": backup_path, "config": self.config}
 
     def _config_view(self, cfg: Dict[str, Any], *, has_overlay: Optional[bool] = None) -> Dict[str, Any]:
         return {
@@ -111,66 +137,66 @@ class RuntimeConfigManager:
         if name in (self.config.get("providers") or {}):
             raise ConfigValidationError(f"provider already exists: {name}")
         clean = self._validate_provider_config(provider_cfg, require_keys=True)
-        overlay = copy.deepcopy(self.overlay)
-        providers = overlay.setdefault("providers", {})
-        providers[name] = clean
-        routing = overlay.setdefault("routing", {})
-        pool = list(routing.get("default_provider_pool") or (self.config.get("routing") or {}).get("default_provider_pool") or [])
-        if name not in pool:
-            pool.append(name)
-        routing["default_provider_pool"] = pool
-        return self._commit_overlay(overlay)
+        with self._locked_overlay() as overlay:
+            providers = overlay.setdefault("providers", {})
+            providers[name] = clean
+            routing = overlay.setdefault("routing", {})
+            pool = list(routing.get("default_provider_pool") or (self.config.get("routing") or {}).get("default_provider_pool") or [])
+            if name not in pool:
+                pool.append(name)
+            routing["default_provider_pool"] = pool
+        return self.config
 
     def update_provider(self, name: str, patch: Dict[str, Any]) -> Dict[str, Any]:
         self._require_provider(name)
         clean = self._validate_provider_patch(patch)
-        overlay = copy.deepcopy(self.overlay)
-        current = self._overlay_provider_base(name)
-        overlay.setdefault("providers", {})[name] = _deep_merge(current, clean)
-        return self._commit_overlay(overlay)
+        with self._locked_overlay() as overlay:
+            current = self._overlay_provider_base(name)
+            overlay.setdefault("providers", {})[name] = _deep_merge(current, clean)
+        return self.config
 
     def delete_provider(self, name: str) -> Dict[str, Any]:
         self._require_provider(name)
-        overlay = copy.deepcopy(self.overlay)
-        providers = overlay.setdefault("providers", {})
-        if name in (self.base_config.get("providers") or {}):
-            providers[name] = None
-        else:
-            providers.pop(name, None)
+        with self._locked_overlay() as overlay:
+            providers = overlay.setdefault("providers", {})
+            if name in (self.base_config.get("providers") or {}):
+                providers[name] = None
+            else:
+                providers.pop(name, None)
 
-        routing = overlay.setdefault("routing", {})
-        pool_source = routing.get("default_provider_pool")
-        if pool_source is None:
-            pool_source = (self.config.get("routing") or {}).get("default_provider_pool") or []
-        routing["default_provider_pool"] = [
-            p for p in (str(item).strip() for item in pool_source or []) if p and p != name
-        ]
+            routing = overlay.setdefault("routing", {})
+            pool_source = routing.get("default_provider_pool")
+            if pool_source is None:
+                pool_source = (self.config.get("routing") or {}).get("default_provider_pool") or []
+            routing["default_provider_pool"] = [
+                p for p in (str(item).strip() for item in pool_source or []) if p and p != name
+            ]
 
-        models = overlay.setdefault("models", {})
-        if not isinstance(models, dict):
-            models = {}
-            overlay["models"] = models
-        self._remove_provider_from_routes(models, name)
-        self._remove_provider_map_entry(models, name, "provider_model_map")
-        self._remove_provider_map_entry(models, name, "provider_model_capabilities")
-        self._remove_provider_map_entry(models, name, "provider_model_disabled")
-        return self._commit_overlay(overlay)
+            models = overlay.setdefault("models", {})
+            if not isinstance(models, dict):
+                models = {}
+                overlay["models"] = models
+            self._remove_provider_from_routes(models, name)
+            self._remove_provider_map_entry(models, name, "provider_model_map")
+            self._remove_provider_map_entry(models, name, "provider_model_capabilities")
+            self._remove_provider_map_entry(models, name, "provider_model_disabled")
+        return self.config
 
     def add_key(self, provider: str, key: str, proxy: Any = "") -> Dict[str, Any]:
         self._require_provider(provider)
         key = str(key or "").strip()
         if not key:
             raise ConfigValidationError("key is required")
-        overlay = copy.deepcopy(self.overlay)
-        current = self._overlay_provider_base(provider)
-        keys = list(current.get("keys") or [])
-        key_entry = normalize_key_entry({"key": key, "proxy": proxy} if proxy else key)
-        if not key_entry:
-            raise ConfigValidationError("key is required")
-        keys.append(key_entry)
-        current["keys"] = keys
-        overlay.setdefault("providers", {})[provider] = current
-        return self._commit_overlay(overlay)
+        with self._locked_overlay() as overlay:
+            current = self._overlay_provider_base(provider)
+            keys = list(current.get("keys") or [])
+            key_entry = normalize_key_entry({"key": key, "proxy": proxy} if proxy else key)
+            if not key_entry:
+                raise ConfigValidationError("key is required")
+            keys.append(key_entry)
+            current["keys"] = keys
+            overlay.setdefault("providers", {})[provider] = current
+        return self.config
 
     def update_key(self, provider: str, key_index: int, patch: Dict[str, Any]) -> Dict[str, Any]:
         self._require_provider(provider)
@@ -181,46 +207,46 @@ class RuntimeConfigManager:
             if field not in allowed:
                 raise ConfigValidationError(f"unsupported key field: {field}")
 
-        overlay = copy.deepcopy(self.overlay)
-        current = self._overlay_provider_base(provider)
-        keys = list(current.get("keys") or [])
-        if key_index < 0 or key_index >= len(keys):
-            raise ConfigValidationError(f"unknown key: {provider}/{key_index}")
+        with self._locked_overlay() as overlay:
+            current = self._overlay_provider_base(provider)
+            keys = list(current.get("keys") or [])
+            if key_index < 0 or key_index >= len(keys):
+                raise ConfigValidationError(f"unknown key: {provider}/{key_index}")
 
-        raw_key = key_value(keys[key_index])
-        if not raw_key:
-            raise ConfigValidationError(f"invalid key: {provider}/{key_index}")
-        proxy = normalize_proxy_config(patch.get("proxy"))
-        keys[key_index] = {"key": raw_key, "proxy": proxy} if proxy else raw_key
-        current["keys"] = keys
-        overlay.setdefault("providers", {})[provider] = current
-        return self._commit_overlay(overlay)
+            raw_key = key_value(keys[key_index])
+            if not raw_key:
+                raise ConfigValidationError(f"invalid key: {provider}/{key_index}")
+            proxy = normalize_proxy_config(patch.get("proxy"))
+            keys[key_index] = {"key": raw_key, "proxy": proxy} if proxy else raw_key
+            current["keys"] = keys
+            overlay.setdefault("providers", {})[provider] = current
+        return self.config
 
     def delete_key(self, provider: str, key_index: int) -> Dict[str, Any]:
         self._require_provider(provider)
-        overlay = copy.deepcopy(self.overlay)
-        current = self._overlay_provider_base(provider)
-        keys = list(current.get("keys") or [])
-        delete_pos = key_index
-        if key_index < 0 or key_index >= len(keys):
-            delete_pos = -1
-            for idx, entry in enumerate(keys):
-                if isinstance(entry, dict) and int(entry.get("index", -1)) == key_index:
-                    delete_pos = idx
-                    break
-        if delete_pos < 0 or delete_pos >= len(keys):
-            raise ConfigValidationError(f"unknown key: {provider}/{key_index}")
-        keys.pop(delete_pos)
-        current["keys"] = keys
-        overlay.setdefault("providers", {})[provider] = current
-        return self._commit_overlay(overlay)
+        with self._locked_overlay() as overlay:
+            current = self._overlay_provider_base(provider)
+            keys = list(current.get("keys") or [])
+            delete_pos = key_index
+            if key_index < 0 or key_index >= len(keys):
+                delete_pos = -1
+                for idx, entry in enumerate(keys):
+                    if isinstance(entry, dict) and int(entry.get("index", -1)) == key_index:
+                        delete_pos = idx
+                        break
+            if delete_pos < 0 or delete_pos >= len(keys):
+                raise ConfigValidationError(f"unknown key: {provider}/{key_index}")
+            keys.pop(delete_pos)
+            current["keys"] = keys
+            overlay.setdefault("providers", {})[provider] = current
+        return self.config
 
     def update_global_proxy(self, patch: Dict[str, Any]) -> Dict[str, Any]:
         if not isinstance(patch, dict) or "proxy" not in patch:
             raise ConfigValidationError("proxy patch must include proxy")
-        overlay = copy.deepcopy(self.overlay)
-        overlay["proxy"] = normalize_proxy_config(patch.get("proxy"))
-        return self._commit_overlay(overlay)
+        with self._locked_overlay() as overlay:
+            overlay["proxy"] = normalize_proxy_config(patch.get("proxy"))
+        return self.config
 
     def update_format(self, provider: str, fmt: str, patch: Dict[str, Any]) -> Dict[str, Any]:
         self._require_provider(provider)
@@ -240,124 +266,124 @@ class RuntimeConfigManager:
         if not clean:
             raise ConfigValidationError("empty format patch")
 
-        overlay = copy.deepcopy(self.overlay)
-        current = self._overlay_provider_base(provider)
-        formats = current.setdefault("formats", {})
-        formats[fmt] = _deep_merge(formats.get(fmt) or {}, clean)
-        overlay.setdefault("providers", {})[provider] = current
-        return self._commit_overlay(overlay)
+        with self._locked_overlay() as overlay:
+            current = self._overlay_provider_base(provider)
+            formats = current.setdefault("formats", {})
+            formats[fmt] = _deep_merge(formats.get(fmt) or {}, clean)
+            overlay.setdefault("providers", {})[provider] = current
+        return self.config
 
     def update_routing(self, patch: Dict[str, Any]) -> Dict[str, Any]:
         clean = self._validate_routing_patch(patch)
-        overlay = copy.deepcopy(self.overlay)
-        current = copy.deepcopy(overlay.get("routing") or self.config.get("routing") or {})
-        overlay["routing"] = _deep_merge(current, clean)
-        return self._commit_overlay(overlay)
+        with self._locked_overlay() as overlay:
+            current = copy.deepcopy(overlay.get("routing") or self.config.get("routing") or {})
+            overlay["routing"] = _deep_merge(current, clean)
+        return self.config
 
     def update_retry(self, patch: Dict[str, Any]) -> Dict[str, Any]:
         clean = self._validate_retry_patch(patch)
-        overlay = copy.deepcopy(self.overlay)
-        current = copy.deepcopy(overlay.get("retry") or self.config.get("retry") or {})
-        overlay["retry"] = _deep_merge(current, clean)
-        return self._commit_overlay(overlay)
+        with self._locked_overlay() as overlay:
+            current = copy.deepcopy(overlay.get("retry") or self.config.get("retry") or {})
+            overlay["retry"] = _deep_merge(current, clean)
+        return self.config
 
     def update_failure_policy(self, patch: Dict[str, Any]) -> Dict[str, Any]:
         error_type, policy = self._validate_failure_policy_patch(patch)
-        overlay = copy.deepcopy(self.overlay)
-        retry = copy.deepcopy(overlay.get("retry") or {})
-        policies = retry.setdefault("failure_policies", {})
-        if not isinstance(policies, dict):
-            policies = {}
-        existing = ((self.config.get("retry") or {}).get("failure_policies") or {}).get(error_type) or {}
-        policies[error_type] = _deep_merge(copy.deepcopy(existing), policy)
-        retry["failure_policies"] = policies
-        overlay["retry"] = retry
-        return self._commit_overlay(overlay)
+        with self._locked_overlay() as overlay:
+            retry = copy.deepcopy(overlay.get("retry") or {})
+            policies = retry.setdefault("failure_policies", {})
+            if not isinstance(policies, dict):
+                policies = {}
+            existing = ((self.config.get("retry") or {}).get("failure_policies") or {}).get(error_type) or {}
+            policies[error_type] = _deep_merge(copy.deepcopy(existing), policy)
+            retry["failure_policies"] = policies
+            overlay["retry"] = retry
+        return self.config
 
     def update_model_route(self, patch: Dict[str, Any]) -> Dict[str, Any]:
         model, route = self._validate_model_route_patch(patch)
-        overlay = copy.deepcopy(self.overlay)
-        models = overlay.setdefault("models", {})
-        if not isinstance(models, dict):
-            models = {}
-            overlay["models"] = models
-        routes = models.setdefault("routes", {})
-        if not isinstance(routes, dict):
-            routes = {}
-        routes[model] = route
-        models["routes"] = routes
-        return self._commit_overlay(overlay)
+        with self._locked_overlay() as overlay:
+            models = overlay.setdefault("models", {})
+            if not isinstance(models, dict):
+                models = {}
+                overlay["models"] = models
+            routes = models.setdefault("routes", {})
+            if not isinstance(routes, dict):
+                routes = {}
+            routes[model] = route
+            models["routes"] = routes
+        return self.config
 
     def delete_model_route(self, model: str) -> Dict[str, Any]:
         model_id = self._validate_model_id(model)
-        overlay = copy.deepcopy(self.overlay)
-        models = overlay.setdefault("models", {})
-        if not isinstance(models, dict):
-            models = {}
-            overlay["models"] = models
-        routes = models.setdefault("routes", {})
-        if not isinstance(routes, dict):
-            routes = {}
-        routes.pop(model_id, None)
+        with self._locked_overlay() as overlay:
+            models = overlay.setdefault("models", {})
+            if not isinstance(models, dict):
+                models = {}
+                overlay["models"] = models
+            routes = models.setdefault("routes", {})
+            if not isinstance(routes, dict):
+                routes = {}
+            routes.pop(model_id, None)
 
-        base_routes = ((self.base_config.get("models") or {}).get("routes") or {})
-        if isinstance(base_routes, dict) and model_id in base_routes:
-            routes[model_id] = None
-        models["routes"] = routes
-        return self._commit_overlay(overlay)
+            base_routes = ((self.base_config.get("models") or {}).get("routes") or {})
+            if isinstance(base_routes, dict) and model_id in base_routes:
+                routes[model_id] = None
+            models["routes"] = routes
+        return self.config
 
     def update_provider_model_disabled(self, provider: str, model: str, disabled: bool) -> Dict[str, Any]:
         self._require_provider(provider)
         model_id = self._validate_model_id(model)
-        overlay = copy.deepcopy(self.overlay)
-        models = overlay.setdefault("models", {})
-        if not isinstance(models, dict):
-            models = {}
-            overlay["models"] = models
-        disabled_map = copy.deepcopy((self.config.get("models") or {}).get("provider_model_disabled") or {})
-        if not isinstance(disabled_map, dict):
-            disabled_map = {}
-        provider_map = copy.deepcopy(disabled_map.get(provider) or {})
-        if not isinstance(provider_map, dict):
-            provider_map = {}
-        if disabled:
-            provider_map[model_id] = True
-        else:
-            provider_map.pop(model_id, None)
-        if provider_map:
-            disabled_map[provider] = provider_map
-        else:
-            disabled_map.pop(provider, None)
-        models["provider_model_disabled"] = disabled_map
-        return self._commit_overlay(overlay)
+        with self._locked_overlay() as overlay:
+            models = overlay.setdefault("models", {})
+            if not isinstance(models, dict):
+                models = {}
+                overlay["models"] = models
+            disabled_map = copy.deepcopy((self.config.get("models") or {}).get("provider_model_disabled") or {})
+            if not isinstance(disabled_map, dict):
+                disabled_map = {}
+            provider_map = copy.deepcopy(disabled_map.get(provider) or {})
+            if not isinstance(provider_map, dict):
+                provider_map = {}
+            if disabled:
+                provider_map[model_id] = True
+            else:
+                provider_map.pop(model_id, None)
+            if provider_map:
+                disabled_map[provider] = provider_map
+            else:
+                disabled_map.pop(provider, None)
+            models["provider_model_disabled"] = disabled_map
+        return self.config
 
     def update_provider_models_disabled(self, provider: str, model_states: Dict[str, bool]) -> Dict[str, Any]:
         self._require_provider(provider)
         if not isinstance(model_states, dict):
             raise ConfigValidationError("models must be an object")
-        overlay = copy.deepcopy(self.overlay)
-        models = overlay.setdefault("models", {})
-        if not isinstance(models, dict):
-            models = {}
-            overlay["models"] = models
-        disabled_map = copy.deepcopy((self.config.get("models") or {}).get("provider_model_disabled") or {})
-        if not isinstance(disabled_map, dict):
-            disabled_map = {}
-        provider_map = copy.deepcopy(disabled_map.get(provider) or {})
-        if not isinstance(provider_map, dict):
-            provider_map = {}
-        for model, disabled in model_states.items():
-            model_id = self._validate_model_id(model)
-            if disabled:
-                provider_map[model_id] = True
+        with self._locked_overlay() as overlay:
+            models = overlay.setdefault("models", {})
+            if not isinstance(models, dict):
+                models = {}
+                overlay["models"] = models
+            disabled_map = copy.deepcopy((self.config.get("models") or {}).get("provider_model_disabled") or {})
+            if not isinstance(disabled_map, dict):
+                disabled_map = {}
+            provider_map = copy.deepcopy(disabled_map.get(provider) or {})
+            if not isinstance(provider_map, dict):
+                provider_map = {}
+            for model, disabled in model_states.items():
+                model_id = self._validate_model_id(model)
+                if disabled:
+                    provider_map[model_id] = True
+                else:
+                    provider_map.pop(model_id, None)
+            if provider_map:
+                disabled_map[provider] = provider_map
             else:
-                provider_map.pop(model_id, None)
-        if provider_map:
-            disabled_map[provider] = provider_map
-        else:
-            disabled_map.pop(provider, None)
-        models["provider_model_disabled"] = disabled_map
-        return self._commit_overlay(overlay)
+                disabled_map.pop(provider, None)
+            models["provider_model_disabled"] = disabled_map
+        return self.config
 
     def update_provider_model_mapping(
         self,
@@ -376,49 +402,49 @@ class RuntimeConfigManager:
         if not new_model and not old_model_id:
             raise ConfigValidationError("model or old_model is required")
 
-        overlay = copy.deepcopy(self.overlay)
-        models = overlay.setdefault("models", {})
-        if not isinstance(models, dict):
-            models = {}
-            overlay["models"] = models
+        with self._locked_overlay() as overlay:
+            models = overlay.setdefault("models", {})
+            if not isinstance(models, dict):
+                models = {}
+                overlay["models"] = models
 
-        # Read the overlay's own provider_model_map (NOT the merged config).
-        # This ensures we only carry forward the user's explicit overrides;
-        # base-config entries are handled via tombstones so they don't
-        # "resurrect" after being renamed or deleted.
-        overlay_maps = models.get("provider_model_map")
-        if not isinstance(overlay_maps, dict):
-            overlay_maps = {}
-        overlay_map = copy.deepcopy(overlay_maps.get(provider) or {})
-        if not isinstance(overlay_map, dict):
-            overlay_map = {}
+            # Read the overlay's own provider_model_map (NOT the merged config).
+            # This ensures we only carry forward the user's explicit overrides;
+            # base-config entries are handled via tombstones so they don't
+            # "resurrect" after being renamed or deleted.
+            overlay_maps = models.get("provider_model_map")
+            if not isinstance(overlay_maps, dict):
+                overlay_maps = {}
+            overlay_map = copy.deepcopy(overlay_maps.get(provider) or {})
+            if not isinstance(overlay_map, dict):
+                overlay_map = {}
 
-        # Determine which old_model entries exist in base config so we can
-        # tombstone them instead of merely popping (which would let the base
-        # entry reappear after _deep_merge).
-        base_maps = (self.base_config.get("models") or {}).get("provider_model_map") or {}
-        base_map = base_maps.get(provider) if isinstance(base_maps, dict) else None
-        base_map = base_map if isinstance(base_map, dict) else {}
+            # Determine which old_model entries exist in base config so we can
+            # tombstone them instead of merely popping (which would let the base
+            # entry reappear after _deep_merge).
+            base_maps = (self.base_config.get("models") or {}).get("provider_model_map") or {}
+            base_map = base_maps.get(provider) if isinstance(base_maps, dict) else None
+            base_map = base_map if isinstance(base_map, dict) else {}
 
-        if old_model_id and old_model_id != new_model:
-            if old_model_id in base_map:
-                overlay_map[old_model_id] = None  # tombstone
+            if old_model_id and old_model_id != new_model:
+                if old_model_id in base_map:
+                    overlay_map[old_model_id] = None  # tombstone
+                else:
+                    overlay_map.pop(old_model_id, None)
+            if new_model:
+                overlay_map[new_model] = raw_model_id
+            elif old_model_id:
+                if old_model_id in base_map:
+                    overlay_map[old_model_id] = None  # tombstone
+                else:
+                    overlay_map.pop(old_model_id, None)
+
+            if overlay_map:
+                overlay_maps[provider] = overlay_map
             else:
-                overlay_map.pop(old_model_id, None)
-        if new_model:
-            overlay_map[new_model] = raw_model_id
-        elif old_model_id:
-            if old_model_id in base_map:
-                overlay_map[old_model_id] = None  # tombstone
-            else:
-                overlay_map.pop(old_model_id, None)
-
-        if overlay_map:
-            overlay_maps[provider] = overlay_map
-        else:
-            overlay_maps.pop(provider, None)
-        models["provider_model_map"] = overlay_maps
-        return self._commit_overlay(overlay)
+                overlay_maps.pop(provider, None)
+            models["provider_model_map"] = overlay_maps
+        return self.config
 
     def _remove_provider_from_routes(self, overlay_models: Dict[str, Any], provider: str) -> None:
         routes = copy.deepcopy(overlay_models.get("routes") or (self.config.get("models") or {}).get("routes") or {})
@@ -861,14 +887,22 @@ class RuntimeConfigManager:
         return normalized
 
     def _commit_overlay(self, overlay: Dict[str, Any]) -> Dict[str, Any]:
-        overlay = self._prune_overlay_tombstones(copy.deepcopy(overlay))
-        self._write_overlay(overlay)
-        self.overlay = overlay
-        self.config = self._normalized_merged()
-        return self.config
+        """Legacy commit — persists a pre-built overlay dict.
+
+        Prefer _locked_overlay() for new code, as it serializes the full
+        read-modify-write cycle and prevents lost updates under concurrency.
+        """
+        with self._commit_lock:
+            overlay = self._prune_overlay_tombstones(copy.deepcopy(overlay))
+            self._write_overlay(overlay)
+            self.overlay = overlay
+            self.config = self._normalized_merged()
+            return self.config
 
     def compact_overlay(self) -> Dict[str, Any]:
-        return self._commit_overlay(self.overlay)
+        with self._locked_overlay():
+            pass
+        return self.config
 
     def _prune_overlay_tombstones(self, overlay: Dict[str, Any]) -> Dict[str, Any]:
         if not isinstance(overlay, dict):

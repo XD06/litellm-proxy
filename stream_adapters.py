@@ -206,7 +206,6 @@ def relay_sse_stream(
     """
     usage = empty_usage()
     timeout_switched = False
-    first_byte_received = False
     try:
         for raw in initial_lines or []:
             if not timeout_switched and read_timeout_s:
@@ -214,7 +213,6 @@ def relay_sse_stream(
                 timeout_switched = True
             wfile.write(raw)
             wfile.flush()
-            first_byte_received = True
             if collect_usage:
                 usage = _merge_usage(usage, _usage_from_sse_line(raw))
         for raw in upstream:
@@ -223,7 +221,6 @@ def relay_sse_stream(
                 timeout_switched = True
             wfile.write(raw)
             wfile.flush()
-            first_byte_received = True
             if collect_usage:
                 usage = _merge_usage(usage, _usage_from_sse_line(raw))
     except Exception as e:
@@ -427,8 +424,10 @@ def stream_openai_sse_to_anthropic(
                         },
                     )
                     wfile.flush()
-                # Always retain reasoning text so the final assembled message
-                # still surfaces it for history/non-stream consumers.
+                # Retain reasoning text for potential inclusion in the final
+                # content log. Note: when reasoning arrives after text/tool
+                # blocks, thinking_emitted stays False and the reasoning is
+                # NOT surfaced in content_log (Anthropic ordering constraint).
                 reasoning_buf += r
 
             c = delta.get("content", "")
@@ -522,28 +521,31 @@ def stream_openai_sse_to_anthropic(
     except Exception as e:
         err_text = f"[Stream interrupted: {type(e).__name__}]"
         print(f"[proxy] {err_text}: {str(e)[:200]}", flush=True)
-        close_all_blocks()
-        sse("content_block_start", {"type": "content_block_start", "index": block_idx, "content_block": {"type": "text", "text": ""}})
-        sse(
-            "content_block_delta",
-            {
-                "type": "content_block_delta",
-                "index": block_idx,
-                "delta": {"type": "text_delta", "text": err_text},
-            },
-        )
-        close_block(block_idx)
-        block_idx += 1
-        sse(
-            "message_delta",
-            {
-                "type": "message_delta",
-                "delta": {"stop_reason": "end_turn", "stop_sequence": None},
-                "usage": {"input_tokens": 0, "output_tokens": 0},
-            },
-        )
-        sse("message_stop", {"type": "message_stop"})
-        wfile.flush()
+        try:
+            close_all_blocks()
+            sse("content_block_start", {"type": "content_block_start", "index": block_idx, "content_block": {"type": "text", "text": ""}})
+            sse(
+                "content_block_delta",
+                {
+                    "type": "content_block_delta",
+                    "index": block_idx,
+                    "delta": {"type": "text_delta", "text": err_text},
+                },
+            )
+            close_block(block_idx)
+            block_idx += 1
+            sse(
+                "message_delta",
+                {
+                    "type": "message_delta",
+                    "delta": {"stop_reason": "end_turn", "stop_sequence": None},
+                    "usage": {"input_tokens": 0, "output_tokens": 0},
+                },
+            )
+            sse("message_stop", {"type": "message_stop"})
+            wfile.flush()
+        except Exception:
+            pass
         return None
 
     close_all_blocks()
@@ -928,20 +930,23 @@ def stream_openai_sse_to_responses(
     except Exception as e:
         err_text = f"[Stream interrupted: {type(e).__name__}]"
         print(f"[proxy] {err_text}: {str(e)[:200]}", flush=True)
-        sse(
-            "response.failed",
-            {
-                "type": "response.failed",
-                "response": {
-                    "id": response_id,
-                    "object": "response",
-                    "status": "failed",
-                    "model": original_model,
-                    "error": {"message": err_text},
+        try:
+            sse(
+                "response.failed",
+                {
+                    "type": "response.failed",
+                    "response": {
+                        "id": response_id,
+                        "object": "response",
+                        "status": "failed",
+                        "model": original_model,
+                        "error": {"message": err_text},
+                    },
                 },
-            },
-        )
-        wfile.flush()
+            )
+            wfile.flush()
+        except Exception:
+            pass
         return None
 
     finish_reasoning_if_needed()
@@ -1371,20 +1376,23 @@ def stream_anthropic_sse_to_responses(
     except Exception as e:
         err_text = f"[Stream interrupted: {type(e).__name__}]"
         print(f"[proxy] {err_text}: {str(e)[:200]}", flush=True)
-        sse(
-            "response.failed",
-            {
-                "type": "response.failed",
-                "response": {
-                    "id": response_id,
-                    "object": "response",
-                    "status": "failed",
-                    "model": original_model,
-                    "error": {"message": err_text},
+        try:
+            sse(
+                "response.failed",
+                {
+                    "type": "response.failed",
+                    "response": {
+                        "id": response_id,
+                        "object": "response",
+                        "status": "failed",
+                        "model": original_model,
+                        "error": {"message": err_text},
+                    },
                 },
-            },
-        )
-        wfile.flush()
+            )
+            wfile.flush()
+        except Exception:
+            pass
         return None
 
     finish_all_open_items()
@@ -1754,27 +1762,30 @@ def stream_responses_sse_to_anthropic(
     except Exception as e:
         err_text = f"[Stream interrupted: {type(e).__name__}]"
         print(f"[proxy] {err_text}: {str(e)[:200]}", flush=True)
-        close_open_block()
-        idx = ensure_block("text", {"id": "stream_error"})
-        sse(
-            "content_block_delta",
-            {
-                "type": "content_block_delta",
-                "index": idx,
-                "delta": {"type": "text_delta", "text": err_text},
-            },
-        )
-        close_open_block()
-        sse(
-            "message_delta",
-            {
-                "type": "message_delta",
-                "delta": {"stop_reason": "end_turn", "stop_sequence": None},
-                "usage": {"input_tokens": 0, "output_tokens": 0},
-            },
-        )
-        sse("message_stop", {"type": "message_stop"})
-        wfile.flush()
+        try:
+            close_open_block()
+            idx = ensure_block("text", {"id": "stream_error"})
+            sse(
+                "content_block_delta",
+                {
+                    "type": "content_block_delta",
+                    "index": idx,
+                    "delta": {"type": "text_delta", "text": err_text},
+                },
+            )
+            close_open_block()
+            sse(
+                "message_delta",
+                {
+                    "type": "message_delta",
+                    "delta": {"stop_reason": "end_turn", "stop_sequence": None},
+                    "usage": {"input_tokens": 0, "output_tokens": 0},
+                },
+            )
+            sse("message_stop", {"type": "message_stop"})
+            wfile.flush()
+        except Exception:
+            pass
         return None
 
     close_open_block()
@@ -2080,9 +2091,12 @@ def stream_responses_sse_to_openai_chat(
     except Exception as e:
         err_text = f"[Stream interrupted: {type(e).__name__}]"
         print(f"[proxy] {err_text}: {str(e)[:200]}", flush=True)
-        write_chunk({"content": err_text}, finish="stop")
-        wfile.write(b"data: [DONE]\n\n")
-        wfile.flush()
+        try:
+            write_chunk({"content": err_text}, finish="stop")
+            wfile.write(b"data: [DONE]\n\n")
+            wfile.flush()
+        except Exception:
+            pass
         return None
 
     has_tool = any((items.get(i) or {}).get("type") == "function_call" for i in item_order)
@@ -2279,9 +2293,12 @@ def stream_anthropic_sse_to_openai_chat(
     except Exception as e:
         err_text = f"[Stream interrupted: {type(e).__name__}]"
         print(f"[proxy] {err_text}: {str(e)[:200]}", flush=True)
-        write_chunk({"content": err_text}, finish="stop")
-        wfile.write(b"data: [DONE]\n\n")
-        wfile.flush()
+        try:
+            write_chunk({"content": err_text}, finish="stop")
+            wfile.write(b"data: [DONE]\n\n")
+            wfile.flush()
+        except Exception:
+            pass
         return None
 
     final_finish = finish_reason or ("tool_calls" if any(b.get("type") == "tool_use" for b in blocks.values()) else "stop")

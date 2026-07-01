@@ -30,7 +30,7 @@ jobs:
 
       - name: Compile-check core modules
         run: |
-          python -m py_compile sse2json.py config_loader.py config_manager.py router.py upstream_client.py stream_adapters.py protocol_adapters.py format_adapters.py request_routes.py observability.py history_store.py model_registry.py scheduler_policy.py admin_routes.py usage_accounting.py
+          python -m py_compile sse2json.py config_loader.py config_manager.py router.py upstream_client.py stream_adapters.py protocol_adapters.py format_adapters.py request_routes.py request_dispatcher.py observability.py history_store.py model_registry.py model_discovery_queue.py scheduler_policy.py admin_routes.py usage_accounting.py audit_store.py proxy_utils.py routing_explain.py chat.py responses.py
 
       - name: Run tests
         run: |

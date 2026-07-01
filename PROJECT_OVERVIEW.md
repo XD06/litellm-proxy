@@ -1,187 +1,359 @@
-# Project Overview
+# Project Overview & Architecture Guide
 
-This project is a Python proxy for routing one client API format to multiple upstream LLM providers that may expose different API formats.
+> This document is the primary onboarding guide for developers new to the project.
+> It explains the architecture, module responsibilities, data flow, and key design
+> decisions so you can become productive without reading every source file.
 
-The core idea: the client chooses the output API shape by path, while each provider declares the upstream format it supports. The proxy then prefers same-format pass-through for speed and only converts when a fallback provider uses a different format.
+## What Is This Project?
 
-## Current Client Contract
+A Python-based **format-aware LLM API proxy** that sits between LLM clients (Cherry Studio, Claude Code, OpenAI SDK, etc.) and multiple upstream LLM providers. It accepts three API formats — OpenAI Chat Completions, OpenAI Responses, and Anthropic Messages — and can convert between any pair when the best available provider uses a different format than the client requested.
 
-Client-facing routes are intentionally fixed:
+### Core Value Proposition
 
-| Client URL | Client format |
-| --- | --- |
-| `/v1/chat/completions` or `/v1/*` Chat path | OpenAI Chat Completions |
-| `/openai/v1/responses` | OpenAI Responses |
-| `/anthropic/v1/messages` | Anthropic Messages |
+1. **One endpoint, many providers** — Clients talk to one URL; the proxy routes to the best provider.
+2. **Format freedom** — Send Anthropic format to an OpenAI-only provider, or vice versa.
+3. **Resilience** — Automatic failover across providers and keys with cooldown policies.
+4. **Observability** — Full request history, per-attempt traces, cost estimation.
+5. **Zero-restart config** — Dashboard edits go to a runtime overlay; `config.json` is never rewritten.
 
-Do not treat `/v1` as a generic OpenAI namespace. In this project, `/v1` is the Chat Completions client surface only. Anthropic clients must use `/anthropic/v1/messages`.
+---
 
-## Provider Format Selection
+## Architecture at a Glance
 
-Provider format selection is already implemented.
-
-Preferred path:
-
-1. The user declares provider format capability in `providers.<name>.formats`.
-2. The router prefers providers that natively support the client-requested format.
-3. If client format equals upstream format, the proxy pass-through path is used and the conversion layer is skipped.
-4. If native providers are unavailable or fail before a response starts, the router can try a different upstream format if a conversion path exists.
-
-Fallback path:
-
-- If `formats` is omitted, `config_loader.py` infers provider format from legacy fields and URL hints.
-- Full endpoint URLs are split into `base_url` plus the matching format path when possible.
-- UI Add Provider now has explicit choices for Chat Completions, Responses, Anthropic Messages, plus `Auto infer from URL`.
-- Existing providers can edit each format's `enabled` and `path` fields from the dashboard.
-
-## Runtime Configuration
-
-Main config files:
-
-| File | Purpose |
-| --- | --- |
-| `config.json` | Local real config. Ignored by git. Contains real provider keys and admin key. Do not print it. |
-| `config.example.json` | Minimal JSON example. |
-| `config.example.jsonc` | Commented reference config. |
-| `runtime_config.json` | Runtime overlay written by Admin API and the Web console. Ignored by git. |
-
-Runtime config precedence is `config.json` → `runtime_config.json` → environment variables. `runtime_config.json` is not a replacement for `config.json`; it stores online edits and deletion tombstones. Tombstones are retained only when they are still needed to hide base-config entries.
-
-Current intended provider roles:
-
-| Provider | Upstream format | Known models |
-| --- | --- | --- |
-| `opencode` | OpenAI Chat Completions | `deepseek-v4-flash`, `deepseek-v4-pro` |
-| `rawchat` | OpenAI Responses | `gpt-5.5` |
-| `deepseek` | Anthropic Messages | `deepseek-v4-flash`, `deepseek-v4-pro` |
-
-`config.json` should keep `routing.default_provider_pool`, `models.routes`, and `models.provider_model_map` limited to those active providers unless a new provider is intentionally added. `models.provider_model_map` is a provider-specific model-name override table, not a global allowlist.
-
-## Request Flow
-
-High-level flow:
-
-```text
-HTTP request
-  -> request_routes.py classifies client format
-  -> sse2json.py normalizes request and resolves model
-  -> router.py selects provider + key + upstream_format
-  -> same-format pass-through OR format_adapters/protocol_adapters conversion
-  -> upstream_client.py sends provider request
-  -> response or stream_adapters.py converts back to client format
-  -> observability/history record attempt, first-byte latency, total duration, status, usage, masked key
+```
+                         ┌─────────────────────────────────────────┐
+                         │              sse2json.py                 │
+                         │  (HTTP server + request dispatch)       │
+                         └──────────┬──────────────┬───────────────┘
+                                    │              │
+                    ┌───────────────▼──┐   ┌───────▼──────────┐
+                    │ request_routes.py │   │  admin_routes.py  │
+                    │ (path → format)   │   │  (Admin API)      │
+                    └────────┬──────────┘   └────────┬──────────┘
+                             │                       │
+                    ┌────────▼──────────────────────▼──────────┐
+                    │              router.py                     │
+                    │  (provider/key selection, failover,        │
+                    │   cooldown, health scores)                 │
+                    └────────┬──────────────────────────────────┘
+                             │
+              ┌──────────────▼──────────────┐
+              │     upstream_client.py       │
+              │  (HTTP client, streaming)    │
+              └──────────────┬──────────────┘
+                             │
+            ┌────────────────▼────────────────────┐
+            │     stream_adapters.py               │
+            │     protocol_adapters.py             │
+            │     format_adapters.py               │
+            │  (6 stream converters + pass-through │
+            │   + non-streaming conversion)        │
+            └────────────────┬────────────────────┘
+                             │
+              ┌──────────────▼──────────────┐
+              │   observability.py           │
+              │   history_store.py           │
+              │   audit_store.py             │
+              │  (metrics, SQLite, audit)    │
+              └──────────────────────────────┘
 ```
 
-Streaming follows the same routing idea but uses SSE adapters in `stream_adapters.py`. Once SSE bytes are sent to the client, transparent retry is intentionally not attempted.
+---
 
 ## Module Map
 
-| Area | Files |
-| --- | --- |
-| HTTP server, endpoint dispatch, Admin API | `sse2json.py` |
-| Client path classification | `request_routes.py` |
-| Provider/key/model/format routing | `router.py`, `model_registry.py` |
-| Retry/cooldown policy | `scheduler_policy.py` |
-| Non-streaming format conversion | `format_adapters.py`, `protocol_adapters.py` |
-| Streaming conversion | `stream_adapters.py` |
-| Upstream HTTP calls | `upstream_client.py` |
-| Config loading and runtime overlay | `config_loader.py`, `config_manager.py` |
-| Metrics, history, usage, audit | `observability.py`, `history_store.py`, `usage_accounting.py`, `audit_store.py`, `routing_explain.py` |
-| Web console | `dashboard/index.html`, `dashboard/styles.css`, `dashboard/app.js` |
-| Real upstream smoke tools | `tools/real_upstream_matrix.py`, `tools/real_stream_tool_smoke.py` |
+### Core Pipeline
 
-## Web Console
+| Module | Lines | Responsibility | Key Classes/Functions |
+| --- | --- | --- | --- |
+| `sse2json.py` | ~3,500 | Main entry point. HTTP server, request dispatch, streaming/non-streaming handlers for all three client formats. | `ProxyHandler`, `RuntimeContext`, `_request_runtime()` |
+| `request_routes.py` | ~90 | Classifies incoming HTTP paths into format families (chat/responses/anthropic/dashboard/admin). | `Route`, `classify_get()`, `classify_post()` |
+| `router.py` | ~1,200 | Provider + key selection with 5 modes (priority_failover, round_robin, weighted_rr, random, auto). Maintains per-key and per-provider cooldown state. | `UpstreamRouter`, `Attempt`, `_KeyState`, `_ProviderState` |
+| `upstream_client.py` | ~480 | HTTP client wrapping urllib3. Opens streaming and non-streaming connections to upstream providers. Manages read timeouts. | `OpenAIUpstreamClient`, `HTTPResponseLineWrapper`, `set_response_read_timeout()` |
+| `scheduler_policy.py` | ~480 | Retry/cooldown policy engine. Maps error types to cooldown scopes and durations. | `RetryDecision`, `should_downgrade_tool_choice()` |
 
-The dashboard is served from `/` and `/-/dashboard`.
+### Format Conversion
 
-Current capabilities:
+| Module | Lines | Responsibility |
+| --- | --- | --- |
+| `stream_adapters.py` | ~2,450 | 6 SSE stream converters (chat↔responses, chat↔anthropic, responses↔anthropic), `relay_sse_stream` pass-through, `BufferedSSEWriter` for batched flushing, `prefetch_initial_stream_lines` for pre-header validation. |
+| `protocol_adapters.py` | ~1,800 | Non-streaming request/response conversion between all three formats. |
+| `format_adapters.py` | ~90 | Thin dispatch layer that routes format pairs to the correct protocol_adapter function. |
+| `chat.py` | ~300 | Chat Completions-specific non-streaming request/response handlers. |
+| `responses.py` | ~300 | OpenAI Responses-specific non-streaming request/response handlers. |
 
-- Dedicated admin-key login gate.
-- `?admin_key=...` can bypass the login gate for local testing.
-- Overview metrics, first-byte latency chart, usage chart, provider health, recent failures.
-- Request list/detail with attempt timeline, upstream format, masked key, token usage, cost fields.
-- Provider enable/disable, key state controls, model capabilities refresh.
-- Provider config editing: base URL, global/provider/key proxy, enabled state, keys, format enabled/path.
-- Add Provider with explicit upstream format selection or auto inference.
-- Routing Policy and Failure Policies editors.
-- Config overlay validation/export/clear.
-- Audit trail for admin mutations.
+### Configuration
 
-Static HTML/JS never includes raw admin or provider keys. Admin API responses must keep keys masked.
+| Module | Lines | Responsibility |
+| --- | --- | --- |
+| `config_loader.py` | ~680 | Loads `config.json`, normalizes legacy fields, infers provider formats from URLs, applies env overlays, supports zero-config mode. |
+| `config_manager.py` | ~1,050 | `RuntimeConfigManager` — manages the runtime overlay with RLock-serialized commits, tombstone pruning, validation, and atomic file writes. |
+| `proxy_utils.py` | ~250 | Shared utilities: key normalization, proxy resolution, key masking. |
 
-## Runtime Data
+### Observability
 
-`tmp/` is runtime-only and ignored:
+| Module | Lines | Responsibility |
+| --- | --- | --- |
+| `observability.py` | ~1,090 | In-memory metrics, active request tracking, first-byte latency, provider activity events, counter restoration from history on restart. |
+| `history_store.py` | ~1,070 | SQLite-persisted request history with async write queue, retention pruning, counter rebuild. |
+| `audit_store.py` | ~185 | JSONL audit log for admin mutations with sensitive field sanitization. |
+| `routing_explain.py` | ~150 | Enriches request records with human-readable routing explanations. |
+| `usage_accounting.py` | ~160 | Token usage normalization across formats, cost estimation from pricing config. |
+
+### Model Management
+
+| Module | Lines | Responsibility |
+| --- | --- | --- |
+| `model_registry.py` | ~1,000 | Model discovery, normalization, provider model mapping, capability caching, disabled model tracking. |
+| `model_discovery_queue.py` | ~200 | Background queue for async provider model discovery. |
+
+### Dashboard
+
+| Module | Lines | Responsibility |
+| --- | --- | --- |
+| `dashboard_src/src/app.js` | ~7,275 | Main dashboard application (vanilla JS with morphdom, i18n, playground, provider/routing/config management). |
+| `dashboard_src/src/api.js` | ~62 | API client functions (apiGet, apiPost, apiPatch with admin key auth). |
+| `dashboard_src/src/styles.css` | ~10,840 | Dashboard styles. |
+| `dashboard/` | (built) | Vite-built static assets served by the proxy. |
+
+### Deployment
 
 | File | Purpose |
 | --- | --- |
-| `tmp/proxy_history.sqlite3*` | Request history and time-series source for dashboard. |
-| `tmp/admin_audit.jsonl` | Admin mutation audit log. |
-| `tmp/proxy-live-latest.*.log` | Current local process stdout/stderr logs. |
+| `Dockerfile` | Python 3.12-slim based image with gosu for privilege dropping. |
+| `docker-compose.yml` | Single-service compose with health check, volume mounts for config/data/logs. |
+| `docker-entrypoint.sh` | Creates directories, sets permissions, drops to `appuser`. |
+| `deploy/nginx/litellm-proxy.conf` | Nginx reverse proxy config with SSE-friendly settings (buffering off, long timeouts). |
+| `deploy/systemd/litellm-proxy.service` | systemd unit with security hardening (NoNewPrivileges, ProtectSystem, PrivateTmp). |
 
-To start a clean real-use session, stop the service, delete the history/audit files, then restart. Admin status checks and dashboard reads do not create model-provider request records.
+---
+
+## Request Flow (Detailed)
+
+### 1. Path Classification (`request_routes.py`)
+
+Every HTTP request is classified by its URL path:
+
+```
+/v1/chat/completions          → family="chat_completions"
+/v1/responses                 → family="responses"
+/openai/v1/responses          → family="responses" (namespaced)
+/anthropic/v1/messages        → family="anthropic"
+/v1/messages                  → family="anthropic" (legacy)
+/v1/models                    → family depends on namespace
+/health                       → family="shared"
+/-/admin/*                    → family="admin"
+/ or /-/dashboard             → family="dashboard"
+```
+
+### 2. Request Normalization (`sse2json.py`)
+
+The handler:
+- Parses the request body as JSON
+- Resolves the client model name → canonical model (via `client_model_map`)
+- Determines if the request is streaming (`stream: true`)
+- Captures a `RuntimeContext` snapshot via `_request_runtime()`
+
+### 3. Provider Selection (`router.py`)
+
+The router:
+- Looks up model-specific routes in `models.routes`, falls back to `routing.default_provider_pool`
+- Filters by provider availability (enabled, not in cooldown)
+- Filters by format capability (does the provider support the client's format?)
+- Selects provider + key based on the configured mode
+- Deduplicates candidates (same provider + key_index + format won't be retried)
+- Returns an `Attempt` dataclass with URL, headers, key, upstream_format
+
+### 4. Upstream Call (`upstream_client.py`)
+
+- For streaming: opens a connection, sets first-byte timeout, returns a `HTTPResponseLineWrapper`
+- For non-streaming: sends request, reads full response, returns status + body
+- The `HTTPResponseLineWrapper` wraps urllib3's response to provide `readline()` iteration with proper exception propagation (only `ValueError` is caught; network errors propagate)
+
+### 5. Response Handling
+
+**Same-format streaming (pass-through):**
+- `relay_sse_stream()` forwards raw SSE bytes line-by-line
+- Optionally scans for usage data in SSE lines
+- On interruption: sends a format-appropriate terminal event (`[DONE]`, `message_stop`, or `response.failed`)
+
+**Cross-format streaming (conversion):**
+- One of 6 `stream_*_to_*()` functions transforms SSE events chunk-by-chunk
+- Handles text deltas, reasoning/thinking blocks, tool calls
+- Maintains block ordering (Anthropic requires thinking before text/tool)
+
+**Non-streaming:**
+- Same-format: validate JSON, forward (optionally re-serialize)
+- Cross-format: `protocol_adapters.py` converts the full response body
+
+### 6. Observability (`observability.py`, `history_store.py`)
+
+Each request records:
+- Request ID, timestamp, client format, model
+- Per-attempt chain: provider, key (masked), upstream format, latency, status, error
+- First-byte latency, total duration
+- Token usage and estimated cost
+- Routing explanation (which providers were tried and why)
+
+History is written asynchronously via a queue to avoid blocking request threads.
+
+---
+
+## Runtime Context & Concurrency Safety
+
+### The Problem
+
+When config is hot-swapped (e.g., a provider is disabled via the dashboard), all running request threads and background tasks need to see a consistent view of the system — not a torn mix of old and new state.
+
+### The Solution: `RuntimeContext`
+
+```python
+class RuntimeContext:
+    __slots__ = ("config", "router", "upstream_client", "observability", "audit")
+```
+
+A single immutable bundle of all live runtime objects. The module-level `RUNTIME` global is the current snapshot. Config reload atomically swaps `RUNTIME` to a freshly-built `RuntimeContext`.
+
+Request threads capture `RUNTIME` once via `_request_runtime()` at the start and use that snapshot for the entire request lifetime.
+
+### Config Overlay: RLock-Serialized Commits
+
+```python
+@contextmanager
+def _locked_overlay(self):
+    with self._commit_lock:           # RLock
+        overlay = copy.deepcopy(self.overlay)  # Copy
+        yield overlay                  # Mutate
+        overlay = self._prune_overlay_tombstones(overlay)  # Prune
+        self._write_overlay(overlay)   # Persist (temp file + os.replace)
+        self.overlay = overlay         # Swap
+        self.config = self._normalized_merged()  # Re-merge
+```
+
+This prevents lost updates: two concurrent admin mutations each start from the same overlay, but the second write would silently overwrite the first without the lock.
+
+### Stream Adapter Error Safety
+
+All 6 stream adapters wrap their error-handling code in `try/except`:
+
+```python
+except Exception as e:
+    err_text = f"[Stream interrupted: {type(e).__name__}]"
+    print(f"[proxy] {err_text}: {str(e)[:200]}", flush=True)
+    try:
+        # Send graceful close event to client
+        close_all_blocks()
+        sse(...)
+        wfile.flush()
+    except Exception:
+        pass  # Client already disconnected — that's OK
+    return None  # Signal failure to caller
+```
+
+This ensures that if the client disconnects during the error-handling phase, the adapter returns `None` (failure) instead of raising a secondary exception.
+
+---
+
+## Configuration System
+
+### Three-Layer Precedence
+
+```
+config.json (base) → runtime_config.json (overlay) → environment variables
+```
+
+- `config.json`: Read once at startup. Never written by the proxy.
+- `runtime_config.json`: Written by Admin API / dashboard. Uses tombstones (`null` values) to "delete" base-config entries.
+- Environment variables: Applied last, override everything.
+
+### Tombstone Mechanism
+
+When a user deletes a provider via the dashboard:
+1. The overlay stores `{"providers": {"deleted_provider": null}}`
+2. On merge, `null` values remove the corresponding base-config entry
+3. If the base-config entry is later removed too, the tombstone is pruned (no longer needed)
+
+### Zero-Config Mode
+
+If no `config.json` exists, the proxy auto-detects providers from environment variables:
+- `OPENAI_API_KEY` → creates an "openai" provider
+- `DEEPSEEK_API_KEY` → creates a "deepseek" provider
+- etc.
+
+This allows `pip install litellm-proxy && litellm-proxy` to work with zero configuration.
+
+---
 
 ## Testing
 
-Standard verification:
+### Test Suite (459+ tests, 28 files)
 
-```powershell
-python -m unittest discover -s tests
-python -m py_compile stream_adapters.py sse2json.py protocol_adapters.py format_adapters.py request_routes.py config_loader.py config_manager.py tools\real_stream_tool_smoke.py
-node --check dashboard\app.js
+| Category | Key Test Files |
+| --- | --- |
+| Routing & failover | `test_router.py`, `test_auto_routing.py`, `test_scheduler_policy.py` |
+| Format conversion | `test_conversions.py`, `test_format_adapters.py`, `test_stream_adapters.py` |
+| HTTP routing | `test_http_route_dispatch.py`, `test_request_routes.py` |
+| Config | `test_config_loader.py`, `test_config_manager.py`, `test_zero_config.py`, `test_runtime_config_migration.py` |
+| Proxy handlers | `test_chat_proxy.py`, `test_anthropic_proxy.py`, `test_responses_proxy.py` |
+| Streaming | `test_stream_adapters.py`, `test_stream_interruption.py` |
+| Admin API | `test_admin_api.py` |
+| Observability | `test_observability.py`, `test_history_store.py`, `test_provider_activity.py` |
+| Infrastructure | `test_upstream_client.py`, `test_timeout_budget.py`, `test_health_scores.py` |
+| Models | `test_model_registry.py`, `test_model_inference.py`, `test_model_discovery_queue.py` |
+
+### Running Tests
+
+```bash
+# Full suite
+python -m pytest tests/ -q
+
+# Specific module
+python -m pytest tests/test_router.py -v
+
+# Compile check
+python -m py_compile sse2json.py config_loader.py config_manager.py router.py upstream_client.py stream_adapters.py
 ```
 
-Real upstream tools are opt-in and consume provider quota only with `--run`:
+---
 
-```powershell
-python tools\real_upstream_matrix.py --max-cases 3
-python tools\real_upstream_matrix.py --run --max-cases 3 --output tmp\real_upstream_matrix.json
-python tools\real_stream_tool_smoke.py --run --base-url http://127.0.0.1:4894 --output tmp\real_stream_tool_smoke.json
-```
+## Where To Start (For New Developers)
 
-## Performance Notes
+### Understanding the request flow
 
-Current performance-friendly behavior:
+1. Read `request_routes.py` (90 lines) — understand how paths map to formats
+2. Read the `do_POST` section of `sse2json.py` — see how requests are dispatched
+3. Read `router.py` `select()` method — understand provider/key selection
+4. Read `stream_adapters.py` `relay_sse_stream()` — understand the simplest streaming path
 
-- Native same-format providers are preferred.
-- Same-format requests skip JSON protocol conversion where possible.
-- Request-local candidate de-duplication avoids retrying the same `provider + key_index + upstream_format`.
-- SQLite history stores metadata, not full request bodies.
-- Streaming conversion avoids buffering full output for supported paths.
-- Chat-upstream fallback can fill missing assistant `reasoning_content` for providers that require it (`force_reasoning_content=true`, plus the built-in `opencode` path), avoiding avoidable DeepSeek thinking-mode compatibility failures.
+### For routing or retry bugs
 
-Good next optimization areas:
+1. Start with `router.py` — check `select()` and `report_failure()`
+2. Check `scheduler_policy.py` — verify error classification and cooldown logic
+3. Verify in `observability.py` — check what's recorded
 
-- Use `docs/bug-optimization-plan.md` as the current bug/performance hardening backlog.
-- Make provider setup even more guided so users rarely rely on format inference.
-- Add provider capability cache visibility and refresh timing in the dashboard.
-- Review HTTP connection reuse and timeout defaults for high concurrency.
-- Keep conversion tests focused on real failed cases instead of trying to overfit every provider-private extension upfront.
+### For format conversion bugs
 
-## Where To Start
+1. Read `format_adapters.py` (90 lines) — see which conversion pair is selected
+2. For streaming: inspect the relevant `stream_*_to_*()` function in `stream_adapters.py`
+3. For non-streaming: inspect the relevant function in `protocol_adapters.py`
+4. Add tests in `tests/test_stream_adapters.py` or `tests/test_conversions.py`
 
-For route or format bugs:
+### For config bugs
 
-1. Read `docs/format-routing-plan.md`.
-2. Check `request_routes.py`, then the relevant handler in `sse2json.py`.
-3. For non-streaming conversion, inspect `format_adapters.py` and `protocol_adapters.py`.
-4. For streaming conversion, inspect `stream_adapters.py`.
-5. Add/adjust tests under `tests/test_*proxy.py`, `tests/test_format_adapters.py`, or `tests/test_stream_adapters.py`.
+1. Start with `config_loader.py` — understand normalization and inference
+2. Use `config_manager.py` — check overlay merge and tombstone logic
+3. Keep `config.example.jsonc`, `README.md`, and this overview in sync
 
-For provider selection or retry bugs:
+### For dashboard bugs
 
-1. Start with `router.py`.
-2. Check `scheduler_policy.py`.
-3. Verify observability expectations in `observability.py` and `history_store.py`.
+1. Start with `dashboard_src/src/app.js` — the main application
+2. Check `dashboard_src/src/api.js` — API client with admin key auth
+3. Use Admin API tests in `tests/test_admin_api.py`
+4. Always run `npm run build` after changes to sync `dashboard/`
 
-For dashboard bugs:
+### For deployment
 
-1. Start with `dashboard/app.js`.
-2. Use Admin API tests in `tests/test_admin_api.py`.
-3. Keep login/auth behavior conservative: do not render the console until admin status validation succeeds.
-
-For config changes:
-
-1. Start with `config_loader.py` for normalization and inference.
-2. Use `config_manager.py` for Admin API mutations and overlay persistence.
-3. Keep `config.example.jsonc`, `README.md`, and this overview in sync.
+1. Read `Dockerfile` and `docker-compose.yml` — container setup
+2. Read `deploy/nginx/litellm-proxy.conf` — reverse proxy with SSE support
+3. Read `deploy/systemd/litellm-proxy.service` — bare metal deployment
+4. Full VPS migration: `docs/VPS_MIGRATION.md`

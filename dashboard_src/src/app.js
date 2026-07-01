@@ -490,6 +490,17 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         }
       }
       showConsole();
+      // Strip admin_key from the URL so it doesn't linger in browser history
+      // or Referer headers. Only do this when the key came from the query string.
+      if (persist) {
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.delete("admin_key");
+          window.history.replaceState(null, "", url.toString());
+        } catch (_err) {
+          // Ignore URL update failures; the session can still proceed.
+        }
+      }
       setView(loadSavedView());
       renderAll();
       await refreshAll({ quiet: true });
@@ -6599,9 +6610,9 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     startTime: null,
   };
 
-  function pgEsc(s) {
-    return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  }
+function pgEsc(s) {
+return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
 
   function pgEndpoint() {
     if (pg.format === "anthropic_messages") return "/v1/messages";

@@ -19,3 +19,5 @@ nul
 data/
 scratch/
 temp.py
+# Backup copies
+*副本*

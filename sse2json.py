@@ -98,9 +98,10 @@ _ROUTER_STATE_INTERVAL_S = 60  # Save router state every 60 seconds.
 _ROUTER_STATE_SAVE_LOCK = threading.Lock()
 
 
-def _safe_model_capabilities_for_state() -> dict:
-    caps = ((CONFIG.get("models") or {}).get("provider_model_capabilities") or {})
-    providers_cfg = CONFIG.get("providers") or {}
+def _safe_model_capabilities_for_state(config: Optional[dict] = None) -> dict:
+    cfg = config if config is not None else CONFIG
+    caps = ((cfg.get("models") or {}).get("provider_model_capabilities") or {})
+    providers_cfg = cfg.get("providers") or {}
     out = {}
     if not isinstance(caps, dict):
         return out
@@ -126,8 +127,9 @@ def _safe_model_capabilities_for_state() -> dict:
     return out
 
 
-def _safe_models_union_snapshot_for_state() -> dict:
-    snapshot = ((CONFIG.get("models") or {}).get("models_union_snapshot") or {})
+def _safe_models_union_snapshot_for_state(config: Optional[dict] = None) -> dict:
+    cfg = config if config is not None else CONFIG
+    snapshot = ((cfg.get("models") or {}).get("models_union_snapshot") or {})
     if not isinstance(snapshot, dict) or snapshot.get("status") != "ok":
         return {}
     payload = snapshot.get("payload") or {}
@@ -202,15 +204,21 @@ def _restore_models_union_snapshot(snapshot: dict) -> None:
 
 
 def _save_router_state() -> None:
-    """Persist router runtime state and discovered model capabilities atomically."""
+    """Persist router runtime state and discovered model capabilities atomically.
+
+    Uses _request_runtime() to capture a consistent (config, router) snapshot
+    so that a concurrent _apply_runtime_config() hot-swap cannot produce a
+    torn state file (old config capabilities + new router state or vice
+    versa)."""
     try:
+        rt = _request_runtime()
         with _ROUTER_STATE_SAVE_LOCK:
             state = {
                 "saved_at": time.time(),
-                "router": ROUTER.dump_state(),
-                "model_capabilities": _safe_model_capabilities_for_state(),
+                "router": rt.router.dump_state(),
+                "model_capabilities": _safe_model_capabilities_for_state(rt.config),
                 "union_model_ids": sorted(model_registry.union_model_ids()),
-                "models_union_snapshot": _safe_models_union_snapshot_for_state(),
+                "models_union_snapshot": _safe_models_union_snapshot_for_state(rt.config),
             }
             os.makedirs(os.path.dirname(_ROUTER_STATE_FILE), exist_ok=True)
             tmp_path = _ROUTER_STATE_FILE + ".tmp"
@@ -259,10 +267,14 @@ def _load_router_state() -> None:
 
 
 def _update_health_scores() -> None:
-    """Compute provider health scores and feed them to the router for auto mode."""
+    """Compute provider health scores and feed them to the router for auto mode.
+
+    Uses _request_runtime() so router and observability come from the same
+    consistent snapshot, preventing a torn read during config hot-swap."""
     try:
-        router = ROUTER
-        obs = OBSERVABILITY
+        rt = _request_runtime()
+        router = rt.router
+        obs = rt.observability
         if router is None or obs is None:
             return
         snap = router.snapshot()
@@ -843,15 +855,17 @@ def _refresh_models_after_config_change(provider: Optional[str] = None, *, force
 # proxy required) get discovered automatically once they come back, without the
 # user having to click "Refresh models" for each one.
 def _enabled_provider_names() -> list:
-    providers = CONFIG.get("providers") or {}
+    rt = _request_runtime()
+    providers = rt.config.get("providers") or {}
     return [str(name) for name, pcfg in providers.items() if (pcfg or {}).get("enabled", True)]
 
 
 def _provider_capability_snapshot(provider: str):
-    caps = ((CONFIG.get("models") or {}).get("provider_model_capabilities") or {})
+    rt = _request_runtime()
+    caps = ((rt.config.get("models") or {}).get("provider_model_capabilities") or {})
     entry = caps.get(provider)
     if isinstance(entry, dict):
-        current_sig = model_registry.provider_config_signature(CONFIG, provider)
+        current_sig = model_registry.provider_config_signature(rt.config, provider)
         if entry.get("config_signature") != current_sig:
             stale = dict(entry)
             stale["status"] = "stale"
@@ -863,13 +877,15 @@ def _provider_capability_snapshot(provider: str):
 def _discovery_fetch_provider(provider: str) -> None:
     """Fetch one provider's models inside the discovery worker thread.
 
-    Uses upstream_client (its own transport, not the proxy worker pool) and
-    stores the result into CONFIG's capability snapshot, mirroring the manual
-    refresh path. Exceptions are absorbed by the queue, which schedules a retry.
+    Uses _request_runtime() to capture a consistent (config, router,
+    upstream_client) snapshot so that a concurrent _apply_runtime_config()
+    hot-swap cannot produce a torn set of objects from different config
+    generations. Exceptions are absorbed by the queue, which schedules a retry.
     """
-    config_ref = CONFIG
-    router_ref = ROUTER
-    upstream_client_ref = UPSTREAM_CLIENT
+    rt = _request_runtime()
+    config_ref = rt.config
+    router_ref = rt.router
+    upstream_client_ref = rt.upstream_client
     try:
         _mark_provider_models_pending(provider)
     except Exception:

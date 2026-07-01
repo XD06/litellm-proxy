@@ -33,15 +33,23 @@ class HTTPResponseLineWrapper:
             return b""
         try:
             return self.resp.readline(*args, **kwargs)
-        except (ValueError, OSError, Exception):
+        except ValueError:
+            # ValueError is raised when the response has been closed by
+            # another thread (e.g. prefetch timeout closing the upstream).
+            # In that case returning b"" (clean EOF) is correct.
             return b""
+        # All other exceptions (ConnectionResetError, socket.timeout,
+        # ProtocolError, etc.) MUST propagate so the caller can detect the
+        # stream interruption, send a graceful close event to the client,
+        # and report the provider failure. Swallowing them here would make
+        # interrupted streams appear as successful completions.
 
     def read(self, *args, **kwargs) -> bytes:
         if self.resp.closed:
             return b""
         try:
             return self.resp.read(*args, **kwargs)
-        except (ValueError, OSError, Exception):
+        except ValueError:
             return b""
 
     def __iter__(self):
