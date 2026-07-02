@@ -7,6 +7,7 @@ import datetime
 import hashlib
 import json
 import re
+import threading
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
@@ -16,6 +17,25 @@ from proxy_utils import key_proxy, key_value, resolve_proxy_url
 
 _cached_models_by_provider: Dict[str, Dict[str, Any]] = {}
 _union_model_id_set: set = set()
+
+# --- Config version + caches (perf: avoid SHA256 / deep-copy on every poll) ---
+#
+# _config_version is a monotonic counter bumped on every config change or
+# capability update.  It replaces the expensive _union_signature() deep-copy
+# and provider_config_signature() SHA256 as the primary cache-validity check.
+#
+# _union_dirty is set True whenever provider_model_capabilities changes.
+# The next models_from_capabilities() call rebuilds the snapshot lazily,
+# avoiding redundant full rebuilds when multiple providers are discovered
+# sequentially by the background discovery queue.
+#
+# _signature_cache stores (config_version, signature) per provider so that
+# repeated provider_config_signature() calls within the same config generation
+# are O(1) instead of O(json.dumps + sha256).
+_config_version: int = 0
+_union_dirty: bool = False
+_signature_cache: Dict[str, Tuple[int, str]] = {}
+_cache_lock = threading.Lock()
 
 
 def union_model_ids() -> set:
@@ -91,14 +111,35 @@ def has_cached_models(cache_key: str) -> bool:
     return cache_key in _cached_models_by_provider
 
 
+def bump_config_version() -> None:
+    """Increment the config version, invalidating all derived caches.
+
+    Called internally by clear_cache() and _store_provider_capabilities().
+    External callers (sse2json._apply_runtime_config) should call this after
+    a hot-swap so that signature caches and snapshot validity checks pick up
+    the new config generation.
+    """
+    global _config_version, _union_dirty
+    with _cache_lock:
+        _config_version += 1
+        _union_dirty = True
+        _signature_cache.clear()
+
+
+def get_config_version() -> int:
+    return _config_version
+
+
 def clear_cache(provider: Optional[str] = None) -> None:
     global _union_model_id_set
-    if provider:
-        _cached_models_by_provider.pop(str(provider), None)
-        _cached_models_by_provider.pop("__union__", None)
-        return
-    _cached_models_by_provider.clear()
-    _union_model_id_set.clear()
+    bump_config_version()
+    with _cache_lock:
+        if provider:
+            _cached_models_by_provider.pop(str(provider), None)
+            _cached_models_by_provider.pop("__union__", None)
+            return
+        _cached_models_by_provider.clear()
+        _union_model_id_set.clear()
 
 
 def _safe_model_id(value: str) -> str:
@@ -178,6 +219,12 @@ def _sanitize_error(err: Exception, keys: List[Any]) -> str:
 
 
 def provider_config_signature(config: Dict[str, Any], provider: str) -> str:
+    # Fast path: if the config version hasn't changed since we last computed
+    # the signature for this provider, return the cached value.  This avoids
+    # a json.dumps + sha256 on every dashboard poll (every ~5 s × N providers).
+    cached = _signature_cache.get(provider)
+    if cached and cached[0] == _config_version:
+        return cached[1]
     pcfg = ((config.get("providers") or {}).get(provider) or {})
     payload = {
         "base_url": pcfg.get("base_url") or "",
@@ -189,7 +236,10 @@ def provider_config_signature(config: Dict[str, Any], provider: str) -> str:
         "formats": pcfg.get("formats") or {},
     }
     raw = json.dumps(payload, sort_keys=True, default=str)
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    sig = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    with _cache_lock:
+        _signature_cache[provider] = (_config_version, sig)
+    return sig
 
 
 def parse_provider_models(provider: str, upstream_data) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, str], List[str]]:
@@ -260,6 +310,12 @@ def _store_provider_capabilities(
     if error:
         entry["error"] = error
     caps[provider] = entry
+    # Mark the union snapshot as dirty so the next /v1/models request
+    # rebuilds it lazily.  This avoids redundant full rebuilds when the
+    # background discovery queue discovers multiple providers sequentially.
+    global _union_dirty
+    with _cache_lock:
+        _union_dirty = True
 
 
 def _rebuild_union_model_ids_from_capabilities(config: Dict[str, Any]) -> None:
@@ -318,6 +374,7 @@ def _store_models_union_snapshot(
         "models_source": models_source,
         "provider": provider,
         "signature": signature,
+        "config_version": _config_version,
         "model_ids": model_ids,
         "payload": payload,
     }
@@ -398,7 +455,15 @@ def _snapshot_payload_if_current(
         return None
     if str(snapshot.get("provider") or "") != provider:
         return None
-    if snapshot.get("signature") != signature:
+    # Fast path: compare config_version (O(1)) before falling back to the
+    # expensive deep-dict comparison of the full signature.
+    snap_version = snapshot.get("config_version")
+    if snap_version is not None:
+        if snap_version != _config_version:
+            return None
+    elif snapshot.get("signature") != signature:
+        # Backward-compat: old snapshots without config_version fall back
+        # to the full signature comparison.
         return None
     payload = snapshot.get("payload") or {}
     if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
@@ -452,6 +517,9 @@ def rebuild_models_union_snapshot(config: Dict[str, Any], router=None) -> Dict[s
     provider_model_capabilities first, then call this to publish a fast,
     persisted read model for GET /v1/models.
     """
+    global _union_dirty
+    with _cache_lock:
+        _union_dirty = False
     models_source = str((config.get("models") or {}).get("models_source", "first_healthy_provider"))
     if models_source not in ("union", "first_healthy_provider"):
         return default_models()
@@ -559,19 +627,29 @@ def models_from_capabilities(config: Dict[str, Any], router=None) -> Dict[str, A
     This path intentionally performs no upstream I/O. Discovery is handled by
     startup/manual/provider refresh paths and persisted in provider capabilities.
     """
+    # Lazy rebuild: if provider_model_capabilities changed since the last
+    # snapshot was built, rebuild now.  This defers the O(N) union rebuild
+    # from the background discovery thread to the next /v1/models request,
+    # avoiding redundant rebuilds when multiple providers are discovered
+    # sequentially.
+    if _union_dirty:
+        return rebuild_models_union_snapshot(config, router)
+
     models_source = str((config.get("models") or {}).get("models_source", "first_healthy_provider"))
     if models_source not in ("union", "first_healthy_provider"):
         return default_models()
 
     if models_source == "union":
         cache_key = "__union__"
-        cached = _cached_models_by_provider.get(cache_key)
+        with _cache_lock:
+            cached = _cached_models_by_provider.get(cache_key)
         if cached:
             return cached
         signature = _union_signature(config, models_source=models_source)
         payload = _snapshot_payload_if_current(config, models_source=models_source, signature=signature)
         if payload:
-            _cached_models_by_provider[cache_key] = payload
+            with _cache_lock:
+                _cached_models_by_provider[cache_key] = payload
             _rebuild_union_model_ids_from_capabilities(config)
             return payload
         return rebuild_models_union_snapshot(config, router)
@@ -591,8 +669,11 @@ def models_from_capabilities(config: Dict[str, Any], router=None) -> Dict[str, A
                 provider = str(pname)
                 break
 
-    if provider and provider in _cached_models_by_provider:
-        return _cached_models_by_provider[provider]
+    if provider:
+        with _cache_lock:
+            cached = _cached_models_by_provider.get(provider)
+        if cached:
+            return cached
     signature = _union_signature(config, models_source=models_source, provider=provider or "")
     payload = _snapshot_payload_if_current(
         config,
@@ -602,7 +683,8 @@ def models_from_capabilities(config: Dict[str, Any], router=None) -> Dict[str, A
     )
     if payload:
         if provider:
-            _cached_models_by_provider[provider] = payload
+            with _cache_lock:
+                _cached_models_by_provider[provider] = payload
         _rebuild_union_model_ids_from_capabilities(config)
         return payload
     return rebuild_models_union_snapshot(config, router)
@@ -923,8 +1005,13 @@ def fetch_upstream_models(
                 raw_ids=raw_ids,
                 error=str(upstream_data.get("_error") or "") if isinstance(upstream_data, dict) else "",
             )
-            _cached_models_by_provider[provider] = anth
-            rebuild_models_union_snapshot(config, router)
+            with _cache_lock:
+                _cached_models_by_provider[provider] = anth
+            # Keep _union_model_id_set fresh for routing/aliasing (lightweight:
+            # just iterates capabilities and builds a set).  The full
+            # rebuild_models_union_snapshot() is deferred to the next
+            # models_from_capabilities() call via the _union_dirty flag.
+            _rebuild_union_model_ids_from_capabilities(config)
             print(f"[proxy] Refreshed {len(anth.get('data') or [])} models from {hprov(provider)}", flush=True)
             return anth
         except Exception as e:
@@ -935,14 +1022,14 @@ def fetch_upstream_models(
                 status="error",
                 error=_sanitize_error(e, pcfg.get("keys") or []),
             )
-            rebuild_models_union_snapshot(config, router)
             print(f"[proxy] Failed to refresh provider models ({hprov(provider)}): {e}", flush=True)
             return default_models()
 
     if models_source == "union":
         cache_key = "__union__"
-        if cache_key in _cached_models_by_provider:
-            return _cached_models_by_provider[cache_key]
+        with _cache_lock:
+            if cache_key in _cached_models_by_provider:
+                return _cached_models_by_provider[cache_key]
 
         union_map: Dict[str, Dict[str, Any]] = {}
         auto_provider_map: Dict[str, Dict[str, str]] = {}
@@ -992,7 +1079,8 @@ def fetch_upstream_models(
             "first_id": next(iter(union_map.keys()), ""),
             "last_id": list(union_map.keys())[-1] if union_map else "",
         }
-        rebuild_models_union_snapshot(config, router)
+        # rebuild deferred to _union_dirty flag; just refresh model ID set
+        _rebuild_union_model_ids_from_capabilities(config)
         print(f"[proxy] Auto-fetched union models: {len(fetched_payload.get('data') or [])}", flush=True)
         return fetched_payload if fetched_payload.get("data") else default_models()
 
@@ -1000,8 +1088,9 @@ def fetch_upstream_models(
     if not provider:
         return default_models()
 
-    if provider in _cached_models_by_provider:
-        return _cached_models_by_provider[provider]
+    with _cache_lock:
+        if provider in _cached_models_by_provider:
+            return _cached_models_by_provider[provider]
 
     try:
         upstream_data = fetch_one(provider)
@@ -1019,8 +1108,10 @@ def fetch_upstream_models(
                 raw_ids=raw_ids,
                 error=str(upstream_data.get("_error") or "") if isinstance(upstream_data, dict) else "",
             )
-        _cached_models_by_provider[provider] = anth
-        rebuild_models_union_snapshot(config, router)
+        with _cache_lock:
+            _cached_models_by_provider[provider] = anth
+        # rebuild deferred to _union_dirty flag; just refresh model ID set
+        _rebuild_union_model_ids_from_capabilities(config)
         print(f"[proxy] Auto-fetched {len(anth.get('data') or [])} models from {hprov(provider)}", flush=True)
         return anth
     except Exception as e:
@@ -1031,6 +1122,5 @@ def fetch_upstream_models(
             status="error",
             error=_sanitize_error(e, pcfg.get("keys") or []),
         )
-        rebuild_models_union_snapshot(config, router)
         print(f"[proxy] Failed to fetch upstream models ({hprov(provider)}): {e}", flush=True)
         return default_models()

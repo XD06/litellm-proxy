@@ -4,6 +4,18 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+# Module-level import of the Artificial Analysis singleton.  Previously this
+# was a per-request `from artificial_analysis_api import aa` inside
+# estimate_cost_usd(), which—while Python caches the module in sys.modules—
+# still incurred a dict lookup + attribute resolution on every single request.
+# Importing once at module load is safe: artificial_analysis_api is a local
+# package with no circular dependency on this module.
+_aa = None
+try:
+    from artificial_analysis_api import aa as _aa
+except Exception:
+    _aa = None
+
 
 _INPUT_RATE_KEYS = (
     "input_per_million",
@@ -122,26 +134,26 @@ def estimate_cost_usd(cfg: Dict[str, Any], provider: str, provider_model: str, u
             output_rate = first_rate(pricing, _OUTPUT_RATE_KEYS)
             
     if input_rate <= 0 and output_rate <= 0:
-        try:
-            from artificial_analysis_api import aa
-            # Ensure the slug index is loaded from local file; resolve() does
-            # not lazy-load so without this it returns None until aa.get() is
-            # called somewhere. Pure local read, no network.
+        if _aa is not None:
             try:
-                aa._index.load_local()
+                # Ensure the slug index is loaded from local file; resolve() does
+                # not lazy-load so without this it returns None until aa.get() is
+                # called somewhere. Pure local read, no network.
+                try:
+                    _aa._index.load_local()
+                except Exception:
+                    pass
+                # Resolve model to its slug using index (memory-safe lookup)
+                slug = _aa._index.resolve(provider_model)
+                if slug:
+                    # Query local memory/file cache only; never query network on request path
+                    cached = _aa._cache.get(slug)
+                    if isinstance(cached, dict) and "pricing" in cached:
+                        pricing_summary = cached["pricing"]
+                        input_rate = safe_float(pricing_summary.get("input"))
+                        output_rate = safe_float(pricing_summary.get("output"))
             except Exception:
                 pass
-            # Resolve model to its slug using index (memory-safe lookup)
-            slug = aa._index.resolve(provider_model)
-            if slug:
-                # Query local memory/file cache only; never query network on request path
-                cached = aa._cache.get(slug)
-                if isinstance(cached, dict) and "pricing" in cached:
-                    pricing_summary = cached["pricing"]
-                    input_rate = safe_float(pricing_summary.get("input"))
-                    output_rate = safe_float(pricing_summary.get("output"))
-        except Exception:
-            pass
 
     if input_rate <= 0 and output_rate <= 0:
         return 0.0

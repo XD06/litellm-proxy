@@ -195,6 +195,8 @@ def prefetch_initial_stream_lines(upstream, timeout_s, preserve_skipped=True, *,
         except Exception:
             pass
         raise socket.timeout(f"first stream event timeout after {timeout_s}s")
+    finally:
+        _release_prefetch_pool()
 
     if isinstance(item, Exception):
         raise item

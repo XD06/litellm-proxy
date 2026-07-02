@@ -421,18 +421,60 @@ def _request_runtime() -> "RuntimeContext":
     return RuntimeContext(CONFIG, ROUTER, UPSTREAM_CLIENT, OBSERVABILITY, AUDIT)
 
 
+# ---------------------------------------------------------------------------
+# Thread-local request runtime
+# ---------------------------------------------------------------------------
+# Request handlers capture a RuntimeContext snapshot at entry and set it here
+# so that module-level helper functions (_record_*, compat retry, etc.) can
+# access the same consistent (config, router, client, observability) set
+# instead of reading the module globals which may have been swapped by a
+# concurrent _apply_runtime_config() hot-reload.
+_request_rt = threading.local()
+
+
+def _set_request_rt(rt: "RuntimeContext") -> None:
+    """Bind a RuntimeContext to the current thread for the duration of a request."""
+    _request_rt.ctx = rt
+
+
+def _clear_request_rt() -> None:
+    """Clear the thread-local runtime after the request finishes."""
+    _request_rt.ctx = None
+
+
+def _current_rt() -> "RuntimeContext":
+    """Return the thread-local runtime if set, otherwise fall back to _request_runtime()."""
+    rt = getattr(_request_rt, "ctx", None)
+    if rt is not None:
+        return rt
+    return _request_runtime()
+
+
 def resolve_model(name, config=None):
     """Resolve the client-facing model to the canonical model.
     
     Uses provided config to avoid race conditions during hot-swaps.
     Falls back to global CONFIG if no config provided (for backwards compatibility).
     """
-    # Use provided config to avoid race conditions during hot-swaps
-    cfg = config if config is not None else CONFIG
+    # Use provided config to avoid race conditions during hot-swaps.
+    # When config is passed (from request handlers), read model_map and
+    # disable_map directly from it so the mapping is consistent with the
+    # runtime snapshot. When no config is passed (tests, admin paths),
+    # fall back to the global MODEL_MAP / DISABLE_MAP which are kept in
+    # sync with CONFIG by _refresh_model_mapping_globals().
+    if config is not None:
+        cfg = config
+        models_cfg = cfg.get("models") or {}
+        disable_map = bool(models_cfg.get("disable_client_model_map", False))
+        model_map = models_cfg.get("client_model_map") or {}
+    else:
+        cfg = CONFIG
+        disable_map = DISABLE_MAP
+        model_map = MODEL_MAP
     
-    if DISABLE_MAP:
+    if disable_map:
         return name  # Pass through, no mapping
-    canonical = MODEL_MAP.get(name)
+    canonical = model_map.get(name)
     if not canonical:
         # If no explicit client map exists, accept discovered union model aliases.
         try:
@@ -968,7 +1010,7 @@ def _max_request_body_bytes() -> int:
 
 def _stream_flush_policy():
     try:
-        routing = (CONFIG.get("routing") or {})
+        routing = (_current_rt().config.get("routing") or {})
         interval_ms = int(routing.get("stream_flush_interval_ms", 0))
         flush_bytes = int(routing.get("stream_flush_bytes", 0))
         return interval_ms, flush_bytes
@@ -1057,15 +1099,15 @@ def _response_usage(*payloads):
 
 
 def _classify_http_error(code: int) -> str:
-    return scheduler_policy.classify_http_error(CONFIG, int(code or 0)).error_type
+    return scheduler_policy.classify_http_error(_current_rt().config, int(code or 0)).error_type
 
 
 def _is_retryable_http(code: int) -> bool:
-    return scheduler_policy.classify_http_error(CONFIG, int(code or 0)).retryable
+    return scheduler_policy.classify_http_error(_current_rt().config, int(code or 0)).retryable
 
 
 def _same_key_retries_for_transient_errors() -> int:
-    retry_cfg = CONFIG.get("retry") or {}
+    retry_cfg = _current_rt().config.get("retry") or {}
     value = retry_cfg.get("same_key_retries")
     if value is None:
         value = retry_cfg.get("same_key_retry_count", 1)
@@ -1077,7 +1119,7 @@ def _same_key_retries_for_transient_errors() -> int:
 
 def _is_same_key_retryable_http(status: int, error_body: str, model_name: str) -> bool:
     decision = scheduler_policy.classify_http_error(
-        CONFIG,
+        _current_rt().config,
         int(status or 0),
         error_body=error_body,
         model_name=model_name,
@@ -1407,7 +1449,7 @@ def _record_failed_attempt(
     diagnostics=None,
 ) -> None:
     diagnostics = diagnostics or {}
-    OBSERVABILITY.record_attempt(
+    _current_rt().observability.record_attempt(
         request_id,
         attempt,
         outcome="failed",
@@ -1433,7 +1475,7 @@ def _record_upstream_http_failure(request_id, attempt, status, error_body, decis
     err_type = decision.error_type
     final_reason = reason or decision.reason
     diagnostics = _upstream_error_diagnostics("upstream_http_error", error_body)
-    ROUTER.report_failure(
+    _current_rt().router.report_failure(
         attempt,
         error_type=err_type,
         http_status=int(status) if status else None,
@@ -1458,7 +1500,7 @@ def _record_request_conversion_failure(request_id, attempt, client_format: str, 
     summary = f"Could not convert client {client_format} request to upstream {attempt.upstream_format}: {exception}"
     diagnostics = _upstream_error_diagnostics("request_conversion", exception=exception)
     diagnostics["upstream_error_summary"] = _sanitize_diagnostic_text(summary)
-    ROUTER.report_failure(attempt, error_type="provider_compat")
+    _current_rt().router.report_failure(attempt, error_type="provider_compat")
     _record_failed_attempt(
         request_id,
         attempt,
@@ -1485,10 +1527,10 @@ def _record_transport_failure(
     stage: str = "transport_error",
     duration_ms=None,
 ) -> None:
-    decision = scheduler_policy.classify_transport_error(type(exception).__name__, CONFIG)
+    decision = scheduler_policy.classify_transport_error(type(exception).__name__, _current_rt().config)
     final_reason = reason or decision.reason
     diagnostics = _upstream_error_diagnostics(stage, exception=exception)
-    ROUTER.report_failure(attempt, error_type=decision.error_type)
+    _current_rt().router.report_failure(attempt, error_type=decision.error_type)
     _record_failed_attempt(
         request_id,
         attempt,
@@ -1507,7 +1549,7 @@ def _record_transport_failure(
 
 def _record_proxy_exception(request_id, attempt, exception, attempt_errors, *, duration_ms=None) -> None:
     diagnostics = _upstream_error_diagnostics("proxy_exception", exception=exception)
-    ROUTER.report_failure(attempt, error_type="network_error")
+    _current_rt().router.report_failure(attempt, error_type="network_error")
     _record_failed_attempt(
         request_id,
         attempt,
@@ -1526,7 +1568,7 @@ def _record_proxy_exception(request_id, attempt, exception, attempt_errors, *, d
 
 def _record_stream_interrupted(request_id, attempt, attempt_errors, *, duration_ms=None, stage="stream_interrupted") -> None:
     diagnostics = _upstream_error_diagnostics(stage, exception=RuntimeError("upstream stream interrupted after client response started"))
-    ROUTER.report_failure(attempt, error_type="network_error")
+    _current_rt().router.report_failure(attempt, error_type="network_error")
     _record_failed_attempt(
         request_id,
         attempt,
@@ -1563,7 +1605,7 @@ def _downgrade_tool_choice_for_retry(payload, upstream_format: str) -> None:
 
 
 def _chat_upstream_requires_reasoning_content(attempt) -> bool:
-    pcfg = (CONFIG.get("providers") or {}).get(getattr(attempt, "provider", "") or "") or {}
+    pcfg = (_current_rt().config.get("providers") or {}).get(getattr(attempt, "provider", "") or "") or {}
     return bool(pcfg.get("force_reasoning_content", False)) or getattr(attempt, "provider", "") in ("deepseek", "opencode")
 
 
@@ -1587,7 +1629,7 @@ def _force_chat_reasoning_content_if_needed(attempt, payload, *, log_each: bool 
 
 
 def _anthropic_upstream_requires_thinking(attempt) -> bool:
-    pcfg = (CONFIG.get("providers") or {}).get(getattr(attempt, "provider", "") or "") or {}
+    pcfg = (_current_rt().config.get("providers") or {}).get(getattr(attempt, "provider", "") or "") or {}
     return bool(pcfg.get("force_anthropic_thinking", False)) or getattr(attempt, "provider", "") == "deepseek"
 
 
@@ -1619,8 +1661,9 @@ def _force_anthropic_thinking_if_needed(attempt, payload, *, log_each: bool = Fa
 
 
 def _request_json_once_with_timing(attempt, payload, *, proxy_url=None, remaining_timeout_s=None):
-    if hasattr(UPSTREAM_CLIENT, "request_json_with_timing"):
-        return UPSTREAM_CLIENT.request_json_with_timing(
+    _client = _current_rt().upstream_client
+    if hasattr(_client, "request_json_with_timing"):
+        return _client.request_json_with_timing(
             attempt.url,
             attempt.headers,
             payload,
@@ -1628,7 +1671,7 @@ def _request_json_once_with_timing(attempt, payload, *, proxy_url=None, remainin
             remaining_timeout_s=remaining_timeout_s,
         )
     started = time.time()
-    data = UPSTREAM_CLIENT.request_json(
+    data = _client.request_json(
         attempt.url,
         attempt.headers,
         payload,
@@ -1639,8 +1682,9 @@ def _request_json_once_with_timing(attempt, payload, *, proxy_url=None, remainin
 
 
 def _request_raw_once_with_timing(attempt, payload, *, proxy_url=None, remaining_timeout_s=None):
-    if hasattr(UPSTREAM_CLIENT, "request_raw_with_timing"):
-        return UPSTREAM_CLIENT.request_raw_with_timing(
+    _client = _current_rt().upstream_client
+    if hasattr(_client, "request_raw_with_timing"):
+        return _client.request_raw_with_timing(
             attempt.url,
             attempt.headers,
             payload,
@@ -1666,7 +1710,7 @@ def _request_json_with_compat_retry(request_id, attempt, payload, *, proxy_url=N
             proxy_url=proxy_url,
             remaining_timeout_s=remaining_timeout_s,
         )
-        OBSERVABILITY.record_first_byte(request_id, first_byte_ms)
+        _current_rt().observability.record_first_byte(request_id, first_byte_ms)
         return data
     except HTTPError as e:
         status, error_body, headers = _http_error_details(e)
@@ -1694,7 +1738,7 @@ def _request_json_with_compat_retry(request_id, attempt, payload, *, proxy_url=N
                 proxy_url=proxy_url,
                 remaining_timeout_s=remaining_timeout_s,
             )
-            OBSERVABILITY.record_first_byte(request_id, first_byte_ms)
+            _current_rt().observability.record_first_byte(request_id, first_byte_ms)
             return data
         if same_key_retries > 0 and _is_same_key_retryable_http(status, error_body, attempt_payload.get("model", "")):
             print(
@@ -1710,7 +1754,7 @@ def _request_json_with_compat_retry(request_id, attempt, payload, *, proxy_url=N
                     proxy_url=proxy_url,
                     remaining_timeout_s=remaining_timeout_s,
                 )
-                OBSERVABILITY.record_first_byte(request_id, first_byte_ms)
+                _current_rt().observability.record_first_byte(request_id, first_byte_ms)
                 return data
             except HTTPError as retry_error:
                 status, error_body, headers = _http_error_details(retry_error)
@@ -1729,7 +1773,7 @@ def _request_json_with_compat_retry(request_id, attempt, payload, *, proxy_url=N
                 proxy_url=proxy_url,
                 remaining_timeout_s=remaining_timeout_s,
             )
-            OBSERVABILITY.record_first_byte(request_id, first_byte_ms)
+            _current_rt().observability.record_first_byte(request_id, first_byte_ms)
             return data
         raise
 
@@ -1744,7 +1788,7 @@ def _request_raw_with_compat_retry(request_id, attempt, payload, *, proxy_url=No
             proxy_url=proxy_url,
             remaining_timeout_s=remaining_timeout_s,
         )
-        OBSERVABILITY.record_first_byte(request_id, first_byte_ms)
+        _current_rt().observability.record_first_byte(request_id, first_byte_ms)
         return raw
     except HTTPError as e:
         status, error_body, headers = _http_error_details(e)
@@ -1772,7 +1816,7 @@ def _request_raw_with_compat_retry(request_id, attempt, payload, *, proxy_url=No
                 proxy_url=proxy_url,
                 remaining_timeout_s=remaining_timeout_s,
             )
-            OBSERVABILITY.record_first_byte(request_id, first_byte_ms)
+            _current_rt().observability.record_first_byte(request_id, first_byte_ms)
             return raw
         if same_key_retries > 0 and _is_same_key_retryable_http(status, error_body, attempt_payload.get("model", "")):
             print(
@@ -1788,7 +1832,7 @@ def _request_raw_with_compat_retry(request_id, attempt, payload, *, proxy_url=No
                     proxy_url=proxy_url,
                     remaining_timeout_s=remaining_timeout_s,
                 )
-                OBSERVABILITY.record_first_byte(request_id, first_byte_ms)
+                _current_rt().observability.record_first_byte(request_id, first_byte_ms)
                 return raw
             except HTTPError as retry_error:
                 status, error_body, headers = _http_error_details(retry_error)
@@ -1807,7 +1851,7 @@ def _request_raw_with_compat_retry(request_id, attempt, payload, *, proxy_url=No
                 proxy_url=proxy_url,
                 remaining_timeout_s=remaining_timeout_s,
             )
-            OBSERVABILITY.record_first_byte(request_id, first_byte_ms)
+            _current_rt().observability.record_first_byte(request_id, first_byte_ms)
             return raw
         raise
 
@@ -1913,7 +1957,7 @@ def _is_empty_visible_output(client_format, client_response, *, upstream_format=
 
 
 def _record_empty_visible_output_failure(request_id, attempt, attempt_errors):
-    ROUTER.report_failure(attempt, error_type="empty_visible_output", http_status=200)
+    _current_rt().router.report_failure(attempt, error_type="empty_visible_output", http_status=200)
     _record_failed_attempt(
         request_id,
         attempt,
@@ -1964,7 +2008,7 @@ def _open_stream_with_compat_retry(
         return _remaining_first_event_timeout(started_at, first_byte_timeout_s)
 
     try:
-        return UPSTREAM_CLIENT.open_stream(
+        return _current_rt().upstream_client.open_stream(
             attempt.url,
             attempt.headers,
             attempt_payload,
@@ -1992,7 +2036,7 @@ def _open_stream_with_compat_retry(
                 f"[proxy] tool_choice downgraded to auto for stream retry req={request_id} {_h(attempt.provider)}",
                 flush=True,
             )
-            return UPSTREAM_CLIENT.open_stream(
+            return _current_rt().upstream_client.open_stream(
                 attempt.url,
                 attempt.headers,
                 payload,
@@ -2008,7 +2052,7 @@ def _open_stream_with_compat_retry(
             )
             retry_payload = dict(attempt_payload)
             try:
-                return UPSTREAM_CLIENT.open_stream(
+                return _current_rt().upstream_client.open_stream(
                     attempt.url,
                     attempt.headers,
                     retry_payload,
@@ -2026,7 +2070,7 @@ def _open_stream_with_compat_retry(
                 flush=True,
             )
             retry_payload = dict(attempt_payload)
-            return UPSTREAM_CLIENT.open_stream(
+            return _current_rt().upstream_client.open_stream(
                 attempt.url,
                 attempt.headers,
                 retry_payload,
@@ -2041,7 +2085,7 @@ def _open_stream_with_compat_retry(
 
 def _stream_prefetch_bounds():
     """Read prelude bounds from routing config. 0 disables a bound."""
-    routing = (CONFIG.get("routing") or {})
+    routing = (_current_rt().config.get("routing") or {})
     try:
         max_lines = int(routing.get("stream_prefetch_max_lines", 128))
     except Exception:
@@ -2235,6 +2279,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         # hot-swap happens concurrently in another thread. Local names shadow
         # the module globals for reads; nothing here reassigns them.
         rt = _request_runtime()
+        _set_request_rt(rt)
         CONFIG = rt.config
         ROUTER = rt.router
         UPSTREAM_CLIENT = rt.upstream_client
@@ -2535,6 +2580,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         # Snapshot the live runtime once for whole-request consistency during
         # config hot-swap. See _proxy_openai_chat_completions for rationale.
         rt = _request_runtime()
+        _set_request_rt(rt)
         CONFIG = rt.config
         ROUTER = rt.router
         UPSTREAM_CLIENT = rt.upstream_client
@@ -2897,6 +2943,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         # Anthropic Messages branch: snapshot the live runtime once for
         # whole-request consistency during config hot-swap.
         rt = _request_runtime()
+        _set_request_rt(rt)
         CONFIG = rt.config
         ROUTER = rt.router
         UPSTREAM_CLIENT = rt.upstream_client
@@ -3502,48 +3549,11 @@ def main():
     except KeyboardInterrupt:
         print("\n[proxy] Shutting down...", flush=True)
         _save_router_state()
+        UPSTREAM_CLIENT.close()
         s.server_close()
 
 
 if __name__ == "__main__":
-    # Restore runtime state before model prefetch.
-    _load_router_state()
-    _prefetch_model_summaries()
-    # Start autosave before serving requests.
-    _start_state_autosave()
-    _start_health_score_updater()
-
-    # Start the background model-discovery queue. This replaces the previous
-    # one-shot union fetch that ran with an 8s total timeout and silently
-    # dropped any provider that did not respond in time. The queue pulls each
-    # enabled provider sequentially in its own daemon thread (never the request
-    # worker pool), caches ok snapshots for a TTL, and retries missing/failed
-    # providers on a slow cadence — so providers that were unreachable at
-    # startup get discovered automatically once they come back, without the
-    # user having to click "Refresh models" for each one.
-    _start_model_discovery_queue()
-
-    s = _ThreadPoolHTTPServer((HOST, PORT), Handler, max_workers=MAX_WORKERS)
-    s.timeout = 0.5
-    log_info = f" (debug logging ON)" if DEBUG_LOG else ""
-    print(f"Proxy on http://localhost:{PORT}/v1/messages", flush=True)
-    print(f"Bind: {HOST}:{PORT}  Workers: {MAX_WORKERS}  Logs: {LOG_DIR}{log_info}", flush=True)
-    if ZERO_CONFIG_ACTIVE:
-        providers = list((CONFIG.get("providers") or {}).keys())
-        print(f"[proxy] Zero-config mode: detected {len(providers)} provider(s) from environment variables: {', '.join(providers)}", flush=True)
-        print(f"[proxy] Tip: create config.json for full control, or open the dashboard to configure providers.", flush=True)
-    if HOST in ("0.0.0.0", "::"):
-        print(
-            "[proxy][WARN] Bound to all interfaces; the proxy and Admin API are reachable "
-            "from the network and protected only by the admin key. "
-            "Set server.host to 127.0.0.1 to restrict to localhost.",
-            flush=True,
-        )
-    try:
-        s.serve_forever()
-    except KeyboardInterrupt:
-        print("\n[proxy] Shutting down...", flush=True)
-        _save_router_state()
-        s.server_close()
+    main()
 
 

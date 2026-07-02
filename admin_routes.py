@@ -1,6 +1,7 @@
 import hmac
 import json
 import re
+import threading
 import traceback
 import urllib.parse
 from typing import Optional
@@ -9,6 +10,11 @@ from typing import Optional
 # "models" query string; value is {"ts", "payload"}. See the endpoint handler
 # for why this is critical (unknown-model fuzzy resolves were 8-16s per poll).
 _MODEL_PRICING_CACHE: dict = {}
+# Lock to prevent thundering-herd: when the cache expires, multiple concurrent
+# dashboard poll threads would all miss, all build the fast_lookup index, and
+# all write the cache simultaneously.  The lock ensures only one thread does
+# the work; others wait and reuse the result.
+_MODEL_PRICING_LOCK = threading.Lock()
 
 class AdminRoutesMixin:
     def _admin_authorized(self) -> bool:
@@ -211,113 +217,122 @@ class AdminRoutesMixin:
             cached_entry = _MODEL_PRICING_CACHE.get(cache_key)
             if cached_entry and (now - cached_entry["ts"]) < cache_ttl:
                 return self._resp_json(cached_entry["payload"])
-            try:
-                from artificial_analysis_api import aa
-                # Ensure the in-memory slug index is populated from the local
-                # model_index.json. Without this, _index.resolve() always
-                # returns None because resolve() does not lazy-load. This is a
-                # pure local file read, no network.
+            # Acquire lock to prevent thundering-herd: multiple concurrent
+            # poll threads all miss the cache and would each build the
+            # fast_lookup index (~80ms) + resolve candidates independently.
+            # With the lock, only one thread does the work; others wait,
+            # then double-check the cache before proceeding.
+            with _MODEL_PRICING_LOCK:
+                cached_entry = _MODEL_PRICING_CACHE.get(cache_key)
+                if cached_entry and (_time.time() - cached_entry["ts"]) < cache_ttl:
+                    return self._resp_json(cached_entry["payload"])
                 try:
-                    aa._index.load_local()
-                except Exception:
-                    pass
-                pricing_by_model = {}
-                # Build the candidate model set: either the caller-supplied
-                # comma-separated list, or every slug that has a cached file.
-                # Cap the candidate count so a single dashboard poll cannot
-                # trigger hundreds of O(n) fuzzy resolves for unknown models.
-                MAX_PRICING_CANDIDATES = 80
-                if requested:
-                    candidates = [m.strip() for m in requested.split(",") if m.strip()][:MAX_PRICING_CANDIDATES]
-                    truncated = len([m for m in requested.split(",") if m.strip()]) > MAX_PRICING_CANDIDATES
-                else:
-                    candidates = []
+                    from artificial_analysis_api import aa
+                    # Ensure the in-memory slug index is populated from the local
+                    # model_index.json. Without this, _index.resolve() always
+                    # returns None because resolve() does not lazy-load. This is a
+                    # pure local file read, no network.
                     try:
-                        for slug in (aa._cache.list_slugs() if hasattr(aa._cache, "list_slugs") else []):
-                            candidates.append(slug)
+                        aa._index.load_local()
                     except Exception:
                         pass
-                    truncated = False
+                    pricing_by_model = {}
+                    # Build the candidate model set: either the caller-supplied
+                    # comma-separated list, or every slug that has a cached file.
+                    # Cap the candidate count so a single dashboard poll cannot
+                    # trigger hundreds of O(n) fuzzy resolves for unknown models.
+                    MAX_PRICING_CANDIDATES = 80
+                    if requested:
+                        candidates = [m.strip() for m in requested.split(",") if m.strip()][:MAX_PRICING_CANDIDATES]
+                        truncated = len([m for m in requested.split(",") if m.strip()]) > MAX_PRICING_CANDIDATES
+                    else:
+                        candidates = []
+                        try:
+                            for slug in (aa._cache.list_slugs() if hasattr(aa._cache, "list_slugs") else []):
+                                candidates.append(slug)
+                        except Exception:
+                            pass
+                        truncated = False
 
-                # Build a fast reverse-lookup index ONCE instead of calling
-                # _index.resolve() per candidate (which rebuilds name_to_slug
-                # and runs O(n) fuzzy matching every time). For 200 candidates
-                # this cuts the endpoint from ~6s to a few ms.
-                models_map = getattr(aa._index, "_models", {}) or {}
-                fast_lookup = {}  # normalized_key -> slug
-                for slug, short_name in models_map.items():
-                    for k in (slug, slug.lower(), short_name, short_name.lower() if short_name else ""):
-                        if k and k not in fast_lookup:
-                            fast_lookup[k] = slug
+                    # Build a fast reverse-lookup index ONCE instead of calling
+                    # _index.resolve() per candidate (which rebuilds name_to_slug
+                    # and runs O(n) fuzzy matching every time). For 200 candidates
+                    # this cuts the endpoint from ~6s to a few ms.
+                    models_map = getattr(aa._index, "_models", {}) or {}
+                    fast_lookup = {}  # normalized_key -> slug
+                    for slug, short_name in models_map.items():
+                        for k in (slug, slug.lower(), short_name, short_name.lower() if short_name else ""):
+                            if k and k not in fast_lookup:
+                                fast_lookup[k] = slug
 
-                def fast_resolve(query):
-                    q = (query or "").strip().lower()
-                    if not q:
+                    def fast_resolve(query):
+                        q = (query or "").strip().lower()
+                        if not q:
+                            return None
+                        if q in fast_lookup:
+                            return fast_lookup[q]
+                        # Try last path segment (e.g. "Pro/Qwen/Qwen3-32B" -> "Qwen3-32B").
+                        last = re.split(r"[/\s]+", q)[-1]
+                        if last != q and last in fast_lookup:
+                            return fast_lookup[last]
+                        # Normalized form of the full query (separators -> dash).
+                        norm = re.sub(r"[^a-z0-9]+", "-", q).strip("-")
+                        if norm and norm in fast_lookup:
+                            return fast_lookup[norm]
+                        # Normalized form of the last segment alone (e.g.
+                        # "Pro/deepseek-ai/DeepSeek-V3.2" -> last="DeepSeek-V3.2"
+                        # -> norm="deepseek-v3-2").
+                        last_norm = re.sub(r"[^a-z0-9]+", "-", last).strip("-")
+                        if last_norm and last_norm != norm and last_norm in fast_lookup:
+                            return fast_lookup[last_norm]
+                        # Unknown to the local index: do NOT fall back to the full
+                        # fuzzy resolver here. That path is O(n) per call (~80ms)
+                        # and for non-chat models (embeddings, vision, TTS) that are
+                        # absent from the AA index it wasted 8-16s per poll. The
+                        # resolver is still used by the explicit model-summary flow.
                         return None
-                    if q in fast_lookup:
-                        return fast_lookup[q]
-                    # Try last path segment (e.g. "Pro/Qwen/Qwen3-32B" -> "Qwen3-32B").
-                    last = re.split(r"[/\s]+", q)[-1]
-                    if last != q and last in fast_lookup:
-                        return fast_lookup[last]
-                    # Normalized form of the full query (separators -> dash).
-                    norm = re.sub(r"[^a-z0-9]+", "-", q).strip("-")
-                    if norm and norm in fast_lookup:
-                        return fast_lookup[norm]
-                    # Normalized form of the last segment alone (e.g.
-                    # "Pro/deepseek-ai/DeepSeek-V3.2" -> last="DeepSeek-V3.2"
-                    # -> norm="deepseek-v3-2").
-                    last_norm = re.sub(r"[^a-z0-9]+", "-", last).strip("-")
-                    if last_norm and last_norm != norm and last_norm in fast_lookup:
-                        return fast_lookup[last_norm]
-                    # Unknown to the local index: do NOT fall back to the full
-                    # fuzzy resolver here. That path is O(n) per call (~80ms)
-                    # and for non-chat models (embeddings, vision, TTS) that are
-                    # absent from the AA index it wasted 8-16s per poll. The
-                    # resolver is still used by the explicit model-summary flow.
-                    return None
 
-                for model in candidates:
-                    try:
-                        slug = fast_resolve(model)
-                        if not slug:
-                            pricing_by_model[model] = {"available": False, "reason": "unresolved"}
-                            continue
-                        cached = aa._cache.get(slug)
-                        if isinstance(cached, dict) and isinstance(cached.get("pricing"), dict):
-                            p = cached["pricing"]
-                            entry = {
-                                "available": True,
-                                "slug": slug,
-                                "input": p.get("input"),
-                                "output": p.get("output"),
-                                "cache_hit": p.get("cache_hit"),
-                                "blended_per_million": (cached.get("price_blended") or {}).get("price_per_1m_tokens"),
-                            }
-                            # Index under BOTH the queried name and the slug, so
-                            # the frontend can look up pricing by either the raw
-                            # union id (e.g. "Pro/Qwen/Qwen3-32B") or the display
-                            # label / slug (e.g. "Qwen3-32B" / "qwen3-32b-instruct").
-                            pricing_by_model[model] = entry
-                            if slug and slug not in pricing_by_model:
-                                pricing_by_model[slug] = entry
-                        else:
-                            pricing_by_model[model] = {"available": False, "reason": "not_cached", "slug": slug}
-                    except Exception:
-                        pricing_by_model[model] = {"available": False, "reason": "error"}
-                payload = {"pricing": pricing_by_model}
-                if truncated:
-                    payload["truncated"] = True
-                # Store in the TTL cache. Bound the cache size to avoid unbounded
-                # growth if many distinct model sets are queried over time.
-                _MODEL_PRICING_CACHE[cache_key] = {"ts": now, "payload": payload}
-                if len(_MODEL_PRICING_CACHE) > 64:
-                    # Evict the oldest entries by timestamp.
-                    for k, _v in sorted(_MODEL_PRICING_CACHE.items(), key=lambda kv: kv[1]["ts"])[: len(_MODEL_PRICING_CACHE) - 64]:
-                        _MODEL_PRICING_CACHE.pop(k, None)
-                return self._resp_json(payload)
-            except Exception as e:
-                return self._resp_json({"error": {"message": str(e)}}, 500)
+                    for model in candidates:
+                        try:
+                            slug = fast_resolve(model)
+                            if not slug:
+                                pricing_by_model[model] = {"available": False, "reason": "unresolved"}
+                                continue
+                            cached = aa._cache.get(slug)
+                            if isinstance(cached, dict) and isinstance(cached.get("pricing"), dict):
+                                p = cached["pricing"]
+                                entry = {
+                                    "available": True,
+                                    "slug": slug,
+                                    "input": p.get("input"),
+                                    "output": p.get("output"),
+                                    "cache_hit": p.get("cache_hit"),
+                                    "blended_per_million": (cached.get("price_blended") or {}).get("price_per_1m_tokens"),
+                                }
+                                # Index under BOTH the queried name and the slug, so
+                                # the frontend can look up pricing by either the raw
+                                # union id (e.g. "Pro/Qwen/Qwen3-32B") or the display
+                                # label / slug (e.g. "Qwen3-32B" / "qwen3-32b-instruct").
+                                pricing_by_model[model] = entry
+                                if slug and slug not in pricing_by_model:
+                                    pricing_by_model[slug] = entry
+                            else:
+                                pricing_by_model[model] = {"available": False, "reason": "not_cached", "slug": slug}
+                        except Exception:
+                            pricing_by_model[model] = {"available": False, "reason": "error"}
+                    payload = {"pricing": pricing_by_model}
+                    if truncated:
+                        payload["truncated"] = True
+                    # Store in the TTL cache. Bound the cache size to avoid unbounded
+                    # growth if many distinct model sets are queried over time.
+                    _MODEL_PRICING_CACHE[cache_key] = {"ts": _time.time(), "payload": payload}
+                    if len(_MODEL_PRICING_CACHE) > 64:
+                        # Evict the oldest entries by timestamp.
+                        for k, _v in sorted(_MODEL_PRICING_CACHE.items(), key=lambda kv: kv[1]["ts"])[: len(_MODEL_PRICING_CACHE) - 64]:
+                            _MODEL_PRICING_CACHE.pop(k, None)
+                    return self._resp_json(payload)
+                except Exception as e:
+                    return self._resp_json({"error": {"message": str(e)}}, 500)
         if endpoint.startswith("model-summary/"):
             from urllib.parse import unquote
             model_slug = unquote(endpoint.split("/", 1)[1])
@@ -481,8 +496,20 @@ class AdminRoutesMixin:
 
         if parts == ["models", "refresh"]:
             model_registry.clear_cache()
-            fetch_upstream_models()
-            _save_router_state()
+            if sse.MODEL_DISCOVERY_QUEUE is not None:
+                # Mark all enabled providers as pending for immediate UI
+                # feedback, then enqueue background discovery.  This returns
+                # instantly instead of blocking the admin thread for 8+ seconds.
+                for pname in sse._enabled_provider_names():
+                    try:
+                        sse._mark_provider_models_pending(pname)
+                    except Exception:
+                        pass
+                sse.MODEL_DISCOVERY_QUEUE.enqueue_all(force=True)
+            else:
+                # Fallback: legacy synchronous fetch if queue not running yet.
+                fetch_upstream_models()
+                _save_router_state()
             self._audit_admin_event("models_refreshed", target="models")
             return self._resp_json({"action": "models_refreshed", "models": _model_capabilities_snapshot()})
 
@@ -615,9 +642,10 @@ class AdminRoutesMixin:
             if len(parts) == 4 and parts[2] == "models" and parts[3] == "refresh":
                 if provider not in (CONFIG.get("providers") or {}):
                     return self._resp_json({"error": {"message": f"unknown provider: {provider}"}}, 404)
-                model_registry.clear_cache(provider)
-                fetch_provider_models(provider)
-                _save_router_state()
+                # Async refresh: mark pending + enqueue to discovery queue.
+                # Returns instantly with current (pending) capabilities instead
+                # of blocking the admin thread for 6-12 seconds on upstream I/O.
+                _refresh_models_after_config_change(provider, force=True)
                 self._audit_admin_event("provider_models_refreshed", target=f"{provider}/models")
                 return self._resp_json(
                     {

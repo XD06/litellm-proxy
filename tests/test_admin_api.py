@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from http.server import HTTPServer
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 import sse2json
 import config_manager
@@ -451,15 +451,20 @@ class AdminApiTests(unittest.TestCase):
             }
             return {"data": [{"id": "alpha-model"}]}
 
-        with patch.object(sse2json, "CONFIG", cfg), patch.object(sse2json.model_registry, "clear_cache") as clear_cache, patch.object(
-            sse2json, "fetch_upstream_models", fake_fetch_models
-        ):
+        # When MODEL_DISCOVERY_QUEUE is available, refresh is async (non-blocking).
+        mock_queue = MagicMock()
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(
+            sse2json, "MODEL_DISCOVERY_QUEUE", mock_queue
+        ), patch.object(sse2json, "_enabled_provider_names", return_value=["alpha"]), patch.object(
+            sse2json, "_mark_provider_models_pending"
+        ) as mock_pending:
             status, body = self.post_json("/-/admin/models/refresh", headers=headers)
 
         self.assertEqual(status, 200)
-        clear_cache.assert_called_once()
         self.assertEqual(body["action"], "models_refreshed")
-        self.assertEqual(body["models"]["providers"]["alpha"]["status"], "ok")
+        # Async: all providers enqueued for background discovery
+        mock_queue.enqueue_all.assert_called_once_with(force=True)
+        mock_pending.assert_called_once_with("alpha")
 
     def test_admin_provider_models_refresh_refreshes_one_provider(self):
         cfg = {
@@ -469,28 +474,22 @@ class AdminApiTests(unittest.TestCase):
         }
         headers = {"Content-Type": "application/json", "X-Admin-Key": "admin-secret"}
 
-        def fake_fetch_provider_models(provider):
-            cfg["models"]["provider_model_capabilities"] = {
-                provider: {
-                    "status": "ok",
-                    "fetched_at": 456,
-                    "models": ["alpha-model"],
-                    "canonical_map": {"alpha-model": "alpha-model"},
-                    "formats": ["chat_completions"],
-                }
-            }
-            return {"data": [{"id": "alpha-model"}]}
-
-        with patch.object(sse2json, "CONFIG", cfg), patch.object(sse2json.model_registry, "clear_cache") as clear_cache, patch.object(
-            sse2json, "fetch_provider_models", fake_fetch_provider_models
+        # Async refresh: the endpoint enqueues to the discovery queue instead
+        # of blocking on upstream I/O.  The provider is marked "pending" and
+        # the queue fetches in the background.
+        mock_queue = MagicMock()
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(
+            sse2json, "MODEL_DISCOVERY_QUEUE", mock_queue
         ):
             status, body = self.post_json("/-/admin/providers/alpha/models/refresh", headers=headers)
 
         self.assertEqual(status, 200)
-        clear_cache.assert_called_once_with("alpha")
         self.assertEqual(body["action"], "provider_models_refreshed")
         self.assertEqual(body["provider"], "alpha")
-        self.assertEqual(body["models"]["providers"]["alpha"]["status"], "ok")
+        # Provider should be marked pending (async refresh in progress)
+        self.assertEqual(body["models"]["providers"]["alpha"]["status"], "pending")
+        # Discovery queue was enqueued with force=True
+        mock_queue.enqueue.assert_called_once_with("alpha", force=True)
 
     def test_admin_provider_models_refresh_unknown_provider(self):
         cfg = {
