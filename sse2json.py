@@ -353,6 +353,7 @@ def _apply_runtime_config(new_config: dict) -> None:
     global CONFIG, ROUTER, UPSTREAM_CLIENT, OBSERVABILITY, AUDIT, RUNTIME
     old_router = ROUTER
     old_obs = OBSERVABILITY
+    old_upstream_client = UPSTREAM_CLIENT
     old_caps = dict(((CONFIG.get("models") or {}).get("provider_model_capabilities") or {})) if CONFIG else {}
     new_config = apply_env_overlays(new_config)
     # Preserve provider model capabilities across runtime config reloads.
@@ -394,6 +395,23 @@ def _apply_runtime_config(new_config: dict) -> None:
     if MODEL_DISCOVERY_QUEUE is not None:
         MODEL_DISCOVERY_QUEUE.enqueue_all(force=False)
     _save_router_state()
+
+    # Deferred cleanup of the old upstream client. We must NOT close it
+    # synchronously because in-flight requests may still be using the old
+    # RuntimeContext (which holds old_upstream_client). Stream requests can
+    # last minutes; closing the pool immediately would break their sockets.
+    # A delayed close (driven by the configured read timeout) gives all
+    # in-flight requests time to finish naturally.
+    if old_upstream_client is not None and old_upstream_client is not new_upstream_client:
+        _close_fn = getattr(old_upstream_client, "close", None)
+        if callable(_close_fn):
+            _retire_delay = max(
+                int((new_config.get("routing") or {}).get("read_timeout_s", 120)) * 3,
+                300,
+            )
+            _timer = threading.Timer(_retire_delay, _close_fn)
+            _timer.daemon = True
+            _timer.start()
 
 
 def _request_runtime() -> "RuntimeContext":
@@ -2247,6 +2265,12 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                 f.write(f"Body:\n{body[:5000]}\n")
 
     def do_GET(self):
+        try:
+            return self._do_GET_impl()
+        finally:
+            _clear_request_rt()
+
+    def _do_GET_impl(self):
         from urllib.parse import urlparse
         clean_path = urlparse(self.path).path
         route = classify_get(clean_path)
@@ -2881,6 +2905,12 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         return self._resp_json({"error": {"message": err_msg, "request_id": request_id}}, 502)
 
     def do_PATCH(self):
+        try:
+            return self._do_PATCH_impl()
+        finally:
+            _clear_request_rt()
+
+    def _do_PATCH_impl(self):
         from urllib.parse import urlparse
         clean_path = urlparse(self.path).path
         route = classify_post(clean_path)
@@ -2892,6 +2922,12 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         return self._resp_json({"error": {"message": f"unknown endpoint: {self.path}"}}, 404)
 
     def do_POST(self):
+        try:
+            return self._do_POST_impl()
+        finally:
+            _clear_request_rt()
+
+    def _do_POST_impl(self):
         from urllib.parse import urlparse
         clean_path = urlparse(self.path).path
         route = classify_post(clean_path)
@@ -3512,6 +3548,14 @@ def main():
     if args.host:
         os.environ["PROXY_HOST"] = args.host
 
+    # Reload configuration from disk (picks up PROXY_CONFIG_PATH) and apply
+    # environment overlays (picks up PROXY_HOST / PROXY_PORT / etc.), then
+    # rebuild all runtime objects (router, upstream client, observability).
+    # This is necessary because the module-level CONFIG / ROUTER / etc. were
+    # created during import, before CLI args were parsed.
+    CONFIG_MANAGER.reload(load_base_config(apply_env=False))
+    _apply_runtime_config(CONFIG_MANAGER.config)
+
     # Restore runtime state before model prefetch.
     _load_router_state()
     _prefetch_model_summaries()
@@ -3522,7 +3566,7 @@ def main():
     # Start the background model-discovery queue.
     _start_model_discovery_queue()
 
-    # Re-read host/port in case CLI overrides changed them
+    # Read host/port/max_workers from the freshly rebuilt CONFIG
     global HOST, PORT, MAX_WORKERS
     PORT = int((CONFIG.get("server") or {}).get("port", 4894))
     HOST = str((CONFIG.get("server") or {}).get("host", "0.0.0.0")).strip() or "0.0.0.0"

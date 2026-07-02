@@ -270,6 +270,7 @@ def _normalize_config(cfg: Dict[str, Any]) -> Dict[str, Any]:
 def _default_config() -> Dict[str, Any]:
     return {
         "server": {
+            "host": "0.0.0.0",
             "port": 4894,
             "max_workers": 20,
             "log_dir": "proxy_logs",
@@ -368,6 +369,8 @@ def _apply_env_overlays(cfg: Dict[str, Any]) -> Dict[str, Any]:
     overlay: Dict[str, Any] = {}
 
     # ---- common server env ----
+    if os.environ.get("PROXY_HOST"):
+        overlay = _deep_merge(overlay, {"server": {"host": os.environ["PROXY_HOST"]}})
     if os.environ.get("PROXY_PORT"):
         overlay = _deep_merge(overlay, {"server": {"port": int(os.environ["PROXY_PORT"])}})
     if os.environ.get("PROXY_MAX_WORKERS"):
