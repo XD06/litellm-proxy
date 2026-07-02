@@ -53,11 +53,9 @@
           <button class="nav-item" data-view="playground" data-i18n="nav.playground">Playground</button>
         </nav>
         <div id="sidebarActions" class="sidebar-actions" aria-label="Runtime controls">
-          <button id="refreshButton" class="button icon-button" type="button" title="Refresh" aria-label="Refresh">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>
-          </button>
-          <button id="pauseButton" class="button icon-button" type="button" title="Pause" aria-label="Pause">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+          <button id="pauseButton" class="auto-refresh-toggle" type="button" title="Auto refresh" aria-label="Auto refresh" aria-pressed="true" data-i18n-attr="title:action.auto_refresh,aria-label:action.auto_refresh">
+            <span class="auto-refresh-toggle-text" data-i18n="action.auto_refresh">Auto refresh</span>
+            <span class="auto-refresh-switch" aria-hidden="true"><span></span></span>
           </button>
         </div>
         <div class="sidebar-footer">
@@ -178,15 +176,6 @@
               </div>
 
               <div class="overview-side-column">
-                <section class="panel overview-health-panel">
-                  <div class="panel-head">
-                    <div>
-                      <h2 data-i18n="ov.upstream_health">Upstream Health status</h2>
-                      <p data-i18n="ov.upstream_health_desc">Providers that need attention.</p>
-                    </div>
-                  </div>
-                  <div id="providerHealth" class="provider-health empty" data-i18n="ov.no_providers">No providers</div>
-                </section>
                 <section class="panel overview-health-score-panel">
                   <div class="panel-head">
                     <div>
@@ -195,6 +184,7 @@
                     </div>
                   </div>
                   <div id="healthOverview" class="health-overview"></div>
+                </section>
               </div>
             </div>
           </div>

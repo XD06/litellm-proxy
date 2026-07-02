@@ -8,7 +8,7 @@ export const timeRanges = {
 };
 
 export const REQUEST_PAGE_SIZE = 10;
-export const PROVIDERS_PAGE_SIZE = 6;
+export const PROVIDERS_PAGE_SIZE = 8;
 export const CONFIG_PROVIDERS_PAGE_SIZE = 8;
 export const MODEL_ROUTES_PAGE_SIZE = 8;
 export const PROVIDER_MODEL_MAP_PAGE_SIZE = 6;

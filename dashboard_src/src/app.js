@@ -628,14 +628,16 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           <span>Provider name</span>
           <input class="control" name="name" required placeholder="my-provider" autocomplete="off" />
         </label>
-        <label class="field form-field-inline">
-          <span>Base URL</span>
-          <input class="control" name="base_url" required placeholder="https://api.example.com/v1" autocomplete="off" />
-        </label>
-        <label class="field form-field-inline">
-          <span>API key</span>
-          <input class="control" name="key" type="password" required placeholder="sk-..." autocomplete="off" />
-        </label>
+        <div class="form-row-2 provider-main-fields">
+          <label class="field form-field-inline">
+            <span>Base URL</span>
+            <input class="control" name="base_url" required placeholder="https://api.example.com/v1" autocomplete="off" />
+          </label>
+          <label class="field form-field-inline">
+            <span>API key</span>
+            <input class="control" name="key" type="password" required placeholder="sk-..." autocomplete="off" />
+          </label>
+        </div>
         <div class="form-row-2">
           <label class="field form-field-inline">
             <span>Upstream format</span>
@@ -1390,7 +1392,8 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     target.innerHTML = `
       <div class="usage-trend-overview">
         <div class="usage-trend-total">
-          <span>Consumed tokens</span>
+          <span class="usage-trend-total-icon">${iconSvg("activity")}</span>
+          <span class="usage-trend-total-label">Consumed tokens</span>
           <strong>${escapeHtml(fmtTokenCount(displayUsage.total_tokens))}</strong>
           <small>${escapeHtml(fmtInt(displayUsage.total_tokens))} ${t("ov.total_in_window")}</small>
         </div>
@@ -1426,9 +1429,16 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
   }
 
   function usageTrendKpi(label, value, tone) {
+    const iconByTone = {
+      "usage-input": "arrow-left",
+      "usage-output": "arrow-right",
+      "usage-request": "activity",
+      "usage-failure": "alert",
+      "usage-success": "check",
+    };
     return `
       <div class="usage-trend-kpi ${escapeHtml(tone)}">
-        <i></i>
+        <span class="usage-trend-icon">${iconSvg(iconByTone[tone] || "activity")}</span>
         <span>${escapeHtml(label)}</span>
         <strong>${escapeHtml(value)}</strong>
       </div>
@@ -1809,8 +1819,8 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       <div class="usage-columns usage-model-only">
         <section>
           <div class="usage-section-title">
-            <h3>Top ${fmtInt(USAGE_MODEL_LIMIT)} models by calls</h3>
-            <span>selected window</span>
+            <h3>${iconSvg("boxes")} Top ${fmtInt(USAGE_MODEL_LIMIT)} models</h3>
+            <span>${fmtTokenCount(totalUsage.total_tokens)} tokens</span>
           </div>
           ${usageRows(modelRows, "No model calls")}
         </section>
@@ -1856,10 +1866,10 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         ${rows.map((row) => {
           const callPct = Math.max(3, (Number(row.calls || 0) / max) * 100);
           return `
-            <div class="usage-row">
+            <div class="usage-row usage-model-row">
+              <span class="usage-rank usage-rank-tile">#${fmtInt(row.rank || 0)}</span>
               <div class="usage-row-head">
                 <strong class="mono" title="${escapeHtml(row.label)}">
-                  <span class="usage-rank">#${fmtInt(row.rank || 0)}</span>
                   <span class="usage-model-name">${escapeHtml(row.label)}</span>
                 </strong>
                 <span class="usage-call-count">${escapeHtml(row.hint || "")}</span>
@@ -1867,10 +1877,10 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
               <div class="usage-track usage-track-calls" title="${escapeHtml(fmtInt(row.calls || 0))} calls">
                 <span class="usage-fill calls" style="width:${callPct}%"></span>
               </div>
-              <div class="usage-row-foot">
-                <span title="${escapeHtml(fmtInt(row.usage.total_tokens))} tokens"><strong>${fmtTokenCount(row.usage.total_tokens)}</strong> tokens</span>
-                <span title="${escapeHtml(fmtInt(row.usage.input_tokens))} input tokens">${fmtTokenCount(row.usage.input_tokens)} in</span>
-                <span title="${escapeHtml(fmtInt(row.usage.output_tokens))} output tokens">${fmtTokenCount(row.usage.output_tokens)} out</span>
+              <div class="usage-row-foot usage-model-foot">
+                <span title="${escapeHtml(fmtInt(row.usage.total_tokens))} tokens">${iconSvg("activity")} <strong>${fmtTokenCount(row.usage.total_tokens)}</strong></span>
+                <span title="${escapeHtml(fmtInt(row.usage.input_tokens))} input tokens">${iconSvg("arrow-left")} ${fmtTokenCount(row.usage.input_tokens)}</span>
+                <span title="${escapeHtml(fmtInt(row.usage.output_tokens))} output tokens">${iconSvg("arrow-right")} ${fmtTokenCount(row.usage.output_tokens)}</span>
               </div>
             </div>
           `;
@@ -1891,6 +1901,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const providers = state.data.status?.router?.providers || {};
     const configProviders = state.data.config?.providers || {};
     const target = el("providerHealth");
+    if (!target) return;
     const names = providerNames(providers, configProviders);
     if (!names.length) {
       target.classList.add("empty");
@@ -2012,6 +2023,8 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     names.sort((a, b) => (providers[a].score || 0) - (providers[b].score || 0));
     const overallGrade = overall >= 90 ? "excellent" : overall >= 75 ? "good" : overall >= 50 ? "fair" : overall >= 25 ? "poor" : "critical";
     const overallTone = overall >= 75 ? "success" : overall >= 50 ? "warning" : "danger";
+    const visibleNames = names.slice(0, 8);
+    const hiddenCount = Math.max(0, names.length - visibleNames.length);
     target.innerHTML = `
       <div class="health-overview-header">
         <div class="health-overview-score tone-${escapeHtml(overallTone)}">
@@ -2026,7 +2039,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         </div>
       </div>
       <div class="health-overview-list">
-        ${names.map((name) => {
+        ${visibleNames.map((name) => {
           const p = providers[name];
           const tone = p.score >= 75 ? "ok" : p.score >= 50 ? "warn" : p.score >= 25 ? "soft" : "bad";
           const gradeLabel = p.grade || "unknown";
@@ -2041,6 +2054,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
             </div>
           `;
         }).join("")}
+        ${hiddenCount ? `<div class="health-overview-more">+ ${fmtInt(hiddenCount)} more providers</div>` : ""}
       </div>
     `;
   }
@@ -2066,7 +2080,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       return;
     }
     target.innerHTML = `
-      <div class="overview-summary-meta">
+      <div class="overview-summary-meta recent-failure-summary">
         <span>${iconSvg("alert")} latest ${fmtInt(rows.length)} / ${fmtInt(failures.length)}</span>
         <button class="overview-jump-button" type="button" data-view-target="requests" title="Open Requests" aria-label="Open Requests">${iconSvg("arrow-right")}</button>
       </div>
@@ -2076,15 +2090,20 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           const reason = failedAttempt.reason || failedAttempt.error_type || r.error || "-";
           const finalOk = r.status === "success" || r.status === "recovered" || (Number(r.status_code || 0) > 0 && Number(r.status_code || 0) < 400);
           const tone = finalOk ? "warning" : "danger";
+          const firstByte = firstByteMsFromRequest(r);
+          const latency = firstByte ? fmtMs(firstByte) : "-";
           return `
             <button class="recent-failure-row tone-${tone}" type="button" data-request-id="${escapeHtml(r.request_id || "")}">
-              <span class="request-row-dot"></span>
+              <span class="recent-failure-icon">${iconSvg(finalOk ? "undo" : "alert")}</span>
               <span class="recent-failure-main">
                 <strong class="mono">${escapeHtml(r.model || "-")}</strong>
-                <small>${escapeHtml(fmtDate(r.finished_at))} / first byte ${escapeHtml(firstByteMsFromRequest(r) ? fmtMs(firstByteMsFromRequest(r)) : "-")}</small>
+                <small>${iconSvg("clock")} ${escapeHtml(fmtDate(r.finished_at))}</small>
               </span>
-              <span class="recent-failure-status">${statusBadge(r.status, r.status_code)}</span>
-              <span class="recent-failure-reason ${escapeHtml(toneForText(reason))}">${highlightKeywords(reason)}</span>
+              <span class="recent-failure-metrics">
+                <span class="recent-failure-status">${statusBadge(r.status, r.status_code)}</span>
+                <span class="recent-failure-latency">${iconSvg("bolt")} ${escapeHtml(latency)}</span>
+              </span>
+              <span class="recent-failure-reason ${escapeHtml(toneForText(reason))}" title="${escapeHtml(reason)}">${highlightKeywords(reason)}</span>
             </button>
           `;
         }).join("")}
@@ -2204,10 +2223,16 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const routeTone = routeOutcomeTone(route);
     const code = Number(r.status_code || 0);
     const format = r.client_format || r.endpoint || "";
+    const statusIcon = statusTone === "success" ? "check" : statusTone === "warning" ? "rotate" : "alert";
     const attemptText = attempts.length
       ? `${fmtInt(attempts.length)} attempts${failedAttempts ? ` / ${fmtInt(failedAttempts)} failed` : ""}`
       : "no attempts";
     const firstByte = firstByteMsFromRequest(r);
+    const metaParts = [fmtDate(r.finished_at), format].filter(Boolean);
+    const metricParts = [
+      firstByte ? fmtMs(firstByte) : "-",
+      attempts.length ? `${fmtInt(attempts.length)}x${failedAttempts ? `/${fmtInt(failedAttempts)}` : ""}` : "0x",
+    ];
     const requestId = String(r.request_id || "");
     const isSelected = state.allMatchingSelected || state.selectedRequestIds.has(requestId);
     const checked = isSelected ? "checked" : "";
@@ -2216,12 +2241,11 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         <label class="request-row-select" title="Select request" aria-label="Select request">
           <input type="checkbox" data-request-select="${escapeHtml(requestId)}" ${checked} />
         </label>
-        <span class="request-row-dot"></span>
+        <span class="request-row-state" aria-hidden="true">${iconSvg(statusIcon)}</span>
         <span class="request-row-main">
           <strong class="mono" title="${escapeHtml(r.model || "-")}">${escapeHtml(r.model || "-")}</strong>
           <small>
-            <span>${escapeHtml(fmtDate(r.finished_at))}</span>
-            ${format ? `<span>${escapeHtml(format)}</span>` : ""}
+            <span>${escapeHtml(metaParts.join(" / "))}</span>
           </small>
         </span>
         <span class="request-row-status">
@@ -2229,12 +2253,12 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           <small class="mono">${code || "-"}</small>
         </span>
         <span class="request-row-route">
-          <span class="request-provider-pill" title="${escapeHtml(provider)}">${escapeHtml(provider)}</span>
+          <span class="request-provider-pill" title="${escapeHtml(provider)}">${iconSvg("server")} ${escapeHtml(provider)}</span>
           <span class="route-pill ${escapeHtml(routeTone)}">${escapeHtml(routeOutcomeLabel(route))}</span>
         </span>
         <span class="request-row-metrics mono">
-          <strong title="${escapeHtml(fmtInt(usage.total_tokens))} tokens">${escapeHtml(fmtTokenCount(usage.total_tokens))} <span style="font-weight: normal; color: var(--muted); opacity: 0.85; margin: 0 3px;">/</span> <span style="color: #0f172a; font-weight: 700;">${escapeHtml(fmtCost(usage.cost_usd))}</span></strong>
-          <small>${escapeHtml(firstByte ? fmtMs(firstByte) : "-")} first / ${escapeHtml(attemptText)}</small>
+          <strong title="${escapeHtml(fmtInt(usage.total_tokens))} tokens"><span>${escapeHtml(fmtTokenCount(usage.total_tokens))}</span><i></i><span>${escapeHtml(fmtCost(usage.cost_usd))}</span></strong>
+          <small title="${escapeHtml(`${firstByte ? fmtMs(firstByte) : "-"} first byte / ${attemptText}`)}">${escapeHtml(metricParts.join(" / "))}</small>
         </span>
         <span class="request-row-open">${iconSvg("chevron-right")}</span>
       </article>
@@ -2831,7 +2855,6 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const successText = successRate === null ? "—" : fmtPct(successRate);
     const latencyText = view.activity.latestLatency ? fmtCompactMs(view.activity.latestLatency) : "—";
     const modelCount = view.modelItems.length;
-    const primaryModels = view.modelItems.slice(0, 3);
     const recentError = view.activity.lastError?.reason || "";
     const isDisabled = view.runtimeState.id === "disabled";
     const successTone = successRate === null ? "neutral" : successRate >= 0.9 ? "ok" : successRate >= 0.5 ? "warn" : "bad";
@@ -2848,19 +2871,15 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         </div>
         <div class="provider-card-state-row">
           <span class="provider-state-badge tone-${view.runtimeState.badge}">${escapeHtml(view.runtimeState.label)}</span>
-          <span class="provider-state-note">${escapeHtml(`${fmtInt(modelCount)} models · ${fmtInt(keyUsable)}/${fmtInt(keyTotal)} keys${view.keyStats.cooldown > 0 ? ` · ${fmtInt(view.keyStats.cooldown)} cooldown` : ""}`)}</span>
+          <span class="provider-state-note">${escapeHtml(`${fmtInt(keyUsable)}/${fmtInt(keyTotal)} keys${view.keyStats.cooldown > 0 ? ` · ${fmtInt(view.keyStats.cooldown)} cooldown` : ""}`)}</span>
         </div>
 
-        <div class="provider-card-models">
-          ${view.capability.status === "pending"
-            ? `<span class="provider-model-pill provider-model-refreshing" title="Models are being discovered in the background">${refreshSpinner()} Refreshing…</span>`
-            : primaryModels.length
-              ? primaryModels.map((item) => `<span class="provider-model-pill" title="${escapeHtml(item.title)}">${escapeHtml(item.label)}</span>`).join("")
-              : `<span class="muted">No models</span>`}
-          ${view.capability.status !== "pending" && modelCount > primaryModels.length ? `<span class="provider-model-more">+${fmtInt(modelCount - primaryModels.length)}</span>` : ""}
+        <div class="provider-card-signal">
+          <span class="provider-signal-item model-count" title="${escapeHtml(`${fmtInt(modelCount)} available models`)}">${iconSvg("boxes")}<strong>${escapeHtml(view.capability.status === "pending" ? "..." : fmtInt(modelCount))}</strong><small>models</small></span>
+          <span class="provider-signal-item ${escapeHtml(successTone)}" title="Success rate">${iconSvg("activity")}<strong>${escapeHtml(successText)}</strong><small>success</small></span>
+          <span class="provider-signal-item ${escapeHtml(latencyTone)}" title="Latest first byte latency">${iconSvg("clock")}<strong>${escapeHtml(latencyText)}</strong><small>ttfb</small></span>
         </div>
-
-        ${providerMiniChart(view.activity, view.name)}
+        ${providerSparkline(view.activity, view.name)}
 
         ${recentError ? `<div class="provider-card-error"><span class="provider-card-error-icon">${iconSvg("alert")}</span><strong>${messageMarkup(recentError)}</strong></div>` : ""}
 
@@ -2882,6 +2901,41 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
 
   function compactStatInline(iconName, value, tone) {
     return `<span class="provider-stat ${tone || ""}" title="${escapeHtml(value)}">${iconSvg(iconName)}<strong>${escapeHtml(value)}</strong></span>`;
+  }
+
+  function providerSparkline(activity, providerName) {
+    const events = (Array.isArray(activity?.events) ? activity.events : []).slice(-24);
+    const W = 120;
+    const H = 26;
+    const pad = 3;
+    if (!events.length) {
+      return `
+        <div class="provider-sparkline is-empty" title="No recent provider activity">
+          <span>${iconSvg("activity")}</span>
+          <small>no recent calls</small>
+        </div>
+      `;
+    }
+    const latencies = events.map((event) => Math.max(0, Number(event.latencyMs) || 0));
+    const max = Math.max(250, ...latencies);
+    const points = latencies.map((latency, index) => {
+      const x = events.length === 1 ? W * 0.5 : pad + (index / (events.length - 1)) * (W - pad * 2);
+      const y = pad + (1 - Math.min(1, latency / max)) * (H - pad * 2);
+      return { x, y };
+    });
+    const linePath = smoothPathD(points);
+    const failed = events.filter((event) => event.ok === false || event.status === "failed").length;
+    const tone = failed ? "warn" : "ok";
+    const avg = Math.round(latencies.reduce((sum, value) => sum + value, 0) / latencies.length);
+    return `
+      <div class="provider-sparkline tone-${escapeHtml(tone)}" title="${escapeHtml(`${providerName}: ${events.length} recent calls / avg ${fmtCompactMs(avg)} / ${failed} failed`)}">
+        <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+          <path class="provider-sparkline-fill" d="${linePath} L ${points[points.length - 1].x.toFixed(1)} ${H} L ${points[0].x.toFixed(1)} ${H} Z"></path>
+          <path class="provider-sparkline-line" d="${linePath}"></path>
+        </svg>
+        <small>${fmtInt(events.length)} calls · avg ${escapeHtml(fmtCompactMs(avg))}</small>
+      </div>
+    `;
   }
 
   function providerMetric(label, value, hint) {
@@ -3769,39 +3823,76 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     return `
       <div class="provider-edit-panel">
         <form class="config-provider-form provider-inline-form" data-provider="${escapeHtml(name)}">
-          <label class="field">
-            <span>Base URL</span>
-            <input class="control" name="base_url" value="${escapeHtml(provider.base_url || "")}" placeholder="https://api.example.com" required />
-          </label>
-          <label class="field">
-            <span>Proxy</span>
-            <input class="control" name="proxy" value="${escapeHtml(provider.proxy || "")}" placeholder="direct or http://127.0.0.1:8002" />
-          </label>
-          <label class="field">
-            <span>User-Agent override</span>
-            <input class="control" name="user_agent" value="${escapeHtml(provider.user_agent || "")}" placeholder="inherit client User-Agent" />
-          </label>
-          <label class="field">
-            <span>Priority</span>
-            <input class="control" name="priority" type="number" min="-1000" max="1000" step="1" value="${escapeHtml(provider.priority ?? 0)}" />
-          </label>
-          <label class="check-field">
-            <input type="checkbox" name="enabled" ${provider.enabled === false ? "" : "checked"} />
-            <span>Enabled in config</span>
-          </label>
-          <button class="button primary" type="submit">Save config</button>
+          <div class="provider-config-block provider-config-connection">
+            <div class="provider-config-block-head">
+              <span class="provider-config-block-icon">${iconSvg("server")}</span>
+              <div>
+                <strong>Connection</strong>
+                <small>Endpoint and identity</small>
+              </div>
+            </div>
+            <div class="provider-config-grid">
+              <label class="field provider-config-wide">
+                <span>Base URL</span>
+                <input class="control" name="base_url" value="${escapeHtml(provider.base_url || "")}" placeholder="https://api.example.com" required />
+              </label>
+              <label class="field">
+                <span>Proxy</span>
+                <input class="control" name="proxy" value="${escapeHtml(provider.proxy || "")}" placeholder="direct / http proxy" />
+              </label>
+              <label class="field">
+                <span>User-Agent</span>
+                <input class="control" name="user_agent" value="${escapeHtml(provider.user_agent || "")}" placeholder="inherit" />
+              </label>
+            </div>
+          </div>
+          <div class="provider-config-block provider-config-runtime">
+            <div class="provider-config-block-head">
+              <span class="provider-config-block-icon">${iconSvg("gauge")}</span>
+              <div>
+                <strong>Runtime</strong>
+                <small>Priority and availability</small>
+              </div>
+            </div>
+            <div class="provider-config-runtime-row">
+              <label class="field">
+                <span>Priority</span>
+                <input class="control" name="priority" type="number" min="-1000" max="1000" step="1" value="${escapeHtml(provider.priority ?? 0)}" />
+              </label>
+              <label class="check-field provider-enabled-check">
+                <input type="checkbox" name="enabled" ${provider.enabled === false ? "" : "checked"} />
+                <span>Enabled</span>
+              </label>
+              <button class="button primary" type="submit">Save config</button>
+            </div>
+          </div>
         </form>
-        <div class="key-proxy-list">
-          ${keys.length ? keys.map((key) => keyProxyRow(name, key)).join("") : `<span class="muted">No config keys</span>`}
+        <div class="provider-config-block provider-config-keys">
+          <div class="provider-config-block-head">
+            <span class="provider-config-block-icon">${iconSvg("key")}</span>
+            <div>
+              <strong>Keys</strong>
+              <small>Masked keys and proxy</small>
+            </div>
+          </div>
+          <div class="key-proxy-list">
+            ${keys.length ? keys.map((key) => keyProxyRow(name, key)).join("") : `<span class="muted">No config keys</span>`}
+          </div>
+          <form class="config-key-form provider-inline-key-form" data-provider="${escapeHtml(name)}">
+            <input class="control" name="key" type="password" autocomplete="off" placeholder="new key" required />
+            <input class="control" name="proxy" placeholder="key proxy" />
+            <button class="button secondary" type="submit">Add key</button>
+          </form>
         </div>
-        <form class="config-key-form provider-inline-key-form" data-provider="${escapeHtml(name)}">
-          <input class="control" name="key" type="password" autocomplete="off" placeholder="new api key" required />
-          <input class="control" name="proxy" placeholder="optional key proxy" />
-          <button class="button secondary" type="submit">Add key</button>
-        </form>
         ${includeFormats ? `
-          <div class="provider-formats-group">
-            <h3 class="drawer-section-title">Formats <small class="drawer-section-hint">click card to toggle · pencil edits path</small></h3>
+          <div class="provider-formats-group provider-config-block">
+            <div class="provider-config-block-head">
+              <span class="provider-config-block-icon">${iconSvg("layers")}</span>
+              <div>
+                <strong>Formats</strong>
+                <small>Toggle routes or edit paths</small>
+              </div>
+            </div>
             <div class="format-route-list provider-format-edit-list">
               ${formatRouteItems(formats, name)}
             </div>
@@ -3820,8 +3911,8 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           <span title="${escapeHtml(key.key_id || "")}">${escapeHtml(key.masked || key.key_id || "-")}</span>
         </div>
         <label class="field key-proxy-field">
-          <span>Key proxy</span>
-          <input class="control" name="proxy" value="${escapeHtml(proxy)}" placeholder="inherit provider/global" />
+          <span>Proxy</span>
+          <input class="control" name="proxy" value="${escapeHtml(proxy)}" placeholder="inherit" />
         </label>
         <button class="button secondary compact-action" type="submit">Save</button>
       </form>
@@ -4074,6 +4165,8 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       settings: `<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle>`,
       dot: `<circle cx="12" cy="12" r="2"></circle>`,
       bolt: `<path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"></path>`,
+      zap: `<path d="M13 2 4 14h7l-1 8 10-13h-7l0-7z"></path>`,
+      message: `<path d="M5 19l3-3h9a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v6a3 3 0 0 0 3 3"></path><path d="M8 9h8"></path><path d="M8 12h5"></path>`,
     };
     return `<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${icons[name] || icons.dot}</svg>`;
   }
@@ -4565,7 +4658,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const currentSelect = String(routing.provider_select || "priority_failover");
     const routeModes = [
       { value: "priority_failover", icon: "bolt", label: t("policy.mode_priority"), tip: t("policy.mode_priority_tip") },
-      { value: "auto", icon: "zap", label: t("policy.mode_auto"), tip: t("policy.mode_auto_tip") },
+      { value: "auto", icon: "settings", label: t("policy.mode_auto"), tip: t("policy.mode_auto_tip") },
       { value: "round_robin", icon: "rotate", label: t("policy.mode_round_robin"), tip: t("policy.mode_round_robin_tip") },
       { value: "weighted_rr", icon: "layers", label: t("policy.mode_weighted"), tip: t("policy.mode_weighted_tip") },
       { value: "random", icon: "dot", label: t("policy.mode_random"), tip: t("policy.mode_random_tip") },
@@ -5891,14 +5984,14 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       await openConsoleWithKey(nextKey, { persist: true, checkingMessage: "Checking admin key." });
     });
 
-    el("refreshButton").addEventListener("click", () => {
+    el("refreshButton")?.addEventListener("click", () => {
       refreshAll();
       closeMobileSettings();
     });
 
     el("pauseButton").addEventListener("click", () => {
       state.paused = !state.paused;
-      el("pauseButton").textContent = state.paused ? t("action.resume") : t("action.pause");
+      updatePauseButtonState();
       if (!state.paused) refreshAll({ quiet: true });
     });
 
@@ -6221,6 +6314,16 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         closeMobileSettings();
       }
     });
+  }
+
+  function updatePauseButtonState() {
+    const button = el("pauseButton");
+    if (!button) return;
+    const label = t("action.auto_refresh");
+    button.setAttribute("aria-label", label);
+    button.setAttribute("title", label);
+    button.setAttribute("aria-pressed", state.paused ? "false" : "true");
+    button.classList.toggle("is-paused", state.paused);
   }
 
   function closeDrawer(restoreReturn = true) {
@@ -6577,6 +6680,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     // Re-render all dynamic content when language changes
     onLangChange(() => {
       updateLangToggleLabel();
+      updatePauseButtonState();
       renderAll();
       // Re-apply static HTML translations
       applyI18n();
@@ -6737,7 +6841,7 @@ return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g
     const previousTop = chat.scrollTop;
     const wasNearBottom = pgIsNearBottom(chat);
     if (!pg.messages.length) {
-      chat.innerHTML = `<div class="pg-empty"><span class="pg-empty-text">Send a message to start testing.</span></div>`;
+      chat.innerHTML = `<div class="pg-empty"><span class="pg-empty-icon">${iconSvg("message")}</span><span class="pg-empty-text">Send a message to start testing.</span></div>`;
       return;
     }
     chat.innerHTML = pg.messages.map((m) => pgRenderMessage(m)).join("");

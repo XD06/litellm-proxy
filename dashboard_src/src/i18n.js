@@ -43,6 +43,7 @@ const dict = {
   "action.refresh": { en: "Refresh", zh: "刷新" },
   "action.pause": { en: "Pause", zh: "暂停" },
   "action.resume": { en: "Resume", zh: "继续" },
+  "action.auto_refresh": { en: "Auto refresh", zh: "自动刷新" },
   "action.more_settings": { en: "More settings", zh: "更多设置" },
 
   // ---- Connection ----
@@ -108,6 +109,7 @@ const dict = {
   "kpi.input": { en: "Input", zh: "输入" },
   "kpi.output": { en: "Output", zh: "输出" },
   "kpi.failures": { en: "Failures", zh: "失败" },
+  "kpi.success": { en: "Success", zh: "成功" },
   "kpi.no_samples": { en: "no samples", zh: "无样本" },
   "kpi.estimated": { en: "estimated", zh: "预估" },
   "kpi.tokens": { en: "tokens", zh: "Token" },
