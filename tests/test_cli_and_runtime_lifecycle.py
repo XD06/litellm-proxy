@@ -247,5 +247,100 @@ class DeferredClientCleanupTests(unittest.TestCase):
             sse2json.CONFIG = original_config
 
 
+class NativeStreamTimeoutTests(unittest.TestCase):
+    """P0: relay_sse_stream must receive read_timeout_s so the socket
+    timeout switches from first_byte_timeout_s to read_timeout_s after
+    the first SSE event."""
+
+    def test_relay_sse_stream_accepts_read_timeout_s(self):
+        """relay_sse_stream signature must accept read_timeout_s kwarg."""
+        import inspect
+        from stream_adapters import relay_sse_stream
+        sig = inspect.signature(relay_sse_stream)
+        self.assertIn("read_timeout_s", sig.parameters)
+
+    def test_chat_completions_native_passes_read_timeout(self):
+        """The CHAT native relay_sse_stream call in _proxy_openai_chat_completions
+        must pass read_timeout_s=read_t."""
+        import inspect
+        source = inspect.getsource(sse2json.Handler._proxy_openai_chat_completions)
+        # Find the relay_sse_stream call for CHAT format
+        self.assertIn("relay_sse_stream", source)
+        # Verify read_timeout_s is passed (not just the cross-format converters)
+        # The CHAT native branch is the one with client_format="chat_completions"
+        lines = source.split("\n")
+        found_relay_with_timeout = False
+        for i, line in enumerate(lines):
+            if "relay_sse_stream" in line and "chat_completions" in "".join(lines[i:i+8]):
+                if "read_timeout_s" in "".join(lines[i:i+8]):
+                    found_relay_with_timeout = True
+                    break
+        self.assertTrue(found_relay_with_timeout,
+                        "CHAT native relay_sse_stream must pass read_timeout_s")
+
+    def test_responses_native_passes_read_timeout(self):
+        """The Responses native relay_sse_stream call must pass read_timeout_s."""
+        import inspect
+        source = inspect.getsource(sse2json.Handler._proxy_openai_responses)
+        self.assertIn("relay_sse_stream", source)
+        lines = source.split("\n")
+        found = False
+        for i, line in enumerate(lines):
+            if "relay_sse_stream" in line and "responses" in "".join(lines[i:i+8]):
+                if "read_timeout_s" in "".join(lines[i:i+8]):
+                    found = True
+                    break
+        self.assertTrue(found, "Responses native relay_sse_stream must pass read_timeout_s")
+
+    def test_anthropic_native_passes_read_timeout(self):
+        """The Anthropic native relay_sse_stream call must pass read_timeout_s."""
+        import inspect
+        # The Anthropic messages handler is inline in _do_POST_impl
+        source = inspect.getsource(sse2json.Handler._do_POST_impl)
+        self.assertIn("relay_sse_stream", source)
+        lines = source.split("\n")
+        found = False
+        for i, line in enumerate(lines):
+            if "relay_sse_stream" in line and "anthropic_messages" in "".join(lines[i:i+8]):
+                if "read_timeout_s" in "".join(lines[i:i+8]):
+                    found = True
+                    break
+        self.assertTrue(found, "Anthropic native relay_sse_stream must pass read_timeout_s")
+
+
+class NativeModeDefaultConsistencyTests(unittest.TestCase):
+    """P2: _native_nonstream_mode / _native_stream_mode function defaults
+    must match _default_config() values to prevent silent behavior change
+    on config edge cases."""
+
+    def test_nonstream_default_matches_config(self):
+        """Function default should be 'validated', same as _default_config()."""
+        cfg = config_loader._default_config()
+        config_default = cfg["routing"]["native_nonstream_mode"]
+        # Call with a config that has the routing key but no native_nonstream_mode
+        # to trigger the function's fallback default
+        func_default = sse2json._native_nonstream_mode({"routing": {}})
+        self.assertEqual(func_default, config_default,
+                         f"Function default '{func_default}' != config default '{config_default}'")
+
+    def test_stream_default_matches_config(self):
+        """Function default should be 'guarded', same as _default_config()."""
+        cfg = config_loader._default_config()
+        config_default = cfg["routing"]["native_stream_mode"]
+        func_default = sse2json._native_stream_mode({"routing": {}})
+        self.assertEqual(func_default, config_default,
+                         f"Function default '{func_default}' != config default '{config_default}'")
+
+    def test_nonstream_validated_is_default(self):
+        """Default config should use 'validated' for native_nonstream_mode."""
+        cfg = config_loader._default_config()
+        self.assertEqual(cfg["routing"]["native_nonstream_mode"], "validated")
+
+    def test_stream_guarded_is_default(self):
+        """Default config should use 'guarded' for native_stream_mode."""
+        cfg = config_loader._default_config()
+        self.assertEqual(cfg["routing"]["native_stream_mode"], "guarded")
+
+
 if __name__ == "__main__":
     unittest.main()

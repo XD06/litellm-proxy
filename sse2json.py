@@ -1045,11 +1045,11 @@ def _config_choice(config: dict, section: str, key: str, default: str, allowed: 
 
 
 def _native_nonstream_mode(config: dict = None) -> str:
-    return _config_choice(config or CONFIG, "routing", "native_nonstream_mode", "safe", {"safe", "validated"})
+    return _config_choice(config or CONFIG, "routing", "native_nonstream_mode", "validated", {"safe", "validated"})
 
 
 def _native_stream_mode(config: dict = None) -> str:
-    return _config_choice(config or CONFIG, "routing", "native_stream_mode", "safe", {"safe", "guarded"})
+    return _config_choice(config or CONFIG, "routing", "native_stream_mode", "guarded", {"safe", "guarded"})
 
 
 def _native_stream_usage_mode(config: dict = None) -> str:
@@ -2416,6 +2416,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                                 bwfile,
                                 initial_lines=initial_lines,
                                 collect_usage=_native_stream_usage_mode(CONFIG) != "off",
+                                read_timeout_s=read_t,
                                 client_format="chat_completions",
                             )
                         elif attempt.upstream_format == RESPONSES:
@@ -2720,6 +2721,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                                 bwfile,
                                 initial_lines=initial_lines,
                                 collect_usage=_native_stream_usage_mode(CONFIG) != "off",
+                                read_timeout_s=read_t,
                                 client_format="responses",
                             )
                         elif attempt.upstream_format == CHAT:
@@ -3116,6 +3118,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                                     bwfile,
                                     initial_lines=initial_lines,
                                     collect_usage=_native_stream_usage_mode(CONFIG) != "off",
+                                    read_timeout_s=read_t,
                                     client_format="anthropic_messages",
                                 )
                                 anth_resp = {"streamed": True, "native": True, "usage": native_usage}

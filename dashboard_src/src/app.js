@@ -861,7 +861,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
 
       const fetches = {
         metrics: apiGet("/-/admin/metrics"),
-        providerActivity: apiGet("/-/admin/provider-activity?limit=60&include_events=1"),
+        providerActivity: apiGet("/-/admin/provider-activity?limit=60&include_events=0"),
         healthScores: apiGet("/-/admin/health/scores"),
       };
       if (needStaticAdminData) {
