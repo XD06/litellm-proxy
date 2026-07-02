@@ -308,7 +308,7 @@ sequenceDiagram
 | `GET /health` | 健康检查 |
 | `GET /` 或 `GET /-/dashboard` | Web 控制台 |
 
-> 管理端点位于 `/-/admin/*`，需要通过 `X-Admin-Key` 头、`Authorization: Bearer` 头或 `?admin_key=` 参数提供管理员密钥。认证使用 `hmac.compare_digest` 进行时序安全比较。
+> 管理端点位于 `/-/admin/*`，需要通过 `X-Admin-Key` 头或 `Authorization: Bearer` 头提供管理员密钥。认证使用 `hmac.compare_digest` 进行时序安全比较。查询参数 `?admin_key=` 默认关闭（因可能泄露到代理日志和浏览器历史），如需启用请设置 `server.allow_query_admin_key=true`。
 
 ---
 
