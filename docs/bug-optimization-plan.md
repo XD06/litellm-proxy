@@ -187,6 +187,11 @@ This matters because prefetch runs before the client receives headers. A bad ups
 - Prefer a synchronous deadline read when possible instead of spawning a new daemon thread per stream.
 - If keeping the helper thread short term, make it impossible to buffer unbounded skipped lines.
 
+**Additional fix on 2026-07-03:** `prefetch_initial_stream_lines` called
+`_get_prefetch_pool()` (incrementing `_PREFETCH_POOL_USAGE_COUNT`) but never called
+`_release_prefetch_pool()` to decrement it. The counter only increased, so the thread
+pool was never recycled. Added `_release_prefetch_pool()` call in a `finally` block.
+
 ### Acceptance Tests
 
 - Upstream with infinite comments or empty lines times out and closes without returning initial lines.
@@ -613,31 +618,36 @@ transport item.
 
 ## P1. Atomic Runtime Config Hot-Swap
 
-### Current Behavior
+**Status: completed on 2026-07-03.** The `RuntimeContext` bundle (`sse2json.py`)
+was introduced earlier to swap all five globals (`CONFIG`, `ROUTER`, `UPSTREAM_CLIENT`,
+`OBSERVABILITY`, `AUDIT`) as one atomic reference. However, module-level helper
+functions (`_record_failed_attempt`, `_record_upstream_http_failure`,
+`_record_transport_failure`, `_record_proxy_exception`, `_record_stream_interrupted`,
+`_record_empty_visible_output_failure`, `_request_json_once_with_timing`,
+`_request_raw_once_with_timing`, `_open_stream_with_compat_retry`) were still reading
+the module globals directly instead of the request's captured snapshot. During a
+hot-reload, these helpers could use a **new** router/observability instance while the
+request's attempt was created by the **old** router, causing `report_failure` to
+update the wrong `_keys_state` and `record_attempt` to write to the wrong
+observability instance.
 
-`_apply_runtime_config` (`sse2json.py:97-105`) reassigns the module-level globals
-`CONFIG`, `ROUTER`, `UPSTREAM_CLIENT`, `OBSERVABILITY`, `AUDIT` one by one. Request
-threads read these globals independently (for example `ROUTER` near `sse2json.py:1489`
-and `CONFIG` near `1470`).
+**Fix:** Added thread-local runtime storage (`_request_rt` / `_set_request_rt` /
+`_current_rt`). The three request handlers (`_proxy_openai_chat_completions`,
+`_proxy_responses`, `_proxy_anthropic_messages`) now call `_set_request_rt(rt)` at
+entry. All helper functions use `_current_rt()` instead of globals, falling back to
+`_request_runtime()` when no thread-local is set (admin/background paths).
 
-### Risk
+Additionally fixed:
+- `_chat_upstream_requires_reasoning_content` and `_anthropic_upstream_requires_thinking`
+  now use `_current_rt().config` instead of global `CONFIG`.
+- `resolve_model` now reads `client_model_map` / `disable_client_model_map` directly
+  from the provided config when available, falling back to global `MODEL_MAP` /
+  `DISABLE_MAP` for test compatibility.
+- `_stream_flush_policy`, `_classify_http_error`, `_is_retryable_http`,
+  `_same_key_retries_for_transient_errors`, `_is_same_key_retryable_http`, and
+  `_stream_prefetch_bounds` now use `_current_rt().config`.
 
-Because the reassignments are not atomic as a group, a request thread can observe a
-torn combination such as a new `ROUTER` paired with an old `CONFIG`, or have `ROUTER`
-swapped while it is mid-iteration in `iter_attempts`. This is a correctness race during
-admin-triggered reloads, not a steady-state bug.
-
-### Fix Direction
-
-- Bundle the live runtime into a single immutable object and swap one reference, so
-  readers see either the whole old set or the whole new set.
-- Alternatively guard reads/writes with a short read-write lock.
-- Ensure an in-flight request keeps using the snapshot it started with.
-
-### Acceptance Tests
-
-- A reload during a simulated in-flight request does not mix old/new components.
-- After reload, new requests consistently use the new config and router.
+Tests: 459 passed.
 
 ## P2. Cache Proxy Openers
 

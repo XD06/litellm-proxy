@@ -1,6 +1,6 @@
 # Release Checkpoint
 
-Date: 2026-06-25 (updated from 2026-06-10)
+Date: 2026-07-03 (updated from 2026-06-25)
 
 ## Current Status
 
@@ -15,6 +15,23 @@ This checkpoint is a stable Python baseline for the proxy.
 - Routing, retry, cooldown, provider/key rotation, request history, metrics, token accounting, and Admin API are in place.
 - The dashboard can inspect requests, providers, routing policy, metrics, runtime config overlay, model routes, and audit records.
 - The dashboard login gate validates the admin key before rendering the console, so wrong keys do not briefly expose the app and refreshes with a valid saved key show a neutral checking state instead of the login form.
+
+### Changes since 2026-06-25
+
+**7 bug fixes** (see `docs/fix-plan-2026-07-03.md`):
+
+1. **(P0)** CLI arguments (`--host`, `--port`, `--config`, etc.) were never effective because `if __name__ == "__main__"` duplicated `main()` logic instead of calling it.
+2. **(P1)** Module-level helper functions (`_record_*`, compat retry) used global `ROUTER`/`OBSERVABILITY`/`UPSTREAM_CLIENT` instead of the request's runtime snapshot, causing torn state during config hot-reload. Added thread-local runtime storage (`_request_rt` / `_set_request_rt` / `_current_rt`).
+3. **(P1)** `_chat_upstream_requires_reasoning_content` and `_anthropic_upstream_requires_thinking` used global `CONFIG` instead of runtime snapshot.
+4. **(P1)** `resolve_model` used global `MODEL_MAP`/`DISABLE_MAP` instead of reading from config. Now reads from config when provided, falls back to globals for test compatibility.
+5. **(P2)** `prefetch_initial_stream_lines` leaked a thread pool reference count on every call (only incremented, never decremented). Added `_release_prefetch_pool()` in `finally` block.
+6. **(P2)** `KeyboardInterrupt` handler did not close `UPSTREAM_CLIENT` connection pool, potentially leaking sockets on exit.
+7. **(P2)** Eliminated ~40 lines of duplicated startup code between `main()` and `__main__` block.
+
+**Other improvements:**
+- `admin_routes.py`: Model pricing cache now uses a lock to prevent thundering-herd when cache expires.
+- `model_registry.py`: Enhanced model discovery logic.
+- `usage_accounting.py`: Usage statistics improvements.
 
 ### Changes since 2026-06-10
 
@@ -92,7 +109,7 @@ python -m unittest discover -s tests
 python -m py_compile stream_adapters.py sse2json.py protocol_adapters.py format_adapters.py request_routes.py tools\real_stream_tool_smoke.py
 ```
 
-Latest local result (2026-06-25): **351 passed in 46.16s** (`python -m pytest tests/ -x -q`).
+Latest local result (2026-07-03): **459 passed in 36.95s** (`python -m pytest tests/ -x -q`).
 
 Real upstream smoke results were documented in `docs/development-roadmap.md`. The temporary JSON reports were removed during project cleanup so `tmp/` only carries runtime state.
 

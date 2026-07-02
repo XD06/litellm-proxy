@@ -214,7 +214,7 @@ class RuntimeContext:
 
 A single immutable bundle of all live runtime objects. The module-level `RUNTIME` global is the current snapshot. Config reload atomically swaps `RUNTIME` to a freshly-built `RuntimeContext`.
 
-Request threads capture `RUNTIME` once via `_request_runtime()` at the start and use that snapshot for the entire request lifetime.
+Request threads capture `RUNTIME` once via `_request_runtime()` at the start and use that snapshot for the entire request lifetime. Additionally, `_set_request_rt(rt)` binds the snapshot to a thread-local (`_request_rt`) so that module-level helper functions (`_record_*`, compat retry, etc.) can access the same consistent set via `_current_rt()` instead of reading the module globals, which may have been swapped by a concurrent hot-reload.
 
 ### Config Overlay: RLock-Serialized Commits
 
