@@ -421,15 +421,22 @@ def _request_runtime() -> "RuntimeContext":
     return RuntimeContext(CONFIG, ROUTER, UPSTREAM_CLIENT, OBSERVABILITY, AUDIT)
 
 
-def resolve_model(name):
-    """Resolve the client-facing model to the canonical model."""
+def resolve_model(name, config=None):
+    """Resolve the client-facing model to the canonical model.
+    
+    Uses provided config to avoid race conditions during hot-swaps.
+    Falls back to global CONFIG if no config provided (for backwards compatibility).
+    """
+    # Use provided config to avoid race conditions during hot-swaps
+    cfg = config if config is not None else CONFIG
+    
     if DISABLE_MAP:
         return name  # Pass through, no mapping
     canonical = MODEL_MAP.get(name)
     if not canonical:
         # If no explicit client map exists, accept discovered union model aliases.
         try:
-            models_source = str((CONFIG.get("models") or {}).get("models_source", "first_healthy_provider"))
+            models_source = str((cfg.get("models") or {}).get("models_source", "first_healthy_provider"))
             union_model_ids = model_registry.union_model_ids()
             if models_source == "union" and union_model_ids:
                 _best, cands = model_registry.normalize_model_id("", name or "")
@@ -438,11 +445,12 @@ def resolve_model(name):
                         return c
         except Exception:
             pass
-        print(f"[proxy] model pass-through: {name}", flush=True)
+        if _should_log_each_request():
+            print(f"[proxy] model pass-through: {name}", flush=True)
         return name or ""
     # Reconcile mapped canonical models against discovered union model aliases.
     try:
-        models_source = str((CONFIG.get("models") or {}).get("models_source", "first_healthy_provider"))
+        models_source = str((cfg.get("models") or {}).get("models_source", "first_healthy_provider"))
         union_model_ids = model_registry.union_model_ids()
         if models_source == "union" and union_model_ids:
             if canonical in union_model_ids:
@@ -2208,12 +2216,15 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         elif route.family == "admin":
             self._resp_admin(route.endpoint)
         elif route.endpoint == "models" and route.implemented:
-            models_source = str((CONFIG.get("models") or {}).get("models_source", "first_healthy_provider"))
+            rt = _request_runtime()
+            models_source = str((rt.config.get("models") or {}).get("models_source", "first_healthy_provider"))
             if models_source in ("first_healthy_provider", "union"):
-                print(f"[proxy] Models: using saved capabilities ({models_source})", flush=True)
-                self._resp_json(model_registry.models_from_capabilities(CONFIG, ROUTER))
+                if _should_log_each_request():
+                    print(f"[proxy] Models: using saved capabilities ({models_source})")
+                self._resp_json(model_registry.models_from_capabilities(rt.config, rt.router))
             else:
-                print(f"[proxy] Models: using hardcoded list", flush=True)
+                if _should_log_each_request():
+                    print(f"[proxy] Models: using hardcoded list")
                 self._resp_json(self.MODELS)
         else:
             self._resp_json({"error": {"message": f"unknown endpoint: {self.path}"}}, 404)
@@ -2230,7 +2241,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         OBSERVABILITY = rt.observability
         is_stream = bool(req.get("stream", False))
         original_model = req.get("model", "")
-        resolved_model = resolve_model(original_model or "")
+        resolved_model = resolve_model(original_model or "", rt.config)
         canonical_model = resolved_model
         OBSERVABILITY.record_request_start(
             request_id,
@@ -2530,7 +2541,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         OBSERVABILITY = rt.observability
         is_stream = bool(req.get("stream", False))
         original_model = req.get("model", "")
-        resolved_model = resolve_model(original_model or "")
+        resolved_model = resolve_model(original_model or "", rt.config)
         canonical_model = resolved_model
         OBSERVABILITY.record_request_start(
             request_id,
@@ -2906,7 +2917,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                         model_registry.models_from_capabilities(CONFIG, ROUTER)
             except Exception:
                 pass
-            resolved_model = resolve_model(original_model or "")
+            resolved_model = resolve_model(original_model or "", rt.config)
             if resolved_model != original_model and log_each:
                 print(f"[proxy] model alias: {original_model} -> {resolved_model}", flush=True)
             canonical_model = resolved_model

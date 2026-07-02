@@ -76,6 +76,7 @@ class RequestHistoryStoreTests(unittest.TestCase):
                         "enabled": True,
                         "path": self.temp_db(),
                         "retention_days": 30,
+                        "sync_mode": True,
                     }
                 }
             }
@@ -345,6 +346,7 @@ class RequestHistoryStoreTests(unittest.TestCase):
                         "enabled": True,
                         "path": path,
                         "retention_days": 30,
+                        "sync_mode": True,
                     }
                 }
             }
@@ -360,11 +362,11 @@ class RequestHistoryStoreTests(unittest.TestCase):
         self.assertEqual(detail["attempts"][0]["upstream_error_code"], "invalid_request_error")
 
     def test_dropped_count_increments_when_queue_full(self):
-        # Use a tiny queue so it saturates quickly. We bypass the
-        # "unittest in sys.modules" synchronous branch to exercise the real
-        # queue.Full path that production uses, and we mark the writer as
-        # already running so record_request does not spawn a consumer thread
-        # that would drain the queue and hide the overflow.
+        # Use a tiny queue so it saturates quickly. sync_mode defaults to
+        # False (the production async path) so record_request exercises the
+        # real queue.Full path. We mark the writer as already running so
+        # record_request does not spawn a consumer thread that would drain
+        # the queue and hide the overflow.
         cfg = {
             "observability": {
                 "history": {
@@ -377,17 +379,15 @@ class RequestHistoryStoreTests(unittest.TestCase):
         store = RequestHistoryStore(cfg)
         self.assertEqual(store.dropped_count(), 0)
 
-        modules_without_unittest = {k: v for k, v in sys.modules.items() if k != "unittest"}
-        with patch.dict(sys.modules, modules_without_unittest, clear=True):
-            # Pretend the writer is already running so record_request only does
-            # the queue.put path; otherwise initialize() would spawn a consumer.
-            store._writer_running = True
-            # Fill the queue to capacity.
-            for i in range(store._queue.maxsize):
-                store._queue.put({"request_id": f"fill-{i}"}, block=False)
-            # Now the queue is full; further records must be dropped + counted.
-            store.record_request(sample_request(request_id="overflow-1"))
-            store.record_request(sample_request(request_id="overflow-2"))
+        # Pretend the writer is already running so record_request only does
+        # the queue.put path; otherwise initialize() would spawn a consumer.
+        store._writer_running = True
+        # Fill the queue to capacity.
+        for i in range(store._queue.maxsize):
+            store._queue.put({"request_id": f"fill-{i}"}, block=False)
+        # Now the queue is full; further records must be dropped + counted.
+        store.record_request(sample_request(request_id="overflow-1"))
+        store.record_request(sample_request(request_id="overflow-2"))
 
         self.assertEqual(store.dropped_count(), 2)
 

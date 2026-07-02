@@ -133,6 +133,19 @@ class OpenAIUpstreamClient:
         self._pool_managers: "OrderedDict[str, urllib3.PoolManager | urllib3.ProxyManager]" = OrderedDict()
         self._pool_managers_lock = threading.Lock()
 
+    def close(self):
+        """Close all connection pools to prevent file descriptor leaks."""
+        with self._pool_managers_lock:
+            for manager in self._pool_managers.values():
+                try:
+                    manager.clear()
+                except Exception:
+                    pass  # Best effort cleanup
+            self._pool_managers.clear()
+            
+        with self._proxy_openers_lock:
+            self._proxy_openers.clear()
+
     def _use_urllib3(self) -> bool:
         # Default to urllib3 (high performance). Tests that need the
         # mock-friendly urllib path set routing.transport = "urllib".

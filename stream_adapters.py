@@ -16,18 +16,31 @@ from upstream_client import set_response_read_timeout
 
 _PREFETCH_POOL = None
 _PREFETCH_POOL_LOCK = threading.Lock()
+_PREFETCH_POOL_USAGE_COUNT = 0
 
 def _get_prefetch_pool():
-    global _PREFETCH_POOL
-    if _PREFETCH_POOL is None:
-        with _PREFETCH_POOL_LOCK:
-            if _PREFETCH_POOL is None:
-                import concurrent.futures
-                _PREFETCH_POOL = concurrent.futures.ThreadPoolExecutor(
-                    max_workers=50,
-                    thread_name_prefix="prefetch"
-                )
-    return _PREFETCH_POOL
+    global _PREFETCH_POOL, _PREFETCH_POOL_USAGE_COUNT
+    with _PREFETCH_POOL_LOCK:
+        if _PREFETCH_POOL is None:
+            import concurrent.futures
+            _PREFETCH_POOL = concurrent.futures.ThreadPoolExecutor(
+                max_workers=20,  # Reduced from 50 to limit resource usage
+                thread_name_prefix="prefetch"
+            )
+        _PREFETCH_POOL_USAGE_COUNT += 1
+        return _PREFETCH_POOL
+
+def _release_prefetch_pool():
+    """Release a reference to the prefetch pool and close if no longer used."""
+    global _PREFETCH_POOL, _PREFETCH_POOL_USAGE_COUNT
+    with _PREFETCH_POOL_LOCK:
+        _PREFETCH_POOL_USAGE_COUNT = max(0, _PREFETCH_POOL_USAGE_COUNT - 1)
+        if _PREFETCH_POOL_USAGE_COUNT == 0 and _PREFETCH_POOL is not None:
+            try:
+                _PREFETCH_POOL.shutdown(wait=False)
+            except Exception:
+                pass  # Best effort cleanup
+            _PREFETCH_POOL = None
 
 
 class BufferedSSEWriter:
@@ -206,21 +219,31 @@ def relay_sse_stream(
     """
     usage = empty_usage()
     timeout_switched = False
+
+    # If wfile is already a BufferedSSEWriter (created by the caller with
+    # user-configured flush policy), use it directly to avoid double buffering
+    # — wrapping it in a second BufferedSSEWriter would add latency and
+    # ignore the caller's flush interval/byte thresholds.
+    if isinstance(wfile, BufferedSSEWriter):
+        buffered_writer = wfile
+    else:
+        buffered_writer = BufferedSSEWriter(wfile, flush_interval_ms=100, flush_bytes=8192)
+    
     try:
         for raw in initial_lines or []:
             if not timeout_switched and read_timeout_s:
                 set_response_read_timeout(upstream, read_timeout_s)
                 timeout_switched = True
-            wfile.write(raw)
-            wfile.flush()
+            buffered_writer.write(raw)
+            buffered_writer.flush()  # Uses intelligent buffering
             if collect_usage:
                 usage = _merge_usage(usage, _usage_from_sse_line(raw))
         for raw in upstream:
             if not timeout_switched and read_timeout_s:
                 set_response_read_timeout(upstream, read_timeout_s)
                 timeout_switched = True
-            wfile.write(raw)
-            wfile.flush()
+            buffered_writer.write(raw)
+            buffered_writer.flush()  # Uses intelligent buffering
             if collect_usage:
                 usage = _merge_usage(usage, _usage_from_sse_line(raw))
     except Exception as e:
@@ -230,17 +253,20 @@ def relay_sse_stream(
         # event so the client sees a clean end-of-stream instead of a hang.
         try:
             if client_format == "anthropic_messages":
-                wfile.write(b'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"input_tokens":0,"output_tokens":0}}\n\n')
-                wfile.write(b'event: message_stop\ndata: {"type":"message_stop"}\n\n')
+                buffered_writer.write(b'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"input_tokens":0,"output_tokens":0}}\n\n')
+                buffered_writer.write(b'event: message_stop\ndata: {"type":"message_stop"}\n\n')
             elif client_format == "responses":
-                wfile.write(b'event: response.failed\ndata: {"type":"response.failed","response":{"status":"failed","error":{"message":"[Stream interrupted]"}}}\n\n')
+                buffered_writer.write(b'event: response.failed\ndata: {"type":"response.failed","response":{"status":"failed","error":{"message":"[Stream interrupted]"}}}\n\n')
             else:
                 # Chat Completions (default)
-                wfile.write(b'data: [DONE]\n\n')
-            wfile.flush()
+                buffered_writer.write(b'data: [DONE]\n\n')
+            buffered_writer.force_flush()  # Ensure error message is sent immediately
         except Exception:
             pass
         return None
+    
+    # Ensure all data is flushed at the end
+    buffered_writer.force_flush()
     return usage
 
 

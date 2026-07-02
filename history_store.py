@@ -11,7 +11,7 @@ import queue
 from contextlib import contextmanager
 from typing import Any, Dict, Iterable, Optional
 
-from routing_explain import enrich_request
+from routing_explain import enrich_request, summarize_request
 from usage_accounting import add_usage_totals, empty_usage, has_usage, normalize_usage, safe_float
 
 
@@ -27,6 +27,7 @@ class RequestHistoryStore:
         self.enabled = self._enabled()
         self.path = self._db_path()
         self.retention_days = self._retention_days()
+        self._sync_mode = self._sync_mode_enabled()
         self._lock = threading.Lock()
         self._ready = False
         self._queue = queue.Queue(maxsize=self._queue_size())
@@ -36,6 +37,8 @@ class RequestHistoryStore:
         # Incremented under self._lock so the value is safe to read for stats.
         self._dropped = 0
         self._last_prune_time = 0.0
+        # Connection pool to reuse SQLite connections
+        self._connection_pool: queue.Queue = queue.Queue(maxsize=5)
 
     def _history_cfg(self) -> Dict[str, Any]:
         obs = self.cfg.get("observability") or {}
@@ -61,24 +64,53 @@ class RequestHistoryStore:
             return 30
 
     def _connect(self) -> sqlite3.Connection:
+        """Get a SQLite connection from the pool or create a new one."""
+        try:
+            conn = self._connection_pool.get_nowait()
+            # Verify the connection is still alive
+            try:
+                conn.execute("SELECT 1").fetchone()
+                return conn
+            except Exception:
+                # Connection is dead, create a new one
+                conn.close()
+        except queue.Empty:
+            # Pool is empty, create a new connection
+            pass
+            
+        # Create a new connection
         if not self.path:
             raise RuntimeError("history db path is empty")
         os.makedirs(os.path.dirname(self.path), exist_ok=True)
-        conn = sqlite3.connect(self.path, timeout=10)
+        conn = sqlite3.connect(self.path, timeout=10, check_same_thread=False)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA synchronous=NORMAL")
         conn.execute("PRAGMA foreign_keys=ON")
         return conn
+    
+    def _return_connection(self, conn: sqlite3.Connection) -> None:
+        """Return a connection to the pool for reuse."""
+        try:
+            self._connection_pool.put_nowait(conn)
+        except queue.Full:
+            # Pool is full, close the connection
+            try:
+                conn.close()
+            except Exception:
+                pass
 
     @contextmanager
     def _connection(self):
         conn = self._connect()
         try:
-            with conn:
-                yield conn
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
         finally:
-            conn.close()
+            self._return_connection(conn)
 
     def _queue_size(self) -> int:
         hist = self._history_cfg()
@@ -86,6 +118,17 @@ class RequestHistoryStore:
             return max(10, int(hist.get("queue_size", 1000)))
         except Exception:
             return 1000
+
+    def _sync_mode_enabled(self) -> bool:
+        """Whether to write history records synchronously (blocking the caller).
+
+        Defaults to False (async queue writer) which is safe for production.
+        Tests opt in via ``history.sync_mode: true`` in the config dict so
+        they can write and immediately read back without racing the async
+        writer thread.
+        """
+        hist = self._history_cfg()
+        return bool(hist.get("sync_mode", False))
 
     def initialize(self) -> None:
         if not self.enabled:
@@ -245,8 +288,7 @@ class RequestHistoryStore:
     def record_request(self, item: Dict[str, Any]) -> None:
         if not self.enabled:
             return
-        import sys
-        if "unittest" in sys.modules:
+        if self._sync_mode:
             try:
                 self._ensure_ready()
                 with self._lock:
@@ -628,10 +670,7 @@ class RequestHistoryStore:
             result["error"] = str(e)
         finally:
             if conn is not None:
-                try:
-                    conn.close()
-                except Exception:
-                    pass
+                self._return_connection(conn)
         return result
 
     def delete_requests(self, request_ids: Iterable[str]) -> Dict[str, Any]:
@@ -678,10 +717,7 @@ class RequestHistoryStore:
             result["error"] = str(e)
         finally:
             if conn is not None:
-                try:
-                    conn.close()
-                except Exception:
-                    pass
+                self._return_connection(conn)
         return result
 
     def delete_matching_requests(self, filters: Dict[str, Any]) -> Dict[str, Any]:
@@ -728,10 +764,7 @@ class RequestHistoryStore:
             result["error"] = str(e)
         finally:
             if conn is not None:
-                try:
-                    conn.close()
-                except Exception:
-                    pass
+                self._return_connection(conn)
         return result
 
     @classmethod
@@ -982,7 +1015,7 @@ class RequestHistoryStore:
             out["cost_usd"] = round(safe_float(item.get("cost_usd")), 10)
         if item.get("error"):
             out["error"] = str(item.get("error"))[:500]
-        out["routing_summary"] = enrich_request(item)["routing_summary"]
+        out["routing_summary"] = summarize_request(item)
         return out
 
     @staticmethod

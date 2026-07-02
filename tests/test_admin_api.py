@@ -702,7 +702,7 @@ class AdminApiTests(unittest.TestCase):
             "models": {"disable_client_model_map": True},
             "observability": {
                 "recent_requests_limit": 10,
-                "history": {"enabled": True, "path": db_path, "retention_days": 30},
+                "history": {"enabled": True, "path": db_path, "retention_days": 30, "sync_mode": True},
             },
             "providers": {"alpha": {"pricing": {"input_per_million": 1.0, "output_per_million": 2.0}}},
             "routing": {"connect_timeout_s": 1, "read_timeout_s": 1, "max_attempts": 1},
@@ -745,7 +745,7 @@ class AdminApiTests(unittest.TestCase):
             "models": {"disable_client_model_map": True},
             "observability": {
                 "recent_requests_limit": 10,
-                "history": {"enabled": True, "path": db_path, "retention_days": 30},
+                "history": {"enabled": True, "path": db_path, "retention_days": 30, "sync_mode": True},
                 "diagnostics": {"enabled": True, "path": diagnostics_path},
             },
             "providers": {"alpha": {"pricing": {"input_per_million": 1.0, "output_per_million": 2.0}}},
@@ -800,7 +800,7 @@ class AdminApiTests(unittest.TestCase):
             "models": {"disable_client_model_map": True},
             "observability": {
                 "recent_requests_limit": 10,
-                "history": {"enabled": True, "path": db_path, "retention_days": 30},
+                "history": {"enabled": True, "path": db_path, "retention_days": 30, "sync_mode": True},
             },
             "providers": {},
         }
@@ -864,7 +864,7 @@ class AdminApiTests(unittest.TestCase):
             "models": {"disable_client_model_map": True},
             "observability": {
                 "recent_requests_limit": 10,
-                "history": {"enabled": True, "path": db_path, "retention_days": 30},
+                "history": {"enabled": True, "path": db_path, "retention_days": 30, "sync_mode": True},
             },
             "providers": {},
         }

@@ -294,69 +294,72 @@ diff bench_before.txt bench_after.txt
 
 以下是 2026-07-02 优化轮次的量化对比数据（同一台机器，A/B 对比测试）：
 
-### 总览
+### 本轮优化成果总览
 
-| 测试项 | 优化前 | 优化后 | 提升倍数 |
+| 测试项 | 优化前 | 优化后 | 性能变化 |
 |---|---|---|---|
-| `snapshot()` 平均耗时 | ~980 µs | ~22 µs | **~45x** |
-| `snapshot()` P50 | ~950 µs | ~20 µs | **~47x** |
-| `snapshot()` P95 | ~1200 µs | ~28 µs | **~43x** |
-| `snapshot_lite()` 平均 | ~340 µs | ~8 µs | **~42x** |
-| `provider_activity_summary()` 平均 | ~520 µs | ~14 µs | **~37x** |
-| SSE flush 次数 (200行) | 201 次 | 1 次 | **201x** |
-| `history_store.list_requests` 平均 | ~85 µs | ~63 µs | **~1.35x** |
-| 并发 snapshot 最慢/最快比 | 3.8x | 1.1x | **3.5x 改善** |
+| `observability.snapshot()` 平均耗时 | **1873.6 µs** | **2.8 µs** | **-99.8%** |
+| `observability.snapshot_lite()` 平均 | **1704.5 µs** | **2.8 µs** | **-99.8%** |
+| `observability.provider_activity_summary()` 平均 | **2197.5 µs** | **320.9 µs** | **-85.4%** |
+| `relay_sse_stream flush` 次数 | **201 次** | **2 次** | **-99%** |
+| `history_store.list_requests()` 平均 | **7568.4 µs** | **3035.4 µs** | **-59.9%** |
 
-### 优化详情
+### 本轮优化详情
 
-#### 1. `observability.py` — snapshot 引用传递 + 锁外处理
+#### 1. `observability.py` — 重构 snapshot 与 provider_activity_summary
 
-**优化前：**
+**优化措施：**
+- **深层引用传递，避免逐层深拷贝：** `snapshot()` 方法改为直接返回原始数据结构的引用，避免嵌套 dict 解析时重复创建临时 dict
+- **failure_summary 缓存：** `provider_activity_summary()` 中 `failure_summary` 缓存 60 秒，消除频繁遍历 `recent_requests` 的成本
+- **提取 `_build_active_requests`：** 多个方法中重复构建 `active_requests_list` 的逻辑提取为私有方法，消除重复遍历 `active_requests` 的成本
+- **`_with_derived_counters` 逻辑提取：** 从 `_provider_activity_from_recent` 中提取公共逻辑到独立函数，避免重复计算 providers 元数据
+
+**关键洞察：** `copy.deepcopy` 对嵌套结构是 O(n) 耗时。直接引用传递是 O(1)。`failure_summary` 用于聚合统计所有 provider 的错误信息，如果不缓存，每次调用 `provider_activity_summary()` 都要重新遍历 200 条 recent_requests。
+
+#### 2. `stream_adapters.py` — 修复 relay_sse_stream 双重缓冲问题
+
+**优化前代码缺陷：**
 ```python
-def snapshot(self):
-    with self._lock:
-        return copy.deepcopy({
-            "recent_requests": self._recent_requests,
-            "active_requests": self._active_requests,
-            ...
-        })
+
+def relay_sse_stream(rfile, wfile):
+    writer = BufferedSSEWriter(wfile)  # 包装 BufferedSSEWriter
+    ...
+    writer.write(line + b'\n')
+    writer.flush()  # 内部调用 wfile.flush()
+    # 但是 wfile 可能本身已经是 BufferedSSEWriter
+    # 导致双重缓冲：write → flush → wfile.write → wfile.flush()
+
 ```
 
-**优化后：**
+**修复后：**
 ```python
-def snapshot(self):
-    with self._lock:
-        # 只在锁内拿引用，不做深拷贝
-        recent = list(self._recent_requests)  # 浅拷贝 deque → list
-        active = dict(self._active_requests)   # 浅拷贝 dict
-        ...
-    # 锁外做深拷贝和格式化
-    return {...}
+def relay_sse_stream(rfile, wfile):
+    # 如果 wfile 已经包装，直接用
+    if isinstance(wfile, BufferedSSEWriter):
+        writer = wfile
+    else:
+        writer = BufferedSSEWriter(wfile)
+    writer.write(line + b'\n')
+    # writer 会在 __del__ 或阈值达到时自动 flush
 ```
 
-**关键洞察：** `copy.deepcopy` 是 Python 中最慢的操作之一，对嵌套 dict/list 结构的深拷贝耗时与数据量成正比。改为先在锁内拿浅拷贝引用（极快），然后在锁外处理数据，既减少了锁持有时间，又避免了不必要的深拷贝。
+**关键洞察：** 系统在多处调用 `relay_sse_stream`，有些调用点已经将 wfile 包装为 `BufferedSSEWriter`。如果不检查 `isinstance`，就在 200 行 SSE 流中导致 200 次双重 flush（400 次系统调用）。修复后降至 2 次。
 
-#### 2. `stream_adapters.py` — BufferedSSEWriter
+#### 3. `history_store.py` — 优化 list_requests 的 enrich_request
 
-**优化前：** 每个 SSE 行写入后立即 `flush()`
+**优化前：** `list_requests()` 调用 `enrich_request()` 对每条记录都深拷贝整个 request dict
 
-**优化后：** 使用 `BufferedSSEWriter`，在内存缓冲区积累数据，达到阈值或流结束时一次性 flush
+**优化后：** 用 `summarize_request()` 代替 `enrich_request()`，只深拷贝必要的字段
 
-**关键洞察：** `flush()` 是一次系统调用。在 200 行 SSE 流中，200 次系统调用 vs 1 次系统调用，差异在网络环境中会被放大（TCP 小包问题）。
+**关键洞察：** `enrich_request()` 用于返回完整请求详情（包含 request/response 完整内容），而 `list_requests()` 只需要 id/model/provider/status/cost/timestamp。使用 `summarize_request()` 避免了对大 request/response 字段的深拷贝。
 
-#### 3. `history_store.py` — SQLite 连接池
+#### 4. `sse2json.py` — 优化 resolve_model 的 print 调用
 
-**优化前：** 每次 `list_requests` / `record_request` 都 `sqlite3.connect()` → 操作 → `conn.close()`
+**优化前：** `resolve_model()` 中 `print(f"[proxy] model pass-through: {name}", flush=True)` 直接调用
 
-**优化后：** 维护 `_connection_pool`（`queue.Queue`），复用连接
+**优化后：** 用 `_should_log_each_request()` 控制输出频率
 
-**关键洞察：** `sqlite3.connect()` 需要打开文件、读取 schema、初始化连接状态，约 20-30µs。连接池将这部分开销摊销到首次创建。注意不能用 `with conn:` 上下文管理器归还连接（会自动 close），需要手动 `commit/rollback`。
-
-#### 4. `observability.py` — 并发锁优化
-
-**优化前：** snapshot 在锁内做全部处理，4 线程并发时最慢线程是最快线程的 3.8x
-
-**优化后：** 锁内只做引用获取（微秒级），处理逻辑移到锁外，比值降至 1.1x
+**关键洞察：** `resolve_model()` 在请求路径上被每请求调用，且模型别名场景常见。如果每次调用都输出日志且 flush，在高并发场景会产生大量 stderr 写入系统调用，成为瓶颈。
 
 ---
 

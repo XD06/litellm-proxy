@@ -87,7 +87,7 @@ class ObservabilityTests(unittest.TestCase):
             cfg = {
                 "observability": {
                     "recent_requests_limit": 5,
-                    "history": {"enabled": True, "path": os.path.join(tmp, "history.sqlite3")},
+                    "history": {"enabled": True, "path": os.path.join(tmp, "history.sqlite3"), "sync_mode": True},
                 },
             }
             obs = ProxyObservability(cfg)
@@ -116,7 +116,7 @@ class ObservabilityTests(unittest.TestCase):
             cfg = {
                 "observability": {
                     "recent_requests_limit": 5,
-                    "history": {"enabled": True, "path": os.path.join(tmp, "history.sqlite3")},
+                    "history": {"enabled": True, "path": os.path.join(tmp, "history.sqlite3"), "sync_mode": True},
                 },
             }
             obs = ProxyObservability(cfg)

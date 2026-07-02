@@ -44,6 +44,8 @@ class ProxyObservability:
         self._recent = deque(maxlen=self._recent_limit())
         self._counters = self._new_counters()
         self._history = RequestHistoryStore(cfg)
+        # Cache for failure_summary — invalidated whenever _recent changes.
+        self._failure_summary_cache: Optional[Dict[str, Any]] = None
         self._restore_counters_from_history()
 
     def _restore_counters_from_history(self) -> None:
@@ -57,6 +59,7 @@ class ProxyObservability:
             self._counters["requests_in_flight"] = in_flight
             if recent is not None:
                 self._recent = deque(recent, maxlen=self._recent_limit())
+            self._failure_summary_cache = None  # Invalidate after restore
 
     def _recent_limit(self) -> int:
         try:
@@ -171,7 +174,7 @@ class ProxyObservability:
             recent_deleted = before - len(self._recent)
         return {
             "memory": {
-                "filters": self._copy_value(filters),
+                "filters": dict(filters),  # Shallow copy is sufficient
                 "recent_requests_deleted": recent_deleted,
             },
             "history": history_result,
@@ -365,37 +368,31 @@ class ProxyObservability:
             if error:
                 recent_item["error"] = str(error)[:500]
             self._recent.appendleft(recent_item)
+            self._failure_summary_cache = None  # Invalidate cache
         self._history.record_request(recent_item)
 
     def snapshot(self) -> Dict[str, Any]:
         with self._lock:
-            counters = {
-                key: self._copy_value(value)
-                for key, value in self._counters.items()
-            }
-            recent = [self._copy_value(item) for item in self._recent]
-            active = [self._copy_value(item) for item in self._active.values()]
-            return {
-                "started_at": int(self._started_at),
-                "uptime_s": int(time.time() - self._started_at),
-                "counters": self._with_derived_counters(counters),
-                "failure_summary": self._failure_summary_from_requests(recent),
-                "recent_requests": recent,
-                "active_requests": [
-                    {
-                        "request_id": item.get("request_id"),
-                        "client_format": item.get("client_format"),
-                        "endpoint": item.get("endpoint"),
-                        "model": item.get("model"),
-                        "stream": item.get("stream"),
-                        "path": item.get("path"),
-                        "duration_ms": int((time.time() - float(item.get("started_at") or time.time())) * 1000),
-                        "first_byte_ms": int(item.get("first_byte_ms") or 0),
-                        "attempts": self._copy_value(list(item.get("attempts") or [])),
-                    }
-                    for item in active
-                ],
-            }
+            counters = dict(self._counters)
+            recent = list(self._recent)
+            active = list(self._active.values())
+            cached_failure = self._failure_summary_cache
+
+        processed_counters = self._with_derived_counters(counters)
+        failure_summary = cached_failure if cached_failure is not None else self._failure_summary_from_requests(recent)
+        if cached_failure is None:
+            with self._lock:
+                self._failure_summary_cache = failure_summary
+        active_requests = self._build_active_requests(active)
+
+        return {
+            "started_at": int(self._started_at),
+            "uptime_s": int(time.time() - self._started_at),
+            "counters": processed_counters,
+            "failure_summary": failure_summary,
+            "recent_requests": recent,
+            "active_requests": active_requests,
+        }
 
     def snapshot_lite(self) -> Dict[str, Any]:
         """Lightweight snapshot for high-frequency polling.
@@ -406,32 +403,47 @@ class ProxyObservability:
         and drive every dashboard view.
         """
         with self._lock:
-            counters = {
-                key: self._copy_value(value)
-                for key, value in self._counters.items()
-            }
-            recent = [self._copy_value(item) for item in self._recent]
-            active = [self._copy_value(item) for item in self._active.values()]
+            counters = dict(self._counters)
+            recent = list(self._recent)
+            active = list(self._active.values())
+            cached_failure = self._failure_summary_cache
+
+        processed_counters = self._with_derived_counters(counters)
+        failure_summary = cached_failure if cached_failure is not None else self._failure_summary_from_requests(recent)
+        if cached_failure is None:
+            with self._lock:
+                self._failure_summary_cache = failure_summary
+        active_requests = self._build_active_requests(active)
+
         return {
             "started_at": int(self._started_at),
             "uptime_s": int(time.time() - self._started_at),
-            "counters": self._with_derived_counters(counters),
-            "failure_summary": self._failure_summary_from_requests(recent),
-            "active_requests": [
-                {
-                    "request_id": item.get("request_id"),
-                    "client_format": item.get("client_format"),
-                    "endpoint": item.get("endpoint"),
-                    "model": item.get("model"),
-                    "stream": item.get("stream"),
-                    "path": item.get("path"),
-                    "duration_ms": int((time.time() - float(item.get("started_at") or time.time())) * 1000),
-                    "first_byte_ms": int(item.get("first_byte_ms") or 0),
-                    "attempts": self._copy_value(list(item.get("attempts") or [])),
-                }
-                for item in active
-            ],
+            "counters": processed_counters,
+            "failure_summary": failure_summary,
+            "active_requests": active_requests,
         }
+
+    def _build_active_requests(self, active: list) -> list:
+        """Build active request summaries from the active dict values.
+
+        Shared by snapshot() and snapshot_lite() to avoid code duplication.
+        """
+        active_requests = []
+        now = time.time()
+        for item in active:
+            attempts = item.get("attempts") or []
+            active_requests.append({
+                "request_id": item.get("request_id"),
+                "client_format": item.get("client_format"),
+                "endpoint": item.get("endpoint"),
+                "model": item.get("model"),
+                "stream": item.get("stream"),
+                "path": item.get("path"),
+                "duration_ms": int((now - float(item.get("started_at") or now)) * 1000),
+                "first_byte_ms": int(item.get("first_byte_ms") or 0),
+                "attempts": self._copy_value(list(attempts)),
+            })
+        return active_requests
 
     def provider_activity_summary(
         self, limit: int = 60, include_events: bool = False
@@ -455,11 +467,8 @@ class ProxyObservability:
         except Exception:
             limit = 60
         with self._lock:
-            recent = [self._copy_value(item) for item in self._recent]
-        summary = self._provider_activity_from_recent(recent, limit)
-        if not include_events:
-            for entry in summary.values():
-                entry.pop("events", None)
+            recent = list(self._recent)  # Reference, don't copy
+        summary = self._provider_activity_from_recent(recent, limit, include_events=include_events)
         return summary
 
     def provider_health_scores(
@@ -595,48 +604,48 @@ class ProxyObservability:
         except Exception:
             limit = 60
         with self._lock:
-            recent = [self._copy_value(item) for item in self._recent]
-        summary = self._provider_activity_from_recent(recent, limit)
+            recent = list(self._recent)  # Reference, don't copy
+        summary = self._provider_activity_from_recent(recent, limit, include_events=True)
         return summary.get(provider)
 
     @classmethod
     def _provider_activity_from_recent(
-        cls, recent: Any, limit: int
+        cls, recent: Any, limit: int, *, include_events: bool = False
     ) -> Dict[str, Dict[str, Any]]:
         """One-pass aggregation mirroring the prior frontend providerActivity().
 
         Per request, a provider is credited when one of its attempts ran or it
         was the routing_summary.final_provider. tone/latency rules match the
         legacy client code exactly so dashboards do not visibly change.
+
+        When *include_events* is False (the default — the 5s poll path), event
+        dicts are never materialised; lightweight tuples are used internally
+        and only the aggregate counts plus a single *lastError* dict are built.
         """
         per_provider: Dict[str, Dict[str, Any]] = {}
         for item in recent or []:
-            attempts = list(item.get("attempts") or [])
+            attempts = item.get("attempts") or []
             routing_summary = item.get("routing_summary") or {}
             final_provider = str(routing_summary.get("final_provider") or "")
             status_code = int(item.get("status_code") or 0)
-            # recent_items lack a derived "status"; reconstruct it for parity.
             request_status = "success" if status_code and status_code < 400 else "failed"
-            first_byte_ms = int(item.get("first_byte_ms") or 0)
+            item_error = item.get("error")
+            request_id = str(item.get("request_id") or "")
+            finished_at = int(item.get("finished_at") or 0)
+            model = str(item.get("model") or "-")
+
+            # Build involved-providers map without a per-iteration closure.
             involved: Dict[str, Dict[str, Any]] = {}
-
-            def ensure(name: str) -> Dict[str, Any]:
-                entry = involved.get(name)
-                if entry is None:
-                    entry = {"success": False, "failed_reason": ""}
-                    involved[name] = entry
-                return entry
-
             for attempt in attempts:
                 name = str(attempt.get("provider") or "")
                 if not name:
                     continue
-                entry = ensure(name)
+                entry = involved.get(name)
+                if entry is None:
+                    entry = {"success": False, "failed_reason": ""}
+                    involved[name] = entry
                 if str(attempt.get("outcome") or "") == "success":
                     entry["success"] = True
-                    # Capture per-attempt duration so failover latency is
-                    # attributed only to the provider that actually served
-                    # the request, not inflated by prior failed attempts.
                     dur = int(attempt.get("duration_ms") or 0)
                     if dur > 0:
                         entry["duration_ms"] = dur
@@ -646,7 +655,7 @@ class ProxyObservability:
                         entry["failed_reason"] = str(reason)
 
             if final_provider and final_provider not in involved:
-                ensure(final_provider)
+                involved[final_provider] = {"success": False, "failed_reason": ""}
 
             for name, entry in involved.items():
                 success_here = bool(entry.get("success"))
@@ -657,56 +666,94 @@ class ProxyObservability:
                     tone = "warn"
                 else:
                     tone = "bad"
-                reason = entry.get("failed_reason") or (item.get("error") if tone != "ok" else "") or request_status
-                # Use per-attempt duration_ms (only counts this provider's
-                # own attempt time) instead of global first_byte_ms (which
-                # includes time spent on prior failed providers).
+                reason = entry.get("failed_reason") or (item_error if tone != "ok" else "") or request_status
                 attempt_dur = int(entry.get("duration_ms") or 0)
                 latency = attempt_dur if (success_here or final_success) and attempt_dur > 0 else 0
-                event = {
-                    "requestId": str(item.get("request_id") or ""),
-                    "ts": int(item.get("finished_at") or 0),
-                    "model": str(item.get("model") or "-"),
-                    "tone": tone,
-                    "reason": str(reason or "-"),
-                    "latencyMs": latency,
-                    "status": request_status,
-                }
-                bucket = per_provider.setdefault(
-                    name,
-                    {
-                        "events": [],
+
+                # Lightweight tuple instead of full dict — saves dict allocation
+                # for every event on the poll path.
+                # (ts, tone, latency, reason, request_id, model, status)
+                tup = (finished_at, tone, latency, str(reason or "-"), request_id, model, request_status)
+
+                bucket = per_provider.get(name)
+                if bucket is None:
+                    bucket = {
+                        "_tuples": [],
                         "total": 0,
                         "ok": 0,
                         "warn": 0,
                         "bad": 0,
-                        "latency_samples": [],
                         "successRate": None,
                         "latestLatency": 0,
                         "avgLatency": 0,
                         "lastError": None,
-                    },
-                )
-                bucket["events"].append(event)
+                    }
+                    per_provider[name] = bucket
+                bucket["_tuples"].append(tup)
                 bucket["total"] += 1
 
         for name, bucket in per_provider.items():
-            events = bucket["events"]
+            tuples = bucket.pop("_tuples")
             # recent_items are appendleft (newest first); sort ascending then clip.
-            events.sort(key=lambda ev: int(ev.get("ts") or 0))
-            clipped = events[-limit:]
-            bucket["events"] = clipped
-            bucket["total"] = len(clipped)
-            bucket["ok"] = sum(1 for ev in clipped if ev.get("tone") == "ok")
-            bucket["warn"] = sum(1 for ev in clipped if ev.get("tone") == "warn")
-            bucket["bad"] = sum(1 for ev in clipped if ev.get("tone") == "bad")
-            samples = [int(ev.get("latencyMs") or 0) for ev in clipped if int(ev.get("latencyMs") or 0) > 0]
-            bucket["latestLatency"] = samples[-1] if samples else 0
-            bucket["avgLatency"] = round(sum(samples) / len(samples)) if samples else 0
-            bucket["successRate"] = (bucket["ok"] / len(clipped)) if clipped else None
-            last_err = next((ev for ev in reversed(clipped) if ev.get("tone") != "ok"), None)
-            bucket["lastError"] = last_err
-            bucket.pop("latency_samples", None)
+            tuples.sort(key=lambda t: t[0])
+            clipped = tuples[-limit:]
+            total = len(clipped)
+            ok = warn = bad = 0
+            latency_sum = 0
+            latency_count = 0
+            latest_latency = 0
+            last_error_tup = None
+
+            for tup in clipped:
+                t = tup[1]
+                if t == "ok":
+                    ok += 1
+                elif t == "warn":
+                    warn += 1
+                else:
+                    bad += 1
+                lat = tup[2]
+                if lat > 0:
+                    latency_sum += lat
+                    latency_count += 1
+                    latest_latency = lat
+                if t != "ok":
+                    last_error_tup = tup  # ascending order → last assignment wins
+
+            bucket["total"] = total
+            bucket["ok"] = ok
+            bucket["warn"] = warn
+            bucket["bad"] = bad
+            bucket["latestLatency"] = latest_latency
+            bucket["avgLatency"] = round(latency_sum / latency_count) if latency_count else 0
+            bucket["successRate"] = (ok / total) if total else None
+
+            if last_error_tup is not None:
+                bucket["lastError"] = {
+                    "requestId": last_error_tup[4],
+                    "ts": last_error_tup[0],
+                    "model": last_error_tup[5],
+                    "tone": last_error_tup[1],
+                    "reason": last_error_tup[3],
+                    "latencyMs": last_error_tup[2],
+                    "status": last_error_tup[6],
+                }
+            else:
+                bucket["lastError"] = None
+
+            if include_events:
+                bucket["events"] = [
+                    {
+                        "requestId": tup[4],
+                        "ts": tup[0],
+                        "model": tup[5],
+                        "tone": tup[1],
+                        "reason": tup[3],
+                        "latencyMs": tup[2],
+                        "status": tup[6],
+                    }
+                    for tup in clipped
+                ]
         return per_provider
 
     def list_requests(
@@ -731,15 +778,18 @@ class ProxyObservability:
             return history
 
         with self._lock:
-            items = [self._summarize_request(item) for item in self._recent]
+            items = list(self._recent)  # Reference, don't copy
+        
+        # Process outside the lock
+        summarized_items = [self._summarize_request(item) for item in items]
 
-        filtered = [item for item in items if self._matches_request_filters(item, filters)]
+        filtered = [item for item in summarized_items if self._matches_request_filters(item, filters)]
         return {
             "source": "memory",
             "total": len(filtered),
             "limit": limit,
             "offset": offset,
-            "filters": self._copy_value(filters),
+            "filters": dict(filters),  # Shallow copy is sufficient
             "items": filtered[offset : offset + limit],
         }
 
@@ -793,7 +843,7 @@ class ProxyObservability:
         series = [self._new_bucket(start + i * bucket_s, bucket_s) for i in range(buckets)]
 
         with self._lock:
-            recent = [self._copy_value(item) for item in self._recent]
+            recent = list(self._recent)  # Reference, don't copy
 
         for item in recent:
             finished_at = int(item.get("finished_at") or 0)

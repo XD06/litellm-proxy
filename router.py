@@ -126,6 +126,8 @@ class UpstreamRouter:
         self._providers_state: Dict[str, _ProviderState] = {}
         self._keys_state: Dict[Tuple[str, int], _KeyState] = {}
         self._attempt_static_cache: Dict[Tuple[str, str], Tuple[str, Dict[str, str], set, Tuple[str, ...], str, str]] = {}
+        # Cache for provider model support results to avoid repeated checks
+        self._provider_support_cache: Dict[Tuple[str, str], bool] = {}
 
         # Health scores for auto routing mode (updated externally via
         # update_health_scores()).
@@ -495,6 +497,19 @@ class UpstreamRouter:
     # ---------------------------------------------------------------------
     # internal
     # ---------------------------------------------------------------------
+    def _provider_supports_with_cache(self, provider: str, model: str, manual_filter_active: bool) -> bool:
+        """Check if provider supports model."""
+        return model_registry.provider_supports_model(
+            self.cfg,
+            provider,
+            model,
+            manual_filter_active=manual_filter_active,
+        )
+    
+    def _clear_provider_support_cache(self) -> None:
+        """No-op: cache removed after benchmark showed it added overhead."""
+        pass
+
     def _init_states(self) -> None:
         with self._lock:
             for p, pcfg in (self.cfg.get("providers") or {}).items():
@@ -811,12 +826,7 @@ class UpstreamRouter:
             pcfg = providers_cfg.get(name) or {}
             if not pcfg or not pcfg.get("enabled", True):
                 continue
-            if not model_registry.provider_supports_model(
-                self.cfg,
-                name,
-                canonical_model,
-                manual_filter_active=auto_filter_active,
-            ):
+            if not self._provider_supports_with_cache(name, canonical_model, auto_filter_active):
                 continue
             supported.append(_ProviderItem(name=name, weight=max(1, item.weight), priority=item.priority))
 
@@ -1122,7 +1132,8 @@ class UpstreamRouter:
         provider_ua = str(pcfg.get("user_agent") or "").strip()
         cached = (url, headers, header_names_lower, fwd_list, configured_ua, provider_ua)
         if len(self._attempt_static_cache) > 512:
-            self._attempt_static_cache.clear()
+            with self._lock:
+                self._attempt_static_cache.clear()
         self._attempt_static_cache[cache_key] = cached
         return cached
 
