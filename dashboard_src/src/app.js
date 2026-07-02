@@ -2856,6 +2856,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const latencyText = view.activity.latestLatency ? fmtCompactMs(view.activity.latestLatency) : "—";
     const modelCount = view.modelItems.length;
     const recentError = view.activity.lastError?.reason || "";
+    const sparkStats = providerSparklineStats(view.activity);
     const isDisabled = view.runtimeState.id === "disabled";
     const successTone = successRate === null ? "neutral" : successRate >= 0.9 ? "ok" : successRate >= 0.5 ? "warn" : "bad";
     const latencyTone = view.activity.latestLatency ? (view.activity.latestLatency <= 800 ? "ok" : view.activity.latestLatency <= 2500 ? "warn" : "bad") : "neutral";
@@ -2886,8 +2887,8 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         <div class="provider-card-footer">
           <div class="provider-card-stats">
             ${compactStatInline("key", `${fmtInt(keyUsable)}/${fmtInt(keyTotal)}`, keyTone)}
-            ${compactStatInline("activity", successText, successTone)}
-            ${compactStatInline("clock", latencyText, latencyTone)}
+            ${compactStatInline("activity", `${fmtInt(sparkStats.calls)}x`, sparkStats.calls ? "neutral" : "neutral")}
+            ${compactStatInline("clock", sparkStats.avg === null ? "—" : fmtCompactMs(sparkStats.avg), sparkStats.avg === null ? "neutral" : sparkStats.avg <= 800 ? "ok" : sparkStats.avg <= 2500 ? "warn" : "bad")}
           </div>
           <div class="provider-runtime-actions">
             <button class="button primary compact-action icon-action" type="button" data-provider-open="${escapeHtml(view.name)}" title="Details" aria-label="Details">${iconSvg("info")}</button>
@@ -2903,8 +2904,17 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     return `<span class="provider-stat ${tone || ""}" title="${escapeHtml(value)}">${iconSvg(iconName)}<strong>${escapeHtml(value)}</strong></span>`;
   }
 
-  function providerSparkline(activity, providerName) {
+  function providerSparklineStats(activity) {
     const events = (Array.isArray(activity?.events) ? activity.events : []).slice(-24);
+    const latencies = events.map((event) => Math.max(0, Number(event.latencyMs) || 0));
+    const avg = latencies.length ? Math.round(latencies.reduce((sum, value) => sum + value, 0) / latencies.length) : null;
+    const failed = events.filter((event) => event.ok === false || event.status === "failed").length;
+    return { calls: events.length, avg, failed, latencies, events };
+  }
+
+  function providerSparkline(activity, providerName) {
+    const stats = providerSparklineStats(activity);
+    const events = stats.events;
     const W = 120;
     const H = 26;
     const pad = 3;
@@ -2916,7 +2926,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         </div>
       `;
     }
-    const latencies = events.map((event) => Math.max(0, Number(event.latencyMs) || 0));
+    const latencies = stats.latencies;
     const max = Math.max(250, ...latencies);
     const points = latencies.map((latency, index) => {
       const x = events.length === 1 ? W * 0.5 : pad + (index / (events.length - 1)) * (W - pad * 2);
@@ -2924,16 +2934,15 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       return { x, y };
     });
     const linePath = smoothPathD(points);
-    const failed = events.filter((event) => event.ok === false || event.status === "failed").length;
+    const failed = stats.failed;
     const tone = failed ? "warn" : "ok";
-    const avg = Math.round(latencies.reduce((sum, value) => sum + value, 0) / latencies.length);
+    const avg = stats.avg || 0;
     return `
       <div class="provider-sparkline tone-${escapeHtml(tone)}" title="${escapeHtml(`${providerName}: ${events.length} recent calls / avg ${fmtCompactMs(avg)} / ${failed} failed`)}">
         <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
           <path class="provider-sparkline-fill" d="${linePath} L ${points[points.length - 1].x.toFixed(1)} ${H} L ${points[0].x.toFixed(1)} ${H} Z"></path>
           <path class="provider-sparkline-line" d="${linePath}"></path>
         </svg>
-        <small>${fmtInt(events.length)} calls · avg ${escapeHtml(fmtCompactMs(avg))}</small>
       </div>
     `;
   }
