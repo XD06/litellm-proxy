@@ -13575,10 +13575,11 @@ body {
 #providersView .provider-runtime-card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
+  justify-content: space-between;
   min-height: 0;
-  height: 100%;
-  padding: 12px;
+  height: 95%;
+  padding: 13px 12px 11px;
   border-top-width: 2px;
   border-radius: 12px;
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.045);
@@ -13590,6 +13591,7 @@ body {
 
 #providersView .provider-card-topline {
   gap: 7px;
+  align-items: flex-start;
 }
 
 #providersView .provider-status-dot {
@@ -13600,13 +13602,15 @@ body {
 
 #providersView .provider-title-block {
   display: grid;
-  gap: 3px;
+  gap: 4px;
+  min-width: 0;
 }
 
 #providersView .provider-name {
   overflow: hidden;
-  font-size: 12px;
-  line-height: 1.15;
+  font-size: 14px;
+  font-weight: 840;
+  line-height: 1.12;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -13639,6 +13643,7 @@ body {
 
 #providersView .provider-card-state-row {
   gap: 6px;
+  align-items: center;
   padding: 0;
 }
 
@@ -13654,23 +13659,54 @@ body {
 
 #providersView .provider-card-signal {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.35fr) minmax(82px, 0.8fr);
+  grid-template-rows: repeat(2, minmax(0, 1fr));
   gap: 6px;
+  min-height: 73px;
 }
 
 #providersView .provider-signal-item {
   display: grid;
-  grid-template-columns: 13px minmax(0, 1fr);
+  grid-template-columns: 14px minmax(0, 1fr);
   grid-template-areas:
     "icon value"
     "icon label";
   gap: 1px 5px;
   align-items: center;
   min-width: 0;
-  min-height: 42px;
-  padding: 7px;
+  min-height: 0;
+  padding: 7px 8px;
   border: 1px solid #edf1f5;
   border-radius: 8px;
+  background: #fbfcfd;
+}
+
+#providersView .provider-signal-item:nth-child(1) {
+  grid-row: 1 / span 2;
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    "label"
+    "value";
+  align-content: center;
+  justify-items: start;
+  min-height: 73px;
+  padding: 10px 11px;
+  border-color: color-mix(in srgb, var(--success) 18%, #edf1f5);
+  background: linear-gradient(180deg, rgba(20, 121, 92, 0.055), rgba(255, 255, 255, 0) 72%), #fbfcfd;
+}
+
+#providersView .provider-signal-item:nth-child(1).warn {
+  border-color: color-mix(in srgb, var(--warning) 18%, #edf1f5);
+  background: linear-gradient(180deg, rgba(209, 67, 31, 0.06), rgba(255, 255, 255, 0) 72%), #fbfcfd;
+}
+
+#providersView .provider-signal-item:nth-child(1).bad {
+  border-color: color-mix(in srgb, var(--danger) 20%, #edf1f5);
+  background: linear-gradient(180deg, rgba(178, 58, 72, 0.065), rgba(255, 255, 255, 0) 72%), #fbfcfd;
+}
+
+#providersView .provider-signal-item:nth-child(1).neutral {
+  border-color: #edf1f5;
   background: #fbfcfd;
 }
 
@@ -13681,13 +13717,22 @@ body {
   color: #94a3b8;
 }
 
+#providersView .provider-signal-item:nth-child(1) .icon-svg {
+  display: none;
+}
+
 #providersView .provider-signal-item strong {
   grid-area: value;
   overflow: hidden;
   color: #111827;
-  font: 780 11px/1 var(--mono);
+  font: 780 11.5px/1 var(--mono);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+#providersView .provider-signal-item:nth-child(1) strong {
+  font-size: 22px;
+  letter-spacing: -0.01em;
 }
 
 #providersView .provider-signal-item small {
@@ -13698,6 +13743,13 @@ body {
   line-height: 1;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+#providersView .provider-signal-item:nth-child(1) small {
+  font-size: 10px;
+  font-weight: 760;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 #providersView .provider-signal-item.ok .icon-svg,
@@ -13728,7 +13780,9 @@ body {
 #providersView .provider-card-footer {
   gap: 6px;
   justify-content: space-between;
-  padding-top: 6px;
+  margin-top: 0;
+  padding-top: 7px;
+  border-top: 1px solid #edf1f5;
 }
 
 #providersView .provider-card-stats {
@@ -13816,9 +13870,9 @@ body {
 #providersView .provider-sparkline {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 4px;
-  min-height: 25px;
-  padding: 1px 2px 0;
+  gap: 3px;
+  min-height: 22px;
+  padding: 0 1px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -13837,14 +13891,15 @@ body {
   grid-template-columns: repeat(36, minmax(0, 1fr));
   gap: 2px;
   align-items: center;
-  height: 12px;
+  height: 10px;
   min-width: 0;
   padding-block: 1px;
 }
 
 #providersView .provider-call-bars i {
   display: block;
-  width: 4px;
+  justify-self: center;
+  width: min(100%, 4px);
   height: 12px;
   min-height: 8px;
   border-radius: 999px;
@@ -13859,7 +13914,7 @@ body {
 }
 
 #providersView .provider-call-bars i.is-warn {
-  background: #E59E0B;
+  background: #f97316;
 }
 
 #providersView .provider-call-bars i.is-bad {
@@ -13868,7 +13923,7 @@ body {
 
 #providersView .provider-call-axis {
   color: #94a3b8;
-  font: 700 8px/1 var(--mono);
+  font: 700 7.5px/1 var(--mono);
   letter-spacing: 0.08em;
 }
 
