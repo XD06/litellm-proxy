@@ -37,6 +37,36 @@ _union_dirty: bool = False
 _signature_cache: Dict[str, Tuple[int, str]] = {}
 _cache_lock = threading.Lock()
 
+# Monotonic counter bumped whenever provider_model_capabilities change
+# (discovery success/failure, pending mark, config edit).  The frontend
+# polls this via /-/admin/metrics to detect that model capabilities have
+# been updated without needing to fetch the full capabilities payload on
+# every 5-second refresh.
+_models_version: int = 0
+
+
+def models_version() -> int:
+    """Return the current model-capabilities version counter.
+
+    This is a monotonic counter bumped whenever provider_model_capabilities
+    change (discovery success/failure, pending mark, config edit, restore).
+    The frontend polls this via /-/admin/metrics to detect that model
+    capabilities have been updated without needing to fetch the full
+    capabilities payload on every 5-second refresh.
+    """
+    return _models_version
+
+
+def bump_models_version() -> None:
+    """Increment the model-capabilities version counter.
+
+    Called from sse2json.py paths that modify provider_model_capabilities
+    outside of _store_provider_capabilities (which already bumps internally).
+    """
+    global _models_version
+    with _cache_lock:
+        _models_version += 1
+
 
 def union_model_ids() -> set:
     return set(_union_model_id_set)
@@ -313,9 +343,10 @@ def _store_provider_capabilities(
     # Mark the union snapshot as dirty so the next /v1/models request
     # rebuilds it lazily.  This avoids redundant full rebuilds when the
     # background discovery queue discovers multiple providers sequentially.
-    global _union_dirty
+    global _union_dirty, _models_version
     with _cache_lock:
         _union_dirty = True
+        _models_version += 1
 
 
 def _rebuild_union_model_ids_from_capabilities(config: Dict[str, Any]) -> None:

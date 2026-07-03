@@ -46,6 +46,12 @@ class ProxyObservability:
         self._history = RequestHistoryStore(cfg)
         # Cache for failure_summary — invalidated whenever _recent changes.
         self._failure_summary_cache: Optional[Dict[str, Any]] = None
+        # Wall-clock time of the most recent request completion (success or
+        # failure).  Used by the idle-health-checker to decide how aggressively
+        # to probe providers: right after a request finishes we check more
+        # often (the user may send another request soon), while after a long
+        # idle period we back off to a slow cadence.
+        self._last_request_finished_at: float = 0.0
         self._restore_counters_from_history()
 
     def _restore_counters_from_history(self) -> None:
@@ -117,6 +123,18 @@ class ProxyObservability:
             self._active.clear()
             self._recent = deque(maxlen=self._recent_limit())
             self._counters = self._new_counters()
+            self._last_request_finished_at = 0.0
+
+    def last_request_finished_at(self) -> float:
+        """Return the wall-clock time of the most recent request completion.
+
+        Returns 0.0 if no request has completed since startup. Used by the
+        idle-health-checker to adapt its probe cadence: right after a request
+        finishes we check more often (the user may send another soon), while
+        after a long idle period we back off.
+        """
+        with self._lock:
+            return self._last_request_finished_at
 
     def clear_history(self) -> Dict[str, Any]:
         history_result = self._history.clear()
@@ -372,6 +390,7 @@ class ProxyObservability:
                 recent_item["error"] = str(error)[:500]
             self._recent.appendleft(recent_item)
             self._failure_summary_cache = None  # Invalidate cache
+            self._last_request_finished_at = now
         self._history.record_request(recent_item)
 
     def snapshot(self) -> Dict[str, Any]:

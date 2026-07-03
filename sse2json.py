@@ -9,7 +9,7 @@ if __name__ == "__main__":
              true SSE streaming (chunk-by-chunk),
              tool call support with memory,
              count_tokens handler for Claude Code compatibility"""
-import copy, json, os, uuid, datetime, socket, concurrent.futures, time, re, threading, hmac, queue, errno
+import copy, json, os, uuid, datetime, socket, concurrent.futures, time, re, threading, hmac, queue, errno, random
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 from typing import List, Optional
@@ -191,6 +191,7 @@ def _restore_model_capabilities(caps: dict, union_model_ids: Optional[List[str]]
         restored_union_ids.update(clean["canonical_map"].keys())
     if hasattr(model_registry, "restore_union_model_ids"):
         model_registry.restore_union_model_ids(restored_union_ids)
+    model_registry.bump_models_version()
 
 
 def _restore_models_union_snapshot(snapshot: dict) -> None:
@@ -303,6 +304,264 @@ def _start_health_score_updater() -> None:
             time.sleep(15)
             _update_health_scores()
     t = threading.Thread(target=_loop, name="health-score-updater", daemon=True)
+    t.start()
+
+
+# ---------------------------------------------------------------------------
+# Idle health checker
+# ---------------------------------------------------------------------------
+# A background thread that proactively probes provider key availability when
+# the proxy is idle (no active requests).  The goal is to discover stale
+# cooldowns / dead keys *before* a real user request hits them, so the first
+# request after an idle period routes to a working provider on the first try.
+#
+# Key design decisions:
+#
+# 1. **Adaptive cadence**: the probe interval adapts to request activity.
+#    Right after a request finishes, we check every 30s (the user may send
+#    another request soon).  As the idle period grows, we back off to 60s,
+#    then 5min, and eventually 3-6h for long-idle "freshness" checks.
+#
+# 2. **Priority-ordered**: providers are probed in routing-mode order —
+#    priority_failover sorts by priority (highest first), auto mode sorts by
+#    health-adjusted priority.  We stop at the first healthy provider because
+#    that is the one the next request will use.  Lower-priority providers
+#    are only checked if higher-priority ones are unavailable.
+#
+# 3. **Non-interfering**: the probe uses upstream_client's own transport
+#    (not the request worker pool), so it never blocks real traffic.  Probe
+#    failures feed into the existing router.report_failure() cooldown
+#    mechanism — no new state management.
+#
+# 4. **Only for priority-ordered modes**: round_robin / weighted_rr / random
+#    have no fixed priority, so "check highest priority first" is meaningless.
+#    In those modes the checker sleeps quietly.
+
+_IDLE_CHECK_INTERVAL_RECENT_S = 30      # Last request finished < 2 min ago
+_IDLE_CHECK_INTERVAL_MEDIUM_S = 60      # Last request finished 2-10 min ago
+_IDLE_CHECK_INTERVAL_LONG_S = 300       # Last request finished 10+ min ago
+_IDLE_CHECK_INTERVAL_DEEP_S = (3 * 3600, 6 * 3600)  # 3-6h random for deep idle
+
+# Thresholds for the idle tiers (seconds since last request finished).
+_IDLE_TIER_RECENT_S = 120        # < 2 min → "recent" (30s cadence)
+_IDLE_TIER_MEDIUM_S = 600        # < 10 min → "medium" (60s cadence)
+#                               # >= 10 min → "long" (5min cadence)
+#                               # >= 30 min → "deep" (3-6h random cadence)
+_IDLE_TIER_DEEP_S = 1800         # 30 min
+
+
+def _idle_check_interval_s(last_finished_at: float, now: float) -> float:
+    """Return the probe interval based on how long since the last request."""
+    if last_finished_at == 0.0:
+        # No request has ever completed — treat as deep idle so we don't
+        # hammer APIs before the first user request even arrives.
+        return random.uniform(_IDLE_CHECK_INTERVAL_DEEP_S[0], _IDLE_CHECK_INTERVAL_DEEP_S[1])
+    idle_s = max(0.0, now - last_finished_at)
+    if idle_s < _IDLE_TIER_RECENT_S:
+        return _IDLE_CHECK_INTERVAL_RECENT_S
+    if idle_s < _IDLE_TIER_MEDIUM_S:
+        return _IDLE_CHECK_INTERVAL_MEDIUM_S
+    if idle_s < _IDLE_TIER_DEEP_S:
+        return _IDLE_CHECK_INTERVAL_LONG_S
+    return random.uniform(_IDLE_CHECK_INTERVAL_DEEP_S[0], _IDLE_CHECK_INTERVAL_DEEP_S[1])
+
+
+def _idle_probe_one_provider(rt, provider: str) -> bool:
+    """Probe a single provider's first available key.
+
+    Returns True if the provider is healthy, False if it should be skipped or
+    has been cooled down via report_failure.
+
+    Uses the RuntimeContext snapshot (rt) for consistent access to config,
+    router, and upstream_client.
+    """
+    router = rt.router
+    config = rt.config
+    upstream_client = rt.upstream_client
+
+    pcfg = (config.get("providers") or {}).get(provider)
+    if not isinstance(pcfg, dict) or not pcfg.get("enabled", True):
+        return False
+
+    keys = pcfg.get("keys") or []
+    if not keys:
+        return False
+
+    # Find the first key that is not currently in cooldown / disabled.
+    now = time.time()
+    key_index = None
+    with router._lock:
+        ps = router._providers_state.get(provider)
+        if ps and not ps.available(now):
+            return False  # provider in cooldown — skip
+        for i in range(len(keys)):
+            ks = router._keys_state.get((provider, i))
+            # No state entry means the key has never been used or failed —
+            # treat it as available.
+            if ks is None or ks.available(now):
+                key_index = i
+                break
+
+    if key_index is None:
+        return False  # no available key
+
+    # Pick a model to probe
+    canonical_model = _pick_probe_model(provider)
+    if not canonical_model:
+        return False  # no models to probe with
+
+    fmt = router._first_supported_format(
+        provider, ["chat_completions", "responses", "anthropic_messages"]
+    )
+    if not fmt:
+        return False
+
+    raw_key = key_value(keys[key_index])
+    url, headers, provider_model, proxy_url = router._build_attempt_details(
+        provider, canonical_model, raw_key, key_index=key_index, upstream_format=fmt
+    )
+
+    base_payload = {
+        "model": provider_model,
+        "messages": [{"role": "user", "content": "ping"}],
+        "max_tokens": 1,
+        "stream": False,
+    }
+    try:
+        payload = convert_request("chat_completions", fmt, base_payload, resolve_model=lambda m: m)
+    except Exception:
+        return False
+
+    request_id = f"idle-probe-{provider}-{uuid.uuid4().hex[:8]}"
+    from router import Attempt as _Attempt
+    probe_attempt = _Attempt(
+        request_id=request_id,
+        attempt_no=1,
+        provider=provider,
+        key_index=key_index,
+        key=raw_key,
+        url=url,
+        headers=headers,
+        provider_model=provider_model,
+        upstream_format=fmt,
+        proxy_url=proxy_url,
+    )
+
+    # NOTE: We deliberately do *not* record this probe in observability.
+    # Idle probes are internal housekeeping — recording them would inflate
+    # requests_total / attempts_total and clutter the recent-requests list.
+    # The probe's health impact is already visible through router cooldown
+    # state and health scores, which the dashboard reads separately.
+    try:
+        _resp, _latency_ms = upstream_client.request_json_with_timing(
+            url, headers, payload, proxy_url=proxy_url, remaining_timeout_s=15
+        )
+        # Success — provider is healthy.  Clear any stale cooldown that might
+        # have been set by a previous transient failure.
+        router.clear_provider_cooldown(provider)
+        return True
+    except HTTPError as e:
+        status = int(getattr(e, "code", 0) or 0)
+        error_type = _probe_error_type(status)
+        # Feed the failure into the router's cooldown mechanism so the next
+        # real request skips this provider.
+        router.report_failure(
+            probe_attempt,
+            error_type=error_type,
+            http_status=status,
+        )
+        return False
+    except (URLError, socket.timeout) as e:
+        router.report_failure(
+            probe_attempt,
+            error_type="network_error",
+        )
+        return False
+    except Exception as e:
+        router.report_failure(
+            probe_attempt,
+            error_type="unknown",
+        )
+        return False
+
+
+def _idle_health_check_round() -> None:
+    """Run one round of idle health checking.
+
+    Probes providers in routing-mode priority order, stopping at the first
+    healthy provider.  Only runs for priority_failover and auto modes (the
+    only modes with a meaningful "highest priority" concept).
+    """
+    try:
+        rt = _request_runtime()
+        router = rt.router
+        config = rt.config
+        observability = rt.observability
+
+        # Don't run if there are active requests — we only probe when idle.
+        with observability._lock:
+            in_flight = int(observability._counters.get("requests_in_flight") or 0)
+        if in_flight > 0:
+            return
+
+        # Only run for priority-ordered modes.
+        provider_select = str((config.get("routing") or {}).get("provider_select") or "priority_failover").strip()
+        if provider_select not in ("priority_failover", "auto"):
+            return
+
+        # Build the provider list in priority order.
+        providers_cfg = config.get("providers") or {}
+        provider_items = []
+        for name, pcfg in providers_cfg.items():
+            if not (pcfg or {}).get("enabled", True):
+                continue
+            priority = router._provider_priority(str(name))
+            if provider_select == "auto":
+                priority = router._auto_adjusted_priority(str(name), priority)
+            provider_items.append((str(name), priority))
+
+        # Sort by priority descending (highest priority first).
+        provider_items.sort(key=lambda x: -x[1])
+
+        if not provider_items:
+            return
+
+        # Probe from highest priority.  Stop at the first healthy provider —
+        # that is the one the next real request will use, so there is no need
+        # to check lower-priority ones.
+        for provider_name, _priority in provider_items:
+            healthy = _idle_probe_one_provider(rt, provider_name)
+            if healthy:
+                break
+    except Exception:
+        pass
+
+
+def _start_idle_health_checker() -> None:
+    """Start the adaptive idle health checker daemon thread."""
+
+    def _loop():
+        while True:
+            try:
+                rt = _request_runtime()
+                observability = rt.observability
+                last_finished = observability.last_request_finished_at()
+                now = time.time()
+                interval = _idle_check_interval_s(last_finished, now)
+                time.sleep(interval)
+
+                # Re-check: a request may have arrived during our sleep.
+                with observability._lock:
+                    in_flight = int(observability._counters.get("requests_in_flight") or 0)
+                if in_flight > 0:
+                    continue  # not idle anymore — skip this round
+
+                _idle_health_check_round()
+            except Exception:
+                # Never let the loop die — sleep and try again.
+                time.sleep(30)
+
+    t = threading.Thread(target=_loop, name="idle-health-checker", daemon=True)
     t.start()
 
 
@@ -564,6 +823,7 @@ def _merge_provider_model_capability_from(source_config: dict, provider: str) ->
         caps = models_cfg.setdefault("provider_model_capabilities", {})
         caps[provider] = copy.deepcopy(entry)
     model_registry.rebuild_models_union_snapshot(CONFIG, ROUTER)
+    model_registry.bump_models_version()
     return True
 
 
@@ -841,6 +1101,7 @@ def _mark_provider_models_pending(provider: str) -> None:
     }
     if existing.get("error"):
         caps[provider]["error"] = str(existing.get("error"))[:500]
+    model_registry.bump_models_version()
 
 
 def _refresh_models_after_config_change(provider: Optional[str] = None, *, force: bool = False) -> None:
@@ -3585,6 +3846,9 @@ def main():
 
     # Start the background model-discovery queue.
     _start_model_discovery_queue()
+
+    # Start the adaptive idle health checker.
+    _start_idle_health_checker()
 
     # Read host/port/max_workers from the freshly rebuilt CONFIG
     global HOST, PORT, MAX_WORKERS

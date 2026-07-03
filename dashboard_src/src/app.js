@@ -42,6 +42,13 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
   // already scheduled, so we don't stack multiple timers.
   let _capabilityFollowUpTimer = null;
 
+  // Last-seen models_version from the backend. When this changes, it means
+  // provider_model_capabilities were updated (discovery success/failure,
+  // pending mark, config edit) and the frontend should re-fetch
+  // /-/admin/models/capabilities to pick up the new data without requiring
+  // a manual refresh.
+  let _lastModelsVersion = null;
+
   // Re-entrancy guard for refreshAll: while a refresh (fetch + renderAll) is in
   // flight, additional refreshAll calls are coalesced into a single trailing
   // refresh rather than running concurrently. This prevents tab-switch bursts
@@ -978,6 +985,31 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       if (result.config !== undefined) state.data.config = result.config;
       if (result.overlay !== undefined) state.data.overlay = result.overlay;
       if (result.audit !== undefined) state.data.audit = result.audit;
+
+      // Check models_version from the metrics or status payload. When the
+      // backend bumps this counter, provider_model_capabilities changed
+      // (e.g. background discovery finished for a provider). If we did NOT
+      // already fetch capabilities in this cycle (needStaticAdminData was
+      // false), fetch them now so the dashboard reflects the update without
+      // a manual refresh.
+      //
+      // This is a lightweight conditional fetch: in steady state (no model
+      // changes) the version stays the same and this is a no-op.
+      const statusVersion = result.status?.models_version;
+      const metricsVersion = result.metrics?.models_version ?? statusVersion;
+      if (metricsVersion !== undefined && metricsVersion !== _lastModelsVersion) {
+        const isFirstSync = _lastModelsVersion === null;
+        _lastModelsVersion = metricsVersion;
+        // On the very first sync we already fetched capabilities via
+        // needStaticAdminData, so skip the extra fetch.
+        if (!isFirstSync && !result.models) {
+          try {
+            const caps = await apiGet("/-/admin/models/capabilities");
+            state.data.status = { ...(state.data.status || {}), models: caps };
+            state.data.version = Number(state.data.version || 0) + 1;
+          } catch (_e) { /* best-effort; next poll will retry */ }
+        }
+      }
       // Bump the data version so derived caches (model capability memo, etc.)
       // invalidate together instead of deep-comparing payloads on each render.
       state.data.version = Number(state.data.version || 0) + 1;
@@ -1051,8 +1083,15 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
   function _hasPendingModelCapabilities() {
     const providers = state.data?.status?.models?.providers;
     if (!providers || typeof providers !== "object") return false;
+    // "pending" = background discovery in progress.
+    // "error" = last discovery failed; the queue will retry in ~2 min.
+    // "stale" = config changed since last fetch; needs re-discovery.
+    // All three states mean the data is not yet final and a follow-up
+    // refresh should be scheduled so the dashboard eventually shows the
+    // resolved status without a manual page reload.
     return Object.values(providers).some(
-      (cap) => cap && typeof cap === "object" && cap.status === "pending"
+      (cap) => cap && typeof cap === "object" &&
+        (cap.status === "pending" || cap.status === "error" || cap.status === "stale")
     );
   }
 
@@ -6892,6 +6931,165 @@ function pgEsc(s) {
 return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
+  /**
+   * Lightweight Markdown renderer for playground assistant messages.
+   *
+   * Supports: headings (h1-h4), bold, italic, inline code, code blocks
+   * (``` and ~~~), unordered/ordered lists, blockquotes, links, horizontal
+   * rules, and paragraphs.  All raw HTML in the source is escaped first so
+   * the output is safe to set via innerHTML.
+   */
+  function pgMarkdown(src) {
+    const raw = String(src || "");
+    // Escape everything first — we re-introduce HTML tags ourselves.
+    let s = pgEsc(raw);
+
+    // --- Code blocks (```lang\n...\n``` or ~~~lang\n...\n~~~) ---
+    // Extract before other transforms so their content is untouched.
+    const codeBlocks = [];
+    s = s.replace(/(```|~~~)(\w*)\n([\s\S]*?)\1/g, (_m, _fence, lang, code) => {
+      const idx = codeBlocks.length;
+      codeBlocks.push(`<pre class="pg-md-code"><code class="lang-${pgEsc(lang || "")}">${code.replace(/\n$/, "")}</code></pre>`);
+      return `\x00CODEBLOCK${idx}\x00`;
+    });
+
+    // --- Inline code (single backtick) ---
+    const inlineCodes = [];
+    s = s.replace(/`([^`]+)`/g, (_m, code) => {
+      const idx = inlineCodes.length;
+      inlineCodes.push(`<code class="pg-md-inline">${code}</code>`);
+      return `\x00INLINE${idx}\x00`;
+    });
+
+    // Split into lines for block-level transforms.
+    const lines = s.split("\n");
+    const out = [];
+    let i = 0;
+    let inList = null; // "ul" | "ol" | null
+    let inQuote = false;
+
+    function closeList() {
+      if (inList) { out.push(`</${inList}>`); inList = null; }
+    }
+    function closeQuote() {
+      if (inQuote) { out.push("</blockquote>"); inQuote = false; }
+    }
+
+    while (i < lines.length) {
+      const line = lines[i];
+
+      // Code block placeholder on its own line — emit as-is, close any open blocks.
+      if (/^\x00CODEBLOCK\d+\x00$/.test(line.trim())) {
+        closeList(); closeQuote();
+        out.push(line);
+        i++;
+        continue;
+      }
+
+      // Horizontal rule
+      if (/^(\s*[-*_]\s*){3,}$/.test(line) && line.trim().length >= 3) {
+        closeList(); closeQuote();
+        out.push('<hr class="pg-md-hr">');
+        i++;
+        continue;
+      }
+
+      // Headings
+      const h = line.match(/^(#{1,4})\s+(.*)$/);
+      if (h) {
+        closeList(); closeQuote();
+        const level = h[1].length;
+        out.push(`<h${level} class="pg-md-h${level}">${h[2].trim()}</h${level}>`);
+        i++;
+        continue;
+      }
+
+      // Blockquote
+      const bq = line.match(/^&gt;\s?(.*)$/);
+      if (bq) {
+        closeList();
+        if (!inQuote) { out.push("<blockquote class=\"pg-md-quote\">"); inQuote = true; }
+        out.push(bq[1]);
+        i++;
+        continue;
+      } else {
+        closeQuote();
+      }
+
+      // Unordered list item
+      const ul = line.match(/^(\s*)[-*+]\s+(.*)$/);
+      if (ul) {
+        if (inList !== "ul") { closeList(); out.push("<ul class=\"pg-md-ul\">"); inList = "ul"; }
+        out.push(`<li>${ul[2]}</li>`);
+        i++;
+        continue;
+      }
+
+      // Ordered list item
+      const ol = line.match(/^(\s*)\d+\.\s+(.*)$/);
+      if (ol) {
+        if (inList !== "ol") { closeList(); out.push("<ol class=\"pg-md-ol\">"); inList = "ol"; }
+        out.push(`<li>${ol[2]}</li>`);
+        i++;
+        continue;
+      }
+
+      closeList();
+
+      // Empty line
+      if (line.trim() === "") {
+        i++;
+        continue;
+      }
+
+      // Paragraph — collect consecutive non-empty, non-block lines.
+      const para = [line];
+      let j = i + 1;
+      while (j < lines.length && lines[j].trim() !== "" &&
+             !/^(#{1,4})\s/.test(lines[j]) &&
+             !/^(\s*)[-*+]\s/.test(lines[j]) &&
+             !/^(\s*)\d+\.\s/.test(lines[j]) &&
+             !/^&gt;\s?/.test(lines[j]) &&
+             !/^(\s*[-*_]\s*){3,}$/.test(lines[j]) &&
+             !/^\x00CODEBLOCK\d+\x00$/.test(lines[j].trim())) {
+        para.push(lines[j]);
+        j++;
+      }
+      out.push(`<p class="pg-md-p">${para.join("<br>")}</p>`);
+      i = j;
+    }
+    closeList(); closeQuote();
+
+    let html = out.join("\n");
+
+    // --- Inline transforms ---
+    // Bold (**text** or __text__)
+    html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+    html = html.replace(/__(.+?)__/g, "<strong>$1</strong>");
+    // Italic (*text* or _text_) — but not inside ** ** (already consumed)
+    html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<em>$1</em>");
+    html = html.replace(/(?<!_)_(?!_)(.+?)(?<!_)_(?!_)/g, "<em>$1</em>");
+    // Strikethrough (~~text~~)
+    html = html.replace(/~~(.+?)~~/g, "<del>$1</del>");
+    // Links [text](url)
+    html = html.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a class="pg-md-link" href="$2" target="_blank" rel="noopener">$1</a>');
+
+    // Restore code blocks and inline codes.
+    html = html.replace(/\x00CODEBLOCK(\d+)\x00/g, (_m, idx) => codeBlocks[+idx] || "");
+    html = html.replace(/\x00INLINE(\d+)\x00/g, (_m, idx) => inlineCodes[+idx] || "");
+
+    return html;
+  }
+
+  /** Render assistant content as markdown; user/system content as plain text. */
+  function pgRenderContent(m) {
+    const text = m.content || "";
+    if ((m.role || "") === "assistant" && text.trim()) {
+      return pgMarkdown(text);
+    }
+    return pgEsc(text);
+  }
+
   function pgEndpoint() {
     if (pg.format === "anthropic_messages") return "/v1/messages";
     if (pg.format === "responses") return "/v1/responses";
@@ -7043,11 +7241,17 @@ return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g
     if (thinking && thinkingText) {
       const reasoning = m.reasoning || "";
       thinking.hidden = !reasoning.trim();
+      // Auto-collapse thinking when streaming ends; keep open while streaming.
       if (reasoning.trim()) thinking.open = Boolean(m.streaming);
       thinkingText.textContent = m.reasoning || "";
       if (thinkingSummary) thinkingSummary.textContent = `Thinking${reasoning ? ` · ${reasoning.length} chars` : ""}`;
     }
-    content.textContent = m.content || "";
+    // Use innerHTML for assistant (markdown), textContent for others.
+    if ((m.role || "") === "assistant") {
+      content.innerHTML = pgMarkdown(m.content || "");
+    } else {
+      content.textContent = m.content || "";
+    }
     if (m.streaming) {
       const cursor = document.createElement("span");
       cursor.className = "pg-stream-cursor";
@@ -7064,9 +7268,9 @@ return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g
     if (m.error) {
       body = `<div class="pg-message-error">${pgEsc(m.error)}</div>`;
     } else if (m.streaming) {
-      body = `${pgRenderThinking(m)}<div class="pg-message-content">${pgEsc(m.content || "")}<span class="pg-stream-cursor"></span></div>`;
+      body = `${pgRenderThinking(m)}<div class="pg-message-content">${pgRenderContent(m)}<span class="pg-stream-cursor"></span></div>`;
     } else {
-      body = `${pgRenderThinking(m)}<div class="pg-message-content">${pgEsc(m.content || "")}</div>`;
+      body = `${pgRenderThinking(m)}<div class="pg-message-content">${pgRenderContent(m)}</div>`;
     }
     if (m.provider) {
       const parts = [`provider:${pgEsc(m.provider)}`];
@@ -7093,7 +7297,9 @@ return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g
   function pgRenderThinking(m) {
     if ((m.role || "") !== "assistant") return "";
     const text = String(m.reasoning || "");
-    return `<details class="pg-thinking" ${text.trim() ? "open" : "hidden"}>
+    // Thinking is open during streaming, collapsed when finished.
+    const isOpen = text.trim() && m.streaming;
+    return `<details class="pg-thinking" ${text.trim() ? (isOpen ? "open" : "") : "hidden"}>
       <summary>Thinking${text ? ` · ${text.length} chars` : ""}</summary>
       <pre class="pg-thinking-text">${pgEsc(text)}</pre>
     </details>`;

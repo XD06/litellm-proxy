@@ -164,6 +164,7 @@ class AdminRoutesMixin:
                     "router": ROUTER.snapshot(),
                     "policy": scheduler_policy.policy_snapshot(CONFIG),
                     "history_dropped": history_dropped,
+                    "models_version": model_registry.models_version(),
                     "zero_config": bool(ZERO_CONFIG_ACTIVE),
                     "provider_presets": [
                         {
@@ -181,7 +182,15 @@ class AdminRoutesMixin:
             # Lightweight poll payload: counters + failure_summary + active,
             # without the heavy recent_requests array. Use metrics/full when
             # the raw recent request ring is needed (requests view, export).
-            return self._resp_json(OBSERVABILITY.snapshot_lite())
+            #
+            # models_version is a monotonic counter bumped whenever
+            # provider_model_capabilities change. The frontend compares it
+            # against its last-seen value to decide whether to re-fetch
+            # /-/admin/models/capabilities without pulling that heavier
+            # payload on every 5-second poll.
+            payload = OBSERVABILITY.snapshot_lite()
+            payload["models_version"] = model_registry.models_version()
+            return self._resp_json(payload)
         if endpoint == "metrics/full":
             return self._resp_json(OBSERVABILITY.snapshot())
         if endpoint == "provider-activity":
