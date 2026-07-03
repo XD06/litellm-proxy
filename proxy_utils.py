@@ -2,7 +2,60 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+import re
 from typing import Any, Dict, List, Optional
+
+
+# Known proxy schemes (lowercase). ``socks4a`` is included for completeness
+# even though urllib3.contrib.socks maps it to ``socks4``.
+_PROXY_SCHEMES = {"http", "https", "socks4", "socks4a", "socks5", "socks5h"}
+
+# Match ``ip:port`` or ``host:port`` without a scheme — e.g. ``127.0.0.1:7890``
+# or ``proxy.example.com:10808``.  Also handles ``user:pass@host:port`` without
+# a scheme.
+_BARE_PROXY_RE = re.compile(
+    r"^"                         # start
+    r"(?:[^/@:]+:[^//@:]+@)?"  # optional user:pass@
+    r"[\w.\-]+:"               # host or ip followed by colon
+    r"\d+"                      # port (digits only)
+    r"$"
+)
+
+
+def normalize_proxy_url(url: str) -> str:
+    """Return a proxy URL with a proper scheme.
+
+    Accepted inputs (case-insensitive scheme):
+      * ``127.0.0.1:10808``           → ``http://127.0.0.1:10808``
+      * ``http://127.0.0.1:10808``    → unchanged
+      * ``socks5://127.0.0.1:10808``  → unchanged
+      * ``http://user:pass@ip:port``  → unchanged
+      * ``user:pass@127.0.0.1:10808`` → ``http://user:pass@127.0.0.1:10808``
+
+    Returns an empty string for blank input.
+    """
+    proxy = str(url or "").strip()
+    if not proxy:
+        return ""
+    # Already has a scheme — validate it.
+    m = re.match(r"^([a-zA-Z][a-zA-Z0-9+.-]*)://", proxy)
+    if m:
+        scheme = m.group(1).lower()
+        if scheme not in _PROXY_SCHEMES:
+            # Unknown scheme — return as-is and let the caller fail with a
+            # clear error rather than silently mangling the URL.
+            return proxy
+        return proxy
+    # Bare ``host:port`` or ``user:pass@host:port`` — prepend ``http://``.
+    if _BARE_PROXY_RE.match(proxy):
+        return f"http://{proxy}"
+    return proxy
+
+
+def is_socks_proxy(proxy_url: str) -> bool:
+    """Return True if *proxy_url* uses a SOCKS scheme."""
+    proxy = str(proxy_url or "").strip().lower()
+    return proxy.startswith(("socks4://", "socks4a://", "socks5://", "socks5h://"))
 
 
 def normalize_proxy_config(value: Any) -> Dict[str, str]:
@@ -14,15 +67,15 @@ def normalize_proxy_config(value: Any) -> Dict[str, str]:
     if value is None:
         return {}
     if isinstance(value, str):
-        proxy = value.strip()
+        proxy = normalize_proxy_url(value)
         return {"http": proxy, "https": proxy} if proxy else {}
     if isinstance(value, dict):
         out: Dict[str, str] = {}
         for name in ("http", "https"):
-            proxy = str(value.get(name) or "").strip()
+            proxy = normalize_proxy_url(str(value.get(name) or "").strip())
             if proxy:
                 out[name] = proxy
-        fallback = str(value.get("url") or value.get("all") or "").strip()
+        fallback = normalize_proxy_url(str(value.get("url") or value.get("all") or "").strip())
         if fallback and not out:
             out = {"http": fallback, "https": fallback}
         return out
@@ -35,7 +88,7 @@ def resolve_proxy_url(*sources: Any) -> Optional[str]:
         normalized = normalize_proxy_config(src)
         proxy = (normalized.get("https") or normalized.get("http") or "").strip()
         if proxy:
-            return proxy
+            return normalize_proxy_url(proxy)
     return None
 
 

@@ -184,7 +184,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     return `<button class="button secondary icon-action proxy-test-button" type="button" data-proxy-test title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}">${iconSvg("activity")}</button>`;
   }
 
-  function proxyControlInput(name, value = "", placeholder = "http://proxy:port", attrs = "") {
+  function proxyControlInput(name, value = "", placeholder = "http://host:port · socks5://host:port · host:port", attrs = "") {
     return `
       <div class="proxy-control-row">
         <input class="control" name="${escapeHtml(name)}" value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder)}" ${attrs} />
@@ -671,11 +671,11 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           <div class="form-field-inline" style="margin-top:10px;display:grid;gap:10px">
             <label class="field form-field-inline">
               <span>Provider proxy <small class="muted">(optional)</small></span>
-              ${proxyControlInput("proxy", "", "http://proxy:port", "autocomplete=\"off\"")}
+              ${proxyControlInput("proxy", "", "http://host:port · socks5://host:port · host:port", "autocomplete=\"off\"")}
             </label>
             <label class="field form-field-inline">
               <span>Initial key proxy <small class="muted">(optional)</small></span>
-              ${proxyControlInput("key_proxy", "", "http://proxy:port", "autocomplete=\"off\"")}
+              ${proxyControlInput("key_proxy", "", "http://host:port · socks5://host:port · host:port", "autocomplete=\"off\"")}
             </label>
           </div>
         </details>
@@ -3905,7 +3905,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
               </label>
               <label class="field">
                 <span>Proxy</span>
-                ${proxyControlInput("proxy", provider.proxy || "", "direct / http proxy")}
+                ${proxyControlInput("proxy", provider.proxy || "", "direct / http://host:port / socks5://host:port")}
               </label>
               <label class="field">
                 <span>User-Agent</span>
@@ -3947,7 +3947,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           </div>
           <form class="config-key-form provider-inline-key-form" data-provider="${escapeHtml(name)}">
             <input class="control" name="key" type="password" autocomplete="off" placeholder="new key" required />
-            ${proxyControlInput("proxy", "", "key proxy")}
+            ${proxyControlInput("proxy", "", "http://host:port / socks5://host:port")}}
             <button class="button secondary" type="submit">Add key</button>
           </form>
         </div>

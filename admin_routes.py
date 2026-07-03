@@ -19,11 +19,11 @@ _MODEL_PRICING_LOCK = threading.Lock()
 
 
 def _test_proxy_connectivity(proxy_url: str, target_url: str = "", timeout_s: float = 4.0) -> dict:
-    proxy = str(proxy_url or "").strip()
+    from proxy_utils import normalize_proxy_url, is_socks_proxy
+
+    proxy = normalize_proxy_url(str(proxy_url or "").strip())
     if not proxy:
         return {"ok": False, "error": "proxy is required"}
-    if not re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", proxy):
-        return {"ok": False, "error": "proxy must include a scheme, e.g. http://127.0.0.1:7890"}
     target = str(target_url or "").strip() or "https://www.gstatic.com/generate_204"
     if not target.startswith(("http://", "https://")):
         return {"ok": False, "error": "target must be http or https"}
@@ -33,7 +33,22 @@ def _test_proxy_connectivity(proxy_url: str, target_url: str = "", timeout_s: fl
     try:
         import urllib3
 
-        manager = urllib3.ProxyManager(proxy, timeout=urllib3.Timeout(connect=timeout_s, read=timeout_s), retries=False)
+        if is_socks_proxy(proxy):
+            # SOCKS proxies require PySocks.  urllib3.contrib.socks provides
+            # SOCKSProxyManager which has the same API as ProxyManager.
+            try:
+                from urllib3.contrib.socks import SOCKSProxyManager
+            except ImportError:
+                return {
+                    "ok": False,
+                    "error": "SOCKS proxy support requires PySocks (pip install pysocks)",
+                    "elapsed_ms": round((time.perf_counter() - started) * 1000),
+                    "proxy": proxy,
+                    "target": target,
+                }
+            manager = SOCKSProxyManager(proxy, timeout=urllib3.Timeout(connect=timeout_s, read=timeout_s), retries=False)
+        else:
+            manager = urllib3.ProxyManager(proxy, timeout=urllib3.Timeout(connect=timeout_s, read=timeout_s), retries=False)
         resp = manager.request("GET", target, preload_content=False)
         status = int(getattr(resp, "status", 0) or 0)
         elapsed_ms = round((time.perf_counter() - started) * 1000)

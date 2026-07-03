@@ -10,6 +10,8 @@ from urllib.error import HTTPError, URLError
 from urllib.request import ProxyHandler, Request, build_opener
 import urllib3
 
+from proxy_utils import normalize_proxy_url, is_socks_proxy
+
 
 class MockRaw:
     def __init__(self, sock):
@@ -157,7 +159,12 @@ class OpenAIUpstreamClient:
         """返回带指定代理的 opener；无代理时复用默认 opener（仅在 urllib 传输下使用）。"""
         if not proxy_url or not str(proxy_url).strip():
             return self._default_opener
-        proxy_url = str(proxy_url).strip()
+        proxy_url = normalize_proxy_url(str(proxy_url).strip())
+        if is_socks_proxy(proxy_url):
+            # urllib's ProxyHandler does not support SOCKS natively.
+            # Fall back to the default opener; SOCKS is handled via the
+            # urllib3 code path (_pool_manager_for) in production.
+            return self._default_opener
         cached = self._proxy_openers.get(proxy_url)
         if cached is not None:
             return cached
@@ -181,7 +188,7 @@ class OpenAIUpstreamClient:
         if not proxy_url or not str(proxy_url).strip():
             key = "direct"
         else:
-            key = str(proxy_url).strip()
+            key = normalize_proxy_url(str(proxy_url).strip())
 
         cached = self._pool_managers.get(key)
         if cached is not None:
@@ -202,6 +209,19 @@ class OpenAIUpstreamClient:
             try:
                 if key == "direct":
                     manager = urllib3.PoolManager(
+                        num_pools=pool_size,
+                        maxsize=pool_size,
+                        retries=False
+                    )
+                elif is_socks_proxy(key):
+                    try:
+                        from urllib3.contrib.socks import SOCKSProxyManager
+                    except ImportError:
+                        raise ImportError(
+                            "SOCKS proxy support requires PySocks (pip install pysocks)"
+                        )
+                    manager = SOCKSProxyManager(
+                        key,
                         num_pools=pool_size,
                         maxsize=pool_size,
                         retries=False
