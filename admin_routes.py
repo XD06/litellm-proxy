@@ -2,6 +2,7 @@ import hmac
 import json
 import re
 import threading
+import time
 import traceback
 import urllib.parse
 from typing import Optional
@@ -15,6 +16,48 @@ _MODEL_PRICING_CACHE: dict = {}
 # all write the cache simultaneously.  The lock ensures only one thread does
 # the work; others wait and reuse the result.
 _MODEL_PRICING_LOCK = threading.Lock()
+
+
+def _test_proxy_connectivity(proxy_url: str, target_url: str = "", timeout_s: float = 4.0) -> dict:
+    proxy = str(proxy_url or "").strip()
+    if not proxy:
+        return {"ok": False, "error": "proxy is required"}
+    if not re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", proxy):
+        return {"ok": False, "error": "proxy must include a scheme, e.g. http://127.0.0.1:7890"}
+    target = str(target_url or "").strip() or "https://www.gstatic.com/generate_204"
+    if not target.startswith(("http://", "https://")):
+        return {"ok": False, "error": "target must be http or https"}
+    timeout_s = max(1.0, min(10.0, float(timeout_s or 4.0)))
+    started = time.perf_counter()
+    resp = None
+    try:
+        import urllib3
+
+        manager = urllib3.ProxyManager(proxy, timeout=urllib3.Timeout(connect=timeout_s, read=timeout_s), retries=False)
+        resp = manager.request("GET", target, preload_content=False)
+        status = int(getattr(resp, "status", 0) or 0)
+        elapsed_ms = round((time.perf_counter() - started) * 1000)
+        return {
+            "ok": 200 <= status < 400,
+            "status": status,
+            "elapsed_ms": elapsed_ms,
+            "proxy": proxy,
+            "target": target,
+        }
+    except Exception as exc:
+        return {
+            "ok": False,
+            "error": str(exc) or exc.__class__.__name__,
+            "elapsed_ms": round((time.perf_counter() - started) * 1000),
+            "proxy": proxy,
+            "target": target,
+        }
+    finally:
+        try:
+            if resp is not None:
+                resp.release_conn()
+        except Exception:
+            pass
 
 class AdminRoutesMixin:
     def _admin_authorized(self) -> bool:
@@ -389,6 +432,24 @@ class AdminRoutesMixin:
         from urllib.parse import unquote
         parts = [unquote(p) for p in str(endpoint or "").strip("/").split("/") if p]
         body = None
+        if parts == ["proxy", "test"]:
+            body = self._read_json_body()
+            if isinstance(body, tuple):
+                return self._resp_json(body[0], body[1])
+            result = _test_proxy_connectivity(
+                str((body or {}).get("proxy") or "").strip(),
+                target_url=str((body or {}).get("target") or "").strip(),
+                timeout_s=float((body or {}).get("timeout_s") or 4.0),
+            )
+            self._audit_admin_event(
+                "proxy_tested",
+                target="proxy",
+                status="ok" if result.get("ok") else "failed",
+                detail={"ok": bool(result.get("ok")), "status": result.get("status"), "elapsed_ms": result.get("elapsed_ms")},
+                error=str(result.get("error") or ""),
+            )
+            return self._resp_json({"action": "proxy_tested", "result": result})
+
         if parts == ["requests", "clear"]:
             body = self._read_json_body()
             if isinstance(body, tuple):

@@ -180,6 +180,19 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     return text || fallback;
   }
 
+  function proxyTestButton(title = "Test proxy") {
+    return `<button class="button secondary icon-action proxy-test-button" type="button" data-proxy-test title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}">${iconSvg("activity")}</button>`;
+  }
+
+  function proxyControlInput(name, value = "", placeholder = "http://proxy:port", attrs = "") {
+    return `
+      <div class="proxy-control-row">
+        <input class="control" name="${escapeHtml(name)}" value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder)}" ${attrs} />
+        ${proxyTestButton()}
+      </div>
+    `;
+  }
+
   function usageFrom(value) {
     const usage = value?.usage && typeof value.usage === "object" ? value.usage : value || {};
     const inputTokens = Number(usage.input_tokens || value?.input_tokens || 0);
@@ -658,11 +671,11 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           <div class="form-field-inline" style="margin-top:10px;display:grid;gap:10px">
             <label class="field form-field-inline">
               <span>Provider proxy <small class="muted">(optional)</small></span>
-              <input class="control" name="proxy" placeholder="http://proxy:port" autocomplete="off" />
+              ${proxyControlInput("proxy", "", "http://proxy:port", "autocomplete=\"off\"")}
             </label>
             <label class="field form-field-inline">
               <span>Initial key proxy <small class="muted">(optional)</small></span>
-              <input class="control" name="key_proxy" placeholder="http://proxy:port" autocomplete="off" />
+              ${proxyControlInput("key_proxy", "", "http://proxy:port", "autocomplete=\"off\"")}
             </label>
           </div>
         </details>
@@ -859,9 +872,10 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       state.forceTimeseriesFetch = false;
       state.forceRequestsFetch = false;
 
+      const providerActivityPath = `/-/admin/provider-activity?limit=60&include_events=${view === "providers" ? "1" : "0"}`;
       const fetches = {
         metrics: apiGet("/-/admin/metrics"),
-        providerActivity: apiGet("/-/admin/provider-activity?limit=60&include_events=0"),
+        providerActivity: apiGet(providerActivityPath),
         healthScores: apiGet("/-/admin/health/scores"),
       };
       if (needStaticAdminData) {
@@ -1086,6 +1100,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     renderProviderDrawer(); __mark("providerDrawer");
     bindViewTargetButtons();
     bindConfigTabs();
+    bindProxyTestButtons();
     window.__perfMark && window.__perfMark("renderAll.total", performance.now() - __t0);
   }
 
@@ -1123,6 +1138,47 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       const saved = localStorage.getItem("proxyConsoleConfigTab");
       if (saved) switchConfigTab(saved);
     } catch (_e) {}
+  }
+
+  function bindProxyTestButtons(root = document) {
+    root.querySelectorAll("[data-proxy-test]").forEach((button) => {
+      if (!button.innerHTML.trim()) updateDOM(button, iconSvg("activity"));
+      if (button.dataset.boundProxyTest) return;
+      button.dataset.boundProxyTest = "1";
+      button.addEventListener("click", async () => {
+        const row = button.closest(".proxy-control-row") || button.parentElement;
+        const input = row?.querySelector?.("input[name='proxy'], input[name='key_proxy']");
+        const proxy = String(input?.value || "").trim();
+        if (!proxy) {
+          button.classList.remove("is-ok", "is-bad", "is-testing");
+          setNotice("Proxy is empty; this field will use direct or inherited routing.", "info");
+          return;
+        }
+        button.disabled = true;
+        button.classList.remove("is-ok", "is-bad");
+        button.classList.add("is-testing");
+        updateDOM(button, refreshSpinner());
+        try {
+          const resp = await apiPost("/-/admin/proxy/test", { proxy });
+          const result = resp.result || {};
+          button.classList.toggle("is-ok", Boolean(result.ok));
+          button.classList.toggle("is-bad", !result.ok);
+          updateDOM(button, iconSvg(result.ok ? "check" : "alert"));
+          if (result.ok) {
+            setNotice(`Proxy connected in ${fmtCompactMs(result.elapsed_ms || 0)}.`, "ok");
+          } else {
+            setNotice(`Proxy test failed: ${result.error || `HTTP ${result.status || "-"}`}`);
+          }
+        } catch (err) {
+          button.classList.add("is-bad");
+          updateDOM(button, iconSvg("alert"));
+          setNotice(`Proxy test failed: ${err.message}`);
+        } finally {
+          button.classList.remove("is-testing");
+          button.disabled = false;
+        }
+      });
+    });
   }
 
   function renderTimeRangeControl() {
@@ -2905,7 +2961,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
   }
 
   function providerSparklineStats(activity) {
-    const events = (Array.isArray(activity?.events) ? activity.events : []).slice(-24);
+    const events = (Array.isArray(activity?.events) ? activity.events : []).slice(-36);
     const latencies = events.map((event) => Math.max(0, Number(event.latencyMs) || 0));
     const avg = latencies.length ? Math.round(latencies.reduce((sum, value) => sum + value, 0) / latencies.length) : null;
     const failed = events.filter((event) => event.ok === false || event.status === "failed").length;
@@ -2915,34 +2971,36 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
   function providerSparkline(activity, providerName) {
     const stats = providerSparklineStats(activity);
     const events = stats.events;
-    const W = 120;
-    const H = 26;
-    const pad = 3;
+    const slotCount = 36;
     if (!events.length) {
       return `
-        <div class="provider-sparkline is-empty" title="No recent provider activity">
-          <span>${iconSvg("activity")}</span>
-          <small>no recent calls</small>
+        <div class="provider-sparkline provider-call-strip is-empty" title="No recent provider activity">
+          <div class="provider-call-bars" aria-hidden="true">
+            ${Array.from({ length: slotCount }, () => `<i class="is-empty-slot"></i>`).join("")}
+          </div>
+          <div class="provider-call-axis"><span>PAST</span><span>NOW</span></div>
         </div>
       `;
     }
-    const latencies = stats.latencies;
-    const max = Math.max(250, ...latencies);
-    const points = latencies.map((latency, index) => {
-      const x = events.length === 1 ? W * 0.5 : pad + (index / (events.length - 1)) * (W - pad * 2);
-      const y = pad + (1 - Math.min(1, latency / max)) * (H - pad * 2);
-      return { x, y };
-    });
-    const linePath = smoothPathD(points);
     const failed = stats.failed;
-    const tone = failed ? "warn" : "ok";
+    const slow = events.filter((event) => Number(event.latencyMs || 0) > 2500).length;
+    const tone = failed ? "bad" : slow ? "warn" : "ok";
     const avg = stats.avg || 0;
+    const emptySlots = Array.from({ length: Math.max(0, slotCount - events.length) }, () => (
+      `<i class="is-empty-slot"></i>`
+    ));
+    const eventBars = events.map((event) => {
+      const latency = Math.max(0, Number(event.latencyMs) || 0);
+      const bad = event.ok === false || event.status === "failed";
+      const warn = !bad && latency > 2500;
+      const label = `${bad ? "failed" : warn ? "slow" : "ok"} / ${fmtCompactMs(latency || avg)}`;
+      return `<i class="${bad ? "is-bad" : warn ? "is-warn" : "is-ok"}" title="${escapeHtml(label)}"></i>`;
+    });
+    const bars = emptySlots.concat(eventBars).slice(-slotCount).join("");
     return `
-      <div class="provider-sparkline tone-${escapeHtml(tone)}" title="${escapeHtml(`${providerName}: ${events.length} recent calls / avg ${fmtCompactMs(avg)} / ${failed} failed`)}">
-        <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
-          <path class="provider-sparkline-fill" d="${linePath} L ${points[points.length - 1].x.toFixed(1)} ${H} L ${points[0].x.toFixed(1)} ${H} Z"></path>
-          <path class="provider-sparkline-line" d="${linePath}"></path>
-        </svg>
+      <div class="provider-sparkline provider-call-strip tone-${escapeHtml(tone)}" title="${escapeHtml(`${providerName}: ${events.length} recent calls / avg ${fmtCompactMs(avg)} / ${failed} failed`)}">
+        <div class="provider-call-bars" aria-hidden="true">${bars}</div>
+        <div class="provider-call-axis"><span>PAST</span><span>NOW</span></div>
       </div>
     `;
   }
@@ -3847,7 +3905,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
               </label>
               <label class="field">
                 <span>Proxy</span>
-                <input class="control" name="proxy" value="${escapeHtml(provider.proxy || "")}" placeholder="direct / http proxy" />
+                ${proxyControlInput("proxy", provider.proxy || "", "direct / http proxy")}
               </label>
               <label class="field">
                 <span>User-Agent</span>
@@ -3889,7 +3947,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           </div>
           <form class="config-key-form provider-inline-key-form" data-provider="${escapeHtml(name)}">
             <input class="control" name="key" type="password" autocomplete="off" placeholder="new key" required />
-            <input class="control" name="proxy" placeholder="key proxy" />
+            ${proxyControlInput("proxy", "", "key proxy")}
             <button class="button secondary" type="submit">Add key</button>
           </form>
         </div>
@@ -3921,7 +3979,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         </div>
         <label class="field key-proxy-field">
           <span>Proxy</span>
-          <input class="control" name="proxy" value="${escapeHtml(proxy)}" placeholder="inherit" />
+          ${proxyControlInput("proxy", proxy, "inherit")}
         </label>
         <button class="button secondary compact-action" type="submit">Save</button>
       </form>
@@ -5323,7 +5381,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
               </label>
               <label class="field">
                 <span class="label-with-tip">${t("form.proxy")}<span class="help-tip" data-tip="${escapeHtml(t("form.proxy_tip"))}">?</span></span>
-                <input class="control" name="proxy" value="${escapeHtml(provider.proxy || "")}" placeholder="direct or http://127.0.0.1:8002" />
+                ${proxyControlInput("proxy", provider.proxy || "", "direct or http://127.0.0.1:8002")}
               </label>
               <label class="field">
                 <span class="label-with-tip">${t("form.user_agent")}<span class="help-tip" data-tip="${escapeHtml(t("form.ua_tip"))}">?</span></span>

@@ -4375,6 +4375,48 @@ tr.clickable:hover {
   grid-column: 1 / -1;
 }
 
+.proxy-control-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 30px;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+
+.proxy-control-row .control {
+  min-width: 0;
+}
+
+.proxy-test-button {
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  min-height: 30px;
+  border-radius: 8px;
+  color: var(--muted);
+}
+
+.proxy-test-button .icon-svg {
+  width: 13px;
+  height: 13px;
+}
+
+.proxy-test-button.is-testing {
+  color: var(--info);
+}
+
+.proxy-test-button.is-ok {
+  border-color: color-mix(in srgb, var(--success) 24%, var(--line));
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.proxy-test-button.is-bad {
+  border-color: color-mix(in srgb, var(--danger) 24%, var(--line));
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
 .config-primary-panel .panel-head,
 .model-routes-panel .panel-head,
 .provider-model-map-panel .panel-head,
@@ -11451,7 +11493,7 @@ body {
 .playground-layout {
   grid-template-columns: 330px minmax(0, 1fr);
   gap: 14px;
-  height: calc(100dvh - 76px);
+  margin-top: 20px;
   padding: 0;
   overflow: hidden;
 }
@@ -13510,7 +13552,6 @@ body {
 }
 
 #providersView .panel-pagination .request-page-indicator {
-  min-height: 24px;
   padding-inline: 7px;
   font-size: 10.5px;
 }
@@ -13738,7 +13779,7 @@ body {
 
 #providersView .provider-runtime-card.is-disabled .provider-name,
 #providersView .provider-runtime-card.is-disabled .provider-state-note,
-#providersView .provider-runtime-card.is-disabled .provider-sparkline small {
+#providersView .provider-runtime-card.is-disabled .provider-call-axis {
   color: #8f4d58;
 }
 
@@ -13753,81 +13794,82 @@ body {
 }
 
 #providersView .provider-runtime-card.is-disabled .provider-signal-item,
-#providersView .provider-runtime-card.is-disabled .provider-sparkline,
 #providersView .provider-runtime-card.is-disabled .provider-stat {
   border-color: #f4d7dc;
   background: #fffafb;
 }
 
-#providersView .provider-runtime-card.is-disabled .provider-sparkline-line {
-  stroke: #b23a48;
-}
-
-#providersView .provider-runtime-card.is-disabled .provider-sparkline-fill {
-  fill: rgba(178, 58, 72, 0.13);
+#providersView .provider-runtime-card.is-disabled .provider-call-bars i {
+  background: #d86a78;
+  opacity: 0.62;
 }
 
 #providersView .provider-sparkline {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  align-items: center;
-  min-height: 34px;
-  padding: 4px 7px;
-  border: 1px solid #edf1f5;
-  border-radius: 9px;
-  background: #fbfcfd;
+  gap: 4px;
+  min-height: 25px;
+  padding: 1px 2px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: #64748b;
 }
 
-#providersView .provider-sparkline svg {
-  display: block;
-  width: 100%;
-  height: 25px;
+#providersView .provider-call-axis {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   min-width: 0;
 }
 
-#providersView .provider-sparkline-fill {
-  fill: color-mix(in srgb, var(--success) 14%, transparent);
+#providersView .provider-call-bars {
+  display: grid;
+  grid-template-columns: repeat(36, minmax(0, 1fr));
+  gap: 2px;
+  align-items: center;
+  height: 12px;
+  min-width: 0;
+  padding-block: 1px;
 }
 
-#providersView .provider-sparkline-line {
-  fill: none;
-  stroke: var(--success);
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.8;
-  vector-effect: non-scaling-stroke;
+#providersView .provider-call-bars i {
+  display: block;
+  width: 90%;
+  height: 12px;
+  min-height: 8px;
+  border-radius: 999px;
+  background: #23a36b;
+  box-shadow: inset 0 -1px 0 rgba(15, 23, 42, 0.08);
 }
 
-#providersView .provider-sparkline.tone-warn .provider-sparkline-fill {
-  fill: color-mix(in srgb, var(--warning) 16%, transparent);
+#providersView .provider-call-bars i.is-empty-slot {
+  background: #dce3eb;
+  box-shadow: none;
+  opacity: 0.68;
 }
 
-#providersView .provider-sparkline.tone-warn .provider-sparkline-line {
-  stroke: var(--warning);
+#providersView .provider-call-bars i.is-warn {
+  background: #E59E0B;
 }
 
-#providersView .provider-sparkline small {
-  color: #7b8491;
-  font: 680 9.5px/1 var(--mono);
-  white-space: nowrap;
+#providersView .provider-call-bars i.is-bad {
+  background: #d84e5b;
+}
+
+#providersView .provider-call-axis {
+  color: #94a3b8;
+  font: 700 8px/1 var(--mono);
+  letter-spacing: 0.08em;
 }
 
 #providersView .provider-sparkline.is-empty {
-  grid-template-columns: auto minmax(0, 1fr);
   color: #94a3b8;
 }
 
-#providersView .provider-sparkline.is-empty span {
-  display: inline-grid;
-  width: 20px;
-  height: 20px;
-  place-items: center;
-}
-
-#providersView .provider-sparkline.is-empty .icon-svg {
-  width: 13px;
-  height: 13px;
+#providersView .provider-sparkline.is-empty .provider-call-bars i {
+  background: #d9e0e8;
+  opacity: 0.65;
 }
 
 @media (max-width: 1180px) {

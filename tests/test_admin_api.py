@@ -322,6 +322,39 @@ class AdminApiTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn("counters", body)
 
+    def test_proxy_test_requires_proxy_url(self):
+        cfg = {"server": {"admin_key": "admin-secret"}, "providers": {}, "models": {}}
+        headers = {"Content-Type": "application/json", "X-Admin-Key": "admin-secret"}
+
+        with patch.object(sse2json, "CONFIG", cfg):
+            status, body = self.post_json("/-/admin/proxy/test", {"proxy": ""}, headers=headers)
+
+        self.assertEqual(status, 200)
+        self.assertFalse(body["result"]["ok"])
+        self.assertIn("proxy is required", body["result"]["error"])
+
+    def test_proxy_test_uses_proxy_manager(self):
+        cfg = {"server": {"admin_key": "admin-secret"}, "providers": {}, "models": {}}
+        headers = {"Content-Type": "application/json", "X-Admin-Key": "admin-secret"}
+        fake_response = MagicMock()
+        fake_response.status = 204
+        fake_manager = MagicMock()
+        fake_manager.request.return_value = fake_response
+
+        with patch.object(sse2json, "CONFIG", cfg), patch("urllib3.ProxyManager", return_value=fake_manager) as proxy_manager:
+            status, body = self.post_json(
+                "/-/admin/proxy/test",
+                {"proxy": "http://127.0.0.1:7890", "target": "https://example.com/ping", "timeout_s": 2},
+                headers=headers,
+            )
+
+        self.assertEqual(status, 200)
+        self.assertTrue(body["result"]["ok"])
+        self.assertEqual(body["result"]["status"], 204)
+        proxy_manager.assert_called_once()
+        fake_manager.request.assert_called_once_with("GET", "https://example.com/ping", preload_content=False)
+        fake_response.release_conn.assert_called_once()
+
     def test_admin_query_auth_key_is_not_returned_as_filter(self):
         cfg = {"server": {"admin_key": "admin-secret", "allow_query_admin_key": True}, "providers": {}, "models": {}}
 

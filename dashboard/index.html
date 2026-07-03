@@ -418,7 +418,10 @@
                 <form id="globalProxyForm" class="global-proxy-form">
                   <label class="field">
                     <span class="label-with-tip" data-i18n="cfg.proxy_url">Proxy URL<span class="help-tip" data-tip="Blank means direct unless a provider or key proxy is set." data-i18n-tip="cfg.proxy_url_tip">?</span></span>
-                    <input class="control" name="proxy" placeholder="direct or http://127.0.0.1:8002" />
+                    <div class="proxy-control-row">
+                      <input class="control" name="proxy" placeholder="direct or http://127.0.0.1:8002" />
+                      <button class="button secondary icon-action proxy-test-button" type="button" data-proxy-test title="Test proxy" aria-label="Test proxy"></button>
+                    </div>
                   </label>
                   <button class="button secondary" type="submit" data-i18n="cfg.save_global_proxy">Save global proxy</button>
                 </form>
