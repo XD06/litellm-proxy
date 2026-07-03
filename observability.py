@@ -219,6 +219,7 @@ class ProxyObservability:
         http_status: Optional[int] = None,
         usage: Optional[Dict[str, Any]] = None,
         duration_ms: Optional[int] = None,
+        first_byte_ms: Optional[int] = None,
         diagnostic_stage: str = "",
         upstream_error_summary: str = "",
         upstream_error_type: str = "",
@@ -239,6 +240,8 @@ class ProxyObservability:
         }
         if duration_ms is not None:
             item["duration_ms"] = max(0, int(duration_ms or 0))
+        if first_byte_ms is not None:
+            item["first_byte_ms"] = max(0, int(first_byte_ms or 0))
         if raw_key:
             item["key_masked"] = self._mask_secret(raw_key)
             item["key_id"] = self._hash_secret_short(raw_key)
@@ -634,6 +637,12 @@ class ProxyObservability:
             finished_at = int(item.get("finished_at") or 0)
             model = str(item.get("model") or "-")
 
+            # The request-level first_byte_ms is the authoritative latency
+            # metric for provider activity bars — it reflects how fast the
+            # provider responded with its first token, not the full streaming
+            # duration which can be minutes for long completions.
+            request_first_byte = int(item.get("first_byte_ms") or 0)
+
             # Build involved-providers map without a per-iteration closure.
             involved: Dict[str, Dict[str, Any]] = {}
             for attempt in attempts:
@@ -646,6 +655,11 @@ class ProxyObservability:
                     involved[name] = entry
                 if str(attempt.get("outcome") or "") == "success":
                     entry["success"] = True
+                    # Prefer attempt-level first_byte_ms (per-attempt TTFB);
+                    # fall back to duration_ms if first_byte_ms not recorded.
+                    fb = int(attempt.get("first_byte_ms") or 0)
+                    if fb > 0:
+                        entry["first_byte_ms"] = fb
                     dur = int(attempt.get("duration_ms") or 0)
                     if dur > 0:
                         entry["duration_ms"] = dur
@@ -667,8 +681,20 @@ class ProxyObservability:
                 else:
                     tone = "bad"
                 reason = entry.get("failed_reason") or (item_error if tone != "ok" else "") or request_status
+                # Use per-attempt first_byte_ms when available; fall back to
+                # per-attempt duration_ms; finally fall back to request-level
+                # first_byte_ms. This ensures failover scenarios correctly
+                # attribute latency to the winning provider, not the global TTFB.
+                attempt_fb = int(entry.get("first_byte_ms") or 0)
                 attempt_dur = int(entry.get("duration_ms") or 0)
-                latency = attempt_dur if (success_here or final_success) and attempt_dur > 0 else 0
+                latency = 0
+                if success_here or final_success:
+                    if attempt_fb > 0:
+                        latency = attempt_fb
+                    elif attempt_dur > 0:
+                        latency = attempt_dur
+                    elif request_first_byte > 0:
+                        latency = request_first_byte
 
                 # Lightweight tuple instead of full dict — saves dict allocation
                 # for every event on the poll path.

@@ -38,6 +38,10 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
   // expensive) batch resolve. Reset to "" to force a fresh fetch.
   let _lastPricingKey = "";
 
+  // Track whether a follow-up refresh for pending model capabilities is
+  // already scheduled, so we don't stack multiple timers.
+  let _capabilityFollowUpTimer = null;
+
   // Re-entrancy guard for refreshAll: while a refresh (fetch + renderAll) is in
   // flight, additional refreshAll calls are coalesced into a single trailing
   // refresh rather than running concurrently. This prevents tab-switch bursts
@@ -1011,6 +1015,12 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       renderAll();
       if (!preserveNotice) setNotice("");
       setConnection(true, `Updated ${new Date().toLocaleTimeString()}`);
+
+      // If any provider's model capability is still "pending" (background
+      // discovery in progress), schedule a follow-up staticData refresh so
+      // the dashboard eventually picks up the resolved status without
+      // requiring a manual page reload.
+      _maybeScheduleCapabilityFollowUp();
     } catch (err) {
       setConnection(false, t("conn.connection_error"));
       if (isAuthError(err)) {
@@ -1036,6 +1046,31 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       // Defensive: never leave the re-entrancy lock held.
       _refreshInFlight = false;
     }
+  }
+
+  function _hasPendingModelCapabilities() {
+    const providers = state.data?.status?.models?.providers;
+    if (!providers || typeof providers !== "object") return false;
+    return Object.values(providers).some(
+      (cap) => cap && typeof cap === "object" && cap.status === "pending"
+    );
+  }
+
+  function _maybeScheduleCapabilityFollowUp() {
+    if (!_hasPendingModelCapabilities()) {
+      if (_capabilityFollowUpTimer) {
+        clearTimeout(_capabilityFollowUpTimer);
+        _capabilityFollowUpTimer = null;
+      }
+      return;
+    }
+    // Already scheduled — let the existing timer fire.
+    if (_capabilityFollowUpTimer) return;
+    _capabilityFollowUpTimer = setTimeout(() => {
+      _capabilityFollowUpTimer = null;
+      // Only re-fetch the static (capability) data, not a full heavy refresh.
+      refreshAll({ quiet: true, staticData: true });
+    }, 3000);
   }
 
   async function refreshProviderConfigView({ preserveNotice = true } = {}) {
@@ -2959,7 +2994,6 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       view.runtimeState.label,
       view.formatNames.join(" "),
       view.modelItems.map((item) => `${item.label} ${item.raw}`).join(" "),
-      view.activity.lastError?.reason,
     ].join(" ").toLowerCase();
     return haystack.includes(search);
   }
@@ -2972,7 +3006,6 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const successText = successRate === null ? "—" : fmtPct(successRate);
     const latencyText = view.activity.latestLatency ? fmtCompactMs(view.activity.latestLatency) : "—";
     const modelCount = view.modelItems.length;
-    const recentError = view.activity.lastError?.reason || "";
     const sparkStats = providerSparklineStats(view.activity);
     const isDisabled = view.runtimeState.id === "disabled";
     const successTone = successRate === null ? "neutral" : successRate >= 0.9 ? "ok" : successRate >= 0.5 ? "warn" : "bad";
@@ -2998,8 +3031,6 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           <span class="provider-signal-item ${escapeHtml(latencyTone)}" title="Latest first byte latency">${iconSvg("clock")}<strong>${escapeHtml(latencyText)}</strong><small>ttfb</small></span>
         </div>
         ${providerSparkline(view.activity, view.name)}
-
-        ${recentError ? `<div class="provider-card-error"><span class="provider-card-error-icon">${iconSvg("alert")}</span><strong>${messageMarkup(recentError)}</strong></div>` : ""}
 
         <div class="provider-card-footer">
           <div class="provider-card-stats">
@@ -3044,7 +3075,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       `;
     }
     const failed = stats.failed;
-    const slow = events.filter((event) => Number(event.latencyMs || 0) > 2500).length;
+    const slow = events.filter((event) => Number(event.latencyMs || 0) > 5000).length;
     const tone = failed ? "bad" : slow ? "warn" : "ok";
     const avg = stats.avg || 0;
     const emptySlots = Array.from({ length: Math.max(0, slotCount - events.length) }, () => (
@@ -3053,7 +3084,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const eventBars = events.map((event) => {
       const latency = Math.max(0, Number(event.latencyMs) || 0);
       const bad = event.ok === false || event.status === "failed";
-      const warn = !bad && latency > 2500;
+      const warn = !bad && latency > 5000;
       const label = `${bad ? "failed" : warn ? "slow" : "ok"} / ${fmtCompactMs(latency || avg)}`;
       return `<i class="${bad ? "is-bad" : warn ? "is-warn" : "is-ok"}" title="${escapeHtml(label)}"></i>`;
     });

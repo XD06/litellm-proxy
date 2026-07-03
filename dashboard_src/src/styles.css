@@ -12150,6 +12150,7 @@ body {
   padding: 22px 24px 16px;
   border-bottom: 1px solid #edf1f5;
   background: linear-gradient(180deg, #fff 0%, #fbfcfd 100%);
+  border-radius: 20%;
 }
 
 .form-modal-head h2,
@@ -12170,6 +12171,7 @@ body {
   gap: 16px;
   padding: 20px 24px 22px;
   background: #fff;
+  border-radius: 15%;
 }
 
 .form-modal .provider-create-form details,
@@ -12199,9 +12201,8 @@ body {
 }
 
 .confirm-actions {
-  margin: 0 -18px -18px;
   padding: 14px 18px 18px;
-  border-top: 1px solid #edf1f5;
+  border: 1px solid #edf1f5;
   background: #fbfcfd;
 }
 
@@ -13572,6 +13573,8 @@ body {
 }
 
 #providersView .provider-runtime-card {
+  display: flex;
+  flex-direction: column;
   gap: 8px;
   min-height: 0;
   height: 100%;
@@ -13841,7 +13844,7 @@ body {
 
 #providersView .provider-call-bars i {
   display: block;
-  width: 90%;
+  width: 4px;
   height: 12px;
   min-height: 8px;
   border-radius: 999px;

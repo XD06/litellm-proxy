@@ -750,7 +750,7 @@ def _probe_provider_key_once(provider: str, key_index: int, model: str = "") -> 
             url, headers, payload, proxy_url=proxy_url, remaining_timeout_s=15
         )
         OBSERVABILITY.record_first_byte(request_id, latency_ms)
-        OBSERVABILITY.record_attempt(request_id, probe_attempt, outcome="success")
+        OBSERVABILITY.record_attempt(request_id, probe_attempt, outcome="success", first_byte_ms=latency_ms)
         OBSERVABILITY.record_request_end(request_id, status_code=200)
         return {"ok": True, "model": canonical_model, "requested_model": canonical_model, "upstream_model": provider_model, "format": fmt, "latency_ms": latency_ms, "user_agent": actual_user_agent}
     except HTTPError as e:
@@ -1248,6 +1248,14 @@ def _upstream_error_diagnostics(stage: str, error_body: str = "", *, exception=N
 
 
 def _attempt_duration_ms(started_at) -> int:
+    try:
+        return max(0, int((time.time() - float(started_at)) * 1000))
+    except Exception:
+        return 0
+
+
+def _attempt_first_byte_ms(started_at) -> int:
+    """Compute per-attempt first-byte latency from attempt start time."""
     try:
         return max(0, int((time.time() - float(started_at)) * 1000))
     except Exception:
@@ -2394,6 +2402,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                         initial_lines = None
                     else:
                         initial_lines = _prefetch_initial_stream_lines(upstream_conn, first_event_remaining)
+                    attempt_first_byte = _attempt_first_byte_ms(attempt_started)
                     OBSERVABILITY.record_first_byte(request_id)
 
                     self.close_connection = True
@@ -2454,6 +2463,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                         outcome="success",
                         usage=_response_usage(stream_resp),
                         duration_ms=_attempt_duration_ms(attempt_started),
+                        first_byte_ms=attempt_first_byte,
                     )
                     OBSERVABILITY.record_request_end(request_id, status_code=200)
                     return
@@ -2498,6 +2508,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                     outcome="success",
                     usage=_response_usage(client_response, upstream_data),
                     duration_ms=_attempt_duration_ms(attempt_started),
+                    first_byte_ms=_attempt_first_byte_ms(attempt_started),
                 )
                 OBSERVABILITY.record_request_end(request_id, status_code=200)
                 _route_hdrs = {
@@ -2698,6 +2709,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                     else:
                         first_line = _prefetch_first_stream_line(upstream_conn, first_event_remaining)
                         initial_lines = [first_line] if first_line else None
+                    attempt_first_byte = _attempt_first_byte_ms(attempt_started)
                     OBSERVABILITY.record_first_byte(request_id)
 
                     self.close_connection = True
@@ -2759,6 +2771,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                         outcome="success",
                         usage=_response_usage(stream_resp),
                         duration_ms=_attempt_duration_ms(attempt_started),
+                        first_byte_ms=attempt_first_byte,
                     )
                     OBSERVABILITY.record_request_end(request_id, status_code=200)
                     return
@@ -2803,6 +2816,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                     outcome="success",
                     usage=_response_usage(client_response, upstream_data),
                     duration_ms=_attempt_duration_ms(attempt_started),
+                    first_byte_ms=_attempt_first_byte_ms(attempt_started),
                 )
                 OBSERVABILITY.record_request_end(request_id, status_code=200)
                 _route_hdrs = {
@@ -3096,6 +3110,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                         else:
                             first_line = _prefetch_first_stream_line(upstream_conn, first_event_remaining)
                             initial_lines = [first_line] if first_line else None
+                        attempt_first_byte = _attempt_first_byte_ms(attempt_started)
                         OBSERVABILITY.record_first_byte(request_id)
 
                         self.close_connection = True
@@ -3151,6 +3166,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                             outcome="success",
                             usage=_response_usage(anth_resp),
                             duration_ms=_attempt_duration_ms(attempt_started),
+                            first_byte_ms=attempt_first_byte,
                         )
                         OBSERVABILITY.record_request_end(request_id, status_code=200)
                         if DEBUG_LOG:
@@ -3193,6 +3209,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                         outcome="success",
                         usage=_response_usage(anth_resp, upstream_data),
                         duration_ms=_attempt_duration_ms(attempt_started),
+                        first_byte_ms=_attempt_first_byte_ms(attempt_started),
                     )
                     OBSERVABILITY.record_request_end(request_id, status_code=200)
                     _route_hdrs = {

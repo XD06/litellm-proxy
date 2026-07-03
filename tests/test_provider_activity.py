@@ -23,10 +23,11 @@ def _obs():
     return ProxyObservability({"observability": {"history": {"enabled": False}}})
 
 
-def _record(obs, request_id, *, attempts, status_code, first_byte_ms=0, final_provider="", attempt_durations=None):
+def _record(obs, request_id, *, attempts, status_code, first_byte_ms=0, final_provider="", attempt_durations=None, attempt_first_bytes=None):
     """Drive a request through start -> attempts -> end.
 
     attempt_durations: optional list of duration_ms values, one per attempt.
+    attempt_first_bytes: optional list of first_byte_ms values, one per attempt.
     """
     obs.record_request_start(
         request_id,
@@ -40,9 +41,12 @@ def _record(obs, request_id, *, attempts, status_code, first_byte_ms=0, final_pr
         obs.record_first_byte(request_id, first_byte_ms)
     for i, (attempt, outcome) in enumerate(attempts):
         dur = None
+        fb = None
         if attempt_durations and i < len(attempt_durations):
             dur = attempt_durations[i]
-        obs.record_attempt(request_id, attempt, outcome=outcome, duration_ms=dur)
+        if attempt_first_bytes and i < len(attempt_first_bytes):
+            fb = attempt_first_bytes[i]
+        obs.record_attempt(request_id, attempt, outcome=outcome, duration_ms=dur, first_byte_ms=fb)
     obs.record_request_end(
         request_id,
         status_code=status_code,
@@ -59,7 +63,7 @@ class ProviderActivitySummaryTests(unittest.TestCase):
     def test_success_counts_and_latency(self):
         obs = _obs()
         a = _attempt("r1", provider="alpha")
-        _record(obs, "r1", attempts=[(a, "success")], status_code=200, first_byte_ms=150, attempt_durations=[150], final_provider="alpha")
+        _record(obs, "r1", attempts=[(a, "success")], status_code=200, first_byte_ms=150, attempt_durations=[150], attempt_first_bytes=[150], final_provider="alpha")
         summary = obs.provider_activity_summary()
         alpha = summary["alpha"]
         self.assertEqual(alpha["total"], 1)
@@ -94,6 +98,7 @@ class ProviderActivitySummaryTests(unittest.TestCase):
             status_code=200,
             first_byte_ms=30500,  # global TTFB includes alpha's 30s timeout
             attempt_durations=[30000, 200],  # per-attempt: alpha 30s, beta 200ms
+            attempt_first_bytes=[None, 200],  # per-attempt TTFB: beta 200ms
             final_provider="beta",
         )
         summary = obs.provider_activity_summary()
@@ -103,7 +108,7 @@ class ProviderActivitySummaryTests(unittest.TestCase):
         self.assertEqual(summary["alpha"]["warn"], 1)
         self.assertEqual(summary["alpha"]["ok"], 0)
         self.assertEqual(summary["beta"]["ok"], 1)
-        # beta's latency should be its own 200ms, NOT the global 30500ms.
+        # beta's latency should be its own 200ms first_byte_ms, NOT the global 30500ms.
         self.assertEqual(summary["beta"]["latestLatency"], 200)
         # alpha did not own the final success, so it has no latency sample.
         self.assertEqual(summary["alpha"]["latestLatency"], 0)
