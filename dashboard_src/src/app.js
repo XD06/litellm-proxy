@@ -298,6 +298,67 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     return Boolean(active.closest && active.closest(root));
   }
 
+  // ── Dirty form tracking ────────────────────────────────────────────
+  // When the user types into a form input (text, password, number, etc.)
+  // within a tracked container, we mark that container as "dirty".
+  // Auto-refresh skips re-rendering dirty containers to preserve unsaved
+  // input even after the user moves focus away from the field.
+  // The flag is cleared on form submit, drawer close, or forced re-render.
+  const _dirtyContainers = new Set();
+  const _trackedFormSelectors = [
+    "#globalProxyForm",
+    "#configProviders",
+    "#providerDrawer",
+    "#modelRoutesPanel",
+    "#providersTable",
+    "#modelCapabilities",
+  ];
+
+  function _markContainerDirty(e) {
+    const target = e.target;
+    if (!target) return;
+    const tag = (target.tagName || "").toLowerCase();
+    if (tag !== "input" && tag !== "textarea" && tag !== "select") return;
+    // Skip search/filter/checkbox inputs — they control local view state,
+    // not server-side configuration.
+    if (target.type === "search" || target.type === "button" || target.type === "submit") return;
+    for (const sel of _trackedFormSelectors) {
+      if (target.closest(sel)) {
+        _dirtyContainers.add(sel);
+        return;
+      }
+    }
+  }
+
+  function _clearContainerDirtyOnSubmit(e) {
+    const form = e.target;
+    if (!form) return;
+    for (const sel of _trackedFormSelectors) {
+      if (form.closest(sel)) {
+        _dirtyContainers.delete(sel);
+        return;
+      }
+    }
+  }
+
+  function clearDirty(selector) {
+    _dirtyContainers.delete(selector);
+  }
+
+  function clearAllDirty() {
+    _dirtyContainers.clear();
+  }
+
+  function isContainerDirty(selector) {
+    return _dirtyContainers.has(selector);
+  }
+
+  // Returns true if the container should be protected from auto-refresh
+  // re-rendering (either because it has focused input or unsaved dirty input).
+  function shouldPreserveContainer(selector) {
+    return interactiveElementHasFocus(selector) || isContainerDirty(selector);
+  }
+
   function toneForText(value) {
     const text = String(value || "").toLowerCase();
     if (!text || text === "-") return "muted";
@@ -2555,7 +2616,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     // control inside this table (filters, pagination input, inline forms). A
     // plain focus on a non-input element (e.g. a card or button) still allows
     // the table to refresh so model/capability updates appear promptly.
-    if (!state.forceProvidersRender && interactiveElementHasFocus("#providersTable")) return;
+    if (!state.forceProvidersRender && shouldPreserveContainer("#providersTable")) return;
     state.forceProvidersRender = false;
 
     // Filter / sort / paginate using the lightweight view (no per-provider
@@ -3229,6 +3290,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     drawer.setAttribute("aria-hidden", "true");
     state.providerDrawerName = "";
     resetProviderActivityEventsCache("");
+    clearDirty("#providerDrawer");
   }
 
   function renderProviderDrawer({ force = false } = {}) {
@@ -3239,7 +3301,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     // Skip while the user is interacting with any control inside the drawer
     // (forms, tab buttons, refresh buttons) to preserve focus and in-progress
     // input during auto-refresh.
-    if (!force && interactiveElementHasFocus("#providerDrawer")) return;
+    if (!force && shouldPreserveContainer("#providerDrawer")) return;
     const view = providerViewModel(name);
     const tabs = ["overview", "keys", "models", "routing", "config"];
     if (!tabs.includes(state.providerDrawerTab)) state.providerDrawerTab = "overview";
@@ -3743,7 +3805,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     // Only skip while a control inside this block has focus; previously this
     // guarded on the whole #providersView, which blocked model discovery
     // updates whenever any provider card had focus.
-    if (!state.forceModelCapsRender && interactiveElementHasFocus("#modelCapabilities")) return;
+    if (!state.forceModelCapsRender && shouldPreserveContainer("#modelCapabilities")) return;
     state.forceModelCapsRender = false;
     const snapshot = state.data.status?.models || {};
     const providers = snapshot.providers || {};
@@ -5090,7 +5152,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const form = el("globalProxyForm");
     if (!form) return;
     const active = document.activeElement;
-    if (active && active.closest("#globalProxyForm")) return;
+    if (active && (active.closest("#globalProxyForm") || isContainerDirty("#globalProxyForm"))) return;
     form.elements.proxy.value = proxyText(config.proxy);
   }
 
@@ -5123,7 +5185,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const target = el("configProviders");
     if (!target) return;
     const active = document.activeElement;
-    if (!state.forceConfigRender && active && active.closest("#configProviders")) return;
+    if (!state.forceConfigRender && active && (active.closest("#configProviders") || isContainerDirty("#configProviders"))) return;
 
     const providers = config.providers || {};
     const names = Object.keys(providers).sort();
@@ -5150,7 +5212,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const target = el("modelRoutes");
     if (!target) return;
     const active = document.activeElement;
-    if (!state.forceModelRoutesRender && active && active.closest("#modelRoutesPanel")) return;
+    if (!state.forceModelRoutesRender && active && (active.closest("#modelRoutesPanel") || isContainerDirty("#modelRoutesPanel"))) return;
 
     const providers = Object.keys(config.providers || {}).sort();
     const routes = config.models?.routes || {};
@@ -5637,6 +5699,8 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     }
     try {
       const result = await operation();
+      // Clear dirty state — the mutation has been saved to the server.
+      clearAllDirty();
       if (result?.config) state.data.config = result.config;
       state.data.version = Number(state.data.version || 0) + 1;
       state.forceConfigRender = true;
@@ -5664,6 +5728,9 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     });
     try {
       await operation();
+      // Clear dirty state for all tracked containers — the mutation has been
+      // saved to the server and the forced re-render below will show new values.
+      clearAllDirty();
       state.forceConfigRender = true;
       state.forceModelRoutesRender = true;
       if (document.activeElement && typeof document.activeElement.blur === "function") {
@@ -5866,6 +5933,9 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
 
   function setView(view) {
     const nextView = views[view] ? view : "overview";
+    // Clear dirty state when switching views — the user is leaving the current
+    // form context, so unsaved input on the previous view is abandoned.
+    if (nextView !== state.view) clearAllDirty();
     state.view = nextView;
     try {
       localStorage.setItem("proxyConsoleView", nextView);
@@ -6002,6 +6072,12 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
   }
 
   function installEvents() {
+    // Dirty form tracking: mark containers dirty when the user types into
+    // form inputs, and clear on form submit. This prevents the 5s auto-refresh
+    // from wiping unsaved input after the user moves focus away from a field.
+    document.addEventListener("input", _markContainerDirty, true);
+    document.addEventListener("submit", _clearContainerDirtyOnSubmit, true);
+
     window.addEventListener("hashchange", () => {
       const hashView = String(window.location.hash || "").replace(/^#/, "");
       if (views[hashView] && hashView !== state.view) setView(hashView);
