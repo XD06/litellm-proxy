@@ -3633,6 +3633,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
   }
 
   function providerDrawerKeys(view) {
+    const keyListId = `key-list-${view.name}`;
     return `
       <section class="provider-drawer-section">
         <div class="provider-detail-metrics">
@@ -3641,7 +3642,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           ${miniMetric("Cooldown", fmtInt(view.keyStats.cooldown), "keys")}
           ${miniMetric("Fails", fmtInt(view.keyStats.fails), "runtime")}
         </div>
-        <div class="provider-key-list drawer-key-list">
+        <div class="provider-key-list drawer-key-list" id="${escapeHtml(keyListId)}">
           ${view.keys.length ? view.keys.map((key) => keyCard(view.name, key, view.keyStats.total)).join("") : `<div class="empty pad-slim">No keys configured</div>`}
         </div>
       </section>
@@ -4265,8 +4266,9 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const tone = available ? "ok" : key.runtime_enabled ? "warn" : "bad";
     const probeKey = `${provider}#${key.index}`;
     const probePending = Boolean(state.keyProbeInFlight[probeKey] || state.keyProbes[probeKey]?.pending);
+    const keyId = `key-${provider}-${key.index}`;
     return `
-      <article class="provider-key-card" data-key-total="${escapeHtml(totalKeys)}">
+      <article class="provider-key-card" data-key="${escapeHtml(keyId)}" data-key-total="${escapeHtml(totalKeys)}">
         <div class="key-card-head">
           <div>
             <div class="mono key-title">key ${escapeHtml(key.index)}</div>
