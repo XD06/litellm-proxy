@@ -2409,6 +2409,258 @@ class IdleCheckIntervalTests(unittest.TestCase):
         self.assertLess(interval, 3600, "Cold start interval should be under 1 hour")
 
 
+class PatrolHealthCheckerTests(unittest.TestCase):
+    """Tests for the patrol health checker (全量巡检保活)."""
+
+    def _patrol_cfg(self, num_keys=2):
+        return {
+            "server": {"admin_key": "admin-secret"},
+            "routing": {},
+            "models": {
+                "provider_model_capabilities": {
+                    "alpha": {
+                        "status": "ok",
+                        "models": ["alpha-model"],
+                        "canonical_map": {"alpha-model": "alpha-model"},
+                        "formats": ["chat_completions"],
+                    }
+                },
+            },
+            "providers": {
+                "alpha": {
+                    "base_url": "https://alpha.example",
+                    "keys": [f"key-{i}" for i in range(num_keys)],
+                    "enabled": True,
+                    "formats": {
+                        "chat_completions": {"enabled": True, "path": "/v1/chat/completions"},
+                        "responses": {"enabled": False, "path": "/v1/responses"},
+                        "anthropic_messages": {"enabled": False, "path": "/v1/messages"},
+                    },
+                }
+            },
+        }
+
+    def test_patrol_probe_success_with_stream(self):
+        """Patrol probe should succeed when a valid SSE data event is received."""
+        cfg = self._patrol_cfg()
+        router = sse2json.UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+
+        class StreamOkClient:
+            def open_stream(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None, first_byte_timeout_s=None):
+                class MockStream:
+                    def __init__(self):
+                        self._lines = [
+                            b": keepalive\n",
+                            b'data: {"choices":[{"delta":{"role":"assistant","content":""}}]}\n',
+                            b'data: [DONE]\n',
+                        ]
+                        self._idx = 0
+
+                    def readline(self, *args, **kwargs):
+                        if self._idx >= len(self._lines):
+                            return b""
+                        line = self._lines[self._idx]
+                        self._idx += 1
+                        return line
+
+                    def close(self):
+                        pass
+
+                return MockStream()
+
+        rt = sse2json.RuntimeContext(cfg, router, StreamOkClient(), obs, sse2json.AUDIT)
+        with patch.object(sse2json, "CONFIG", cfg):
+            healthy = sse2json._patrol_probe_one_key(rt, "alpha", 0, canonical_model="alpha-model", model_source="patrol_capability")
+
+        self.assertTrue(healthy)
+        probes = obs.health_probe_summary("alpha")
+        self.assertEqual(probes["last"]["outcome"], "success")
+        self.assertEqual(probes["last"]["idle_tier"], "patrol")
+        self.assertEqual(probes["last"]["action"], "cleared_provider_cooldown")
+
+    def test_patrol_probe_fails_on_http_error(self):
+        """Patrol probe should report failure on HTTP error."""
+        cfg = self._patrol_cfg()
+        router = sse2json.UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+
+        class FailClient:
+            def open_stream(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None, first_byte_timeout_s=None):
+                raise HTTPError(url, 500, "Internal Server Error", {}, None)
+
+        rt = sse2json.RuntimeContext(cfg, router, FailClient(), obs, sse2json.AUDIT)
+        with patch.object(sse2json, "CONFIG", cfg):
+            healthy = sse2json._patrol_probe_one_key(rt, "alpha", 0, canonical_model="alpha-model", model_source="patrol_capability")
+
+        self.assertFalse(healthy)
+        probes = obs.health_probe_summary("alpha")
+        self.assertEqual(probes["last"]["outcome"], "failed")
+        self.assertEqual(probes["last"]["error_type"], "server_error")
+        self.assertEqual(probes["last"]["idle_tier"], "patrol")
+
+    def test_patrol_probe_fails_on_network_error(self):
+        """Patrol probe should report network_error on connection failure."""
+        import socket as _socket
+        cfg = self._patrol_cfg()
+        router = sse2json.UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+
+        class NetErrorClient:
+            def open_stream(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None, first_byte_timeout_s=None):
+                raise _socket.timeout("connection timed out")
+
+        rt = sse2json.RuntimeContext(cfg, router, NetErrorClient(), obs, sse2json.AUDIT)
+        with patch.object(sse2json, "CONFIG", cfg):
+            healthy = sse2json._patrol_probe_one_key(rt, "alpha", 0, canonical_model="alpha-model", model_source="patrol_capability")
+
+        self.assertFalse(healthy)
+        probes = obs.health_probe_summary("alpha")
+        self.assertEqual(probes["last"]["error_type"], "network_error")
+        self.assertEqual(probes["last"]["idle_tier"], "patrol")
+
+    def test_patrol_probe_no_data_event(self):
+        """Patrol probe should fail when stream opens but no data event is received."""
+        cfg = self._patrol_cfg()
+        router = sse2json.UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+
+        class EmptyStreamClient:
+            def open_stream(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None, first_byte_timeout_s=None):
+                class MockStream:
+                    def readline(self, *args, **kwargs):
+                        return b""  # immediate EOF
+
+                    def close(self):
+                        pass
+
+                return MockStream()
+
+        rt = sse2json.RuntimeContext(cfg, router, EmptyStreamClient(), obs, sse2json.AUDIT)
+        with patch.object(sse2json, "CONFIG", cfg):
+            healthy = sse2json._patrol_probe_one_key(rt, "alpha", 0, canonical_model="alpha-model", model_source="patrol_capability")
+
+        self.assertFalse(healthy)
+        probes = obs.health_probe_summary("alpha")
+        self.assertEqual(probes["last"]["outcome"], "failed")
+        self.assertEqual(probes["last"]["reason"], "patrol stream opened but no data event")
+
+    def test_patrol_probe_skips_disabled_provider(self):
+        """Patrol probe should skip disabled providers."""
+        cfg = self._patrol_cfg()
+        cfg["providers"]["alpha"]["enabled"] = False
+        router = sse2json.UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+
+        class ShouldNotBeCalledClient:
+            def open_stream(self, *args, **kwargs):
+                raise AssertionError("should not be called for disabled provider")
+
+        rt = sse2json.RuntimeContext(cfg, router, ShouldNotBeCalledClient(), obs, sse2json.AUDIT)
+        with patch.object(sse2json, "CONFIG", cfg):
+            healthy = sse2json._patrol_probe_one_key(rt, "alpha", 0, canonical_model="alpha-model", model_source="patrol")
+
+        self.assertFalse(healthy)
+        probes = obs.health_probe_summary("alpha")
+        self.assertEqual(probes["last"]["outcome"], "skipped")
+        self.assertEqual(probes["last"]["reason"], "provider disabled")
+
+    def test_patrol_probe_uses_streaming_payload(self):
+        """Patrol probe payload should have stream=True."""
+        cfg = self._patrol_cfg()
+        router = sse2json.UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+        captured_payload = {}
+
+        class CaptureClient:
+            def open_stream(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None, first_byte_timeout_s=None):
+                captured_payload["payload"] = payload
+                class MockStream:
+                    def readline(self, *args, **kwargs):
+                        return b'data: {"choices":[{"delta":{}}]}\n'
+                    def close(self):
+                        pass
+                return MockStream()
+
+        rt = sse2json.RuntimeContext(cfg, router, CaptureClient(), obs, sse2json.AUDIT)
+        with patch.object(sse2json, "CONFIG", cfg):
+            sse2json._patrol_probe_one_key(rt, "alpha", 0, canonical_model="alpha-model", model_source="patrol_capability")
+
+        self.assertTrue(captured_payload["payload"].get("stream", False),
+                        "patrol payload must use stream=true")
+        self.assertEqual(captured_payload["payload"].get("max_tokens"), 1)
+
+    def test_patrol_probe_success_clears_key_cooldown(self):
+        """A successful patrol probe should clear provider cooldown."""
+        import time as _time
+        cfg = self._patrol_cfg()
+        router = sse2json.UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+
+        # Set cooldown on the provider
+        router._providers_state["alpha"].cooldown_until = _time.time() + 300
+
+        class StreamOkClient:
+            def open_stream(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None, first_byte_timeout_s=None):
+                class MockStream:
+                    def readline(self, *args, **kwargs):
+                        return b'data: {"choices":[{"delta":{"content":"hi"}}]}\n'
+                    def close(self):
+                        pass
+                return MockStream()
+
+        rt = sse2json.RuntimeContext(cfg, router, StreamOkClient(), obs, sse2json.AUDIT)
+        with patch.object(sse2json, "CONFIG", cfg):
+            healthy = sse2json._patrol_probe_one_key(rt, "alpha", 0, canonical_model="alpha-model", model_source="patrol_capability")
+
+        self.assertTrue(healthy)
+        ps = router._providers_state.get("alpha")
+        self.assertEqual(ps.cooldown_until, 0.0, "cooldown should be cleared")
+
+    def test_patrol_probe_http_error_triggers_report_failure(self):
+        """A failed patrol probe should call report_failure to trigger circuit breaker."""
+        cfg = self._patrol_cfg()
+        router = sse2json.UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+
+        class FailClient:
+            def open_stream(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None, first_byte_timeout_s=None):
+                raise HTTPError(url, 429, "Rate Limited", {}, None)
+
+        rt = sse2json.RuntimeContext(cfg, router, FailClient(), obs, sse2json.AUDIT)
+        with patch.object(sse2json, "CONFIG", cfg):
+            healthy = sse2json._patrol_probe_one_key(rt, "alpha", 0, canonical_model="alpha-model", model_source="patrol_capability")
+
+        self.assertFalse(healthy)
+        # Key should have cooldown from report_failure (429 → rate_limited)
+        ks = router._keys_state.get(("alpha", 0))
+        self.assertIsNotNone(ks)
+        self.assertGreater(ks.cooldown_until, 0.0, "key should be cooled down after 429")
+
+    def test_patrol_probe_records_key_index(self):
+        """Patrol probe events should record the key_index being probed."""
+        cfg = self._patrol_cfg(num_keys=3)
+        router = sse2json.UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+
+        class StreamOkClient:
+            def open_stream(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None, first_byte_timeout_s=None):
+                class MockStream:
+                    def readline(self, *args, **kwargs):
+                        return b'data: {"choices":[{"delta":{}}]}\n'
+                    def close(self):
+                        pass
+                return MockStream()
+
+        rt = sse2json.RuntimeContext(cfg, router, StreamOkClient(), obs, sse2json.AUDIT)
+        with patch.object(sse2json, "CONFIG", cfg):
+            sse2json._patrol_probe_one_key(rt, "alpha", 2, canonical_model="alpha-model", model_source="patrol_capability")
+
+        probes = obs.health_probe_summary("alpha")
+        self.assertEqual(probes["last"]["key_index"], 2)
+        self.assertEqual(probes["last"]["idle_tier"], "patrol")
+
+
 class ModelPricingEndpointTests(unittest.TestCase):
     def setUp(self):
         self._original_audit = sse2json.AUDIT

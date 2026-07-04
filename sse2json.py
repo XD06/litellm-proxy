@@ -823,6 +823,394 @@ def _start_idle_health_checker() -> None:
     t.start()
 
 
+# ---------------------------------------------------------------------------
+# Patrol health checker (全量巡检保活)
+# ---------------------------------------------------------------------------
+# A separate background thread that does a FULL sweep of all enabled
+# providers × all keys at a long, fixed interval (1-3h random).  Unlike the
+# adaptive idle checker (which only probes the recent model's top providers
+# and stops at the first healthy one), the patrol checks EVERY key to:
+#
+# 1. Discover stale cooldowns / dead keys that the idle checker missed
+#    (especially during deep idle when the idle checker runs every 3-6h).
+# 2. Proactively trigger the circuit breaker on repeatedly failing keys,
+#    so the next real request skips them without trial-and-error.
+#
+# Uses STREAMING probes (stream=true) and reads only the first SSE data
+# event before closing the connection — this minimises token consumption
+# because the provider never actually generates meaningful content.
+#
+# Events are recorded with idle_tier="patrol" so the frontend can
+# distinguish them from idle-checker probes in the same display area.
+
+_PATROL_INTERVAL_S = (3600, 3 * 3600)   # 1-3 hours random between rounds
+_PATROL_DELAY_S = (3, 5)                 # 3-5 seconds random between probes
+_PATROL_FIRST_BYTE_TIMEOUT_S = 15         # Max wait for first SSE event
+
+
+def _patrol_probe_one_key(rt, provider: str, key_index: int, *, canonical_model: str = "", model_source: str = "") -> bool:
+    """Probe a single key of a provider using a streaming request.
+
+    Sends a minimal streaming request (max_tokens=1, stream=true) and reads
+    only the first SSE ``data:`` line.  If a valid data event is received,
+    the key is healthy — we close the connection immediately without
+    consuming the full response, minimising token usage.
+
+    Reuses the same model selection, format selection, attempt building,
+    and cooldown/circuit-breaker logic as the idle health checker, ensuring
+    both mechanisms operate on consistent data.
+
+    Returns True if the key is healthy, False otherwise.
+    """
+    router = rt.router
+    config = rt.config
+    upstream_client = rt.upstream_client
+    observability = rt.observability
+
+    def _record_probe(**event) -> None:
+        try:
+            event.setdefault("provider", provider)
+            event.setdefault("idle_tier", "patrol")
+            observability.record_health_probe(event)
+        except Exception:
+            pass
+
+    pcfg = (config.get("providers") or {}).get(provider)
+    if not isinstance(pcfg, dict) or not pcfg.get("enabled", True):
+        _record_probe(outcome="skipped", reason="provider disabled", action="none")
+        return False
+
+    keys = pcfg.get("keys") or []
+    if not (0 <= key_index < len(keys)):
+        _record_probe(key_index=key_index, outcome="skipped", reason="key index out of range", action="none")
+        return False
+
+    # Pick a model to probe (reuse the same selection logic as idle checker)
+    if not canonical_model:
+        canonical_model, model_source = _pick_probe_model_with_source(
+            provider, observability=observability, config=config
+        )
+    if not canonical_model:
+        _record_probe(key_index=key_index, outcome="skipped", reason="no probe model", action="none")
+        return False
+
+    fmt = router._first_supported_format(
+        provider, ["chat_completions", "responses", "anthropic_messages"]
+    )
+    if not fmt:
+        _record_probe(
+            key_index=key_index,
+            model=canonical_model,
+            model_source=model_source,
+            outcome="skipped",
+            reason="no supported format",
+            action="none",
+        )
+        return False
+
+    raw_key = key_value(keys[key_index])
+    url, headers, provider_model, proxy_url = router._build_attempt_details(
+        provider, canonical_model, raw_key, key_index=key_index, upstream_format=fmt
+    )
+
+    # Build a STREAMING payload — stream=true so we can read just the first
+    # SSE event and close, without waiting for the full completion.
+    base_payload = {
+        "model": provider_model,
+        "messages": [{"role": "user", "content": ""}],
+        "max_tokens": 1,
+        "temperature": 0,
+        "stream": True,
+    }
+    try:
+        payload = convert_request("chat_completions", fmt, base_payload, resolve_model=lambda m: m)
+    except Exception:
+        _record_probe(
+            key_index=key_index,
+            key_id=router.key_id(raw_key),
+            model=canonical_model,
+            model_source=model_source,
+            upstream_model=provider_model,
+            format=fmt,
+            outcome="skipped",
+            reason="request conversion failed",
+            action="none",
+        )
+        return False
+
+    from router import Attempt as _Attempt
+    request_id = f"patrol-{provider}-k{key_index}-{uuid.uuid4().hex[:8]}"
+    probe_attempt = _Attempt(
+        request_id=request_id,
+        attempt_no=1,
+        provider=provider,
+        key_index=key_index,
+        key=raw_key,
+        url=url,
+        headers=headers,
+        provider_model=provider_model,
+        upstream_format=fmt,
+        proxy_url=proxy_url,
+    )
+
+    probe_base = {
+        "key_index": key_index,
+        "key_id": router.key_id(raw_key),
+        "model": canonical_model,
+        "model_source": model_source,
+        "upstream_model": provider_model,
+        "format": fmt,
+    }
+
+    stream_conn = None
+    started_at = time.time()
+    try:
+        stream_conn = upstream_client.open_stream(
+            url, headers, payload,
+            proxy_url=proxy_url,
+            remaining_timeout_s=15,
+            first_byte_timeout_s=_PATROL_FIRST_BYTE_TIMEOUT_S,
+        )
+        # Read lines until we find the first SSE "data:" event.
+        # A valid data line means the provider accepted the request and
+        # started streaming — the key is healthy.
+        found_data = False
+        for _line in range(64):  # Bounded read; skip comments/keepalives
+            line = b""
+            try:
+                line = stream_conn.readline()
+            except (socket.timeout, Exception):
+                break
+            if not line:
+                break
+            line_str = line.decode("utf-8", errors="replace").strip()
+            if line_str.startswith("data:"):
+                data_content = line_str[5:].strip()
+                if data_content and data_content != "[DONE]":
+                    found_data = True
+                    break
+                # [DONE] or empty data — keep reading, the real event
+                # should come before [DONE].
+
+        latency_ms = max(0, int((time.time() - started_at) * 1000))
+
+        if found_data:
+            # Key is healthy — clear cooldowns.
+            router.clear_provider_cooldown(provider)
+            _record_probe(
+                **probe_base,
+                outcome="success",
+                latency_ms=latency_ms,
+                reason="patrol stream first event received",
+                action="cleared_provider_cooldown",
+            )
+            print(f"[proxy] {_hprov(provider)} patrol {_harrow('->')} {_h('ok')} {_hmodel(canonical_model)} key#{key_index} {latency_ms}ms", flush=True)
+            return True
+        else:
+            # Stream opened but no data event within the read bound.
+            # Treat as a soft failure — the connection worked but something
+            # is odd (e.g. upstream returned an empty stream).
+            _record_probe(
+                **probe_base,
+                outcome="failed",
+                error_type="unknown",
+                latency_ms=latency_ms,
+                reason="patrol stream opened but no data event",
+                action="observed_only",
+            )
+            print(f"[proxy] {_hprov(provider)} patrol {_harrow('->')} no-data {_hmodel(canonical_model)} key#{key_index}", flush=True)
+            return False
+
+    except HTTPError as e:
+        status = int(getattr(e, "code", 0) or 0)
+        error_type = _probe_error_type(status)
+        # Same logic as idle probe: model-level errors (404) don't try
+        # other keys, but for patrol we're checking individual keys, so
+        # we just record and report.
+        if error_type == "client_error" and model_source not in ("recent_success", "recent_success_global", "patrol"):
+            _record_probe(
+                **probe_base,
+                outcome="failed",
+                http_status=status,
+                error_type=error_type,
+                reason="patrol model rejected",
+                action="observed_only",
+            )
+        else:
+            router.report_failure(
+                probe_attempt,
+                error_type=error_type,
+                http_status=status,
+            )
+            policy = scheduler_policy.failure_policy_for_error_type(config, error_type)
+            _record_probe(
+                **probe_base,
+                outcome="failed",
+                http_status=status,
+                error_type=error_type,
+                cooldown_s=policy.get("cooldown_s"),
+                provider_cooldown_s=policy.get("provider_cooldown_s"),
+                reason=f"HTTP {status}",
+                action="reported_failure",
+            )
+        print(f"[proxy] {_hprov(provider)} patrol {_harrow('->')} FAIL HTTP {status} ({error_type}) {_hmodel(canonical_model)} key#{key_index}", flush=True)
+        return False
+    except (URLError, socket.timeout) as e:
+        router.report_failure(
+            probe_attempt,
+            error_type="network_error",
+        )
+        policy = scheduler_policy.failure_policy_for_error_type(config, "network_error")
+        _record_probe(
+            **probe_base,
+            outcome="failed",
+            error_type="network_error",
+            cooldown_s=policy.get("cooldown_s"),
+            provider_cooldown_s=policy.get("provider_cooldown_s"),
+            reason=type(e).__name__,
+            action="reported_failure",
+        )
+        print(f"[proxy] {_hprov(provider)} patrol {_harrow('->')} FAIL {type(e).__name__} {_hmodel(canonical_model)} key#{key_index}", flush=True)
+        return False
+    except Exception as e:
+        router.report_failure(
+            probe_attempt,
+            error_type="unknown",
+        )
+        policy = scheduler_policy.failure_policy_for_error_type(config, "unknown")
+        _record_probe(
+            **probe_base,
+            outcome="failed",
+            error_type="unknown",
+            cooldown_s=policy.get("cooldown_s"),
+            provider_cooldown_s=policy.get("provider_cooldown_s"),
+            reason=type(e).__name__,
+            action="reported_failure",
+        )
+        print(f"[proxy] {_hprov(provider)} patrol {_harrow('->')} FAIL {type(e).__name__} {_hmodel(canonical_model)} key#{key_index}", flush=True)
+        return False
+    finally:
+        _close_upstream_conn(stream_conn)
+
+
+def _patrol_health_check_round() -> None:
+    """Run one full patrol round: check ALL enabled providers × ALL keys.
+
+    Unlike the idle health checker (which stops at the first healthy
+    provider), the patrol checks every key of every provider to build a
+    complete picture of the system's health.
+
+    Probes are sent sequentially with a 3-5s random delay between each
+    probe (even across different providers) to avoid burst traffic.
+    """
+    try:
+        rt = _request_runtime()
+        router = rt.router
+        config = rt.config
+        observability = rt.observability
+
+        # Don't run if there are active requests.
+        with observability._lock:
+            in_flight = int(observability._counters.get("requests_in_flight") or 0)
+        if in_flight > 0:
+            return
+
+        providers_cfg = config.get("providers") or {}
+
+        # Build priority-ordered provider list (reuse the same logic as
+        # _build_probe_plan to ensure consistency).
+        provider_priorities = []
+        for name, pcfg in providers_cfg.items():
+            if not (pcfg or {}).get("enabled", True):
+                continue
+            priority = router._provider_priority(str(name))
+            if hasattr(router, "_auto_adjusted_priority"):
+                priority = router._auto_adjusted_priority(str(name), priority)
+            provider_priorities.append((str(name), priority))
+        provider_priorities.sort(key=lambda x: -x[1])
+
+        if not provider_priorities:
+            return
+
+        total_probes = 0
+        total_ok = 0
+
+        for provider_name, _priority in provider_priorities:
+            pcfg = providers_cfg.get(provider_name) or {}
+            keys = pcfg.get("keys") or []
+            if not keys:
+                continue
+
+            # Pick ONE model for this provider (reuse the same selection logic).
+            canonical_model, model_source = _pick_probe_model_with_source(
+                provider_name, observability=observability, config=config
+            )
+            if not canonical_model:
+                observability.record_health_probe({
+                    "provider": provider_name,
+                    "idle_tier": "patrol",
+                    "outcome": "skipped",
+                    "reason": "no probe model",
+                    "action": "none",
+                })
+                continue
+
+            for key_index in range(len(keys)):
+                # Check if a real request arrived during our patrol — bail out.
+                with observability._lock:
+                    in_flight = int(observability._counters.get("requests_in_flight") or 0)
+                if in_flight > 0:
+                    print(f"[proxy] patrol round interrupted: request in flight", flush=True)
+                    return
+
+                # Random delay between probes (3-5s), even across providers.
+                if total_probes > 0:
+                    delay = random.uniform(_PATROL_DELAY_S[0], _PATROL_DELAY_S[1])
+                    time.sleep(delay)
+
+                total_probes += 1
+                healthy = _patrol_probe_one_key(
+                    rt, provider_name, key_index,
+                    canonical_model=canonical_model,
+                    model_source=f"patrol_{model_source}" if model_source else "patrol",
+                )
+                if healthy:
+                    total_ok += 1
+
+        print(f"[proxy] patrol round complete: {total_ok}/{total_probes} keys healthy", flush=True)
+
+    except Exception as e:
+        print(f"[proxy] patrol round error: {type(e).__name__}: {e}", flush=True)
+
+
+def _start_patrol_health_checker() -> None:
+    """Start the patrol health checker daemon thread.
+
+    Runs on a fixed 1-3h random interval, independent of the adaptive
+    idle checker's cadence.  The patrol does a full sweep of all
+    providers × keys to discover dead keys and trigger circuit breakers.
+    """
+
+    def _loop():
+        while True:
+            try:
+                interval = random.uniform(_PATROL_INTERVAL_S[0], _PATROL_INTERVAL_S[1])
+                # Chunk the sleep so we can exit cleanly on shutdown.
+                remaining = interval
+                while remaining > 0:
+                    chunk = min(remaining, 60)
+                    time.sleep(chunk)
+                    remaining -= chunk
+
+                _patrol_health_check_round()
+            except Exception:
+                # Never let the loop die.
+                time.sleep(60)
+
+    t = threading.Thread(target=_loop, name="patrol-health-checker", daemon=True)
+    t.start()
+
+
 ROUTER = UpstreamRouter(CONFIG)
 UPSTREAM_CLIENT = OpenAIUpstreamClient(CONFIG)
 OBSERVABILITY = ProxyObservability(CONFIG)
@@ -4243,6 +4631,9 @@ def main():
 
     # Start the adaptive idle health checker.
     _start_idle_health_checker()
+
+    # Start the patrol health checker (full sweep every 1-3h).
+    _start_patrol_health_checker()
 
     # Read host/port/max_workers from the freshly rebuilt CONFIG
     global HOST, PORT, MAX_WORKERS
