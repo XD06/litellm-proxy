@@ -350,6 +350,20 @@ _IDLE_TIER_MEDIUM_S = 600        # < 10 min → "medium" (60s cadence)
 #                               # >= 30 min → "deep" (3-6h random cadence)
 _IDLE_TIER_DEEP_S = 1800         # 30 min
 
+# ---------------------------------------------------------------------------
+# Idle probe schedule — shared state for metrics display
+# ---------------------------------------------------------------------------
+# The idle health checker stores its *actual* computed interval here so that
+# the /admin/metrics endpoint can show a stable countdown instead of calling
+# _idle_tier_info() (which returns a fresh random for the "deep" tier) on
+# every 5-second poll.  Without this, the frontend's "cadence" value would
+# jump randomly every poll.
+#
+# Thread-safety: Python's GIL guarantees that dict key reads/writes are
+# atomic, so a simple dict is sufficient for display purposes.  The worst
+# case is reading a stale value for one poll cycle, which is harmless.
+_idle_probe_schedule = {"interval_s": 0.0, "computed_at": 0.0}
+
 
 def _idle_tier_info(last_finished_at: float, now: float) -> tuple[str, float]:
     """Return (tier_name, interval_s) for the current idle state.
@@ -786,6 +800,9 @@ def _start_idle_health_checker() -> None:
                 last_finished = observability.last_request_finished_at()
                 now = time.time()
                 interval = _idle_check_interval_s(last_finished, now)
+                # Store for /admin/metrics display (countdown).
+                _idle_probe_schedule["interval_s"] = interval
+                _idle_probe_schedule["computed_at"] = now
 
                 # Chunk the sleep so we can detect activity changes mid-sleep.
                 remaining = interval
@@ -979,7 +996,9 @@ def _patrol_probe_one_key(rt, provider: str, key_index: int, *, canonical_model:
             line = b""
             try:
                 line = stream_conn.readline()
-            except (socket.timeout, Exception):
+            except socket.timeout:
+                # Expected when first_byte_timeout fires before any data
+                # arrives — treat as "no data event" (soft failure).
                 break
             if not line:
                 break
@@ -1027,7 +1046,10 @@ def _patrol_probe_one_key(rt, provider: str, key_index: int, *, canonical_model:
         # Same logic as idle probe: model-level errors (404) don't try
         # other keys, but for patrol we're checking individual keys, so
         # we just record and report.
-        if error_type == "client_error" and model_source not in ("recent_success", "recent_success_global", "patrol"):
+        if error_type == "client_error":
+            # Model-level rejection (e.g. 404) — in patrol context this is
+            # always a model issue, not a key issue.  Don't report_failure
+            # or every key will be unfairly penalised for the same bad model.
             _record_probe(
                 **probe_base,
                 outcome="failed",
@@ -1172,7 +1194,7 @@ def _patrol_health_check_round() -> None:
                 healthy = _patrol_probe_one_key(
                     rt, provider_name, key_index,
                     canonical_model=canonical_model,
-                    model_source=f"patrol_{model_source}" if model_source else "patrol",
+                    model_source=model_source,
                 )
                 if healthy:
                     total_ok += 1

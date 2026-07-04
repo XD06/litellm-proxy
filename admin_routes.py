@@ -195,13 +195,26 @@ class AdminRoutesMixin:
             # expected — not just the tier from the last probe event.
             try:
                 import time as _time
-                from sse2json import _idle_tier_info
+                from sse2json import _idle_tier_info, _idle_probe_schedule
                 _last_fin = OBSERVABILITY.last_request_finished_at()
                 _now = _time.time()
                 _tier, _interval = _idle_tier_info(_last_fin, _now)
+                # Use the idle checker's *actual* scheduled interval (stored
+                # when the loop computed it) instead of recomputing a fresh
+                # random value on every poll.  This makes the frontend's
+                # "cadence" display a stable countdown that decreases over
+                # time, rather than jumping randomly every 5 seconds.
+                _sched_interval = _idle_probe_schedule.get("interval_s", 0.0)
+                _sched_at = _idle_probe_schedule.get("computed_at", 0.0)
+                if _sched_interval > 0 and _sched_at > 0:
+                    _elapsed = _now - _sched_at
+                    _remaining = max(0, _sched_interval - _elapsed)
+                    _next_probe = int(_remaining)
+                else:
+                    _next_probe = int(_interval)
                 payload["idle_state"] = {
                     "tier": _tier,
-                    "next_probe_in_s": int(_interval),
+                    "next_probe_in_s": _next_probe,
                     "last_request_finished_at": _last_fin,
                     "idle_seconds": int(_now - _last_fin) if _last_fin > 0 else -1,
                 }
