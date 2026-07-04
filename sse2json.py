@@ -682,13 +682,16 @@ def _build_probe_plan(observability, config, router) -> list[tuple[str, str, str
         return []
 
     # --- Find the most recent successful model globally ---
+    # Use latest_successful_model_global() which iterates _recent in
+    # temporal order (newest first) and returns the first success.
+    # Previously we iterated providers in config-dict order and took the
+    # last non-None result, which ignored temporal ordering — a request
+    # for model B made AFTER model A could be overshadowed by A if A's
+    # provider appeared later in the config dict.
     recent_model = None
     if observability is not None:
         try:
-            for provider_name in providers_cfg.keys():
-                model = observability.latest_successful_model_for_provider(str(provider_name))
-                if model:
-                    recent_model = model
+            recent_model = observability.latest_successful_model_global()
         except Exception:
             pass
 

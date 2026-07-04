@@ -2023,12 +2023,8 @@ class IdleProbeAdvancedTests(unittest.TestCase):
         obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
 
         # Mock: beta recently used "shared-model"
-        with patch.object(obs, 'latest_successful_model_for_provider') as mock_latest:
-            def side_effect(provider):
-                if provider == "beta":
-                    return "shared-model"
-                return None
-            mock_latest.side_effect = side_effect
+        with patch.object(obs, 'latest_successful_model_global') as mock_global:
+            mock_global.return_value = "shared-model"
 
             plan = sse2json._build_probe_plan(obs, cfg, router)
 
@@ -2063,8 +2059,8 @@ class IdleProbeAdvancedTests(unittest.TestCase):
         router = sse2json.UpstreamRouter(cfg)
         obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
 
-        with patch.object(obs, 'latest_successful_model_for_provider') as mock_latest:
-            mock_latest.return_value = None
+        with patch.object(obs, 'latest_successful_model_global') as mock_global:
+            mock_global.return_value = None
 
             plan = sse2json._build_probe_plan(obs, cfg, router)
 
@@ -2094,8 +2090,8 @@ class IdleProbeAdvancedTests(unittest.TestCase):
         router = sse2json.UpstreamRouter(cfg)
         obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
 
-        with patch.object(obs, 'latest_successful_model_for_provider') as mock_latest:
-            mock_latest.return_value = "nonexistent-model"
+        with patch.object(obs, 'latest_successful_model_global') as mock_global:
+            mock_global.return_value = "nonexistent-model"
 
             plan = sse2json._build_probe_plan(obs, cfg, router)
 

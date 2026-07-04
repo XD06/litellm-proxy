@@ -596,6 +596,27 @@ class ProxyObservability:
                 return provider_model or request_model or None
         return None
 
+    def latest_successful_model_global(self) -> Optional[str]:
+        """Return the model from the most recent successful request across ALL providers.
+
+        Iterates ``_recent`` (newest first) and returns the first success's
+        provider_model.  This is the correct way to find "what model the user
+        most recently used" — as opposed to iterating providers in config order
+        and taking the last non-None result, which ignores temporal ordering.
+        """
+        with self._lock:
+            recent = list(self._recent)
+        for item in recent:
+            if int(item.get("status_code") or 0) >= 400:
+                continue
+            for attempt in item.get("attempts") or []:
+                if str(attempt.get("outcome") or "") != "success":
+                    continue
+                provider_model = str(attempt.get("provider_model") or "").strip()
+                request_model = str(item.get("model") or "").strip()
+                return provider_model or request_model or None
+        return None
+
     def provider_activity_summary(
         self, limit: int = 60, include_events: bool = False
     ) -> Dict[str, Dict[str, Any]]:
