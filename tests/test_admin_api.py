@@ -2202,6 +2202,168 @@ class IdleProbeAdvancedTests(unittest.TestCase):
         self.assertLessEqual(interval, sse2json._IDLE_CHECK_INTERVAL_DEEP_S[1])
 
 
+class IdleProbeMultiKeyTests(unittest.TestCase):
+    """Tests for multi-key probing: when one key fails, the probe should
+    try the next key on the same provider before giving up."""
+
+    def _multi_key_cfg(self):
+        return {
+            "server": {"admin_key": "admin-secret"},
+            "routing": {},
+            "models": {
+                "provider_model_capabilities": {
+                    "alpha": {
+                        "status": "ok",
+                        "models": ["alpha-model"],
+                        "canonical_map": {"alpha-model": "alpha-model"},
+                        "formats": ["chat_completions"],
+                    }
+                },
+            },
+            "providers": {
+                "alpha": {
+                    "base_url": "https://alpha.example",
+                    "keys": ["key-0", "key-1", "key-2"],
+                    "enabled": True,
+                    "formats": {
+                        "chat_completions": {"enabled": True, "path": "/v1/chat/completions"},
+                        "responses": {"enabled": False, "path": "/v1/responses"},
+                        "anthropic_messages": {"enabled": False, "path": "/v1/messages"},
+                    },
+                }
+            },
+        }
+
+    def test_first_key_fails_second_key_succeeds(self):
+        """When key[0] fails with a key-level error, key[1] should be tried."""
+        cfg = self._multi_key_cfg()
+        router = sse2json.UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+
+        call_count = [0]
+
+        class FailThenOkClient:
+            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
+                call_count[0] += 1
+                if call_count[0] == 1:
+                    raise HTTPError(url, 429, "Rate Limited", {}, None)
+                return {"id": "x"}, 42
+
+        rt = sse2json.RuntimeContext(cfg, router, FailThenOkClient(), obs, sse2json.AUDIT)
+        with patch.object(sse2json, "CONFIG", cfg):
+            healthy = sse2json._idle_probe_one_provider(rt, "alpha")
+
+        self.assertTrue(healthy, "provider should be healthy via second key")
+        self.assertEqual(call_count[0], 2, "should have tried 2 keys")
+
+        # Key 0 should be in cooldown (429 → rate_limited)
+        ks0 = router._keys_state.get(("alpha", 0))
+        self.assertIsNotNone(ks0)
+        self.assertGreater(ks0.cooldown_until, 0.0, "key 0 should be cooled down")
+
+        # Key 1 should NOT be in cooldown (it succeeded)
+        ks1 = router._keys_state.get(("alpha", 1))
+        if ks1:
+            self.assertEqual(ks1.cooldown_until, 0.0, "key 1 should not be cooled down")
+
+    def test_all_keys_fail_returns_false(self):
+        """When all keys fail, the provider should be marked unhealthy."""
+        cfg = self._multi_key_cfg()
+        router = sse2json.UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+
+        call_count = [0]
+
+        class AllFailClient:
+            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
+                call_count[0] += 1
+                raise HTTPError(url, 500, "Internal Server Error", {}, None)
+
+        rt = sse2json.RuntimeContext(cfg, router, AllFailClient(), obs, sse2json.AUDIT)
+        with patch.object(sse2json, "CONFIG", cfg):
+            healthy = sse2json._idle_probe_one_provider(rt, "alpha")
+
+        self.assertFalse(healthy, "provider should be unhealthy when all keys fail")
+        self.assertEqual(call_count[0], 3, "should have tried all 3 keys")
+
+        # All keys should have failures recorded
+        for i in range(3):
+            ks = router._keys_state.get(("alpha", i))
+            self.assertIsNotNone(ks, f"key {i} should have state")
+            self.assertGreater(ks.fails, 0, f"key {i} should have fails recorded")
+
+    def test_model_level_error_stops_key_iteration(self):
+        """When a client_error (404) occurs with a fallback model, the probe
+        should NOT try other keys — it's a model issue, not a key issue."""
+        cfg = self._multi_key_cfg()
+        router = sse2json.UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+
+        call_count = [0]
+
+        class FailClient:
+            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
+                call_count[0] += 1
+                raise HTTPError(url, 404, "Not Found", {}, None)
+
+        rt = sse2json.RuntimeContext(cfg, router, FailClient(), obs, sse2json.AUDIT)
+        with patch.object(sse2json, "CONFIG", cfg):
+            healthy = sse2json._idle_probe_one_provider(rt, "alpha")
+
+        self.assertFalse(healthy)
+        # Should only try 1 key because 404 is a model-level rejection
+        # (observed_only), not a key-level failure
+        self.assertEqual(call_count[0], 1, "should stop after model-level 404")
+
+    def test_network_error_tries_next_key(self):
+        """When a network error occurs, the next key should be tried."""
+        import socket as _socket
+        cfg = self._multi_key_cfg()
+        router = sse2json.UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+
+        call_count = [0]
+
+        class NetErrorThenOkClient:
+            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
+                call_count[0] += 1
+                if call_count[0] <= 2:
+                    raise _socket.timeout("timed out")
+                return {"id": "x"}, 55
+
+        rt = sse2json.RuntimeContext(cfg, router, NetErrorThenOkClient(), obs, sse2json.AUDIT)
+        with patch.object(sse2json, "CONFIG", cfg):
+            healthy = sse2json._idle_probe_one_provider(rt, "alpha")
+
+        self.assertTrue(healthy, "third key should succeed")
+        self.assertEqual(call_count[0], 3, "should have tried 3 keys")
+
+    def test_available_keys_tried_before_cooldown_keys(self):
+        """Available keys should be tried before cooled-down keys."""
+        import time as _time
+        cfg = self._multi_key_cfg()
+        router = sse2json.UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+
+        # Put key 0 in cooldown
+        router._keys_state[("alpha", 0)].cooldown_until = _time.time() + 300
+
+        call_urls = []
+
+        class OkClient:
+            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
+                call_urls.append(url)
+                return {"id": "x"}, 10
+
+        rt = sse2json.RuntimeContext(cfg, router, OkClient(), obs, sse2json.AUDIT)
+        with patch.object(sse2json, "CONFIG", cfg):
+            healthy = sse2json._idle_probe_one_provider(rt, "alpha")
+
+        self.assertTrue(healthy)
+        # Key 0 is in cooldown, so key 1 (available) should be tried first
+        self.assertEqual(len(call_urls), 1, "should succeed on first available key")
+
+
 class IdleCheckIntervalTests(unittest.TestCase):
     """Tests for _idle_check_interval_s adaptive cadence logic."""
 

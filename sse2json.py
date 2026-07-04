@@ -379,17 +379,22 @@ def _idle_check_interval_s(last_finished_at: float, now: float) -> float:
 
 
 def _idle_probe_one_provider(rt, provider: str, *, idle_tier: str = "", next_probe_in_s: float = 0, suggested_model: str = "", model_source: str = "") -> bool:
-    """Probe a single provider's first available key.
+    """Probe a single provider, trying all available keys before giving up.
 
-    Returns True if the provider is healthy, False if it should be skipped or
-    has been cooled down via report_failure.
+    Returns True if any key succeeds (provider is healthy), False if all keys
+    fail or the provider should be skipped.
+
+    This mirrors the real routing behavior in ``iter_attempts``: within a single
+    provider, we try each available key in order.  Only when ALL keys have been
+    tried (and failed) do we return False, allowing the caller to move on to
+    the next provider.
 
     Uses the RuntimeContext snapshot (rt) for consistent access to config,
     router, and upstream_client.
-    
+
     If suggested_model is provided, it will be used instead of auto-selecting
-    a model for this provider. This enables the new global model selection 
-    strategy where we pick a model from any provider and test it on the 
+    a model for this provider. This enables the new global model selection
+    strategy where we pick a model from any provider and test it on the
     highest priority provider that supports it.
     """
     router = rt.router
@@ -418,55 +423,52 @@ def _idle_probe_one_provider(rt, provider: str, *, idle_tier: str = "", next_pro
         _record_probe(outcome="skipped", reason="no keys configured", action="none")
         return False
 
-    # Find the first key to probe.  We intentionally do NOT skip providers
-    # that are currently in cooldown — the whole point of the idle probe is
-    # to check whether a cooled-down provider has recovered, and if so,
-    # clear its cooldown early (before the next real request arrives).
+    # Build the ordered list of key indices to try:
+    # 1. Available keys first (not in cooldown, not disabled)
+    # 2. Then cooled-down keys as fallback — the whole point of the idle
+    #    probe is to check whether a cooled-down key has recovered.
     now = time.time()
-    key_index = None
+    available_key_indices: list[int] = []
+    cooldown_key_indices: list[int] = []
     with router._lock:
         for i in range(len(keys)):
             ks = router._keys_state.get((provider, i))
-            # No state entry means the key has never been used or failed —
-            # treat it as available.
             if ks is None or ks.available(now):
-                key_index = i
-                break
+                available_key_indices.append(i)
+            else:
+                cooldown_key_indices.append(i)
 
-    if key_index is None:
-        # All keys are in cooldown/disabled.  Fall back to probing the first
-        # key anyway — the whole point of the idle probe is to check whether
-        # a cooled-down key has recovered, so we should still try.
-        if keys:
-            key_index = 0
-        else:
-            _record_probe(outcome="skipped", reason="no available key", action="none")
-            return False  # no keys at all
+    # If no keys are available, fall back to probing all keys anyway.
+    # The idle probe exists to check recovery, so we should still try.
+    key_indices_to_try = available_key_indices + cooldown_key_indices
+    if not key_indices_to_try:
+        key_indices_to_try = list(range(len(keys)))
 
-    # Pick a model to probe
+    if not key_indices_to_try:
+        _record_probe(outcome="skipped", reason="no available key", action="none")
+        return False
+
+    # --- Setup that doesn't change per-key: model, format, payload ---
     canonical_model = ""
     final_model_source = model_source
-    
+
     # Use suggested model if provided and supported
     if suggested_model and _provider_supports_model(provider, suggested_model, config):
         canonical_model = str(suggested_model)
-        # Keep the original model_source if provided, otherwise use a default
         if not final_model_source:
             final_model_source = "global_recent_success"
     else:
-        # Fall back to the original provider-specific model selection
         canonical_model, final_model_source = _pick_probe_model_with_source(provider, observability=observability, config=config)
-        
+
     if not canonical_model:
-        _record_probe(key_index=key_index, outcome="skipped", reason="no probe model", action="none")
-        return False  # no models to probe with
+        _record_probe(outcome="skipped", reason="no probe model", action="none")
+        return False
 
     fmt = router._first_supported_format(
         provider, ["chat_completions", "responses", "anthropic_messages"]
     )
     if not fmt:
         _record_probe(
-            key_index=key_index,
             model=canonical_model,
             model_source=final_model_source,
             outcome="skipped",
@@ -475,9 +477,13 @@ def _idle_probe_one_provider(rt, provider: str, *, idle_tier: str = "", next_pro
         )
         return False
 
-    raw_key = key_value(keys[key_index])
-    url, headers, provider_model, proxy_url = router._build_attempt_details(
-        provider, canonical_model, raw_key, key_index=key_index, upstream_format=fmt
+    # Build the base payload once — only the key/url/headers change per key.
+    # We need a provider_model for the payload; use the first key to build
+    # attempt details and extract it.  The provider_model is the same for all
+    # keys of the same provider+model+format combination.
+    first_raw_key = key_value(keys[key_indices_to_try[0]])
+    _, _, provider_model, _ = router._build_attempt_details(
+        provider, canonical_model, first_raw_key, key_index=key_indices_to_try[0], upstream_format=fmt
     )
 
     base_payload = {
@@ -491,8 +497,6 @@ def _idle_probe_one_provider(rt, provider: str, *, idle_tier: str = "", next_pro
         payload = convert_request("chat_completions", fmt, base_payload, resolve_model=lambda m: m)
     except Exception:
         _record_probe(
-            key_index=key_index,
-            key_id=router.key_id(raw_key),
             model=canonical_model,
             model_source=final_model_source,
             upstream_model=provider_model,
@@ -503,112 +507,129 @@ def _idle_probe_one_provider(rt, provider: str, *, idle_tier: str = "", next_pro
         )
         return False
 
-    request_id = f"idle-probe-{provider}-{uuid.uuid4().hex[:8]}"
+    # --- Try each key in order ---
     from router import Attempt as _Attempt
-    probe_attempt = _Attempt(
-        request_id=request_id,
-        attempt_no=1,
-        provider=provider,
-        key_index=key_index,
-        key=raw_key,
-        url=url,
-        headers=headers,
-        provider_model=provider_model,
-        upstream_format=fmt,
-        proxy_url=proxy_url,
-    )
+    request_id_base = f"idle-probe-{provider}-{uuid.uuid4().hex[:8]}"
 
-    probe_base = {
-        "key_index": key_index,
-        "key_id": router.key_id(raw_key),
-        "model": canonical_model,
-        "model_source": final_model_source,
-        "upstream_model": provider_model,
-        "format": fmt,
-    }
-    try:
-        _resp, _latency_ms = upstream_client.request_json_with_timing(
-            url, headers, payload, proxy_url=proxy_url, remaining_timeout_s=15
+    for attempt_no, key_index in enumerate(key_indices_to_try, start=1):
+        raw_key = key_value(keys[key_index])
+        url, headers, key_provider_model, proxy_url = router._build_attempt_details(
+            provider, canonical_model, raw_key, key_index=key_index, upstream_format=fmt
         )
-        # Success — provider is healthy.  Clear any stale cooldown that might
-        # have been set by a previous transient failure.
-        router.clear_provider_cooldown(provider)
-        _record_probe(
-            **probe_base,
-            outcome="success",
-            latency_ms=_latency_ms,
-            reason="probe succeeded",
-            action="cleared_provider_cooldown",
+        # provider_model may differ per key if provider_model_map is key-specific,
+        # but in practice it's the same.  Use the per-key value for safety.
+        if key_provider_model:
+            payload["model"] = key_provider_model
+
+        probe_attempt = _Attempt(
+            request_id=f"{request_id_base}-{attempt_no}",
+            attempt_no=attempt_no,
+            provider=provider,
+            key_index=key_index,
+            key=raw_key,
+            url=url,
+            headers=headers,
+            provider_model=key_provider_model or provider_model,
+            upstream_format=fmt,
+            proxy_url=proxy_url,
         )
-        print(f"[proxy] {_hprov(provider)} idle probe {_harrow('->')} {_h('ok')} {_hmodel(canonical_model)} {_latency_ms}ms", flush=True)
-        return True
-    except HTTPError as e:
-        status = int(getattr(e, "code", 0) or 0)
-        error_type = _probe_error_type(status)
-        if error_type == "client_error" and final_model_source not in ("recent_success", "recent_success_global"):
+
+        probe_base = {
+            "key_index": key_index,
+            "key_id": router.key_id(raw_key),
+            "model": canonical_model,
+            "model_source": final_model_source,
+            "upstream_model": key_provider_model or provider_model,
+            "format": fmt,
+        }
+
+        try:
+            _resp, _latency_ms = upstream_client.request_json_with_timing(
+                url, headers, payload, proxy_url=proxy_url, remaining_timeout_s=15
+            )
+            # Success — provider is healthy.  Clear any stale cooldown.
+            router.clear_provider_cooldown(provider)
+            _record_probe(
+                **probe_base,
+                outcome="success",
+                latency_ms=_latency_ms,
+                reason="probe succeeded",
+                action="cleared_provider_cooldown",
+            )
+            print(f"[proxy] {_hprov(provider)} idle probe {_harrow('->')} {_h('ok')} {_hmodel(canonical_model)} key#{key_index} {_latency_ms}ms", flush=True)
+            return True
+        except HTTPError as e:
+            status = int(getattr(e, "code", 0) or 0)
+            error_type = _probe_error_type(status)
+            if error_type == "client_error" and final_model_source not in ("recent_success", "recent_success_global"):
+                # Model-level rejection (e.g. 404 for a fallback model).
+                # Trying other keys won't help — it's the same model.
+                _record_probe(
+                    **probe_base,
+                    outcome="failed",
+                    http_status=status,
+                    error_type=error_type,
+                    reason="fallback probe model rejected",
+                    action="observed_only",
+                )
+                print(f"[proxy] {_hprov(provider)} idle probe {_harrow('->')} observed_only HTTP {status} {_hmodel(canonical_model)} key#{key_index}", flush=True)
+                return False
+            # Key-level failure — report it and try the next key.
+            router.report_failure(
+                probe_attempt,
+                error_type=error_type,
+                http_status=status,
+            )
+            policy = scheduler_policy.failure_policy_for_error_type(config, error_type)
             _record_probe(
                 **probe_base,
                 outcome="failed",
                 http_status=status,
                 error_type=error_type,
-                reason="fallback probe model rejected",
-                action="observed_only",
+                cooldown_s=policy.get("cooldown_s"),
+                provider_cooldown_s=policy.get("provider_cooldown_s"),
+                reason=f"HTTP {status}",
+                action="reported_failure",
             )
-            print(f"[proxy] {_hprov(provider)} idle probe {_harrow('->')} observed_only HTTP {status} {_hmodel(canonical_model)}", flush=True)
-            return False
-        # Feed the failure into the router's cooldown mechanism so the next
-        # real request skips this provider.
-        router.report_failure(
-            probe_attempt,
-            error_type=error_type,
-            http_status=status,
-        )
-        policy = scheduler_policy.failure_policy_for_error_type(config, error_type)
-        _record_probe(
-            **probe_base,
-            outcome="failed",
-            http_status=status,
-            error_type=error_type,
-            cooldown_s=policy.get("cooldown_s"),
-            provider_cooldown_s=policy.get("provider_cooldown_s"),
-            reason=f"HTTP {status}",
-            action="reported_failure",
-        )
-        print(f"[proxy] {_hprov(provider)} idle probe {_harrow('->')} FAIL HTTP {status} ({error_type}) {_hmodel(canonical_model)}", flush=True)
-        return False
-    except (URLError, socket.timeout) as e:
-        router.report_failure(
-            probe_attempt,
-            error_type="network_error",
-        )
-        policy = scheduler_policy.failure_policy_for_error_type(config, "network_error")
-        _record_probe(
-            **probe_base,
-            outcome="failed",
-            error_type="network_error",
-            cooldown_s=policy.get("cooldown_s"),
-            provider_cooldown_s=policy.get("provider_cooldown_s"),
-            reason=type(e).__name__,
-            action="reported_failure",
-        )
-        print(f"[proxy] {_hprov(provider)} idle probe {_harrow('->')} FAIL {type(e).__name__} {_hmodel(canonical_model)}", flush=True)
-        return False
-    except Exception as e:
-        router.report_failure(
-            probe_attempt,
-            error_type="unknown",
-        )
-        policy = scheduler_policy.failure_policy_for_error_type(config, "unknown")
-        _record_probe(
-            **probe_base,
-            outcome="failed",
-            error_type="unknown",
-            cooldown_s=policy.get("cooldown_s"),
-            provider_cooldown_s=policy.get("provider_cooldown_s"),
-            reason=type(e).__name__,
-            action="reported_failure",
-        )
-        return False
+            print(f"[proxy] {_hprov(provider)} idle probe {_harrow('->')} FAIL HTTP {status} ({error_type}) {_hmodel(canonical_model)} key#{key_index}, trying next key...", flush=True)
+            continue  # try next key
+        except (URLError, socket.timeout) as e:
+            router.report_failure(
+                probe_attempt,
+                error_type="network_error",
+            )
+            policy = scheduler_policy.failure_policy_for_error_type(config, "network_error")
+            _record_probe(
+                **probe_base,
+                outcome="failed",
+                error_type="network_error",
+                cooldown_s=policy.get("cooldown_s"),
+                provider_cooldown_s=policy.get("provider_cooldown_s"),
+                reason=type(e).__name__,
+                action="reported_failure",
+            )
+            print(f"[proxy] {_hprov(provider)} idle probe {_harrow('->')} FAIL {type(e).__name__} {_hmodel(canonical_model)} key#{key_index}, trying next key...", flush=True)
+            continue  # try next key
+        except Exception as e:
+            router.report_failure(
+                probe_attempt,
+                error_type="unknown",
+            )
+            policy = scheduler_policy.failure_policy_for_error_type(config, "unknown")
+            _record_probe(
+                **probe_base,
+                outcome="failed",
+                error_type="unknown",
+                cooldown_s=policy.get("cooldown_s"),
+                provider_cooldown_s=policy.get("provider_cooldown_s"),
+                reason=type(e).__name__,
+                action="reported_failure",
+            )
+            print(f"[proxy] {_hprov(provider)} idle probe {_harrow('->')} FAIL {type(e).__name__} {_hmodel(canonical_model)} key#{key_index}, trying next key...", flush=True)
+            continue  # try next key
+
+    # All keys exhausted — provider is unhealthy.
+    return False
 
 
 def _build_probe_plan(observability, config, router) -> list[tuple[str, str, str]]:
