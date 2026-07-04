@@ -198,7 +198,7 @@ class AdminRoutesMixin:
                 from sse2json import _idle_tier_info, _idle_probe_schedule
                 _last_fin = OBSERVABILITY.last_request_finished_at()
                 _now = _time.time()
-                _tier, _interval = _idle_tier_info(_last_fin, _now)
+                _tier, _interval = _idle_tier_info(_last_fin, _now, CONFIG)
                 # Use the idle checker's *actual* scheduled interval (stored
                 # when the loop computed it) instead of recomputing a fresh
                 # random value on every poll.  This makes the frontend's
@@ -636,6 +636,18 @@ class AdminRoutesMixin:
                 return self._resp_json({"action": "config_reloaded", "config": CONFIG_MANAGER.snapshot()})
             except ConfigValidationError as e:
                 self._audit_admin_event("config_reload_failed", target="config", status="failed", error=str(e))
+                return self._resp_json({"error": {"message": str(e)}}, 400)
+
+        if parts == ["config", "health-monitor"]:
+            body = self._read_json_body()
+            if isinstance(body, tuple):
+                return self._resp_json(body[0], body[1])
+            try:
+                CONFIG_MANAGER.update_health_monitor(body or {})
+                _apply_runtime_config(CONFIG_MANAGER.config)
+                self._audit_admin_event("health_monitor_updated", target="health_monitor", detail=body or {})
+                return self._resp_json({"action": "health_monitor_updated", "config": CONFIG_MANAGER.snapshot()})
+            except ConfigValidationError as e:
                 return self._resp_json({"error": {"message": str(e)}}, 400)
 
         if parts == ["config", "overlay", "validate"]:

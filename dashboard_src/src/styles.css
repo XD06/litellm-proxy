@@ -14571,3 +14571,141 @@ body {
     overflow: visible;
   }
 }
+
+/* ---- Health Monitor panel ---- */
+.health-monitor-panel {
+  border-color: #dfe5ec;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.health-monitor-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 4px 0;
+}
+
+.health-monitor-section {
+  border: 1px solid #e8edf3;
+  border-radius: 8px;
+  padding: 14px;
+  background: #fafbfc;
+}
+
+.health-monitor-section-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.health-monitor-section-head > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.health-monitor-section-head strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a2332;
+  margin-bottom: 2px;
+}
+
+.health-monitor-section-head small {
+  display: block;
+  font-size: 11px;
+  color: #6b7785;
+  line-height: 1.4;
+}
+
+.health-monitor-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.health-monitor-fields .field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.health-monitor-fields .field span {
+  font-size: 11px;
+  color: #6b7785;
+  font-weight: 500;
+}
+
+.health-monitor-fields .field input {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 12px;
+  border: 1px solid #d1d9e0;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.health-monitor-fields .field input:focus {
+  border-color: var(--accent, #4a6cf7);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(74, 108, 247, 0.1);
+}
+
+/* Capsule switch */
+.capsule-switch {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  cursor: pointer;
+  margin-top: 2px;
+}
+
+.capsule-switch input[type="checkbox"] {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.capsule-switch-track {
+  display: block;
+  width: 36px;
+  height: 20px;
+  border-radius: 20px;
+  background: #c5cdd6;
+  transition: background 0.2s ease;
+  position: relative;
+}
+
+.capsule-switch-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease;
+}
+
+.capsule-switch input:checked + .capsule-switch-track {
+  background: var(--accent, #4a6cf7);
+}
+
+.capsule-switch input:checked + .capsule-switch-track::after {
+  transform: translateX(16px);
+}
+
+.health-monitor-status {
+  font-size: 12px;
+  padding: 6px 0;
+  min-height: 20px;
+}
+
+.health-monitor-status.info { color: #4a6cf7; }
+.health-monitor-status.ok { color: #1a8754; }
+.health-monitor-status.bad { color: #d93026; }

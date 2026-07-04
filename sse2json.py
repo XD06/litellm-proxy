@@ -365,7 +365,32 @@ _IDLE_TIER_DEEP_S = 1800         # 30 min
 _idle_probe_schedule = {"interval_s": 0.0, "computed_at": 0.0}
 
 
-def _idle_tier_info(last_finished_at: float, now: float) -> tuple[str, float]:
+def _health_monitor_cfg(config=None) -> dict:
+    """Return the effective health_monitor config dict, merged with defaults."""
+    cfg = config if config is not None else CONFIG
+    hm = (cfg.get("health_monitor") or {})
+    if not isinstance(hm, dict):
+        hm = {}
+    defaults = {
+        "idle_check_enabled": True,
+        "idle_check_interval_recent_s": _IDLE_CHECK_INTERVAL_RECENT_S,
+        "idle_check_interval_medium_s": _IDLE_CHECK_INTERVAL_MEDIUM_S,
+        "idle_check_interval_long_s": _IDLE_CHECK_INTERVAL_LONG_S,
+        "idle_check_interval_deep_min_s": _IDLE_CHECK_INTERVAL_DEEP_S[0],
+        "idle_check_interval_deep_max_s": _IDLE_CHECK_INTERVAL_DEEP_S[1],
+        "patrol_check_enabled": True,
+        "patrol_interval_min_s": _PATROL_INTERVAL_S[0],
+        "patrol_interval_max_s": _PATROL_INTERVAL_S[1],
+        "patrol_delay_s": _PATROL_DELAY_S[0],
+        "patrol_delay_jitter_s": _PATROL_DELAY_S[1] - _PATROL_DELAY_S[0],
+        "patrol_first_byte_timeout_s": _PATROL_FIRST_BYTE_TIMEOUT_S,
+    }
+    result = dict(defaults)
+    result.update(hm)
+    return result
+
+
+def _idle_tier_info(last_finished_at: float, now: float, config=None) -> tuple[str, float]:
     """Return (tier_name, interval_s) for the current idle state.
 
     Tier names are stable strings used in probe events and the frontend:
@@ -375,16 +400,19 @@ def _idle_tier_info(last_finished_at: float, now: float) -> tuple[str, float]:
       - "long"         — 10-30 min ago (5 min cadence)
       - "deep"         — 30+ min ago (3-6h random cadence)
     """
+    hm = _health_monitor_cfg(config)
     if last_finished_at == 0.0:
         return "cold_start", _IDLE_CHECK_INTERVAL_INITIAL_S
     idle_s = max(0.0, now - last_finished_at)
     if idle_s < _IDLE_TIER_RECENT_S:
-        return "recent", _IDLE_CHECK_INTERVAL_RECENT_S
+        return "recent", float(hm.get("idle_check_interval_recent_s", _IDLE_CHECK_INTERVAL_RECENT_S))
     if idle_s < _IDLE_TIER_MEDIUM_S:
-        return "medium", _IDLE_CHECK_INTERVAL_MEDIUM_S
+        return "medium", float(hm.get("idle_check_interval_medium_s", _IDLE_CHECK_INTERVAL_MEDIUM_S))
     if idle_s < _IDLE_TIER_DEEP_S:
-        return "long", _IDLE_CHECK_INTERVAL_LONG_S
-    return "deep", random.uniform(_IDLE_CHECK_INTERVAL_DEEP_S[0], _IDLE_CHECK_INTERVAL_DEEP_S[1])
+        return "long", float(hm.get("idle_check_interval_long_s", _IDLE_CHECK_INTERVAL_LONG_S))
+    dmin = float(hm.get("idle_check_interval_deep_min_s", _IDLE_CHECK_INTERVAL_DEEP_S[0]))
+    dmax = float(hm.get("idle_check_interval_deep_max_s", _IDLE_CHECK_INTERVAL_DEEP_S[1]))
+    return "deep", random.uniform(min(dmin, dmax), max(dmin, dmax))
 
 
 def _idle_check_interval_s(last_finished_at: float, now: float) -> float:
@@ -800,9 +828,15 @@ def _start_idle_health_checker() -> None:
             try:
                 rt = _request_runtime()
                 observability = rt.observability
+                config = rt.config
+                hm = _health_monitor_cfg(config)
+                if not hm.get("idle_check_enabled", True):
+                    # Idle checker disabled — sleep and re-check periodically.
+                    time.sleep(60)
+                    continue
                 last_finished = observability.last_request_finished_at()
                 now = time.time()
-                interval = _idle_check_interval_s(last_finished, now)
+                interval = _idle_tier_info(last_finished, now, config)[1]
                 # Store for /admin/metrics display (countdown).
                 _idle_probe_schedule["interval_s"] = interval
                 _idle_probe_schedule["computed_at"] = now
@@ -984,12 +1018,14 @@ def _patrol_probe_one_key(rt, provider: str, key_index: int, *, canonical_model:
 
     stream_conn = None
     started_at = time.time()
+    hm = _health_monitor_cfg(config)
+    fb_timeout = int(hm.get("patrol_first_byte_timeout_s", _PATROL_FIRST_BYTE_TIMEOUT_S))
     try:
         stream_conn = upstream_client.open_stream(
             url, headers, payload,
             proxy_url=proxy_url,
-            remaining_timeout_s=15,
-            first_byte_timeout_s=_PATROL_FIRST_BYTE_TIMEOUT_S,
+            remaining_timeout_s=fb_timeout,
+            first_byte_timeout_s=fb_timeout,
         )
         # Read lines until we find the first SSE "data:" event.
         # A valid data line means the provider accepted the request and
@@ -1188,9 +1224,12 @@ def _patrol_health_check_round() -> None:
                     print(f"[proxy] patrol round interrupted: request in flight", flush=True)
                     return
 
-                # Random delay between probes (3-5s), even across providers.
+                # Random delay between probes, even across providers.
                 if total_probes > 0:
-                    delay = random.uniform(_PATROL_DELAY_S[0], _PATROL_DELAY_S[1])
+                    hm = _health_monitor_cfg(config)
+                    base_delay = float(hm.get("patrol_delay_s", _PATROL_DELAY_S[0]))
+                    jitter = float(hm.get("patrol_delay_jitter_s", _PATROL_DELAY_S[1] - _PATROL_DELAY_S[0]))
+                    delay = base_delay + random.uniform(0, max(0, jitter))
                     time.sleep(delay)
 
                 total_probes += 1
@@ -1219,7 +1258,14 @@ def _start_patrol_health_checker() -> None:
     def _loop():
         while True:
             try:
-                interval = random.uniform(_PATROL_INTERVAL_S[0], _PATROL_INTERVAL_S[1])
+                rt = _request_runtime()
+                hm = _health_monitor_cfg(rt.config)
+                if not hm.get("patrol_check_enabled", True):
+                    time.sleep(60)
+                    continue
+                pmin = float(hm.get("patrol_interval_min_s", _PATROL_INTERVAL_S[0]))
+                pmax = float(hm.get("patrol_interval_max_s", _PATROL_INTERVAL_S[1]))
+                interval = random.uniform(min(pmin, pmax), max(pmin, pmax))
                 # Chunk the sleep so we can exit cleanly on shutdown.
                 remaining = interval
                 while remaining > 0:

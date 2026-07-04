@@ -343,6 +343,7 @@
                 <button type="button" data-config-tab="map" role="tab" data-i18n="cfg.tab_map">Map</button>
                 <button type="button" data-config-tab="runtime" role="tab" data-i18n="cfg.tab_runtime">Runtime</button>
                 <button type="button" data-config-tab="proxy" role="tab" data-i18n="cfg.tab_proxy">Proxy</button>
+                <button type="button" data-config-tab="health" role="tab" data-i18n="cfg.tab_health">Health</button>
                 <button type="button" data-config-tab="advanced" role="tab" data-i18n="cfg.tab_advanced">Advanced</button>
               </div>
 
@@ -425,6 +426,89 @@
                   </label>
                   <button class="button secondary" type="submit" data-i18n="cfg.save_global_proxy">Save global proxy</button>
                 </form>
+              </section>
+              </div>
+
+              <div class="config-tab-panel" data-config-tab-panel="health" hidden>
+              <section class="panel health-monitor-panel">
+                <div class="panel-head">
+                  <div>
+                    <h2 data-i18n="cfg.health_monitor">Health Monitor<span class="help-tip" data-tip="Configure idle and patrol health checkers." data-i18n-tip="cfg.health_tip">?</span></h2>
+                  </div>
+                  <button id="saveHealthMonitorBtn" class="button primary" type="button" data-i18n="cfg.save_health">Save</button>
+                </div>
+                <div id="healthMonitorForm" class="health-monitor-form">
+                  <div class="health-monitor-section">
+                    <div class="health-monitor-section-head">
+                      <label class="capsule-switch">
+                        <input type="checkbox" id="hmIdleEnabled" checked />
+                        <span class="capsule-switch-track"></span>
+                      </label>
+                      <div>
+                        <strong data-i18n="cfg.idle_check">Idle Health Checker</strong>
+                        <small data-i18n="cfg.idle_check_desc">Adaptive probing based on traffic patterns. Probes the most recently used model's providers in priority order.</small>
+                      </div>
+                    </div>
+                    <div class="health-monitor-fields">
+                      <label class="field">
+                        <span data-i18n="cfg.interval_recent">Recent interval (s)</span>
+                        <input class="control" type="number" id="hmIdleRecent" value="30" min="1" max="3600" />
+                      </label>
+                      <label class="field">
+                        <span data-i18n="cfg.interval_medium">Medium interval (s)</span>
+                        <input class="control" type="number" id="hmIdleMedium" value="60" min="1" max="3600" />
+                      </label>
+                      <label class="field">
+                        <span data-i18n="cfg.interval_long">Long interval (s)</span>
+                        <input class="control" type="number" id="hmIdleLong" value="300" min="1" max="3600" />
+                      </label>
+                      <label class="field">
+                        <span data-i18n="cfg.interval_deep_min">Deep interval min (s)</span>
+                        <input class="control" type="number" id="hmIdleDeepMin" value="10800" min="60" max="86400" />
+                      </label>
+                      <label class="field">
+                        <span data-i18n="cfg.interval_deep_max">Deep interval max (s)</span>
+                        <input class="control" type="number" id="hmIdleDeepMax" value="21600" min="60" max="86400" />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div class="health-monitor-section">
+                    <div class="health-monitor-section-head">
+                      <label class="capsule-switch">
+                        <input type="checkbox" id="hmPatrolEnabled" checked />
+                        <span class="capsule-switch-track"></span>
+                      </label>
+                      <div>
+                        <strong data-i18n="cfg.patrol_check">Patrol Health Checker</strong>
+                        <small data-i18n="cfg.patrol_check_desc">Full sweep of all providers and keys at a fixed interval using streaming probes. Discovers dead keys and triggers circuit breakers.</small>
+                      </div>
+                    </div>
+                    <div class="health-monitor-fields">
+                      <label class="field">
+                        <span data-i18n="cfg.patrol_interval_min">Interval min (s)</span>
+                        <input class="control" type="number" id="hmPatrolMin" value="3600" min="60" max="86400" />
+                      </label>
+                      <label class="field">
+                        <span data-i18n="cfg.patrol_interval_max">Interval max (s)</span>
+                        <input class="control" type="number" id="hmPatrolMax" value="10800" min="60" max="86400" />
+                      </label>
+                      <label class="field">
+                        <span data-i18n="cfg.patrol_delay">Probe delay (s)</span>
+                        <input class="control" type="number" id="hmPatrolDelay" value="3" min="0" max="60" />
+                      </label>
+                      <label class="field">
+                        <span data-i18n="cfg.patrol_jitter">Delay jitter (s)</span>
+                        <input class="control" type="number" id="hmPatrolJitter" value="2" min="0" max="30" />
+                      </label>
+                      <label class="field">
+                        <span data-i18n="cfg.patrol_timeout">First byte timeout (s)</span>
+                        <input class="control" type="number" id="hmPatrolTimeout" value="15" min="1" max="120" />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                <div id="healthMonitorStatus" class="health-monitor-status"></div>
               </section>
               </div>
 

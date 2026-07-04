@@ -248,6 +248,57 @@ class RuntimeConfigManager:
             overlay["proxy"] = normalize_proxy_config(patch.get("proxy"))
         return self.config
 
+    # ------------------------------------------------------------------
+    # Health monitor configuration
+    # ------------------------------------------------------------------
+    _HEALTH_MONITOR_DEFAULTS = {
+        "idle_check_enabled": True,
+        "idle_check_interval_recent_s": 30,
+        "idle_check_interval_medium_s": 60,
+        "idle_check_interval_long_s": 300,
+        "idle_check_interval_deep_min_s": 3 * 3600,
+        "idle_check_interval_deep_max_s": 6 * 3600,
+        "patrol_check_enabled": True,
+        "patrol_interval_min_s": 3600,
+        "patrol_interval_max_s": 3 * 3600,
+        "patrol_delay_s": 3,
+        "patrol_delay_jitter_s": 2,
+        "patrol_first_byte_timeout_s": 15,
+    }
+
+    def update_health_monitor(self, patch: Dict[str, Any]) -> Dict[str, Any]:
+        if not isinstance(patch, dict) or not patch:
+            raise ConfigValidationError("health_monitor patch must be a non-empty object")
+        allowed = set(self._HEALTH_MONITOR_DEFAULTS.keys())
+        clean: Dict[str, Any] = {}
+        for key, value in patch.items():
+            if key not in allowed:
+                raise ConfigValidationError(f"unsupported health_monitor field: {key}")
+            if key in ("idle_check_enabled", "patrol_check_enabled"):
+                clean[key] = bool(value)
+            elif key in ("idle_check_interval_deep_min_s", "idle_check_interval_deep_max_s",
+                         "patrol_interval_min_s", "patrol_interval_max_s"):
+                clean[key] = self._bounded_int(value, key, 60, 86400)
+            elif key == "patrol_first_byte_timeout_s":
+                clean[key] = self._bounded_int(value, key, 1, 120)
+            elif key == "patrol_delay_jitter_s":
+                clean[key] = self._bounded_int(value, key, 0, 30)
+            else:
+                clean[key] = self._bounded_int(value, key, 1, 3600)
+        # Validate min <= max for deep interval
+        dmin = clean.get("idle_check_interval_deep_min_s")
+        dmax = clean.get("idle_check_interval_deep_max_s")
+        if dmin is not None and dmax is not None and dmin > dmax:
+            raise ConfigValidationError("idle_check_interval_deep_min_s must be <= idle_check_interval_deep_max_s")
+        pmin = clean.get("patrol_interval_min_s")
+        pmax = clean.get("patrol_interval_max_s")
+        if pmin is not None and pmax is not None and pmin > pmax:
+            raise ConfigValidationError("patrol_interval_min_s must be <= patrol_interval_max_s")
+        with self._locked_overlay() as overlay:
+            current = copy.deepcopy(overlay.get("health_monitor") or self.config.get("health_monitor") or {})
+            overlay["health_monitor"] = _deep_merge(current, clean)
+        return self.config
+
     def update_format(self, provider: str, fmt: str, patch: Dict[str, Any]) -> Dict[str, Any]:
         self._require_provider(provider)
         fmt = str(fmt or "")

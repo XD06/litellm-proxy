@@ -6609,6 +6609,76 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       });
     });
 
+    // --- Health Monitor ---
+    function loadHealthMonitorForm() {
+      const hm = (state.data.config || {}).health_monitor || {};
+      el("hmIdleEnabled").checked = hm.idle_check_enabled !== false;
+      el("hmIdleRecent").value = hm.idle_check_interval_recent_s ?? 30;
+      el("hmIdleMedium").value = hm.idle_check_interval_medium_s ?? 60;
+      el("hmIdleLong").value = hm.idle_check_interval_long_s ?? 300;
+      el("hmIdleDeepMin").value = hm.idle_check_interval_deep_min_s ?? 10800;
+      el("hmIdleDeepMax").value = hm.idle_check_interval_deep_max_s ?? 21600;
+      el("hmPatrolEnabled").checked = hm.patrol_check_enabled !== false;
+      el("hmPatrolMin").value = hm.patrol_interval_min_s ?? 3600;
+      el("hmPatrolMax").value = hm.patrol_interval_max_s ?? 10800;
+      el("hmPatrolDelay").value = hm.patrol_delay_s ?? 3;
+      el("hmPatrolJitter").value = hm.patrol_delay_jitter_s ?? 2;
+      el("hmPatrolTimeout").value = hm.patrol_first_byte_timeout_s ?? 15;
+    }
+
+    function collectHealthMonitorPatch() {
+      return {
+        idle_check_enabled: el("hmIdleEnabled").checked,
+        idle_check_interval_recent_s: parseInt(el("hmIdleRecent").value, 10) || 30,
+        idle_check_interval_medium_s: parseInt(el("hmIdleMedium").value, 10) || 60,
+        idle_check_interval_long_s: parseInt(el("hmIdleLong").value, 10) || 300,
+        idle_check_interval_deep_min_s: parseInt(el("hmIdleDeepMin").value, 10) || 10800,
+        idle_check_interval_deep_max_s: parseInt(el("hmIdleDeepMax").value, 10) || 21600,
+        patrol_check_enabled: el("hmPatrolEnabled").checked,
+        patrol_interval_min_s: parseInt(el("hmPatrolMin").value, 10) || 3600,
+        patrol_interval_max_s: parseInt(el("hmPatrolMax").value, 10) || 10800,
+        patrol_delay_s: parseInt(el("hmPatrolDelay").value, 10) || 3,
+        patrol_delay_jitter_s: parseInt(el("hmPatrolJitter").value, 10) || 2,
+        patrol_first_byte_timeout_s: parseInt(el("hmPatrolTimeout").value, 10) || 15,
+      };
+    }
+
+    // Load form when config data arrives
+    const _origRenderAll = renderAll;
+    renderAll = function () {
+      _origRenderAll.apply(this, arguments);
+      if (el("hmIdleEnabled") && state.data.config) {
+        loadHealthMonitorForm();
+      }
+    };
+
+    el("saveHealthMonitorBtn").addEventListener("click", async () => {
+      const btn = el("saveHealthMonitorBtn");
+      const status = el("healthMonitorStatus");
+      btn.disabled = true;
+      status.textContent = "Saving...";
+      status.className = "health-monitor-status info";
+      try {
+        const patch = collectHealthMonitorPatch();
+        const result = await apiPost("/-/admin/config/health-monitor", patch);
+        if (result.config) {
+          state.data.config = result.config;
+          loadHealthMonitorForm();
+        }
+        status.textContent = "Saved successfully.";
+        status.className = "health-monitor-status ok";
+        setNotice("Health monitor settings saved.", "ok");
+        scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
+      } catch (err) {
+        status.textContent = `Error: ${err.message}`;
+        status.className = "health-monitor-status bad";
+        setNotice(`Health monitor save failed: ${err.message}`);
+      } finally {
+        btn.disabled = false;
+        setTimeout(() => { status.textContent = ""; status.className = "health-monitor-status"; }, 3000);
+      }
+    });
+
     el("exportOverlayButton").addEventListener("click", async () => {
       try {
         const overlay = await apiGet("/-/admin/config/overlay");
