@@ -425,15 +425,25 @@ class ProxyObservability:
                 recent_item["error"] = str(error)[:500]
             self._recent.appendleft(recent_item)
             self._failure_summary_cache = None  # Invalidate cache
-            self._last_request_finished_at = now
-            # If this observability was migrated (config hot-swap), propagate
-            # the timestamp to the new instance so the idle health checker
-            # sees the correct last-request time even when record_request_end
-            # is called on the OLD observability by an in-flight request.
-            _migrated = getattr(self, "_migrated_to", None)
-            if _migrated is not None and _migrated is not self:
-                with _migrated._lock:
-                    _migrated._last_request_finished_at = now
+            # admin_probe (manual key test) requests must NOT refresh the
+            # idle health checker's "last request finished" timestamp — they
+            # are diagnostic probes, not real user traffic.  Without this
+            # guard, clicking "Test" on a provider key resets the idle tier
+            # to "recent" (30s), defeating the adaptive cadence.
+            is_admin_probe = (
+                str(active.get("client_format") or "") == "admin_probe"
+                or str(active.get("endpoint") or "") == "key_test"
+            )
+            if not is_admin_probe:
+                self._last_request_finished_at = now
+                # If this observability was migrated (config hot-swap), propagate
+                # the timestamp to the new instance so the idle health checker
+                # sees the correct last-request time even when record_request_end
+                # is called on the OLD observability by an in-flight request.
+                _migrated = getattr(self, "_migrated_to", None)
+                if _migrated is not None and _migrated is not self:
+                    with _migrated._lock:
+                        _migrated._last_request_finished_at = now
         self._history.record_request(recent_item)
 
     def snapshot(self) -> Dict[str, Any]:

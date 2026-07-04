@@ -682,5 +682,186 @@ class RuntimeSwapConsistencyTests(unittest.TestCase):
                 setattr(sse2json, name, value)
 
 
+class AdminProbeNoIdleResetTests(unittest.TestCase):
+    """Verify that admin_probe (manual key test) requests do NOT refresh
+    _last_request_finished_at, which would reset the idle health checker's
+    adaptive cadence to 'recent' (30s)."""
+
+    def _cfg(self):
+        return {"providers": {}, "models": {}, "routing": {}}
+
+    def test_admin_probe_does_not_update_last_request_finished_at(self):
+        """record_request_end with client_format='admin_probe' must NOT
+        update _last_request_finished_at."""
+        import time as _time
+        obs = ProxyObservability(self._cfg())
+        # Baseline: no requests yet
+        self.assertEqual(obs._last_request_finished_at, 0.0)
+
+        # Simulate a manual key test (admin_probe)
+        obs.record_request_start(
+            "probe-1", client_format="admin_probe", endpoint="key_test",
+            model="test-model", stream=False, path="/-/admin/providers/p/keys/0/test",
+        )
+        obs.record_request_end("probe-1", status_code=200)
+
+        # _last_request_finished_at must still be 0.0 — admin probes are
+        # diagnostic, not real user traffic.
+        self.assertEqual(obs._last_request_finished_at, 0.0,
+                         "admin_probe must not update _last_request_finished_at")
+
+    def test_real_request_updates_last_request_finished_at(self):
+        """Sanity check: real (non-admin-probe) requests DO update
+        _last_request_finished_at."""
+        obs = ProxyObservability(self._cfg())
+        obs.record_request_start(
+            "r1", client_format="chat_completions", endpoint="chat_completions",
+            model="test-model", stream=False, path="/v1/chat/completions",
+        )
+        obs.record_request_end("r1", status_code=200)
+        self.assertGreater(obs._last_request_finished_at, 0.0,
+                           "real requests must update _last_request_finished_at")
+
+    def test_admin_probe_with_key_test_endpoint_does_not_update(self):
+        """Even if client_format is not 'admin_probe', endpoint='key_test'
+        should also prevent updating _last_request_finished_at."""
+        obs = ProxyObservability(self._cfg())
+        obs.record_request_start(
+            "probe-2", client_format="unknown", endpoint="key_test",
+            model="test-model", stream=False, path="/-/admin/providers/p/keys/0/test",
+        )
+        obs.record_request_end("probe-2", status_code=404)
+        self.assertEqual(obs._last_request_finished_at, 0.0,
+                         "key_test endpoint must not update _last_request_finished_at")
+
+    def test_admin_probe_does_not_forward_during_migration(self):
+        """admin_probe on OLD observability must NOT forward timestamp to NEW."""
+        old = ProxyObservability(self._cfg())
+        new = ProxyObservability(self._cfg())
+        new.migrate_counters_from(old)
+
+        old.record_request_start(
+            "probe-3", client_format="admin_probe", endpoint="key_test",
+            model="m", stream=False, path="/test",
+        )
+        old.record_request_end("probe-3", status_code=200)
+
+        self.assertEqual(new._last_request_finished_at, 0.0,
+                         "admin_probe must not forward _last_request_finished_at")
+
+
+class ProbeModelDisabledTests(unittest.TestCase):
+    """Verify that disabled models are not selected for probing."""
+
+    def setUp(self):
+        self.providers = {
+            "alpha": {
+                "base_url": "https://a.test",
+                "keys": ["k1"],
+                "static_models": ["model-a", "model-b"],
+                "formats": {"chat_completions": {"enabled": True, "path": "/v1/chat/completions"}},
+            },
+        }
+
+    def _cfg_with_disabled(self, disabled_models):
+        return {
+            "providers": self.providers,
+            "models": {
+                "provider_model_disabled": {"alpha": {m: True for m in disabled_models}},
+            },
+            "routing": {},
+        }
+
+    def test_provider_supports_model_rejects_disabled(self):
+        """_provider_supports_model returns False for disabled models."""
+        cfg = self._cfg_with_disabled(["model-a"])
+        self.assertFalse(sse2json._provider_supports_model("alpha", "model-a", cfg),
+                         "disabled model should not be 'supported'")
+        self.assertTrue(sse2json._provider_supports_model("alpha", "model-b", cfg),
+                        "non-disabled model should be supported")
+
+    def test_pick_probe_model_skips_disabled_static(self):
+        """_pick_probe_model_with_source skips disabled static_models."""
+        cfg = self._cfg_with_disabled(["model-a"])
+        model, source = sse2json._pick_probe_model_with_source("alpha", observability=None, config=cfg)
+        self.assertIsNotNone(model, "should find a non-disabled model")
+        self.assertEqual(model, "model-b")
+        self.assertEqual(source, "static")
+
+    def test_pick_probe_model_all_disabled_returns_none(self):
+        """When all models are disabled, _pick_probe_model_with_source returns None."""
+        cfg = self._cfg_with_disabled(["model-a", "model-b"])
+        model, source = sse2json._pick_probe_model_with_source("alpha", observability=None, config=cfg)
+        self.assertIsNone(model, "should return None when all models are disabled")
+
+    def test_pick_probe_model_skips_disabled_manual_map(self):
+        """_pick_probe_model_with_source skips disabled models in provider_model_map."""
+        cfg = {
+            "providers": self.providers,
+            "models": {
+                "provider_model_map": {"alpha": {"gpt-5": "gpt-5-upstream", "gpt-4": "gpt-4-upstream"}},
+                "provider_model_disabled": {"alpha": {"gpt-5": True}},
+            },
+            "routing": {},
+        }
+        model, source = sse2json._pick_probe_model_with_source("alpha", observability=None, config=cfg)
+        self.assertEqual(model, "gpt-4")
+        self.assertEqual(source, "manual_map")
+
+    def test_pick_probe_model_skips_disabled_route(self):
+        """_pick_probe_model_with_source skips disabled route models."""
+        # Use a provider WITHOUT static_models so the route path is exercised.
+        providers_no_static = {
+            "alpha": {
+                "base_url": "https://a.test",
+                "keys": ["k1"],
+                "formats": {"chat_completions": {"enabled": True, "path": "/v1/chat/completions"}},
+            },
+        }
+        cfg = {
+            "providers": providers_no_static,
+            "models": {
+                "routes": {
+                    "route-model-1": {"providers": [{"name": "alpha"}]},
+                    "route-model-2": {"providers": [{"name": "alpha"}]},
+                },
+                "provider_model_disabled": {"alpha": {"route-model-1": True}},
+            },
+            "routing": {},
+        }
+        model, source = sse2json._pick_probe_model_with_source("alpha", observability=None, config=cfg)
+        self.assertEqual(model, "route-model-2")
+        self.assertEqual(source, "route")
+
+    def test_build_probe_plan_skips_disabled_recent_model(self):
+        """_build_probe_plan Phase 1 skips providers where the recent model
+        is disabled."""
+        cfg = {
+            "providers": self.providers,
+            "models": {
+                "static_models_via_provider": True,
+                "provider_model_disabled": {"alpha": {"model-a": True}},
+            },
+            "routing": {},
+        }
+        from router import UpstreamRouter
+        router = UpstreamRouter(cfg)
+
+        # Mock observability that returns "model-a" as recent success
+        class MockObs:
+            def latest_successful_model_for_provider(self, provider):
+                return "model-a" if provider == "alpha" else None
+
+        plan = sse2json._build_probe_plan(MockObs(), cfg, router)
+        # "model-a" is disabled for alpha, so Phase 1 should skip it.
+        # Phase 2 should fall back to alpha's own default model.
+        alpha_entries = [(p, m, s) for p, m, s in plan if p == "alpha"]
+        self.assertTrue(alpha_entries, "alpha should still be in the plan via fallback")
+        # The model should NOT be "model-a"
+        for _, m, _ in alpha_entries:
+            self.assertNotEqual(m, "model-a",
+                                "disabled model-a should not appear in the plan")
+
+
 if __name__ == "__main__":
     unittest.main()

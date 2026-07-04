@@ -1080,19 +1080,29 @@ def _probe_error_type(status: int) -> str:
 
 def _provider_supports_model(provider: str, model: str, config: dict) -> bool:
     """Check whether *provider* currently has *model* in its configured model
-    lists (manual map, discovered capabilities, static_models, or routes).
+    lists (manual map, discovered capabilities, static_models, or routes)
+    AND the model is not disabled for this provider.
 
     Used by _pick_probe_model_with_source to validate that a model returned
     by latest_successful_model_for_provider is still recognised by the
     provider's current configuration.  Without this check, a stale model
     name from a previous config (or a custom test model that no real provider
     recognises) would cause the probe to fail with HTTP 404.
+
+    Also checks provider_model_disabled — a model may be listed in the config
+    but explicitly disabled (e.g. via the dashboard toggle).  Such models
+    must not be selected for probing.
     """
     if not model or not provider:
         return False
     model = str(model).strip()
     lower_model = model.lower()
     models_cfg = config.get("models") or {}
+
+    # 0. Check if the model is explicitly disabled for this provider.
+    #    provider_model_disabled checks both exact and case-insensitive keys.
+    if model_registry.provider_model_disabled(config, provider, model):
+        return False
 
     # 1. provider_model_map (manual configuration)
     #    Keys are client model names; values are upstream provider model names.
@@ -1101,10 +1111,18 @@ def _provider_supports_model(provider: str, model: str, config: dict) -> bool:
     manual_map = (models_cfg.get("provider_model_map") or {}).get(provider) or {}
     if isinstance(manual_map, dict):
         if model in manual_map or lower_model in manual_map:
+            # Even if the key exists, the mapped value might have been
+            # disabled.  Check the canonical (key) side too.
             return True
         for v in manual_map.values():
             if str(v or "").strip() == model:
-                return True
+                # The upstream model name matches — but we need to ensure
+                # the canonical key isn't disabled.
+                for k, val in manual_map.items():
+                    if str(val or "").strip() == model and not model_registry.provider_model_disabled(config, provider, str(k)):
+                        return True
+                # All canonical keys mapping to this upstream model are disabled
+                return False
 
     # 2. Discovered capabilities canonical_map
     #    Keys are client-facing model names; values are upstream provider
@@ -1117,7 +1135,12 @@ def _provider_supports_model(provider: str, model: str, config: dict) -> bool:
             return True
         for v in canonical_map.values():
             if str(v or "").strip() == model:
-                return True
+                # Check that at least one canonical key mapping to this
+                # upstream model is not disabled.
+                for k, val in canonical_map.items():
+                    if str(val or "").strip() == model and not model_registry.provider_model_disabled(config, provider, str(k)):
+                        return True
+                return False
 
     # 3. static_models
     pcfg = (config.get("providers") or {}).get(provider) or {}
@@ -1176,10 +1199,16 @@ def _pick_probe_model_with_source(provider: str, observability=None, config=None
     caps = ((cfg.get("models") or {}).get("provider_model_capabilities") or {}).get(provider) or {}
     canonical_map = caps.get("canonical_map") if isinstance(caps, dict) else None
     if isinstance(canonical_map, dict) and canonical_map:
-        return str(next(iter(canonical_map.keys()))), "capability"
+        for mid in canonical_map.keys():
+            mid_str = str(mid)
+            if not model_registry.provider_model_disabled(cfg, provider, mid_str):
+                return mid_str, "capability"
     manual_map = ((cfg.get("models") or {}).get("provider_model_map") or {}).get(provider) or {}
     if isinstance(manual_map, dict) and manual_map:
-        return str(next(iter(manual_map.keys()))), "manual_map"
+        for mid in manual_map.keys():
+            mid_str = str(mid)
+            if not model_registry.provider_model_disabled(cfg, provider, mid_str):
+                return mid_str, "manual_map"
     pcfg = ((cfg.get("providers") or {}).get(provider) or {})
     static_models = pcfg.get("static_models")
     if isinstance(static_models, list):
@@ -1190,7 +1219,7 @@ def _pick_probe_model_with_source(provider: str, observability=None, config=None
                 mid = str(entry.get("id") or "").strip()
             else:
                 mid = ""
-            if mid:
+            if mid and not model_registry.provider_model_disabled(cfg, provider, mid):
                 return mid, "static"
     routes = ((cfg.get("models") or {}).get("routes") or {})
     if isinstance(routes, dict):
@@ -1201,10 +1230,12 @@ def _pick_probe_model_with_source(provider: str, observability=None, config=None
             for item in providers or []:
                 name = item if isinstance(item, str) else (item or {}).get("name")
                 if str(name or "") == provider and str(model or "").strip():
-                    return str(model), "route"
+                    if not model_registry.provider_model_disabled(cfg, provider, str(model)):
+                        return str(model), "route"
         for model, route in routes.items():
             if route is not None and str(model or "").strip():
-                return str(model), "route_fallback"
+                if not model_registry.provider_model_disabled(cfg, provider, str(model)):
+                    return str(model), "route_fallback"
     return None, ""
 
 
@@ -1293,6 +1324,12 @@ def _probe_provider_key_once(provider: str, key_index: int, model: str = "") -> 
         canonical_model = _pick_probe_model(provider)
     if not canonical_model:
         return {"ok": False, "error_type": "no_model", "error": "no models available to probe"}
+
+    # Reject models that are explicitly disabled for this provider —
+    # sending a probe with a disabled model wastes an upstream request
+    # and always fails with 404.
+    if model_registry.provider_model_disabled(CONFIG, provider, canonical_model):
+        return {"ok": False, "error_type": "model_disabled", "error": f"model '{canonical_model}' is disabled for provider '{provider}'"}
 
     fmt = ROUTER._first_supported_format(
         provider, ["chat_completions", "responses", "anthropic_messages"]
