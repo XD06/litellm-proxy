@@ -27,12 +27,12 @@
 
 <table>
   <tr>
-    <td width="50%" align="center"><img src="assets/overview.png" alt="概览面板" /></td>
-    <td width="50%" align="center"><img src="assets/provider.png" alt="供应商详情" /></td>
+    <td width="50%" align="center"><img src="assets/overview-1.png" alt="概览面板" /></td>
+    <td width="50%" align="center"><img src="assets/provider-1.png" alt="供应商详情" /></td>
   </tr>
   <tr>
-    <td width="50%" align="center"><img src="assets/requests.png" alt="请求历史" /></td>
-    <td width="50%" align="center"><img src="assets/playground.png" alt="Playground" /></td>
+    <td width="50%" align="center"><img src="assets/request-1.png" alt="请求历史" /></td>
+    <td width="50%" align="center"><img src="assets/playground-1.png" alt="Playground" /></td>
   </tr>
 </table>
 

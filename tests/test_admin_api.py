@@ -1801,7 +1801,7 @@ class AdminApiTests(unittest.TestCase):
         self.assertEqual(captured["payload"]["model"], "provider-chosen-model")
         probes = obs.health_probe_summary("alpha")
         self.assertEqual(probes["last"]["outcome"], "success")
-        self.assertEqual(probes["last"]["model"], "chosen-model")
+        self.assertEqual(probes["last"]["model"], "provider-chosen-model")
         self.assertEqual(probes["last"]["model_source"], "recent_success")
         self.assertEqual(obs.snapshot_lite()["counters"]["requests_total"], 1)
 
@@ -1827,6 +1827,318 @@ class AdminApiTests(unittest.TestCase):
         self.assertIsNotNone(ks)
         self.assertEqual(ks.fails, 0)
         self.assertEqual(ks.cooldown_until, 0.0)
+
+
+class IdleProbeAdvancedTests(unittest.TestCase):
+    """Tests for idle probe cooldown clearing, network errors, and config param."""
+
+    def _probe_cfg(self, *, fmt="chat_completions"):
+        return {
+            "server": {"admin_key": "admin-secret"},
+            "routing": {},
+            "models": {
+                "provider_model_capabilities": {
+                    "alpha": {
+                        "status": "ok",
+                        "models": ["alpha-model"],
+                        "canonical_map": {"alpha-model": "alpha-model"},
+                        "formats": [fmt],
+                    }
+                },
+            },
+            "providers": {
+                "alpha": {
+                    "base_url": "https://alpha.example",
+                    "keys": ["raw-alpha-key"],
+                    "enabled": True,
+                    "formats": {
+                        "chat_completions": {"enabled": fmt == "chat_completions", "path": "/v1/chat/completions"},
+                        "responses": {"enabled": fmt == "responses", "path": "/v1/responses"},
+                        "anthropic_messages": {"enabled": fmt == "anthropic_messages", "path": "/v1/messages"},
+                    },
+                }
+            },
+        }
+
+    def test_idle_probe_success_clears_provider_cooldown(self):
+        """A successful probe should clear any existing provider cooldown."""
+        import time as _time
+        cfg = self._probe_cfg()
+        router = sse2json.UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+
+        # Put provider in cooldown manually
+        router._providers_state["alpha"].cooldown_until = _time.time() + 300
+
+        class OkClient:
+            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
+                return {"id": "x"}, 42
+
+        rt = sse2json.RuntimeContext(cfg, router, OkClient(), obs, sse2json.AUDIT)
+        with patch.object(sse2json, "CONFIG", cfg):
+            healthy = sse2json._idle_probe_one_provider(rt, "alpha")
+
+        self.assertTrue(healthy)
+        # Cooldown should be cleared
+        ps = router._providers_state.get("alpha")
+        self.assertIsNotNone(ps)
+        self.assertEqual(ps.cooldown_until, 0.0)
+
+        probes = obs.health_probe_summary("alpha")
+        self.assertEqual(probes["last"]["outcome"], "success")
+        self.assertEqual(probes["last"]["action"], "cleared_provider_cooldown")
+
+    def test_idle_probe_network_error_triggers_key_cooldown(self):
+        """A network error during probe should trigger key cooldown via report_failure."""
+        import socket as _socket
+        cfg = self._probe_cfg()
+        router = sse2json.UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+
+        class NetErrorClient:
+            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
+                raise _socket.timeout("connection timed out")
+
+        rt = sse2json.RuntimeContext(cfg, router, NetErrorClient(), obs, sse2json.AUDIT)
+        with patch.object(sse2json, "CONFIG", cfg):
+            healthy = sse2json._idle_probe_one_provider(rt, "alpha")
+
+        self.assertFalse(healthy)
+        probes = obs.health_probe_summary("alpha")
+        self.assertEqual(probes["last"]["outcome"], "failed")
+        self.assertEqual(probes["last"]["error_type"], "network_error")
+        self.assertEqual(probes["last"]["action"], "reported_failure")
+
+        # Key should have a cooldown set by report_failure
+        ks = router._keys_state.get(("alpha", 0))
+        self.assertIsNotNone(ks)
+        self.assertGreater(ks.cooldown_until, 0.0)
+
+    def test_idle_probe_server_error_triggers_cooldown(self):
+        """A 5xx server error during probe should trigger key cooldown."""
+        cfg = self._probe_cfg()
+        router = sse2json.UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+
+        class ServerErrorClient:
+            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
+                raise HTTPError(url, 503, "Service Unavailable", {}, None)
+
+        rt = sse2json.RuntimeContext(cfg, router, ServerErrorClient(), obs, sse2json.AUDIT)
+        with patch.object(sse2json, "CONFIG", cfg):
+            healthy = sse2json._idle_probe_one_provider(rt, "alpha")
+
+        self.assertFalse(healthy)
+        probes = obs.health_probe_summary("alpha")
+        self.assertEqual(probes["last"]["outcome"], "failed")
+        self.assertEqual(probes["last"]["error_type"], "server_error")
+        self.assertEqual(probes["last"]["http_status"], 503)
+
+    def test_idle_probe_key_invalid_triggers_long_cooldown(self):
+        """A 401 error during probe should trigger key_invalid with long cooldown."""
+        cfg = self._probe_cfg()
+        router = sse2json.UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+
+        class KeyInvalidClient:
+            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
+                raise HTTPError(url, 401, "Unauthorized", {}, None)
+
+        rt = sse2json.RuntimeContext(cfg, router, KeyInvalidClient(), obs, sse2json.AUDIT)
+        with patch.object(sse2json, "CONFIG", cfg):
+            healthy = sse2json._idle_probe_one_provider(rt, "alpha")
+
+        self.assertFalse(healthy)
+        probes = obs.health_probe_summary("alpha")
+        self.assertEqual(probes["last"]["error_type"], "key_invalid")
+        self.assertEqual(probes["last"]["http_status"], 401)
+
+        # Key should be disabled (key_invalid disables key)
+        ks = router._keys_state.get(("alpha", 0))
+        self.assertIsNotNone(ks)
+        self.assertGreater(ks.cooldown_until, 0.0)
+
+    def test_pick_probe_model_uses_config_parameter(self):
+        """_pick_probe_model_with_source should use the config parameter,
+        not the module-level CONFIG, when both have different model maps."""
+        # Create a config with a specific model map
+        cfg = {
+            "models": {
+                "provider_model_map": {
+                    "alpha": {"cfg-model": "cfg-model"},
+                },
+            },
+            "providers": {
+                "alpha": {
+                    "base_url": "https://alpha.example",
+                    "keys": ["key"],
+                }
+            },
+        }
+
+        # Create a different CONFIG that would give a different model
+        diff_cfg = {
+            "models": {
+                "provider_model_map": {
+                    "alpha": {"diff-model": "diff-model"},
+                },
+            },
+            "providers": {
+                "alpha": {
+                    "base_url": "https://alpha.example",
+                    "keys": ["key"],
+                }
+            },
+        }
+
+        with patch.object(sse2json, "CONFIG", diff_cfg):
+            # When config=cfg is passed, should use cfg's manual_map
+            model, source = sse2json._pick_probe_model_with_source("alpha", config=cfg)
+            self.assertEqual(model, "cfg-model")
+            self.assertEqual(source, "manual_map")
+
+            # When no config is passed, should fall back to CONFIG (diff_cfg)
+            model, source = sse2json._pick_probe_model_with_source("alpha")
+            self.assertEqual(model, "diff-model")
+            self.assertEqual(source, "manual_map")
+
+    def test_idle_probe_skips_disabled_provider(self):
+        """A disabled provider should be skipped and recorded as 'skipped'."""
+        cfg = self._probe_cfg()
+        cfg["providers"]["alpha"]["enabled"] = False
+        router = sse2json.UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+
+        class OkClient:
+            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
+                return {"id": "x"}, 1
+
+        rt = sse2json.RuntimeContext(cfg, router, OkClient(), obs, sse2json.AUDIT)
+        with patch.object(sse2json, "CONFIG", cfg):
+            healthy = sse2json._idle_probe_one_provider(rt, "alpha")
+
+        self.assertFalse(healthy)
+        probes = obs.health_probe_summary("alpha")
+        self.assertEqual(probes["last"]["outcome"], "skipped")
+        self.assertEqual(probes["last"]["reason"], "provider disabled")
+
+    def test_probe_event_carries_idle_tier_and_next_probe(self):
+        """Probe events should include idle_tier and next_probe_in_s when
+        passed from _idle_health_check_round."""
+        cfg = self._probe_cfg()
+        router = sse2json.UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+
+        class OkClient:
+            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
+                return {"id": "x"}, 42
+
+        rt = sse2json.RuntimeContext(cfg, router, OkClient(), obs, sse2json.AUDIT)
+        with patch.object(sse2json, "CONFIG", cfg):
+            healthy = sse2json._idle_probe_one_provider(
+                rt, "alpha",
+                idle_tier="recent",
+                next_probe_in_s=30,
+            )
+
+        self.assertTrue(healthy)
+        probes = obs.health_probe_summary("alpha")
+        self.assertEqual(probes["last"]["idle_tier"], "recent")
+        self.assertEqual(probes["last"]["next_probe_in_s"], 30)
+
+    def test_probe_event_without_tier_still_works(self):
+        """When idle_tier is not passed (e.g. manual key-test endpoint),
+        probe events should not have the field — backward compatible."""
+        cfg = self._probe_cfg()
+        router = sse2json.UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+
+        class OkClient:
+            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
+                return {"id": "x"}, 42
+
+        rt = sse2json.RuntimeContext(cfg, router, OkClient(), obs, sse2json.AUDIT)
+        with patch.object(sse2json, "CONFIG", cfg):
+            healthy = sse2json._idle_probe_one_provider(rt, "alpha")
+
+        self.assertTrue(healthy)
+        probes = obs.health_probe_summary("alpha")
+        self.assertNotIn("idle_tier", probes["last"])
+        self.assertNotIn("next_probe_in_s", probes["last"])
+
+    def test_idle_tier_info_returns_correct_tier_names(self):
+        """_idle_tier_info should return correct tier name and interval."""
+        # Cold start
+        tier, interval = sse2json._idle_tier_info(0.0, 1000.0)
+        self.assertEqual(tier, "cold_start")
+        self.assertEqual(interval, sse2json._IDLE_CHECK_INTERVAL_INITIAL_S)
+
+        # Recent (< 2 min)
+        now = 10000.0
+        tier, interval = sse2json._idle_tier_info(now - 60, now)
+        self.assertEqual(tier, "recent")
+        self.assertEqual(interval, sse2json._IDLE_CHECK_INTERVAL_RECENT_S)
+
+        # Medium (2-10 min)
+        tier, interval = sse2json._idle_tier_info(now - 300, now)
+        self.assertEqual(tier, "medium")
+        self.assertEqual(interval, sse2json._IDLE_CHECK_INTERVAL_MEDIUM_S)
+
+        # Long (10-30 min)
+        tier, interval = sse2json._idle_tier_info(now - 900, now)
+        self.assertEqual(tier, "long")
+        self.assertEqual(interval, sse2json._IDLE_CHECK_INTERVAL_LONG_S)
+
+        # Deep (30+ min)
+        tier, interval = sse2json._idle_tier_info(now - 2400, now)
+        self.assertEqual(tier, "deep")
+        self.assertGreaterEqual(interval, sse2json._IDLE_CHECK_INTERVAL_DEEP_S[0])
+        self.assertLessEqual(interval, sse2json._IDLE_CHECK_INTERVAL_DEEP_S[1])
+
+
+class IdleCheckIntervalTests(unittest.TestCase):
+    """Tests for _idle_check_interval_s adaptive cadence logic."""
+
+    def test_cold_start_returns_short_initial_delay(self):
+        """When last_finished_at is 0.0 (no request ever completed), the
+        interval should be the short initial delay, NOT 3-6 hours."""
+        interval = sse2json._idle_check_interval_s(0.0, 1000.0)
+        self.assertEqual(interval, sse2json._IDLE_CHECK_INTERVAL_INITIAL_S)
+        self.assertLessEqual(interval, 60)
+
+    def test_recent_activity_returns_30s(self):
+        """Last request finished < 2 min ago → 30s cadence."""
+        now = 10000.0
+        last_finished = now - 60  # 1 min ago
+        interval = sse2json._idle_check_interval_s(last_finished, now)
+        self.assertEqual(interval, sse2json._IDLE_CHECK_INTERVAL_RECENT_S)
+
+    def test_medium_idle_returns_60s(self):
+        """Last request finished 2-10 min ago → 60s cadence."""
+        now = 10000.0
+        last_finished = now - 300  # 5 min ago
+        interval = sse2json._idle_check_interval_s(last_finished, now)
+        self.assertEqual(interval, sse2json._IDLE_CHECK_INTERVAL_MEDIUM_S)
+
+    def test_long_idle_returns_300s(self):
+        """Last request finished 10-30 min ago → 300s cadence."""
+        now = 10000.0
+        last_finished = now - 900  # 15 min ago
+        interval = sse2json._idle_check_interval_s(last_finished, now)
+        self.assertEqual(interval, sse2json._IDLE_CHECK_INTERVAL_LONG_S)
+
+    def test_deep_idle_returns_3_to_6_hours(self):
+        """Last request finished 30+ min ago → 3-6h random cadence."""
+        now = 10000.0
+        last_finished = now - 2400  # 40 min ago
+        interval = sse2json._idle_check_interval_s(last_finished, now)
+        self.assertGreaterEqual(interval, sse2json._IDLE_CHECK_INTERVAL_DEEP_S[0])
+        self.assertLessEqual(interval, sse2json._IDLE_CHECK_INTERVAL_DEEP_S[1])
+
+    def test_cold_start_not_hours(self):
+        """Regression: cold start must NOT return 3-6 hours."""
+        interval = sse2json._idle_check_interval_s(0.0, 1000.0)
+        self.assertLess(interval, 3600, "Cold start interval should be under 1 hour")
 
 
 class ModelPricingEndpointTests(unittest.TestCase):

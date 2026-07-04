@@ -190,6 +190,23 @@ class AdminRoutesMixin:
             # payload on every 5-second poll.
             payload = OBSERVABILITY.snapshot_lite()
             payload["models_version"] = model_registry.models_version()
+            # Include real-time idle-health-checker state so the frontend can
+            # show the current probe cadence tier and when the next probe is
+            # expected — not just the tier from the last probe event.
+            try:
+                import time as _time
+                from sse2json import _idle_tier_info
+                _last_fin = OBSERVABILITY.last_request_finished_at()
+                _now = _time.time()
+                _tier, _interval = _idle_tier_info(_last_fin, _now)
+                payload["idle_state"] = {
+                    "tier": _tier,
+                    "next_probe_in_s": int(_interval),
+                    "last_request_finished_at": _last_fin,
+                    "idle_seconds": int(_now - _last_fin) if _last_fin > 0 else -1,
+                }
+            except Exception:
+                pass
             return self._resp_json(payload)
         if endpoint == "metrics/full":
             return self._resp_json(OBSERVABILITY.snapshot())

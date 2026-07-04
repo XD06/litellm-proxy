@@ -332,10 +332,84 @@ class ObservabilityMigrationTests(unittest.TestCase):
         self.assertEqual(len(new._recent), 1)
         self.assertIn("r2", new._active)
 
+    def test_migrate_preserves_last_request_finished_at(self):
+        """_last_request_finished_at must be migrated so the idle health
+        checker doesn't reset to cold_start (45s) after a config reload."""
+        import time as _time
+        old = ProxyObservability(self._cfg())
+        ts = _time.time() - 600  # 10 minutes ago
+        old._last_request_finished_at = ts
+
+        new = ProxyObservability(self._cfg())
+        new.migrate_counters_from(old)
+
+        self.assertEqual(new._last_request_finished_at, ts,
+                         "_last_request_finished_at must survive config reload "
+                         "so idle tier doesn't reset to cold_start")
+
+    def test_migrate_forwards_last_request_finished_at(self):
+        """When an in-flight request calls record_request_end on the OLD
+        observability after config hot-swap, the NEW observability must
+        receive the updated _last_request_finished_at via forwarding."""
+        import time as _time
+        old = ProxyObservability(self._cfg())
+        # Simulate a request that started before config reload
+        old.record_request_start(
+            "r1", client_format="chat_completions", endpoint="chat_completions",
+            model="test-model", stream=False, path="/v1/chat/completions",
+        )
+
+        # Config reload creates a new observability and migrates state
+        new = ProxyObservability(self._cfg())
+        new.migrate_counters_from(old)
+
+        # At this point, new._last_request_finished_at should be 0.0 (no
+        # request has finished yet on either old or new)
+        self.assertEqual(new._last_request_finished_at, 0.0)
+
+        # The in-flight request finishes — record_request_end is called on
+        # the OLD observability (because the request handler captured it
+        # before the config reload)
+        old.record_request_end("r1", status_code=200)
+
+        # The NEW observability should now have the updated timestamp
+        self.assertGreater(new._last_request_finished_at, 0.0,
+                           "record_request_end on old observability must "
+                           "forward _last_request_finished_at to the new one")
+
     def test_migrate_from_none_is_noop(self):
         new = ProxyObservability(self._cfg())
         new.migrate_counters_from(None)
         self.assertEqual(new._counters["requests_total"], 0)
+
+    def test_last_request_finished_at_falls_back_to_recent(self):
+        """When _last_request_finished_at is 0.0 (e.g. lost during a
+        multi-hop migration chain B→C→D), last_request_finished_at()
+        must fall back to the most recent _recent entry's finished_at
+        timestamp.  The _recent deque is shared by reference across
+        migrations, so it always has the latest data."""
+        import time as _time
+        obs = ProxyObservability(self._cfg())
+        # Simulate a completed request
+        obs.record_request_start(
+            "r1", client_format="chat_completions", endpoint="chat_completions",
+            model="test-model", stream=False, path="/v1/chat/completions",
+        )
+        obs.record_request_end("r1", status_code=200)
+        ts1 = obs.last_request_finished_at()
+        self.assertGreater(ts1, 0.0, "record_request_end should set the timestamp")
+
+        # Simulate the scalar being lost (multi-hop migration chain)
+        obs._last_request_finished_at = 0.0
+
+        # The fallback should kick in and return the timestamp from _recent
+        ts2 = obs.last_request_finished_at()
+        self.assertGreater(ts2, 0.0,
+                           "last_request_finished_at() must fall back to "
+                           "_recent when the scalar is 0.0")
+        self.assertAlmostEqual(ts2, ts1, delta=1.0,
+                               msg="fallback should return the same timestamp "
+                                   "that record_request_end set")
 
 
 class RuntimeSwapConsistencyTests(unittest.TestCase):

@@ -141,15 +141,49 @@ LiteLLM Proxy 是一个基于 Python 的**格式感知 LLM API 代理**，位于
 
 代理空闲时会运行轻量级 provider 探测，用来在下一次真实请求到来前发现不可用 key/provider。它只在 `priority_failover` 和 `auto` 模式下启用，因为这两种模式有明确的优先级顺序。
 
-行为要点：
+#### 自适应探测频率（Adaptive Cadence）
+
+探测间隔根据距离上一次真实请求的时间动态调整，越空闲探测越少：
+
+| 层级 (tier) | 空闲时间 | 探测间隔 | 说明 |
+|---|---|---|---|
+| `cold_start` | 从未完成过请求 | 45s | 冷启动，首次探测延迟 |
+| `recent` | < 2 分钟 | 30s | 刚有请求，高频探测 |
+| `medium` | 2 - 10 分钟 | 60s | 中等空闲，降低频率 |
+| `long` | 10 - 30 分钟 | 5 分钟 | 长时间空闲，大幅降频 |
+| `deep` | 30 分钟以上 | 3 - 6 小时（随机） | 深度空闲，极低频探测 |
+
+一旦有新请求完成，空闲计时器重置，立刻回到 `recent` 层级恢复高频探测。长时间睡眠使用分块（chunked sleep，≤30s）以便在新请求到达时提前唤醒。
+
+#### 行为要点
 
 - 仅在没有 in-flight 请求时运行，避免和真实流量争抢。
 - 按当前路由优先级探测 provider，并在首个健康 provider 成功后停止本轮。
-- 探测请求使用最小 payload：`ping`、`max_tokens: 1`、非流式。
-- 探测模型优先选择该 provider 最近真实请求成功过的 canonical model；没有成功历史时才回退到模型能力快照、手工映射、静态模型或 route 中的第一个模型。
+- 探测请求使用最小 payload：空消息、`max_tokens: 1`、`temperature: 0`、非流式，最大限度减少 token 消耗和延迟。
+- **探测模型选择**（优先级从高到低）：
+  1. `recent_success` — 该 provider 最近一次真实请求成功使用的 **upstream 模型名**，但会先验证该模型在当前配置中是否仍被支持（检查 `provider_model_map`、`canonical_map`、`static_models`、`routes` 的键和值）。不支持则自动回退。
+  2. `capability` — 从已发现的 provider 模型能力快照中选第一个模型。
+  3. `manual_map` — 从 `provider_model_map` 配置中选第一个模型。
+  4. `static` — 从 `static_models` 列表中选第一个模型。
+  5. `route` / `route_fallback` — 从路由配置中选模型。
 - 探测事件不会进入普通 Requests 历史，不会增加请求数、成功率、Token 或费用统计。
 - 探测事件会出现在 Provider 维度：provider 卡片显示最近一次探测摘要，provider 抽屉显示 `Background health probes` 事件列表。
 - 如果 fallback 模型探测返回普通 `client_error`（非 401/403/402/429/5xx），默认只记录为 `observed_only`，不直接 cooldown，避免因错误探测模型误伤 provider/key。
+
+#### 前端可视化
+
+- Provider Drawer 中的探测列表标题下方显示实时 `idle_state` 状态条（当前 tier、cadence、idle duration）。
+- 每条探测记录显示 `idle_tier` 标签（如 recent、long）和下次探测时间提示（如 `→ 5m`）。
+- 每条探测记录显示具体时间戳（格式 `MM/DD HH:MM`，悬停显示完整时间）。
+- `/admin/metrics` API 返回实时的 `idle_state` 字段，包含 `tier`、`next_probe_in_s`、`last_request_finished_at`、`idle_seconds`。
+
+#### 配置热加载期间的线程安全
+
+配置热加载（`_apply_runtime_config`）会创建新的 `ProxyObservability` 实例。为确保 `_last_request_finished_at` 不丢失：
+
+1. `migrate_counters_from` 迁移旧 observability 的 `_last_request_finished_at` 标量值。
+2. 旧 observability 设置 `_migrated_to` 转发引用，in-flight 请求在旧 observability 上调用 `record_request_end` 时，时间戳同步传播到新实例。
+3. `last_request_finished_at()` 在标量值为 0.0 时，从 `_recent` 队列的最新条目读取 `finished_at` 作为 fallback（`_recent` 是共享引用，始终包含最新数据）。
 
 ---
 
@@ -168,7 +202,7 @@ LiteLLM Proxy 是一个基于 Python 的**格式感知 LLM API 代理**，位于
 | `empty_visible_output` | 200 但无可视输出 | 无 | 0s | ❌ |
 | `client_error` | HTTP 4xx（非上述） | key | 10s | ❌ |
 
-后台空闲健康检测复用同一套错误分类和失败策略，但 `client_error` 有额外保护：当探测模型不是来自该 provider 的最近成功真实请求时，4xx client error 只作为观察事件记录，不会直接触发 key/provider cooldown。
+后台空闲健康检测复用同一套错误分类和失败策略，但 `client_error` 有额外保护：当探测模型不是来自该 provider 的最近成功真实请求时，4xx client error 只作为观察事件记录，不会直接触发 key/provider cooldown。探测模型选择会验证供应商是否实际支持该模型（参见 §3.6），避免使用过时或自定义模型名导致 404 误报。
 
 ### 4.2 可配置失败策略
 

@@ -120,12 +120,18 @@ class ProxyObservability:
             probe_events = getattr(old_obs, "_health_probe_events", deque(maxlen=self._health_probe_limit()))
             active = dict(old_obs._active)
             started_at = old_obs._started_at
+            last_request_finished_at = getattr(old_obs, "_last_request_finished_at", 0.0)
+        # Set up forwarding so any in-flight request that calls
+        # record_request_end on the OLD observability after the hot-swap
+        # still updates _last_request_finished_at on the NEW one.
+        old_obs._migrated_to = self
         with self._lock:
             self._counters = counters
             self._recent = recent
             self._health_probe_events = probe_events
             self._active = active
             self._started_at = started_at
+            self._last_request_finished_at = last_request_finished_at
 
     def reset(self) -> None:
         with self._lock:
@@ -143,9 +149,27 @@ class ProxyObservability:
         idle-health-checker to adapt its probe cadence: right after a request
         finishes we check more often (the user may send another soon), while
         after a long idle period we back off.
+
+        The _recent deque is shared by reference across config hot-swaps
+        (migrate_counters_from assigns it, not copies it), so it always
+        reflects the latest request completions — even when the scalar
+        _last_request_finished_at was lost during a multi-hop migration
+        chain (B→C→D where B's forwarding only reaches C, not D).
+        We therefore use the most recent _recent entry as a fallback.
         """
         with self._lock:
-            return self._last_request_finished_at
+            ts = self._last_request_finished_at
+            if ts > 0:
+                return ts
+            # Fallback: derive from the most recent _recent entry.
+            # The deque is shared across migrations, so this always has
+            # the latest data even if the scalar was lost.
+            if self._recent:
+                try:
+                    return float(self._recent[0].get("finished_at") or 0)
+                except (IndexError, TypeError, ValueError):
+                    pass
+            return 0.0
 
     def clear_history(self) -> Dict[str, Any]:
         history_result = self._history.clear()
@@ -402,6 +426,14 @@ class ProxyObservability:
             self._recent.appendleft(recent_item)
             self._failure_summary_cache = None  # Invalidate cache
             self._last_request_finished_at = now
+            # If this observability was migrated (config hot-swap), propagate
+            # the timestamp to the new instance so the idle health checker
+            # sees the correct last-request time even when record_request_end
+            # is called on the OLD observability by an in-flight request.
+            _migrated = getattr(self, "_migrated_to", None)
+            if _migrated is not None and _migrated is not self:
+                with _migrated._lock:
+                    _migrated._last_request_finished_at = now
         self._history.record_request(recent_item)
 
     def snapshot(self) -> Dict[str, Any]:
@@ -503,6 +535,13 @@ class ProxyObservability:
                     pass
         if event.get("error_type"):
             item["error_type"] = str(event.get("error_type") or "")
+        if event.get("idle_tier"):
+            item["idle_tier"] = str(event.get("idle_tier") or "")
+        if event.get("next_probe_in_s") is not None:
+            try:
+                item["next_probe_in_s"] = max(0, int(event.get("next_probe_in_s") or 0))
+            except Exception:
+                pass
         with self._lock:
             self._health_probe_events.appendleft(item)
         return item
@@ -539,7 +578,12 @@ class ProxyObservability:
                 if str(attempt.get("outcome") or "") != "success":
                     continue
                 provider_model = str(attempt.get("provider_model") or "").strip()
-                return request_model or provider_model or None
+                # Prefer the provider-specific model name for probing — the
+                # client-facing model alias (e.g. "client-model") may not be
+                # recognised by _build_attempt_details → resolve_provider_model,
+                # causing 404s.  The provider_model is the actual model name
+                # that succeeded on the upstream, so it is always valid.
+                return provider_model or request_model or None
         return None
 
     def provider_activity_summary(

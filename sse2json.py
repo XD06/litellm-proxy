@@ -341,6 +341,7 @@ _IDLE_CHECK_INTERVAL_RECENT_S = 30      # Last request finished < 2 min ago
 _IDLE_CHECK_INTERVAL_MEDIUM_S = 60      # Last request finished 2-10 min ago
 _IDLE_CHECK_INTERVAL_LONG_S = 300       # Last request finished 10+ min ago
 _IDLE_CHECK_INTERVAL_DEEP_S = (3 * 3600, 6 * 3600)  # 3-6h random for deep idle
+_IDLE_CHECK_INTERVAL_INITIAL_S = 45     # First-ever probe delay (cold start)
 
 # Thresholds for the idle tiers (seconds since last request finished).
 _IDLE_TIER_RECENT_S = 120        # < 2 min → "recent" (30s cadence)
@@ -350,23 +351,34 @@ _IDLE_TIER_MEDIUM_S = 600        # < 10 min → "medium" (60s cadence)
 _IDLE_TIER_DEEP_S = 1800         # 30 min
 
 
-def _idle_check_interval_s(last_finished_at: float, now: float) -> float:
-    """Return the probe interval based on how long since the last request."""
+def _idle_tier_info(last_finished_at: float, now: float) -> tuple[str, float]:
+    """Return (tier_name, interval_s) for the current idle state.
+
+    Tier names are stable strings used in probe events and the frontend:
+      - "cold_start"   — no request has ever completed (45s cadence)
+      - "recent"       — last request < 2 min ago (30s cadence)
+      - "medium"       — 2-10 min ago (60s cadence)
+      - "long"         — 10-30 min ago (5 min cadence)
+      - "deep"         — 30+ min ago (3-6h random cadence)
+    """
     if last_finished_at == 0.0:
-        # No request has ever completed — treat as deep idle so we don't
-        # hammer APIs before the first user request even arrives.
-        return random.uniform(_IDLE_CHECK_INTERVAL_DEEP_S[0], _IDLE_CHECK_INTERVAL_DEEP_S[1])
+        return "cold_start", _IDLE_CHECK_INTERVAL_INITIAL_S
     idle_s = max(0.0, now - last_finished_at)
     if idle_s < _IDLE_TIER_RECENT_S:
-        return _IDLE_CHECK_INTERVAL_RECENT_S
+        return "recent", _IDLE_CHECK_INTERVAL_RECENT_S
     if idle_s < _IDLE_TIER_MEDIUM_S:
-        return _IDLE_CHECK_INTERVAL_MEDIUM_S
+        return "medium", _IDLE_CHECK_INTERVAL_MEDIUM_S
     if idle_s < _IDLE_TIER_DEEP_S:
-        return _IDLE_CHECK_INTERVAL_LONG_S
-    return random.uniform(_IDLE_CHECK_INTERVAL_DEEP_S[0], _IDLE_CHECK_INTERVAL_DEEP_S[1])
+        return "long", _IDLE_CHECK_INTERVAL_LONG_S
+    return "deep", random.uniform(_IDLE_CHECK_INTERVAL_DEEP_S[0], _IDLE_CHECK_INTERVAL_DEEP_S[1])
 
 
-def _idle_probe_one_provider(rt, provider: str) -> bool:
+def _idle_check_interval_s(last_finished_at: float, now: float) -> float:
+    """Return the probe interval based on how long since the last request."""
+    return _idle_tier_info(last_finished_at, now)[1]
+
+
+def _idle_probe_one_provider(rt, provider: str, *, idle_tier: str = "", next_probe_in_s: float = 0) -> bool:
     """Probe a single provider's first available key.
 
     Returns True if the provider is healthy, False if it should be skipped or
@@ -383,6 +395,10 @@ def _idle_probe_one_provider(rt, provider: str) -> bool:
     def _record_probe(**event) -> None:
         try:
             event.setdefault("provider", provider)
+            if idle_tier:
+                event.setdefault("idle_tier", idle_tier)
+            if next_probe_in_s:
+                event.setdefault("next_probe_in_s", int(next_probe_in_s))
             observability.record_health_probe(event)
         except Exception:
             pass
@@ -397,14 +413,13 @@ def _idle_probe_one_provider(rt, provider: str) -> bool:
         _record_probe(outcome="skipped", reason="no keys configured", action="none")
         return False
 
-    # Find the first key that is not currently in cooldown / disabled.
+    # Find the first key to probe.  We intentionally do NOT skip providers
+    # that are currently in cooldown — the whole point of the idle probe is
+    # to check whether a cooled-down provider has recovered, and if so,
+    # clear its cooldown early (before the next real request arrives).
     now = time.time()
     key_index = None
     with router._lock:
-        ps = router._providers_state.get(provider)
-        if ps and not ps.available(now):
-            _record_probe(outcome="skipped", reason="provider already in cooldown", action="none")
-            return False  # provider in cooldown — skip
         for i in range(len(keys)):
             ks = router._keys_state.get((provider, i))
             # No state entry means the key has never been used or failed —
@@ -414,11 +429,17 @@ def _idle_probe_one_provider(rt, provider: str) -> bool:
                 break
 
     if key_index is None:
-        _record_probe(outcome="skipped", reason="no available key", action="none")
-        return False  # no available key
+        # All keys are in cooldown/disabled.  Fall back to probing the first
+        # key anyway — the whole point of the idle probe is to check whether
+        # a cooled-down key has recovered, so we should still try.
+        if keys:
+            key_index = 0
+        else:
+            _record_probe(outcome="skipped", reason="no available key", action="none")
+            return False  # no keys at all
 
     # Pick a model to probe
-    canonical_model, model_source = _pick_probe_model_with_source(provider, observability=observability)
+    canonical_model, model_source = _pick_probe_model_with_source(provider, observability=observability, config=config)
     if not canonical_model:
         _record_probe(key_index=key_index, outcome="skipped", reason="no probe model", action="none")
         return False  # no models to probe with
@@ -444,8 +465,9 @@ def _idle_probe_one_provider(rt, provider: str) -> bool:
 
     base_payload = {
         "model": provider_model,
-        "messages": [{"role": "user", "content": "ping"}],
+        "messages": [{"role": "user", "content": ""}],
         "max_tokens": 1,
+        "temperature": 0,
         "stream": False,
     }
     try:
@@ -501,6 +523,7 @@ def _idle_probe_one_provider(rt, provider: str) -> bool:
             reason="probe succeeded",
             action="cleared_provider_cooldown",
         )
+        print(f"[proxy] {_hprov(provider)} idle probe {_harrow('->')} {_h('ok')} {_hmodel(canonical_model)} {_latency_ms}ms", flush=True)
         return True
     except HTTPError as e:
         status = int(getattr(e, "code", 0) or 0)
@@ -514,6 +537,7 @@ def _idle_probe_one_provider(rt, provider: str) -> bool:
                 reason="fallback probe model rejected",
                 action="observed_only",
             )
+            print(f"[proxy] {_hprov(provider)} idle probe {_harrow('->')} observed_only HTTP {status} {_hmodel(canonical_model)}", flush=True)
             return False
         # Feed the failure into the router's cooldown mechanism so the next
         # real request skips this provider.
@@ -533,6 +557,7 @@ def _idle_probe_one_provider(rt, provider: str) -> bool:
             reason=f"HTTP {status}",
             action="reported_failure",
         )
+        print(f"[proxy] {_hprov(provider)} idle probe {_harrow('->')} FAIL HTTP {status} ({error_type}) {_hmodel(canonical_model)}", flush=True)
         return False
     except (URLError, socket.timeout) as e:
         router.report_failure(
@@ -549,6 +574,7 @@ def _idle_probe_one_provider(rt, provider: str) -> bool:
             reason=type(e).__name__,
             action="reported_failure",
         )
+        print(f"[proxy] {_hprov(provider)} idle probe {_harrow('->')} FAIL {type(e).__name__} {_hmodel(canonical_model)}", flush=True)
         return False
     except Exception as e:
         router.report_failure(
@@ -592,6 +618,11 @@ def _idle_health_check_round() -> None:
         if provider_select not in ("priority_failover", "auto"):
             return
 
+        # Compute the current idle tier so each probe event carries it.
+        last_finished = observability.last_request_finished_at()
+        now = time.time()
+        idle_tier, interval_s = _idle_tier_info(last_finished, now)
+
         # Build the provider list in priority order.
         providers_cfg = config.get("providers") or {}
         provider_items = []
@@ -613,15 +644,28 @@ def _idle_health_check_round() -> None:
         # that is the one the next real request will use, so there is no need
         # to check lower-priority ones.
         for provider_name, _priority in provider_items:
-            healthy = _idle_probe_one_provider(rt, provider_name)
+            healthy = _idle_probe_one_provider(
+                rt, provider_name,
+                idle_tier=idle_tier,
+                next_probe_in_s=interval_s,
+            )
             if healthy:
                 break
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[proxy] idle health check round error: {type(e).__name__}: {e}", flush=True)
+
+
+_IDLE_SLEEP_CHUNK_S = 30  # Max sleep before re-checking last_finished_at
 
 
 def _start_idle_health_checker() -> None:
-    """Start the adaptive idle health checker daemon thread."""
+    """Start the adaptive idle health checker daemon thread.
+
+    The sleep is chunked into ≤30s segments so that when a long deep-idle
+    interval (3-6h) is in effect and a real request arrives, the loop wakes
+    up within 30s, sees the updated ``last_request_finished_at``, and
+    recomputes a much shorter interval — effectively waking up early.
+    """
 
     def _loop():
         while True:
@@ -631,13 +675,33 @@ def _start_idle_health_checker() -> None:
                 last_finished = observability.last_request_finished_at()
                 now = time.time()
                 interval = _idle_check_interval_s(last_finished, now)
-                time.sleep(interval)
+
+                # Chunk the sleep so we can detect activity changes mid-sleep.
+                remaining = interval
+                woken_early = False
+                while remaining > 0:
+                    chunk = min(remaining, _IDLE_SLEEP_CHUNK_S)
+                    time.sleep(chunk)
+                    remaining -= chunk
+                    # If we're in a long idle interval but a request just
+                    # finished, recompute the interval (it will be much
+                    # shorter now) and break out of the chunked sleep.
+                    if remaining > 0:
+                        new_last = observability.last_request_finished_at()
+                        if new_last != last_finished:
+                            woken_early = True
+                            break
 
                 # Re-check: a request may have arrived during our sleep.
                 with observability._lock:
                     in_flight = int(observability._counters.get("requests_in_flight") or 0)
                 if in_flight > 0:
                     continue  # not idle anymore — skip this round
+
+                # If we woke early due to activity change, skip this round
+                # and let the next loop iteration recompute a fresh interval.
+                if woken_early:
+                    continue
 
                 _idle_health_check_round()
             except Exception:
@@ -924,23 +988,109 @@ def _probe_error_type(status: int) -> str:
     return "unknown"
 
 
-def _pick_probe_model_with_source(provider: str, observability=None) -> tuple[Optional[str], str]:
-    """Pick a discovered canonical model for provider key probing."""
+def _provider_supports_model(provider: str, model: str, config: dict) -> bool:
+    """Check whether *provider* currently has *model* in its configured model
+    lists (manual map, discovered capabilities, static_models, or routes).
+
+    Used by _pick_probe_model_with_source to validate that a model returned
+    by latest_successful_model_for_provider is still recognised by the
+    provider's current configuration.  Without this check, a stale model
+    name from a previous config (or a custom test model that no real provider
+    recognises) would cause the probe to fail with HTTP 404.
+    """
+    if not model or not provider:
+        return False
+    model = str(model).strip()
+    lower_model = model.lower()
+    models_cfg = config.get("models") or {}
+
+    # 1. provider_model_map (manual configuration)
+    #    Keys are client model names; values are upstream provider model names.
+    #    Check both sides since latest_successful_model_for_provider may
+    #    return either form.
+    manual_map = (models_cfg.get("provider_model_map") or {}).get(provider) or {}
+    if isinstance(manual_map, dict):
+        if model in manual_map or lower_model in manual_map:
+            return True
+        for v in manual_map.values():
+            if str(v or "").strip() == model:
+                return True
+
+    # 2. Discovered capabilities canonical_map
+    #    Keys are client-facing model names; values are upstream provider
+    #    model names.  latest_successful_model_for_provider returns the
+    #    provider-side name (a value), so we must check both sides.
+    caps = (models_cfg.get("provider_model_capabilities") or {}).get(provider) or {}
+    if isinstance(caps, dict):
+        canonical_map = caps.get("canonical_map") or {}
+        if model in canonical_map or lower_model in canonical_map:
+            return True
+        for v in canonical_map.values():
+            if str(v or "").strip() == model:
+                return True
+
+    # 3. static_models
+    pcfg = (config.get("providers") or {}).get(provider) or {}
+    static_models = pcfg.get("static_models")
+    if isinstance(static_models, list):
+        for entry in static_models:
+            if isinstance(entry, str):
+                if entry.strip() == model:
+                    return True
+            elif isinstance(entry, dict):
+                if str(entry.get("id") or "").strip() == model:
+                    return True
+
+    # 4. Routes that include this provider
+    routes = models_cfg.get("routes") or {}
+    if isinstance(routes, dict):
+        for route_model, route in routes.items():
+            if route is None:
+                continue
+            providers = (route or {}).get("providers") if isinstance(route, dict) else []
+            for item in providers or []:
+                name = item if isinstance(item, str) else (item or {}).get("name")
+                if str(name or "") == provider and str(route_model or "").strip() == model:
+                    return True
+
+    return False
+
+
+def _pick_probe_model_with_source(provider: str, observability=None, config=None) -> tuple[Optional[str], str]:
+    """Pick a discovered canonical model for provider key probing.
+
+    *config* should be the runtime snapshot (``rt.config``) to ensure the
+    probe sees a consistent view during config hot-swap.  Falls back to the
+    module-level ``CONFIG`` for callers that are not inside a request/
+    probe context (e.g. the manual key-test endpoint).
+
+    Model selection priority:
+    1. ``recent_success`` — the upstream model from the most recent successful
+       request on THIS provider, BUT only if the provider's current config
+       still recognises that model (validated via _provider_supports_model).
+       This prevents 404s when the model name is stale (e.g. from a previous
+       config) or is a custom test name that no real provider supports.
+    2. ``capability`` — first model from the provider's discovered canonical_map.
+    3. ``manual_map`` — first model from provider_model_map config.
+    4. ``static`` — first entry from the provider's static_models list.
+    5. ``route`` / ``route_fallback`` — model from routing config.
+    """
+    cfg = config if config is not None else CONFIG
     if observability is not None:
         try:
             recent_model = observability.latest_successful_model_for_provider(provider)
         except Exception:
             recent_model = None
-        if recent_model:
+        if recent_model and _provider_supports_model(provider, recent_model, cfg):
             return str(recent_model), "recent_success"
-    caps = ((CONFIG.get("models") or {}).get("provider_model_capabilities") or {}).get(provider) or {}
+    caps = ((cfg.get("models") or {}).get("provider_model_capabilities") or {}).get(provider) or {}
     canonical_map = caps.get("canonical_map") if isinstance(caps, dict) else None
     if isinstance(canonical_map, dict) and canonical_map:
         return str(next(iter(canonical_map.keys()))), "capability"
-    manual_map = ((CONFIG.get("models") or {}).get("provider_model_map") or {}).get(provider) or {}
+    manual_map = ((cfg.get("models") or {}).get("provider_model_map") or {}).get(provider) or {}
     if isinstance(manual_map, dict) and manual_map:
         return str(next(iter(manual_map.keys()))), "manual_map"
-    pcfg = ((CONFIG.get("providers") or {}).get(provider) or {})
+    pcfg = ((cfg.get("providers") or {}).get(provider) or {})
     static_models = pcfg.get("static_models")
     if isinstance(static_models, list):
         for entry in static_models:
@@ -952,7 +1102,7 @@ def _pick_probe_model_with_source(provider: str, observability=None) -> tuple[Op
                 mid = ""
             if mid:
                 return mid, "static"
-    routes = ((CONFIG.get("models") or {}).get("routes") or {})
+    routes = ((cfg.get("models") or {}).get("routes") or {})
     if isinstance(routes, dict):
         for model, route in routes.items():
             if route is None:
@@ -968,8 +1118,8 @@ def _pick_probe_model_with_source(provider: str, observability=None) -> tuple[Op
     return None, ""
 
 
-def _pick_probe_model(provider: str, observability=None) -> Optional[str]:
-    model, _source = _pick_probe_model_with_source(provider, observability=observability)
+def _pick_probe_model(provider: str, observability=None, config=None) -> Optional[str]:
+    model, _source = _pick_probe_model_with_source(provider, observability=observability, config=config)
     return model
 
 
@@ -1067,8 +1217,9 @@ def _probe_provider_key_once(provider: str, key_index: int, model: str = "") -> 
 
     base_payload = {
         "model": provider_model,
-        "messages": [{"role": "user", "content": "ping"}],
+        "messages": [{"role": "user", "content": ""}],
         "max_tokens": 1,
+        "temperature": 0,
         "stream": False,
     }
     try:

@@ -2260,7 +2260,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     if (!target) return;
     const hs = state.data.healthScores;
     if (!hs || !hs.providers) {
-      target.innerHTML = "";
+      target.innerHTML = `<div class="health-overview-loading">${iconSvg("rotate")}<span>Loading health scores…</span></div>`;
       return;
     }
     const overall = hs.overall || 0;
@@ -3160,6 +3160,55 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     return "neutral";
   }
 
+  function idleTierLabel(tier) {
+    const labels = {
+      cold_start: { text: "cold start", title: "No request has ever completed — 45s cadence", tone: "neutral" },
+      recent: { text: "recent", title: "Last request < 2 min ago — 30s cadence", tone: "ok" },
+      medium: { text: "medium", title: "Last request 2-10 min ago — 60s cadence", tone: "ok" },
+      long: { text: "long", title: "Last request 10-30 min ago — 5 min cadence", tone: "warn" },
+      deep: { text: "deep", title: "Last request 30+ min ago — 3-6h random cadence", tone: "soft" },
+    };
+    return labels[tier] || null;
+  }
+
+  function renderIdleStateBar() {
+    const is = state.data.metrics?.idle_state;
+    if (!is) return "";
+    const tierInfo = idleTierLabel(is.tier);
+    if (!tierInfo) return "";
+    const idleDesc = is.idle_seconds >= 0
+      ? `idle ${fmtNextProbe(is.idle_seconds)}`
+      : "no request yet";
+    return `
+      <div class="idle-state-bar" title="${escapeHtml(tierInfo.title)}">
+        ${iconSvg("radar")}
+        <span class="idle-state-tier tone-${escapeHtml(tierInfo.tone)}">${escapeHtml(tierInfo.text)}</span>
+        <span class="idle-state-sep">·</span>
+        <span class="idle-state-cadence">cadence ${escapeHtml(fmtNextProbe(is.next_probe_in_s))}</span>
+        <span class="idle-state-sep">·</span>
+        <span class="idle-state-idle">${escapeHtml(idleDesc)}</span>
+      </div>
+    `;
+  }
+
+  function fmtNextProbe(s) {
+    if (!s || s <= 0) return "";
+    if (s < 60) return `${s}s`;
+    if (s < 3600) return `${Math.round(s / 60)}m`;
+    return `${(s / 3600).toFixed(1)}h`;
+  }
+
+  function fmtProbeTime(ts) {
+    const n = Number(ts || 0);
+    if (!n) return "";
+    const d = new Date(n * 1000);
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mi = String(d.getMinutes()).padStart(2, "0");
+    return `${mm}/${dd} ${hh}:${mi}`;
+  }
+
   function providerProbeSummary(probe) {
     if (!probe) {
       return `<div class="provider-probe-summary empty" title="No background health probe yet">${iconSvg("radar")}<span>No health probe yet</span></div>`;
@@ -3168,11 +3217,19 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const reason = probe.reason || probe.error_type || probe.outcome || "probe";
     const model = probe.model || "-";
     const suffix = probe.latency_ms != null ? ` · ${fmtCompactMs(probe.latency_ms)}` : probe.http_status ? ` · HTTP ${fmtInt(probe.http_status)}` : "";
+    const tierInfo = idleTierLabel(probe.idle_tier);
+    const tierBadge = tierInfo ? `<span class="probe-tier-badge tone-${escapeHtml(tierInfo.tone)}" title="${escapeHtml(tierInfo.title)}">${escapeHtml(tierInfo.text)}</span>` : "";
+    const nextBadge = probe.next_probe_in_s ? `<span class="probe-next-badge" title="Next probe in ~${fmtNextProbe(probe.next_probe_in_s)}">→ ${escapeHtml(fmtNextProbe(probe.next_probe_in_s))}</span>` : "";
+    const timeStr = fmtProbeTime(probe.ts);
+    const timeBadge = timeStr ? `<span class="probe-time-badge" title="${escapeHtml(fmtDate(probe.ts))}">${escapeHtml(timeStr)}</span>` : "";
     return `
       <div class="provider-probe-summary tone-${escapeHtml(tone)}" title="${escapeHtml(`${reason} / ${model} / ${probe.model_source || "model"}${suffix}`)}">
         ${iconSvg("radar")}
         <span>${escapeHtml(reason)}</span>
         <small>${escapeHtml(model)}${escapeHtml(suffix)}</small>
+        ${tierBadge}
+        ${nextBadge}
+        ${timeBadge}
       </div>
     `;
   }
@@ -3182,12 +3239,19 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const reason = probe.reason || probe.error_type || probe.outcome || "probe";
     const action = probe.action || "none";
     const model = probe.model || "-";
+    const tierInfo = idleTierLabel(probe.idle_tier);
     const meta = [
       probe.format || "",
       probe.model_source ? `source:${probe.model_source}` : "",
       probe.key_index >= 0 ? `key ${probe.key_index}` : "",
+      tierInfo ? `tier:${tierInfo.text}` : "",
+      probe.next_probe_in_s ? `next:${fmtNextProbe(probe.next_probe_in_s)}` : "",
     ].filter(Boolean).join(" · ");
     const timing = probe.latency_ms != null ? fmtMs(probe.latency_ms) : probe.http_status ? `HTTP ${fmtInt(probe.http_status)}` : "-";
+    const tierBadge = tierInfo ? `<span class="probe-tier-badge tone-${escapeHtml(tierInfo.tone)}" title="${escapeHtml(tierInfo.title)}">${escapeHtml(tierInfo.text)}</span>` : "";
+    const nextBadge = probe.next_probe_in_s ? `<span class="probe-next-badge" title="Next probe in ~${fmtNextProbe(probe.next_probe_in_s)}">→ ${escapeHtml(fmtNextProbe(probe.next_probe_in_s))}</span>` : "";
+    const timeStr = fmtProbeTime(probe.ts);
+    const timeBadge = timeStr ? `<span class="probe-time-badge" title="${escapeHtml(fmtDate(probe.ts))}">${escapeHtml(timeStr)}</span>` : "";
     return `
       <div class="provider-probe-row tone-${escapeHtml(tone)}">
         <span class="provider-status-dot ${tone === "bad" ? "bad" : tone === "warn" ? "warn" : tone === "ok" ? "ok" : ""}"></span>
@@ -3196,6 +3260,9 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         <small title="${escapeHtml(meta)}">${escapeHtml(meta || "-")}</small>
         <em title="${escapeHtml(action)}">${escapeHtml(action)}</em>
         <b>${escapeHtml(timing)}</b>
+        ${tierBadge}
+        ${nextBadge}
+        ${timeBadge}
       </div>
     `;
   }
@@ -3667,7 +3734,8 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const events = Array.isArray(view.activity.events) ? view.activity.events : [];
     const recent = events.slice(-10).reverse();
     const probeEvents = Array.isArray(view.activity.probeEvents) ? view.activity.probeEvents : [];
-    const recentProbes = probeEvents.slice(0, 8);
+    const recentProbes = probeEvents.slice(0, 20);
+    const probeOverflow = Math.max(0, probeEvents.length - 20);
     return `
       <section class="provider-drawer-section">
         <div class="provider-detail-hero ${view.runtimeState.tone}">
@@ -3691,9 +3759,11 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         <div class="provider-activity-list" data-provider-activity-list="${escapeHtml(view.name)}">
           ${recent.length ? recent.map(providerActivityRow).join("") : `<div class="empty pad-slim">Loading recent activity…</div>`}
         </div>
-        <h3 class="drawer-section-title">Background health probes</h3>
+        <h3 class="drawer-section-title">Background health probes ${probeEvents.length ? `<span class="section-count-badge">${fmtInt(probeEvents.length)}</span>` : ""}</h3>
+        ${renderIdleStateBar()}
         <div class="provider-probe-list" data-provider-probe-list="${escapeHtml(view.name)}">
           ${recentProbes.length ? recentProbes.map(providerProbeRow).join("") : `<div class="empty pad-slim">No background health probes yet</div>`}
+          ${probeOverflow ? `<div class="probe-list-more" data-probe-list-more="${escapeHtml(view.name)}">+ ${fmtInt(probeOverflow)} more probes</div>` : ""}
         </div>
       </section>
     `;
@@ -3741,8 +3811,10 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       const probeList = Array.from(probeLists).find((el) => el.getAttribute("data-provider-probe-list") === name);
       if (probeList) {
         const probes = Array.isArray(activity?.probeEvents) ? activity.probeEvents : [];
-        probeList.innerHTML = probes.length
-          ? probes.slice(0, 8).map(providerProbeRow).join("")
+        const visibleProbes = probes.slice(0, 20);
+        const overflow = Math.max(0, probes.length - 20);
+        probeList.innerHTML = visibleProbes.length
+          ? visibleProbes.map(providerProbeRow).join("") + (overflow ? `<div class="probe-list-more" data-probe-list-more="${escapeHtml(name)}">+ ${fmtInt(overflow)} more probes</div>` : "")
           : `<div class="empty pad-slim">No background health probes yet</div>`;
       }
     } catch (_err) {
