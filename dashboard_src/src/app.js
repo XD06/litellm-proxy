@@ -2129,7 +2129,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
                 <span class="usage-fill calls" style="width:${callPct}%"></span>
               </div>
               <div class="usage-row-foot usage-model-foot">
-                <span title="${escapeHtml(fmtInt(row.usage.total_tokens))} tokens">${iconSvg("activity")} <strong>${fmtTokenCount(row.usage.total_tokens)}</strong></span>
+                <span title="${escapeHtml(fmtCost(row.usage.cost_usd))} total cost">${iconSvg("activity")} <strong>${fmtCost(row.usage.cost_usd)}</strong></span>
                 <span title="${escapeHtml(fmtInt(row.usage.input_tokens))} input tokens">${iconSvg("arrow-left")} ${fmtTokenCount(row.usage.input_tokens)}</span>
                 <span title="${escapeHtml(fmtInt(row.usage.output_tokens))} output tokens">${iconSvg("arrow-right")} ${fmtTokenCount(row.usage.output_tokens)}</span>
               </div>
