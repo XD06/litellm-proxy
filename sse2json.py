@@ -545,7 +545,7 @@ def _idle_probe_one_provider(rt, provider: str, *, idle_tier: str = "", next_pro
     except HTTPError as e:
         status = int(getattr(e, "code", 0) or 0)
         error_type = _probe_error_type(status)
-        if error_type == "client_error" and model_source != "recent_success":
+        if error_type == "client_error" and final_model_source not in ("recent_success", "recent_success_global"):
             _record_probe(
                 **probe_base,
                 outcome="failed",
@@ -609,77 +609,6 @@ def _idle_probe_one_provider(rt, provider: str, *, idle_tier: str = "", next_pro
             action="reported_failure",
         )
         return False
-
-
-def _find_best_model_provider_pair(observability, config, router) -> tuple[Optional[str], Optional[str], str]:
-    """Find the best model and provider pair for idle health checking.
-
-    Implementation of user's requirement:
-    1. Find the most recent successful model across ALL providers
-    2. Find the highest priority provider that supports this model
-    3. If no provider supports the model, fall back to highest priority provider
-
-    Returns:
-        tuple of (model, provider, source)
-    """
-    cfg = config
-
-    # Step 1: Find the most recent successful model and its provider
-    recent_model = None
-    recent_provider = None
-
-    if observability is not None:
-        try:
-            providers_cfg = cfg.get("providers") or {}
-            # Iterate through all providers to find a recent successful model
-            # Note: Without timestamps, we use the last model we find as the "most recent"
-            for provider_name in providers_cfg.keys():
-                model = observability.latest_successful_model_for_provider(str(provider_name))
-                if model:
-                    # Update to use this model - effectively using the last found model
-                    # In future, we could track actual timestamps to find the truly most recent
-                    recent_model = model
-                    recent_provider = str(provider_name)
-        except Exception:
-            pass
-
-    # Step 2: Build prioritized provider list
-    providers_cfg = cfg.get("providers") or {}
-    provider_priorities = []
-
-    for name, pcfg in providers_cfg.items():
-        if not (pcfg or {}).get("enabled", True):
-            continue
-        priority = router._provider_priority(str(name))
-        if hasattr(router, '_auto_adjusted_priority'):
-            priority = router._auto_adjusted_priority(str(name), priority)
-        provider_priorities.append((str(name), priority))
-
-    # Sort by priority descending (highest priority first)
-    provider_priorities.sort(key=lambda x: -x[1])
-
-    if not provider_priorities:
-        return None, None, "no_providers"
-
-    # Step 3: If we have a recent model, find the highest priority provider that supports it
-    if recent_model:
-        for provider_name, _priority in provider_priorities:
-            if _provider_supports_model(provider_name, recent_model, cfg):
-                return str(recent_model), provider_name, "recent_success_global"
-
-        # Step 4: No provider supports the recent model, use highest priority provider with fallback model
-        best_provider = provider_priorities[0][0]
-        fallback_model, model_source = _pick_probe_model_with_source(best_provider, observability=observability, config=config)
-        if fallback_model:
-            return fallback_model, best_provider, f"fallback_no_model_support_{model_source}"
-
-    # Step 5: No recent model found, use highest priority provider with any model
-    best_provider = provider_priorities[0][0]
-    fallback_model, model_source = _pick_probe_model_with_source(best_provider, observability=observability, config=config)
-    if fallback_model:
-        return fallback_model, best_provider, f"fallback_no_recent_model_{model_source}"
-
-    return None, None, "no_suitable_pair"
 
 
 def _build_probe_plan(observability, config, router) -> list[tuple[str, str, str]]:
