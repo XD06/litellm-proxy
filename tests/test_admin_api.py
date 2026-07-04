@@ -2117,6 +2117,112 @@ class IdleProbeAdvancedTests(unittest.TestCase):
             self.assertEqual(provider, "alpha")
             self.assertTrue(source.startswith("fallback_no_recent_model_"))
 
+    def test_build_probe_plan_with_recent_model(self):
+        """_build_probe_plan should list model-supporting providers first,
+        then remaining providers with their own models."""
+        cfg = {
+            "models": {
+                "provider_model_map": {
+                    "alpha": {"shared-model": "alpha-shared", "alpha-only": "alpha-only"},
+                    "beta": {"shared-model": "beta-shared", "beta-only": "beta-only"},
+                    "gamma": {"gamma-only": "gamma-only"},
+                },
+            },
+            "providers": {
+                "alpha": {"priority": 100, "base_url": "https://alpha.example", "keys": ["key"]},
+                "beta": {"priority": 50, "base_url": "https://beta.example", "keys": ["key"]},
+                "gamma": {"priority": 10, "base_url": "https://gamma.example", "keys": ["key"]},
+            },
+        }
+        router = sse2json.UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+
+        # Mock: beta recently used "shared-model"
+        with patch.object(obs, 'latest_successful_model_for_provider') as mock_latest:
+            def side_effect(provider):
+                if provider == "beta":
+                    return "shared-model"
+                return None
+            mock_latest.side_effect = side_effect
+
+            plan = sse2json._build_probe_plan(obs, cfg, router)
+
+            # Phase 1: alpha and beta support shared-model, in priority order
+            self.assertEqual(len(plan), 3)
+            self.assertEqual(plan[0][0], "alpha")   # highest priority, supports shared-model
+            self.assertEqual(plan[0][1], "shared-model")
+            self.assertEqual(plan[0][2], "recent_success_global")
+            self.assertEqual(plan[1][0], "beta")    # next priority, supports shared-model
+            self.assertEqual(plan[1][1], "shared-model")
+            self.assertEqual(plan[1][2], "recent_success_global")
+            # Phase 2: gamma doesn't support shared-model, uses its own
+            self.assertEqual(plan[2][0], "gamma")
+            self.assertEqual(plan[2][1], "gamma-only")
+            self.assertTrue(plan[2][2].startswith("fallback_"))
+
+    def test_build_probe_plan_no_recent_model(self):
+        """_build_probe_plan with no recent model should list all providers
+        in priority order with their own default models."""
+        cfg = {
+            "models": {
+                "provider_model_map": {
+                    "alpha": {"alpha-model": "alpha-model"},
+                    "beta": {"beta-model": "beta-model"},
+                },
+            },
+            "providers": {
+                "alpha": {"priority": 100, "base_url": "https://alpha.example", "keys": ["key"]},
+                "beta": {"priority": 50, "base_url": "https://beta.example", "keys": ["key"]},
+            },
+        }
+        router = sse2json.UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+
+        with patch.object(obs, 'latest_successful_model_for_provider') as mock_latest:
+            mock_latest.return_value = None
+
+            plan = sse2json._build_probe_plan(obs, cfg, router)
+
+            self.assertEqual(len(plan), 2)
+            self.assertEqual(plan[0][0], "alpha")
+            self.assertEqual(plan[0][1], "alpha-model")
+            self.assertTrue(plan[0][2].startswith("no_recent_"))
+            self.assertEqual(plan[1][0], "beta")
+            self.assertEqual(plan[1][1], "beta-model")
+            self.assertTrue(plan[1][2].startswith("no_recent_"))
+
+    def test_build_probe_plan_no_provider_supports_recent_model(self):
+        """When no provider supports the recent model, all providers should
+        be listed with their own default models."""
+        cfg = {
+            "models": {
+                "provider_model_map": {
+                    "alpha": {"alpha-model": "alpha-model"},
+                    "beta": {"beta-model": "beta-model"},
+                },
+            },
+            "providers": {
+                "alpha": {"priority": 100, "base_url": "https://alpha.example", "keys": ["key"]},
+                "beta": {"priority": 50, "base_url": "https://beta.example", "keys": ["key"]},
+            },
+        }
+        router = sse2json.UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+
+        with patch.object(obs, 'latest_successful_model_for_provider') as mock_latest:
+            mock_latest.return_value = "nonexistent-model"
+
+            plan = sse2json._build_probe_plan(obs, cfg, router)
+
+            # No provider supports "nonexistent-model", so all go to Phase 2
+            self.assertEqual(len(plan), 2)
+            self.assertEqual(plan[0][0], "alpha")
+            self.assertEqual(plan[0][1], "alpha-model")
+            self.assertTrue(plan[0][2].startswith("fallback_"))
+            self.assertEqual(plan[1][0], "beta")
+            self.assertEqual(plan[1][1], "beta-model")
+            self.assertTrue(plan[1][2].startswith("fallback_"))
+
     def test_idle_probe_skips_disabled_provider(self):
         """A disabled provider should be skipped and recorded as 'skipped'."""
         cfg = self._probe_cfg()
