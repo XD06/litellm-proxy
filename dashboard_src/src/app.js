@@ -57,6 +57,69 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
   let _refreshInFlight = false;
   let _refreshWanted = false;
   let _refreshWantedArgs = null;
+  let _backgroundRefreshTimer = null;
+  let _backgroundRefreshArgs = null;
+
+  function mergeRefreshArgs(previous, next) {
+    if (!previous) return { ...(next || {}) };
+    next = next || {};
+    return {
+      quiet: Boolean(previous.quiet && next.quiet),
+      preserveNotice: Boolean(previous.preserveNotice || next.preserveNotice),
+      staticData: Boolean(previous.staticData || next.staticData),
+    };
+  }
+
+  function scheduleBackgroundRefresh(args = {}, delayMs = 120) {
+    _backgroundRefreshArgs = mergeRefreshArgs(_backgroundRefreshArgs, {
+      quiet: true,
+      preserveNotice: true,
+      ...args,
+    });
+    if (_backgroundRefreshTimer) return;
+    _backgroundRefreshTimer = window.setTimeout(() => {
+      const refreshArgs = _backgroundRefreshArgs || { quiet: true, preserveNotice: true };
+      _backgroundRefreshTimer = null;
+      _backgroundRefreshArgs = null;
+      refreshAll(refreshArgs).catch(() => {});
+    }, delayMs);
+  }
+
+  function applyMutationResult(result, { render = true, drawer = false } = {}) {
+    if (!result || typeof result !== "object") return false;
+    let changed = false;
+    if (result.config !== undefined) {
+      state.data.config = result.config;
+      changed = true;
+    }
+    if (result.routing !== undefined) {
+      state.data.routing = result.routing;
+      changed = true;
+    }
+    if (result.status !== undefined) {
+      state.data.status = result.status;
+      changed = true;
+    }
+    if (result.router !== undefined) {
+      state.data.status = { ...(state.data.status || {}), router: result.router };
+      changed = true;
+    }
+    if (result.policy !== undefined) {
+      state.data.routing = { ...(state.data.routing || {}), policy: result.policy };
+      changed = true;
+    }
+    if (!changed) return false;
+    state.data.version = Number(state.data.version || 0) + 1;
+    state.forceConfigRender = true;
+    state.forcePolicyRender = true;
+    state.forceFailurePoliciesRender = true;
+    state.forceModelRoutesRender = true;
+    state.forceProvidersRender = true;
+    state.forceModelCapsRender = true;
+    if (render) renderAll();
+    if (drawer) renderProviderDrawer({ force: true });
+    return true;
+  }
 
   function updateDOM(target, htmlString) {
     if (!target) return;
@@ -790,10 +853,11 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           };
         }
         try {
-          await apiPost("/-/admin/providers", payload);
+          const result = await apiPost("/-/admin/providers", payload);
+          applyMutationResult(result);
           closeFormModal();
-          await refreshAll({ quiet: true, staticData: true });
           setNotice(t("notice.provider_added", { name: payload.name }), "ok");
+          scheduleBackgroundRefresh({ quiet: true, staticData: true });
         } catch (err) {
           setNotice(t("notice.add_provider_failed", { error: err.message }));
         }
@@ -914,11 +978,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       // were fetching); we will run one more after the current finishes.
       _refreshWanted = true;
       const previous = _refreshWantedArgs;
-      _refreshWantedArgs = {
-        quiet: previous ? Boolean(previous.quiet && quiet) : Boolean(quiet),
-        preserveNotice: previous ? Boolean(previous.preserveNotice || preserveNotice) : Boolean(preserveNotice),
-        staticData: previous ? Boolean(previous.staticData || staticData) : Boolean(staticData),
-      };
+      _refreshWantedArgs = mergeRefreshArgs(previous, { quiet, preserveNotice, staticData });
       return;
     }
     _refreshInFlight = true;
@@ -3069,6 +3129,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           <span class="provider-signal-item model-count" title="${escapeHtml(`${fmtInt(modelCount)} available models`)}">${iconSvg("boxes")}<strong>${escapeHtml(view.capability.status === "pending" ? "..." : fmtInt(modelCount))}</strong><small>models</small></span>
           <span class="provider-signal-item ${escapeHtml(latencyTone)}" title="Latest first byte latency">${iconSvg("clock")}<strong>${escapeHtml(latencyText)}</strong><small>ttfb</small></span>
         </div>
+        ${providerProbeSummary(view.activity.lastProbe)}
         ${providerSparkline(view.activity, view.name)}
 
         <div class="provider-card-footer">
@@ -3091,6 +3152,54 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     return `<span class="provider-stat ${tone || ""}" title="${escapeHtml(value)}">${iconSvg(iconName)}<strong>${escapeHtml(value)}</strong></span>`;
   }
 
+  function probeTone(probe = {}) {
+    const outcome = String(probe.outcome || "");
+    if (outcome === "success") return "ok";
+    if (String(probe.action || "") === "observed_only") return "warn";
+    if (outcome === "failed") return "bad";
+    return "neutral";
+  }
+
+  function providerProbeSummary(probe) {
+    if (!probe) {
+      return `<div class="provider-probe-summary empty" title="No background health probe yet">${iconSvg("radar")}<span>No health probe yet</span></div>`;
+    }
+    const tone = probeTone(probe);
+    const reason = probe.reason || probe.error_type || probe.outcome || "probe";
+    const model = probe.model || "-";
+    const suffix = probe.latency_ms != null ? ` · ${fmtCompactMs(probe.latency_ms)}` : probe.http_status ? ` · HTTP ${fmtInt(probe.http_status)}` : "";
+    return `
+      <div class="provider-probe-summary tone-${escapeHtml(tone)}" title="${escapeHtml(`${reason} / ${model} / ${probe.model_source || "model"}${suffix}`)}">
+        ${iconSvg("radar")}
+        <span>${escapeHtml(reason)}</span>
+        <small>${escapeHtml(model)}${escapeHtml(suffix)}</small>
+      </div>
+    `;
+  }
+
+  function providerProbeRow(probe) {
+    const tone = probeTone(probe);
+    const reason = probe.reason || probe.error_type || probe.outcome || "probe";
+    const action = probe.action || "none";
+    const model = probe.model || "-";
+    const meta = [
+      probe.format || "",
+      probe.model_source ? `source:${probe.model_source}` : "",
+      probe.key_index >= 0 ? `key ${probe.key_index}` : "",
+    ].filter(Boolean).join(" · ");
+    const timing = probe.latency_ms != null ? fmtMs(probe.latency_ms) : probe.http_status ? `HTTP ${fmtInt(probe.http_status)}` : "-";
+    return `
+      <div class="provider-probe-row tone-${escapeHtml(tone)}">
+        <span class="provider-status-dot ${tone === "bad" ? "bad" : tone === "warn" ? "warn" : tone === "ok" ? "ok" : ""}"></span>
+        <strong title="${escapeHtml(reason)}">${escapeHtml(reason)}</strong>
+        <span title="${escapeHtml(model)}">${escapeHtml(model)}</span>
+        <small title="${escapeHtml(meta)}">${escapeHtml(meta || "-")}</small>
+        <em title="${escapeHtml(action)}">${escapeHtml(action)}</em>
+        <b>${escapeHtml(timing)}</b>
+      </div>
+    `;
+  }
+
   function providerSparklineStats(activity) {
     const events = (Array.isArray(activity?.events) ? activity.events : []).slice(-36);
     const latencies = events.map((event) => Math.max(0, Number(event.latencyMs) || 0));
@@ -3102,13 +3211,18 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
   function providerSparkline(activity, providerName) {
     const stats = providerSparklineStats(activity);
     const events = stats.events;
-    const slotCount = 36;
+    const slotCount = 40;
+    const barW = 3.4;
+    const gap = 6;
+    const svgPad = 0.5;
+    const svgW = slotCount * gap - (gap - barW) + svgPad * 2;
+    const emptyBars = Array.from({ length: slotCount }, (_, index) => (
+      `<rect class="is-empty-slot" x="${svgPad + index * gap}" y="0.5" width="${barW}" height="13" rx="1.7"></rect>`
+    )).join("");
     if (!events.length) {
       return `
         <div class="provider-sparkline provider-call-strip is-empty" title="No recent provider activity">
-          <div class="provider-call-bars" aria-hidden="true">
-            ${Array.from({ length: slotCount }, () => `<i class="is-empty-slot"></i>`).join("")}
-          </div>
+          <svg class="provider-call-bars" viewBox="0 0 ${svgW} 14" preserveAspectRatio="none" aria-hidden="true">${emptyBars}</svg>
           <div class="provider-call-axis"><span>PAST</span><span>NOW</span></div>
         </div>
       `;
@@ -3117,20 +3231,18 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const slow = events.filter((event) => Number(event.latencyMs || 0) > 5000).length;
     const tone = failed ? "bad" : slow ? "warn" : "ok";
     const avg = stats.avg || 0;
-    const emptySlots = Array.from({ length: Math.max(0, slotCount - events.length) }, () => (
-      `<i class="is-empty-slot"></i>`
-    ));
-    const eventBars = events.map((event) => {
+    const start = Math.max(0, slotCount - events.length);
+    const eventBars = events.map((event, index) => {
       const latency = Math.max(0, Number(event.latencyMs) || 0);
       const bad = event.ok === false || event.status === "failed";
       const warn = !bad && latency > 5000;
       const label = `${bad ? "failed" : warn ? "slow" : "ok"} / ${fmtCompactMs(latency || avg)}`;
-      return `<i class="${bad ? "is-bad" : warn ? "is-warn" : "is-ok"}" title="${escapeHtml(label)}"></i>`;
-    });
-    const bars = emptySlots.concat(eventBars).slice(-slotCount).join("");
+      const slot = Math.min(slotCount - 1, start + index);
+      return `<rect class="${bad ? "is-bad" : warn ? "is-warn" : "is-ok"}" x="${svgPad + slot * gap}" y="0.5" width="${barW}" height="13" rx="1.7"><title>${escapeHtml(label)}</title></rect>`;
+    }).join("");
     return `
       <div class="provider-sparkline provider-call-strip tone-${escapeHtml(tone)}" title="${escapeHtml(`${providerName}: ${events.length} recent calls / avg ${fmtCompactMs(avg)} / ${failed} failed`)}">
-        <div class="provider-call-bars" aria-hidden="true">${bars}</div>
+        <svg class="provider-call-bars" viewBox="0 0 ${svgW} 14" preserveAspectRatio="none" aria-hidden="true">${emptyBars}${eventBars}</svg>
         <div class="provider-call-axis"><span>PAST</span><span>NOW</span></div>
       </div>
     `;
@@ -3490,9 +3602,10 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           models.push(value);
         });
         await runConfigMutation(form, async () => {
-          await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { static_models: models });
+          const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { static_models: models });
           setNotice(t("notice.static_models_saved", { provider }), "ok");
           form.elements.static_models.value = "";
+          return result;
         });
       });
     });
@@ -3503,9 +3616,10 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         const provider = button.dataset.clearStaticModels || "";
         button.disabled = true;
         try {
-          await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { static_models: [] });
+          const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { static_models: [] });
+          applyMutationResult(result, { drawer: true });
           setNotice(t("notice.static_models_cleared", { provider }), "ok");
-          await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
+          scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
           renderProviderDrawer({ force: true });
         } catch (err) {
           setNotice(t("notice.failed", { error: err.message }));
@@ -3524,9 +3638,10 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         const models = (Array.isArray(existing) ? existing : []).filter((item) => String(item || "") !== model);
         button.disabled = true;
         try {
-          await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { static_models: models });
+          const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { static_models: models });
+          applyMutationResult(result, { drawer: true });
           setNotice(t("notice.static_model_removed", { model, provider }), "ok");
-          await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
+          scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
           renderProviderDrawer({ force: true });
         } catch (err) {
           setNotice(t("notice.failed", { error: err.message }));
@@ -3551,6 +3666,8 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     // provider's event list. Fall back to whatever is cached locally.
     const events = Array.isArray(view.activity.events) ? view.activity.events : [];
     const recent = events.slice(-10).reverse();
+    const probeEvents = Array.isArray(view.activity.probeEvents) ? view.activity.probeEvents : [];
+    const recentProbes = probeEvents.slice(0, 8);
     return `
       <section class="provider-drawer-section">
         <div class="provider-detail-hero ${view.runtimeState.tone}">
@@ -3573,6 +3690,10 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         <h3 class="drawer-section-title">Recent provider activity</h3>
         <div class="provider-activity-list" data-provider-activity-list="${escapeHtml(view.name)}">
           ${recent.length ? recent.map(providerActivityRow).join("") : `<div class="empty pad-slim">Loading recent activity…</div>`}
+        </div>
+        <h3 class="drawer-section-title">Background health probes</h3>
+        <div class="provider-probe-list" data-provider-probe-list="${escapeHtml(view.name)}">
+          ${recentProbes.length ? recentProbes.map(providerProbeRow).join("") : `<div class="empty pad-slim">No background health probes yet</div>`}
         </div>
       </section>
     `;
@@ -3615,6 +3736,14 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         list.innerHTML = recent.length
           ? recent.map(providerActivityRow).join("")
           : `<div class="empty pad-slim">No recent calls for this provider</div>`;
+      }
+      const probeLists = document.querySelectorAll("[data-provider-probe-list]");
+      const probeList = Array.from(probeLists).find((el) => el.getAttribute("data-provider-probe-list") === name);
+      if (probeList) {
+        const probes = Array.isArray(activity?.probeEvents) ? activity.probeEvents : [];
+        probeList.innerHTML = probes.length
+          ? probes.slice(0, 8).map(providerProbeRow).join("")
+          : `<div class="empty pad-slim">No background health probes yet</div>`;
       }
     } catch (_err) {
       // Best-effort enrichment; leave the placeholder in place on failure.
@@ -4080,7 +4209,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           </div>
           <form class="config-key-form provider-inline-key-form" data-provider="${escapeHtml(name)}">
             <input class="control" name="key" type="password" autocomplete="off" placeholder="new key" required />
-            ${proxyControlInput("proxy", "", "http://host:port / socks5://host:port")}}
+            ${proxyControlInput("proxy", "", "http://host:port / socks5://host:port")}
             <button class="button secondary" type="submit">Add key</button>
           </form>
         </div>
@@ -4165,17 +4294,26 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
   function formatRouteItems(formats, provider) {
     const rows = Object.entries(formats || {}).sort();
     if (!rows.length) return `<span class="empty">No format routes</span>`;
-    // When a provider name is supplied the cards become interactive: single
-    // click toggles enabled, double click edits the path. Otherwise the cards
-    // are read-only display only.
+    // When a provider name is supplied the row exposes explicit controls:
+    // a compact switch toggles the route, while the pencil edits the path.
     const interactive = Boolean(provider);
     return rows.map(([name, cfg]) => {
       const enabled = cfg?.enabled;
       const path = cfg?.path || "-";
       const label = formatLabel(name) || name;
       const dataAttrs = interactive
-        ? `data-format-provider="${escapeHtml(provider)}" data-format="${escapeHtml(name)}" data-format-enabled="${enabled ? "1" : "0"}" data-format-path="${escapeHtml(cfg?.path || "")}" role="button" tabindex="0" aria-label="${escapeHtml(`${enabled ? "Disable" : "Enable"} ${label} for ${provider}`)}"`
+        ? `data-format-provider="${escapeHtml(provider)}" data-format="${escapeHtml(name)}" data-format-enabled="${enabled ? "1" : "0"}" data-format-path="${escapeHtml(cfg?.path || "")}"`
         : "";
+      const toggle = interactive ? `
+          <button class="format-route-switch ${enabled ? "is-on" : ""}" type="button"
+            data-format-toggle
+            role="switch"
+            aria-checked="${enabled ? "true" : "false"}"
+            title="${escapeHtml(`${enabled ? "Disable" : "Enable"} ${label}`)}"
+            aria-label="${escapeHtml(`${enabled ? "Disable" : "Enable"} ${label} for ${provider}`)}">
+            <span></span>
+          </button>
+        ` : "";
       const edit = interactive ? `
           <button class="format-route-edit" type="button"
             data-format-path-edit
@@ -4188,7 +4326,10 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
             <b>${escapeHtml(label)}</b>
             <small>${escapeHtml(path)}</small>
           </span>
-          ${edit}
+          <span class="format-route-actions">
+            ${toggle}
+            ${edit}
+          </span>
         </span>
       `;
     }).join("");
@@ -4346,6 +4487,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       check: `<path d="M5 12l4 4L19 6"></path>`,
       key: `<circle cx="7.5" cy="12.5" r="3.5"></circle><path d="M11 12.5h9"></path><path d="M16 12.5v3"></path><path d="M19 12.5v2"></path>`,
       activity: `<path d="M3 12h4l3-7 4 14 3-7h4"></path>`,
+      radar: `<path d="M12 12l6-6"></path><circle cx="12" cy="12" r="2"></circle><path d="M20 12a8 8 0 1 1-2.3-5.7"></path><path d="M16.2 8.2a6 6 0 1 1-8.4 0"></path>`,
       alert: `<path d="M12 3 2.8 20h18.4L12 3z"></path><path d="M12 9v5"></path><path d="M12 17h.01"></path>`,
       gauge: `<path d="M4 14a8 8 0 1 1 16 0"></path><path d="M12 14l4-4"></path><path d="M7 14h.01"></path><path d="M17 14h.01"></path>`,
       layers: `<path d="M12 3 3 8l9 5 9-5-9-5z"></path><path d="M3 12l9 5 9-5"></path><path d="M3 16l9 5 9-5"></path>`,
@@ -4384,17 +4526,13 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         const path = `/-/admin${button.dataset.actionPath}`;
         button.disabled = true;
         try {
+          setNotice(t("notice.action_running") || "Action is running...", "info", { key: "action:manual", sticky: true });
           const result = await apiPost(path);
-          if (result?.router) {
-            state.data.status = { ...(state.data.status || {}), router: result.router };
-            state.data.version = Number(state.data.version || 0) + 1;
-            state.forceProvidersRender = true;
-            renderAll();
-            renderProviderDrawer({ force: true });
-          }
-          await refreshAll({ quiet: true, staticData: true });
+          applyMutationResult(result, { drawer: true });
+          setNotice(t("notice.action_done") || "Action completed.", "ok", { key: "action:manual" });
+          scheduleBackgroundRefresh({ quiet: true, staticData: true });
         } catch (err) {
-          setNotice(t("notice.action_failed", { error: err.message }));
+          setNotice(t("notice.action_failed", { error: err.message }), "bad", { key: "action:manual" });
         } finally {
           button.disabled = false;
         }
@@ -4498,9 +4636,10 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         if (!confirmed) return;
         button.disabled = true;
         try {
-          await apiPost(`/-/admin/providers/${encodeURIComponent(provider)}/keys/${encodeURIComponent(keyIndex)}/delete`, { confirm: "delete_key" });
+          const result = await apiPost(`/-/admin/providers/${encodeURIComponent(provider)}/keys/${encodeURIComponent(keyIndex)}/delete`, { confirm: "delete_key" });
+          applyMutationResult(result, { drawer: true });
           setNotice(t("notice.key_deleted", { index: keyIndex, provider }), "ok");
-          await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
+          scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
         } catch (err) {
           setNotice(t("notice.delete_key_failed", { error: err.message }));
         } finally {
@@ -4544,7 +4683,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
             const detail = result.http_status ? `HTTP ${result.http_status}` : result.error_type || "failed";
             setNotice(t("notice.key_failed", { index: keyIndex, provider, detail }), "bad", { key: toastKey });
           }
-          await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
+          scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
         } catch (err) {
           state.keyProbes[probeKey] = { ok: false, error_type: "request_error" };
           setNotice(t("notice.test_key_failed", { error: err.message }), "bad", { key: toastKey });
@@ -4571,9 +4710,10 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         _modelRefreshInFlight.add(provider);
         button.disabled = true;
         try {
-          await apiPost(`/-/admin/providers/${encodeURIComponent(provider)}/models/refresh`);
+          const result = await apiPost(`/-/admin/providers/${encodeURIComponent(provider)}/models/refresh`);
+          applyMutationResult(result, { drawer: true });
           setNotice(t("notice.models_refreshed", { provider }), "ok");
-          await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
+          scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
           renderProviderDrawer({ force: true });
         } catch (err) {
           setNotice(t("notice.model_refresh_failed", { error: err.message }), "bad");
@@ -4588,10 +4728,11 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
   async function updateProviderModelDisabled(provider, models, successMessage) {
     if (!provider || !models || !Object.keys(models).length) return;
     try {
-      await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/models/disabled`, { models });
+      const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/models/disabled`, { models });
+      applyMutationResult(result, { drawer: true });
       if (state.providerModelDrafts) delete state.providerModelDrafts[provider];
       setNotice(successMessage || t("notice.model_settings_saved", { provider }), "ok");
-      await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
+      scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
       renderProviderDrawer({ force: true });
     } catch (err) {
       setNotice(t("notice.model_setting_failed", { error: err.message }), "bad");
@@ -4601,13 +4742,14 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
   async function updateProviderModelMapping(provider, oldModel, rawModel, nextModel) {
     if (!provider || !oldModel || !rawModel) return false;
     try {
-      await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/models/map`, {
+      const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/models/map`, {
         old_model: oldModel,
         model: nextModel,
         raw_model: rawModel,
       });
+      applyMutationResult(result, { drawer: true });
       setNotice(nextModel ? t("notice.model_mapping_saved", { provider }) : t("notice.model_mapping_reset", { provider }), "ok");
-      await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
+      scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
       renderProviderDrawer({ force: true });
       return true;
     } catch (err) {
@@ -4982,8 +5124,9 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           first_token_timeout_s: Number(routingForm.elements.first_token_timeout_s.value || 0),
         };
         await runPolicyMutation(routingForm, async () => {
-          await apiPatch("/-/admin/routing", payload);
+          const result = await apiPatch("/-/admin/routing", payload);
           setNotice(t("notice.routing_updated"), "ok");
+          return result;
         });
       });
     }
@@ -5007,8 +5150,9 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           },
         };
         await runPolicyMutation(retryForm, async () => {
-          await apiPatch("/-/admin/retry", payload);
+          const result = await apiPatch("/-/admin/retry", payload);
           setNotice(t("notice.retry_updated"), "ok");
+          return result;
         });
       });
     }
@@ -5044,8 +5188,9 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           disables_key: Boolean(form.elements.disables_key.checked),
         };
         await runPolicyMutation(form, async () => {
-          await apiPatch("/-/admin/retry/failure-policies", payload);
+          const result = await apiPatch("/-/admin/retry/failure-policies", payload);
           setNotice(t("notice.failure_policy_updated", { type: payload.error_type }), "ok");
+          return result;
         });
       });
     });
@@ -5057,15 +5202,21 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       button.disabled = true;
     });
     try {
-      await operation();
-      state.forcePolicyRender = true;
-      state.forceFailurePoliciesRender = true;
+      setNotice(t("notice.saving"), "info", { key: "mutation:policy", sticky: true });
+      const result = await operation();
+      const applied = applyMutationResult(result);
+      if (!applied) {
+        state.forcePolicyRender = true;
+        state.forceFailurePoliciesRender = true;
+        renderAll();
+      }
       if (document.activeElement && typeof document.activeElement.blur === "function") {
         document.activeElement.blur();
       }
-      await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
+      setNotice(t("notice.saved"), "ok", { key: "mutation:policy" });
+      scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
     } catch (err) {
-      setNotice(t("notice.policy_failed", { error: err.message }));
+      setNotice(t("notice.policy_failed", { error: err.message }), "bad", { key: "mutation:policy" });
     } finally {
       buttons.forEach((button) => {
         button.disabled = false;
@@ -5622,13 +5773,19 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         if (!confirmed) return;
         button.disabled = true;
         try {
-          await apiPost(`/-/admin/providers/${encodeURIComponent(provider)}/delete`, { confirm: "delete_provider" });
+          const result = await apiPost(`/-/admin/providers/${encodeURIComponent(provider)}/delete`, { confirm: "delete_provider" });
           state.openProviderDetails.delete(provider);
           state.openProviderEditors.delete(provider);
           if (state.providerDrawerName === provider) closeProviderDrawer();
+          if (state.data.config?.providers) delete state.data.config.providers[provider];
+          if (state.data.status?.router?.providers) delete state.data.status.router.providers[provider];
+          applyMutationResult(result);
           state.forceConfigRender = true;
+          state.forceProvidersRender = true;
+          state.data.version = Number(state.data.version || 0) + 1;
+          renderAll();
           setNotice(t("notice.provider_deleted", { provider }), "ok");
-          await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
+          scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
         } catch (err) {
           setNotice(t("notice.delete_provider_failed", { error: err.message }));
         } finally {
@@ -5648,9 +5805,10 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         const priority = Number(input.value || 0);
         button.disabled = true;
         try {
-          await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/priority`, { priority });
+          const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/priority`, { priority });
+          applyMutationResult(result, { drawer: true });
           setNotice(`Priority for ${provider} hot-updated to ${priority}.`, "ok");
-          await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
+          scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
         } catch (err) {
           setNotice(`Hot-reload priority failed: ${err.message}`);
         } finally {
@@ -5673,8 +5831,9 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           enabled: Boolean(form.elements.enabled.checked),
         };
         await runConfigMutation(form, async () => {
-          await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, payload);
+          const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, payload);
           setNotice(t("notice.provider_updated", { provider }), "ok");
+          return result;
         });
       });
     });
@@ -5690,9 +5849,10 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         const payload = { key };
         if (proxy) payload.proxy = proxy;
         await runConfigMutation(form, async () => {
-          await apiPost(`/-/admin/providers/${encodeURIComponent(provider)}/keys`, payload);
+          const result = await apiPost(`/-/admin/providers/${encodeURIComponent(provider)}/keys`, payload);
           form.reset();
           setNotice(t("notice.key_added", { provider }), "ok");
+          return result;
         });
       });
     });
@@ -5706,8 +5866,9 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         const keyIndex = String(form.dataset.keyIndex || "").trim();
         const proxy = String(form.elements.proxy.value || "").trim();
         await runConfigMutation(form, async () => {
-          await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/keys/${encodeURIComponent(keyIndex)}`, { proxy });
+          const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/keys/${encodeURIComponent(keyIndex)}`, { proxy });
           setNotice(t("notice.key_proxy_updated", { index: keyIndex, provider }), "ok");
+          return result;
         });
       });
     });
@@ -5745,18 +5906,14 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         editPath();
       });
 
-      card.addEventListener("click", (event) => {
-        if (event.target.closest("[data-format-path-edit]")) {
-          return;
-        }
+      card.querySelector("[data-format-toggle]")?.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
         toggle();
       });
 
       card.addEventListener("keydown", (event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          toggle();
-        } else if (event.key === "F2") {
+        if (event.key === "F2") {
           event.preventDefault();
           editPath();
         }
@@ -5770,20 +5927,24 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       card.classList.add("is-busy");
     }
     try {
+      setNotice(t("notice.saving"), "info", { key: "mutation:format", sticky: true });
       const result = await operation();
       // Clear dirty state — the mutation has been saved to the server.
       clearAllDirty();
-      if (result?.config) state.data.config = result.config;
-      state.data.version = Number(state.data.version || 0) + 1;
-      state.forceConfigRender = true;
-      state.forceProvidersRender = true;
-      state.forceModelCapsRender = true;
-      renderAll();
-      renderProviderDrawer({ force: true });
-      Promise.resolve().then(() => refreshProviderConfigView({ preserveNotice: true })).catch(() => {});
+      const applied = applyMutationResult(result, { drawer: true });
+      if (!applied) {
+        state.data.version = Number(state.data.version || 0) + 1;
+        state.forceConfigRender = true;
+        state.forceProvidersRender = true;
+        state.forceModelCapsRender = true;
+        renderAll();
+        renderProviderDrawer({ force: true });
+      }
+      setNotice(t("notice.saved"), "ok", { key: "mutation:format" });
+      scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
       return true;
     } catch (err) {
-      setNotice(t("notice.format_update_failed", { error: err.message }), "bad");
+      setNotice(t("notice.format_update_failed", { error: err.message }), "bad", { key: "mutation:format" });
       return false;
     } finally {
       if (card) {
@@ -5799,18 +5960,24 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       button.disabled = true;
     });
     try {
-      await operation();
+      setNotice(t("notice.saving"), "info", { key: "mutation:config", sticky: true });
+      const result = await operation();
       // Clear dirty state for all tracked containers — the mutation has been
       // saved to the server and the forced re-render below will show new values.
       clearAllDirty();
-      state.forceConfigRender = true;
-      state.forceModelRoutesRender = true;
+      const applied = applyMutationResult(result);
+      if (!applied) {
+        state.forceConfigRender = true;
+        state.forceModelRoutesRender = true;
+        renderAll();
+      }
       if (document.activeElement && typeof document.activeElement.blur === "function") {
         document.activeElement.blur();
       }
-      await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
+      setNotice(t("notice.saved"), "ok", { key: "mutation:config" });
+      scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
     } catch (err) {
-      setNotice(t("notice.config_update_failed", { error: err.message }));
+      setNotice(t("notice.config_update_failed", { error: err.message }), "bad", { key: "mutation:config" });
     } finally {
       buttons.forEach((button) => {
         button.disabled = false;
@@ -6315,7 +6482,17 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
             : t("notice.requests_deleted", { count: fmtInt(deleted), plural }),
           "ok",
         );
-        await refreshAll({ quiet: true, preserveNotice: true });
+        if (mode === "selected" && Array.isArray(state.data.requests?.items)) {
+          const deletedIds = new Set(ids);
+          state.data.requests.items = state.data.requests.items.filter((item) => !deletedIds.has(item.request_id || item.id));
+          state.data.requests.total = Math.max(0, Number(state.data.requests.total || 0) - deletedIds.size);
+          state.data.version = Number(state.data.version || 0) + 1;
+          renderAll();
+        } else {
+          state.forceRequestsFetch = true;
+          renderAll();
+        }
+        scheduleBackgroundRefresh({ quiet: true, preserveNotice: true });
       } catch (err) {
         setNotice(t("notice.delete_requests_failed", { error: err.message }));
       } finally {
@@ -6345,8 +6522,9 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
 
     el("reloadConfigButton").addEventListener("click", async () => {
       try {
-        await apiPost("/-/admin/config/reload");
-        await refreshAll({ quiet: true, staticData: true });
+        const result = await apiPost("/-/admin/config/reload");
+        applyMutationResult(result);
+        scheduleBackgroundRefresh({ quiet: true, staticData: true });
       } catch (err) {
         setNotice(t("notice.config_reload_failed", { error: err.message }));
       }
@@ -6356,8 +6534,9 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       event.preventDefault();
       const form = event.currentTarget;
       await runConfigMutation(form, async () => {
-        await apiPatch("/-/admin/proxy", { proxy: String(form.elements.proxy.value || "").trim() });
+        const result = await apiPatch("/-/admin/proxy", { proxy: String(form.elements.proxy.value || "").trim() });
         setNotice(t("notice.global_proxy_updated"), "ok");
+        return result;
       });
     });
 
@@ -6407,7 +6586,8 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           2,
         );
         setNotice(result.backup_path ? t("notice.overlay_cleared_backup", { path: result.backup_path }) : t("notice.overlay_cleared"), "ok");
-        await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
+        applyMutationResult(result);
+        scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
       } catch (err) {
         setNotice(t("notice.clear_overlay_failed", { error: err.message }));
       }
@@ -6437,10 +6617,11 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         };
       }
       try {
-        await apiPost("/-/admin/providers", payload);
+        const result = await apiPost("/-/admin/providers", payload);
+        applyMutationResult(result);
         if (formEl && typeof formEl.reset === "function") formEl.reset();
-        await refreshAll({ quiet: true, staticData: true });
         setNotice(t("notice.provider_added", { name: payload.name }), "ok");
+        scheduleBackgroundRefresh({ quiet: true, staticData: true });
       } catch (err) {
         setNotice(t("notice.add_provider_failed", { error: err.message }));
       }
@@ -6455,8 +6636,9 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         provider_select: String(form.elements.provider_select.value || "priority_failover").trim(),
       };
       await runConfigMutation(form, async () => {
-        await apiPatch("/-/admin/models/routes", payload);
+        const result = await apiPatch("/-/admin/models/routes", payload);
         setNotice(t("notice.model_route_saved", { model: payload.model }), "ok");
+        return result;
       });
     });
 
@@ -6494,10 +6676,14 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         if (!confirmed) return;
         deleteButton.disabled = true;
         try {
-          await apiPost("/-/admin/models/routes/delete", { model });
+          const result = await apiPost("/-/admin/models/routes/delete", { model });
+          if (state.data.config?.model_routes) delete state.data.config.model_routes[model];
+          applyMutationResult(result);
           state.forceModelRoutesRender = true;
+          state.data.version = Number(state.data.version || 0) + 1;
+          renderAll();
           setNotice(t("notice.model_route_deleted", { model }), "ok");
-          await refreshAll({ quiet: true, preserveNotice: true, staticData: true });
+          scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
         } catch (err) {
           setNotice(t("notice.delete_route_failed", { error: err.message }));
         } finally {

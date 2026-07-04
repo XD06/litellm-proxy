@@ -129,6 +129,8 @@ Purpose: control runtime provider/key health.
 Data:
 
 - `GET /-/admin/status`
+- `GET /-/admin/provider-activity`
+- `GET /-/admin/provider-activity/{provider}`
 - `POST /-/admin/providers/{provider}/enable`
 - `POST /-/admin/providers/{provider}/disable`
 - `POST /-/admin/providers/{provider}/cooldown/clear`
@@ -139,7 +141,8 @@ Data:
 UI:
 
 - Provider cards default to a compact summary row: enabled/available state, runtime controls, keys, cooldown, fails, and enabled format count.
-- Per-provider detail drawers hold format routes, key cards, local key controls, and inline config editing so dozens of providers can be scanned without page-length cards.
+- Provider cards include a compact background health-probe summary. This shows the latest idle probe reason/model/action without putting internal probes into the Requests table.
+- Per-provider detail drawers hold format routes, key cards, local key controls, background health-probe events, and inline config editing so dozens of providers can be scanned without page-length cards.
 - Key cards include key hash, availability, cooldown, disabled time, fails, and local state controls when the provider detail drawer is opened.
 - Runtime controls stay as compact action buttons.
 - Model Capabilities panel with discovered model counts, a single merged model/mapping list, fetch status/errors, enabled formats, and a global refresh button.

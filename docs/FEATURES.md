@@ -1,7 +1,7 @@
 # LiteLLM Proxy 功能特性全景文档
 
 > 本文档全面、详细地记录 LiteLLM Proxy 的所有功能特性、能力边界和技术特点。
-> 更新日期：2026-07-03
+> 更新日期：2026-07-04
 
 ---
 
@@ -137,6 +137,20 @@ LiteLLM Proxy 是一个基于 Python 的**格式感知 LLM API 代理**，位于
 - 动态调整供应商优先级
 - 健康分数影响 `priority_failover` 中的排序
 
+### 3.6 空闲健康检测
+
+代理空闲时会运行轻量级 provider 探测，用来在下一次真实请求到来前发现不可用 key/provider。它只在 `priority_failover` 和 `auto` 模式下启用，因为这两种模式有明确的优先级顺序。
+
+行为要点：
+
+- 仅在没有 in-flight 请求时运行，避免和真实流量争抢。
+- 按当前路由优先级探测 provider，并在首个健康 provider 成功后停止本轮。
+- 探测请求使用最小 payload：`ping`、`max_tokens: 1`、非流式。
+- 探测模型优先选择该 provider 最近真实请求成功过的 canonical model；没有成功历史时才回退到模型能力快照、手工映射、静态模型或 route 中的第一个模型。
+- 探测事件不会进入普通 Requests 历史，不会增加请求数、成功率、Token 或费用统计。
+- 探测事件会出现在 Provider 维度：provider 卡片显示最近一次探测摘要，provider 抽屉显示 `Background health probes` 事件列表。
+- 如果 fallback 模型探测返回普通 `client_error`（非 401/403/402/429/5xx），默认只记录为 `observed_only`，不直接 cooldown，避免因错误探测模型误伤 provider/key。
+
 ---
 
 ## 4. 故障转移与冷却策略
@@ -153,6 +167,8 @@ LiteLLM Proxy 是一个基于 Python 的**格式感知 LLM API 代理**，位于
 | `provider_compat` | 格式不兼容 | 无 | 0s | ❌ |
 | `empty_visible_output` | 200 但无可视输出 | 无 | 0s | ❌ |
 | `client_error` | HTTP 4xx（非上述） | key | 10s | ❌ |
+
+后台空闲健康检测复用同一套错误分类和失败策略，但 `client_error` 有额外保护：当探测模型不是来自该 provider 的最近成功真实请求时，4xx client error 只作为观察事件记录，不会直接触发 key/provider cooldown。
 
 ### 4.2 可配置失败策略
 
@@ -421,6 +437,7 @@ litellm-proxy --host 0.0.0.0 --port 8080   # 自定义绑定地址和端口
 - Per-provider/per-key 成功/失败计数
 - 首字节延迟分布
 - 供应商活动事件流
+- 后台健康检测事件流（独立于普通请求历史）
 - Token 用量和费用估算
 
 ### 9.4 费用估算
@@ -452,7 +469,7 @@ litellm-proxy --host 0.0.0.0 --port 8080   # 自定义绑定地址和端口
 
 | 功能 | 说明 |
 |---|---|
-| 供应商健康 | 实时健康卡片，延迟图表，冷却状态 |
+| 供应商健康 | 实时健康卡片、调用条形图、冷却状态、后台健康检测原因 |
 | 供应商管理 | 添加/编辑供应商、密钥、代理设置、上游格式 |
 | 路由配置 | 编辑路由模式、重试策略、失败策略、模型路由 |
 | 请求历史 | 逐次尝试追踪、延迟分解、Token 用量、费用估算 |
@@ -542,8 +559,8 @@ litellm-proxy --host 0.0.0.0 --port 8080   # 自定义绑定地址和端口
 | `/-/admin/models/discovery-status` | GET | 模型发现队列状态 |
 | `/-/admin/model-pricing` | GET | 批量模型定价查询（本地 AA 缓存） |
 | `/-/admin/health/scores` | GET | 供应商健康分数（0–100） |
-| `/-/admin/provider-activity` | GET | 供应商活动汇总 |
-| `/-/admin/provider-activity/{name}` | GET | 指定供应商的活动详情 |
+| `/-/admin/provider-activity` | GET | 供应商活动汇总（含最近健康检测摘要） |
+| `/-/admin/provider-activity/{name}` | GET | 指定供应商的活动详情（含健康检测事件列表） |
 | `/-/admin/audit` | GET | 审计日志 |
 | `/-/admin/diagnostics/clear` | POST | 清空诊断日志 |
 

@@ -164,6 +164,42 @@ class ProviderActivitySummaryTests(unittest.TestCase):
         self.assertEqual(len(summary["alpha"]["events"]), 1)
         self.assertEqual(summary["alpha"]["events"][0]["model"], "m")
 
+    def test_health_probe_events_are_provider_activity_not_requests(self):
+        obs = _obs()
+        obs.record_health_probe(
+            {
+                "provider": "alpha",
+                "key_index": 0,
+                "key_id": "abc123",
+                "model": "m",
+                "model_source": "recent_success",
+                "outcome": "failed",
+                "reason": "HTTP 500",
+                "error_type": "server_error",
+                "action": "reported_failure",
+                "cooldown_s": 10,
+            }
+        )
+
+        lite = obs.snapshot_lite()
+        self.assertEqual(lite["counters"]["requests_total"], 0)
+        summary = obs.provider_activity_summary(include_events=True)
+        self.assertIn("alpha", summary)
+        self.assertEqual(summary["alpha"]["total"], 0)
+        self.assertEqual(summary["alpha"]["lastProbe"]["error_type"], "server_error")
+        self.assertEqual(summary["alpha"]["probeEvents"][0]["action"], "reported_failure")
+
+    def test_latest_successful_model_for_provider(self):
+        obs = _obs()
+        alpha = _attempt("r1", provider="alpha")
+        beta = _attempt("r2", provider="beta")
+        _record(obs, "r1", attempts=[(alpha, "success")], status_code=200, final_provider="alpha")
+        _record(obs, "r2", attempts=[(beta, "success")], status_code=200, final_provider="beta")
+
+        self.assertEqual(obs.latest_successful_model_for_provider("alpha"), "m")
+        self.assertEqual(obs.latest_successful_model_for_provider("beta"), "m")
+        self.assertIsNone(obs.latest_successful_model_for_provider("missing"))
+
 
 class SnapshotLiteTests(unittest.TestCase):
     def test_lite_omits_recent_requests(self):

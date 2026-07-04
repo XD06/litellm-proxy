@@ -42,6 +42,7 @@ class ProxyObservability:
         self._started_at = time.time()
         self._active: Dict[str, Dict[str, Any]] = {}
         self._recent = deque(maxlen=self._recent_limit())
+        self._health_probe_events = deque(maxlen=self._health_probe_limit())
         self._counters = self._new_counters()
         self._history = RequestHistoryStore(cfg)
         # Cache for failure_summary — invalidated whenever _recent changes.
@@ -65,11 +66,18 @@ class ProxyObservability:
             self._counters["requests_in_flight"] = in_flight
             if recent is not None:
                 self._recent = deque(recent, maxlen=self._recent_limit())
+            self._health_probe_events = deque(maxlen=self._health_probe_limit())
             self._failure_summary_cache = None  # Invalidate after restore
 
     def _recent_limit(self) -> int:
         try:
             return int((self.cfg.get("observability") or {}).get("recent_requests_limit", 200))
+        except Exception:
+            return 200
+
+    def _health_probe_limit(self) -> int:
+        try:
+            return max(20, min(1000, int((self.cfg.get("observability") or {}).get("health_probe_events_limit", 200))))
         except Exception:
             return 200
 
@@ -109,11 +117,13 @@ class ProxyObservability:
         with old_obs._lock:
             counters = old_obs._counters
             recent = old_obs._recent
+            probe_events = getattr(old_obs, "_health_probe_events", deque(maxlen=self._health_probe_limit()))
             active = dict(old_obs._active)
             started_at = old_obs._started_at
         with self._lock:
             self._counters = counters
             self._recent = recent
+            self._health_probe_events = probe_events
             self._active = active
             self._started_at = started_at
 
@@ -122,6 +132,7 @@ class ProxyObservability:
             self._started_at = time.time()
             self._active.clear()
             self._recent = deque(maxlen=self._recent_limit())
+            self._health_probe_events = deque(maxlen=self._health_probe_limit())
             self._counters = self._new_counters()
             self._last_request_finished_at = 0.0
 
@@ -467,6 +478,70 @@ class ProxyObservability:
             })
         return active_requests
 
+    def record_health_probe(self, event: Dict[str, Any]) -> Dict[str, Any]:
+        """Record an internal provider health probe without counting it as traffic."""
+        if not isinstance(event, dict):
+            event = {}
+        item = {
+            "ts": int(event.get("ts") or time.time()),
+            "provider": str(event.get("provider") or ""),
+            "key_index": int(event.get("key_index") if event.get("key_index") is not None else -1),
+            "key_id": str(event.get("key_id") or ""),
+            "model": str(event.get("model") or ""),
+            "model_source": str(event.get("model_source") or ""),
+            "upstream_model": str(event.get("upstream_model") or ""),
+            "format": str(event.get("format") or ""),
+            "outcome": str(event.get("outcome") or "skipped"),
+            "reason": str(event.get("reason") or ""),
+            "action": str(event.get("action") or ""),
+        }
+        for key in ("http_status", "latency_ms", "cooldown_s", "provider_cooldown_s"):
+            if event.get(key) is not None:
+                try:
+                    item[key] = max(0, int(event.get(key) or 0))
+                except Exception:
+                    pass
+        if event.get("error_type"):
+            item["error_type"] = str(event.get("error_type") or "")
+        with self._lock:
+            self._health_probe_events.appendleft(item)
+        return item
+
+    def health_probe_summary(self, provider: Optional[str] = None, limit: int = 20) -> Dict[str, Any]:
+        try:
+            limit = max(1, min(200, int(limit)))
+        except Exception:
+            limit = 20
+        provider_filter = str(provider or "")
+        with self._lock:
+            events = list(self._health_probe_events)
+        if provider_filter:
+            events = [event for event in events if str(event.get("provider") or "") == provider_filter]
+        events = events[:limit]
+        return {
+            "events": [self._copy_value(event) for event in events],
+            "last": self._copy_value(events[0]) if events else None,
+        }
+
+    def latest_successful_model_for_provider(self, provider: str) -> Optional[str]:
+        name = str(provider or "")
+        if not name:
+            return None
+        with self._lock:
+            recent = list(self._recent)
+        for item in recent:
+            if int(item.get("status_code") or 0) >= 400:
+                continue
+            request_model = str(item.get("model") or "").strip()
+            for attempt in item.get("attempts") or []:
+                if str(attempt.get("provider") or "") != name:
+                    continue
+                if str(attempt.get("outcome") or "") != "success":
+                    continue
+                provider_model = str(attempt.get("provider_model") or "").strip()
+                return request_model or provider_model or None
+        return None
+
     def provider_activity_summary(
         self, limit: int = 60, include_events: bool = False
     ) -> Dict[str, Dict[str, Any]]:
@@ -490,7 +565,9 @@ class ProxyObservability:
             limit = 60
         with self._lock:
             recent = list(self._recent)  # Reference, don't copy
+            probe_events = list(self._health_probe_events)
         summary = self._provider_activity_from_recent(recent, limit, include_events=include_events)
+        self._merge_health_probe_summary(summary, probe_events, limit, include_events=include_events)
         return summary
 
     def provider_health_scores(
@@ -627,8 +704,45 @@ class ProxyObservability:
             limit = 60
         with self._lock:
             recent = list(self._recent)  # Reference, don't copy
+            probe_events = list(self._health_probe_events)
         summary = self._provider_activity_from_recent(recent, limit, include_events=True)
+        self._merge_health_probe_summary(summary, probe_events, limit, include_events=True)
         return summary.get(provider)
+
+    @classmethod
+    def _merge_health_probe_summary(
+        cls,
+        summary: Dict[str, Dict[str, Any]],
+        probe_events: Any,
+        limit: int,
+        *,
+        include_events: bool,
+    ) -> None:
+        per_provider: Dict[str, list] = {}
+        for event in probe_events or []:
+            provider = str(event.get("provider") or "")
+            if not provider:
+                continue
+            per_provider.setdefault(provider, []).append(event)
+        for provider, events in per_provider.items():
+            events.sort(key=lambda item: int(item.get("ts") or 0), reverse=True)
+            clipped = events[:limit]
+            bucket = summary.setdefault(
+                provider,
+                {
+                    "total": 0,
+                    "ok": 0,
+                    "warn": 0,
+                    "bad": 0,
+                    "successRate": None,
+                    "latestLatency": 0,
+                    "avgLatency": 0,
+                    "lastError": None,
+                },
+            )
+            bucket["lastProbe"] = cls._copy_value(clipped[0]) if clipped else None
+            if include_events:
+                bucket["probeEvents"] = [cls._copy_value(event) for event in clipped]
 
     @classmethod
     def _provider_activity_from_recent(

@@ -378,13 +378,23 @@ def _idle_probe_one_provider(rt, provider: str) -> bool:
     router = rt.router
     config = rt.config
     upstream_client = rt.upstream_client
+    observability = rt.observability
+
+    def _record_probe(**event) -> None:
+        try:
+            event.setdefault("provider", provider)
+            observability.record_health_probe(event)
+        except Exception:
+            pass
 
     pcfg = (config.get("providers") or {}).get(provider)
     if not isinstance(pcfg, dict) or not pcfg.get("enabled", True):
+        _record_probe(outcome="skipped", reason="provider disabled", action="none")
         return False
 
     keys = pcfg.get("keys") or []
     if not keys:
+        _record_probe(outcome="skipped", reason="no keys configured", action="none")
         return False
 
     # Find the first key that is not currently in cooldown / disabled.
@@ -393,6 +403,7 @@ def _idle_probe_one_provider(rt, provider: str) -> bool:
     with router._lock:
         ps = router._providers_state.get(provider)
         if ps and not ps.available(now):
+            _record_probe(outcome="skipped", reason="provider already in cooldown", action="none")
             return False  # provider in cooldown — skip
         for i in range(len(keys)):
             ks = router._keys_state.get((provider, i))
@@ -403,17 +414,27 @@ def _idle_probe_one_provider(rt, provider: str) -> bool:
                 break
 
     if key_index is None:
+        _record_probe(outcome="skipped", reason="no available key", action="none")
         return False  # no available key
 
     # Pick a model to probe
-    canonical_model = _pick_probe_model(provider)
+    canonical_model, model_source = _pick_probe_model_with_source(provider, observability=observability)
     if not canonical_model:
+        _record_probe(key_index=key_index, outcome="skipped", reason="no probe model", action="none")
         return False  # no models to probe with
 
     fmt = router._first_supported_format(
         provider, ["chat_completions", "responses", "anthropic_messages"]
     )
     if not fmt:
+        _record_probe(
+            key_index=key_index,
+            model=canonical_model,
+            model_source=model_source,
+            outcome="skipped",
+            reason="no supported format",
+            action="none",
+        )
         return False
 
     raw_key = key_value(keys[key_index])
@@ -430,6 +451,17 @@ def _idle_probe_one_provider(rt, provider: str) -> bool:
     try:
         payload = convert_request("chat_completions", fmt, base_payload, resolve_model=lambda m: m)
     except Exception:
+        _record_probe(
+            key_index=key_index,
+            key_id=router.key_id(raw_key),
+            model=canonical_model,
+            model_source=model_source,
+            upstream_model=provider_model,
+            format=fmt,
+            outcome="skipped",
+            reason="request conversion failed",
+            action="none",
+        )
         return False
 
     request_id = f"idle-probe-{provider}-{uuid.uuid4().hex[:8]}"
@@ -447,11 +479,14 @@ def _idle_probe_one_provider(rt, provider: str) -> bool:
         proxy_url=proxy_url,
     )
 
-    # NOTE: We deliberately do *not* record this probe in observability.
-    # Idle probes are internal housekeeping — recording them would inflate
-    # requests_total / attempts_total and clutter the recent-requests list.
-    # The probe's health impact is already visible through router cooldown
-    # state and health scores, which the dashboard reads separately.
+    probe_base = {
+        "key_index": key_index,
+        "key_id": router.key_id(raw_key),
+        "model": canonical_model,
+        "model_source": model_source,
+        "upstream_model": provider_model,
+        "format": fmt,
+    }
     try:
         _resp, _latency_ms = upstream_client.request_json_with_timing(
             url, headers, payload, proxy_url=proxy_url, remaining_timeout_s=15
@@ -459,10 +494,27 @@ def _idle_probe_one_provider(rt, provider: str) -> bool:
         # Success — provider is healthy.  Clear any stale cooldown that might
         # have been set by a previous transient failure.
         router.clear_provider_cooldown(provider)
+        _record_probe(
+            **probe_base,
+            outcome="success",
+            latency_ms=_latency_ms,
+            reason="probe succeeded",
+            action="cleared_provider_cooldown",
+        )
         return True
     except HTTPError as e:
         status = int(getattr(e, "code", 0) or 0)
         error_type = _probe_error_type(status)
+        if error_type == "client_error" and model_source != "recent_success":
+            _record_probe(
+                **probe_base,
+                outcome="failed",
+                http_status=status,
+                error_type=error_type,
+                reason="fallback probe model rejected",
+                action="observed_only",
+            )
+            return False
         # Feed the failure into the router's cooldown mechanism so the next
         # real request skips this provider.
         router.report_failure(
@@ -470,17 +522,48 @@ def _idle_probe_one_provider(rt, provider: str) -> bool:
             error_type=error_type,
             http_status=status,
         )
+        policy = scheduler_policy.failure_policy_for_error_type(config, error_type)
+        _record_probe(
+            **probe_base,
+            outcome="failed",
+            http_status=status,
+            error_type=error_type,
+            cooldown_s=policy.get("cooldown_s"),
+            provider_cooldown_s=policy.get("provider_cooldown_s"),
+            reason=f"HTTP {status}",
+            action="reported_failure",
+        )
         return False
     except (URLError, socket.timeout) as e:
         router.report_failure(
             probe_attempt,
             error_type="network_error",
         )
+        policy = scheduler_policy.failure_policy_for_error_type(config, "network_error")
+        _record_probe(
+            **probe_base,
+            outcome="failed",
+            error_type="network_error",
+            cooldown_s=policy.get("cooldown_s"),
+            provider_cooldown_s=policy.get("provider_cooldown_s"),
+            reason=type(e).__name__,
+            action="reported_failure",
+        )
         return False
     except Exception as e:
         router.report_failure(
             probe_attempt,
             error_type="unknown",
+        )
+        policy = scheduler_policy.failure_policy_for_error_type(config, "unknown")
+        _record_probe(
+            **probe_base,
+            outcome="failed",
+            error_type="unknown",
+            cooldown_s=policy.get("cooldown_s"),
+            provider_cooldown_s=policy.get("provider_cooldown_s"),
+            reason=type(e).__name__,
+            action="reported_failure",
         )
         return False
 
@@ -841,15 +924,22 @@ def _probe_error_type(status: int) -> str:
     return "unknown"
 
 
-def _pick_probe_model(provider: str) -> Optional[str]:
+def _pick_probe_model_with_source(provider: str, observability=None) -> tuple[Optional[str], str]:
     """Pick a discovered canonical model for provider key probing."""
+    if observability is not None:
+        try:
+            recent_model = observability.latest_successful_model_for_provider(provider)
+        except Exception:
+            recent_model = None
+        if recent_model:
+            return str(recent_model), "recent_success"
     caps = ((CONFIG.get("models") or {}).get("provider_model_capabilities") or {}).get(provider) or {}
     canonical_map = caps.get("canonical_map") if isinstance(caps, dict) else None
     if isinstance(canonical_map, dict) and canonical_map:
-        return str(next(iter(canonical_map.keys())))
+        return str(next(iter(canonical_map.keys()))), "capability"
     manual_map = ((CONFIG.get("models") or {}).get("provider_model_map") or {}).get(provider) or {}
     if isinstance(manual_map, dict) and manual_map:
-        return str(next(iter(manual_map.keys())))
+        return str(next(iter(manual_map.keys()))), "manual_map"
     pcfg = ((CONFIG.get("providers") or {}).get(provider) or {})
     static_models = pcfg.get("static_models")
     if isinstance(static_models, list):
@@ -861,7 +951,7 @@ def _pick_probe_model(provider: str) -> Optional[str]:
             else:
                 mid = ""
             if mid:
-                return mid
+                return mid, "static"
     routes = ((CONFIG.get("models") or {}).get("routes") or {})
     if isinstance(routes, dict):
         for model, route in routes.items():
@@ -871,11 +961,16 @@ def _pick_probe_model(provider: str) -> Optional[str]:
             for item in providers or []:
                 name = item if isinstance(item, str) else (item or {}).get("name")
                 if str(name or "") == provider and str(model or "").strip():
-                    return str(model)
+                    return str(model), "route"
         for model, route in routes.items():
             if route is not None and str(model or "").strip():
-                return str(model)
-    return None
+                return str(model), "route_fallback"
+    return None, ""
+
+
+def _pick_probe_model(provider: str, observability=None) -> Optional[str]:
+    model, _source = _pick_probe_model_with_source(provider, observability=observability)
+    return model
 
 
 def _request_filter_payload(value) -> dict:

@@ -94,6 +94,47 @@
 - 不冷却 key。
 - 继续尝试其他格式或供应商。
 
+## 空闲健康检测与可观测性
+
+后台空闲健康检测用于在真实请求到来前发现不可用 key/provider。它不是用户请求，因此不会写入普通 Requests 历史，也不会影响请求数、成功率、Token 或费用统计。
+
+触发条件：
+
+- 当前没有 in-flight 请求。
+- 路由模式是 `priority_failover` 或 `auto`。
+- 按当前 provider 优先级探测；首个 provider 探测成功后停止本轮。
+
+探测模型选择顺序：
+
+1. 该 provider 最近真实请求成功过的 canonical model。
+2. `models.provider_model_capabilities.{provider}.canonical_map` 中的第一个模型。
+3. `models.provider_model_map.{provider}` 中的第一个模型。
+4. provider 的 `static_models`。
+5. `models.routes` 中明确包含该 provider 的模型。
+6. 任意 route 模型作为最后 fallback。
+
+探测失败后的动作：
+
+- 401/403 → `key_invalid`，按失败策略处理当前 key。
+- 402 → `quota_or_balance`，默认冷却当前 key。
+- 429 → `rate_limited`，默认冷却当前 key。
+- 5xx → `server_error`，默认按 key 失败阶梯冷却。
+- 网络错误/超时 → `network_error`，默认按 key 失败阶梯冷却。
+- fallback 模型导致的普通 4xx `client_error` → 只记录为 `observed_only`，不直接 cooldown。这避免了“探测模型不适配”误伤 provider/key。
+
+在哪里看：
+
+- Provider 卡片：显示最近一次后台健康检测摘要。
+- Provider 抽屉：`Background health probes` 列表显示模型、模型来源、key、格式、错误类型、HTTP 状态、耗时和动作。
+- 普通 Requests 页面不会显示后台健康检测；那里只显示用户请求。
+
+排查建议：
+
+1. 先看 provider 抽屉的 `Background health probes`，确认 cooldown 是否由后台检测触发。
+2. 如果 `model_source` 不是 `recent_success`，优先检查模型发现、`provider_model_map`、`static_models` 或 route 配置。
+3. 如果最近真实调用成功但后台仍失败，检查探测使用的 upstream format、key proxy、provider proxy 和 base URL。
+4. 如果手动 key test 成功，可以清除 key/provider cooldown；后续真实请求成功会重置对应失败计数。
+
 ## 路由模式搭配
 
 `priority_failover`：

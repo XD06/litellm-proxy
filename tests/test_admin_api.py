@@ -1757,6 +1757,77 @@ class AdminApiTests(unittest.TestCase):
 
         self.assertEqual(status, 403)
 
+    def test_idle_probe_prefers_recent_success_model_and_records_event(self):
+        cfg = self._probe_cfg()
+        router = sse2json.UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+        obs.record_request_start(
+            "r1",
+            client_format="chat_completions",
+            endpoint="chat_completions",
+            model="chosen-model",
+            stream=False,
+            path="/v1/chat/completions",
+        )
+        obs.record_attempt(
+            "r1",
+            Attempt(
+                request_id="r1",
+                attempt_no=1,
+                provider="alpha",
+                key_index=0,
+                key="raw-alpha-key",
+                url="https://alpha.example/v1/chat/completions",
+                headers={},
+                provider_model="provider-chosen-model",
+                upstream_format="chat_completions",
+            ),
+            outcome="success",
+            first_byte_ms=33,
+        )
+        obs.record_request_end("r1", status_code=200)
+        captured = {}
+
+        class OkClient:
+            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
+                captured["payload"] = payload
+                return {"id": "x"}, 44
+
+        rt = sse2json.RuntimeContext(cfg, router, OkClient(), obs, sse2json.AUDIT)
+        with patch.object(sse2json, "CONFIG", cfg):
+            healthy = sse2json._idle_probe_one_provider(rt, "alpha")
+
+        self.assertTrue(healthy)
+        self.assertEqual(captured["payload"]["model"], "provider-chosen-model")
+        probes = obs.health_probe_summary("alpha")
+        self.assertEqual(probes["last"]["outcome"], "success")
+        self.assertEqual(probes["last"]["model"], "chosen-model")
+        self.assertEqual(probes["last"]["model_source"], "recent_success")
+        self.assertEqual(obs.snapshot_lite()["counters"]["requests_total"], 1)
+
+    def test_idle_probe_fallback_client_error_is_observed_without_cooldown(self):
+        cfg = self._probe_cfg()
+        router = sse2json.UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+
+        class FailClient:
+            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
+                raise HTTPError(url, 404, "not found", {}, None)
+
+        rt = sse2json.RuntimeContext(cfg, router, FailClient(), obs, sse2json.AUDIT)
+        with patch.object(sse2json, "CONFIG", cfg):
+            healthy = sse2json._idle_probe_one_provider(rt, "alpha")
+
+        self.assertFalse(healthy)
+        probes = obs.health_probe_summary("alpha")
+        self.assertEqual(probes["last"]["outcome"], "failed")
+        self.assertEqual(probes["last"]["error_type"], "client_error")
+        self.assertEqual(probes["last"]["action"], "observed_only")
+        ks = router._keys_state.get(("alpha", 0))
+        self.assertIsNotNone(ks)
+        self.assertEqual(ks.fails, 0)
+        self.assertEqual(ks.cooldown_until, 0.0)
+
 
 class ModelPricingEndpointTests(unittest.TestCase):
     def setUp(self):
