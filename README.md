@@ -27,12 +27,12 @@
 
 <table>
   <tr>
-    <td width="50%" align="center"><img src="assets/overview.png" alt="Overview Dashboard" /></td>
-    <td width="50%" align="center"><img src="assets/provider.png" alt="Provider Detail" /></td>
+    <td width="50%" align="center"><img src="assets/overview-1.png" alt="Overview Dashboard" /></td>
+    <td width="50%" align="center"><img src="assets/provider-1.png" alt="Provider Detail" /></td>
   </tr>
   <tr>
-    <td width="50%" align="center"><img src="assets/requests.png" alt="Request History" /></td>
-    <td width="50%" align="center"><img src="assets/playground.png" alt="Playground" /></td>
+    <td width="50%" align="center"><img src="assets/request-1.png" alt="Request History" /></td>
+    <td width="50%" align="center"><img src="assets/playground-1.png" alt="Playground" /></td>
   </tr>
 </table>
 
