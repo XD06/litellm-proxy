@@ -3215,21 +3215,17 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     }
     const tone = probeTone(probe);
     const reason = probe.reason || probe.error_type || probe.outcome || "probe";
-    const model = probe.model || "-";
-    const suffix = probe.latency_ms != null ? ` · ${fmtCompactMs(probe.latency_ms)}` : probe.http_status ? ` · HTTP ${fmtInt(probe.http_status)}` : "";
-    const tierInfo = idleTierLabel(probe.idle_tier);
-    const tierBadge = tierInfo ? `<span class="probe-tier-badge tone-${escapeHtml(tierInfo.tone)}" title="${escapeHtml(tierInfo.title)}">${escapeHtml(tierInfo.text)}</span>` : "";
-    const nextBadge = probe.next_probe_in_s ? `<span class="probe-next-badge" title="Next probe in ~${fmtNextProbe(probe.next_probe_in_s)}">→ ${escapeHtml(fmtNextProbe(probe.next_probe_in_s))}</span>` : "";
-    const timeStr = fmtProbeTime(probe.ts);
-    const timeBadge = timeStr ? `<span class="probe-time-badge" title="${escapeHtml(fmtDate(probe.ts))}">${escapeHtml(timeStr)}</span>` : "";
+    const label = tone === "ok" ? "Probe OK" : tone === "bad" ? "Probe failed" : "Probe observed";
+    const detail = probe.latency_ms != null
+      ? fmtCompactMs(probe.latency_ms)
+      : probe.http_status
+        ? `HTTP ${fmtInt(probe.http_status)}`
+        : "";
     return `
-      <div class="provider-probe-summary tone-${escapeHtml(tone)}" title="${escapeHtml(`${reason} / ${model} / ${probe.model_source || "model"}${suffix}`)}">
+      <div class="provider-probe-summary tone-${escapeHtml(tone)}" title="${escapeHtml(reason)}">
         ${iconSvg("radar")}
-        <span>${escapeHtml(reason)}</span>
-        <small>${escapeHtml(model)}${escapeHtml(suffix)}</small>
-        ${tierBadge}
-        ${nextBadge}
-        ${timeBadge}
+        <span>${escapeHtml(label)}</span>
+        ${detail ? `<small>${escapeHtml(detail)}</small>` : ""}
       </div>
     `;
   }
@@ -4044,12 +4040,13 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
   }
 
   function providerActivityRow(event) {
+    const statusText = event.reason || event.status || "-";
     return `
       <button class="provider-activity-row ${escapeHtml(event.tone)}" type="button" ${event.requestId ? `data-request-id="${escapeHtml(event.requestId)}"` : ""}>
         <span class="provider-status-dot ${escapeHtml(event.tone)}"></span>
         <strong>${escapeHtml(event.model || "-")}</strong>
         <small>${escapeHtml(fmtDate(event.ts))}</small>
-        <span>${messageMarkup(event.reason || event.status || "-")}</span>
+        <span class="provider-activity-status">${messageMarkup(statusText)}</span>
         <em>${event.latencyMs ? escapeHtml(fmtMs(event.latencyMs)) : "-"}</em>
       </button>
     `;
