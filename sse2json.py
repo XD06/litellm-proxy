@@ -1154,6 +1154,95 @@ def _patrol_probe_one_key(rt, provider: str, key_index: int, *, canonical_model:
         _close_upstream_conn(stream_conn)
 
 
+def _collect_patrol_models(provider: str, observability=None, config=None) -> list[tuple[str, str]]:
+    """Collect multiple candidate models for patrol probing.
+
+    Unlike the idle checker (which picks one model), the patrol tries
+    multiple models per key so that a provider isn't unfairly penalised
+    just because the chosen model happens to be unavailable.  If ANY
+    model works, the key is healthy.
+
+    Returns a list of (canonical_model, model_source) tuples, deduplicated,
+    ordered by preference: recent_success → capability → manual_map →
+    static → route → route_fallback.  Capped at 5 candidates to limit
+    token consumption.
+    """
+    cfg = config if config is not None else CONFIG
+    candidates: list[tuple[str, str]] = []
+    seen: set[str] = set()
+
+    # 1. Recent success model (if any)
+    if observability is not None:
+        try:
+            recent_model = observability.latest_successful_model_for_provider(provider)
+            if recent_model and _provider_supports_model(provider, recent_model, cfg):
+                mid = str(recent_model)
+                if mid not in seen and not model_registry.provider_model_disabled(cfg, provider, mid):
+                    candidates.append((mid, "recent_success"))
+                    seen.add(mid)
+        except Exception:
+            pass
+
+    # 2. All capability-discovered models
+    caps = ((cfg.get("models") or {}).get("provider_model_capabilities") or {}).get(provider) or {}
+    canonical_map = caps.get("canonical_map") if isinstance(caps, dict) else None
+    if isinstance(canonical_map, dict) and canonical_map:
+        for mid in canonical_map.keys():
+            mid_str = str(mid)
+            if mid_str not in seen and not model_registry.provider_model_disabled(cfg, provider, mid_str):
+                candidates.append((mid_str, "capability"))
+                seen.add(mid_str)
+                if len(candidates) >= 5:
+                    return candidates
+
+    # 3. Manual map models
+    manual_map = ((cfg.get("models") or {}).get("provider_model_map") or {}).get(provider) or {}
+    if isinstance(manual_map, dict) and manual_map:
+        for mid in manual_map.keys():
+            mid_str = str(mid)
+            if mid_str not in seen and not model_registry.provider_model_disabled(cfg, provider, mid_str):
+                candidates.append((mid_str, "manual_map"))
+                seen.add(mid_str)
+                if len(candidates) >= 5:
+                    return candidates
+
+    # 4. Static models
+    pcfg = ((cfg.get("providers") or {}).get(provider) or {})
+    static_models = pcfg.get("static_models")
+    if isinstance(static_models, list):
+        for entry in static_models:
+            if isinstance(entry, str):
+                mid = entry.strip()
+            elif isinstance(entry, dict):
+                mid = str(entry.get("id") or "").strip()
+            else:
+                mid = ""
+            if mid and mid not in seen and not model_registry.provider_model_disabled(cfg, provider, mid):
+                candidates.append((mid, "static"))
+                seen.add(mid)
+                if len(candidates) >= 5:
+                    return candidates
+
+    # 5. Route models
+    routes = ((cfg.get("models") or {}).get("routes") or {})
+    if isinstance(routes, dict):
+        for model, route in routes.items():
+            if route is None:
+                continue
+            providers = (route or {}).get("providers") if isinstance(route, dict) else []
+            for item in providers or []:
+                name = item if isinstance(item, str) else (item or {}).get("name")
+                if str(name or "") == provider and str(model or "").strip():
+                    mid = str(model).strip()
+                    if mid not in seen and not model_registry.provider_model_disabled(cfg, provider, mid):
+                        candidates.append((mid, "route"))
+                        seen.add(mid)
+                        if len(candidates) >= 5:
+                            return candidates
+
+    return candidates
+
+
 def _patrol_health_check_round() -> None:
     """Run one full patrol round: check ALL enabled providers × ALL keys.
 
@@ -1202,11 +1291,15 @@ def _patrol_health_check_round() -> None:
             if not keys:
                 continue
 
-            # Pick ONE model for this provider (reuse the same selection logic).
-            canonical_model, model_source = _pick_probe_model_with_source(
+            # Collect multiple candidate models for this provider so we
+            # don't unfairly penalise a key just because the single chosen
+            # model happens to be unavailable.  We try models in order and
+            # stop at the first success — if ANY model works, the key is
+            # healthy.
+            candidate_models = _collect_patrol_models(
                 provider_name, observability=observability, config=config
             )
-            if not canonical_model:
+            if not candidate_models:
                 observability.record_health_probe({
                     "provider": provider_name,
                     "idle_tier": "patrol",
@@ -1233,12 +1326,23 @@ def _patrol_health_check_round() -> None:
                     time.sleep(delay)
 
                 total_probes += 1
-                healthy = _patrol_probe_one_key(
-                    rt, provider_name, key_index,
-                    canonical_model=canonical_model,
-                    model_source=model_source,
-                )
-                if healthy:
+                # Try each candidate model until one succeeds.
+                key_healthy = False
+                for canonical_model, model_source in candidate_models:
+                    healthy = _patrol_probe_one_key(
+                        rt, provider_name, key_index,
+                        canonical_model=canonical_model,
+                        model_source=model_source,
+                    )
+                    if healthy:
+                        key_healthy = True
+                        break
+                    # If the failure was a client_error (e.g. 404 model not
+                    # found), try the next model.  Other failures (network,
+                    # auth, 5xx) are key-level, so trying another model
+                    # won't help — but we still try for robustness since
+                    # the provider might route different models differently.
+                if key_healthy:
                     total_ok += 1
 
         print(f"[proxy] patrol round complete: {total_ok}/{total_probes} keys healthy", flush=True)

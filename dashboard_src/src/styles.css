@@ -14709,3 +14709,15 @@ body {
 .health-monitor-status.info { color: #4a6cf7; }
 .health-monitor-status.ok { color: #1a8754; }
 .health-monitor-status.bad { color: #d93026; }
+
+/* ---- Patrol probe visual distinction ---- */
+.provider-probe-summary.patrol-probe {
+  border-color: rgba(74, 108, 247, 0.25);
+  background: rgba(74, 108, 247, 0.04);
+}
+
+.probe-tier-badge.patrol-badge {
+  background: rgba(74, 108, 247, 0.12);
+  color: #4a6cf7;
+  border-color: rgba(74, 108, 247, 0.2);
+}

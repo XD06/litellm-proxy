@@ -3215,15 +3215,17 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     }
     const tone = probeTone(probe);
     const reason = probe.reason || probe.error_type || probe.outcome || "probe";
-    const label = tone === "ok" ? "Probe OK" : tone === "bad" ? "Probe failed" : "Probe observed";
+    const isPatrol = String(probe.idle_tier || "") === "patrol";
+    const baseLabel = tone === "ok" ? "Probe OK" : tone === "bad" ? "Probe failed" : "Probe observed";
+    const label = isPatrol ? `Patrol · ${baseLabel}` : baseLabel;
     const detail = probe.latency_ms != null
       ? fmtCompactMs(probe.latency_ms)
       : probe.http_status
         ? `HTTP ${fmtInt(probe.http_status)}`
         : "";
     return `
-      <div class="provider-probe-summary tone-${escapeHtml(tone)}" title="${escapeHtml(reason)}">
-        ${iconSvg("radar")}
+      <div class="provider-probe-summary tone-${escapeHtml(tone)}${isPatrol ? " patrol-probe" : ""}" title="${escapeHtml(reason)}">
+        ${iconSvg(isPatrol ? "shield" : "radar")}
         <span>${escapeHtml(label)}</span>
         ${detail ? `<small>${escapeHtml(detail)}</small>` : ""}
       </div>
@@ -3235,7 +3237,9 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const reason = probe.reason || probe.error_type || probe.outcome || "probe";
     const action = probe.action || "none";
     const model = probe.model || "-";
+    const isPatrol = String(probe.idle_tier || "") === "patrol";
     const tierInfo = idleTierLabel(probe.idle_tier);
+    const tierLabel = isPatrol ? { text: "patrol", title: "Patrol health checker — full sweep every 1-3h", tone: "info" } : tierInfo;
     const meta = [
       probe.format || "",
       probe.model_source ? `source:${probe.model_source}` : "",
@@ -3244,7 +3248,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       probe.next_probe_in_s ? `next:${fmtNextProbe(probe.next_probe_in_s)}` : "",
     ].filter(Boolean).join(" · ");
     const timing = probe.latency_ms != null ? fmtMs(probe.latency_ms) : probe.http_status ? `HTTP ${fmtInt(probe.http_status)}` : "-";
-    const tierBadge = tierInfo ? `<span class="probe-tier-badge tone-${escapeHtml(tierInfo.tone)}" title="${escapeHtml(tierInfo.title)}">${escapeHtml(tierInfo.text)}</span>` : "";
+    const tierBadge = tierLabel ? `<span class="probe-tier-badge tone-${escapeHtml(tierLabel.tone)}${isPatrol ? " patrol-badge" : ""}" title="${escapeHtml(tierLabel.title)}">${escapeHtml(tierLabel.text)}</span>` : "";
     const nextBadge = probe.next_probe_in_s ? `<span class="probe-next-badge" title="Next probe in ~${fmtNextProbe(probe.next_probe_in_s)}">→ ${escapeHtml(fmtNextProbe(probe.next_probe_in_s))}</span>` : "";
     const timeStr = fmtProbeTime(probe.ts);
     const timeBadge = timeStr ? `<span class="probe-time-badge" title="${escapeHtml(fmtDate(probe.ts))}">${escapeHtml(timeStr)}</span>` : "";
@@ -4579,6 +4583,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       bolt: `<path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"></path>`,
       zap: `<path d="M13 2 4 14h7l-1 8 10-13h-7l0-7z"></path>`,
       message: `<path d="M5 19l3-3h9a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v6a3 3 0 0 0 3 3"></path><path d="M8 9h8"></path><path d="M8 12h5"></path>`,
+      shield: `<path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3z"></path>`,
     };
     return `<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${icons[name] || icons.dot}</svg>`;
   }
