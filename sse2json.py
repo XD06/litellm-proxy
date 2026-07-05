@@ -364,6 +364,20 @@ _IDLE_TIER_DEEP_S = 1800         # 30 min
 # case is reading a stale value for one poll cycle, which is harmless.
 _idle_probe_schedule = {"interval_s": 0.0, "computed_at": 0.0}
 
+# Patrol probe schedule — shared state for metrics display.
+# Tracks last run time, next scheduled run, and running state so the
+# dashboard can show a countdown and a "run now" button.
+_patrol_probe_schedule = {
+    "last_run_at": 0.0,         # epoch seconds of last patrol round start
+    "last_run_duration_s": 0.0,  # how long the last round took
+    "last_result": "",           # "ok" | "partial" | "failed" | ""
+    "last_summary": "",          # e.g. "3/5 keys healthy"
+    "next_run_at": 0.0,          # epoch seconds of next scheduled run
+    "interval_s": 0.0,           # the computed interval for this cycle
+    "running": False,            # is a patrol round currently in progress?
+    "manual_trigger": False,     # was the current run triggered manually?
+}
+
 
 def _health_monitor_cfg(config=None) -> dict:
     """Return the effective health_monitor config dict, merged with defaults."""
@@ -589,14 +603,19 @@ def _idle_probe_one_provider(rt, provider: str, *, idle_tier: str = "", next_pro
             _resp, _latency_ms = upstream_client.request_json_with_timing(
                 url, headers, payload, proxy_url=proxy_url, remaining_timeout_s=15
             )
-            # Success — provider is healthy.  Clear any stale cooldown.
-            router.clear_provider_cooldown(provider)
+            # Success — key is healthy.  Use report_success to clear ALL
+            # key-level state (cooldown, disabled, fails, transient_fails)
+            # AND provider-level cooldown.  This is critical: a key that was
+            # disabled after 4 consecutive failures can only be recovered
+            # via report_success, not clear_provider_cooldown (which only
+            # clears the provider-level cooldown, leaving the key disabled).
+            router.report_success(probe_attempt)
             _record_probe(
                 **probe_base,
                 outcome="success",
                 latency_ms=_latency_ms,
                 reason="probe succeeded",
-                action="cleared_provider_cooldown",
+                action="reported_success",
             )
             print(f"[proxy] {_hprov(provider)} idle probe {_harrow('->')} {_h('ok')} {_hmodel(canonical_model)} key#{key_index} {_latency_ms}ms", flush=True)
             return True
@@ -1053,14 +1072,20 @@ def _patrol_probe_one_key(rt, provider: str, key_index: int, *, canonical_model:
         latency_ms = max(0, int((time.time() - started_at) * 1000))
 
         if found_data:
-            # Key is healthy — clear cooldowns.
-            router.clear_provider_cooldown(provider)
+            # Key is healthy — use report_success to clear ALL key-level
+            # state (cooldown, disabled, fails, transient_fails) AND
+            # provider-level cooldown.  This is critical for patrol probes:
+            # a key that was disabled after 4 consecutive failures can
+            # only be recovered via report_success, not
+            # clear_provider_cooldown (which only clears the provider-level
+            # cooldown, leaving the key disabled).
+            router.report_success(probe_attempt)
             _record_probe(
                 **probe_base,
                 outcome="success",
                 latency_ms=latency_ms,
                 reason="patrol stream first event received",
-                action="cleared_provider_cooldown",
+                action="reported_success",
             )
             print(f"[proxy] {_hprov(provider)} patrol {_harrow('->')} {_h('ok')} {_hmodel(canonical_model)} key#{key_index} {latency_ms}ms", flush=True)
             return True
@@ -1172,10 +1197,15 @@ def _collect_patrol_models(provider: str, observability=None, config=None) -> li
     seen: set[str] = set()
 
     # 1. Recent success model (if any)
+    #    If a model was recently used successfully on this provider, it is
+    #    by definition supported — include it regardless of whether it
+    #    appears in the provider's formal model lists (it may have been
+    #    routed via assume_supports_unknown_models).  Only skip if the
+    #    model has been explicitly disabled by the user.
     if observability is not None:
         try:
             recent_model = observability.latest_successful_model_for_provider(provider)
-            if recent_model and _provider_supports_model(provider, recent_model, cfg):
+            if recent_model:
                 mid = str(recent_model)
                 if mid not in seen and not model_registry.provider_model_disabled(cfg, provider, mid):
                     candidates.append((mid, "recent_success"))
@@ -1243,7 +1273,7 @@ def _collect_patrol_models(provider: str, observability=None, config=None) -> li
     return candidates
 
 
-def _patrol_health_check_round() -> None:
+def _patrol_health_check_round(*, manual: bool = False) -> None:
     """Run one full patrol round: check ALL enabled providers × ALL keys.
 
     Unlike the idle health checker (which stops at the first healthy
@@ -1252,7 +1282,14 @@ def _patrol_health_check_round() -> None:
 
     Probes are sent sequentially with a 3-5s random delay between each
     probe (even across different providers) to avoid burst traffic.
+
+    If manual=True, the round is marked as manually triggered in the
+    schedule state so the dashboard can distinguish it.
     """
+    _round_start = time.time()
+    _patrol_probe_schedule["running"] = True
+    _patrol_probe_schedule["last_run_at"] = _round_start
+    _patrol_probe_schedule["manual_trigger"] = manual
     try:
         rt = _request_runtime()
         router = rt.router
@@ -1263,6 +1300,10 @@ def _patrol_health_check_round() -> None:
         with observability._lock:
             in_flight = int(observability._counters.get("requests_in_flight") or 0)
         if in_flight > 0:
+            _patrol_probe_schedule["running"] = False
+            _patrol_probe_schedule["last_result"] = "skipped"
+            _patrol_probe_schedule["last_summary"] = "skipped: request in flight"
+            _patrol_probe_schedule["last_run_duration_s"] = 0.0
             return
 
         providers_cfg = config.get("providers") or {}
@@ -1300,11 +1341,37 @@ def _patrol_health_check_round() -> None:
                 provider_name, observability=observability, config=config
             )
             if not candidate_models:
+                # No models known for this provider — try to discover them
+                # on the fly so the patrol can still probe the keys.
+                print(f"[proxy] {_hprov(provider_name)} patrol: no probe model, fetching models...", flush=True)
+                try:
+                    model_registry.fetch_upstream_models(
+                        config, router, rt.upstream_client,
+                        format_provider=_hprov, only_provider=provider_name,
+                    )
+                    # fetch_upstream_models writes directly into config, so
+                    # _collect_patrol_models should now see the results.
+                    candidate_models = _collect_patrol_models(
+                        provider_name, observability=observability, config=config
+                    )
+                    if candidate_models:
+                        print(f"[proxy] {_hprov(provider_name)} patrol: fetched {len(candidate_models)} models, proceeding", flush=True)
+                    else:
+                        # fetch succeeded but produced no usable models
+                        # (e.g. /v1/models returned empty or all disabled).
+                        # Check the capability entry for diagnostics.
+                        caps_entry = ((config.get("models") or {}).get("provider_model_capabilities") or {}).get(provider_name) or {}
+                        cap_status = caps_entry.get("status", "missing") if isinstance(caps_entry, dict) else "missing"
+                        cap_error = caps_entry.get("error", "") if isinstance(caps_entry, dict) else ""
+                        print(f"[proxy] {_hprov(provider_name)} patrol: fetch done but no models (status={cap_status}, error={cap_error})", flush=True)
+                except Exception as e:
+                    print(f"[proxy] {_hprov(provider_name)} patrol: model fetch failed: {type(e).__name__}: {e}", flush=True)
+            if not candidate_models:
                 observability.record_health_probe({
                     "provider": provider_name,
                     "idle_tier": "patrol",
                     "outcome": "skipped",
-                    "reason": "no probe model",
+                    "reason": "no probe model (fetch failed or empty)",
                     "action": "none",
                 })
                 continue
@@ -1346,9 +1413,25 @@ def _patrol_health_check_round() -> None:
                     total_ok += 1
 
         print(f"[proxy] patrol round complete: {total_ok}/{total_probes} keys healthy", flush=True)
+        _duration = time.time() - _round_start
+        _patrol_probe_schedule["running"] = False
+        _patrol_probe_schedule["last_run_duration_s"] = round(_duration, 1)
+        _patrol_probe_schedule["last_summary"] = f"{total_ok}/{total_probes} keys healthy"
+        if total_probes == 0:
+            _patrol_probe_schedule["last_result"] = "skipped"
+        elif total_ok == total_probes:
+            _patrol_probe_schedule["last_result"] = "ok"
+        elif total_ok > 0:
+            _patrol_probe_schedule["last_result"] = "partial"
+        else:
+            _patrol_probe_schedule["last_result"] = "failed"
 
     except Exception as e:
         print(f"[proxy] patrol round error: {type(e).__name__}: {e}", flush=True)
+        _patrol_probe_schedule["running"] = False
+        _patrol_probe_schedule["last_run_duration_s"] = round(time.time() - _round_start, 1)
+        _patrol_probe_schedule["last_result"] = "failed"
+        _patrol_probe_schedule["last_summary"] = f"error: {type(e).__name__}: {e}"
 
 
 def _start_patrol_health_checker() -> None:
@@ -1365,11 +1448,14 @@ def _start_patrol_health_checker() -> None:
                 rt = _request_runtime()
                 hm = _health_monitor_cfg(rt.config)
                 if not hm.get("patrol_check_enabled", True):
+                    _patrol_probe_schedule["next_run_at"] = 0.0
                     time.sleep(60)
                     continue
                 pmin = float(hm.get("patrol_interval_min_s", _PATROL_INTERVAL_S[0]))
                 pmax = float(hm.get("patrol_interval_max_s", _PATROL_INTERVAL_S[1]))
                 interval = random.uniform(min(pmin, pmax), max(pmin, pmax))
+                _patrol_probe_schedule["interval_s"] = interval
+                _patrol_probe_schedule["next_run_at"] = time.time() + interval
                 # Chunk the sleep so we can exit cleanly on shutdown.
                 remaining = interval
                 while remaining > 0:
@@ -1384,6 +1470,41 @@ def _start_patrol_health_checker() -> None:
 
     t = threading.Thread(target=_loop, name="patrol-health-checker", daemon=True)
     t.start()
+
+
+def _trigger_patrol_now() -> dict:
+    """Trigger a patrol round immediately in a background thread.
+
+    Returns a dict with the current schedule state.  If a patrol is
+    already running, returns the running state without starting a new one.
+    """
+    if _patrol_probe_schedule.get("running"):
+        return _patrol_schedule_snapshot()
+
+    def _bg():
+        _patrol_health_check_round(manual=True)
+
+    threading.Thread(target=_bg, name="patrol-manual-trigger", daemon=True).start()
+    return _patrol_schedule_snapshot()
+
+
+def _patrol_schedule_snapshot() -> dict:
+    """Return a JSON-safe snapshot of the patrol schedule state."""
+    now = time.time()
+    next_at = float(_patrol_probe_schedule.get("next_run_at") or 0.0)
+    return {
+        "running": bool(_patrol_probe_schedule.get("running")),
+        "enabled": _health_monitor_cfg().get("patrol_check_enabled", True),
+        "last_run_at": float(_patrol_probe_schedule.get("last_run_at") or 0.0),
+        "last_run_ago_s": round(now - float(_patrol_probe_schedule.get("last_run_at") or 0.0), 1) if _patrol_probe_schedule.get("last_run_at") else 0.0,
+        "last_run_duration_s": float(_patrol_probe_schedule.get("last_run_duration_s") or 0.0),
+        "last_result": str(_patrol_probe_schedule.get("last_result") or ""),
+        "last_summary": str(_patrol_probe_schedule.get("last_summary") or ""),
+        "manual_trigger": bool(_patrol_probe_schedule.get("manual_trigger")),
+        "next_run_at": next_at,
+        "next_run_in_s": max(0, int(next_at - now)) if next_at > 0 else 0,
+        "interval_s": float(_patrol_probe_schedule.get("interval_s") or 0.0),
+    }
 
 
 ROUTER = UpstreamRouter(CONFIG)

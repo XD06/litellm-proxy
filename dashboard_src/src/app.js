@@ -6655,7 +6655,155 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       if (el("hmIdleEnabled") && state.data.config) {
         loadHealthMonitorForm();
       }
+      updateHealthMonitorRuntime();
     };
+
+    // --- Health Monitor runtime status display ---
+    function fmtDuration(s) {
+      if (!s || s <= 0) return "—";
+      if (s < 60) return Math.round(s) + "s";
+      if (s < 3600) return Math.floor(s / 60) + "m " + Math.round(s % 60) + "s";
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      return h + "h " + (m > 0 ? m + "m" : "");
+    }
+
+    function fmtAgo(s) {
+      if (!s || s <= 0) return "never";
+      if (s < 60) return Math.round(s) + "s ago";
+      if (s < 3600) return Math.floor(s / 60) + "m ago";
+      return Math.floor(s / 3600) + "h ago";
+    }
+
+    function updateHealthMonitorRuntime() {
+      const metrics = state.data.metrics || {};
+
+      // Idle checker state
+      const idleState = metrics.idle_state;
+      if (idleState) {
+        const statusEl = el("hmIdleStatus");
+        const nextEl = el("hmIdleNext");
+        const tierEl = el("hmIdleTier");
+        if (statusEl) {
+          const enabled = el("hmIdleEnabled").checked;
+          statusEl.textContent = enabled ? (idleState.tier || "active") : "disabled";
+          statusEl.className = "hm-runtime-status " + (enabled ? "ok" : "off");
+        }
+        if (nextEl) {
+          nextEl.textContent = idleState.next_probe_in_s > 0 ? fmtDuration(idleState.next_probe_in_s) : "—";
+        }
+        if (tierEl) {
+          tierEl.textContent = idleState.tier || "—";
+        }
+      }
+
+      // Patrol checker state
+      const patrolState = metrics.patrol_state;
+      if (patrolState) {
+        const statusEl = el("hmPatrolStatus");
+        const lastEl = el("hmPatrolLast");
+        const resultEl = el("hmPatrolResult");
+        const nextEl = el("hmPatrolNext");
+        const runBtn = el("hmPatrolRunBtn");
+
+        if (statusEl) {
+          if (patrolState.running) {
+            statusEl.textContent = "running...";
+            statusEl.className = "hm-runtime-status running";
+          } else if (!patrolState.enabled) {
+            statusEl.textContent = "disabled";
+            statusEl.className = "hm-runtime-status off";
+          } else if (patrolState.last_result === "ok") {
+            statusEl.textContent = "healthy";
+            statusEl.className = "hm-runtime-status ok";
+          } else if (patrolState.last_result === "partial") {
+            statusEl.textContent = "partial";
+            statusEl.className = "hm-runtime-status warn";
+          } else if (patrolState.last_result === "failed") {
+            statusEl.textContent = "failed";
+            statusEl.className = "hm-runtime-status bad";
+          } else {
+            statusEl.textContent = "idle";
+            statusEl.className = "hm-runtime-status";
+          }
+        }
+
+        if (lastEl) {
+          if (patrolState.last_run_at > 0) {
+            const ago = fmtAgo(patrolState.last_run_ago_s);
+            const dur = patrolState.last_run_duration_s > 0 ? ` (${fmtDuration(patrolState.last_run_duration_s)})` : "";
+            lastEl.textContent = ago + dur;
+          } else {
+            lastEl.textContent = "never";
+          }
+        }
+
+        if (resultEl) {
+          if (patrolState.last_summary) {
+            resultEl.textContent = patrolState.last_summary;
+          } else if (patrolState.last_result === "skipped") {
+            resultEl.textContent = "skipped";
+          } else {
+            resultEl.textContent = "—";
+          }
+        }
+
+        if (nextEl) {
+          if (patrolState.running) {
+            nextEl.textContent = "in progress";
+          } else if (!patrolState.enabled) {
+            nextEl.textContent = "—";
+          } else if (patrolState.next_run_in_s > 0) {
+            nextEl.textContent = fmtDuration(patrolState.next_run_in_s);
+          } else {
+            nextEl.textContent = "—";
+          }
+        }
+
+        if (runBtn) {
+          runBtn.disabled = patrolState.running || !patrolState.enabled;
+          runBtn.textContent = patrolState.running ? "Running..." : "Run now";
+        }
+      }
+    }
+
+    // Run-now button handler
+    if (el("hmPatrolRunBtn")) {
+      el("hmPatrolRunBtn").addEventListener("click", async () => {
+        const btn = el("hmPatrolRunBtn");
+        const status = el("healthMonitorStatus");
+        btn.disabled = true;
+        btn.textContent = "Running...";
+        if (status) {
+          status.textContent = "Triggering patrol round...";
+          status.className = "health-monitor-status info";
+        }
+        try {
+          const result = await apiPost("/-/admin/health/patrol/trigger", {});
+          if (status) {
+            status.textContent = "Patrol round triggered. Check results in a moment.";
+            status.className = "health-monitor-status ok";
+          }
+          // Update state from the response
+          if (result.patrol_state) {
+            state.data.metrics = state.data.metrics || {};
+            state.data.metrics.patrol_state = result.patrol_state;
+            updateHealthMonitorRuntime();
+          }
+          // Poll for completion after a delay
+          setTimeout(() => scheduleBackgroundRefresh({ quiet: true, staticData: true }), 5000);
+        } catch (err) {
+          if (status) {
+            status.textContent = `Error: ${err.message}`;
+            status.className = "health-monitor-status bad";
+          }
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Run now";
+          setTimeout(() => { if (status) { status.textContent = ""; status.className = "health-monitor-status"; } }, 5000);
+        }
+      });
+    }
 
     el("saveHealthMonitorBtn").addEventListener("click", async () => {
       const btn = el("saveHealthMonitorBtn");

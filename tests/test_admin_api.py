@@ -13,7 +13,7 @@ from unittest.mock import patch, MagicMock
 import sse2json
 import config_manager
 from observability import ProxyObservability
-from router import Attempt
+from router import Attempt, _KeyState
 
 
 class FakeRouter:
@@ -1879,14 +1879,14 @@ class IdleProbeAdvancedTests(unittest.TestCase):
             healthy = sse2json._idle_probe_one_provider(rt, "alpha")
 
         self.assertTrue(healthy)
-        # Cooldown should be cleared
+        # Cooldown should be cleared (report_success clears both provider and key state)
         ps = router._providers_state.get("alpha")
         self.assertIsNotNone(ps)
         self.assertEqual(ps.cooldown_until, 0.0)
 
         probes = obs.health_probe_summary("alpha")
         self.assertEqual(probes["last"]["outcome"], "success")
-        self.assertEqual(probes["last"]["action"], "cleared_provider_cooldown")
+        self.assertEqual(probes["last"]["action"], "reported_success")
 
     def test_idle_probe_network_error_triggers_key_cooldown(self):
         """A network error during probe should trigger key cooldown via report_failure."""
@@ -2473,7 +2473,7 @@ class PatrolHealthCheckerTests(unittest.TestCase):
         probes = obs.health_probe_summary("alpha")
         self.assertEqual(probes["last"]["outcome"], "success")
         self.assertEqual(probes["last"]["idle_tier"], "patrol")
-        self.assertEqual(probes["last"]["action"], "cleared_provider_cooldown")
+        self.assertEqual(probes["last"]["action"], "reported_success")
 
     def test_patrol_probe_fails_on_http_error(self):
         """Patrol probe should report failure on HTTP error."""
@@ -2587,14 +2587,21 @@ class PatrolHealthCheckerTests(unittest.TestCase):
         self.assertEqual(captured_payload["payload"].get("max_tokens"), 1)
 
     def test_patrol_probe_success_clears_key_cooldown(self):
-        """A successful patrol probe should clear provider cooldown."""
+        """A successful patrol probe should clear provider AND key cooldown."""
         import time as _time
         cfg = self._patrol_cfg()
         router = sse2json.UpstreamRouter(cfg)
         obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
 
-        # Set cooldown on the provider
-        router._providers_state["alpha"].cooldown_until = _time.time() + 300
+        # Set cooldown on both provider and key — simulating a key that
+        # was disabled after 4 consecutive failures.
+        now = _time.time()
+        router._providers_state["alpha"].cooldown_until = now + 300
+        ks = router._keys_state.setdefault(("alpha", 0), _KeyState())
+        ks.cooldown_until = now + 300
+        ks.disabled_until = now + 3600
+        ks.fails = 4
+        ks.transient_fails = 4
 
         class StreamOkClient:
             def open_stream(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None, first_byte_timeout_s=None):
@@ -2611,7 +2618,15 @@ class PatrolHealthCheckerTests(unittest.TestCase):
 
         self.assertTrue(healthy)
         ps = router._providers_state.get("alpha")
-        self.assertEqual(ps.cooldown_until, 0.0, "cooldown should be cleared")
+        self.assertEqual(ps.cooldown_until, 0.0, "provider cooldown should be cleared")
+        # Key-level state must also be cleared — this is the critical fix.
+        # Without report_success, a disabled key would stay disabled forever.
+        ks = router._keys_state.get(("alpha", 0))
+        self.assertIsNotNone(ks)
+        self.assertEqual(ks.cooldown_until, 0.0, "key cooldown should be cleared")
+        self.assertEqual(ks.disabled_until, 0.0, "key disabled should be cleared")
+        self.assertEqual(ks.fails, 0, "key fails should be reset")
+        self.assertEqual(ks.transient_fails, 0, "key transient_fails should be reset")
 
     def test_patrol_probe_http_error_triggers_report_failure(self):
         """A failed patrol probe should call report_failure to trigger circuit breaker."""

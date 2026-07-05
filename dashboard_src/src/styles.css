@@ -14721,3 +14721,123 @@ body {
   color: #4a6cf7;
   border-color: rgba(74, 108, 247, 0.2);
 }
+
+/* ---- Health Monitor runtime status cards ---- */
+.health-monitor-runtime {
+  margin-top: 14px;
+}
+
+.hm-runtime-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 700px) {
+  .hm-runtime-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hm-runtime-card {
+  border: 1px solid #e0e5ec;
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hm-runtime-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hm-runtime-card-head strong {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a2332;
+  flex: 1;
+}
+
+.hm-runtime-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.hm-runtime-status {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #eef1f5;
+  color: #6b7785;
+  white-space: nowrap;
+}
+
+.hm-runtime-status.ok {
+  background: #e6f7ee;
+  color: #1a8754;
+}
+
+.hm-runtime-status.warn {
+  background: #fff4e6;
+  color: #b8730d;
+}
+
+.hm-runtime-status.bad {
+  background: #fde8e8;
+  color: #d93026;
+}
+
+.hm-runtime-status.off {
+  background: #f0f0f0;
+  color: #999;
+}
+
+.hm-runtime-status.running {
+  background: #e8f0fe;
+  color: #4a6cf7;
+  animation: hm-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes hm-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.hm-run-btn {
+  font-size: 11px !important;
+  padding: 3px 10px !important;
+  border-radius: 6px !important;
+  white-space: nowrap;
+}
+
+.hm-runtime-card-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+}
+
+.hm-runtime-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hm-runtime-label {
+  font-size: 10px;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+.hm-runtime-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: #1a2332;
+  font-variant-numeric: tabular-nums;
+}

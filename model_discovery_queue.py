@@ -13,10 +13,10 @@ discovers their models sequentially. It never touches the request-forwarding
 worker pool, so it cannot slow down real traffic. Key properties:
 
   - Persistent cache: a successful snapshot (status=ok) is reused and not
-    re-fetched until its TTL expires (default 10 min).
+    re-fetched until its TTL expires (default 4 hours).
   - Retry: providers with no snapshot, an error snapshot, or an expired-ok
     snapshot are re-queued automatically and retried on a slow cadence
-    (default every 2 min), so a provider that was unreachable at startup gets
+    (default every 1 hour), so a provider that was unreachable at startup gets
     discovered once it comes back — without the user doing anything.
   - Bounded concurrency: the worker pulls one provider at a time with a short
     pause between fetches, so discovery never hammers upstream APIs.
@@ -34,9 +34,13 @@ from typing import Any, Callable, Dict, List, Optional
 
 
 # How long an "ok" snapshot is trusted before it is re-fetched.
-SNAPSHOT_OK_TTL_S = 10 * 60
+# 4 hours — model catalogs rarely change more frequently than this, and
+# re-fetching too often wastes upstream API calls for no benefit.
+SNAPSHOT_OK_TTL_S = 4 * 3600
 # How soon to retry a provider that is missing a snapshot or had an error.
-RETRY_INTERVAL_S = 2 * 60
+# 1 hour — gives a flaky provider a reasonable window to recover without
+# hammering its /v1/models endpoint every few minutes.
+RETRY_INTERVAL_S = 3600
 # Pause between consecutive provider fetches, to stay polite to upstreams.
 INTER_FETCH_PAUSE_S = 3.0
 

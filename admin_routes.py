@@ -220,6 +220,13 @@ class AdminRoutesMixin:
                 }
             except Exception:
                 pass
+            # Include patrol health checker schedule state so the dashboard
+            # can show last/next run times and a "run now" button.
+            try:
+                from sse2json import _patrol_schedule_snapshot
+                payload["patrol_state"] = _patrol_schedule_snapshot()
+            except Exception:
+                pass
             return self._resp_json(payload)
         if endpoint == "metrics/full":
             return self._resp_json(OBSERVABILITY.snapshot())
@@ -649,6 +656,15 @@ class AdminRoutesMixin:
                 return self._resp_json({"action": "health_monitor_updated", "config": CONFIG_MANAGER.snapshot()})
             except ConfigValidationError as e:
                 return self._resp_json({"error": {"message": str(e)}}, 400)
+
+        if parts == ["health", "patrol", "trigger"]:
+            try:
+                from sse2json import _trigger_patrol_now
+                result = _trigger_patrol_now()
+                self._audit_admin_event("patrol_triggered", target="health/patrol")
+                return self._resp_json({"action": "patrol_triggered", "patrol_state": result})
+            except Exception as e:
+                return self._resp_json({"error": {"message": str(e)}}, 500)
 
         if parts == ["config", "overlay", "validate"]:
             body = self._read_json_body()

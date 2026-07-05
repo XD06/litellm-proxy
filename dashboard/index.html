@@ -508,6 +508,49 @@
                     </div>
                   </div>
                 </div>
+                <div id="healthMonitorRuntime" class="health-monitor-runtime">
+                  <div class="hm-runtime-row">
+                    <div class="hm-runtime-card" id="hmIdleRuntimeCard">
+                      <div class="hm-runtime-card-head">
+                        <span class="hm-runtime-icon">&#x1F4E1;</span>
+                        <strong>Idle Checker</strong>
+                        <span class="hm-runtime-status" id="hmIdleStatus">—</span>
+                      </div>
+                      <div class="hm-runtime-card-body">
+                        <div class="hm-runtime-field">
+                          <span class="hm-runtime-label">Next probe</span>
+                          <span class="hm-runtime-value" id="hmIdleNext">—</span>
+                        </div>
+                        <div class="hm-runtime-field">
+                          <span class="hm-runtime-label">Tier</span>
+                          <span class="hm-runtime-value" id="hmIdleTier">—</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="hm-runtime-card" id="hmPatrolRuntimeCard">
+                      <div class="hm-runtime-card-head">
+                        <span class="hm-runtime-icon">&#x1F6E1;</span>
+                        <strong>Patrol Checker</strong>
+                        <span class="hm-runtime-status" id="hmPatrolStatus">—</span>
+                        <button id="hmPatrolRunBtn" class="button secondary hm-run-btn" type="button">Run now</button>
+                      </div>
+                      <div class="hm-runtime-card-body">
+                        <div class="hm-runtime-field">
+                          <span class="hm-runtime-label">Last run</span>
+                          <span class="hm-runtime-value" id="hmPatrolLast">—</span>
+                        </div>
+                        <div class="hm-runtime-field">
+                          <span class="hm-runtime-label">Result</span>
+                          <span class="hm-runtime-value" id="hmPatrolResult">—</span>
+                        </div>
+                        <div class="hm-runtime-field">
+                          <span class="hm-runtime-label">Next run</span>
+                          <span class="hm-runtime-value" id="hmPatrolNext">—</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 <div id="healthMonitorStatus" class="health-monitor-status"></div>
               </section>
               </div>
