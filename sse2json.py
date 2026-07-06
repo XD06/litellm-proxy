@@ -434,6 +434,65 @@ def _idle_check_interval_s(last_finished_at: float, now: float) -> float:
     return _idle_tier_info(last_finished_at, now)[1]
 
 
+# ---------------------------------------------------------------------------
+# Probe payload construction
+# ---------------------------------------------------------------------------
+# A probe must use the SAME payload shape as a real client request.  Previous
+# versions used content="" and max_tokens=1, which many upstream APIs reject
+# (OpenAI: "content must not be empty"; Anthropic: 400 invalid_request_error;
+# DeepSeek: similar).  The probe would then look like a real failure and
+# trigger cooldowns on healthy keys.
+#
+# The fix: use a minimal but valid message ("Hi") and a reasonable max_tokens
+# (48).  We do NOT set temperature or other extra parameters — only the bare
+# minimum (model, messages, max_tokens, stream).  We also apply the same
+# provider-specific transformations that real requests go through
+# (_force_chat_reasoning_content_if_needed and _force_anthropic_thinking_if_needed)
+# so the probe is as close to a real request as possible.
+#
+# Both idle and patrol probes use STREAMING (stream=true).  After receiving a
+# few SSE data events, we close the connection proactively to save time and
+# tokens — we only need to know the provider accepted the request and started
+# responding, not the full completion.
+
+_PROBE_USER_CONTENT = "Hi"
+_PROBE_MAX_TOKENS = 48
+
+
+def _build_probe_payload(provider_model: str, *, stream: bool, fmt: str, attempt=None):
+    """Build a probe payload that mirrors a real client request as closely as
+    possible.
+
+    Parameters
+    ----------
+    provider_model
+        The upstream model name to use in the payload.
+    stream
+        Whether this is a streaming probe.
+    fmt
+        The upstream format (chat_completions / responses / anthropic_messages).
+    attempt
+        Optional Attempt namedtuple; if provided, provider-specific
+        transformations (_force_chat_reasoning_content_if_needed,
+        _force_anthropic_thinking_if_needed) are applied just like in real
+        requests.
+    """
+    base_payload = {
+        "model": provider_model,
+        "messages": [{"role": "user", "content": _PROBE_USER_CONTENT}],
+        "max_tokens": _PROBE_MAX_TOKENS,
+        "stream": stream,
+    }
+    payload = convert_request("chat_completions", fmt, base_payload, resolve_model=lambda m: m)
+
+    # Apply the same provider-specific transformations as real requests.
+    if attempt is not None:
+        _force_chat_reasoning_content_if_needed(attempt, payload)
+        _force_anthropic_thinking_if_needed(attempt, payload)
+
+    return payload
+
+
 def _idle_probe_one_provider(rt, provider: str, *, idle_tier: str = "", next_probe_in_s: float = 0, suggested_model: str = "", model_source: str = "") -> bool:
     """Probe a single provider, trying all available keys before giving up.
 
@@ -534,23 +593,31 @@ def _idle_probe_one_provider(rt, provider: str, *, idle_tier: str = "", next_pro
         return False
 
     # Build the base payload once — only the key/url/headers change per key.
-    # We need a provider_model for the payload; use the first key to build
-    # attempt details and extract it.  The provider_model is the same for all
-    # keys of the same provider+model+format combination.
+    # We need a provider_model and an Attempt object for payload construction
+    # (the Attempt is needed for provider-specific transformations like
+    # force_reasoning_content and force_anthropic_thinking).
+    from router import Attempt as _Attempt
+    request_id_base = f"idle-probe-{provider}-{uuid.uuid4().hex[:8]}"
+
     first_raw_key = key_value(keys[key_indices_to_try[0]])
-    _, _, provider_model, _ = router._build_attempt_details(
+    first_url, first_headers, first_provider_model, first_proxy = router._build_attempt_details(
         provider, canonical_model, first_raw_key, key_index=key_indices_to_try[0], upstream_format=fmt
     )
-
-    base_payload = {
-        "model": provider_model,
-        "messages": [{"role": "user", "content": ""}],
-        "max_tokens": 1,
-        "temperature": 0,
-        "stream": False,
-    }
+    provider_model = first_provider_model
+    first_attempt = _Attempt(
+        request_id=f"{request_id_base}-0",
+        attempt_no=0,
+        provider=provider,
+        key_index=key_indices_to_try[0],
+        key=first_raw_key,
+        url=first_url,
+        headers=first_headers,
+        provider_model=first_provider_model or provider_model,
+        upstream_format=fmt,
+        proxy_url=first_proxy,
+    )
     try:
-        payload = convert_request("chat_completions", fmt, base_payload, resolve_model=lambda m: m)
+        payload = _build_probe_payload(first_provider_model or provider_model, stream=True, fmt=fmt, attempt=first_attempt)
     except Exception:
         _record_probe(
             model=canonical_model,
@@ -564,9 +631,7 @@ def _idle_probe_one_provider(rt, provider: str, *, idle_tier: str = "", next_pro
         return False
 
     # --- Try each key in order ---
-    from router import Attempt as _Attempt
-    request_id_base = f"idle-probe-{provider}-{uuid.uuid4().hex[:8]}"
-
+    stream_conn = None
     for attempt_no, key_index in enumerate(key_indices_to_try, start=1):
         raw_key = key_value(keys[key_index])
         url, headers, key_provider_model, proxy_url = router._build_attempt_details(
@@ -599,26 +664,63 @@ def _idle_probe_one_provider(rt, provider: str, *, idle_tier: str = "", next_pro
             "format": fmt,
         }
 
+        started_at = time.time()
+        hm = _health_monitor_cfg(config)
+        fb_timeout = int(hm.get("patrol_first_byte_timeout_s", _PATROL_FIRST_BYTE_TIMEOUT_S))
         try:
-            _resp, _latency_ms = upstream_client.request_json_with_timing(
-                url, headers, payload, proxy_url=proxy_url, remaining_timeout_s=15
+            stream_conn = upstream_client.open_stream(
+                url, headers, payload,
+                proxy_url=proxy_url,
+                remaining_timeout_s=fb_timeout,
+                first_byte_timeout_s=fb_timeout,
             )
-            # Success — key is healthy.  Use report_success to clear ALL
-            # key-level state (cooldown, disabled, fails, transient_fails)
-            # AND provider-level cooldown.  This is critical: a key that was
-            # disabled after 4 consecutive failures can only be recovered
-            # via report_success, not clear_provider_cooldown (which only
-            # clears the provider-level cooldown, leaving the key disabled).
-            router.report_success(probe_attempt)
-            _record_probe(
-                **probe_base,
-                outcome="success",
-                latency_ms=_latency_ms,
-                reason="probe succeeded",
-                action="reported_success",
-            )
-            print(f"[proxy] {_hprov(provider)} idle probe {_harrow('->')} {_h('ok')} {_hmodel(canonical_model)} key#{key_index} {_latency_ms}ms", flush=True)
-            return True
+            # Read lines until we find the first SSE "data:" event.
+            # A valid data line means the provider accepted the request and
+            # started streaming — the key is healthy.
+            found_data = False
+            for _line in range(64):  # Bounded read; skip comments/keepalives
+                line = b""
+                try:
+                    line = stream_conn.readline()
+                except socket.timeout:
+                    break
+                if not line:
+                    break
+                line_str = line.decode("utf-8", errors="replace").strip()
+                if line_str.startswith("data:"):
+                    data_content = line_str[5:].strip()
+                    if data_content and data_content != "[DONE]":
+                        found_data = True
+                        break
+
+            latency_ms = max(0, int((time.time() - started_at) * 1000))
+
+            if found_data:
+                # Key is healthy — use report_success to clear ALL key-level
+                # state (cooldown, disabled, fails, transient_fails) AND
+                # provider-level cooldown.
+                router.report_success(probe_attempt)
+                _record_probe(
+                    **probe_base,
+                    outcome="success",
+                    latency_ms=latency_ms,
+                    reason="idle stream first event received",
+                    action="reported_success",
+                )
+                print(f"[proxy] {_hprov(provider)} idle probe {_harrow('->')} {_h('ok')} {_hmodel(canonical_model)} key#{key_index} {latency_ms}ms", flush=True)
+                return True
+            else:
+                # Stream opened but no data event within the read bound.
+                _record_probe(
+                    **probe_base,
+                    outcome="failed",
+                    error_type="unknown",
+                    latency_ms=latency_ms,
+                    reason="idle stream opened but no data event",
+                    action="observed_only",
+                )
+                print(f"[proxy] {_hprov(provider)} idle probe {_harrow('->')} no-data {_hmodel(canonical_model)} key#{key_index}", flush=True)
+                continue  # try next key
         except HTTPError as e:
             status = int(getattr(e, "code", 0) or 0)
             error_type = _probe_error_type(status)
@@ -653,6 +755,8 @@ def _idle_probe_one_provider(rt, provider: str, *, idle_tier: str = "", next_pro
                 action="reported_failure",
             )
             print(f"[proxy] {_hprov(provider)} idle probe {_harrow('->')} FAIL HTTP {status} ({error_type}) {_hmodel(canonical_model)} key#{key_index}, trying next key...", flush=True)
+            _close_upstream_conn(stream_conn)
+            stream_conn = None
             continue  # try next key
         except (URLError, socket.timeout) as e:
             router.report_failure(
@@ -670,6 +774,8 @@ def _idle_probe_one_provider(rt, provider: str, *, idle_tier: str = "", next_pro
                 action="reported_failure",
             )
             print(f"[proxy] {_hprov(provider)} idle probe {_harrow('->')} FAIL {type(e).__name__} {_hmodel(canonical_model)} key#{key_index}, trying next key...", flush=True)
+            _close_upstream_conn(stream_conn)
+            stream_conn = None
             continue  # try next key
         except Exception as e:
             router.report_failure(
@@ -687,7 +793,12 @@ def _idle_probe_one_provider(rt, provider: str, *, idle_tier: str = "", next_pro
                 action="reported_failure",
             )
             print(f"[proxy] {_hprov(provider)} idle probe {_harrow('->')} FAIL {type(e).__name__} {_hmodel(canonical_model)} key#{key_index}, trying next key...", flush=True)
+            _close_upstream_conn(stream_conn)
+            stream_conn = None
             continue  # try next key
+        finally:
+            _close_upstream_conn(stream_conn)
+            stream_conn = None
 
     # All keys exhausted — provider is unhealthy.
     return False
@@ -718,6 +829,8 @@ def _build_probe_plan(observability, config, router) -> list[tuple[str, str, str
     provider_priorities = []
     for name, pcfg in providers_cfg.items():
         if not (pcfg or {}).get("enabled", True):
+            continue
+        if (pcfg or {}).get("skip_idle_probe", False):
             continue
         priority = router._provider_priority(str(name))
         if hasattr(router, '_auto_adjusted_priority'):
@@ -988,29 +1101,8 @@ def _patrol_probe_one_key(rt, provider: str, key_index: int, *, canonical_model:
 
     # Build a STREAMING payload — stream=true so we can read just the first
     # SSE event and close, without waiting for the full completion.
-    base_payload = {
-        "model": provider_model,
-        "messages": [{"role": "user", "content": ""}],
-        "max_tokens": 1,
-        "temperature": 0,
-        "stream": True,
-    }
-    try:
-        payload = convert_request("chat_completions", fmt, base_payload, resolve_model=lambda m: m)
-    except Exception:
-        _record_probe(
-            key_index=key_index,
-            key_id=router.key_id(raw_key),
-            model=canonical_model,
-            model_source=model_source,
-            upstream_model=provider_model,
-            format=fmt,
-            outcome="skipped",
-            reason="request conversion failed",
-            action="none",
-        )
-        return False
-
+    # We need the Attempt object first so _build_probe_payload can apply
+    # provider-specific transformations (force_reasoning_content, etc).
     from router import Attempt as _Attempt
     request_id = f"patrol-{provider}-k{key_index}-{uuid.uuid4().hex[:8]}"
     probe_attempt = _Attempt(
@@ -1025,6 +1117,21 @@ def _patrol_probe_one_key(rt, provider: str, key_index: int, *, canonical_model:
         upstream_format=fmt,
         proxy_url=proxy_url,
     )
+    try:
+        payload = _build_probe_payload(provider_model, stream=True, fmt=fmt, attempt=probe_attempt)
+    except Exception:
+        _record_probe(
+            key_index=key_index,
+            key_id=router.key_id(raw_key),
+            model=canonical_model,
+            model_source=model_source,
+            upstream_model=provider_model,
+            format=fmt,
+            outcome="skipped",
+            reason="request conversion failed",
+            action="none",
+        )
+        return False
 
     probe_base = {
         "key_index": key_index,
@@ -1330,6 +1437,15 @@ def _patrol_health_check_round(*, manual: bool = False) -> None:
             pcfg = providers_cfg.get(provider_name) or {}
             keys = pcfg.get("keys") or []
             if not keys:
+                continue
+            if pcfg.get("skip_patrol_probe", False):
+                observability.record_health_probe({
+                    "provider": provider_name,
+                    "idle_tier": "patrol",
+                    "outcome": "skipped",
+                    "reason": "skip_patrol_probe",
+                    "action": "none",
+                })
                 continue
 
             # Collect multiple candidate models for this provider so we
@@ -2047,18 +2163,6 @@ def _probe_provider_key_once(provider: str, key_index: int, model: str = "") -> 
         provider, canonical_model, raw_key, key_index=key_index, upstream_format=fmt
     )
 
-    base_payload = {
-        "model": provider_model,
-        "messages": [{"role": "user", "content": ""}],
-        "max_tokens": 1,
-        "temperature": 0,
-        "stream": False,
-    }
-    try:
-        payload = convert_request("chat_completions", fmt, base_payload, resolve_model=lambda m: m)
-    except Exception as e:
-        return {"ok": False, "error_type": "unknown", "error": _sanitize_diagnostic_text(e, 200)}
-
     request_id = f"probe-{provider}-k{key_index}-{uuid.uuid4().hex[:8]}"
     OBSERVABILITY.record_request_start(
         request_id,
@@ -2081,6 +2185,10 @@ def _probe_provider_key_once(provider: str, key_index: int, model: str = "") -> 
         upstream_format=fmt,
         proxy_url=proxy_url,
     )
+    try:
+        payload = _build_probe_payload(provider_model, stream=False, fmt=fmt, attempt=probe_attempt)
+    except Exception as e:
+        return {"ok": False, "error_type": "unknown", "error": _sanitize_diagnostic_text(e, 200)}
     actual_user_agent = str(headers.get("User-Agent") or headers.get("user-agent") or "")
 
     try:

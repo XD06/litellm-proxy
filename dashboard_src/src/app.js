@@ -4267,6 +4267,16 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
               </label>
               <button class="button primary" type="submit">Save config</button>
             </div>
+            <div class="provider-skip-probe-row">
+              <label class="capsule-toggle" title="Skip idle health check for this provider">
+                <input type="checkbox" name="skip_idle_probe" ${provider.skip_idle_probe ? "checked" : ""} data-skip-idle-toggle="${escapeHtml(name)}" />
+                <span class="capsule-toggle-label">Skip Idle</span>
+              </label>
+              <label class="capsule-toggle" title="Skip patrol health check for this provider">
+                <input type="checkbox" name="skip_patrol_probe" ${provider.skip_patrol_probe ? "checked" : ""} data-skip-patrol-toggle="${escapeHtml(name)}" />
+                <span class="capsule-toggle-label">Skip Patrol</span>
+              </label>
+            </div>
           </div>
         </form>
         <div class="provider-config-block provider-config-keys">
@@ -5754,6 +5764,16 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
                 <span class="toggle-switch"><input type="checkbox" name="enabled" ${isEnabled ? "checked" : ""} /><span class="slider"></span></span>
                 <span class="label-with-tip">${t("form.enabled")}<span class="help-tip" data-tip="${escapeHtml(t("form.enabled_tip"))}">?</span></span>
               </label>
+              <div class="provider-skip-probe-row">
+                <label class="capsule-toggle" title="Skip idle health check for this provider">
+                  <input type="checkbox" name="skip_idle_probe" ${provider.skip_idle_probe ? "checked" : ""} data-skip-idle-toggle="${escapeHtml(name)}" />
+                  <span class="capsule-toggle-label">Skip Idle</span>
+                </label>
+                <label class="capsule-toggle" title="Skip patrol health check for this provider">
+                  <input type="checkbox" name="skip_patrol_probe" ${provider.skip_patrol_probe ? "checked" : ""} data-skip-patrol-toggle="${escapeHtml(name)}" />
+                  <span class="capsule-toggle-label">Skip Patrol</span>
+                </label>
+              </div>
               <button class="button secondary" type="submit">${t("form.save_provider")}</button>
               <button class="button danger icon-action" type="button" data-provider-delete="${escapeHtml(name)}" title="Delete provider" aria-label="Delete provider">${iconSvg("trash")}</button>
             </form>
@@ -5816,7 +5836,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       const header = card.querySelector(".collapsible-card-header");
       if (header) {
         header.addEventListener("click", (event) => {
-          if (event.target.closest("input, button, select, .help-tip, .toggle-switch")) return;
+          if (event.target.closest("input, button, select, .help-tip, .toggle-switch, .capsule-toggle")) return;
           const willOpen = !card.classList.contains("is-open");
           card.classList.toggle("is-open");
           try {
@@ -5904,11 +5924,39 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           priority: Number(form.elements.priority.value || 0),
           enabled: Boolean(form.elements.enabled.checked),
         };
+        if (form.elements.skip_idle_probe) {
+          payload.skip_idle_probe = Boolean(form.elements.skip_idle_probe.checked);
+        }
+        if (form.elements.skip_patrol_probe) {
+          payload.skip_patrol_probe = Boolean(form.elements.skip_patrol_probe.checked);
+        }
         await runConfigMutation(form, async () => {
           const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, payload);
           setNotice(t("notice.provider_updated", { provider }), "ok");
           return result;
         });
+      });
+    });
+
+    // Skip-probe capsule toggles — instant hot-reload without full form submit.
+    root.querySelectorAll("[data-skip-idle-toggle], [data-skip-patrol-toggle]").forEach((toggle) => {
+      if (toggle.dataset.boundskipprobe) return;
+      toggle.dataset.boundskipprobe = "1";
+      toggle.addEventListener("change", async () => {
+        const provider = toggle.dataset.skipIdleToggle || toggle.dataset.skipPatrolToggle || "";
+        if (!provider) return;
+        const field = toggle.dataset.skipIdleToggle ? "skip_idle_probe" : "skip_patrol_probe";
+        const value = Boolean(toggle.checked);
+        try {
+          const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { [field]: value });
+          applyMutationResult(result, { drawer: true });
+          setNotice(`${field === "skip_idle_probe" ? "Idle" : "Patrol"} probe ${value ? "skipped" : "enabled"} for ${provider}.`, "ok");
+          scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
+        } catch (err) {
+          setNotice(`Failed to update ${field}: ${err.message}`);
+          // Revert toggle on failure
+          toggle.checked = !value;
+        }
       });
     });
 

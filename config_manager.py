@@ -590,12 +590,19 @@ class RuntimeConfigManager:
             "pricing",
             "priority",
             "static_models",
+            "skip_idle_probe",
+            "skip_patrol_probe",
         }
         clean: Dict[str, Any] = {}
         for key, value in patch.items():
             if key not in allowed:
                 raise ConfigValidationError(f"unsupported provider field: {key}")
             clean[key] = copy.deepcopy(value)
+        # Coerce skip_probe flags to booleans.
+        if "skip_idle_probe" in clean:
+            clean["skip_idle_probe"] = bool(clean["skip_idle_probe"])
+        if "skip_patrol_probe" in clean:
+            clean["skip_patrol_probe"] = bool(clean["skip_patrol_probe"])
         if "base_url" in clean and not str(clean.get("base_url") or "").strip():
             raise ConfigValidationError("base_url cannot be empty")
         if "user_agent" in clean:

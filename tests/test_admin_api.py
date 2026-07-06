@@ -1789,9 +1789,14 @@ class AdminApiTests(unittest.TestCase):
         captured = {}
 
         class OkClient:
-            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
+            def open_stream(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None, first_byte_timeout_s=None):
                 captured["payload"] = payload
-                return {"id": "x"}, 44
+                class MockStream:
+                    def readline(self, *args, **kwargs):
+                        return b'data: {"choices":[{"delta":{}}]}\n'
+                    def close(self):
+                        pass
+                return MockStream()
 
         rt = sse2json.RuntimeContext(cfg, router, OkClient(), obs, sse2json.AUDIT)
         with patch.object(sse2json, "CONFIG", cfg):
@@ -1811,7 +1816,7 @@ class AdminApiTests(unittest.TestCase):
         obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
 
         class FailClient:
-            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
+            def open_stream(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None, first_byte_timeout_s=None):
                 raise HTTPError(url, 404, "not found", {}, None)
 
         rt = sse2json.RuntimeContext(cfg, router, FailClient(), obs, sse2json.AUDIT)
@@ -1871,8 +1876,13 @@ class IdleProbeAdvancedTests(unittest.TestCase):
         router._providers_state["alpha"].cooldown_until = _time.time() + 300
 
         class OkClient:
-            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
-                return {"id": "x"}, 42
+            def open_stream(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None, first_byte_timeout_s=None):
+                class MockStream:
+                    def readline(self, *args, **kwargs):
+                        return b'data: {"choices":[{"delta":{}}]}\n'
+                    def close(self):
+                        pass
+                return MockStream()
 
         rt = sse2json.RuntimeContext(cfg, router, OkClient(), obs, sse2json.AUDIT)
         with patch.object(sse2json, "CONFIG", cfg):
@@ -1896,7 +1906,7 @@ class IdleProbeAdvancedTests(unittest.TestCase):
         obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
 
         class NetErrorClient:
-            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
+            def open_stream(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None, first_byte_timeout_s=None):
                 raise _socket.timeout("connection timed out")
 
         rt = sse2json.RuntimeContext(cfg, router, NetErrorClient(), obs, sse2json.AUDIT)
@@ -1921,7 +1931,7 @@ class IdleProbeAdvancedTests(unittest.TestCase):
         obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
 
         class ServerErrorClient:
-            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
+            def open_stream(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None, first_byte_timeout_s=None):
                 raise HTTPError(url, 503, "Service Unavailable", {}, None)
 
         rt = sse2json.RuntimeContext(cfg, router, ServerErrorClient(), obs, sse2json.AUDIT)
@@ -1941,7 +1951,7 @@ class IdleProbeAdvancedTests(unittest.TestCase):
         obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
 
         class KeyInvalidClient:
-            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
+            def open_stream(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None, first_byte_timeout_s=None):
                 raise HTTPError(url, 401, "Unauthorized", {}, None)
 
         rt = sse2json.RuntimeContext(cfg, router, KeyInvalidClient(), obs, sse2json.AUDIT)
@@ -2112,8 +2122,13 @@ class IdleProbeAdvancedTests(unittest.TestCase):
         obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
 
         class OkClient:
-            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
-                return {"id": "x"}, 1
+            def open_stream(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None, first_byte_timeout_s=None):
+                class MockStream:
+                    def readline(self, *args, **kwargs):
+                        return b'data: {"choices":[{"delta":{}}]}\n'
+                    def close(self):
+                        pass
+                return MockStream()
 
         rt = sse2json.RuntimeContext(cfg, router, OkClient(), obs, sse2json.AUDIT)
         with patch.object(sse2json, "CONFIG", cfg):
@@ -2132,8 +2147,13 @@ class IdleProbeAdvancedTests(unittest.TestCase):
         obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
 
         class OkClient:
-            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
-                return {"id": "x"}, 42
+            def open_stream(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None, first_byte_timeout_s=None):
+                class MockStream:
+                    def readline(self, *args, **kwargs):
+                        return b'data: {"choices":[{"delta":{}}]}\n'
+                    def close(self):
+                        pass
+                return MockStream()
 
         rt = sse2json.RuntimeContext(cfg, router, OkClient(), obs, sse2json.AUDIT)
         with patch.object(sse2json, "CONFIG", cfg):
@@ -2156,8 +2176,13 @@ class IdleProbeAdvancedTests(unittest.TestCase):
         obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
 
         class OkClient:
-            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
-                return {"id": "x"}, 42
+            def open_stream(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None, first_byte_timeout_s=None):
+                class MockStream:
+                    def readline(self, *args, **kwargs):
+                        return b'data: {"choices":[{"delta":{}}]}\n'
+                    def close(self):
+                        pass
+                return MockStream()
 
         rt = sse2json.RuntimeContext(cfg, router, OkClient(), obs, sse2json.AUDIT)
         with patch.object(sse2json, "CONFIG", cfg):
@@ -2239,11 +2264,16 @@ class IdleProbeMultiKeyTests(unittest.TestCase):
         call_count = [0]
 
         class FailThenOkClient:
-            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
+            def open_stream(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None, first_byte_timeout_s=None):
                 call_count[0] += 1
                 if call_count[0] == 1:
                     raise HTTPError(url, 429, "Rate Limited", {}, None)
-                return {"id": "x"}, 42
+                class MockStream:
+                    def readline(self, *args, **kwargs):
+                        return b'data: {"choices":[{"delta":{}}]}\n'
+                    def close(self):
+                        pass
+                return MockStream()
 
         rt = sse2json.RuntimeContext(cfg, router, FailThenOkClient(), obs, sse2json.AUDIT)
         with patch.object(sse2json, "CONFIG", cfg):
@@ -2271,7 +2301,7 @@ class IdleProbeMultiKeyTests(unittest.TestCase):
         call_count = [0]
 
         class AllFailClient:
-            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
+            def open_stream(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None, first_byte_timeout_s=None):
                 call_count[0] += 1
                 raise HTTPError(url, 500, "Internal Server Error", {}, None)
 
@@ -2298,7 +2328,7 @@ class IdleProbeMultiKeyTests(unittest.TestCase):
         call_count = [0]
 
         class FailClient:
-            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
+            def open_stream(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None, first_byte_timeout_s=None):
                 call_count[0] += 1
                 raise HTTPError(url, 404, "Not Found", {}, None)
 
@@ -2321,11 +2351,16 @@ class IdleProbeMultiKeyTests(unittest.TestCase):
         call_count = [0]
 
         class NetErrorThenOkClient:
-            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
+            def open_stream(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None, first_byte_timeout_s=None):
                 call_count[0] += 1
                 if call_count[0] <= 2:
                     raise _socket.timeout("timed out")
-                return {"id": "x"}, 55
+                class MockStream:
+                    def readline(self, *args, **kwargs):
+                        return b'data: {"choices":[{"delta":{}}]}\n'
+                    def close(self):
+                        pass
+                return MockStream()
 
         rt = sse2json.RuntimeContext(cfg, router, NetErrorThenOkClient(), obs, sse2json.AUDIT)
         with patch.object(sse2json, "CONFIG", cfg):
@@ -2347,9 +2382,14 @@ class IdleProbeMultiKeyTests(unittest.TestCase):
         call_urls = []
 
         class OkClient:
-            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
+            def open_stream(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None, first_byte_timeout_s=None):
                 call_urls.append(url)
-                return {"id": "x"}, 10
+                class MockStream:
+                    def readline(self, *args, **kwargs):
+                        return b'data: {"choices":[{"delta":{}}]}\n'
+                    def close(self):
+                        pass
+                return MockStream()
 
         rt = sse2json.RuntimeContext(cfg, router, OkClient(), obs, sse2json.AUDIT)
         with patch.object(sse2json, "CONFIG", cfg):
@@ -2584,7 +2624,14 @@ class PatrolHealthCheckerTests(unittest.TestCase):
 
         self.assertTrue(captured_payload["payload"].get("stream", False),
                         "patrol payload must use stream=true")
-        self.assertEqual(captured_payload["payload"].get("max_tokens"), 1)
+        # Probe payload should use a small but valid max_tokens (not 1, which
+        # some providers reject) and non-empty content (not "", which many
+        # providers reject with 400).
+        self.assertGreaterEqual(captured_payload["payload"].get("max_tokens", 0), 4)
+        messages = captured_payload["payload"].get("messages", [])
+        if messages:
+            content = messages[0].get("content", "")
+            self.assertTrue(content, "probe message content must not be empty")
 
     def test_patrol_probe_success_clears_key_cooldown(self):
         """A successful patrol probe should clear provider AND key cooldown."""

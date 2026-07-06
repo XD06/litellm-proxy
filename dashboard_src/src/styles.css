@@ -11438,6 +11438,79 @@ body {
   grid-column: 1 / -1;
 }
 
+/* --- Skip-probe capsule toggles --- */
+.provider-skip-probe-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.capsule-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid #dfe5ec;
+  background: #f8fafc;
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  transition: all 0.15s ease;
+}
+
+.capsule-toggle:hover {
+  border-color: #cbd5e1;
+  background: #f1f5f9;
+}
+
+.capsule-toggle input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #cbd5e1;
+  background: #fff;
+  margin: 0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.capsule-toggle input[type="checkbox"]:checked {
+  border-color: #ef4444;
+  background: #ef4444;
+}
+
+.capsule-toggle input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.capsule-toggle:has(input:checked) {
+  border-color: #fca5a5;
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.capsule-toggle-label {
+  line-height: 1;
+  white-space: nowrap;
+}
+
 .provider-enabled-check {
   min-height: 38px;
   align-self: end;
