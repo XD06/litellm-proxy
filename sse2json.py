@@ -24,7 +24,7 @@ from config_manager import ConfigValidationError, RuntimeConfigManager
 from config_loader import apply_env_overlays, load_base_config, load_config, ZERO_CONFIG_ACTIVE
 from format_adapters import ANTHROPIC, CHAT, RESPONSES, convert_request, convert_response
 from observability import ProxyObservability
-from proxy_utils import key_value
+from proxy_utils import key_value, mask_proxy_url
 from request_routes import classify_get, classify_post
 from router import UpstreamRouter, parse_retry_after_seconds
 from stream_adapters import (
@@ -377,6 +377,11 @@ _patrol_probe_schedule = {
     "running": False,            # is a patrol round currently in progress?
     "manual_trigger": False,     # was the current run triggered manually?
 }
+
+# NH8: serializes the check-and-set of _patrol_probe_schedule["running"] in
+# _trigger_patrol_now so two concurrent manual triggers cannot both observe
+# running=False and start overlapping patrol rounds.
+_PATROL_TRIGGER_LOCK = threading.Lock()
 
 
 def _health_monitor_cfg(config=None) -> dict:
@@ -1498,6 +1503,14 @@ def _patrol_health_check_round(*, manual: bool = False) -> None:
                     in_flight = int(observability._counters.get("requests_in_flight") or 0)
                 if in_flight > 0:
                     print(f"[proxy] patrol round interrupted: request in flight", flush=True)
+                    # Reset the running flag so a future manual trigger is not
+                    # blocked forever. The normal completion path (below) and
+                    # the except handler also reset it, but this early `return`
+                    # bypassed both, leaving running=True permanently.
+                    _patrol_probe_schedule["running"] = False
+                    _patrol_probe_schedule["last_result"] = "interrupted"
+                    _patrol_probe_schedule["last_summary"] = "interrupted: request in flight"
+                    _patrol_probe_schedule["last_run_duration_s"] = round(time.time() - _round_start, 1)
                     return
 
                 # Random delay between probes, even across providers.
@@ -1594,11 +1607,25 @@ def _trigger_patrol_now() -> dict:
     Returns a dict with the current schedule state.  If a patrol is
     already running, returns the running state without starting a new one.
     """
-    if _patrol_probe_schedule.get("running"):
-        return _patrol_schedule_snapshot()
+    # NH8: check-and-set "running" atomically under a lock. Previously the
+    # flag was only set inside _patrol_health_check_round (after the thread
+    # started), leaving a window where two concurrent manual triggers both
+    # saw running=False and launched overlapping rounds — wasting upstream
+    # quota and corrupting schedule state.
+    with _PATROL_TRIGGER_LOCK:
+        if _patrol_probe_schedule.get("running"):
+            return _patrol_schedule_snapshot()
+        _patrol_probe_schedule["running"] = True
 
     def _bg():
-        _patrol_health_check_round(manual=True)
+        try:
+            _patrol_health_check_round(manual=True)
+        except Exception:
+            # Ensure running is cleared if the round itself failed to reach
+            # its own finally/except (defensive — the round already handles
+            # this, but a bare exception before its try-block would strand it).
+            with _PATROL_TRIGGER_LOCK:
+                _patrol_probe_schedule["running"] = False
 
     threading.Thread(target=_bg, name="patrol-manual-trigger", daemon=True).start()
     return _patrol_schedule_snapshot()
@@ -2613,8 +2640,15 @@ def _http_error_details(e):
     headers = getattr(e, "headers", {}) or {}
     if isinstance(e, CachedHTTPError):
         return int(status), e.body[:500], headers
+    # NH9: e.read() can raise (e.g. OSError when the underlying socket is
+    # already closed) — if it escapes, the caller's ``except HTTPError``
+    # handler is bypassed and the error gets misclassified as a generic
+    # network/proxy exception, losing the HTTP status (e.g. a 429's
+    # Retry-After). Fall back to an empty body so the status/headers survive.
     try:
         body = e.read().decode("utf-8", errors="replace")[:500]
+    except Exception:
+        body = ""
     finally:
         # A real urllib HTTPError holds an open socket; close it after reading the
         # body so the connection is released immediately instead of at GC time.
@@ -2630,6 +2664,49 @@ def _mask_diag_secret(value: str) -> str:
     if len(text) <= 8:
         return "***"
     return f"{text[:6]}**{text[-4:]}"
+
+
+# Header names whose values must never be written to disk in debug logs.
+_SENSITIVE_LOG_HEADERS = {
+    "authorization", "x-admin-key", "x-api-key", "api-key",
+    "cookie", "proxy-authorization", "anthropic-api-key", "set-cookie",
+}
+
+
+def _redact_headers_for_log(headers) -> dict:
+    """Return a copy of ``headers`` with sensitive header values masked.
+
+    NC2: debug request logs previously wrote the raw ``Authorization`` /
+    ``X-Admin-Key`` headers to disk, leaking all client API keys whenever
+    ``PROXY_DEBUG=true``. Only the value is masked; the header name is kept
+    so the log still shows which auth scheme was used.
+    """
+    out = {}
+    try:
+        items = dict(headers).items() if headers is not None else []
+    except Exception:
+        items = []
+    for k, v in items:
+        if str(k).lower() in _SENSITIVE_LOG_HEADERS:
+            out[k] = _mask_diag_secret(str(v))
+        else:
+            out[k] = v
+    return out
+
+
+def _client_socket_timeout_s() -> float:
+    """Per-connection socket receive timeout (NC1: Slowloris hardening).
+
+    Bounds how long a single recv on the client socket may block. A Slowloris
+    client that sends a large ``Content-Length`` then trickles the body can
+    otherwise pin a worker thread indefinitely. Default 60s; configurable via
+    ``server.client_socket_timeout_s``.
+    """
+    try:
+        cfg = _current_rt().config
+        return float((cfg.get("server") or {}).get("client_socket_timeout_s", 60))
+    except Exception:
+        return 60.0
 
 
 def _sanitize_diagnostic_text(value, limit: int = 500) -> str:
@@ -3611,6 +3688,17 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             self.request.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         except OSError:
             pass
+        # NC1: bound client-socket receive time to prevent Slowloris-style
+        # resource exhaustion. A client that opens a connection and trickles
+        # the request body (or headers) can otherwise pin a worker thread
+        # indefinitely. This timeout covers header/body reads and any blocked
+        # write to a stalled client; active streams are unaffected because the
+        # thread waits on the *upstream* socket (which has its own timeout)
+        # between SSE writes, not on the client socket.
+        try:
+            self.request.settimeout(_client_socket_timeout_s())
+        except OSError:
+            pass
 
     def _send_route_trace_headers(self, attempt, key_masked=None):
         """Inject routing trace headers so the dashboard Playground can display
@@ -3715,7 +3803,9 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         with open(os.path.join(LOG_DIR, f"debug_{ts}_{prefix}.txt"), "w", encoding="utf-8") as f:
             f.write(f"Path: {path}\n")
-            f.write(f"Headers: {dict(headers)}\n")
+            # NC2: never write raw auth headers to disk — mask sensitive
+            # values (Authorization, X-Admin-Key, Cookie, ...) before logging.
+            f.write(f"Headers: {_redact_headers_for_log(headers)}\n")
             if body:
                 f.write(f"Body:\n{body[:5000]}\n")
 
@@ -3806,7 +3896,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             remaining = max(connect_t, int(max_budget - elapsed))
             key_masked = ROUTER.masked_key(attempt.key)
             if log_each:
-                proxy_tag = f" proxy={attempt.proxy_url}" if attempt.proxy_url else " proxy=direct"
+                proxy_tag = f" proxy={mask_proxy_url(attempt.proxy_url)}" if attempt.proxy_url else " proxy=direct"
                 print(
                     f"[proxy] req={request_id} attempt={attempt.attempt_no} {_hprov(attempt.provider)} {_hkey(key_masked)}{proxy_tag} format={attempt.upstream_format} model={_hmodel(canonical_model)} {_harrow('->')} {_hmodel(attempt.provider_model)}",
                     flush=True,
@@ -4110,7 +4200,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             remaining = max(connect_t, int(max_budget - elapsed))
             key_masked = ROUTER.masked_key(attempt.key)
             if log_each:
-                proxy_tag = f" proxy={attempt.proxy_url}" if attempt.proxy_url else " proxy=direct"
+                proxy_tag = f" proxy={mask_proxy_url(attempt.proxy_url)}" if attempt.proxy_url else " proxy=direct"
                 print(
                     f"[proxy] req={request_id} attempt={attempt.attempt_no} {_hprov(attempt.provider)} {_hkey(key_masked)}{proxy_tag} format={attempt.upstream_format} model={_hmodel(canonical_model)} {_harrow('->')} {_hmodel(attempt.provider_model)}",
                     flush=True,
@@ -4448,7 +4538,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         UPSTREAM_CLIENT = rt.upstream_client
         OBSERVABILITY = rt.observability
         is_stream = req.get("stream", False)
-        original_model = req.get("model", "deepseek-v4-flash")
+        original_model = req.get("model", "")
         msgs_count = len(req.get("messages", []))
         tools_count = len(req.get("tools", []))
         log_each = bool((CONFIG.get("observability") or {}).get("log_provider_on_each_request", False))
@@ -4518,7 +4608,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                 has_attempt = True
                 key_masked = ROUTER.masked_key(attempt.key)
                 if log_each:
-                    proxy_tag = f" proxy={attempt.proxy_url}" if attempt.proxy_url else " proxy=direct"
+                    proxy_tag = f" proxy={mask_proxy_url(attempt.proxy_url)}" if attempt.proxy_url else " proxy=direct"
                     print(
                         f"[proxy] req={request_id} attempt={attempt.attempt_no} {_hprov(attempt.provider)} {_hkey(key_masked)}{proxy_tag} format={attempt.upstream_format} model={_hmodel(canonical_model)} {_harrow('->')} {_hmodel(attempt.provider_model)}",
                         flush=True,
@@ -4841,9 +4931,44 @@ class _ThreadPoolHTTPServer(ThreadingMixIn, HTTPServer):
             max_workers=max_workers,
             thread_name_prefix="proxy"
         )
+        # NH11: cap accepted-but-not-yet-handled connections so a flood of
+        # slow/streaming requests cannot grow the executor's internal work
+        # queue without bound (each queued item holds an open client socket +
+        # buffered body → FD/memory OOM). Beyond this cap new connections are
+        # rejected immediately rather than queued.
+        self._max_active = max(8, int(max_workers) * 4)
+        self._active = 0
+        self._active_lock = threading.Lock()
 
     def process_request(self, request, client_address):
-        self._executor.submit(self.process_request_thread, request, client_address)
+        # NH11: reject over-capacity connections up front.
+        with self._active_lock:
+            if self._active >= self._max_active:
+                # Server is saturated; drop the connection instead of queuing.
+                try:
+                    self.shutdown_request(request)
+                except Exception:
+                    pass
+                return
+            self._active += 1
+        # NH10: if submit() raises (e.g. executor shut down / BrokenExecutor),
+        # close the request socket instead of leaking it.
+        try:
+            self._executor.submit(self._process_request_thread_safe, request, client_address)
+        except Exception:
+            with self._active_lock:
+                self._active -= 1
+            try:
+                self.shutdown_request(request)
+            except Exception:
+                pass
+
+    def _process_request_thread_safe(self, request, client_address):
+        try:
+            self.process_request_thread(request, client_address)
+        finally:
+            with self._active_lock:
+                self._active -= 1
 
     def server_close(self):
         if self._executor is not None:

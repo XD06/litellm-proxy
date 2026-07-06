@@ -143,8 +143,15 @@ class AdminAuditStore:
                 lines = f.readlines()
             if len(lines) <= self.max_records:
                 return
-            with open(self.path, "w", encoding="utf-8") as f:
+            # Atomic prune: write to a temp file then os.replace() onto the
+            # real path. The previous open("w") truncated first and wrote
+            # second, so a crash between the two wiped the whole audit log.
+            # os.replace is atomic on POSIX and Windows for same-filesystem
+            # renames, so readers never see a partial/empty file.
+            tmp = self.path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
                 f.writelines(lines[-self.max_records :])
+            os.replace(tmp, self.path)
         except Exception:
             return
 

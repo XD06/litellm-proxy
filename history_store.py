@@ -36,6 +36,9 @@ class RequestHistoryStore:
         # Number of history records dropped because the write queue was full.
         # Incremented under self._lock so the value is safe to read for stats.
         self._dropped = 0
+        # NH3: count of DB write failures (disk full / corruption / etc.) so
+        # operators can detect that history recording has silently stopped.
+        self._write_failures = 0
         self._last_prune_time = 0.0
         # Connection pool to reuse SQLite connections
         self._connection_pool: queue.Queue = queue.Queue(maxsize=5)
@@ -164,8 +167,22 @@ class RequestHistoryStore:
                     with self._connection() as conn:
                         self._insert_request(conn, item)
                         self._prune_locked(conn)
-            except Exception:
-                pass
+            except Exception as e:
+                # NH3: previously ``except Exception: pass`` silently dropped
+                # every DB write failure (disk full, corruption, constraint
+                # violation). Count and log them so operators can notice that
+                # history recording has stopped instead of discovering it only
+                # when queries come back empty.
+                self._write_failures += 1
+                if self._write_failures <= 3 or self._write_failures % 100 == 0:
+                    try:
+                        print(
+                            f"[history] write failed ({self._write_failures} total): "
+                            f"{type(e).__name__}: {e}",
+                            flush=True,
+                        )
+                    except Exception:
+                        pass
             finally:
                 self._queue.task_done()
 
@@ -667,6 +684,15 @@ class RequestHistoryStore:
                 result["attempts_deleted"] = int(attempts or 0)
                 result["requests_deleted"] = int(requests or 0)
         except Exception as e:
+            # NH2: roll back any uncommitted transaction before returning the
+            # connection to the pool. A failed commit (disk full / IO error)
+            # otherwise leaves stale DELETEs on the connection that the next
+            # caller's commit() would silently apply — "connection poisoning".
+            try:
+                if conn is not None:
+                    conn.rollback()
+            except Exception:
+                pass
             result["error"] = str(e)
         finally:
             if conn is not None:
@@ -714,6 +740,15 @@ class RequestHistoryStore:
                 result["attempts_deleted"] = int(attempts or 0)
                 result["requests_deleted"] = int(requests or 0)
         except Exception as e:
+            # NH2: roll back any uncommitted transaction before returning the
+            # connection to the pool. A failed commit (disk full / IO error)
+            # otherwise leaves stale DELETEs on the connection that the next
+            # caller's commit() would silently apply — "connection poisoning".
+            try:
+                if conn is not None:
+                    conn.rollback()
+            except Exception:
+                pass
             result["error"] = str(e)
         finally:
             if conn is not None:
@@ -761,6 +796,15 @@ class RequestHistoryStore:
                 result["attempts_deleted"] = int(attempts or 0)
                 result["requests_deleted"] = int(requests or 0)
         except Exception as e:
+            # NH2: roll back any uncommitted transaction before returning the
+            # connection to the pool. A failed commit (disk full / IO error)
+            # otherwise leaves stale DELETEs on the connection that the next
+            # caller's commit() would silently apply — "connection poisoning".
+            try:
+                if conn is not None:
+                    conn.rollback()
+            except Exception:
+                pass
             result["error"] = str(e)
         finally:
             if conn is not None:
@@ -836,14 +880,23 @@ class RequestHistoryStore:
             value = str(value or "").strip()
             if not value:
                 continue
+            # NH4: escape LIKE wildcards in the user-supplied value so that
+            # e.g. model="100%" does not match every model, and provider=
+            # "model_1" does not match "modelA1". Backslash is the escape char.
+            escaped = self._escape_like(value)
             clauses.append(
-                f"EXISTS (SELECT 1 FROM attempts a WHERE a.request_id = r.request_id AND {column} LIKE ?)"
+                f"EXISTS (SELECT 1 FROM attempts a WHERE a.request_id = r.request_id AND {column} LIKE ? ESCAPE '\\')"
             )
-            params.append(f"%{value}%")
+            params.append(f"%{escaped}%")
 
         if not clauses:
             return "", []
         return "WHERE " + " AND ".join(clauses), params
+
+    @staticmethod
+    def _escape_like(value: str) -> str:
+        """Escape backslash, ``%`` and ``_`` for use in a LIKE pattern."""
+        return str(value or "").replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
     @staticmethod
     def _add_eq_filter(clauses: list, params: list, column: str, value: Any) -> None:
@@ -858,8 +911,10 @@ class RequestHistoryStore:
         value = str(value or "").strip()
         if not value:
             return
-        clauses.append(f"{column} LIKE ?")
-        params.append(f"%{value}%")
+        # NH4: escape LIKE wildcards (see _attempt_where for rationale).
+        escaped = RequestHistoryStore._escape_like(value)
+        clauses.append(f"{column} LIKE ? ESCAPE '\\'")
+        params.append(f"%{escaped}%")
 
     def _summarize_row(self, conn: sqlite3.Connection, row: sqlite3.Row) -> Dict[str, Any]:
         item = self._request_from_row(row)

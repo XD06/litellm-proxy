@@ -782,5 +782,106 @@ class MultimodalConversionTests(unittest.TestCase):
         self.assertEqual(payload["messages"][0]["content"], "hello")
 
 
+class RobustnessRegressionTests(unittest.TestCase):
+    """Regression tests for crash fixes C2/C3 in to_anthropic_message."""
+
+    def test_c2_null_tool_arguments_does_not_crash(self):
+        """C2: tool_calls[].function.arguments = null must not raise TypeError.
+
+        Previously json.loads(None) raised TypeError because only
+        JSONDecodeError was caught. The streaming path already caught both;
+        this keeps the non-streaming path consistent.
+        """
+        from protocol_adapters import to_anthropic_message
+
+        upstream = {
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": "ok",
+                        "tool_calls": [
+                            {
+                                "id": "call_1",
+                                "function": {"name": "lookup", "arguments": None},
+                            }
+                        ],
+                    },
+                    "finish_reason": "tool_calls",
+                }
+            ],
+            "usage": {"prompt_tokens": 5, "completion_tokens": 2, "total_tokens": 7},
+            "model": "m",
+        }
+        result = to_anthropic_message(upstream, original_model="m")
+        tool_use = next(b for b in result["content"] if b.get("type") == "tool_use")
+        self.assertEqual(tool_use["input"], {})
+
+    def test_c2_malformed_tool_arguments_does_not_crash(self):
+        """Malformed JSON arguments still fall back to empty dict."""
+        from protocol_adapters import to_anthropic_message
+
+        upstream = {
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "tool_calls": [
+                            {
+                                "id": "call_1",
+                                "function": {"name": "lookup", "arguments": "{not json"},
+                            }
+                        ],
+                    },
+                    "finish_reason": "tool_calls",
+                }
+            ],
+            "usage": {},
+            "model": "m",
+        }
+        result = to_anthropic_message(upstream, original_model="m")
+        tool_use = next(b for b in result["content"] if b.get("type") == "tool_use")
+        self.assertEqual(tool_use["input"], {})
+
+    def test_c3_empty_choices_does_not_crash(self):
+        """C3: upstream returning empty/missing choices must not raise.
+
+        Previously ``upstream_resp["choices"][0]`` raised KeyError/IndexError.
+        Now it degrades gracefully (empty content, null stop_reason) so the
+        upper layer can surface the upstream error instead of a proxy 500.
+        """
+        from protocol_adapters import to_anthropic_message
+
+        result = to_anthropic_message({"choices": [], "model": "m"}, original_model="m")
+        self.assertEqual(result["content"], [])
+        self.assertIsNone(result["stop_reason"])
+
+        result2 = to_anthropic_message({"model": "m"}, original_model="m")
+        self.assertEqual(result2["content"], [])
+
+    def test_nc4_missing_role_does_not_crash(self):
+        """NC4: an Anthropic message missing the ``role`` field must not raise
+        KeyError. The conversion previously did ``m["role"]`` (direct index);
+        every other conversion uses ``.get("role")``. A malformed message is
+        now skipped instead of producing a proxy 500."""
+        from protocol_adapters import to_openai_request
+
+        req = {
+            "model": "m",
+            "max_tokens": 10,
+            "messages": [
+                {"content": "no role here"},  # missing "role"
+                {"role": "user", "content": "hello"},
+            ],
+        }
+        # Must not raise.
+        payload = to_openai_request(req, resolve_model=same_model)
+        # The well-formed message survives; the malformed one is skipped.
+        roles = [m.get("role") for m in payload["messages"]]
+        self.assertIn("user", roles)
+        self.assertNotIn(None, [r for r in roles if r is not None])
+
+
 if __name__ == "__main__":
     unittest.main()

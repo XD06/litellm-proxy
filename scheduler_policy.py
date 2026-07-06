@@ -149,7 +149,12 @@ def failure_policy_for_error_type(
     if error_type == "rate_limited":
         used_retry_after = False
         if retry_cfg.get("respect_retry_after", True) and retry_after_s is not None:
-            cooldown_s = max(int(retry_after_s), 0)
+            # Clamp an upstream-supplied Retry-After to a sane upper bound.
+            # Without this a malicious or buggy upstream could send
+            # ``Retry-After: 999999999`` and disable a key for ~31 years.
+            # MAX_CONFIGURED_COOLDOWN_S (86400s = 24h) is the same cap applied
+            # to operator-configured cooldowns.
+            cooldown_s = max(0, min(int(retry_after_s), MAX_CONFIGURED_COOLDOWN_S))
             used_retry_after = True
         else:
             cooldown_s = _cooldown_s(config, "rate_limit", 30)

@@ -248,15 +248,17 @@ class OpenAIUpstreamClient:
                     pass
             return manager
 
-    def _timeout(self, *, is_stream: bool, remaining_timeout_s: Optional[int] = None) -> int:
+    def _timeout(self, *, is_stream: bool, remaining_timeout_s: Optional[int] = None) -> float:
+        # NM13: use float, not int(), so fractional timeouts like
+        # connect_timeout_s: 1.5 are honored instead of being truncated to 1s.
         routing = self.cfg.get("routing", {}) or {}
-        connect_t = int(routing.get("connect_timeout_s", 15))
-        read_t = int(routing.get("read_timeout_s", 120))
+        connect_t = float(routing.get("connect_timeout_s", 15))
+        read_t = float(routing.get("read_timeout_s", 120))
         if is_stream:
             return read_t
         base_t = connect_t + read_t
         if remaining_timeout_s is not None:
-            return min(base_t, max(connect_t, remaining_timeout_s))
+            return min(base_t, max(connect_t, float(remaining_timeout_s)))
         return base_t
 
     def request_json(
@@ -439,8 +441,14 @@ class OpenAIUpstreamClient:
                 raise URLError(str(e))
 
             if resp.status >= 400:
+                # NM14: cap the error body we buffer for the HTTPError so a
+                # malicious/pathological upstream can't OOM the worker by
+                # returning a multi-GB 4xx body. 64 KiB is plenty for any
+                # useful error context.
                 try:
-                    body_bytes = resp.read()
+                    body_bytes = resp.read(65536)
+                except Exception:
+                    body_bytes = b""
                 finally:
                     resp.close()
                 fp = io.BytesIO(body_bytes)

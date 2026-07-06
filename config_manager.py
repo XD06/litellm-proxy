@@ -532,10 +532,16 @@ class RuntimeConfigManager:
         overlay_models[field] = source
 
     def reload(self, base_config: Dict[str, Any]) -> Dict[str, Any]:
-        self.base_config = copy.deepcopy(base_config or {})
-        self.overlay = self._read_overlay()
-        self.config = self._normalized_merged()
-        return self.config
+        # Serialize against concurrent _locked_overlay / _commit_overlay
+        # mutations. Without this lock, a concurrent admin mutation could
+        # read a half-rebuilt config (base_config swapped but overlay/config
+        # still stale). RLock allows nested re-entry from already-held
+        # commit-lock contexts.
+        with self._commit_lock:
+            self.base_config = copy.deepcopy(base_config or {})
+            self.overlay = self._read_overlay()
+            self.config = self._normalized_merged()
+            return self.config
 
     def _overlay_provider_base(self, provider: str) -> Dict[str, Any]:
         return copy.deepcopy(((self.config.get("providers") or {}).get(provider) or {}))

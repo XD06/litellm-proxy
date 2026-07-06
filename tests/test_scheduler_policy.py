@@ -236,5 +236,35 @@ class SchedulerPolicyTests(unittest.TestCase):
         self.assertIn("cooldown_scope", first_rule["decision"])
 
 
+class RetryAfterClampTests(unittest.TestCase):
+    """NC3: an upstream-supplied Retry-After must be clamped to a sane max."""
+
+    def test_huge_retry_after_is_clamped_to_max_configured_cooldown(self):
+        decision = scheduler_policy.classify_http_error(
+            cfg(),
+            429,
+            error_body='{"error":{"message":"rate limited"}}',
+        )
+        # failure_policy_for_error_type is called with retry_after_s; use it
+        # directly to exercise the clamp path.
+        policy = scheduler_policy.failure_policy_for_error_type(
+            cfg(), "rate_limited", retry_after_s=999999999
+        )
+        self.assertLessEqual(policy["cooldown_s"], scheduler_policy.MAX_CONFIGURED_COOLDOWN_S)
+        self.assertTrue(policy.get("used_retry_after"))
+
+    def test_small_retry_after_is_respected(self):
+        policy = scheduler_policy.failure_policy_for_error_type(
+            cfg(), "rate_limited", retry_after_s=5
+        )
+        self.assertEqual(policy["cooldown_s"], 5)
+
+    def test_zero_retry_after_is_zero(self):
+        policy = scheduler_policy.failure_policy_for_error_type(
+            cfg(), "rate_limited", retry_after_s=0
+        )
+        self.assertEqual(policy["cooldown_s"], 0)
+
+
 if __name__ == "__main__":
     unittest.main()

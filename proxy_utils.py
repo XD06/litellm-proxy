@@ -97,6 +97,36 @@ def proxy_display(value: Any) -> str:
     return resolve_proxy_url(value) or ""
 
 
+def mask_proxy_url(url: Any) -> str:
+    """Return a proxy URL with any embedded credentials masked, for logging.
+
+    ``http://user:pass@127.0.0.1:7890`` → ``http://***@127.0.0.1:7890``
+    ``socks5://127.0.0.1:1080``           → ``socks5://127.0.0.1:1080`` (no creds)
+    Empty/None → "". Only the userinfo component is masked; host/port/scheme
+    are preserved so the log line still identifies which proxy was used.
+    """
+    from urllib.parse import urlparse, urlunparse
+
+    proxy = str(url or "").strip()
+    if not proxy:
+        return ""
+    try:
+        parsed = urlparse(proxy)
+    except Exception:
+        return proxy
+    if not parsed.scheme or not parsed.netloc:
+        # Bare ``host:port`` (no scheme) — no creds to mask.
+        return proxy
+    userinfo = ""
+    if parsed.username or parsed.password:
+        userinfo = "***@"
+    hostport = parsed.hostname or ""
+    if parsed.port:
+        hostport = f"{hostport}:{parsed.port}"
+    netloc = userinfo + hostport
+    return urlunparse((parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment))
+
+
 def key_value(entry: Any) -> str:
     """Return raw API key from old string entries or new object entries."""
     if isinstance(entry, dict):

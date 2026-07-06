@@ -51,6 +51,18 @@ def _json_env(name: str) -> Any:
         return None
 
 
+def _env_int(name: str, default: int) -> int:
+    """Parse a numeric env var, falling back to ``default`` with a warning."""
+    raw = os.environ.get(name)
+    if raw is None or str(raw).strip() == "":
+        return default
+    try:
+        return int(str(raw).strip())
+    except Exception:
+        print(f"[config] WARNING: {name}={raw!r} is not an integer; using default {default}.", flush=True)
+        return default
+
+
 def _ensure_path(value: Any, default: str) -> str:
     path = str(value or "").strip()
     if not path:
@@ -372,9 +384,11 @@ def _apply_env_overlays(cfg: Dict[str, Any]) -> Dict[str, Any]:
     if os.environ.get("PROXY_HOST"):
         overlay = _deep_merge(overlay, {"server": {"host": os.environ["PROXY_HOST"]}})
     if os.environ.get("PROXY_PORT"):
-        overlay = _deep_merge(overlay, {"server": {"port": int(os.environ["PROXY_PORT"])}})
+        # NM11: a non-numeric PROXY_PORT used to crash startup with a bare
+        # ValueError. Fall back to the default port and warn instead.
+        overlay = _deep_merge(overlay, {"server": {"port": _env_int("PROXY_PORT", 4894)}})
     if os.environ.get("PROXY_MAX_WORKERS"):
-        overlay = _deep_merge(overlay, {"server": {"max_workers": int(os.environ["PROXY_MAX_WORKERS"])}})
+        overlay = _deep_merge(overlay, {"server": {"max_workers": _env_int("PROXY_MAX_WORKERS", 20)}})
     if os.environ.get("PROXY_LOG_DIR"):
         overlay = _deep_merge(overlay, {"server": {"log_dir": os.environ["PROXY_LOG_DIR"]}})
     if os.environ.get("PROXY_DEBUG"):
@@ -641,9 +655,14 @@ def load_base_config(*, apply_env: bool = True) -> Dict[str, Any]:
                 if isinstance(file_cfg.get("providers"), dict):
                     cfg["providers"] = {}
                 cfg = _deep_merge(cfg, file_cfg)
-        except Exception:
-            # 配置文件解析失败时，回退到默认配置（保持可启动性）
-            pass
+        except Exception as e:
+            # 配置文件解析失败时，回退到默认配置（保持可启动性），但打印
+            # 警告让运维知道配置未加载——否则用户可能带着占位符 key 启动而不自知。
+            print(
+                f"[config] WARNING: failed to parse {config_path}: "
+                f"{type(e).__name__}: {e}; falling back to defaults.",
+                flush=True,
+            )
 
     # Zero-config: if no config file exists (or the config still has only
     # the placeholder default provider), scan environment variables for
@@ -678,7 +697,11 @@ def load_config() -> Dict[str, Any]:
                 runtime_cfg = json.load(f)
             if isinstance(runtime_cfg, dict):
                 cfg = _deep_merge(cfg, runtime_cfg)
-        except Exception:
-            pass
+        except Exception as e:
+            print(
+                f"[config] WARNING: failed to parse {runtime_config_path}: "
+                f"{type(e).__name__}: {e}; ignoring runtime overlay.",
+                flush=True,
+            )
 
     return apply_env_overlays(cfg)

@@ -38,7 +38,7 @@ def to_openai_request(req: Dict[str, Any], *, resolve_model: Callable[[str], str
             break
 
     for m in raw_messages:
-        role = m["role"]
+        role = m.get("role", "")
         content = m.get("content", "")
 
         if isinstance(content, list):
@@ -170,8 +170,8 @@ def to_openai_request(req: Dict[str, Any], *, resolve_model: Callable[[str], str
 
 def to_anthropic_message(upstream_resp: Dict[str, Any], original_model: Optional[str] = None) -> Dict[str, Any]:
     """Convert a full OpenAI Chat Completions response into an Anthropic message."""
-    choice = upstream_resp["choices"][0]
-    msg = choice["message"]
+    choice = (upstream_resp.get("choices") or [{}])[0]
+    msg = choice.get("message") or {}
     content = []
 
     reasoning = msg.get("reasoning_content", "")
@@ -190,8 +190,12 @@ def to_anthropic_message(upstream_resp: Dict[str, Any], original_model: Optional
     for tc in msg.get("tool_calls") or []:
         fn = tc.get("function", {})
         try:
-            args = json.loads(fn.get("arguments", "{}"))
-        except json.JSONDecodeError:
+            args = json.loads(fn.get("arguments") or "{}")
+        except (json.JSONDecodeError, TypeError):
+            # JSONDecodeError: malformed JSON string.
+            # TypeError: arguments present but null (json.loads(None)).
+            # The streaming path (_parse_tool_arguments) already catches both;
+            # keep this non-streaming path consistent.
             args = {}
         content.append(
             {

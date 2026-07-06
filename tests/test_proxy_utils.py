@@ -9,6 +9,7 @@ from proxy_utils import (
     normalize_proxy_config,
     resolve_proxy_url,
     is_socks_proxy,
+    mask_proxy_url,
 )
 
 
@@ -245,6 +246,40 @@ class TestUpstreamClientProxyNormalization(unittest.TestCase):
         a = client._pool_manager_for("127.0.0.1:8888")
         b = client._pool_manager_for("http://127.0.0.1:8888")
         self.assertIs(a, b)
+
+
+class TestMaskProxyUrl(unittest.TestCase):
+    """H16: proxy URLs with embedded credentials must be masked in logs."""
+
+    def test_http_credentials_masked(self):
+        self.assertEqual(
+            mask_proxy_url("http://user:pass@127.0.0.1:7890"),
+            "http://***@127.0.0.1:7890",
+        )
+
+    def test_socks5_credentials_masked(self):
+        self.assertEqual(
+            mask_proxy_url("socks5://user:pass@127.0.0.1:10808"),
+            "socks5://***@127.0.0.1:10808",
+        )
+
+    def test_no_credentials_unchanged(self):
+        self.assertEqual(mask_proxy_url("http://127.0.0.1:7890"), "http://127.0.0.1:7890")
+        self.assertEqual(mask_proxy_url("socks5://127.0.0.1:10808"), "socks5://127.0.0.1:10808")
+
+    def test_empty_and_none_return_empty(self):
+        self.assertEqual(mask_proxy_url(""), "")
+        self.assertEqual(mask_proxy_url(None), "")
+
+    def test_bare_host_port_returned_as_is(self):
+        # No scheme/netloc → no creds to mask, returned as-is.
+        self.assertEqual(mask_proxy_url("127.0.0.1:7890"), "127.0.0.1:7890")
+
+    def test_username_only_masked(self):
+        self.assertEqual(
+            mask_proxy_url("http://token@127.0.0.1:7890"),
+            "http://***@127.0.0.1:7890",
+        )
 
 
 if __name__ == "__main__":

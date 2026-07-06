@@ -251,6 +251,36 @@ class AnthropicProxyTests(unittest.TestCase):
         )
         self.assertEqual(fake_router.successes[0].upstream_format, "anthropic_messages")
 
+    def test_anthropic_missing_model_defaults_to_empty_not_hardcoded(self):
+        """N1: a missing ``model`` field must default to ``''`` (consistent with
+        the chat/responses branches), not the legacy hardcoded
+        ``deepseek-v4-flash``. The old default silently routed to a specific
+        DeepSeek model when a client forgot to send ``model``."""
+        upstream_response = {
+            "id": "msg_1",
+            "type": "message",
+            "role": "assistant",
+            "model": "provider-model",
+            "content": [{"type": "text", "text": "ok"}],
+            "stop_reason": "end_turn",
+            "usage": {"input_tokens": 1, "output_tokens": 1},
+        }
+        fake_router = FakeRouter([self.attempt("anthropic_messages")])
+        fake_client = FakeClient(upstream_response)
+
+        with patch.object(sse2json, "ROUTER", fake_router), patch.object(
+            sse2json, "UPSTREAM_CLIENT", fake_client
+        ), patch.object(sse2json, "DISABLE_MAP", True):
+            status, body = self.run_server_post(
+                "/anthropic/v1/messages",
+                {"max_tokens": 20, "messages": [{"role": "user", "content": "hi"}]},
+            )
+
+        self.assertEqual(status, 200)
+        # The canonical_model passed to the router must be empty, proving the
+        # default is no longer the hardcoded "deepseek-v4-flash".
+        self.assertEqual(fake_router.iter_calls[0]["canonical_model"], "")
+
     def test_anthropic_union_request_uses_saved_models_without_upstream_fetch(self):
         cfg = {
             "models": {

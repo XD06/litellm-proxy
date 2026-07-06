@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+import copy
 import hashlib
 import threading
 import time
@@ -447,8 +448,14 @@ class ProxyObservability:
         self._history.record_request(recent_item)
 
     def snapshot(self) -> Dict[str, Any]:
+        # NH1: deep-copy the counters under the lock. The previous shallow
+        # ``dict(self._counters)`` shared the nested by_provider / by_model /
+        # by_error_type dicts by reference, so a concurrent record_attempt()
+        # (which does ``by_provider.setdefault(...)`` under the lock) could
+        # mutate one of them while _with_derived_counters() iterated it
+        # outside the lock → "dictionary changed size during iteration".
         with self._lock:
-            counters = dict(self._counters)
+            counters = copy.deepcopy(self._counters)
             recent = list(self._recent)
             active = list(self._active.values())
             cached_failure = self._failure_summary_cache

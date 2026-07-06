@@ -143,6 +143,36 @@ class RequestHistoryStoreTests(unittest.TestCase):
         self.assertEqual(listed["total"], 1)
         self.assertEqual(listed["items"][0]["request_id"], "req-fail")
 
+    def test_nh4_like_wildcards_are_escaped(self):
+        """NH4: ``%`` and ``_`` in filter values must be literal, not wildcards.
+
+        Previously ``model="100%"`` matched every model (trailing ``%`` is a
+        SQL LIKE wildcard) and ``provider="model_1"`` matched ``modelA1``.
+        """
+        store = self.store()
+        r1 = sample_request("req-1", provider="alpha")
+        r1["model"] = "100%"
+        store.record_request(r1)
+        r2 = sample_request("req-2", provider="beta")
+        r2["model"] = "100X"
+        store.record_request(r2)
+        r3 = sample_request("req-3", provider="gamma")
+        r3["model"] = "model_1"
+        store.record_request(r3)
+        r4 = sample_request("req-4", provider="delta")
+        r4["model"] = "modelA1"
+        store.record_request(r4)
+
+        # "100%" must match only the literal "100%", not "100X".
+        listed = store.list_requests(filters={"model": "100%"})
+        self.assertEqual(listed["total"], 1)
+        self.assertEqual(listed["items"][0]["request_id"], "req-1")
+
+        # "model_1" must match only the literal "model_1", not "modelA1".
+        listed = store.list_requests(filters={"model": "model_1"})
+        self.assertEqual(listed["total"], 1)
+        self.assertEqual(listed["items"][0]["request_id"], "req-3")
+
     def test_get_request_returns_attempt_detail_with_masked_key(self):
         store = self.store()
         store.record_request(sample_request("req-detail"))
