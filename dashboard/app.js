@@ -1103,10 +1103,10 @@
 				en: "Priority",
 				zh: "优先级"
 			},
-			"pm.higher_first": {
-				en: "higher first",
-				zh: "越小越优先"
-			},
+		"pm.higher_first": {
+			en: "higher first",
+			zh: "越大越优先"
+		},
 			"pm.success": {
 				en: "Success",
 				zh: "成功率"
@@ -1704,8 +1704,8 @@
 				zh: "优先级"
 			},
 			"form.priority_tip": {
-				en: "Lower number = higher priority in failover order (e.g. -10 before 0 before 10).",
-				zh: "数字越小 = 故障转移顺序中优先级越高（如 -10 先于 0 先于 10）。"
+				en: "Higher number = higher priority in failover order (e.g. 100 before 90 before 0). New providers default to lowest priority.",
+				zh: "数字越大 = 故障转移顺序中优先级越高（如 100 先于 90 先于 0）。新供应商默认为最低优先级。"
 			},
 			"form.enabled": {
 				en: "Enabled",
@@ -3134,6 +3134,7 @@
         <div class="provider-preset-section">
           <span class="provider-preset-label">Quick fill:</span>
           <div class="provider-preset-chips">${PROVIDER_PRESETS.map((p) => `<button type="button" class="provider-preset-chip" data-preset='${JSON.stringify(p)}' title="Fill from ${escapeHtml(p.label)} preset">${escapeHtml(p.label)}</button>`).join("")}</div>
+          <button type="button" class="provider-preset-chip" id="addProviderPasteBtn" title="Read clipboard and auto-fill URL & key">📋 Paste & Auto-fill</button>
         </div>
         <label class="field form-field-inline">
           <span>Provider name</span>
@@ -3160,8 +3161,8 @@
             </select>
           </label>
           <label class="field form-field-inline">
-            <span>Priority</span>
-            <input class="control" name="priority" type="number" value="0" min="0" />
+            <span>Priority <small class="muted">(auto if 0)</small></span>
+            <input class="control" name="priority" type="number" value="0" />
           </label>
         </div>
         <details>
@@ -3191,50 +3192,132 @@
 				bodyHtml: addProviderModalBody()
 			});
 			const form = document.getElementById("addProviderModalForm");
-			if (form) form.addEventListener("submit", async (event) => {
-				event.preventDefault();
-				const data = new FormData(form);
-				const format = String(data.get("format") || "chat_completions");
-				const proxy = String(data.get("proxy") || "").trim();
-				const key = String(data.get("key") || "").trim();
-				const keyProxy = String(data.get("key_proxy") || "").trim();
-				const priority = Number(data.get("priority") || 0);
-				const payload = {
-					name: String(data.get("name") || "").trim(),
-					base_url: String(data.get("base_url") || "").trim(),
-					keys: [keyProxy ? {
-						key,
-						proxy: keyProxy
-					} : key],
-					priority
-				};
-				if (proxy) payload.proxy = proxy;
-				if (format !== "auto") payload.formats = {
-					chat_completions: {
-						enabled: format === "chat_completions",
-						path: "/v1/chat/completions"
-					},
-					responses: {
-						enabled: format === "responses",
-						path: "/v1/responses"
-					},
-					anthropic_messages: {
-						enabled: format === "anthropic_messages",
-						path: "/v1/messages"
+			if (form) {
+				function detectProviderFields(text) {
+					const result = {
+						base_url: null,
+						key: null
+					};
+					if (!text) return result;
+					const urlMatch = text.match(/https?:\/\/[^\s,;"'<>}\])]+/i);
+					if (urlMatch) result.base_url = urlMatch[0].replace(/\/+$/, "");
+					for (const pattern of [
+						/sk-[a-zA-Z0-9]{16,}/,
+						/key-[a-zA-Z0-9]{16,}/,
+						/pk-[a-zA-Z0-9]{16,}/,
+						/\b[a-zA-Z0-9_-]{32,}\b/
+					]) {
+						const matches = text.match(pattern);
+						if (matches && matches[0] && matches[0] !== urlMatch?.[0]) {
+							result.key = matches[0];
+							break;
+						}
 					}
-				};
-				try {
-					applyMutationResult(await apiPost("/-/admin/providers", payload));
-					closeFormModal();
-					setNotice(t("notice.provider_added", { name: payload.name }), "ok");
-					scheduleBackgroundRefresh({
-						quiet: true,
-						staticData: true
-					});
-				} catch (err) {
-					setNotice(t("notice.add_provider_failed", { error: err.message }));
+					return result;
 				}
-			});
+				function autoFillFromText(text) {
+					if (!text) return false;
+					const detected = detectProviderFields(text);
+					let filled = false;
+					if (detected.base_url) {
+						const urlField = form.querySelector("[name=\"base_url\"]");
+						if (urlField && !urlField.value.trim()) {
+							urlField.value = detected.base_url;
+							filled = true;
+						}
+					}
+					if (detected.key) {
+						const keyField = form.querySelector("[name=\"key\"]");
+						if (keyField && !keyField.value.trim()) {
+							keyField.value = detected.key;
+							filled = true;
+						}
+					}
+					return filled;
+				}
+				form.addEventListener("paste", (event) => {
+					const pastedText = event.clipboardData?.getData("text") || "";
+					if (!pastedText) return;
+					const detected = detectProviderFields(pastedText);
+					const targetName = event.target?.name || "";
+					if (!detected.base_url && !detected.key) return;
+					if (targetName === "base_url" && detected.key) {
+						const keyField = form.querySelector("[name=\"key\"]");
+						if (keyField && !keyField.value.trim()) {
+							keyField.value = detected.key;
+							setNotice("Auto-filled API key from pasted content", "ok");
+						}
+					}
+					if (targetName === "key" && detected.base_url) {
+						const urlField = form.querySelector("[name=\"base_url\"]");
+						if (urlField && !urlField.value.trim()) {
+							urlField.value = detected.base_url;
+							setNotice("Auto-filled Base URL from pasted content", "ok");
+						}
+					}
+					if (targetName === "name" || targetName === "" || targetName === "priority") {
+						event.preventDefault();
+						autoFillFromText(pastedText);
+						if (detected.base_url || detected.key) setNotice("Auto-filled from clipboard content", "ok");
+					}
+				});
+				const pasteBtn = document.getElementById("addProviderPasteBtn");
+				if (pasteBtn) pasteBtn.addEventListener("click", async () => {
+					try {
+						const text = await navigator.clipboard.readText();
+						if (text) {
+							const filled = autoFillFromText(text);
+							setNotice(filled ? "Auto-filled from clipboard" : "No URL or API key found in clipboard", filled ? "ok" : "");
+						} else setNotice("Clipboard is empty");
+					} catch (_e) {
+						setNotice("Clipboard access denied. Try pasting into a field instead.");
+					}
+				});
+				form.addEventListener("submit", async (event) => {
+					event.preventDefault();
+					const data = new FormData(form);
+					const format = String(data.get("format") || "chat_completions");
+					const proxy = String(data.get("proxy") || "").trim();
+					const key = String(data.get("key") || "").trim();
+					const keyProxy = String(data.get("key_proxy") || "").trim();
+					const priority = Number(data.get("priority") || 0);
+					const payload = {
+						name: String(data.get("name") || "").trim(),
+						base_url: String(data.get("base_url") || "").trim(),
+						keys: [keyProxy ? {
+							key,
+							proxy: keyProxy
+						} : key]
+					};
+					if (priority !== 0) payload.priority = priority;
+					if (proxy) payload.proxy = proxy;
+					if (format !== "auto") payload.formats = {
+						chat_completions: {
+							enabled: format === "chat_completions",
+							path: "/v1/chat/completions"
+						},
+						responses: {
+							enabled: format === "responses",
+							path: "/v1/responses"
+						},
+						anthropic_messages: {
+							enabled: format === "anthropic_messages",
+							path: "/v1/messages"
+						}
+					};
+					try {
+						applyMutationResult(await apiPost("/-/admin/providers", payload));
+						closeFormModal();
+						setNotice(t("notice.provider_added", { name: payload.name }), "ok");
+						scheduleBackgroundRefresh({
+							quiet: true,
+							staticData: true
+						});
+					} catch (err) {
+						setNotice(t("notice.add_provider_failed", { error: err.message }));
+					}
+				});
+			}
 			const cancel = document.getElementById("addProviderModalCancel");
 			if (cancel) cancel.addEventListener("click", closeFormModal);
 			document.querySelectorAll(".provider-preset-chip").forEach((chip) => {
@@ -8446,9 +8529,9 @@
 					keys: [keyProxy ? {
 						key,
 						proxy: keyProxy
-					} : key],
-					priority
+					} : key]
 				};
+				if (priority !== 0) payload.priority = priority;
 				if (proxy) payload.proxy = proxy;
 				if (format !== "auto") payload.formats = {
 					chat_completions: {

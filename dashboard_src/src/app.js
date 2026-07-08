@@ -771,6 +771,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         <div class="provider-preset-section">
           <span class="provider-preset-label">Quick fill:</span>
           <div class="provider-preset-chips">${presetsHtml}</div>
+          <button type="button" class="provider-preset-chip" id="addProviderPasteBtn" title="Read clipboard and auto-fill URL & key">📋 Paste & Auto-fill</button>
         </div>
         <label class="field form-field-inline">
           <span>Provider name</span>
@@ -797,8 +798,8 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
             </select>
           </label>
           <label class="field form-field-inline">
-            <span>Priority</span>
-            <input class="control" name="priority" type="number" value="0" min="0" />
+            <span>Priority <small class="muted">(auto if 0)</small></span>
+            <input class="control" name="priority" type="number" value="0" />
           </label>
         </div>
         <details>
@@ -830,6 +831,107 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     });
     const form = document.getElementById("addProviderModalForm");
     if (form) {
+      // --- Clipboard paste detection ---
+      // Detect URL and API key patterns from pasted text and auto-fill fields.
+      function detectProviderFields(text) {
+        const result = { base_url: null, key: null };
+        if (!text) return result;
+        // URL: https://... or http://...
+        const urlMatch = text.match(/https?:\/\/[^\s,;"'<>}\])]+/i);
+        if (urlMatch) result.base_url = urlMatch[0].replace(/\/+$/, "");
+        // API key patterns: sk-..., key-..., pk-..., or long alphanumeric tokens (20+ chars)
+        // Exclude URLs that were already matched
+        const keyPatterns = [
+          /sk-[a-zA-Z0-9]{16,}/,
+          /key-[a-zA-Z0-9]{16,}/,
+          /pk-[a-zA-Z0-9]{16,}/,
+          /\b[a-zA-Z0-9_-]{32,}\b/,
+        ];
+        for (const pattern of keyPatterns) {
+          const matches = text.match(pattern);
+          if (matches && matches[0] && matches[0] !== urlMatch?.[0]) {
+            result.key = matches[0];
+            break;
+          }
+        }
+        return result;
+      }
+
+      function autoFillFromText(text) {
+        if (!text) return false;
+        const detected = detectProviderFields(text);
+        let filled = false;
+        if (detected.base_url) {
+          const urlField = form.querySelector('[name="base_url"]');
+          if (urlField && !urlField.value.trim()) {
+            urlField.value = detected.base_url;
+            filled = true;
+          }
+        }
+        if (detected.key) {
+          const keyField = form.querySelector('[name="key"]');
+          if (keyField && !keyField.value.trim()) {
+            keyField.value = detected.key;
+            filled = true;
+          }
+        }
+        return filled;
+      }
+
+      // Listen for paste events on the entire form
+      form.addEventListener("paste", (event) => {
+        const pastedText = event.clipboardData?.getData("text") || "";
+        if (!pastedText) return;
+        const detected = detectProviderFields(pastedText);
+        // Only auto-fill if we detected something AND the paste target
+        // is one of the relevant fields (base_url or key)
+        const target = event.target;
+        const targetName = target?.name || "";
+        if (!detected.base_url && !detected.key) return;
+        // If pasting into base_url field and we also detected a key, fill key
+        if (targetName === "base_url" && detected.key) {
+          const keyField = form.querySelector('[name="key"]');
+          if (keyField && !keyField.value.trim()) {
+            keyField.value = detected.key;
+            setNotice("Auto-filled API key from pasted content", "ok");
+          }
+        }
+        // If pasting into key field and we also detected a URL, fill URL
+        if (targetName === "key" && detected.base_url) {
+          const urlField = form.querySelector('[name="base_url"]');
+          if (urlField && !urlField.value.trim()) {
+            urlField.value = detected.base_url;
+            setNotice("Auto-filled Base URL from pasted content", "ok");
+          }
+        }
+        // If pasting into name field or elsewhere, fill both
+        if (targetName === "name" || targetName === "" || targetName === "priority") {
+          event.preventDefault();
+          autoFillFromText(pastedText);
+          if (detected.base_url || detected.key) {
+            setNotice("Auto-filled from clipboard content", "ok");
+          }
+        }
+      });
+
+      // Add a "Paste & Auto-fill" button handler
+      const pasteBtn = document.getElementById("addProviderPasteBtn");
+      if (pasteBtn) {
+        pasteBtn.addEventListener("click", async () => {
+          try {
+            const text = await navigator.clipboard.readText();
+            if (text) {
+              const filled = autoFillFromText(text);
+              setNotice(filled ? "Auto-filled from clipboard" : "No URL or API key found in clipboard", filled ? "ok" : "");
+            } else {
+              setNotice("Clipboard is empty");
+            }
+          } catch (_e) {
+            setNotice("Clipboard access denied. Try pasting into a field instead.");
+          }
+        });
+      }
+
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         const data = new FormData(form);
@@ -842,8 +944,10 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           name: String(data.get("name") || "").trim(),
           base_url: String(data.get("base_url") || "").trim(),
           keys: [keyProxy ? { key, proxy: keyProxy } : key],
-          priority,
         };
+        // Only send priority if user explicitly set a non-zero value.
+        // When omitted, the backend auto-assigns lowest priority.
+        if (priority !== 0) payload.priority = priority;
         if (proxy) payload.proxy = proxy;
         if (format !== "auto") {
           payload.formats = {
@@ -6946,8 +7050,10 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         name: String(form.get("name") || "").trim(),
         base_url: String(form.get("base_url") || "").trim(),
         keys: [keyProxy ? { key, proxy: keyProxy } : key],
-        priority,
       };
+      // Only send priority if user explicitly set a non-zero value.
+      // When omitted, the backend auto-assigns lowest priority.
+      if (priority !== 0) payload.priority = priority;
       if (proxy) payload.proxy = proxy;
       if (format !== "auto") {
         payload.formats = {

@@ -8,6 +8,7 @@ __pycache__/
 .playwright-cli/
 .atomcode/
 .trae/
+.workbuddy/
 .uploads/
 tmp/
 dashboard_src/node_modules/

@@ -175,6 +175,12 @@ class UpstreamRouter:
         if prov_count == 0:
             return
 
+        # Ensure max_attempts is at least as large as the total number of
+        # provider+key candidates, so every provider gets a chance before
+        # giving up.  max_attempts is a safety cap for retries, not a limit
+        # that prevents trying all available providers.
+        max_attempts = max(max_attempts, prov_count)
+
         current_prov_idx = 0
         scan_no = 0
         max_scans = max_attempts * max(1, prov_count) * 2

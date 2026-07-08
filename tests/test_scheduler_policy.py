@@ -47,7 +47,7 @@ class SchedulerPolicyTests(unittest.TestCase):
         self.assertEqual(decision.cooldown_scope, "key")
         self.assertGreaterEqual(decision.cooldown_s, 1800)
 
-    def test_model_not_found_stops_attempts(self):
+    def test_model_not_found_does_not_stop_attempts(self):
         body = {"error": {"message": "model deepseek-v4-flash does not exist"}}
         decision = scheduler_policy.classify_http_error(
             cfg(),
@@ -58,7 +58,8 @@ class SchedulerPolicyTests(unittest.TestCase):
 
         self.assertEqual(decision.error_type, "client_error")
         self.assertFalse(decision.retryable)
-        self.assertTrue(decision.stop_attempts)
+        # Don't stop — another provider may support this model.
+        self.assertFalse(decision.stop_attempts)
         self.assertEqual(decision.reason, "model_not_found")
         self.assertEqual(decision.cooldown_scope, "key")
 
@@ -74,12 +75,13 @@ class SchedulerPolicyTests(unittest.TestCase):
         self.assertTrue(decision.retryable)
         self.assertFalse(decision.stop_attempts)
 
-    def test_422_stops_attempts(self):
+    def test_422_does_not_stop_attempts(self):
         decision = scheduler_policy.classify_http_error(cfg(), 422)
 
         self.assertEqual(decision.error_type, "client_error")
         self.assertFalse(decision.retryable)
-        self.assertTrue(decision.stop_attempts)
+        # Don't stop — another provider may accept the schema.
+        self.assertFalse(decision.stop_attempts)
 
     def test_reasoning_content_detection_is_chat_only(self):
         body = '{"error":{"message":"reasoning_content must be passed back"}}'

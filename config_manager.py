@@ -137,6 +137,22 @@ class RuntimeConfigManager:
         if name in (self.config.get("providers") or {}):
             raise ConfigValidationError(f"provider already exists: {name}")
         clean = self._validate_provider_config(provider_cfg, require_keys=True)
+        # If no explicit priority was set, auto-assign one that places the new
+        # provider below all existing providers (lowest priority) so it does
+        # not accidentally intercept traffic from configured providers.
+        if "priority" not in clean:
+            existing_priorities = []
+            for _name, _pcfg in (self.config.get("providers") or {}).items():
+                if _name == name:
+                    continue
+                try:
+                    existing_priorities.append(int((_pcfg or {}).get("priority", 0) or 0))
+                except (TypeError, ValueError):
+                    pass
+            if existing_priorities:
+                clean["priority"] = min(existing_priorities) - 1
+            else:
+                clean["priority"] = 0
         with self._locked_overlay() as overlay:
             providers = overlay.setdefault("providers", {})
             providers[name] = clean

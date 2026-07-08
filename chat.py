@@ -265,6 +265,8 @@ def _proxy_openai_chat_completions(self, req, request_id, start_ts):
             )
 
         dur_ms = int((time.time() - start_ts) * 1000)
-        err_msg = f"All upstream attempts failed (req={request_id}, {dur_ms}ms): " + "; ".join(attempt_errors[-10:])
-        OBSERVABILITY.record_request_end(request_id, status_code=502, error=err_msg)
+        detail_log = "; ".join(attempt_errors[-10:])
+        print(f"[proxy] ALL ATTEMPTS FAILED req={request_id} {dur_ms}ms: {detail_log}", flush=True)
+        err_msg = f"All upstream providers are currently unavailable (req={request_id}, {dur_ms}ms)"
+        OBSERVABILITY.record_request_end(request_id, status_code=502, error=detail_log)
         return self._resp_json({"error": {"message": err_msg, "request_id": request_id}}, 502)

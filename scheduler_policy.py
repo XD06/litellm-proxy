@@ -319,15 +319,20 @@ def classify_http_error(
         if is_thinking_content_required_error(error_body):
             return _decision(config, "provider_compat", True, "thinking_content_required")
         if is_model_not_found_error(error_body, model_name):
-            return _decision(config, "client_error", False, "model_not_found", stop_attempts=True)
+            # Don't stop the entire attempt loop — different providers may
+            # support different models.  retryable=False means this provider
+            # won't be retried, but the next provider should still be tried.
+            return _decision(config, "client_error", False, "model_not_found", stop_attempts=False)
         return _decision(config, "server_error", True, "provider_mismatch")
     if status == 422:
-        return _decision(config, "client_error", False, "schema_or_client_error", stop_attempts=True)
+        # Don't stop — another provider may accept the schema.
+        return _decision(config, "client_error", False, "schema_or_client_error", stop_attempts=False)
     if 500 <= status <= 599:
         return _decision(config, "server_error", True, "server_error")
     if status in retryable_cfg:
         return _decision(config, "unknown", True, "configured_retryable_status")
-    return _decision(config, "unknown", False, "not_retryable_status", stop_attempts=True)
+    # Don't stop — another provider may handle this status differently.
+    return _decision(config, "unknown", False, "not_retryable_status", stop_attempts=False)
 
 
 def classify_transport_error(error_name: str, config: Optional[Dict[str, Any]] = None) -> RetryDecision:
@@ -412,9 +417,9 @@ def _policy_rules(config: Dict[str, Any]) -> list:
         },
         {
             "match": "HTTP 400/404 model not found",
-            "decision": _decision(config, "client_error", False, "model_not_found", stop_attempts=True).as_dict(),
-            "retry_next_attempt": False,
-            "notes": "Stops attempts because the requested model is considered invalid for this route.",
+            "decision": _decision(config, "client_error", False, "model_not_found", stop_attempts=False).as_dict(),
+            "retry_next_attempt": True,
+            "notes": "Does not stop attempts — different providers may support different models.",
         },
         {
             "match": "HTTP 400/404 tool_choice unsupported",
@@ -436,9 +441,9 @@ def _policy_rules(config: Dict[str, Any]) -> list:
         },
         {
             "match": "HTTP 422",
-            "decision": _decision(config, "client_error", False, "schema_or_client_error", stop_attempts=True).as_dict(),
-            "retry_next_attempt": False,
-            "notes": "Schema/client parameter errors are not hidden by rotation.",
+            "decision": _decision(config, "client_error", False, "schema_or_client_error", stop_attempts=False).as_dict(),
+            "retry_next_attempt": True,
+            "notes": "Does not stop — another provider may accept the schema.",
         },
         {
             "match": "HTTP 5xx",

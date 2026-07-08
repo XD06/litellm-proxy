@@ -1,6 +1,6 @@
 # Release Checkpoint
 
-Date: 2026-07-03 (updated from 2026-06-25)
+Date: 2026-07-08 (updated from 2026-07-03)
 
 ## Current Status
 
@@ -15,6 +15,17 @@ This checkpoint is a stable Python baseline for the proxy.
 - Routing, retry, cooldown, provider/key rotation, request history, metrics, token accounting, and Admin API are in place.
 - The dashboard can inspect requests, providers, routing policy, metrics, runtime config overlay, model routes, and audit records.
 - The dashboard login gate validates the admin key before rendering the console, so wrong keys do not briefly expose the app and refreshes with a valid saved key show a neutral checking state instead of the login form.
+
+### Changes since 2026-07-03
+
+**6 bug fixes** (see `docs/fix-plan-2026-07-08.md`):
+
+1. **(P0)** Routing stopped before all providers were tried — `stop_attempts=True` for non-fatal errors (`model_not_found`, `schema_or_client_error`, `not_retryable_status`) caused the attempt loop to break instead of trying the next provider. Also ensured `max_attempts >= prov_count` so every provider+key candidate gets a chance.
+2. **(P1)** New provider without explicit priority could intercept traffic — `add_provider` now auto-assigns lowest priority when none is specified.
+3. **(P1)** Client error message exposed internal provider details — simplified to "All upstream providers are currently unavailable" while detailed errors go to server logs only.
+4. **(P2)** Frontend `form.priority_tip` i18n said wrong priority direction — corrected to "higher number = higher priority".
+5. **(P2)** Frontend `pm.higher_first` Chinese translation was inverted — corrected from "越小越优先" to "越大越优先".
+6. **(P2)** Add Provider form lacked clipboard auto-fill — added "Paste & Auto-fill" button, paste detection, and provider preset chips.
 
 ### Changes since 2026-06-25
 
@@ -109,7 +120,7 @@ python -m unittest discover -s tests
 python -m py_compile stream_adapters.py sse2json.py protocol_adapters.py format_adapters.py request_routes.py tools\real_stream_tool_smoke.py
 ```
 
-Latest local result (2026-07-03): **459 passed in 36.95s** (`python -m pytest tests/ -x -q`).
+Latest local result (2026-07-08): **590 passed in 48.75s** (`python -m pytest tests/ -x -q`).
 
 Real upstream smoke results were documented in `docs/development-roadmap.md`. The temporary JSON reports were removed during project cleanup so `tmp/` only carries runtime state.
 
