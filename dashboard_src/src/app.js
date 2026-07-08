@@ -832,46 +832,116 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const form = document.getElementById("addProviderModalForm");
     if (form) {
       // --- Clipboard paste detection ---
-      // Detect URL and API key patterns from pasted text and auto-fill fields.
+      // Detect URL and API key from pasted text, including JSON config snippets.
       function detectProviderFields(text) {
-        const result = { base_url: null, key: null };
+        const result = { base_url: null, key: null, name: null };
         if (!text) return result;
-        // URL: https://... or http://...
-        const urlMatch = text.match(/https?:\/\/[^\s,;"'<>}\])]+/i);
-        if (urlMatch) result.base_url = urlMatch[0].replace(/\/+$/, "");
-        // API key patterns: sk-..., key-..., pk-..., or long alphanumeric tokens (20+ chars)
-        // Exclude URLs that were already matched
-        const keyPatterns = [
-          /sk-[a-zA-Z0-9]{16,}/,
-          /key-[a-zA-Z0-9]{16,}/,
-          /pk-[a-zA-Z0-9]{16,}/,
-          /\b[a-zA-Z0-9_-]{32,}\b/,
-        ];
-        for (const pattern of keyPatterns) {
-          const matches = text.match(pattern);
-          if (matches && matches[0] && matches[0] !== urlMatch?.[0]) {
-            result.key = matches[0];
-            break;
+
+        // 1. JSON field extraction — handles partial JSON config snippets like:
+        //    "base_url": "https://...",  "keys": ["sk-..."]
+        const baseUrlJson = text.match(/"base_url"\s*:\s*"([^"]+)"/i);
+        if (baseUrlJson) result.base_url = baseUrlJson[1].replace(/\/+$/, "");
+
+        // "keys": ["...", ...]  or  "keys": "..."
+        const keysJson = text.match(/"keys"\s*:\s*\[?\s*"([^"]+)"/i);
+        if (keysJson) result.key = keysJson[1];
+
+        // "key": "..."
+        if (!result.key) {
+          const keyJson = text.match(/"key"\s*:\s*"([^"]+)"/i);
+          if (keyJson) result.key = keyJson[1];
+        }
+
+        // "name": "..."
+        const nameJson = text.match(/"name"\s*:\s*"([^"]+)"/i);
+        if (nameJson) result.name = nameJson[1];
+
+        // 2. Try full JSON parsing for nested provider configs
+        //    {"providers": {"myprov": {"base_url": ..., "keys": [...]}}}
+        if (!result.base_url && !result.key) {
+          try {
+            let jsonStr = text.trim();
+            if (!jsonStr.startsWith("{") && /"\w+"\s*:/.test(jsonStr)) {
+              jsonStr = "{" + jsonStr + "}";
+            }
+            jsonStr = jsonStr.replace(/,\s*([}\]])/g, "$1");
+            const parsed = JSON.parse(jsonStr);
+            if (parsed && typeof parsed === "object" && parsed.providers) {
+              for (const [pname, cfg] of Object.entries(parsed.providers)) {
+                if (cfg && cfg.base_url) {
+                  result.base_url = String(cfg.base_url).replace(/\/+$/, "");
+                  if (!result.name) result.name = pname;
+                }
+                if (cfg && Array.isArray(cfg.keys) && cfg.keys.length > 0) {
+                  const k = cfg.keys[0];
+                  result.key = typeof k === "object" ? (k.key || "") : String(k);
+                }
+                break;
+              }
+            }
+          } catch (_e) { /* not valid JSON, fall through */ }
+        }
+
+        // 3. Regex fallback for plain text (non-JSON)
+        // URL: https://... or http://...  (stop at quotes, whitespace, brackets)
+        if (!result.base_url) {
+          const urlMatch = text.match(/https?:\/\/[^\s"'<>},\])]+/i);
+          if (urlMatch) result.base_url = urlMatch[0].replace(/\/+$/, "");
+        }
+
+        if (!result.key) {
+          // a) Quoted string with known key prefix (handles base64 chars: +, /, =)
+          const quotedKey = text.match(/"((?:sk-|key-|pk-|rqsty-|rk-|cos-|tencent-|AKID)[^"]{16,})"/i);
+          if (quotedKey && quotedKey[1] !== result.base_url) {
+            result.key = quotedKey[1];
+          }
+          // b) Any long quoted string that is not a URL (32+ chars, base64-safe charset)
+          if (!result.key) {
+            const quotedAny = text.match(/"([a-zA-Z0-9+\/_=+-]{32,})"/);
+            if (quotedAny && quotedAny[1] !== result.base_url) {
+              result.key = quotedAny[1];
+            }
+          }
+          // c) Unquoted token with known prefix (base64-safe charset)
+          if (!result.key) {
+            const prefixes = ["sk-", "key-", "pk-", "rqsty-", "rk-", "cos-", "tencent-", "AKID"];
+            for (const prefix of prefixes) {
+              const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+              const re = new RegExp("(" + escaped + "[a-zA-Z0-9+\/_=+-]{16,})");
+              const m = text.match(re);
+              if (m && m[1] && m[1] !== result.base_url) {
+                result.key = m[1];
+                break;
+              }
+            }
           }
         }
+
         return result;
       }
 
-      function autoFillFromText(text) {
+      function autoFillFromText(text, overwrite) {
         if (!text) return false;
         const detected = detectProviderFields(text);
         let filled = false;
         if (detected.base_url) {
           const urlField = form.querySelector('[name="base_url"]');
-          if (urlField && !urlField.value.trim()) {
+          if (urlField && (overwrite || !urlField.value.trim())) {
             urlField.value = detected.base_url;
             filled = true;
           }
         }
         if (detected.key) {
           const keyField = form.querySelector('[name="key"]');
-          if (keyField && !keyField.value.trim()) {
+          if (keyField && (overwrite || !keyField.value.trim())) {
             keyField.value = detected.key;
+            filled = true;
+          }
+        }
+        if (detected.name) {
+          const nameField = form.querySelector('[name="name"]');
+          if (nameField && (overwrite || !nameField.value.trim())) {
+            nameField.value = detected.name;
             filled = true;
           }
         }
@@ -921,7 +991,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           try {
             const text = await navigator.clipboard.readText();
             if (text) {
-              const filled = autoFillFromText(text);
+              const filled = autoFillFromText(text, true);
               setNotice(filled ? "Auto-filled from clipboard" : "No URL or API key found in clipboard", filled ? "ok" : "");
             } else {
               setNotice("Clipboard is empty");

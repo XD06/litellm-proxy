@@ -3194,42 +3194,88 @@
 			const form = document.getElementById("addProviderModalForm");
 			if (form) {
 				function detectProviderFields(text) {
-					const result = {
-						base_url: null,
-						key: null
-					};
+					const result = { base_url: null, key: null, name: null };
 					if (!text) return result;
-					const urlMatch = text.match(/https?:\/\/[^\s,;"'<>}\])]+/i);
-					if (urlMatch) result.base_url = urlMatch[0].replace(/\/+$/, "");
-					for (const pattern of [
-						/sk-[a-zA-Z0-9]{16,}/,
-						/key-[a-zA-Z0-9]{16,}/,
-						/pk-[a-zA-Z0-9]{16,}/,
-						/\b[a-zA-Z0-9_-]{32,}\b/
-					]) {
-						const matches = text.match(pattern);
-						if (matches && matches[0] && matches[0] !== urlMatch?.[0]) {
-							result.key = matches[0];
-							break;
+					const baseUrlJson = text.match(/"base_url"\s*:\s*"([^"]+)"/i);
+					if (baseUrlJson) result.base_url = baseUrlJson[1].replace(/\/+$/, "");
+					const keysJson = text.match(/"keys"\s*:\s*\[?\s*"([^"]+)"/i);
+					if (keysJson) result.key = keysJson[1];
+					if (!result.key) {
+						const keyJson = text.match(/"key"\s*:\s*"([^"]+)"/i);
+						if (keyJson) result.key = keyJson[1];
+					}
+					const nameJson = text.match(/"name"\s*:\s*"([^"]+)"/i);
+					if (nameJson) result.name = nameJson[1];
+					if (!result.base_url && !result.key) {
+						try {
+							let jsonStr = text.trim();
+							if (!jsonStr.startsWith("{") && /"\w+"\s*:/.test(jsonStr)) jsonStr = "{" + jsonStr + "}";
+							jsonStr = jsonStr.replace(/,\s*([}\]])/g, "$1");
+							const parsed = JSON.parse(jsonStr);
+							if (parsed && typeof parsed === "object" && parsed.providers) {
+								for (const [pname, cfg] of Object.entries(parsed.providers)) {
+									if (cfg && cfg.base_url) {
+										result.base_url = String(cfg.base_url).replace(/\/+$/, "");
+										if (!result.name) result.name = pname;
+									}
+									if (cfg && Array.isArray(cfg.keys) && cfg.keys.length > 0) {
+										const k = cfg.keys[0];
+										result.key = typeof k === "object" ? (k.key || "") : String(k);
+									}
+									break;
+								}
+							}
+						} catch (_e) {}
+					}
+					if (!result.base_url) {
+						const urlMatch = text.match(/https?:\/\/[^\s"'<>},\])]+/i);
+						if (urlMatch) result.base_url = urlMatch[0].replace(/\/+$/, "");
+					}
+					if (!result.key) {
+						const quotedKey = text.match(/"((?:sk-|key-|pk-|rqsty-|rk-|cos-|tencent-|AKID)[^"]{16,})"/i);
+						if (quotedKey && quotedKey[1] !== result.base_url) result.key = quotedKey[1];
+						if (!result.key) {
+							const quotedAny = text.match(/"([a-zA-Z0-9+\/_=+-]{32,})"/
+							);
+							if (quotedAny && quotedAny[1] !== result.base_url) result.key = quotedAny[1];
+						}
+						if (!result.key) {
+							const prefixes = ["sk-", "key-", "pk-", "rqsty-", "rk-", "cos-", "tencent-", "AKID"];
+							for (const prefix of prefixes) {
+								const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+								const re = new RegExp("(" + escaped + "[a-zA-Z0-9+\/_=+-]{16,})");
+								const m = text.match(re);
+								if (m && m[1] && m[1] !== result.base_url) {
+									result.key = m[1];
+									break;
+								}
+							}
 						}
 					}
 					return result;
 				}
-				function autoFillFromText(text) {
+				function autoFillFromText(text, overwrite) {
 					if (!text) return false;
 					const detected = detectProviderFields(text);
 					let filled = false;
 					if (detected.base_url) {
-						const urlField = form.querySelector("[name=\"base_url\"]");
-						if (urlField && !urlField.value.trim()) {
+						const urlField = form.querySelector('[name="base_url"]');
+						if (urlField && (overwrite || !urlField.value.trim())) {
 							urlField.value = detected.base_url;
 							filled = true;
 						}
 					}
 					if (detected.key) {
-						const keyField = form.querySelector("[name=\"key\"]");
-						if (keyField && !keyField.value.trim()) {
+						const keyField = form.querySelector('[name="key"]');
+						if (keyField && (overwrite || !keyField.value.trim())) {
 							keyField.value = detected.key;
+							filled = true;
+						}
+					}
+					if (detected.name) {
+						const nameField = form.querySelector('[name="name"]');
+						if (nameField && (overwrite || !nameField.value.trim())) {
+							nameField.value = detected.name;
 							filled = true;
 						}
 					}
@@ -3266,7 +3312,7 @@
 					try {
 						const text = await navigator.clipboard.readText();
 						if (text) {
-							const filled = autoFillFromText(text);
+							const filled = autoFillFromText(text, true);
 							setNotice(filled ? "Auto-filled from clipboard" : "No URL or API key found in clipboard", filled ? "ok" : "");
 						} else setNotice("Clipboard is empty");
 					} catch (_e) {
