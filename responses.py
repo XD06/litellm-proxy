@@ -22,7 +22,8 @@ def _proxy_openai_responses(self, req, request_id, start_ts, path="/openai/v1/re
         if resolved_model != original_model:
             print(f"[proxy] model alias: {original_model} -> {resolved_model}", flush=True)
 
-        allowed_formats = [RESPONSES, CHAT, ANTHROPIC]
+        native_only_parameters = native_only_request_parameters(req, client_format=RESPONSES)
+        allowed_formats = [RESPONSES] if native_only_parameters else [RESPONSES, CHAT, ANTHROPIC]
         attempt_errors = []
         log_each = bool((CONFIG.get("observability") or {}).get("log_provider_on_each_request", True))
         has_attempt = False
@@ -55,19 +56,25 @@ def _proxy_openai_responses(self, req, request_id, start_ts, path="/openai/v1/re
                 )
 
             attempt_started = time.time()
+            attempt_parameter_adaptations = []
             fmt = attempt.upstream_format
-            if fmt not in converted_payloads:
+            output_token_field = _provider_output_token_field(CONFIG, attempt)
+            anthropic_default_max_tokens = int((CONFIG.get("routing") or {}).get("anthropic_default_max_tokens", 4096))
+            payload_cache_key = (fmt, output_token_field, anthropic_default_max_tokens)
+            if payload_cache_key not in converted_payloads:
                 try:
-                    converted_payloads[fmt] = convert_request(
+                    converted_payloads[payload_cache_key] = convert_request(
                         RESPONSES,
                         fmt,
                         req,
                         resolve_model=resolve_model,
+                        output_token_field=output_token_field,
+                        anthropic_default_max_tokens=anthropic_default_max_tokens,
                     )
                 except ValueError as e:
                     _record_request_conversion_failure(request_id, attempt, RESPONSES, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
                     continue
-            payload = dict(converted_payloads[fmt])
+            payload = dict(converted_payloads[payload_cache_key])
             payload["model"] = attempt.provider_model
             payload["stream"] = is_stream if attempt.upstream_format in (RESPONSES, CHAT, ANTHROPIC) else False
             _force_chat_reasoning_content_if_needed(attempt, payload, log_each=log_each)

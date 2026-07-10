@@ -74,6 +74,21 @@ class HttpRouteDispatchTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(body, {"responses_proxied": True, "model": "m"})
 
+    def test_conflicting_output_token_aliases_return_400(self):
+        status, body = self.post_json(
+            "/v1/chat/completions",
+            {"model": "m", "messages": [], "max_tokens": 10, "max_completion_tokens": 20},
+        )
+        self.assertEqual(status, 400)
+        self.assertEqual(body["error"]["code"], "invalid_output_token_limit")
+
+    def test_invalid_output_token_alias_returns_400(self):
+        status, body = self.post_json(
+            "/v1/responses",
+            {"model": "m", "input": "hello", "max_token": 0},
+        )
+        self.assertEqual(status, 400)
+        self.assertEqual(body["error"]["code"], "invalid_output_token_limit")
     def test_openai_chat_completions_is_not_a_supported_route(self):
         status, body = self.post_json("/openai/v1/chat/completions", {"model": "m", "messages": []})
 

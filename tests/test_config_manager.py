@@ -704,5 +704,14 @@ class ConfigManagerTests(unittest.TestCase):
             os.environ[name] = value
 
 
+    def test_update_format_validates_output_token_field(self):
+        _config_path, overlay_path = self.temp_paths()
+        mgr = config_manager.RuntimeConfigManager(base_config(), overlay_path=overlay_path)
+        cfg = mgr.update_format("alpha", "chat_completions", {"parameters": {"output_token_field": "max_completion_tokens"}})
+        self.assertEqual(cfg["providers"]["alpha"]["formats"]["chat_completions"]["parameters"]["output_token_field"], "max_completion_tokens")
+        with self.assertRaises(config_manager.ConfigValidationError):
+            mgr.update_format("alpha", "responses", {"parameters": {"output_token_field": "max_tokens"}})
+
+
 if __name__ == "__main__":
     unittest.main()

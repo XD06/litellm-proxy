@@ -3,7 +3,7 @@ import os
 import tempfile
 import unittest
 
-from config_loader import load_config
+from config_loader import _normalize_config, load_config
 
 
 class ConfigLoaderTests(unittest.TestCase):
@@ -281,6 +281,31 @@ class ConfigLoaderTests(unittest.TestCase):
         self.assertEqual(cfg["retry"]["failure_policies"]["server_error"]["cooldown_scope"], "provider")
         self.assertEqual(cfg["retry"]["failure_policies"]["server_error"]["provider_cooldown_s"], 20)
         self.assertEqual(cfg["retry"]["failure_policies"]["network_error"]["cooldown_scope"], "key")
+
+
+    def test_format_output_token_field_survives_normalization(self):
+        cfg = _normalize_config({
+            "providers": {
+                "p": {
+                    "base_url": "https://example.test",
+                    "keys": ["k"],
+                    "formats": {
+                        "chat_completions": {
+                            "enabled": True,
+                            "path": "/v1/chat/completions",
+                            "parameters": {"output_token_field": "max_completion_tokens"},
+                        }
+                    },
+                }
+            }
+        })
+        entry = cfg["providers"]["p"]["formats"]["chat_completions"]
+        self.assertEqual(entry["parameters"]["output_token_field"], "max_completion_tokens")
+
+
+    def test_invalid_format_output_token_field_is_rejected(self):
+        with self.assertRaises(ValueError):
+            _normalize_config({"providers": {"p": {"base_url": "https://example.test", "keys": ["k"], "formats": {"responses": {"enabled": True, "parameters": {"output_token_field": "max_tokens"}}}}}})
 
 
 if __name__ == "__main__":

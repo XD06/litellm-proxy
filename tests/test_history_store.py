@@ -427,5 +427,19 @@ class RequestHistoryStoreTests(unittest.TestCase):
         self.assertEqual(store.dropped_count(), 0)
 
 
+    def test_attempt_parameter_adaptations_are_persisted(self):
+        store = self.store()
+        item = sample_request("req-adapt")
+        item["attempts"][0]["parameter_adaptations"] = [
+            {"source": "max_token", "target": "max_tokens", "value": 64}
+        ]
+        store.record_request(item)
+        detail = store.get_request("req-adapt")
+        self.assertEqual(
+            detail["attempts"][0]["parameter_adaptations"],
+            [{"source": "max_token", "target": "max_tokens", "value": 64}],
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

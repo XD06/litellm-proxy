@@ -279,6 +279,7 @@ class ProxyObservability:
         upstream_error_type: str = "",
         upstream_error_code: str = "",
         upstream_error_param: str = "",
+        parameter_adaptations: Optional[list] = None,
     ) -> None:
         provider = str(getattr(attempt, "provider", "") or "unknown")
         upstream_format = str(getattr(attempt, "upstream_format", "") or "unknown")
@@ -315,6 +316,8 @@ class ProxyObservability:
             text = str(value or "").strip()
             if text:
                 item[key] = text[:500]
+        if parameter_adaptations:
+            item["parameter_adaptations"] = copy.deepcopy(parameter_adaptations)
         usage_totals = normalize_usage(usage)
         cost_usd = estimate_cost_usd(self.cfg, provider, provider_model, usage_totals)
         if has_usage(usage_totals):

@@ -24,6 +24,14 @@ from config_manager import ConfigValidationError, RuntimeConfigManager
 from config_loader import apply_env_overlays, load_base_config, load_config, ZERO_CONFIG_ACTIVE
 from format_adapters import ANTHROPIC, CHAT, RESPONSES, convert_request, convert_response
 from observability import ProxyObservability
+from parameter_compatibility import (
+    ParameterCompatibilityError,
+    alternate_output_token_payload,
+    extract_output_token_limit,
+    extract_stop_sequences,
+    native_only_request_parameters,
+    parameter_adaptations,
+)
 from proxy_utils import key_value, mask_proxy_url
 from request_routes import classify_get, classify_post
 from router import UpstreamRouter, parse_retry_after_seconds
@@ -2518,6 +2526,14 @@ def _config_choice(config: dict, section: str, key: str, default: str, allowed: 
     return value if value in allowed else default
 
 
+
+def _provider_output_token_field(config: dict, attempt) -> str:
+    """Return a provider/format-specific output-token field override."""
+    provider_cfg = ((config or {}).get("providers") or {}).get(getattr(attempt, "provider", "")) or {}
+    format_cfg = ((provider_cfg.get("formats") or {}).get(getattr(attempt, "upstream_format", "")) or {})
+    parameters = format_cfg.get("parameters") or {}
+    return str(parameters.get("output_token_field") or "auto")
+
 def _native_nonstream_mode(config: dict = None) -> str:
     return _config_choice(config or CONFIG, "routing", "native_nonstream_mode", "validated", {"safe", "validated"})
 
@@ -3264,6 +3280,31 @@ def _request_json_with_compat_retry(request_id, attempt, payload, *, proxy_url=N
         return data
     except HTTPError as e:
         status, error_body, headers = _http_error_details(e)
+        token_retry_payload = alternate_output_token_payload(
+            attempt_payload,
+            upstream_format=attempt.upstream_format,
+            status=status,
+            error_body=error_body,
+        )
+        if token_retry_payload is not None:
+            _record_failed_attempt(
+                request_id,
+                attempt,
+                error_type="provider_compat",
+                http_status=int(status),
+                reason="output_token_field_retry",
+                diagnostics=_upstream_error_diagnostics("provider_compat_retry", error_body),
+            )
+            data, first_byte_ms = _request_json_once_with_timing(
+                attempt,
+                token_retry_payload,
+                proxy_url=proxy_url,
+                remaining_timeout_s=remaining_timeout_s,
+            )
+            payload.clear()
+            payload.update(token_retry_payload)
+            _current_rt().observability.record_first_byte(request_id, first_byte_ms)
+            return data
         if (
             int(status) in (400, 404)
             and _has_forced_tool_choice(payload)
@@ -3342,6 +3383,31 @@ def _request_raw_with_compat_retry(request_id, attempt, payload, *, proxy_url=No
         return raw
     except HTTPError as e:
         status, error_body, headers = _http_error_details(e)
+        token_retry_payload = alternate_output_token_payload(
+            attempt_payload,
+            upstream_format=attempt.upstream_format,
+            status=status,
+            error_body=error_body,
+        )
+        if token_retry_payload is not None:
+            _record_failed_attempt(
+                request_id,
+                attempt,
+                error_type="provider_compat",
+                http_status=int(status),
+                reason="output_token_field_retry",
+                diagnostics=_upstream_error_diagnostics("provider_compat_retry", error_body),
+            )
+            raw, first_byte_ms = _request_raw_once_with_timing(
+                attempt,
+                token_retry_payload,
+                proxy_url=proxy_url,
+                remaining_timeout_s=remaining_timeout_s,
+            )
+            payload.clear()
+            payload.update(token_retry_payload)
+            _current_rt().observability.record_first_byte(request_id, first_byte_ms)
+            return raw
         if (
             int(status) in (400, 404)
             and _has_forced_tool_choice(payload)
@@ -3568,6 +3634,32 @@ def _open_stream_with_compat_retry(
         )
     except HTTPError as e:
         status, error_body, headers = _http_error_details(e)
+        token_retry_payload = alternate_output_token_payload(
+            attempt_payload,
+            upstream_format=attempt.upstream_format,
+            status=status,
+            error_body=error_body,
+        )
+        if token_retry_payload is not None:
+            _record_failed_attempt(
+                request_id,
+                attempt,
+                error_type="provider_compat",
+                http_status=int(status),
+                reason="output_token_field_retry",
+                diagnostics=_upstream_error_diagnostics("provider_compat_retry", error_body),
+            )
+            stream = _current_rt().upstream_client.open_stream(
+                attempt.url,
+                attempt.headers,
+                token_retry_payload,
+                proxy_url=proxy_url,
+                remaining_timeout_s=remaining_timeout_s,
+                first_byte_timeout_s=first_event_remaining(),
+            )
+            payload.clear()
+            payload.update(token_retry_payload)
+            return stream
         if (
             int(status) in (400, 404)
             and _has_forced_tool_choice(payload)
@@ -3880,7 +3972,8 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         first_byte_t = int(routing_cfg.get("first_token_timeout_s", 30))  # Total budget before first stream event.
         max_attempts = int(routing_cfg.get("max_attempts", 6))
         max_budget = (connect_t + read_t) * min(3, max(1, max_attempts))
-        allowed_formats = ["chat_completions", "responses", "anthropic_messages"]
+        native_only_parameters = native_only_request_parameters(req, client_format=CHAT)
+        allowed_formats = [CHAT] if native_only_parameters else ["chat_completions", "responses", "anthropic_messages"]
         converted_payloads = {}
 
         for attempt in ROUTER.iter_attempts(
@@ -3903,23 +3996,31 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                 )
 
             attempt_started = time.time()
+            attempt_parameter_adaptations = []
             fmt = attempt.upstream_format
-            if fmt not in converted_payloads:
+            output_token_field = _provider_output_token_field(CONFIG, attempt)
+            anthropic_default_max_tokens = int((CONFIG.get("routing") or {}).get("anthropic_default_max_tokens", 4096))
+            payload_cache_key = (fmt, output_token_field, anthropic_default_max_tokens)
+            if payload_cache_key not in converted_payloads:
                 try:
-                    converted_payloads[fmt] = convert_request(
+                    converted_payloads[payload_cache_key] = convert_request(
                         CHAT,
                         fmt,
                         req,
                         resolve_model=resolve_model,
+                        output_token_field=output_token_field,
+                        anthropic_default_max_tokens=anthropic_default_max_tokens,
                     )
                 except ValueError as e:
                     _record_request_conversion_failure(request_id, attempt, CHAT, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
                     continue
-            payload = dict(converted_payloads[fmt])
+            payload = dict(converted_payloads[payload_cache_key])
             payload["model"] = attempt.provider_model
             payload["stream"] = is_stream if attempt.upstream_format in (CHAT, RESPONSES, ANTHROPIC) else False
             _force_chat_reasoning_content_if_needed(attempt, payload, log_each=log_each)
             _force_anthropic_thinking_if_needed(attempt, payload, log_each=log_each)
+            actual_token_field = next((field for field in ("max_output_tokens", "max_completion_tokens", "max_tokens") if field in payload), output_token_field)
+            attempt_parameter_adaptations = parameter_adaptations(req, client_format=CHAT, target_format=fmt, output_token_field=actual_token_field, anthropic_default_max_tokens=anthropic_default_max_tokens)
             response_started = False
             upstream_conn = None
 
@@ -4001,6 +4102,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                         usage=_response_usage(stream_resp),
                         duration_ms=_attempt_duration_ms(attempt_started),
                         first_byte_ms=attempt_first_byte,
+                        parameter_adaptations=attempt_parameter_adaptations,
                     )
                     OBSERVABILITY.record_request_end(request_id, status_code=200)
                     return
@@ -4046,6 +4148,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                     usage=_response_usage(client_response, upstream_data),
                     duration_ms=_attempt_duration_ms(attempt_started),
                     first_byte_ms=_attempt_first_byte_ms(attempt_started),
+                    parameter_adaptations=attempt_parameter_adaptations,
                 )
                 OBSERVABILITY.record_request_end(request_id, status_code=200)
                 _route_hdrs = {
@@ -4172,7 +4275,8 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             stream=is_stream,
             path=path,
         )
-        allowed_formats = [RESPONSES, CHAT, ANTHROPIC]
+        native_only_parameters = native_only_request_parameters(req, client_format=RESPONSES)
+        allowed_formats = [RESPONSES] if native_only_parameters else [RESPONSES, CHAT, ANTHROPIC]
         attempt_errors = []
         log_each = bool((CONFIG.get("observability") or {}).get("log_provider_on_each_request", False))
         if log_each:
@@ -4209,23 +4313,31 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                 )
 
             attempt_started = time.time()
+            attempt_parameter_adaptations = []
             fmt = attempt.upstream_format
-            if fmt not in converted_payloads:
+            output_token_field = _provider_output_token_field(CONFIG, attempt)
+            anthropic_default_max_tokens = int((CONFIG.get("routing") or {}).get("anthropic_default_max_tokens", 4096))
+            payload_cache_key = (fmt, output_token_field, anthropic_default_max_tokens)
+            if payload_cache_key not in converted_payloads:
                 try:
-                    converted_payloads[fmt] = convert_request(
+                    converted_payloads[payload_cache_key] = convert_request(
                         RESPONSES,
                         fmt,
                         req,
                         resolve_model=resolve_model,
+                        output_token_field=output_token_field,
+                        anthropic_default_max_tokens=anthropic_default_max_tokens,
                     )
                 except ValueError as e:
                     _record_request_conversion_failure(request_id, attempt, RESPONSES, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
                     continue
-            payload = dict(converted_payloads[fmt])
+            payload = dict(converted_payloads[payload_cache_key])
             payload["model"] = attempt.provider_model
             payload["stream"] = is_stream if attempt.upstream_format in (RESPONSES, CHAT, ANTHROPIC) else False
             _force_chat_reasoning_content_if_needed(attempt, payload, log_each=log_each)
             _force_anthropic_thinking_if_needed(attempt, payload, log_each=log_each)
+            actual_token_field = next((field for field in ("max_output_tokens", "max_completion_tokens", "max_tokens") if field in payload), output_token_field)
+            attempt_parameter_adaptations = parameter_adaptations(req, client_format=RESPONSES, target_format=fmt, output_token_field=actual_token_field, anthropic_default_max_tokens=anthropic_default_max_tokens)
 
             response_started = False
             upstream_conn = None
@@ -4311,6 +4423,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                         usage=_response_usage(stream_resp),
                         duration_ms=_attempt_duration_ms(attempt_started),
                         first_byte_ms=attempt_first_byte,
+                        parameter_adaptations=attempt_parameter_adaptations,
                     )
                     OBSERVABILITY.record_request_end(request_id, status_code=200)
                     return
@@ -4356,6 +4469,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                     usage=_response_usage(client_response, upstream_data),
                     duration_ms=_attempt_duration_ms(attempt_started),
                     first_byte_ms=_attempt_first_byte_ms(attempt_started),
+                    parameter_adaptations=attempt_parameter_adaptations,
                 )
                 OBSERVABILITY.record_request_end(request_id, status_code=200)
                 _route_hdrs = {
@@ -4525,6 +4639,15 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         except Exception as e:
             return self._resp_json({"error": {"message": str(e)}}, 400)
 
+        client_format = CHAT if is_chat_completions else RESPONSES if is_responses else ANTHROPIC
+        try:
+            extract_output_token_limit(req, client_format=client_format)
+            extract_stop_sequences(req, client_format=client_format)
+        except ParameterCompatibilityError as e:
+            return self._resp_json(
+                {"error": {"type": "invalid_request_error", "code": e.code, "message": str(e)}},
+                400,
+            )
         request_id = self.headers.get("X-Request-Id") or self.headers.get("X-Request-ID") or uuid.uuid4().hex
         start_ts = time.time()
 
@@ -4595,7 +4718,8 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             # Keep a bounded global routing budget across attempts.
             max_budget = (connect_t + read_t) * min(3, max(1, max_attempts))
 
-            allowed_formats = [ANTHROPIC, CHAT, RESPONSES]
+            native_only_parameters = native_only_request_parameters(req, client_format=ANTHROPIC)
+            allowed_formats = [ANTHROPIC] if native_only_parameters else [ANTHROPIC, CHAT, RESPONSES]
             converted_payloads = {}
             for attempt in ROUTER.iter_attempts(
                 canonical_model,
@@ -4619,23 +4743,31 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                     )
 
                 attempt_started = time.time()
+                attempt_parameter_adaptations = []
                 fmt = attempt.upstream_format
-                if fmt not in converted_payloads:
+                output_token_field = _provider_output_token_field(CONFIG, attempt)
+                anthropic_default_max_tokens = int((CONFIG.get("routing") or {}).get("anthropic_default_max_tokens", 4096))
+                payload_cache_key = (fmt, output_token_field, anthropic_default_max_tokens)
+                if payload_cache_key not in converted_payloads:
                     try:
-                        converted_payloads[fmt] = convert_request(
+                        converted_payloads[payload_cache_key] = convert_request(
                             ANTHROPIC,
                             fmt,
                             req,
                             resolve_model=resolve_model,
+                            output_token_field=output_token_field,
+                            anthropic_default_max_tokens=anthropic_default_max_tokens,
                         )
                     except ValueError as e:
                         _record_request_conversion_failure(request_id, attempt, ANTHROPIC, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
                         continue
-                payload = dict(converted_payloads[fmt])
+                payload = dict(converted_payloads[payload_cache_key])
                 payload["model"] = attempt.provider_model
                 payload["stream"] = bool(is_stream) if attempt.upstream_format in (ANTHROPIC, CHAT, RESPONSES) else False
                 _force_chat_reasoning_content_if_needed(attempt, payload, log_each=log_each)
                 _force_anthropic_thinking_if_needed(attempt, payload, log_each=log_each)
+                actual_token_field = next((field for field in ("max_output_tokens", "max_completion_tokens", "max_tokens") if field in payload), output_token_field)
+                attempt_parameter_adaptations = parameter_adaptations(req, client_format=ANTHROPIC, target_format=fmt, output_token_field=actual_token_field, anthropic_default_max_tokens=anthropic_default_max_tokens)
 
                 response_started = False
                 upstream_conn = None
@@ -4708,6 +4840,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                             usage=_response_usage(anth_resp),
                             duration_ms=_attempt_duration_ms(attempt_started),
                             first_byte_ms=attempt_first_byte,
+                            parameter_adaptations=attempt_parameter_adaptations,
                         )
                         OBSERVABILITY.record_request_end(request_id, status_code=200)
                         if DEBUG_LOG:
@@ -4751,6 +4884,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                         usage=_response_usage(anth_resp, upstream_data),
                         duration_ms=_attempt_duration_ms(attempt_started),
                         first_byte_ms=_attempt_first_byte_ms(attempt_started),
+                        parameter_adaptations=attempt_parameter_adaptations,
                     )
                     OBSERVABILITY.record_request_end(request_id, status_code=200)
                     _route_hdrs = {
@@ -5203,5 +5337,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-

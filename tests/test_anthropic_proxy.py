@@ -398,6 +398,13 @@ class AnthropicProxyTests(unittest.TestCase):
         self.assertEqual(request["usage"], {"input_tokens": 7, "output_tokens": 11, "total_tokens": 18})
         self.assertEqual(request["attempts"][0]["usage"], {"input_tokens": 7, "output_tokens": 11, "total_tokens": 18})
 
+    def test_native_only_parameters_disable_cross_format_fallback(self):
+        fake_router = FakeRouter([])
+        with patch.object(sse2json, "ROUTER", fake_router), patch.object(sse2json, "DISABLE_MAP", True):
+            with self.assertRaises(HTTPError):
+                self.run_server_post("/anthropic/v1/messages", {"model": "client-model", "messages": [{"role": "user", "content": "hi"}], "max_tokens": 20, "thinking": {"type": "enabled", "budget_tokens": 8}})
+        self.assertEqual(fake_router.iter_calls[0]["allowed_upstream_formats"], ['anthropic_messages'])
+
     def test_anthropic_streaming_requires_supported_stream_upstream(self):
         fake_router = FakeRouter([])
         fake_client = FakeClient({})

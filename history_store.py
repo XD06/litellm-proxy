@@ -291,6 +291,7 @@ class RequestHistoryStore:
                 "upstream_error_type": "TEXT NOT NULL DEFAULT ''",
                 "upstream_error_code": "TEXT NOT NULL DEFAULT ''",
                 "upstream_error_param": "TEXT NOT NULL DEFAULT ''",
+                "parameter_adaptations": "TEXT NOT NULL DEFAULT ''",
                 "duration_ms": "INTEGER NOT NULL DEFAULT 0",
             },
         )
@@ -392,8 +393,8 @@ class RequestHistoryStore:
               request_id, attempt_no, provider, key_index, key_masked, key_id,
               provider_model, upstream_format, outcome, error_type, reason, http_status,
               diagnostic_stage, upstream_error_summary, upstream_error_type, upstream_error_code,
-              upstream_error_param, duration_ms, input_tokens, output_tokens, total_tokens, cost_usd
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              upstream_error_param, parameter_adaptations, duration_ms, input_tokens, output_tokens, total_tokens, cost_usd
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 request_id,
@@ -413,6 +414,7 @@ class RequestHistoryStore:
                 str(attempt.get("upstream_error_type") or "")[:500],
                 str(attempt.get("upstream_error_code") or "")[:500],
                 str(attempt.get("upstream_error_param") or "")[:500],
+                json.dumps(attempt.get("parameter_adaptations") or [], ensure_ascii=False),
                 max(0, int(attempt.get("duration_ms") or 0)),
                 usage_totals["input_tokens"],
                 usage_totals["output_tokens"],
@@ -1022,6 +1024,11 @@ class RequestHistoryStore:
                 item[key] = row[key]
         if row["http_status"] is not None:
             item["http_status"] = int(row["http_status"])
+        if "parameter_adaptations" in row.keys() and row["parameter_adaptations"]:
+            try:
+                item["parameter_adaptations"] = json.loads(row["parameter_adaptations"])
+            except (TypeError, ValueError):
+                pass
         usage_totals = {
             "input_tokens": int(row["input_tokens"] or 0),
             "output_tokens": int(row["output_tokens"] or 0),

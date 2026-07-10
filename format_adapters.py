@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, Optional
 
+from parameter_compatibility import (
+    OutputTokenLimit, apply_output_token_limit, apply_stop_sequences,
+    extract_output_token_limit, extract_stop_sequences,
+)
 from protocol_adapters import (
     anthropic_message_to_openai_chat_response,
     openai_chat_request_to_anthropic_request,
@@ -14,7 +18,6 @@ from protocol_adapters import (
     to_anthropic_message,
     to_openai_request,
 )
-
 
 CHAT = "chat_completions"
 RESPONSES = "responses"
@@ -31,29 +34,44 @@ def convert_request(
     request: Dict[str, Any],
     *,
     resolve_model: Callable[[str], str],
+    output_token_field: Optional[str] = None,
+    anthropic_default_max_tokens: Optional[int] = None,
 ) -> Dict[str, Any]:
-    """Convert a non-streaming request body between canonical formats."""
-    if from_format == to_format:
+    """Convert a request while preserving its output-token limit semantics."""
+    token_limit = extract_output_token_limit(request, client_format=from_format)
+    stop_sequences = extract_stop_sequences(request, client_format=from_format)
+    if from_format == to_format and not token_limit.present and not stop_sequences.present:
         return request
+    source_request = apply_output_token_limit(request, token_limit, target_format=from_format)
+    source_request = apply_stop_sequences(source_request, stop_sequences, target_format=from_format)
 
-    pair = (from_format, to_format)
-    if pair == (ANTHROPIC, CHAT):
-        return to_openai_request(request, resolve_model=resolve_model)
-    if pair == (CHAT, ANTHROPIC):
-        return openai_chat_request_to_anthropic_request(request, resolve_model=resolve_model)
-    if pair == (RESPONSES, CHAT):
-        return responses_to_openai_request(request, resolve_model=resolve_model)
-    if pair == (CHAT, RESPONSES):
-        return openai_chat_request_to_responses_request(request, resolve_model=resolve_model)
+    if from_format == to_format:
+        converted = source_request
+    else:
+        pair = (from_format, to_format)
+        if pair == (ANTHROPIC, CHAT):
+            converted = to_openai_request(source_request, resolve_model=resolve_model)
+        elif pair == (CHAT, ANTHROPIC):
+            converted = openai_chat_request_to_anthropic_request(source_request, resolve_model=resolve_model)
+        elif pair == (RESPONSES, CHAT):
+            converted = responses_to_openai_request(source_request, resolve_model=resolve_model)
+        elif pair == (CHAT, RESPONSES):
+            converted = openai_chat_request_to_responses_request(source_request, resolve_model=resolve_model)
+        elif pair == (ANTHROPIC, RESPONSES):
+            chat_req = to_openai_request(source_request, resolve_model=resolve_model)
+            converted = openai_chat_request_to_responses_request(chat_req, resolve_model=_identity_model)
+        elif pair == (RESPONSES, ANTHROPIC):
+            chat_req = responses_to_openai_request(source_request, resolve_model=resolve_model)
+            converted = openai_chat_request_to_anthropic_request(chat_req, resolve_model=_identity_model)
+        else:
+            raise ValueError(f"unsupported request conversion: {from_format} -> {to_format}")
 
-    if pair == (ANTHROPIC, RESPONSES):
-        chat_req = to_openai_request(request, resolve_model=resolve_model)
-        return openai_chat_request_to_responses_request(chat_req, resolve_model=_identity_model)
-    if pair == (RESPONSES, ANTHROPIC):
-        chat_req = responses_to_openai_request(request, resolve_model=resolve_model)
-        return openai_chat_request_to_anthropic_request(chat_req, resolve_model=_identity_model)
-
-    raise ValueError(f"unsupported request conversion: {from_format} -> {to_format}")
+    if not token_limit.present and to_format == ANTHROPIC and anthropic_default_max_tokens:
+        token_limit = OutputTokenLimit(value=int(anthropic_default_max_tokens), source_field="proxy_default", aliases=())
+    converted = apply_output_token_limit(
+        converted, token_limit, target_format=to_format, configured_field=output_token_field,
+    )
+    return apply_stop_sequences(converted, stop_sequences, target_format=to_format)
 
 
 def convert_response(

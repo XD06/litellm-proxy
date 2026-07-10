@@ -128,10 +128,21 @@ def _normalize_formats(
         for fmt in SUPPORTED_FORMATS:
             entry = raw_formats.get(fmt)
             if isinstance(entry, dict):
-                formats[fmt] = {
+                normalized_entry = {
                     "enabled": bool(entry.get("enabled", True)),
                     "path": _ensure_path(entry.get("path"), DEFAULT_FORMAT_PATHS[fmt]),
                 }
+                parameters = entry.get("parameters")
+                if isinstance(parameters, dict):
+                    output_token_field = str(parameters.get("output_token_field") or "auto").strip()
+                    allowed_fields = {"auto", "max_tokens", "max_completion_tokens", "max_output_tokens"}
+                    if output_token_field not in allowed_fields:
+                        raise ValueError(f"invalid output_token_field for {provider_name}.{fmt}: {output_token_field}")
+                    native_fields = {"chat_completions": {"auto", "max_tokens", "max_completion_tokens"}, "responses": {"auto", "max_output_tokens"}, "anthropic_messages": {"auto", "max_tokens"}}
+                    if output_token_field not in native_fields[fmt]:
+                        raise ValueError(f"output_token_field {output_token_field} is invalid for {fmt}")
+                    normalized_entry["parameters"] = {"output_token_field": output_token_field}
+                formats[fmt] = normalized_entry
             elif isinstance(entry, bool):
                 formats[fmt]["enabled"] = entry
             elif isinstance(entry, str):
@@ -307,6 +318,7 @@ def _default_config() -> Dict[str, Any]:
             "stream_prefetch_max_bytes": 65536,
             "native_nonstream_mode": "validated",
             "native_stream_mode": "guarded",
+            "anthropic_default_max_tokens": 4096,
         },
         "retry": {
             "retryable_status": [408, 409, 425, 429, 500, 502, 503, 504],

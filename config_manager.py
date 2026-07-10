@@ -330,6 +330,15 @@ class RuntimeConfigManager:
             if not path.startswith("/"):
                 path = "/" + path
             clean["path"] = path
+        if "parameters" in (patch or {}):
+            parameters = patch.get("parameters")
+            if not isinstance(parameters, dict):
+                raise ConfigValidationError("format parameters must be an object")
+            field = str(parameters.get("output_token_field") or "auto").strip()
+            allowed = {"chat_completions": {"auto", "max_tokens", "max_completion_tokens"}, "responses": {"auto", "max_output_tokens"}, "anthropic_messages": {"auto", "max_tokens"}}
+            if field not in allowed[fmt]:
+                raise ConfigValidationError(f"invalid output_token_field for {fmt}: {field}")
+            clean["parameters"] = {"output_token_field": field}
         if not clean:
             raise ConfigValidationError("empty format patch")
 
@@ -690,6 +699,7 @@ class RuntimeConfigManager:
             "connect_timeout_s",
             "read_timeout_s",
             "first_token_timeout_s",
+            "anthropic_default_max_tokens",
         }
         clean: Dict[str, Any] = {}
         for key, value in patch.items():
@@ -711,6 +721,8 @@ class RuntimeConfigManager:
                 clean[key] = self._bounded_int(value, key, 1, 50)
             elif key == "first_token_timeout_s":
                 clean[key] = self._bounded_int(value, key, 0, 600)
+            elif key == "anthropic_default_max_tokens":
+                clean[key] = self._bounded_int(value, key, 1, 1000000)
             else:
                 clean[key] = self._bounded_int(value, key, 1, 3600)
         return clean
