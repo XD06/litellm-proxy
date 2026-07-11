@@ -1103,10 +1103,10 @@
 				en: "Priority",
 				zh: "优先级"
 			},
-		"pm.higher_first": {
-			en: "higher first",
-			zh: "越大越优先"
-		},
+			"pm.higher_first": {
+				en: "higher first",
+				zh: "越大越优先"
+			},
 			"pm.success": {
 				en: "Success",
 				zh: "成功率"
@@ -2321,10 +2321,25 @@
 		if (!q) return path;
 		return path.includes("?") ? `${path}&${q}` : `${path}?${q}`;
 	}
-	async function apiGet(path) {
-		const resp = await fetch(withAdmin(path), { headers: state.adminKey ? { "X-Admin-Key": state.adminKey } : {} });
+	async function apiGet(path, { signal, cache = false } = {}) {
+		const url = withAdmin(path);
+		const cached = cache ? conditionalGetCache.get(url) : null;
+		const headers = state.adminKey ? { "X-Admin-Key": state.adminKey } : {};
+		if (cached?.etag) headers["If-None-Match"] = cached.etag;
+		const resp = await fetch(url, {
+			headers,
+			signal
+		});
+		if (resp.status === 304 && cached) return cached.data;
 		const data = await readJson(resp);
 		if (!resp.ok) throw new Error(errorMessage(data, resp.status));
+		if (cache) {
+			const etag = resp.headers.get("ETag");
+			if (etag) conditionalGetCache.set(url, {
+				etag,
+				data
+			});
+		}
 		return data;
 	}
 	async function apiPost(path, body) {
@@ -2363,8 +2378,10 @@
 	function errorMessage(data, status) {
 		return data?.error?.message || `HTTP ${status}`;
 	}
+	var conditionalGetCache;
 	var init_api = __esmMin((() => {
 		init_state();
+		conditionalGetCache = /* @__PURE__ */ new Map();
 	}));
 	(/* @__PURE__ */ __commonJSMin((() => {
 		init_morphdom_esm();
@@ -2424,7 +2441,8 @@
 			return {
 				quiet: Boolean(previous.quiet && next.quiet),
 				preserveNotice: Boolean(previous.preserveNotice || next.preserveNotice),
-				staticData: Boolean(previous.staticData || next.staticData)
+				staticData: Boolean(previous.staticData || next.staticData),
+				staticDomains: Array.from(new Set([...previous.staticDomains || [], ...next.staticDomains || []]))
 			};
 		}
 		function scheduleBackgroundRefresh(args = {}, delayMs = 120) {
@@ -2441,7 +2459,11 @@
 				};
 				_backgroundRefreshTimer = null;
 				_backgroundRefreshArgs = null;
-				refreshAll(refreshArgs).catch(() => {});
+				const task = refreshArgs.staticData ? refreshStaticAdminData({
+					preserveNotice: refreshArgs.preserveNotice,
+					domains: refreshArgs.staticDomains?.length ? refreshArgs.staticDomains : null
+				}) : refreshRuntimeData();
+				Promise.resolve(task).catch(() => {});
 			}, delayMs);
 		}
 		function applyMutationResult(result, { render = true, drawer = false } = {}) {
@@ -2475,12 +2497,17 @@
 			}
 			if (!changed) return false;
 			state.data.version = Number(state.data.version || 0) + 1;
-			state.forceConfigRender = true;
-			state.forcePolicyRender = true;
-			state.forceFailurePoliciesRender = true;
-			state.forceModelRoutesRender = true;
-			state.forceProvidersRender = true;
-			state.forceModelCapsRender = true;
+			if (result.config !== void 0) {
+				state.forceConfigRender = true;
+				state.forceModelRoutesRender = true;
+				state.forceProvidersRender = true;
+				state.forceModelCapsRender = true;
+			}
+			if (result.routing !== void 0 || result.policy !== void 0) {
+				state.forcePolicyRender = true;
+				state.forceFailurePoliciesRender = true;
+			}
+			if (result.status !== void 0 || result.router !== void 0) state.forceProvidersRender = true;
 			if (render) renderAll();
 			if (drawer) renderProviderDrawer({ force: true });
 			return true;
@@ -3161,7 +3188,7 @@
             </select>
           </label>
           <label class="field form-field-inline">
-            <span>Priority <small class="muted">(auto if 0)</small></span>
+            <span>Priority <small class="muted">(auto: place first)</small></span>
             <input class="control" name="priority" type="number" value="0" />
           </label>
         </div>
@@ -3194,7 +3221,11 @@
 			const form = document.getElementById("addProviderModalForm");
 			if (form) {
 				function detectProviderFields(text) {
-					const result = { base_url: null, key: null, name: null };
+					const result = {
+						base_url: null,
+						key: null,
+						name: null
+					};
 					if (!text) return result;
 					const baseUrlJson = text.match(/"base_url"\s*:\s*"([^"]+)"/i);
 					if (baseUrlJson) result.base_url = baseUrlJson[1].replace(/\/+$/, "");
@@ -3206,27 +3237,23 @@
 					}
 					const nameJson = text.match(/"name"\s*:\s*"([^"]+)"/i);
 					if (nameJson) result.name = nameJson[1];
-					if (!result.base_url && !result.key) {
-						try {
-							let jsonStr = text.trim();
-							if (!jsonStr.startsWith("{") && /"\w+"\s*:/.test(jsonStr)) jsonStr = "{" + jsonStr + "}";
-							jsonStr = jsonStr.replace(/,\s*([}\]])/g, "$1");
-							const parsed = JSON.parse(jsonStr);
-							if (parsed && typeof parsed === "object" && parsed.providers) {
-								for (const [pname, cfg] of Object.entries(parsed.providers)) {
-									if (cfg && cfg.base_url) {
-										result.base_url = String(cfg.base_url).replace(/\/+$/, "");
-										if (!result.name) result.name = pname;
-									}
-									if (cfg && Array.isArray(cfg.keys) && cfg.keys.length > 0) {
-										const k = cfg.keys[0];
-										result.key = typeof k === "object" ? (k.key || "") : String(k);
-									}
-									break;
-								}
+					if (!result.base_url && !result.key) try {
+						let jsonStr = text.trim();
+						if (!jsonStr.startsWith("{") && /"\w+"\s*:/.test(jsonStr)) jsonStr = "{" + jsonStr + "}";
+						jsonStr = jsonStr.replace(/,\s*([}\]])/g, "$1");
+						const parsed = JSON.parse(jsonStr);
+						if (parsed && typeof parsed === "object" && parsed.providers) for (const [pname, cfg] of Object.entries(parsed.providers)) {
+							if (cfg && cfg.base_url) {
+								result.base_url = String(cfg.base_url).replace(/\/+$/, "");
+								if (!result.name) result.name = pname;
 							}
-						} catch (_e) {}
-					}
+							if (cfg && Array.isArray(cfg.keys) && cfg.keys.length > 0) {
+								const k = cfg.keys[0];
+								result.key = typeof k === "object" ? k.key || "" : String(k);
+							}
+							break;
+						}
+					} catch (_e) {}
 					if (!result.base_url) {
 						const urlMatch = text.match(/https?:\/\/[^\s"'<>},\])]+/i);
 						if (urlMatch) result.base_url = urlMatch[0].replace(/\/+$/, "");
@@ -3235,20 +3262,25 @@
 						const quotedKey = text.match(/"((?:sk-|key-|pk-|rqsty-|rk-|cos-|tencent-|AKID)[^"]{16,})"/i);
 						if (quotedKey && quotedKey[1] !== result.base_url) result.key = quotedKey[1];
 						if (!result.key) {
-							const quotedAny = text.match(/"([a-zA-Z0-9+\/_=+-]{32,})"/
-							);
+							const quotedAny = text.match(/"([a-zA-Z0-9+\/_=+-]{32,})"/);
 							if (quotedAny && quotedAny[1] !== result.base_url) result.key = quotedAny[1];
 						}
-						if (!result.key) {
-							const prefixes = ["sk-", "key-", "pk-", "rqsty-", "rk-", "cos-", "tencent-", "AKID"];
-							for (const prefix of prefixes) {
-								const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-								const re = new RegExp("(" + escaped + "[a-zA-Z0-9+\/_=+-]{16,})");
-								const m = text.match(re);
-								if (m && m[1] && m[1] !== result.base_url) {
-									result.key = m[1];
-									break;
-								}
+						if (!result.key) for (const prefix of [
+							"sk-",
+							"key-",
+							"pk-",
+							"rqsty-",
+							"rk-",
+							"cos-",
+							"tencent-",
+							"AKID"
+						]) {
+							const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+							const re = new RegExp("(" + escaped + "[a-zA-Z0-9+/_=+-]{16,})");
+							const m = text.match(re);
+							if (m && m[1] && m[1] !== result.base_url) {
+								result.key = m[1];
+								break;
 							}
 						}
 					}
@@ -3259,21 +3291,21 @@
 					const detected = detectProviderFields(text);
 					let filled = false;
 					if (detected.base_url) {
-						const urlField = form.querySelector('[name="base_url"]');
+						const urlField = form.querySelector("[name=\"base_url\"]");
 						if (urlField && (overwrite || !urlField.value.trim())) {
 							urlField.value = detected.base_url;
 							filled = true;
 						}
 					}
 					if (detected.key) {
-						const keyField = form.querySelector('[name="key"]');
+						const keyField = form.querySelector("[name=\"key\"]");
 						if (keyField && (overwrite || !keyField.value.trim())) {
 							keyField.value = detected.key;
 							filled = true;
 						}
 					}
 					if (detected.name) {
-						const nameField = form.querySelector('[name="name"]');
+						const nameField = form.querySelector("[name=\"name\"]");
 						if (nameField && (overwrite || !nameField.value.trim())) {
 							nameField.value = detected.name;
 							filled = true;
@@ -3434,6 +3466,180 @@
 			if (entry.blended_per_million !== null && entry.blended_per_million !== void 0) lines.push(`Blended ${fmtCost(entry.blended_per_million)}/M`);
 			return `<span class="model-price-tip" data-tip="${escapeHtml(lines.join(" · "))}" tabindex="0" aria-label="Pricing for ${escapeHtml(modelName)}">${iconSvg("info")}</span>`;
 		}
+		var _staticRefreshInFlight = false;
+		var _staticRefreshWanted = false;
+		async function refreshStaticAdminData({ preserveNotice = true, domains = null } = {}) {
+			if (!state.adminKey || document.hidden) return false;
+			if (_staticRefreshInFlight) {
+				_staticRefreshWanted = true;
+				return false;
+			}
+			_staticRefreshInFlight = true;
+			try {
+				const entries = [
+					["status", apiGet("/-/admin/status")],
+					["models", apiGet("/-/admin/models/capabilities", { cache: true })],
+					["routing", apiGet("/-/admin/routing", { cache: true })],
+					["config", apiGet("/-/admin/config", { cache: true })],
+					["overlay", apiGet("/-/admin/config/overlay", { cache: true })],
+					["audit", apiGet("/-/admin/audit?limit=12", { cache: true })]
+				];
+				const selectedEntries = domains ? entries.filter(([name]) => domains.includes(name)) : entries;
+				const settled = await Promise.allSettled(selectedEntries.map(([, promise]) => promise));
+				const result = {};
+				settled.forEach((entry, index) => {
+					if (entry.status === "fulfilled") result[selectedEntries[index][0]] = entry.value;
+				});
+				if (result.status !== void 0) state.data.status = result.status;
+				if (result.models !== void 0) {
+					state.data.status = {
+						...state.data.status || {},
+						models: result.models
+					};
+					state.data.modelsVersion = Number(state.data.modelsVersion || 0) + 1;
+				}
+				if (result.routing !== void 0) state.data.routing = result.routing;
+				if (result.config !== void 0) state.data.config = result.config;
+				if (result.overlay !== void 0) state.data.overlay = result.overlay;
+				if (result.audit !== void 0) state.data.audit = result.audit;
+				state.data.version = Number(state.data.version || 0) + 1;
+				state.forceConfigRender = true;
+				state.forcePolicyRender = true;
+				state.forceFailurePoliciesRender = true;
+				state.forceModelRoutesRender = true;
+				state.forceProvidersRender = true;
+				state.forceModelCapsRender = true;
+				if ([
+					"providers",
+					"policy",
+					"config"
+				].includes(state.view) || state.providerDrawerName) {
+					renderAll();
+					if (state.providerDrawerName) renderProviderDrawer({ force: true });
+				}
+				if (!preserveNotice) setNotice("");
+				setConnection(true, `Updated ${(/* @__PURE__ */ new Date()).toLocaleTimeString()}`);
+				_maybeScheduleCapabilityFollowUp();
+				return true;
+			} catch (err) {
+				setConnection(false, t("conn.connection_error"));
+				return false;
+			} finally {
+				_staticRefreshInFlight = false;
+				if (_staticRefreshWanted) {
+					_staticRefreshWanted = false;
+					Promise.resolve().then(() => refreshStaticAdminData({ preserveNotice: true }));
+				}
+			}
+		}
+		var _runtimeRefreshInFlight = false;
+		var _runtimeRefreshWanted = false;
+		var _runtimeRefreshWantedForceViewData = false;
+		var _runtimeRefreshGeneration = 0;
+		var _runtimeViewAbortController = null;
+		var _lastMetricsFullAt = 0;
+		var RUNTIME_VIEW_REFRESH_MS = 15e3;
+		var _lastRuntimeViewRefreshAt = {
+			overview: 0,
+			requests: 0
+		};
+		function applyRuntimeCore(result) {
+			if (result.metrics !== void 0) state.data.metrics = result.metrics;
+			if (result.providerActivity !== void 0) {
+				const activity = result.providerActivity || {};
+				state.data.providerActivity = activity.providers || activity || {};
+			}
+			if (result.healthScores !== void 0) state.data.healthScores = result.healthScores;
+			state.data.runtimeVersion = Number(state.data.runtimeVersion || 0) + 1;
+		}
+		function applyRuntimeViewData(result, view) {
+			if (result.metricsFull !== void 0) {
+				state.data.metricsFull = result.metricsFull;
+				_lastMetricsFullAt = Date.now();
+			}
+			if (result.timeseries !== void 0) state.data.timeseries = result.timeseries;
+			if (result.requests !== void 0) state.data.requests = result.requests;
+			if (view && Object.keys(result).length) _lastRuntimeViewRefreshAt[view] = Date.now();
+			state.data.runtimeVersion = Number(state.data.runtimeVersion || 0) + 1;
+		}
+		async function refreshRuntimeData({ forceViewData = false } = {}) {
+			if (!state.adminKey || document.hidden) return;
+			if (_runtimeRefreshInFlight) {
+				_runtimeRefreshWanted = true;
+				_runtimeRefreshWantedForceViewData ||= forceViewData;
+				return;
+			}
+			_runtimeRefreshInFlight = true;
+			const generation = ++_runtimeRefreshGeneration;
+			const requestedView = state.view || "overview";
+			let viewController = null;
+			try {
+				const coreEntries = [
+					["metrics", apiGet("/-/admin/metrics")],
+					["providerActivity", apiGet(`/-/admin/provider-activity?limit=60&include_events=${requestedView === "providers" ? "1" : "0"}`)],
+					["healthScores", apiGet("/-/admin/health/scores")]
+				];
+				_runtimeViewAbortController?.abort();
+				viewController = new AbortController();
+				_runtimeViewAbortController = viewController;
+				const viewEntries = [];
+				const now = Date.now();
+				const viewRefreshDue = forceViewData || now - Number(_lastRuntimeViewRefreshAt[requestedView] || 0) >= RUNTIME_VIEW_REFRESH_MS;
+				if (requestedView === "overview") {
+					const forceTimeseriesFetch = Boolean(state.forceTimeseriesFetch);
+					if (viewRefreshDue || forceTimeseriesFetch) {
+						viewEntries.push(["timeseries", apiGet(timeseriesPath(), { signal: viewController.signal })]);
+						state.forceTimeseriesFetch = false;
+					}
+					const recentRingStale = now - _lastMetricsFullAt >= 3e4;
+					if (forceViewData || !state.data.metricsFull || recentRingStale) viewEntries.push(["metricsFull", apiGet("/-/admin/metrics/full", { signal: viewController.signal })]);
+				} else if (requestedView === "requests") {
+					const forceRequestsFetch = Boolean(state.forceRequestsFetch);
+					if (viewRefreshDue || forceRequestsFetch) {
+						viewEntries.push(["requests", apiGet(requestsPath(), { signal: viewController.signal })]);
+						state.forceRequestsFetch = false;
+					}
+				}
+				const toResult = (entries, settled) => {
+					const result = {};
+					settled.forEach((entry, index) => {
+						if (entry.status === "fulfilled") result[entries[index][0]] = entry.value;
+					});
+					return result;
+				};
+				const viewPromise = Promise.allSettled(viewEntries.map(([, promise]) => promise));
+				const coreSettled = await Promise.allSettled(coreEntries.map(([, promise]) => promise));
+				if (generation !== _runtimeRefreshGeneration || requestedView !== state.view) return;
+				const coreResult = toResult(coreEntries, coreSettled);
+				applyRuntimeCore(coreResult);
+				const metricsVersion = coreResult.metrics?.models_version;
+				if (metricsVersion !== void 0 && metricsVersion !== _lastModelsVersion) {
+					const firstSync = _lastModelsVersion === null;
+					_lastModelsVersion = metricsVersion;
+					if (!firstSync) refreshCapabilitiesOnly();
+				}
+				renderAll();
+				setConnection(true, `Updated ${(/* @__PURE__ */ new Date()).toLocaleTimeString()}`);
+				const viewSettled = await viewPromise;
+				if (generation !== _runtimeRefreshGeneration || requestedView !== state.view) return;
+				const viewResult = toResult(viewEntries, viewSettled);
+				if (Object.keys(viewResult).length) {
+					applyRuntimeViewData(viewResult, requestedView);
+					renderAll();
+				}
+			} catch (err) {
+				setConnection(false, t("conn.connection_error"));
+			} finally {
+				if (_runtimeViewAbortController === viewController) _runtimeViewAbortController = null;
+				if (generation === _runtimeRefreshGeneration) _runtimeRefreshInFlight = false;
+				if (_runtimeRefreshWanted && !_runtimeRefreshInFlight) {
+					const trailingForceViewData = _runtimeRefreshWantedForceViewData;
+					_runtimeRefreshWanted = false;
+					_runtimeRefreshWantedForceViewData = false;
+					Promise.resolve().then(() => refreshRuntimeData({ forceViewData: trailingForceViewData }));
+				}
+			}
+		}
 		async function refreshAll({ quiet = false, preserveNotice = false, staticData = false } = {}) {
 			if (!state.adminKey) {
 				setConnection(false, t("conn.admin_required"));
@@ -3456,7 +3662,7 @@
 					const view = state.view || "overview";
 					const needTimeseries = !quiet || view === "overview" || state.forceTimeseriesFetch;
 					const needRequests = !quiet || view === "requests" || state.forceRequestsFetch;
-					const needRecentRing = !quiet || view === "overview" || state.forceRequestsFetch;
+					const needRecentRing = !quiet || !state.data.metricsFull || state.forceRequestsFetch;
 					const needStaticAdminData = staticData || !quiet || !state.data.status || !state.data.config;
 					state.forceTimeseriesFetch = false;
 					state.forceRequestsFetch = false;
@@ -3485,7 +3691,10 @@
 						result[k] = values[i];
 					});
 					if (result.metrics !== void 0) state.data.metrics = result.metrics;
-					if (result.metricsFull !== void 0) state.data.metricsFull = result.metricsFull;
+					if (result.metricsFull !== void 0) {
+						state.data.metricsFull = result.metricsFull;
+						_lastMetricsFullAt = Date.now();
+					}
 					if (result.providerActivity !== void 0) {
 						const pa = result.providerActivity || {};
 						state.data.providerActivity = pa.providers || pa || {};
@@ -3558,13 +3767,38 @@
 				_refreshInFlight = false;
 			}
 		}
-		function _hasPendingModelCapabilities() {
-			const providers = state.data?.status?.models?.providers;
-			if (!providers || typeof providers !== "object") return false;
-			return Object.values(providers).some((cap) => cap && typeof cap === "object" && (cap.status === "pending" || cap.status === "error" || cap.status === "stale"));
+		function capabilityFollowUpDelayMs() {
+			const providers = state.data?.status?.models?.providers || {};
+			const statuses = Object.values(providers).filter((cap) => cap && typeof cap === "object").map((cap) => cap.status);
+			if (statuses.includes("pending")) return 3e3;
+			if (statuses.includes("stale")) return 8e3;
+			if (statuses.includes("error")) return 3e4;
+			return 0;
+		}
+		async function refreshCapabilitiesOnly() {
+			if (!state.adminKey || document.hidden) return false;
+			try {
+				const caps = await apiGet("/-/admin/models/capabilities");
+				state.data.status = {
+					...state.data.status || {},
+					models: caps
+				};
+				state.data.modelsVersion = Number(state.data.modelsVersion || 0) + 1;
+				if (state.view === "providers") {
+					state.forceModelCapsRender = true;
+					renderModelCapabilities();
+					renderProviderDrawer({ force: true });
+				}
+				_maybeScheduleCapabilityFollowUp();
+				return true;
+			} catch (_err) {
+				_maybeScheduleCapabilityFollowUp();
+				return false;
+			}
 		}
 		function _maybeScheduleCapabilityFollowUp() {
-			if (!_hasPendingModelCapabilities()) {
+			const delayMs = capabilityFollowUpDelayMs();
+			if (!delayMs || document.hidden) {
 				if (_capabilityFollowUpTimer) {
 					clearTimeout(_capabilityFollowUpTimer);
 					_capabilityFollowUpTimer = null;
@@ -3574,11 +3808,8 @@
 			if (_capabilityFollowUpTimer) return;
 			_capabilityFollowUpTimer = setTimeout(() => {
 				_capabilityFollowUpTimer = null;
-				refreshAll({
-					quiet: true,
-					staticData: true
-				});
-			}, 3e3);
+				refreshCapabilitiesOnly();
+			}, delayMs);
 		}
 		function currentTimeRange() {
 			return timeRanges[state.timeRange] || timeRanges["30m"];
@@ -4643,7 +4874,7 @@
 			const totalPages = Math.max(1, Math.ceil(total / 10));
 			if (total > 0 && state.requestsPage >= totalPages) {
 				state.requestsPage = totalPages - 1;
-				refreshAll({ quiet: true });
+				refreshRuntimeData({ forceViewData: true });
 				return;
 			}
 			syncRequestFilterUi();
@@ -4892,7 +5123,7 @@
 					const direction = button.dataset.requestPage;
 					if (direction === "prev") state.requestsPage = Math.max(0, state.requestsPage - 1);
 					if (direction === "next") state.requestsPage = Math.min(totalPages - 1, state.requestsPage + 1);
-					refreshAll({ quiet: true });
+					refreshRuntimeData({ forceViewData: true });
 				});
 			});
 		}
@@ -7394,13 +7625,13 @@
       ${hint}
       ${panelPagination("modelRoutesPage", page, "routes")}
       <div class="model-route-page-list">
-        ${page.items.map(([model, route]) => modelRouteCard(model, route)).join("")}
+        ${page.items.map(([model, route]) => modelRouteCard(model, route, config.providers || {})).join("")}
       </div>
     `;
 			bindPanelPagination(target);
 			state.forceModelRoutesRender = false;
 		}
-		function modelRouteCard(model, route) {
+		function modelRouteCard(model, route, providerConfigs = {}) {
 			const providers = routeProviderItems(route.providers);
 			const providerSelect = route.provider_select || "priority_failover";
 			return `
@@ -7408,7 +7639,34 @@
         <div class="model-route-main">
           <div class="provider-name mono">${escapeHtml(model)}</div>
           <div class="model-route-provider-list">
-            ${providers.length ? providers.map((item) => `<span class="tag">${escapeHtml(item.name)}:${escapeHtml(item.weight)}</span>`).join("") : `<span class="muted">No providers</span>`}
+            ${providers.length ? providers.map((item) => {
+				const configuredPriority = Number(providerConfigs[item.name]?.priority);
+				const globalPriority = Number.isFinite(configuredPriority) ? configuredPriority : 0;
+				const hasOverride = item.priority !== null && item.priority !== void 0;
+				return `
+                <div class="model-route-provider-priority">
+                  <span class="tag">${escapeHtml(item.name)} · W${escapeHtml(item.weight)}</span>
+                  <input
+                    class="control"
+                    type="number"
+                    min="-1000"
+                    max="1000"
+                    value="${hasOverride ? escapeHtml(item.priority) : ""}"
+                    placeholder="P${escapeHtml(globalPriority)}"
+                    data-model-route-priority
+                    aria-label="Model priority for ${escapeHtml(item.name)} on ${escapeHtml(model)}"
+                  />
+                  <button
+                    class="button secondary compact-action"
+                    type="button"
+                    data-model-route-priority-apply
+                    data-model="${escapeHtml(model)}"
+                    data-provider="${escapeHtml(item.name)}"
+                  >Save</button>
+                  <small>${hasOverride ? `model P${escapeHtml(item.priority)}` : `inherits P${escapeHtml(globalPriority)}`}</small>
+                </div>
+              `;
+			}).join("") : `<span class="muted">No providers</span>`}
           </div>
         </div>
         <div class="model-route-side">
@@ -7997,7 +8255,10 @@
 		}
 		function setView(view) {
 			const nextView = views[view] ? view : "overview";
-			if (nextView !== state.view) clearAllDirty();
+			if (nextView !== state.view) {
+				clearAllDirty();
+				_runtimeViewAbortController?.abort();
+			}
 			state.view = nextView;
 			try {
 				localStorage.setItem("proxyConsoleView", nextView);
@@ -8015,13 +8276,8 @@
 			qsa(".view").forEach((node) => node.classList.remove("is-active"));
 			el(`${nextView}View`)?.classList.add("is-active");
 			renderAll();
-			if (nextView === "overview") {
-				state.forceTimeseriesFetch = true;
-				refreshAll({ quiet: true });
-			} else if (nextView === "requests") {
-				state.forceRequestsFetch = true;
-				refreshAll({ quiet: true });
-			} else if (nextView === "playground") pgLoadModels();
+			if (nextView === "overview" || nextView === "requests" || nextView === "providers") refreshRuntimeData({ forceViewData: true });
+			else if (nextView === "playground") pgLoadModels();
 			syncMobileSettingsContext();
 			closeMobileSettings();
 		}
@@ -8153,7 +8409,7 @@
 			el("pauseButton").addEventListener("click", () => {
 				state.paused = !state.paused;
 				updatePauseButtonState();
-				if (!state.paused) refreshAll({ quiet: true });
+				if (!state.paused) refreshRuntimeData({ forceViewData: true });
 			});
 			qsa("[data-time-range]").forEach((button) => {
 				button.addEventListener("click", () => {
@@ -8162,7 +8418,8 @@
 					state.timeRange = nextRange;
 					localStorage.setItem("proxyConsoleTimeRange", state.timeRange);
 					renderTimeRangeControl();
-					refreshAll();
+					state.forceTimeseriesFetch = true;
+					refreshRuntimeData({ forceViewData: true });
 				});
 			});
 			qsa("[data-request-status]").forEach((button) => {
@@ -8174,7 +8431,8 @@
 					state.selectedRequestIds.clear();
 					state.allMatchingSelected = false;
 					syncRequestFilterUi();
-					refreshAll({ quiet: true });
+					state.forceRequestsFetch = true;
+					refreshRuntimeData({ forceViewData: true });
 				});
 			});
 			[
@@ -8189,7 +8447,8 @@
 					state.requestsPage = 0;
 					state.selectedRequestIds.clear();
 					state.allMatchingSelected = false;
-					refreshAll({ quiet: true });
+					state.forceRequestsFetch = true;
+					refreshRuntimeData({ forceViewData: true });
 					closeMobileSettings();
 				});
 			});
@@ -8197,7 +8456,8 @@
 				state.requestsPage = 0;
 				state.selectedRequestIds.clear();
 				state.allMatchingSelected = false;
-				refreshAll();
+				state.forceRequestsFetch = true;
+				refreshRuntimeData({ forceViewData: true });
 				closeMobileSettings();
 			});
 			el("clearFiltersButton").addEventListener("click", () => {
@@ -8215,7 +8475,8 @@
 				state.requestsPage = 0;
 				state.selectedRequestIds.clear();
 				state.allMatchingSelected = false;
-				refreshAll();
+				state.forceRequestsFetch = true;
+				refreshRuntimeData({ forceViewData: true });
 				closeMobileSettings();
 			});
 			el("deleteRequestsButton")?.addEventListener("click", async () => {
@@ -8493,7 +8754,8 @@
 					scheduleBackgroundRefresh({
 						quiet: true,
 						preserveNotice: true,
-						staticData: true
+						staticData: true,
+						staticDomains: ["config", "audit"]
 					});
 				} catch (err) {
 					status.textContent = `Error: ${err.message}`;
@@ -8554,7 +8816,12 @@
 					scheduleBackgroundRefresh({
 						quiet: true,
 						preserveNotice: true,
-						staticData: true
+						staticData: true,
+						staticDomains: [
+							"config",
+							"overlay",
+							"audit"
+						]
 					});
 				} catch (err) {
 					setNotice(t("notice.clear_overlay_failed", { error: err.message }));
@@ -8625,8 +8892,53 @@
 				if (editor) editor.open = false;
 			});
 			el("modelRoutes").addEventListener("click", async (event) => {
+				const priorityButton = event.target.closest("[data-model-route-priority-apply]");
 				const editButton = event.target.closest("[data-model-route-edit]");
 				const deleteButton = event.target.closest("[data-model-route-delete]");
+				if (priorityButton) {
+					const model = priorityButton.dataset.model || "";
+					const provider = priorityButton.dataset.provider || "";
+					const route = routeByModel(model);
+					const input = priorityButton.closest(".model-route-provider-priority")?.querySelector("[data-model-route-priority]");
+					if (!route || !provider || !input) return;
+					const rawPriority = String(input.value || "").trim();
+					const priority = rawPriority === "" ? null : Number(rawPriority);
+					if (priority !== null && (!Number.isInteger(priority) || priority < -1e3 || priority > 1e3)) {
+						setNotice("Model priority must be an integer from -1000 to 1000.");
+						return;
+					}
+					const providers = routeProviderItems(route.providers).map((item) => ({
+						name: item.name,
+						weight: item.weight || 1,
+						...item.name === provider ? priority === null ? {} : { priority } : item.priority === null || item.priority === void 0 ? {} : { priority: item.priority }
+					}));
+					priorityButton.disabled = true;
+					try {
+						const result = await apiPatch("/-/admin/models/routes", {
+							model,
+							providers,
+							provider_select: "priority_failover"
+						});
+						clearAllDirty();
+						applyMutationResult(result);
+						setNotice(priority === null ? `${provider} now inherits its global priority for ${model}.` : `${provider} model priority for ${model} updated to ${priority}.`, "ok");
+						scheduleBackgroundRefresh({
+							quiet: true,
+							preserveNotice: true,
+							staticData: true,
+							staticDomains: [
+								"routing",
+								"config",
+								"audit"
+							]
+						});
+					} catch (err) {
+						setNotice(`Model priority update failed: ${err.message}`);
+					} finally {
+						priorityButton.disabled = false;
+					}
+					return;
+				}
 				if (editButton) {
 					const model = editButton.dataset.modelRouteEdit || "";
 					const route = routeByModel(model);
@@ -8661,7 +8973,12 @@
 						scheduleBackgroundRefresh({
 							quiet: true,
 							preserveNotice: true,
-							staticData: true
+							staticData: true,
+							staticDomains: [
+								"routing",
+								"config",
+								"audit"
+							]
 						});
 					} catch (err) {
 						setNotice(t("notice.delete_route_failed", { error: err.message }));
@@ -8843,9 +9160,22 @@
 		function startTimer() {
 			if (state.timer) window.clearInterval(state.timer);
 			state.timer = window.setInterval(() => {
-				if (!state.paused) refreshAll({ quiet: true });
+				if (!state.paused && !document.hidden) refreshRuntimeData();
 			}, state.refreshMs);
 		}
+		function handleVisibilityChange() {
+			if (document.hidden) {
+				_runtimeViewAbortController?.abort();
+				if (_capabilityFollowUpTimer) {
+					clearTimeout(_capabilityFollowUpTimer);
+					_capabilityFollowUpTimer = null;
+				}
+				return;
+			}
+			if (!state.paused && state.adminKey) refreshRuntimeData({ forceViewData: true });
+			_maybeScheduleCapabilityFollowUp();
+		}
+		document.addEventListener("visibilitychange", handleVisibilityChange);
 		function loadAdminKey() {
 			const fromQuery = new URLSearchParams(window.location.search).get("admin_key") || "";
 			const fromStorage = localStorage.getItem("proxyConsoleAdminKey") || "";

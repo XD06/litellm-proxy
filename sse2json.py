@@ -3804,12 +3804,23 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         except Exception:
             pass
 
-    def _resp_json(self, data, status=200, extra_headers=None):
+    def _resp_json(self, data, status=200, extra_headers=None, etag=False):
         b = json.dumps(data).encode()
         try:
+            response_etag = None
+            if etag and status == 200:
+                import hashlib
+                response_etag = '"' + hashlib.sha256(b).hexdigest() + '"'
+                if self.headers.get("If-None-Match") == response_etag:
+                    self.send_response(304)
+                    self.send_header("ETag", response_etag)
+                    self.end_headers()
+                    return
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(b)))
+            if response_etag:
+                self.send_header("ETag", response_etag)
             if extra_headers:
                 for k, v in extra_headers.items():
                     self.send_header(k, v)

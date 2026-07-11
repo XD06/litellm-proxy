@@ -4565,6 +4565,30 @@ tr.clickable:hover {
   gap: 6px;
 }
 
+.model-route-provider-priority {
+  display: grid;
+  grid-template-columns: auto 76px auto;
+  gap: 5px;
+  align-items: center;
+  padding: 5px;
+  border: 1px solid var(--line-soft);
+  border-radius: 7px;
+  background: var(--surface-raised);
+}
+
+.model-route-provider-priority .control {
+  min-width: 0;
+  height: 30px;
+  padding: 4px 7px;
+}
+
+.model-route-provider-priority small {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1;
+}
+
 .model-route-side {
   display: grid;
   gap: 5px;
@@ -8428,6 +8452,22 @@ body {
 
   .model-route-side {
     justify-items: start;
+  }
+
+  .model-route-provider-list {
+    display: grid;
+    width: 100%;
+  }
+
+  .model-route-provider-priority {
+    grid-template-columns: minmax(0, 1fr) 72px auto;
+    width: 100%;
+  }
+
+  .model-route-provider-priority .tag {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .provider-edit-panel,

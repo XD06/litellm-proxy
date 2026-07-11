@@ -67,6 +67,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       quiet: Boolean(previous.quiet && next.quiet),
       preserveNotice: Boolean(previous.preserveNotice || next.preserveNotice),
       staticData: Boolean(previous.staticData || next.staticData),
+      staticDomains: Array.from(new Set([...(previous.staticDomains || []), ...(next.staticDomains || [])])),
     };
   }
 
@@ -81,7 +82,13 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       const refreshArgs = _backgroundRefreshArgs || { quiet: true, preserveNotice: true };
       _backgroundRefreshTimer = null;
       _backgroundRefreshArgs = null;
-      refreshAll(refreshArgs).catch(() => {});
+      const task = refreshArgs.staticData
+        ? refreshStaticAdminData({
+          preserveNotice: refreshArgs.preserveNotice,
+          domains: refreshArgs.staticDomains?.length ? refreshArgs.staticDomains : null,
+        })
+        : refreshRuntimeData();
+      Promise.resolve(task).catch(() => {});
     }, delayMs);
   }
 
@@ -110,12 +117,19 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     }
     if (!changed) return false;
     state.data.version = Number(state.data.version || 0) + 1;
-    state.forceConfigRender = true;
-    state.forcePolicyRender = true;
-    state.forceFailurePoliciesRender = true;
-    state.forceModelRoutesRender = true;
-    state.forceProvidersRender = true;
-    state.forceModelCapsRender = true;
+    if (result.config !== undefined) {
+      state.forceConfigRender = true;
+      state.forceModelRoutesRender = true;
+      state.forceProvidersRender = true;
+      state.forceModelCapsRender = true;
+    }
+    if (result.routing !== undefined || result.policy !== undefined) {
+      state.forcePolicyRender = true;
+      state.forceFailurePoliciesRender = true;
+    }
+    if (result.status !== undefined || result.router !== undefined) {
+      state.forceProvidersRender = true;
+    }
     if (render) renderAll();
     if (drawer) renderProviderDrawer({ force: true });
     return true;
@@ -798,7 +812,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
             </select>
           </label>
           <label class="field form-field-inline">
-            <span>Priority <small class="muted">(auto if 0)</small></span>
+            <span>Priority <small class="muted">(auto: place first)</small></span>
             <input class="control" name="priority" type="number" value="0" />
           </label>
         </div>
@@ -1016,7 +1030,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           keys: [keyProxy ? { key, proxy: keyProxy } : key],
         };
         // Only send priority if user explicitly set a non-zero value.
-        // When omitted, the backend auto-assigns lowest priority.
+        // When omitted, the backend auto-assigns the highest priority.
         if (priority !== 0) payload.priority = priority;
         if (proxy) payload.proxy = proxy;
         if (format !== "auto") {
@@ -1136,6 +1150,183 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     return `<span class="model-price-tip" data-tip="${escapeHtml(tip)}" tabindex="0" aria-label="Pricing for ${escapeHtml(modelName)}">${iconSvg("info")}</span>`;
   }
 
+  let _staticRefreshInFlight = false;
+  let _staticRefreshWanted = false;
+
+  async function refreshStaticAdminData({ preserveNotice = true, domains = null } = {}) {
+    if (!state.adminKey || document.hidden) return false;
+    if (_staticRefreshInFlight) {
+      _staticRefreshWanted = true;
+      return false;
+    }
+    _staticRefreshInFlight = true;
+    try {
+      const entries = [
+        ["status", apiGet("/-/admin/status")],
+        ["models", apiGet("/-/admin/models/capabilities", { cache: true })],
+        ["routing", apiGet("/-/admin/routing", { cache: true })],
+        ["config", apiGet("/-/admin/config", { cache: true })],
+        ["overlay", apiGet("/-/admin/config/overlay", { cache: true })],
+        ["audit", apiGet("/-/admin/audit?limit=12", { cache: true })],
+      ];
+      const selectedEntries = domains ? entries.filter(([name]) => domains.includes(name)) : entries;
+      const settled = await Promise.allSettled(selectedEntries.map(([, promise]) => promise));
+      const result = {};
+      settled.forEach((entry, index) => {
+        if (entry.status === "fulfilled") result[selectedEntries[index][0]] = entry.value;
+      });
+      if (result.status !== undefined) state.data.status = result.status;
+      if (result.models !== undefined) {
+        state.data.status = { ...(state.data.status || {}), models: result.models };
+        state.data.modelsVersion = Number(state.data.modelsVersion || 0) + 1;
+      }
+      if (result.routing !== undefined) state.data.routing = result.routing;
+      if (result.config !== undefined) state.data.config = result.config;
+      if (result.overlay !== undefined) state.data.overlay = result.overlay;
+      if (result.audit !== undefined) state.data.audit = result.audit;
+      state.data.version = Number(state.data.version || 0) + 1;
+      state.forceConfigRender = true;
+      state.forcePolicyRender = true;
+      state.forceFailurePoliciesRender = true;
+      state.forceModelRoutesRender = true;
+      state.forceProvidersRender = true;
+      state.forceModelCapsRender = true;
+      if (["providers", "policy", "config"].includes(state.view) || state.providerDrawerName) {
+        renderAll();
+        if (state.providerDrawerName) renderProviderDrawer({ force: true });
+      }
+      if (!preserveNotice) setNotice("");
+      setConnection(true, `Updated ${new Date().toLocaleTimeString()}`);
+      _maybeScheduleCapabilityFollowUp();
+      return true;
+    } catch (err) {
+      setConnection(false, t("conn.connection_error"));
+      return false;
+    } finally {
+      _staticRefreshInFlight = false;
+      if (_staticRefreshWanted) {
+        _staticRefreshWanted = false;
+        Promise.resolve().then(() => refreshStaticAdminData({ preserveNotice: true }));
+      }
+    }
+  }
+
+  let _runtimeRefreshInFlight = false;
+  let _runtimeRefreshWanted = false;
+  let _runtimeRefreshWantedForceViewData = false;
+  let _runtimeRefreshGeneration = 0;
+  let _runtimeViewAbortController = null;
+  let _lastMetricsFullAt = 0;
+  const RUNTIME_VIEW_REFRESH_MS = 15000;
+  const _lastRuntimeViewRefreshAt = { overview: 0, requests: 0 };
+
+  function applyRuntimeCore(result) {
+    if (result.metrics !== undefined) state.data.metrics = result.metrics;
+    if (result.providerActivity !== undefined) {
+      const activity = result.providerActivity || {};
+      state.data.providerActivity = activity.providers || activity || {};
+    }
+    if (result.healthScores !== undefined) state.data.healthScores = result.healthScores;
+    state.data.runtimeVersion = Number(state.data.runtimeVersion || 0) + 1;
+  }
+
+  function applyRuntimeViewData(result, view) {
+    if (result.metricsFull !== undefined) {
+      state.data.metricsFull = result.metricsFull;
+      _lastMetricsFullAt = Date.now();
+    }
+    if (result.timeseries !== undefined) state.data.timeseries = result.timeseries;
+    if (result.requests !== undefined) state.data.requests = result.requests;
+    if (view && Object.keys(result).length) _lastRuntimeViewRefreshAt[view] = Date.now();
+    state.data.runtimeVersion = Number(state.data.runtimeVersion || 0) + 1;
+  }
+
+  async function refreshRuntimeData({ forceViewData = false } = {}) {
+    if (!state.adminKey || document.hidden) return;
+    if (_runtimeRefreshInFlight) {
+      _runtimeRefreshWanted = true;
+      _runtimeRefreshWantedForceViewData ||= forceViewData;
+      return;
+    }
+    _runtimeRefreshInFlight = true;
+    const generation = ++_runtimeRefreshGeneration;
+    const requestedView = state.view || "overview";
+    let viewController = null;
+    try {
+      const coreEntries = [
+        ["metrics", apiGet("/-/admin/metrics")],
+        ["providerActivity", apiGet(`/-/admin/provider-activity?limit=60&include_events=${requestedView === "providers" ? "1" : "0"}`)],
+        ["healthScores", apiGet("/-/admin/health/scores")],
+      ];
+      _runtimeViewAbortController?.abort();
+      viewController = new AbortController();
+      _runtimeViewAbortController = viewController;
+      const viewEntries = [];
+      const now = Date.now();
+      const viewRefreshDue =
+        forceViewData ||
+        now - Number(_lastRuntimeViewRefreshAt[requestedView] || 0) >= RUNTIME_VIEW_REFRESH_MS;
+      if (requestedView === "overview") {
+        const forceTimeseriesFetch = Boolean(state.forceTimeseriesFetch);
+        if (viewRefreshDue || forceTimeseriesFetch) {
+          viewEntries.push(["timeseries", apiGet(timeseriesPath(), { signal: viewController.signal })]);
+          state.forceTimeseriesFetch = false;
+        }
+        const recentRingStale = now - _lastMetricsFullAt >= 30000;
+        if (forceViewData || !state.data.metricsFull || recentRingStale) {
+          viewEntries.push(["metricsFull", apiGet("/-/admin/metrics/full", { signal: viewController.signal })]);
+        }
+      } else if (requestedView === "requests") {
+        const forceRequestsFetch = Boolean(state.forceRequestsFetch);
+        if (viewRefreshDue || forceRequestsFetch) {
+          viewEntries.push(["requests", apiGet(requestsPath(), { signal: viewController.signal })]);
+          state.forceRequestsFetch = false;
+        }
+      }
+
+      const toResult = (entries, settled) => {
+        const result = {};
+        settled.forEach((entry, index) => {
+          if (entry.status === "fulfilled") result[entries[index][0]] = entry.value;
+        });
+        return result;
+      };
+      const viewPromise = Promise.allSettled(viewEntries.map(([, promise]) => promise));
+      const coreSettled = await Promise.allSettled(coreEntries.map(([, promise]) => promise));
+      if (generation !== _runtimeRefreshGeneration || requestedView !== state.view) return;
+
+      const coreResult = toResult(coreEntries, coreSettled);
+      applyRuntimeCore(coreResult);
+      const metricsVersion = coreResult.metrics?.models_version;
+      if (metricsVersion !== undefined && metricsVersion !== _lastModelsVersion) {
+        const firstSync = _lastModelsVersion === null;
+        _lastModelsVersion = metricsVersion;
+        if (!firstSync) refreshCapabilitiesOnly();
+      }
+      renderAll();
+      setConnection(true, `Updated ${new Date().toLocaleTimeString()}`);
+
+      const viewSettled = await viewPromise;
+      if (generation !== _runtimeRefreshGeneration || requestedView !== state.view) return;
+      const viewResult = toResult(viewEntries, viewSettled);
+      if (Object.keys(viewResult).length) {
+        applyRuntimeViewData(viewResult, requestedView);
+        renderAll();
+      }
+    } catch (err) {
+      setConnection(false, t("conn.connection_error"));
+    } finally {
+      if (_runtimeViewAbortController === viewController) _runtimeViewAbortController = null;
+      if (generation === _runtimeRefreshGeneration) _runtimeRefreshInFlight = false;
+      if (_runtimeRefreshWanted && !_runtimeRefreshInFlight) {
+        const trailingForceViewData = _runtimeRefreshWantedForceViewData;
+        _runtimeRefreshWanted = false;
+        _runtimeRefreshWantedForceViewData = false;
+        Promise.resolve().then(() => refreshRuntimeData({ forceViewData: trailingForceViewData }));
+      }
+    }
+  }
+
   async function refreshAll({ quiet = false, preserveNotice = false, staticData = false } = {}) {
     if (!state.adminKey) {
       setConnection(false, t("conn.admin_required"));
@@ -1173,7 +1364,9 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       const view = state.view || "overview";
       const needTimeseries = !quiet || view === "overview" || state.forceTimeseriesFetch;
       const needRequests = !quiet || view === "requests" || state.forceRequestsFetch;
-      const needRecentRing = !quiet || view === "overview" || state.forceRequestsFetch;
+      // The full recent-request ring is large. Fetch it on first load, manual
+      // refresh, or an explicit invalidation — not on every 5s overview poll.
+      const needRecentRing = !quiet || !state.data.metricsFull || state.forceRequestsFetch;
       const needStaticAdminData = staticData || !quiet || !state.data.status || !state.data.config;
       state.forceTimeseriesFetch = false;
       state.forceRequestsFetch = false;
@@ -1203,7 +1396,10 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       keys.forEach((k, i) => { result[k] = values[i]; });
 
       if (result.metrics !== undefined) state.data.metrics = result.metrics;
-      if (result.metricsFull !== undefined) state.data.metricsFull = result.metricsFull;
+      if (result.metricsFull !== undefined) {
+        state.data.metricsFull = result.metricsFull;
+        _lastMetricsFullAt = Date.now();
+      }
       if (result.providerActivity !== undefined) {
         const pa = result.providerActivity || {};
         state.data.providerActivity = pa.providers || pa || {};
@@ -1329,21 +1525,50 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     );
   }
 
+  function capabilityFollowUpDelayMs() {
+    const providers = state.data?.status?.models?.providers || {};
+    const statuses = Object.values(providers)
+      .filter((cap) => cap && typeof cap === "object")
+      .map((cap) => cap.status);
+    if (statuses.includes("pending")) return 3000;
+    if (statuses.includes("stale")) return 8000;
+    if (statuses.includes("error")) return 30000;
+    return 0;
+  }
+
+  async function refreshCapabilitiesOnly() {
+    if (!state.adminKey || document.hidden) return false;
+    try {
+      const caps = await apiGet("/-/admin/models/capabilities");
+      state.data.status = { ...(state.data.status || {}), models: caps };
+      state.data.modelsVersion = Number(state.data.modelsVersion || 0) + 1;
+      if (state.view === "providers") {
+        state.forceModelCapsRender = true;
+        renderModelCapabilities();
+        renderProviderDrawer({ force: true });
+      }
+      _maybeScheduleCapabilityFollowUp();
+      return true;
+    } catch (_err) {
+      _maybeScheduleCapabilityFollowUp();
+      return false;
+    }
+  }
+
   function _maybeScheduleCapabilityFollowUp() {
-    if (!_hasPendingModelCapabilities()) {
+    const delayMs = capabilityFollowUpDelayMs();
+    if (!delayMs || document.hidden) {
       if (_capabilityFollowUpTimer) {
         clearTimeout(_capabilityFollowUpTimer);
         _capabilityFollowUpTimer = null;
       }
       return;
     }
-    // Already scheduled — let the existing timer fire.
     if (_capabilityFollowUpTimer) return;
     _capabilityFollowUpTimer = setTimeout(() => {
       _capabilityFollowUpTimer = null;
-      // Only re-fetch the static (capability) data, not a full heavy refresh.
-      refreshAll({ quiet: true, staticData: true });
-    }, 3000);
+      refreshCapabilitiesOnly();
+    }, delayMs);
   }
 
   async function refreshProviderConfigView({ preserveNotice = true } = {}) {
@@ -2576,7 +2801,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const totalPages = Math.max(1, Math.ceil(total / REQUEST_PAGE_SIZE));
     if (total > 0 && state.requestsPage >= totalPages) {
       state.requestsPage = totalPages - 1;
-      refreshAll({ quiet: true });
+      refreshRuntimeData({ forceViewData: true });
       return;
     }
     syncRequestFilterUi();
@@ -2858,7 +3083,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         const direction = button.dataset.requestPage;
         if (direction === "prev") state.requestsPage = Math.max(0, state.requestsPage - 1);
         if (direction === "next") state.requestsPage = Math.min(totalPages - 1, state.requestsPage + 1);
-        refreshAll({ quiet: true });
+        refreshRuntimeData({ forceViewData: true });
       });
     });
   }
@@ -5717,14 +5942,14 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       ${hint}
       ${panelPagination("modelRoutesPage", page, "routes")}
       <div class="model-route-page-list">
-        ${page.items.map(([model, route]) => modelRouteCard(model, route)).join("")}
+        ${page.items.map(([model, route]) => modelRouteCard(model, route, config.providers || {})).join("")}
       </div>
     `;
     bindPanelPagination(target);
     state.forceModelRoutesRender = false;
   }
 
-  function modelRouteCard(model, route) {
+  function modelRouteCard(model, route, providerConfigs = {}) {
     const providers = routeProviderItems(route.providers);
     const providerSelect = route.provider_select || "priority_failover";
     return `
@@ -5732,7 +5957,34 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         <div class="model-route-main">
           <div class="provider-name mono">${escapeHtml(model)}</div>
           <div class="model-route-provider-list">
-            ${providers.length ? providers.map((item) => `<span class="tag">${escapeHtml(item.name)}:${escapeHtml(item.weight)}</span>`).join("") : `<span class="muted">No providers</span>`}
+            ${providers.length ? providers.map((item) => {
+              const configuredPriority = Number(providerConfigs[item.name]?.priority);
+              const globalPriority = Number.isFinite(configuredPriority) ? configuredPriority : 0;
+              const hasOverride = item.priority !== null && item.priority !== undefined;
+              return `
+                <div class="model-route-provider-priority">
+                  <span class="tag">${escapeHtml(item.name)} · W${escapeHtml(item.weight)}</span>
+                  <input
+                    class="control"
+                    type="number"
+                    min="-1000"
+                    max="1000"
+                    value="${hasOverride ? escapeHtml(item.priority) : ""}"
+                    placeholder="P${escapeHtml(globalPriority)}"
+                    data-model-route-priority
+                    aria-label="Model priority for ${escapeHtml(item.name)} on ${escapeHtml(model)}"
+                  />
+                  <button
+                    class="button secondary compact-action"
+                    type="button"
+                    data-model-route-priority-apply
+                    data-model="${escapeHtml(model)}"
+                    data-provider="${escapeHtml(item.name)}"
+                  >Save</button>
+                  <small>${hasOverride ? `model P${escapeHtml(item.priority)}` : `inherits P${escapeHtml(globalPriority)}`}</small>
+                </div>
+              `;
+            }).join("") : `<span class="muted">No providers</span>`}
           </div>
         </div>
         <div class="model-route-side">
@@ -6470,7 +6722,10 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const nextView = views[view] ? view : "overview";
     // Clear dirty state when switching views — the user is leaving the current
     // form context, so unsaved input on the previous view is abandoned.
-    if (nextView !== state.view) clearAllDirty();
+    if (nextView !== state.view) {
+      clearAllDirty();
+      _runtimeViewAbortController?.abort();
+    }
     state.view = nextView;
     try {
       localStorage.setItem("proxyConsoleView", nextView);
@@ -6497,12 +6752,8 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     // When entering a view whose heavy data may be stale (not polled while the
     // user was elsewhere), force a one-shot fetch of that payload so the view
     // shows fresh data immediately instead of waiting for the next tick.
-    if (nextView === "overview") {
-      state.forceTimeseriesFetch = true;
-      refreshAll({ quiet: true });
-    } else if (nextView === "requests") {
-      state.forceRequestsFetch = true;
-      refreshAll({ quiet: true });
+    if (nextView === "overview" || nextView === "requests" || nextView === "providers") {
+      refreshRuntimeData({ forceViewData: true });
     } else if (nextView === "playground") {
       pgLoadModels();
     }
@@ -6670,7 +6921,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     el("pauseButton").addEventListener("click", () => {
       state.paused = !state.paused;
       updatePauseButtonState();
-      if (!state.paused) refreshAll({ quiet: true });
+      if (!state.paused) refreshRuntimeData({ forceViewData: true });
     });
 
     qsa("[data-time-range]").forEach((button) => {
@@ -6680,7 +6931,8 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         state.timeRange = nextRange;
         localStorage.setItem("proxyConsoleTimeRange", state.timeRange);
         renderTimeRangeControl();
-        refreshAll();
+        state.forceTimeseriesFetch = true;
+        refreshRuntimeData({ forceViewData: true });
       });
     });
 
@@ -6693,7 +6945,8 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         state.selectedRequestIds.clear();
         state.allMatchingSelected = false;
         syncRequestFilterUi();
-        refreshAll({ quiet: true });
+        state.forceRequestsFetch = true;
+        refreshRuntimeData({ forceViewData: true });
       });
     });
 
@@ -6703,7 +6956,8 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         state.requestsPage = 0;
         state.selectedRequestIds.clear();
         state.allMatchingSelected = false;
-        refreshAll({ quiet: true });
+        state.forceRequestsFetch = true;
+        refreshRuntimeData({ forceViewData: true });
         closeMobileSettings();
       });
     });
@@ -6712,7 +6966,8 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       state.requestsPage = 0;
       state.selectedRequestIds.clear();
       state.allMatchingSelected = false;
-      refreshAll();
+      state.forceRequestsFetch = true;
+      refreshRuntimeData({ forceViewData: true });
       closeMobileSettings();
     });
     el("clearFiltersButton").addEventListener("click", () => {
@@ -6724,7 +6979,8 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       state.requestsPage = 0;
       state.selectedRequestIds.clear();
       state.allMatchingSelected = false;
-      refreshAll();
+      state.forceRequestsFetch = true;
+      refreshRuntimeData({ forceViewData: true });
       closeMobileSettings();
     });
 
@@ -7043,7 +7299,12 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         status.textContent = "Saved successfully.";
         status.className = "health-monitor-status ok";
         setNotice("Health monitor settings saved.", "ok");
-        scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
+        scheduleBackgroundRefresh({
+          quiet: true,
+          preserveNotice: true,
+          staticData: true,
+          staticDomains: ["config", "audit"],
+        });
       } catch (err) {
         status.textContent = `Error: ${err.message}`;
         status.className = "health-monitor-status bad";
@@ -7101,7 +7362,12 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         );
         setNotice(result.backup_path ? t("notice.overlay_cleared_backup", { path: result.backup_path }) : t("notice.overlay_cleared"), "ok");
         applyMutationResult(result);
-        scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
+        scheduleBackgroundRefresh({
+          quiet: true,
+          preserveNotice: true,
+          staticData: true,
+          staticDomains: ["config", "overlay", "audit"],
+        });
       } catch (err) {
         setNotice(t("notice.clear_overlay_failed", { error: err.message }));
       }
@@ -7122,7 +7388,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         keys: [keyProxy ? { key, proxy: keyProxy } : key],
       };
       // Only send priority if user explicitly set a non-zero value.
-      // When omitted, the backend auto-assigns lowest priority.
+      // When omitted, the backend auto-assigns the highest priority.
       if (priority !== 0) payload.priority = priority;
       if (proxy) payload.proxy = proxy;
       if (format !== "auto") {
@@ -7165,8 +7431,56 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     });
 
     el("modelRoutes").addEventListener("click", async (event) => {
+      const priorityButton = event.target.closest("[data-model-route-priority-apply]");
       const editButton = event.target.closest("[data-model-route-edit]");
       const deleteButton = event.target.closest("[data-model-route-delete]");
+      if (priorityButton) {
+        const model = priorityButton.dataset.model || "";
+        const provider = priorityButton.dataset.provider || "";
+        const route = routeByModel(model);
+        const input = priorityButton.closest(".model-route-provider-priority")?.querySelector("[data-model-route-priority]");
+        if (!route || !provider || !input) return;
+        const rawPriority = String(input.value || "").trim();
+        const priority = rawPriority === "" ? null : Number(rawPriority);
+        if (priority !== null && (!Number.isInteger(priority) || priority < -1000 || priority > 1000)) {
+          setNotice("Model priority must be an integer from -1000 to 1000.");
+          return;
+        }
+        const providers = routeProviderItems(route.providers).map((item) => ({
+          name: item.name,
+          weight: item.weight || 1,
+          ...(item.name === provider
+            ? (priority === null ? {} : { priority })
+            : (item.priority === null || item.priority === undefined ? {} : { priority: item.priority })),
+        }));
+        priorityButton.disabled = true;
+        try {
+          const result = await apiPatch("/-/admin/models/routes", {
+            model,
+            providers,
+            provider_select: "priority_failover",
+          });
+          clearAllDirty();
+          applyMutationResult(result);
+          setNotice(
+            priority === null
+              ? `${provider} now inherits its global priority for ${model}.`
+              : `${provider} model priority for ${model} updated to ${priority}.`,
+            "ok",
+          );
+          scheduleBackgroundRefresh({
+            quiet: true,
+            preserveNotice: true,
+            staticData: true,
+            staticDomains: ["routing", "config", "audit"],
+          });
+        } catch (err) {
+          setNotice(`Model priority update failed: ${err.message}`);
+        } finally {
+          priorityButton.disabled = false;
+        }
+        return;
+      }
       if (editButton) {
         const model = editButton.dataset.modelRouteEdit || "";
         const route = routeByModel(model);
@@ -7199,7 +7513,12 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           state.data.version = Number(state.data.version || 0) + 1;
           renderAll();
           setNotice(t("notice.model_route_deleted", { model }), "ok");
-          scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
+          scheduleBackgroundRefresh({
+            quiet: true,
+            preserveNotice: true,
+            staticData: true,
+            staticDomains: ["routing", "config", "audit"],
+          });
         } catch (err) {
           setNotice(t("notice.delete_route_failed", { error: err.message }));
         } finally {
@@ -7396,9 +7715,24 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
   function startTimer() {
     if (state.timer) window.clearInterval(state.timer);
     state.timer = window.setInterval(() => {
-      if (!state.paused) refreshAll({ quiet: true });
+      if (!state.paused && !document.hidden) refreshRuntimeData();
     }, state.refreshMs);
   }
+
+  function handleVisibilityChange() {
+    if (document.hidden) {
+      _runtimeViewAbortController?.abort();
+      if (_capabilityFollowUpTimer) {
+        clearTimeout(_capabilityFollowUpTimer);
+        _capabilityFollowUpTimer = null;
+      }
+      return;
+    }
+    if (!state.paused && state.adminKey) refreshRuntimeData({ forceViewData: true });
+    _maybeScheduleCapabilityFollowUp();
+  }
+
+  document.addEventListener("visibilitychange", handleVisibilityChange);
 
   function loadAdminKey() {
     const params = new URLSearchParams(window.location.search);

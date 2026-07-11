@@ -163,6 +163,25 @@ class ConfigManagerTests(unittest.TestCase):
         self.assertTrue(os.path.exists(cleared["backup_path"]))
         self.assertFalse(os.path.exists(overlay_path))
 
+    def test_add_provider_without_priority_is_highest_priority(self):
+        _config_path, overlay_path = self.temp_paths()
+        cfg = base_config()
+        cfg["providers"]["alpha"]["priority"] = 10
+        cfg["providers"]["beta"] = {
+            "base_url": "https://beta.example",
+            "keys": ["beta-secret-key"],
+            "enabled": True,
+            "priority": 3,
+        }
+        mgr = config_manager.RuntimeConfigManager(cfg, overlay_path=overlay_path)
+
+        updated = mgr.add_provider(
+            "new-provider",
+            {"base_url": "https://new.example", "keys": ["new-secret-key"], "enabled": True},
+        )
+
+        self.assertEqual(updated["providers"]["new-provider"]["priority"], 11)
+
     def test_add_provider_update_provider_key_and_format_write_overlay(self):
         _config_path, overlay_path = self.temp_paths()
         mgr = config_manager.RuntimeConfigManager(base_config(), overlay_path=overlay_path)

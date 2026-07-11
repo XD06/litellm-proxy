@@ -269,19 +269,20 @@ class AdminRoutesMixin:
                 {
                     "router": ROUTER.snapshot(),
                     "policy": scheduler_policy.policy_snapshot(CONFIG),
-                }
+                },
+                etag=True,
             )
         if endpoint == "models/capabilities":
-            return self._resp_json(_model_capabilities_snapshot())
+            return self._resp_json(_model_capabilities_snapshot(), etag=True)
         if endpoint == "models/discovery-status":
             return self._resp_json(sse._discovery_status())
         if endpoint == "config":
-            return self._resp_json(CONFIG_MANAGER.snapshot())
+            return self._resp_json(CONFIG_MANAGER.snapshot(), etag=True)
         if endpoint == "config/overlay":
-            return self._resp_json(CONFIG_MANAGER.overlay_snapshot())
+            return self._resp_json(CONFIG_MANAGER.overlay_snapshot(), etag=True)
         if endpoint == "audit":
             params = self._query_params()
-            return self._resp_json(AUDIT.list(limit=params.get("limit", 50)))
+            return self._resp_json(AUDIT.list(limit=params.get("limit", 50)), etag=True)
         if endpoint == "requests":
             filters = self._query_params()
             limit = filters.pop("limit", 50)

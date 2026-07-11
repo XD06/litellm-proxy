@@ -194,6 +194,27 @@ class AdminApiTests(unittest.TestCase):
         self.assertEqual(status, 403)
         self.assertEqual(body["error"]["message"], "admin auth required")
 
+    def test_static_admin_resources_support_conditional_get(self):
+        cfg = {"server": {"admin_key": "admin-secret"}, "providers": {}, "models": {}}
+        manager = config_manager.RuntimeConfigManager(cfg, overlay_path=self.temp_overlay_path())
+        headers = {"X-Admin-Key": "admin-secret"}
+
+        with self.runtime_config(manager):
+            status, response_headers, body = self.get_raw("/-/admin/config", headers=headers)
+            self.assertEqual(status, 200)
+            self.assertTrue(body)
+            etag = response_headers.get("ETag") or response_headers.get("Etag")
+            self.assertTrue(etag)
+
+            status, response_headers, body = self.get_raw(
+                "/-/admin/config",
+                headers={**headers, "If-None-Match": etag},
+            )
+
+        self.assertEqual(status, 304)
+        self.assertEqual(body, b"")
+        self.assertEqual(response_headers.get("ETag") or response_headers.get("Etag"), etag)
+
     def test_admin_status_is_lightweight_and_models_capabilities_are_separate(self):
         cfg = {
             "server": {"admin_key": "admin-secret"},

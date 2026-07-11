@@ -351,7 +351,7 @@
               <section id="modelRoutesPanel" class="panel model-routes-panel">
                 <div class="panel-head">
                   <div>
-                    <h2 data-i18n="cfg.model_routes">Model Routes<span class="help-tip" data-tip="Map one client model to a weighted provider pool." data-i18n-tip="cfg.model_routes_tip">?</span></h2>
+                    <h2 data-i18n="cfg.model_routes">Model Routes<span class="help-tip" data-tip="Set a provider priority for one client model. Model-route priority overrides the provider's global priority." data-i18n-tip="cfg.model_routes_tip">?</span></h2>
                   </div>
                 </div>
                 <details id="modelRouteEditor" class="model-route-editor">
@@ -362,9 +362,9 @@
                       <input class="control" name="model" placeholder="deepseek-v4-flash" required />
                     </label>
                     <label class="field">
-                      <span data-i18n="cfg.provider_order">Provider order</span>
+                      <span data-i18n="cfg.provider_order">Provider order and model priority</span>
                       <input class="control" name="providers" placeholder="opencode:1:100, deepseek:1:90" required />
-                      <small class="field-help" data-i18n="cfg.provider_order_help">provider:weight:priority, comma separated. Priority is optional and overrides provider config.</small>
+                      <small class="field-help" data-i18n="cfg.provider_order_help">provider:weight:priority, comma separated. Model priority overrides the provider global priority; use priority_failover to honor it.</small>
                     </label>
                     <label class="field">
                       <span data-i18n="cfg.selection">Selection</span>
