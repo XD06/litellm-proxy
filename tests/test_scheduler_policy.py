@@ -61,7 +61,8 @@ class SchedulerPolicyTests(unittest.TestCase):
         # Don't stop — another provider may support this model.
         self.assertFalse(decision.stop_attempts)
         self.assertEqual(decision.reason, "model_not_found")
-        self.assertEqual(decision.cooldown_scope, "key")
+        self.assertEqual(decision.cooldown_scope, "none")
+        self.assertEqual(decision.cooldown_s, 0)
 
     def test_non_model_400_404_can_retry_other_provider(self):
         decision = scheduler_policy.classify_http_error(

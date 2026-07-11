@@ -125,7 +125,7 @@ def apply_stop_sequences(payload: Dict[str, Any], stop: StopSequences, *, target
 
 def native_only_request_parameters(request: Dict[str, Any], *, client_format: str) -> tuple[str, ...]:
     by_format = {
-        "chat_completions": {"response_format", "logprobs", "top_logprobs", "reasoning_effort", "parallel_tool_calls", "stream_options", "modalities", "audio", "prediction"},
+        "chat_completions": {"response_format", "logprobs", "top_logprobs", "reasoning_effort", "modalities", "audio", "prediction"},
         "responses": {"previous_response_id", "store", "include", "truncation", "background", "prompt", "prompt_cache_key", "reasoning", "text", "parallel_tool_calls"},
         "anthropic_messages": {"thinking", "cache_control", "container", "mcp_servers", "context_management", "output_config", "service_tier"},
     }

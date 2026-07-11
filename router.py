@@ -278,6 +278,12 @@ class UpstreamRouter:
         provider_cooldown_s = int(failure_policy.get("provider_cooldown_s") or 0)
         transient_key_failure = error_type in ("server_error", "network_error", "unknown") and cooldown_scope in ("key", "key_provider")
 
+        # Model/schema client errors are request-specific, not key-health failures.
+        # Unless an operator explicitly overrides the policy, do not mutate the
+        # shared key state and accidentally suppress unrelated models.
+        if error_type in ("client_error", "provider_compat", "empty_visible_output") and cooldown_scope == "none":
+            return
+
         with self._lock:
             ks = self._keys_state.setdefault((attempt.provider, attempt.key_index), _KeyState())
             ks.fails += 1
@@ -823,6 +829,7 @@ class UpstreamRouter:
                 seen.add(str(name))
 
         models_cfg = self.cfg.get("models") or {}
+        provider_capabilities = models_cfg.get("provider_model_capabilities") or {}
 
         auto_filter_active = self._manual_filter_active(canonical_model, provider_items)
 
@@ -832,7 +839,12 @@ class UpstreamRouter:
             pcfg = providers_cfg.get(name) or {}
             if not pcfg or not pcfg.get("enabled", True):
                 continue
-            if not self._provider_supports_with_cache(name, canonical_model, auto_filter_active):
+            if name in route_provider_names:
+                caps = provider_capabilities.get(name)
+                canonical_map = caps.get("canonical_map") if isinstance(caps, dict) else {}
+                if model_registry.provider_model_id_disabled(self.cfg, name, canonical_model, canonical_map):
+                    continue
+            elif not self._provider_supports_with_cache(name, canonical_model, auto_filter_active):
                 continue
             supported.append(_ProviderItem(name=name, weight=max(1, item.weight), priority=item.priority))
 

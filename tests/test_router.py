@@ -499,6 +499,36 @@ class RouterTests(unittest.TestCase):
 
         self.assertEqual([a.provider for a in attempts], ["gamma"])
 
+    def test_explicit_model_route_is_authoritative_over_incomplete_discovery(self):
+        cfg = base_config()
+        cfg["routing"]["provider_select"] = "priority_failover"
+        cfg["routing"]["default_provider_pool"] = ["alpha", "beta"]
+        cfg["providers"]["alpha"]["priority"] = 100
+        cfg["providers"]["beta"]["priority"] = 1
+        cfg["models"]["routes"] = {
+            "target-model": {
+                "providers": [{"name": "alpha", "priority": 200}],
+                "provider_select": "priority_failover",
+            }
+        }
+        cfg["models"]["provider_model_capabilities"] = {
+            "alpha": {
+                "status": "ok",
+                "models": ["different-model"],
+                "canonical_map": {"different-model": "different-model"},
+            },
+            "beta": {
+                "status": "ok",
+                "models": ["target-model"],
+                "canonical_map": {"target-model": "target-model"},
+            },
+        }
+        router = UpstreamRouter(cfg)
+
+        attempts = list(router.iter_attempts("target-model", False, "req-explicit-authoritative"))
+
+        self.assertTrue(attempts)
+        self.assertEqual(attempts[0].provider, "alpha")
     def test_explicit_model_route_does_not_append_unknown_capability_providers(self):
         cfg = base_config()
         cfg["providers"]["gamma"] = {
@@ -929,6 +959,30 @@ class RouterTests(unittest.TestCase):
         self.assertFalse(router.set_key_enabled("alpha", 9, False))
         self.assertFalse(router.clear_key_state("alpha", 9))
 
+    def test_model_level_client_error_does_not_cool_down_shared_key(self):
+        router = UpstreamRouter(base_config())
+        failed_attempt = Attempt(
+            request_id="req-model-not-found",
+            attempt_no=1,
+            provider="alpha",
+            key_index=0,
+            key="alpha-key",
+            url="https://alpha.example/v1/chat/completions",
+            headers={},
+            provider_model="missing-model",
+            upstream_format="chat_completions",
+        )
+
+        router.report_failure(failed_attempt, error_type="client_error", http_status=404)
+
+        key_state = router.snapshot()["providers"]["alpha"]["keys"][0]
+        self.assertEqual(key_state["fails"], 0)
+        self.assertEqual(key_state["cooldown_remaining_s"], 0)
+        self.assertFalse(key_state["has_failure"])
+        self.assertTrue(key_state["available"])
+        attempts = list(router.iter_attempts("other-supported-model", False, "req-after-model-not-found"))
+        self.assertIn("alpha", [attempt.provider for attempt in attempts])
+
     def test_provider_compat_failure_does_not_cool_down_key(self):
         router = UpstreamRouter(base_config())
         failed_attempt = Attempt(
@@ -947,8 +1001,9 @@ class RouterTests(unittest.TestCase):
 
         snap = router.snapshot()
         key_state = snap["providers"]["alpha"]["keys"][0]
-        self.assertEqual(key_state["fails"], 1)
+        self.assertEqual(key_state["fails"], 0)
         self.assertEqual(key_state["cooldown_remaining_s"], 0)
+        self.assertFalse(key_state["has_failure"])
         self.assertTrue(key_state["available"])
 
     def test_provider_compat_failure_does_not_advance_transient_ladder(self):
@@ -971,7 +1026,7 @@ class RouterTests(unittest.TestCase):
         router.report_failure(failed_attempt, error_type="server_error", http_status=502)
 
         key_state = router.snapshot()["providers"]["alpha"]["keys"][0]
-        self.assertEqual(key_state["fails"], 2)
+        self.assertEqual(key_state["fails"], 1)
         self.assertEqual(key_state["transient_fails"], 1)
         self.assertGreaterEqual(key_state["cooldown_remaining_s"], 8)
         self.assertLessEqual(key_state["cooldown_remaining_s"], 10)
@@ -994,8 +1049,9 @@ class RouterTests(unittest.TestCase):
 
         snap = router.snapshot()
         key_state = snap["providers"]["alpha"]["keys"][0]
-        self.assertEqual(key_state["fails"], 1)
+        self.assertEqual(key_state["fails"], 0)
         self.assertEqual(key_state["cooldown_remaining_s"], 0)
+        self.assertFalse(key_state["has_failure"])
         self.assertTrue(key_state["available"])
 
     def test_report_failure_uses_retry_after_for_rate_limit_key_cooldown(self):

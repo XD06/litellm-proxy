@@ -137,7 +137,7 @@ def failure_policy_for_error_type(
             "provider_cooldown_s": 0,
         }
         return _apply_failure_policy_override(base, override, allow_retry_after=True)
-    if error_type in ("provider_compat", "empty_visible_output"):
+    if error_type in ("provider_compat", "empty_visible_output", "client_error"):
         base = {
             "error_type": error_type,
             "cooldown_scope": "none",

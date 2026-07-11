@@ -877,6 +877,8 @@ def openai_chat_request_to_responses_request(
         payload["stop"] = req["stop"]
     if "tool_choice" in req:
         payload["tool_choice"] = req["tool_choice"]
+    if "parallel_tool_calls" in req:
+        payload["parallel_tool_calls"] = bool(req["parallel_tool_calls"])
 
     tools = []
     for tool in req.get("tools") or []:

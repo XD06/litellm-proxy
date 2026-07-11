@@ -115,6 +115,50 @@ class HealthScoreTests(unittest.TestCase):
         self.assertLess(score, 60)
         self.assertIn(result["providers"]["alpha"]["grade"], ("poor", "critical", "fair"))
 
+    def test_model_level_client_error_does_not_reduce_global_provider_health(self):
+        attempt = type("Attempt", (), {
+            "provider": "alpha",
+            "upstream_format": "chat_completions",
+            "provider_model": "missing-model",
+            "key": "alpha-key",
+            "key_index": 0,
+            "attempt_no": 1,
+        })()
+        self.obs.record_request_start(
+            "req-model-not-found",
+            client_format="chat_completions",
+            endpoint="chat_completions",
+            model="missing-model",
+            stream=False,
+            path="/v1/chat/completions",
+        )
+        self.obs.record_attempt(
+            "req-model-not-found",
+            attempt,
+            outcome="failed",
+            error_type="client_error",
+            reason="model_not_found",
+            http_status=404,
+        )
+        self.obs.record_request_end("req-model-not-found", status_code=400)
+
+        router_snap = {
+            "providers": {
+                "alpha": {
+                    "enabled": True,
+                    "config_enabled": True,
+                    "runtime_enabled": True,
+                    "available": True,
+                    "has_hard_failure": False,
+                    "cooldown_remaining_s": 0,
+                    "key_count": 1,
+                    "available_key_count": 1,
+                }
+            }
+        }
+        result = self.obs.provider_health_scores(router_snapshot=router_snap)
+
+        self.assertEqual(result["providers"]["alpha"]["score"], 100)
     def test_cooldown_reduces_score(self):
         """A provider in cooldown should have reduced availability score."""
         router_snap = {

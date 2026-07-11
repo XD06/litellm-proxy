@@ -685,8 +685,8 @@ class ProxyObservability:
             state = providers_state.get(name) or {}
 
             # --- Success rate component (0–50) ---
-            total = int(act.get("total") or 0)
-            ok = int(act.get("ok") or 0)
+            total = int(act.get("healthTotal", act.get("total")) or 0)
+            ok = int(act.get("healthOk", act.get("ok")) or 0)
             bad = int(act.get("bad") or 0)
             if total > 0:
                 success_rate = ok / total
@@ -869,7 +869,7 @@ class ProxyObservability:
                     continue
                 entry = involved.get(name)
                 if entry is None:
-                    entry = {"success": False, "failed_reason": ""}
+                    entry = {"success": False, "failed_reason": "", "health_relevant_failure": False}
                     involved[name] = entry
                 if str(attempt.get("outcome") or "") == "success":
                     entry["success"] = True
@@ -882,12 +882,15 @@ class ProxyObservability:
                     if dur > 0:
                         entry["duration_ms"] = dur
                 else:
-                    reason = attempt.get("reason") or attempt.get("error_type") or ""
+                    error_type = str(attempt.get("error_type") or "")
+                    reason = attempt.get("reason") or error_type or ""
+                    if error_type not in ("client_error", "provider_compat"):
+                        entry["health_relevant_failure"] = True
                     if reason and not entry.get("failed_reason"):
                         entry["failed_reason"] = str(reason)
 
             if final_provider and final_provider not in involved:
-                involved[final_provider] = {"success": False, "failed_reason": ""}
+                involved[final_provider] = {"success": False, "failed_reason": "", "health_relevant_failure": False}
 
             for name, entry in involved.items():
                 success_here = bool(entry.get("success"))
@@ -898,6 +901,9 @@ class ProxyObservability:
                     tone = "warn"
                 else:
                     tone = "bad"
+                health_outcome = "ok" if (success_here or final_success) else (
+                    "bad" if entry.get("health_relevant_failure") else "ignore"
+                )
                 reason = entry.get("failed_reason") or (item_error if tone != "ok" else "") or request_status
                 # Use per-attempt first_byte_ms when available; fall back to
                 # per-attempt duration_ms; finally fall back to request-level
@@ -916,8 +922,8 @@ class ProxyObservability:
 
                 # Lightweight tuple instead of full dict — saves dict allocation
                 # for every event on the poll path.
-                # (ts, tone, latency, reason, request_id, model, status)
-                tup = (finished_at, tone, latency, str(reason or "-"), request_id, model, request_status)
+                # (ts, tone, latency, reason, request_id, model, status, health_outcome)
+                tup = (finished_at, tone, latency, str(reason or "-"), request_id, model, request_status, health_outcome)
 
                 bucket = per_provider.get(name)
                 if bucket is None:
@@ -947,6 +953,8 @@ class ProxyObservability:
             latency_count = 0
             latest_latency = 0
             last_error_tup = None
+            health_total = 0
+            health_ok = 0
 
             for tup in clipped:
                 t = tup[1]
@@ -963,6 +971,10 @@ class ProxyObservability:
                     latest_latency = lat
                 if t != "ok":
                     last_error_tup = tup  # ascending order → last assignment wins
+                if tup[7] != "ignore":
+                    health_total += 1
+                    if tup[7] == "ok":
+                        health_ok += 1
 
             bucket["total"] = total
             bucket["ok"] = ok
@@ -971,6 +983,8 @@ class ProxyObservability:
             bucket["latestLatency"] = latest_latency
             bucket["avgLatency"] = round(latency_sum / latency_count) if latency_count else 0
             bucket["successRate"] = (ok / total) if total else None
+            bucket["healthTotal"] = health_total
+            bucket["healthOk"] = health_ok
 
             if last_error_tup is not None:
                 bucket["lastError"] = {

@@ -5,6 +5,7 @@ from parameter_compatibility import (
     ParameterCompatibilityError,
     alternate_output_token_payload,
     extract_output_token_limit,
+    native_only_request_parameters,
 )
 
 
@@ -109,6 +110,27 @@ class OutputTokenCompatibilityTests(unittest.TestCase):
                 resolve_model=lambda m: m,
             )
 
+    def test_transport_options_do_not_require_native_chat_upstream(self):
+        params = native_only_request_parameters(
+            {"stream_options": {"include_usage": True}, "parallel_tool_calls": True},
+            client_format=CHAT,
+        )
+        self.assertEqual(params, ())
+
+    def test_parallel_tool_calls_survives_chat_to_responses_conversion(self):
+        payload = convert_request(
+            CHAT,
+            RESPONSES,
+            {"model": "m", "messages": [], "parallel_tool_calls": False},
+            resolve_model=lambda m: m,
+        )
+        self.assertIs(payload["parallel_tool_calls"], False)
+    def test_non_convertible_chat_semantics_still_require_native_upstream(self):
+        params = native_only_request_parameters(
+            {"response_format": {"type": "json_object"}, "reasoning_effort": "high"},
+            client_format=CHAT,
+        )
+        self.assertEqual(params, ("reasoning_effort", "response_format"))
     def test_anthropic_target_gets_configured_default_when_limit_absent(self):
         payload = convert_request(
             CHAT, ANTHROPIC,

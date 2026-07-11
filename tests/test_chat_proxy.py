@@ -714,6 +714,23 @@ class ChatProxyTests(unittest.TestCase):
             self.run_server_post("/v1/chat/completions", {"model": "client-model", "messages": [{"role": "user", "content": "hi"}], "response_format": {"type": "json_object"}})
         self.assertEqual(fake_router.iter_calls[0]["allowed_upstream_formats"], ['chat_completions'])
 
+    def test_transport_only_stream_options_do_not_disable_cross_format_fallback(self):
+        fake_router = FakeRouter([])
+        with patch.object(sse2json, "ROUTER", fake_router), patch.object(sse2json, "DISABLE_MAP", True):
+            self.run_server_post(
+                "/v1/chat/completions",
+                {
+                    "model": "client-model",
+                    "messages": [{"role": "user", "content": "hi"}],
+                    "stream": True,
+                    "stream_options": {"include_usage": True},
+                    "parallel_tool_calls": True,
+                },
+            )
+        self.assertEqual(
+            fake_router.iter_calls[0]["allowed_upstream_formats"],
+            ["chat_completions", "responses", "anthropic_messages"],
+        )
     def test_chat_streaming_requires_native_chat_upstream(self):
         fake_router = FakeRouter([])
         fake_client = FakeClient({})
