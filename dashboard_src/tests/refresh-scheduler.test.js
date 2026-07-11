@@ -34,6 +34,16 @@ assert.match(
 );
 assert.match(
   source,
+  /\["routerSnapshot", apiGet\("\/-\/admin\/router\/snapshot"\)\]/,
+  'runtime core must poll the lightweight router snapshot',
+);
+assert.match(
+  source,
+  /result\.routerSnapshot\?\.providers[\s\S]{0,180}state\.data\.status/,
+  'runtime router snapshots must update the provider/key state used by the dashboard',
+);
+assert.match(
+  source,
   /state\.forceRequestsFetch[\s\S]{0,220}apiGet\(requestsPath\(\), \{ signal: viewController\.signal \}\)/,
   'explicit request-list invalidation must still trigger an immediate fetch',
 );

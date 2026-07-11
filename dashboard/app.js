@@ -3550,6 +3550,10 @@
 				state.data.providerActivity = activity.providers || activity || {};
 			}
 			if (result.healthScores !== void 0) state.data.healthScores = result.healthScores;
+			if (result.routerSnapshot?.providers) state.data.status = {
+				...state.data.status || {},
+				router: result.routerSnapshot
+			};
 			state.data.runtimeVersion = Number(state.data.runtimeVersion || 0) + 1;
 		}
 		function applyRuntimeViewData(result, view) {
@@ -3577,7 +3581,8 @@
 				const coreEntries = [
 					["metrics", apiGet("/-/admin/metrics")],
 					["providerActivity", apiGet(`/-/admin/provider-activity?limit=60&include_events=${requestedView === "providers" ? "1" : "0"}`)],
-					["healthScores", apiGet("/-/admin/health/scores")]
+					["healthScores", apiGet("/-/admin/health/scores")],
+					["routerSnapshot", apiGet("/-/admin/router/snapshot")]
 				];
 				_runtimeViewAbortController?.abort();
 				viewController = new AbortController();

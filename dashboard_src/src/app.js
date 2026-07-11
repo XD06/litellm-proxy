@@ -1227,6 +1227,9 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       state.data.providerActivity = activity.providers || activity || {};
     }
     if (result.healthScores !== undefined) state.data.healthScores = result.healthScores;
+    if (result.routerSnapshot?.providers) {
+      state.data.status = { ...(state.data.status || {}), router: result.routerSnapshot };
+    }
     state.data.runtimeVersion = Number(state.data.runtimeVersion || 0) + 1;
   }
 
@@ -1257,6 +1260,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         ["metrics", apiGet("/-/admin/metrics")],
         ["providerActivity", apiGet(`/-/admin/provider-activity?limit=60&include_events=${requestedView === "providers" ? "1" : "0"}`)],
         ["healthScores", apiGet("/-/admin/health/scores")],
+        ["routerSnapshot", apiGet("/-/admin/router/snapshot")],
       ];
       _runtimeViewAbortController?.abort();
       viewController = new AbortController();

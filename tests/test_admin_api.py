@@ -255,6 +255,7 @@ class AdminApiTests(unittest.TestCase):
 
         with patch.object(sse2json, "CONFIG", cfg), patch.object(sse2json, "ROUTER", router):
             status, body = self.get_json("/-/admin/status", headers={"X-Admin-Key": "admin-secret"})
+            router_status, router_body = self.get_json("/-/admin/router/snapshot", headers={"X-Admin-Key": "admin-secret"})
             models_status, models_body = self.get_json(
                 "/-/admin/models/capabilities",
                 headers={"X-Admin-Key": "admin-secret"},
@@ -267,6 +268,9 @@ class AdminApiTests(unittest.TestCase):
         self.assertIn("policy", body)
         self.assertNotIn("models", body)
         self.assertIn("rule_table", body["policy"])
+        self.assertEqual(router_status, 200)
+        self.assertEqual(router_body, body["router"])
+        self.assertNotIn("raw-alpha-key", json.dumps(router_body))
         self.assertEqual(body["policy"]["failure_policies"]["empty_visible_output"]["cooldown_scope"], "none")
         self.assertEqual(models_status, 200)
         self.assertEqual(models_body["providers"]["alpha"]["status"], "ok")

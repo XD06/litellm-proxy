@@ -178,6 +178,11 @@ class AdminRoutesMixin:
                     ],
                 }
             )
+        if endpoint == "router/snapshot":
+            # Runtime provider/key availability only. Keep this separate from
+            # /status so the dashboard can refresh mutable router state on its
+            # short polling cadence without re-fetching static admin metadata.
+            return self._resp_json(ROUTER.snapshot())
         if endpoint == "metrics":
             # Lightweight poll payload: counters + failure_summary + active,
             # without the heavy recent_requests array. Use metrics/full when
