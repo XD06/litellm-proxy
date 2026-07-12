@@ -95,6 +95,11 @@
       "quota_or_balance": 3600
     },
 
+    // key 瞬时故障、凭据/余额故障，以及模型/格式兼容性组合的升级阶梯。
+    "key_failure_ladder_s": [10, 60, 3600],
+    "credential_failure_ladder_s": [3600, 21600, 86400],
+    "compatibility_failure_ladder_s": [10, 60, 3600],
+
     // 可配置失败策略。未配置的字段会使用代码默认值。
     // cooldown_scope:
     // - none         只记录失败，不冷却 key/provider
@@ -115,7 +120,7 @@
       },
       "provider_compat": { "cooldown_scope": "none", "cooldown_s": 0, "disables_key": false },
       "empty_visible_output": { "cooldown_scope": "none", "cooldown_s": 0, "disables_key": false },
-      "client_error": { "cooldown_scope": "key", "cooldown_s": 10, "disables_key": false },
+      "client_error": { "cooldown_scope": "none", "cooldown_s": 0, "disables_key": false },
       "unknown": { "cooldown_scope": "key", "cooldown_s": 10, "disables_key": false }
     },
 

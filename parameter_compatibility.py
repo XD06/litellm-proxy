@@ -123,13 +123,90 @@ def apply_stop_sequences(payload: Dict[str, Any], stop: StopSequences, *, target
     return out
 
 
+_NATIVE_ONLY_FIELDS = {
+    "chat_completions": {"response_format", "logprobs", "top_logprobs", "reasoning_effort", "modalities", "audio", "prediction"},
+    "responses": {"previous_response_id", "store", "include", "truncation", "background", "prompt", "prompt_cache_key", "reasoning", "text", "parallel_tool_calls"},
+    "anthropic_messages": {"thinking", "cache_control", "container", "mcp_servers", "context_management", "output_config", "service_tier"},
+}
+
+
 def native_only_request_parameters(request: Dict[str, Any], *, client_format: str) -> tuple[str, ...]:
-    by_format = {
-        "chat_completions": {"response_format", "logprobs", "top_logprobs", "reasoning_effort", "modalities", "audio", "prediction"},
-        "responses": {"previous_response_id", "store", "include", "truncation", "background", "prompt", "prompt_cache_key", "reasoning", "text", "parallel_tool_calls"},
-        "anthropic_messages": {"thinking", "cache_control", "container", "mcp_servers", "context_management", "output_config", "service_tier"},
-    }
-    return tuple(sorted(key for key in by_format.get(client_format, set()) if key in request))
+    return tuple(sorted(key for key in _NATIVE_ONLY_FIELDS.get(client_format, set()) if key in request))
+
+
+def incompatible_request_parameters(
+    request: Dict[str, Any],
+    *,
+    client_format: str,
+    target_format: str,
+) -> tuple[str, ...]:
+    """Return request fields whose semantics cannot be preserved for one target."""
+    if target_format == client_format:
+        return ()
+
+    blockers = set()
+    for key in _NATIVE_ONLY_FIELDS.get(client_format, set()):
+        if key not in request or request.get(key) is None:
+            continue
+        if client_format == "responses" and key == "store" and request.get(key) is False:
+            continue
+        if client_format == "responses" and target_format == "chat_completions" and key == "parallel_tool_calls":
+            continue
+        blockers.add(key)
+    return tuple(sorted(blockers))
+
+
+def upstream_format_eligibility(
+    request: Dict[str, Any],
+    *,
+    client_format: str,
+    candidate_formats: list[str],
+) -> tuple[list[str], Dict[str, tuple[str, ...]]]:
+    """Return allowed upstream formats and per-format semantic blockers."""
+    allowed = []
+    blocked: Dict[str, tuple[str, ...]] = {}
+    for target_format in candidate_formats:
+        blockers = incompatible_request_parameters(
+            request, client_format=client_format, target_format=target_format
+        )
+        if blockers:
+            blocked[target_format] = blockers
+        else:
+            allowed.append(target_format)
+    return allowed, blocked
+
+
+def request_compatibility_profile(request: Dict[str, Any], *, client_format: str) -> str:
+    """Return a stable, non-content signature for compatibility circuit isolation."""
+    features = set()
+    if request.get("tools"):
+        features.add("tools")
+    tool_choice = request.get("tool_choice")
+    if tool_choice not in (None, "auto"):
+        features.add("forced_tool_choice")
+    if any(request.get(key) is not None for key in ("reasoning", "reasoning_effort", "thinking")):
+        features.add("reasoning")
+    if any(request.get(key) is not None for key in ("response_format", "text", "output_config")):
+        features.add("structured_output")
+    if request.get("audio") is not None or request.get("modalities"):
+        features.add("audio")
+
+    def scan(value: Any) -> None:
+        if isinstance(value, dict):
+            kind = str(value.get("type") or "")
+            if "image" in kind:
+                features.add("vision")
+            if "audio" in kind:
+                features.add("audio")
+            for child in value.values():
+                scan(child)
+        elif isinstance(value, list):
+            for child in value:
+                scan(child)
+
+    scan(request.get("messages"))
+    scan(request.get("input"))
+    return "+".join(sorted(features)) or "plain"
 
 
 def parameter_adaptations(request: Dict[str, Any], *, client_format: str, target_format: str, output_token_field: Optional[str] = None, anthropic_default_max_tokens: Optional[int] = None) -> list[Dict[str, Any]]:

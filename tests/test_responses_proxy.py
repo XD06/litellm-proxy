@@ -720,6 +720,22 @@ class ResponsesProxyTests(unittest.TestCase):
             self.run_server_post("/v1/responses", {"model": "client-model", "input": "hi", "previous_response_id": "resp_old"})
         self.assertEqual(fake_router.iter_calls[0]["allowed_upstream_formats"], ['responses'])
 
+    def test_store_false_and_parallel_tools_keep_chat_fallback_enabled(self):
+        fake_router = FakeRouter([])
+        with patch.object(sse2json, "ROUTER", fake_router), patch.object(sse2json, "DISABLE_MAP", True):
+            self.run_server_post(
+                "/v1/responses",
+                {
+                    "model": "client-model",
+                    "input": "hi",
+                    "store": False,
+                    "parallel_tool_calls": True,
+                },
+            )
+        call = fake_router.iter_calls[0]
+        self.assertEqual(call["allowed_upstream_formats"], ["responses", "chat_completions"])
+        self.assertEqual(call["compatibility_profile"], "plain")
+
     def test_responses_streaming_requires_supported_stream_upstream(self):
         fake_router = FakeRouter([])
         fake_client = FakeClient({})

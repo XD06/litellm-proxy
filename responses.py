@@ -22,10 +22,14 @@ def _proxy_openai_responses(self, req, request_id, start_ts, path="/openai/v1/re
         if resolved_model != original_model:
             print(f"[proxy] model alias: {original_model} -> {resolved_model}", flush=True)
 
-        native_only_parameters = native_only_request_parameters(req, client_format=RESPONSES)
-        allowed_formats = [RESPONSES] if native_only_parameters else [RESPONSES, CHAT, ANTHROPIC]
+        allowed_formats, blocked_formats = upstream_format_eligibility(
+            req, client_format=RESPONSES, candidate_formats=[RESPONSES, CHAT, ANTHROPIC]
+        )
+        compatibility_profile = request_compatibility_profile(req, client_format=RESPONSES)
         attempt_errors = []
         log_each = bool((CONFIG.get("observability") or {}).get("log_provider_on_each_request", True))
+        if blocked_formats and log_each:
+            print(f"[proxy] req={request_id} format exclusions={blocked_formats}", flush=True)
         has_attempt = False
         total_start = time.time()
         routing_cfg = CONFIG.get("routing") or {}
@@ -43,6 +47,7 @@ def _proxy_openai_responses(self, req, request_id, start_ts, path="/openai/v1/re
             client_headers=self.headers,
             client_format="responses",
             allowed_upstream_formats=allowed_formats,
+            compatibility_profile=compatibility_profile,
         ):
             has_attempt = True
             elapsed = time.time() - total_start

@@ -41,6 +41,8 @@ class Attempt:
     provider_model: str
     upstream_format: str
     proxy_url: Optional[str] = None
+    canonical_model: str = ""
+    compatibility_profile: str = "plain"
 
 
 @dataclass(frozen=True)
@@ -56,6 +58,7 @@ class _KeyState:
     disabled_until: float = 0.0
     fails: int = 0
     transient_fails: int = 0
+    credential_fails: int = 0
     runtime_enabled: bool = True
 
     def available(self, now: float) -> bool:
@@ -70,6 +73,15 @@ class _ProviderState:
 
     def available(self, now: float) -> bool:
         return self.runtime_enabled and now >= self.cooldown_until
+
+
+@dataclass
+class _CompatibilityState:
+    cooldown_until: float = 0.0
+    fails: int = 0
+
+    def available(self, now: float) -> bool:
+        return now >= self.cooldown_until
 
 
 def _mask_key(key: str, prefix: int = 6, suffix: int = 2) -> str:
@@ -125,6 +137,7 @@ class UpstreamRouter:
         self._rr_model: Dict[str, int] = {}
         self._providers_state: Dict[str, _ProviderState] = {}
         self._keys_state: Dict[Tuple[str, int], _KeyState] = {}
+        self._compatibility_state: Dict[Tuple[str, str, str, str], _CompatibilityState] = {}
         self._attempt_static_cache: Dict[Tuple[str, str], Tuple[str, Dict[str, str], set, Tuple[str, ...], str, str]] = {}
         # Cache for provider model support results to avoid repeated checks
         self._provider_support_cache: Dict[Tuple[str, str], bool] = {}
@@ -152,6 +165,7 @@ class UpstreamRouter:
         *,
         client_format: str = "chat_completions",
         allowed_upstream_formats: Optional[List[str]] = None,
+        compatibility_profile: str = "plain",
     ) -> Generator[Attempt, None, None]:
         """按 provider_select 选择 provider+key。
 
@@ -193,6 +207,11 @@ class UpstreamRouter:
 
             provider, upstream_format = provider_order[current_prov_idx]
             scan_no += 1
+            if not self._compatibility_available(
+                provider, canonical_model, upstream_format, compatibility_profile
+            ):
+                current_prov_idx += 1
+                continue
              
             sel = self._select_key(
                 provider,
@@ -237,6 +256,8 @@ class UpstreamRouter:
                 provider_model=provider_model,
                 upstream_format=upstream_format,
                 proxy_url=proxy_url,
+                canonical_model=canonical_model,
+                compatibility_profile=str(compatibility_profile or "plain"),
             )
             current_prov_idx += 1
 
@@ -249,9 +270,11 @@ class UpstreamRouter:
                 ks.disabled_until = 0.0
                 ks.fails = 0
                 ks.transient_fails = 0
+                ks.credential_fails = 0
             ps = self._providers_state.get(attempt.provider)
             if ps:
                 ps.cooldown_until = 0.0
+            self._compatibility_state.pop(self._compatibility_key(attempt), None)
         # 成功不需要额外行为
         _ = now
 
@@ -267,6 +290,17 @@ class UpstreamRouter:
         error_type: key_invalid | rate_limited | server_error | network_error | client_error | provider_compat | empty_visible_output | unknown
         """
         now = time.time()
+        if error_type in ("client_error", "provider_compat", "empty_visible_output"):
+            with self._lock:
+                key = self._compatibility_key(attempt)
+                state = self._compatibility_state.setdefault(key, _CompatibilityState())
+                state.fails += 1
+                state.cooldown_until = max(
+                    state.cooldown_until,
+                    now + self._compatibility_ladder_seconds(state.fails),
+                )
+            return
+
         failure_policy = scheduler_policy.failure_policy_for_error_type(
             self.cfg,
             error_type,
@@ -287,15 +321,10 @@ class UpstreamRouter:
         with self._lock:
             ks = self._keys_state.setdefault((attempt.provider, attempt.key_index), _KeyState())
             ks.fails += 1
-            if error_type == "key_invalid" and cooldown_scope in ("key", "key_provider"):
-                # 401/403 are treated as hard key failures, but we keep them in
-                # cooldown first and only hard-disable after repeated repeats.
-                # This preserves the "try another key now, come back later"
-                # behavior without permanently removing a key after one bad hit.
-                if ks.fails < 4:
-                    disable_key = False
-                else:
-                    disable_key = disable_key or True
+            if error_type in ("key_invalid", "quota_or_balance") and cooldown_scope in ("key", "key_provider"):
+                ks.credential_fails = int(getattr(ks, "credential_fails", 0)) + 1
+                cooldown_s, ladder_disable = self._credential_failure_ladder_decision(ks.credential_fails)
+                disable_key = bool(error_type == "key_invalid" and ladder_disable)
             if transient_key_failure and not disable_key:
                 ks.transient_fails = int(getattr(ks, "transient_fails", 0)) + 1
                 cooldown_s, disable_key = self._key_failure_ladder_decision(ks.transient_fails, cooldown_s)
@@ -310,6 +339,58 @@ class UpstreamRouter:
             if provider_cooldown_s > 0 and http_status not in (400, 401, 403):
                 ps = self._providers_state.setdefault(attempt.provider, _ProviderState())
                 ps.cooldown_until = max(ps.cooldown_until, now + provider_cooldown_s)
+
+    def _compatibility_key(self, attempt: Attempt) -> Tuple[str, str, str, str]:
+        return (
+            str(attempt.provider),
+            str(attempt.canonical_model or attempt.provider_model or ""),
+            str(attempt.upstream_format or "chat_completions"),
+            str(attempt.compatibility_profile or "plain"),
+        )
+
+    def _compatibility_available(
+        self, provider: str, canonical_model: str, upstream_format: str, profile: str
+    ) -> bool:
+        key = (
+            str(provider), str(canonical_model or ""),
+            str(upstream_format or "chat_completions"), str(profile or "plain"),
+        )
+        now = time.time()
+        with self._lock:
+            state = self._compatibility_state.get(key)
+            return state is None or state.available(now)
+
+    def _compatibility_ladder_seconds(self, fail_count: int) -> int:
+        raw = (self.cfg.get("retry") or {}).get("compatibility_failure_ladder_s")
+        ladder = []
+        if isinstance(raw, list):
+            for item in raw:
+                try:
+                    seconds = int(item)
+                except Exception:
+                    continue
+                if seconds >= 0:
+                    ladder.append(min(seconds, 86400))
+        if not ladder:
+            ladder = [10, 60, 3600]
+        return ladder[min(max(1, fail_count), len(ladder)) - 1]
+
+    def _credential_failure_ladder_decision(self, fail_count: int) -> Tuple[int, bool]:
+        raw = (self.cfg.get("retry") or {}).get("credential_failure_ladder_s")
+        ladder = []
+        if isinstance(raw, list):
+            for item in raw:
+                try:
+                    seconds = int(item)
+                except Exception:
+                    continue
+                if seconds >= 0:
+                    ladder.append(min(seconds, 86400))
+        if not ladder:
+            ladder = [3600, 21600, 86400]
+        if fail_count <= len(ladder):
+            return ladder[fail_count - 1], False
+        return ladder[-1], True
 
     def _key_failure_ladder_decision(self, fail_count: int, fallback_cooldown_s: int) -> Tuple[int, bool]:
         """Return (cooldown seconds, disables_key) for retryable key-local failures.
@@ -451,6 +532,7 @@ class UpstreamRouter:
                 ks.disabled_until = 0.0
                 ks.fails = 0
                 ks.transient_fails = 0
+                ks.credential_fails = 0
         return True
 
     def snapshot(self) -> Dict[str, Any]:
@@ -484,6 +566,7 @@ class UpstreamRouter:
                             "disabled_remaining_s": disabled_remaining_s,
                             "fails": int(ks.fails if ks else 0),
                             "transient_fails": int(getattr(ks, "transient_fails", 0) if ks else 0),
+                            "credential_fails": int(getattr(ks, "credential_fails", 0) if ks else 0),
                             "has_failure": key_failed,
                         }
                     )
@@ -504,7 +587,18 @@ class UpstreamRouter:
                     "keys": keys,
                     "formats": self._provider_formats(provider),
                 }
-        return {"providers": providers}
+            active_compatibility = [
+                state.cooldown_until - now
+                for state in self._compatibility_state.values()
+                if state.cooldown_until > now
+            ]
+        return {
+            "providers": providers,
+            "compatibility_circuits": {
+                "active": len(active_compatibility),
+                "nearest_recovery_s": int(min(active_compatibility)) if active_compatibility else 0,
+            },
+        }
 
     # ---------------------------------------------------------------------
     # internal
@@ -545,6 +639,7 @@ class UpstreamRouter:
         with old_router._lock:
             old_providers = dict(old_router._providers_state)
             old_keys = dict(old_router._keys_state)
+            old_compatibility = dict(old_router._compatibility_state)
             old_rr = dict(old_router._rr_model)
             old_providers_cfg = old_router.cfg.get("providers") or {}
             old_runtime_priorities = dict(old_router._runtime_priorities)
@@ -568,6 +663,9 @@ class UpstreamRouter:
                     if key_value(new_key_entry) == old_key_value:
                         self._keys_state[(p, new_idx)] = ks
                         break
+            for key, state in old_compatibility.items():
+                if key[0] in providers_cfg:
+                    self._compatibility_state[key] = state
             self._rr_model.update(old_rr)
             # Preserve runtime overrides and health scores across config reloads.
             self._runtime_priorities.update(old_runtime_priorities)
@@ -600,12 +698,21 @@ class UpstreamRouter:
                     "disabled_remaining_s": max(0.0, ks.disabled_until - now),
                     "fails": ks.fails,
                     "transient_fails": int(getattr(ks, "transient_fails", 0)),
+                    "credential_fails": int(getattr(ks, "credential_fails", 0)),
                     "runtime_enabled": ks.runtime_enabled,
                 }
+            compatibility = {
+                "\x00".join(key): {
+                    "cooldown_remaining_s": max(0.0, state.cooldown_until - now),
+                    "fails": state.fails,
+                }
+                for key, state in self._compatibility_state.items()
+            }
             return {
                 "saved_at": now,
                 "providers": providers,
                 "keys": keys,
+                "compatibility": compatibility,
                 "rr_model": dict(self._rr_model),
             }
 
@@ -664,7 +771,18 @@ class UpstreamRouter:
                     ks.disabled_until = now + disabled_rem
                 ks.fails = int(entry.get("fails") or 0)
                 ks.transient_fails = int(entry.get("transient_fails") or 0)
+                ks.credential_fails = int(entry.get("credential_fails") or 0)
                 ks.runtime_enabled = bool(entry.get("runtime_enabled", True))
+
+            for composite_key, entry in (state.get("compatibility") or {}).items():
+                parts = composite_key.split("\x00", 3)
+                if len(parts) != 4 or parts[0] not in providers_cfg:
+                    continue
+                remaining = max(0.0, float(entry.get("cooldown_remaining_s") or 0) - age)
+                compat = self._compatibility_state.setdefault(tuple(parts), _CompatibilityState())
+                compat.fails = int(entry.get("fails") or 0)
+                if remaining > 0:
+                    compat.cooldown_until = now + remaining
 
             for model, idx in (state.get("rr_model") or {}).items():
                 try:

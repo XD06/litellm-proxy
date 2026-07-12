@@ -242,7 +242,6 @@ class RouterTests(unittest.TestCase):
 
         attempts = router.iter_attempts("any-model", False, "req-local-fallback")
         first = next(attempts)
-        router.report_failure(first, error_type="provider_compat", http_status=400)
         second = next(attempts)
         next_request_first = next(router.iter_attempts("any-model", False, "req-after-local-fallback"))
 
@@ -784,6 +783,26 @@ class RouterTests(unittest.TestCase):
         self.assertNotIn("alpha-key", str(snap))
         self.assertTrue(snap["providers"]["alpha"]["formats"]["chat_completions"]["enabled"])
 
+    def test_compatibility_circuit_survives_state_dump_and_load(self):
+        cfg = base_config()
+        cfg["routing"]["provider_select"] = "priority_failover"
+        cfg["providers"]["alpha"]["priority"] = 100
+        cfg["providers"]["beta"]["priority"] = 10
+        original = UpstreamRouter(cfg)
+        failed = next(original.iter_attempts(
+            "any-model", False, "req-persist", compatibility_profile="tools"
+        ))
+        original.report_failure(failed, error_type="provider_compat", http_status=400)
+
+        restored = UpstreamRouter(cfg)
+        restored.load_state(original.dump_state())
+
+        attempts = list(restored.iter_attempts(
+            "any-model", False, "req-restored", compatibility_profile="tools"
+        ))
+        self.assertNotEqual(attempts[0].provider, "alpha")
+        self.assertEqual(restored.snapshot()["compatibility_circuits"]["active"], 1)
+
     def test_runtime_provider_disable_enable_controls_attempts(self):
         cfg = base_config()
         cfg["routing"]["default_provider_pool"] = ["alpha", "beta"]
@@ -951,6 +970,25 @@ class RouterTests(unittest.TestCase):
         self.assertGreaterEqual(disabled["disabled_remaining_s"], 3500)
         self.assertFalse(disabled["available"])
 
+    def test_credential_failures_escalate_to_one_six_twenty_four_hours(self):
+        cfg = base_config()
+        cfg["retry"]["credential_failure_ladder_s"] = [3600, 21600, 86400]
+        router = UpstreamRouter(cfg)
+        failed = next(router.iter_attempts("any-model", False, "req-credential"))
+
+        router.report_failure(failed, error_type="quota_or_balance", http_status=403)
+        first = router.snapshot()["providers"][failed.provider]["keys"][failed.key_index]
+        self.assertGreaterEqual(first["cooldown_remaining_s"], 3500)
+
+        router.report_failure(failed, error_type="quota_or_balance", http_status=403)
+        second = router.snapshot()["providers"][failed.provider]["keys"][failed.key_index]
+        self.assertGreaterEqual(second["cooldown_remaining_s"], 21500)
+
+        router.report_failure(failed, error_type="quota_or_balance", http_status=403)
+        third = router.snapshot()["providers"][failed.provider]["keys"][failed.key_index]
+        self.assertGreaterEqual(third["cooldown_remaining_s"], 86300)
+        self.assertEqual(third["credential_fails"], 3)
+
     def test_runtime_controls_reject_unknown_provider_or_key(self):
         router = UpstreamRouter(base_config())
 
@@ -1053,6 +1091,65 @@ class RouterTests(unittest.TestCase):
         self.assertEqual(key_state["cooldown_remaining_s"], 0)
         self.assertFalse(key_state["has_failure"])
         self.assertTrue(key_state["available"])
+
+    def test_provider_compat_uses_profile_scoped_circuit(self):
+        cfg = base_config()
+        cfg["routing"]["provider_select"] = "priority_failover"
+        cfg["providers"]["alpha"]["priority"] = 100
+        cfg["providers"]["beta"]["priority"] = 10
+        router = UpstreamRouter(cfg)
+        failed = next(router.iter_attempts(
+            "any-model", False, "req-tools", compatibility_profile="tools"
+        ))
+
+        router.report_failure(failed, error_type="provider_compat", http_status=400)
+
+        same_profile = list(router.iter_attempts(
+            "any-model", False, "req-tools-next", compatibility_profile="tools"
+        ))
+        plain = list(router.iter_attempts(
+            "any-model", False, "req-plain", compatibility_profile="plain"
+        ))
+        self.assertNotEqual(same_profile[0].provider, "alpha")
+        self.assertEqual(plain[0].provider, "alpha")
+        self.assertEqual(router.snapshot()["compatibility_circuits"]["active"], 1)
+
+    def test_compatibility_failures_use_10_60_3600_ladder_without_key_cooldown(self):
+        cfg = base_config()
+        cfg["retry"]["compatibility_failure_ladder_s"] = [10, 60, 3600]
+        router = UpstreamRouter(cfg)
+        failed = next(router.iter_attempts(
+            "any-model", False, "req-compat", compatibility_profile="tools"
+        ))
+
+        for _ in range(3):
+            router.report_failure(failed, error_type="client_error", http_status=422)
+
+        snap = router.snapshot()
+        key_state = snap["providers"][failed.provider]["keys"][failed.key_index]
+        self.assertEqual(key_state["fails"], 0)
+        self.assertTrue(key_state["available"])
+        self.assertGreaterEqual(snap["compatibility_circuits"]["nearest_recovery_s"], 3500)
+
+    def test_probe_success_does_not_clear_user_compatibility_circuit(self):
+        router = UpstreamRouter(base_config())
+        failed = next(router.iter_attempts(
+            "any-model", False, "req-user", compatibility_profile="tools"
+        ))
+        router.report_failure(failed, error_type="provider_compat", http_status=400)
+        probe = Attempt(
+            request_id="probe", attempt_no=1, provider=failed.provider,
+            key_index=failed.key_index, key=failed.key, url=failed.url, headers={},
+            provider_model=failed.provider_model, upstream_format=failed.upstream_format,
+            canonical_model=failed.canonical_model, compatibility_profile="health_probe",
+        )
+
+        router.report_success(probe)
+
+        attempts = list(router.iter_attempts(
+            "any-model", False, "req-user-next", compatibility_profile="tools"
+        ))
+        self.assertNotEqual(attempts[0].provider, failed.provider)
 
     def test_report_failure_uses_retry_after_for_rate_limit_key_cooldown(self):
         router = UpstreamRouter(base_config())

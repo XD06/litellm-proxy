@@ -47,6 +47,16 @@
       60,
       3600
     ],
+    "credential_failure_ladder_s": [
+      3600,
+      21600,
+      86400
+    ],
+    "compatibility_failure_ladder_s": [
+      10,
+      60,
+      3600
+    ],
     "failure_policies": {
       "key_invalid": {
         "cooldown_scope": "key",
@@ -85,8 +95,8 @@
         "disables_key": false
       },
       "client_error": {
-        "cooldown_scope": "key",
-        "cooldown_s": 10,
+        "cooldown_scope": "none",
+        "cooldown_s": 0,
         "disables_key": false
       },
       "unknown": {

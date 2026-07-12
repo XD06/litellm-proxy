@@ -6,6 +6,7 @@ from parameter_compatibility import (
     alternate_output_token_payload,
     extract_output_token_limit,
     native_only_request_parameters,
+    upstream_format_eligibility,
 )
 
 
@@ -117,6 +118,42 @@ class OutputTokenCompatibilityTests(unittest.TestCase):
         )
         self.assertEqual(params, ())
 
+    def test_responses_store_false_does_not_force_native_format(self):
+        allowed, blocked = upstream_format_eligibility(
+            {"model": "m", "input": "hello", "store": False},
+            client_format=RESPONSES,
+            candidate_formats=[RESPONSES, CHAT, ANTHROPIC],
+        )
+        self.assertEqual(allowed, [RESPONSES, CHAT, ANTHROPIC])
+        self.assertEqual(blocked, {})
+
+    def test_responses_stateful_field_blocks_fallback_formats(self):
+        allowed, blocked = upstream_format_eligibility(
+            {"model": "m", "input": "hello", "previous_response_id": "resp_1"},
+            client_format=RESPONSES,
+            candidate_formats=[RESPONSES, CHAT, ANTHROPIC],
+        )
+        self.assertEqual(allowed, [RESPONSES])
+        self.assertEqual(blocked[CHAT], ("previous_response_id",))
+        self.assertEqual(blocked[ANTHROPIC], ("previous_response_id",))
+
+    def test_responses_parallel_tools_can_convert_to_chat_but_not_anthropic(self):
+        allowed, blocked = upstream_format_eligibility(
+            {"model": "m", "input": "hello", "parallel_tool_calls": False},
+            client_format=RESPONSES,
+            candidate_formats=[RESPONSES, CHAT, ANTHROPIC],
+        )
+        self.assertEqual(allowed, [RESPONSES, CHAT])
+        self.assertEqual(blocked[ANTHROPIC], ("parallel_tool_calls",))
+
+    def test_parallel_tool_calls_survives_responses_to_chat_conversion(self):
+        payload = convert_request(
+            RESPONSES,
+            CHAT,
+            {"model": "m", "input": "hello", "parallel_tool_calls": False},
+            resolve_model=lambda m: m,
+        )
+        self.assertIs(payload["parallel_tool_calls"], False)
     def test_parallel_tool_calls_survives_chat_to_responses_conversion(self):
         payload = convert_request(
             CHAT,

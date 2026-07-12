@@ -29,8 +29,9 @@ from parameter_compatibility import (
     alternate_output_token_payload,
     extract_output_token_limit,
     extract_stop_sequences,
-    native_only_request_parameters,
     parameter_adaptations,
+    request_compatibility_profile,
+    upstream_format_eligibility,
 )
 from proxy_utils import key_value, mask_proxy_url
 from request_routes import classify_get, classify_post
@@ -628,6 +629,8 @@ def _idle_probe_one_provider(rt, provider: str, *, idle_tier: str = "", next_pro
         provider_model=first_provider_model or provider_model,
         upstream_format=fmt,
         proxy_url=first_proxy,
+        canonical_model=canonical_model,
+        compatibility_profile="health_probe",
     )
     try:
         payload = _build_probe_payload(first_provider_model or provider_model, stream=True, fmt=fmt, attempt=first_attempt)
@@ -666,6 +669,8 @@ def _idle_probe_one_provider(rt, provider: str, *, idle_tier: str = "", next_pro
             provider_model=key_provider_model or provider_model,
             upstream_format=fmt,
             proxy_url=proxy_url,
+            canonical_model=canonical_model,
+            compatibility_profile="health_probe",
         )
 
         probe_base = {
@@ -1129,6 +1134,8 @@ def _patrol_probe_one_key(rt, provider: str, key_index: int, *, canonical_model:
         provider_model=provider_model,
         upstream_format=fmt,
         proxy_url=proxy_url,
+        canonical_model=canonical_model,
+        compatibility_profile="health_probe",
     )
     try:
         payload = _build_probe_payload(provider_model, stream=True, fmt=fmt, attempt=probe_attempt)
@@ -2219,6 +2226,8 @@ def _probe_provider_key_once(provider: str, key_index: int, model: str = "") -> 
         provider_model=provider_model,
         upstream_format=fmt,
         proxy_url=proxy_url,
+        canonical_model=canonical_model,
+        compatibility_profile="health_probe",
     )
     try:
         payload = _build_probe_payload(provider_model, stream=False, fmt=fmt, attempt=probe_attempt)
@@ -3983,8 +3992,12 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         first_byte_t = int(routing_cfg.get("first_token_timeout_s", 30))  # Total budget before first stream event.
         max_attempts = int(routing_cfg.get("max_attempts", 6))
         max_budget = (connect_t + read_t) * min(3, max(1, max_attempts))
-        native_only_parameters = native_only_request_parameters(req, client_format=CHAT)
-        allowed_formats = [CHAT] if native_only_parameters else ["chat_completions", "responses", "anthropic_messages"]
+        allowed_formats, blocked_formats = upstream_format_eligibility(
+            req, client_format=CHAT, candidate_formats=[CHAT, RESPONSES, ANTHROPIC]
+        )
+        compatibility_profile = request_compatibility_profile(req, client_format=CHAT)
+        if blocked_formats and log_each:
+            print(f"[proxy] req={request_id} format exclusions={blocked_formats}", flush=True)
         converted_payloads = {}
 
         for attempt in ROUTER.iter_attempts(
@@ -3994,6 +4007,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             client_headers=self.headers,
             client_format="chat_completions",
             allowed_upstream_formats=allowed_formats,
+            compatibility_profile=compatibility_profile,
         ):
             has_attempt = True
             elapsed = time.time() - total_start
@@ -4286,10 +4300,14 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             stream=is_stream,
             path=path,
         )
-        native_only_parameters = native_only_request_parameters(req, client_format=RESPONSES)
-        allowed_formats = [RESPONSES] if native_only_parameters else [RESPONSES, CHAT, ANTHROPIC]
+        allowed_formats, blocked_formats = upstream_format_eligibility(
+            req, client_format=RESPONSES, candidate_formats=[RESPONSES, CHAT, ANTHROPIC]
+        )
+        compatibility_profile = request_compatibility_profile(req, client_format=RESPONSES)
         attempt_errors = []
         log_each = bool((CONFIG.get("observability") or {}).get("log_provider_on_each_request", False))
+        if blocked_formats and log_each:
+            print(f"[proxy] req={request_id} format exclusions={blocked_formats}", flush=True)
         if log_each:
             print(f"[proxy] responses stream={is_stream} model={_hmodel(original_model)}", flush=True)
             if resolved_model != original_model:
@@ -4311,6 +4329,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             client_headers=self.headers,
             client_format="responses",
             allowed_upstream_formats=allowed_formats,
+            compatibility_profile=compatibility_profile,
         ):
             has_attempt = True
             elapsed = time.time() - total_start
@@ -4729,8 +4748,12 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             # Keep a bounded global routing budget across attempts.
             max_budget = (connect_t + read_t) * min(3, max(1, max_attempts))
 
-            native_only_parameters = native_only_request_parameters(req, client_format=ANTHROPIC)
-            allowed_formats = [ANTHROPIC] if native_only_parameters else [ANTHROPIC, CHAT, RESPONSES]
+            allowed_formats, blocked_formats = upstream_format_eligibility(
+                req, client_format=ANTHROPIC, candidate_formats=[ANTHROPIC, CHAT, RESPONSES]
+            )
+            compatibility_profile = request_compatibility_profile(req, client_format=ANTHROPIC)
+            if blocked_formats and log_each:
+                print(f"[proxy] req={request_id} format exclusions={blocked_formats}", flush=True)
             converted_payloads = {}
             for attempt in ROUTER.iter_attempts(
                 canonical_model,
@@ -4739,6 +4762,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                 client_headers=self.headers,
                 client_format=ANTHROPIC,
                 allowed_upstream_formats=allowed_formats,
+                compatibility_profile=compatibility_profile,
             ):
                 has_attempt = True
                 # Shrink per-attempt timeout as total routing budget is consumed.

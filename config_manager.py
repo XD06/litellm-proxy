@@ -730,7 +730,7 @@ class RuntimeConfigManager:
     def _validate_retry_patch(self, patch: Dict[str, Any]) -> Dict[str, Any]:
         if not isinstance(patch, dict) or not patch:
             raise ConfigValidationError("retry patch must be a non-empty object")
-        allowed = {"retryable_status", "key_fatal_status", "respect_retry_after", "cooldown_s", "key_failure_ladder_s", "same_key_retries"}
+        allowed = {"retryable_status", "key_fatal_status", "respect_retry_after", "cooldown_s", "key_failure_ladder_s", "credential_failure_ladder_s", "compatibility_failure_ladder_s", "same_key_retries"}
         clean: Dict[str, Any] = {}
         for key, value in patch.items():
             if key not in allowed:
@@ -741,10 +741,10 @@ class RuntimeConfigManager:
                 clean[key] = bool(value)
             elif key == "same_key_retries":
                 clean[key] = self._bounded_int(value, "same_key_retries", 0, 3)
-            elif key == "key_failure_ladder_s":
+            elif key in ("key_failure_ladder_s", "credential_failure_ladder_s", "compatibility_failure_ladder_s"):
                 if not isinstance(value, list) or not value:
-                    raise ConfigValidationError("key_failure_ladder_s must be a non-empty list")
-                clean[key] = [self._bounded_int(item, "key_failure_ladder_s", 0, MAX_CONFIGURED_COOLDOWN_S) for item in value]
+                    raise ConfigValidationError(f"{key} must be a non-empty list")
+                clean[key] = [self._bounded_int(item, key, 0, MAX_CONFIGURED_COOLDOWN_S) for item in value]
             elif key == "cooldown_s":
                 if not isinstance(value, dict) or not value:
                     raise ConfigValidationError("cooldown_s must be a non-empty object")

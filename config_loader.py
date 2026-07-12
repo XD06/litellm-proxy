@@ -332,6 +332,8 @@ def _default_config() -> Dict[str, Any]:
                 "quota_or_balance": 3600,
             },
             "key_failure_ladder_s": [10, 60, 3600],
+            "credential_failure_ladder_s": [3600, 21600, 86400],
+            "compatibility_failure_ladder_s": [10, 60, 3600],
             "failure_policies": {
                 "key_invalid": {"cooldown_scope": "key", "cooldown_s": 3600, "disables_key": True},
                 "rate_limited": {"cooldown_scope": "key", "cooldown_s": 30, "disables_key": False},
@@ -345,7 +347,7 @@ def _default_config() -> Dict[str, Any]:
                 },
                 "provider_compat": {"cooldown_scope": "none", "cooldown_s": 0, "disables_key": False},
                 "empty_visible_output": {"cooldown_scope": "none", "cooldown_s": 0, "disables_key": False},
-                "client_error": {"cooldown_scope": "key", "cooldown_s": 10, "disables_key": False},
+                "client_error": {"cooldown_scope": "none", "cooldown_s": 0, "disables_key": False},
                 "unknown": {"cooldown_scope": "key", "cooldown_s": 10, "disables_key": False},
             },
             "respect_retry_after": True,

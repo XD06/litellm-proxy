@@ -295,6 +295,16 @@ def is_thinking_content_required_error(error_body: str) -> bool:
     )
 
 
+def is_quota_or_balance_error(error_body: str) -> bool:
+    text = str(error_body or "").lower().replace("-", "_")
+    markers = (
+        "insufficient balance", "insufficient quota", "insufficient_user_quota",
+        "credit balance", "billing", "quota exceeded", "余额不足",
+        "额度不足", "用户额度", "预扣费额度失败",
+    )
+    return any(marker in text for marker in markers)
+
+
 def classify_http_error(
     config: Dict[str, Any],
     status_code: int,
@@ -308,6 +318,8 @@ def classify_http_error(
     status = int(status_code or 0)
 
     if status in key_fatal:
+        if is_quota_or_balance_error(error_body):
+            return _decision(config, "quota_or_balance", True, "quota_or_balance")
         return _decision(config, "key_invalid", False, "key_fatal_status", stop_attempts=False)
     if status == 429:
         return _decision(config, "rate_limited", True, "rate_limited")
@@ -362,6 +374,8 @@ def policy_snapshot(config: Dict[str, Any]) -> Dict[str, Any]:
         "key_fatal_status": list(retry_cfg.get("key_fatal_status") or [401, 403]),
         "same_key_retries": int(retry_cfg.get("same_key_retries", 1) or 0),
         "key_failure_ladder_s": list(retry_cfg.get("key_failure_ladder_s") or [10, 60, 3600]),
+        "credential_failure_ladder_s": list(retry_cfg.get("credential_failure_ladder_s") or [3600, 21600, 86400]),
+        "compatibility_failure_ladder_s": list(retry_cfg.get("compatibility_failure_ladder_s") or [10, 60, 3600]),
         "respect_retry_after": bool(retry_cfg.get("respect_retry_after", True)),
         "cooldown_s": dict(retry_cfg.get("cooldown_s") or {}),
         "failure_policies": {

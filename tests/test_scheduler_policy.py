@@ -26,6 +26,22 @@ class SchedulerPolicyTests(unittest.TestCase):
         self.assertEqual(decision.cooldown_s, 3600)
         self.assertTrue(decision.disables_key)
 
+    def test_401_403_balance_messages_are_quota_not_invalid_key(self):
+        for status, body in (
+            (401, '{"error":{"message":"Insufficient balance. Manage billing"}}'),
+            (403, '{"error":{"code":"insufficient_user_quota","message":"用户额度不足"}}'),
+        ):
+            with self.subTest(status=status):
+                decision = scheduler_policy.classify_http_error(cfg(), status, error_body=body)
+                self.assertEqual(decision.error_type, "quota_or_balance")
+                self.assertEqual(decision.reason, "quota_or_balance")
+
+    def test_invalid_auth_message_remains_key_invalid(self):
+        decision = scheduler_policy.classify_http_error(
+            cfg(), 401, error_body='{"error":{"message":"invalid api key"}}'
+        )
+        self.assertEqual(decision.error_type, "key_invalid")
+
     def test_rate_limit_and_server_errors_are_retryable(self):
         self.assertEqual(scheduler_policy.classify_http_error(cfg(), 429).error_type, "rate_limited")
         self.assertTrue(scheduler_policy.classify_http_error(cfg(), 429).retryable)

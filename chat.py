@@ -35,8 +35,12 @@ def _proxy_openai_chat_completions(self, req, request_id, start_ts):
         first_byte_t = int(routing_cfg.get("first_token_timeout_s", 30))  # Total budget before first stream event.
         max_attempts = int(routing_cfg.get("max_attempts", 6))
         max_budget = (connect_t + read_t) * min(3, max(1, max_attempts))
-        native_only_parameters = native_only_request_parameters(req, client_format=CHAT)
-        allowed_formats = [CHAT] if native_only_parameters else ["chat_completions", "responses", "anthropic_messages"]
+        allowed_formats, blocked_formats = upstream_format_eligibility(
+            req, client_format=CHAT, candidate_formats=[CHAT, RESPONSES, ANTHROPIC]
+        )
+        compatibility_profile = request_compatibility_profile(req, client_format=CHAT)
+        if blocked_formats and log_each:
+            print(f"[proxy] req={request_id} format exclusions={blocked_formats}", flush=True)
         converted_payloads = {}
 
         for attempt in ROUTER.iter_attempts(
@@ -46,6 +50,7 @@ def _proxy_openai_chat_completions(self, req, request_id, start_ts):
             client_headers=self.headers,
             client_format="chat_completions",
             allowed_upstream_formats=allowed_formats,
+            compatibility_profile=compatibility_profile,
         ):
             has_attempt = True
             elapsed = time.time() - total_start
