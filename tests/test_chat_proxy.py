@@ -35,6 +35,14 @@ class FakeRouter:
 
     def report_failure(self, attempt, **kwargs):
         self.failures.append((attempt, kwargs))
+        if kwargs.get("error_type") == "quota_or_balance":
+            return {
+                "scope": "key",
+                "action": "cooldown",
+                "cooldown_s": 3600,
+                "key_id": "safe-id",
+            }
+        return {}
 
     def masked_key(self, key):
         return "masked"
@@ -121,6 +129,27 @@ class KeyFatalThenSuccessClient:
                 "Unauthorized",
                 {},
                 io.BytesIO(b'{"error":{"message":"invalid api key"}}'),
+            )
+        return self.response
+
+
+class BillingThenSuccessClient:
+    def __init__(self, response):
+        self.response = response
+        self.calls = []
+
+    def request_json(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
+        self.calls.append({"url": url, "headers": headers, "payload": json.loads(json.dumps(payload))})
+        if len(self.calls) == 1:
+            raise HTTPError(
+                url,
+                422,
+                "Unprocessable Entity",
+                {},
+                io.BytesIO(
+                    b'{"error":{"type":"billing_error","code":"billing_error",'
+                    b'"message":"Insufficient credits. Top up at the billing page"}}'
+                ),
             )
         return self.response
 
@@ -413,6 +442,34 @@ class ChatProxyTests(unittest.TestCase):
         self.assertEqual(fake_router.failures[0][0], first)
         self.assertEqual(fake_router.failures[0][1]["error_type"], "key_invalid")
         self.assertEqual(fake_router.successes, [second])
+
+    def test_422_insufficient_credits_records_upstream_key_cooldown_then_recovers(self):
+        first = self.named_attempt("onehop", "chat_completions", 1)
+        second = self.named_attempt("backup", "chat_completions", 2)
+        fake_router = FakeRouter([first, second])
+        fake_client = BillingThenSuccessClient(
+            {
+                "id": "chatcmpl_backup",
+                "model": "provider-model",
+                "choices": [{"message": {"role": "assistant", "content": "backup"}, "finish_reason": "stop"}],
+            }
+        )
+        obs = sse2json.ProxyObservability({"observability": {"history": {"enabled": False}}})
+
+        with patch.object(sse2json, "ROUTER", fake_router), patch.object(
+            sse2json, "UPSTREAM_CLIENT", fake_client
+        ), patch.object(sse2json, "OBSERVABILITY", obs), patch.object(sse2json, "DISABLE_MAP", True):
+            status, _body = self.run_server_post(
+                "/v1/chat/completions",
+                {"model": "client-model", "messages": [{"role": "user", "content": "hello"}]},
+            )
+
+        self.assertEqual(status, 200)
+        failed = obs.snapshot()["recent_requests"][0]["attempts"][0]
+        self.assertEqual(failed["error_type"], "quota_or_balance")
+        self.assertEqual(failed["failure_owner"], "upstream")
+        self.assertEqual(failed["state_action"]["scope"], "key")
+        self.assertGreaterEqual(failed["state_action"]["cooldown_s"], 3600)
 
     def test_chat_request_can_fallback_to_anthropic_upstream(self):
         fake_router = FakeRouter([self.attempt("anthropic_messages")])
@@ -743,8 +800,9 @@ class ChatProxyTests(unittest.TestCase):
                 {"model": "client-model", "stream": True, "messages": [{"role": "user", "content": "hello"}]},
             )
 
-        self.assertEqual(status, 501)
-        self.assertIn("requires a native Chat Completions, Responses, or Anthropic Messages upstream", body["error"]["message"])
+        self.assertEqual(status, 503)
+        self.assertEqual(body["error"]["code"], "no_eligible_candidate")
+        self.assertEqual(body["error"]["owner"], "proxy_routing")
         self.assertEqual(fake_router.iter_calls[0]["allowed_upstream_formats"], ["chat_completions", "responses", "anthropic_messages"])
 
 

@@ -243,6 +243,7 @@ class ProxyObservability:
         model: str,
         stream: bool,
         path: str,
+        routing_trace: Any = None,
     ) -> None:
         now = time.time()
         with self._lock:
@@ -260,6 +261,7 @@ class ProxyObservability:
                 "path": path,
                 "started_at": now,
                 "attempts": [],
+                "_routing_trace": routing_trace,
             }
 
     def record_attempt(
@@ -280,6 +282,8 @@ class ProxyObservability:
         upstream_error_code: str = "",
         upstream_error_param: str = "",
         parameter_adaptations: Optional[list] = None,
+        failure_owner: str = "",
+        state_action: Optional[Dict[str, Any]] = None,
     ) -> None:
         provider = str(getattr(attempt, "provider", "") or "unknown")
         upstream_format = str(getattr(attempt, "upstream_format", "") or "unknown")
@@ -304,6 +308,10 @@ class ProxyObservability:
             item["error_type"] = error_type
         if reason:
             item["reason"] = reason
+        if failure_owner:
+            item["failure_owner"] = str(failure_owner)
+        if state_action:
+            item["state_action"] = copy.deepcopy(state_action)
         if http_status is not None:
             item["http_status"] = int(http_status)
         for key, value in {
@@ -327,6 +335,7 @@ class ProxyObservability:
             item["total_tokens"] = usage_totals["total_tokens"]
             item["cost_usd"] = cost_usd
 
+        trace = None
         with self._lock:
             self._counters["attempts_total"] += 1
             if outcome == "success":
@@ -356,6 +365,25 @@ class ProxyObservability:
             active = self._active.get(request_id)
             if active is not None:
                 active.setdefault("attempts", []).append(item)
+                trace = active.get("_routing_trace")
+
+        if trace is not None and callable(getattr(trace, "record", None)):
+            trace.record(
+                "attempt_succeeded" if outcome == "success" else "attempt_failed",
+                stage="upstream_result",
+                owner=failure_owner,
+                attempt_no=item["attempt_no"],
+                provider=provider,
+                key_index=item["key_index"],
+                key_id=item.get("key_id", ""),
+                key_masked=item.get("key_masked", ""),
+                provider_model=provider_model,
+                upstream_format=upstream_format,
+                error_type=error_type,
+                reason=reason,
+                http_status=http_status,
+                state_action=state_action or {},
+            )
 
     def record_first_byte(self, request_id: str, first_byte_ms: Optional[int] = None) -> None:
         rid = str(request_id or "")
@@ -413,6 +441,9 @@ class ProxyObservability:
                 "attempts": list(active.get("attempts") or []),
                 "finished_at": int(now),
             }
+            trace = active.get("_routing_trace")
+            if trace is not None and callable(getattr(trace, "snapshot", None)):
+                recent_item["routing_trace"] = trace.snapshot()
             if has_usage(usage_totals):
                 recent_item["usage"] = usage_totals
                 recent_item["input_tokens"] = usage_totals["input_tokens"]
@@ -527,6 +558,12 @@ class ProxyObservability:
                 "duration_ms": int((now - float(item.get("started_at") or now)) * 1000),
                 "first_byte_ms": int(item.get("first_byte_ms") or 0),
                 "attempts": self._copy_value(list(attempts)),
+                "routing_trace": (
+                    item.get("_routing_trace").snapshot()
+                    if item.get("_routing_trace") is not None
+                    and callable(getattr(item.get("_routing_trace"), "snapshot", None))
+                    else []
+                ),
             })
         return active_requests
 
@@ -1073,6 +1110,12 @@ class ProxyObservability:
                     "duration_ms": int((now - float(active.get("started_at") or now)) * 1000),
                     "first_byte_ms": int(active.get("first_byte_ms") or 0),
                     "attempts": self._copy_value(list(active.get("attempts") or [])),
+                    "routing_trace": (
+                        active.get("_routing_trace").snapshot()
+                        if active.get("_routing_trace") is not None
+                        and callable(getattr(active.get("_routing_trace"), "snapshot", None))
+                        else []
+                    ),
                 })
             for item in self._recent:
                 if str(item.get("request_id") or "") == rid:

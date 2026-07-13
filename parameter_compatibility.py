@@ -27,6 +27,26 @@ class ParameterCompatibilityError(ValueError):
 
 
 @dataclass(frozen=True)
+class FormatCompatibilityPlan:
+    target_format: str
+    allowed: bool
+    transformations: tuple[Dict[str, Any], ...] = ()
+    dropped_hints: tuple[Dict[str, Any], ...] = ()
+    blockers: tuple[str, ...] = ()
+    fidelity: str = "lossless"
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "target_format": self.target_format,
+            "allowed": self.allowed,
+            "transformations": [dict(item) for item in self.transformations],
+            "dropped_hints": [dict(item) for item in self.dropped_hints],
+            "blockers": list(self.blockers),
+            "fidelity": self.fidelity,
+        }
+
+
+@dataclass(frozen=True)
 class OutputTokenLimit:
     value: Optional[int] = None
     source_field: Optional[str] = None
@@ -156,21 +176,83 @@ def incompatible_request_parameters(
     return tuple(sorted(blockers))
 
 
+def format_compatibility_plan(
+    request: Dict[str, Any],
+    *,
+    client_format: str,
+    target_format: str,
+    mode: str = "safe",
+) -> FormatCompatibilityPlan:
+    """Describe how one target format can preserve the request semantics."""
+    if target_format == client_format:
+        return FormatCompatibilityPlan(target_format=target_format, allowed=True)
+
+    policy = str(mode or "safe").strip().lower()
+    if policy not in ("safe", "strict"):
+        policy = "safe"
+
+    transformations = []
+    dropped_hints = []
+    blockers = []
+    for key in sorted(_NATIVE_ONLY_FIELDS.get(client_format, set())):
+        if key not in request or request.get(key) is None:
+            continue
+
+        if client_format == "responses" and key == "store" and request.get(key) is False:
+            dropped_hints.append({"field": key, "action": "omit_false_default"})
+            continue
+        if client_format == "responses" and target_format == "chat_completions" and key == "parallel_tool_calls":
+            transformations.append({"field": key, "target": key, "action": "preserve"})
+            continue
+
+        if policy == "safe" and client_format == "anthropic_messages":
+            if key == "thinking" and target_format in ("chat_completions", "responses"):
+                target = "reasoning_effort" if target_format == "chat_completions" else "reasoning"
+                transformations.append({"field": key, "target": target, "action": "map_reasoning"})
+                continue
+            if key in ("cache_control", "service_tier"):
+                dropped_hints.append({"field": key, "action": "omit_unsupported_hint"})
+                continue
+
+        blockers.append(key)
+
+    if blockers:
+        fidelity = "blocked"
+    elif dropped_hints:
+        fidelity = "safe_drop"
+    elif transformations:
+        fidelity = "mapped"
+    else:
+        fidelity = "lossless"
+    return FormatCompatibilityPlan(
+        target_format=target_format,
+        allowed=not blockers,
+        transformations=tuple(transformations),
+        dropped_hints=tuple(dropped_hints),
+        blockers=tuple(blockers),
+        fidelity=fidelity,
+    )
+
+
 def upstream_format_eligibility(
     request: Dict[str, Any],
     *,
     client_format: str,
     candidate_formats: list[str],
+    mode: str = "safe",
 ) -> tuple[list[str], Dict[str, tuple[str, ...]]]:
     """Return allowed upstream formats and per-format semantic blockers."""
     allowed = []
     blocked: Dict[str, tuple[str, ...]] = {}
     for target_format in candidate_formats:
-        blockers = incompatible_request_parameters(
-            request, client_format=client_format, target_format=target_format
+        plan = format_compatibility_plan(
+            request,
+            client_format=client_format,
+            target_format=target_format,
+            mode=mode,
         )
-        if blockers:
-            blocked[target_format] = blockers
+        if plan.blockers:
+            blocked[target_format] = plan.blockers
         else:
             allowed.append(target_format)
     return allowed, blocked
@@ -209,7 +291,7 @@ def request_compatibility_profile(request: Dict[str, Any], *, client_format: str
     return "+".join(sorted(features)) or "plain"
 
 
-def parameter_adaptations(request: Dict[str, Any], *, client_format: str, target_format: str, output_token_field: Optional[str] = None, anthropic_default_max_tokens: Optional[int] = None) -> list[Dict[str, Any]]:
+def parameter_adaptations(request: Dict[str, Any], *, client_format: str, target_format: str, output_token_field: Optional[str] = None, anthropic_default_max_tokens: Optional[int] = None, semantic_conversion_mode: str = "safe") -> list[Dict[str, Any]]:
     changes = []
     limit = extract_output_token_limit(request, client_format=client_format)
     if limit.present:
@@ -221,6 +303,14 @@ def parameter_adaptations(request: Dict[str, Any], *, client_format: str, target
     if stop.present:
         target = "stop_sequences" if target_format == "anthropic_messages" else "stop"
         if stop.source_field != target: changes.append({"source": stop.source_field, "target": target, "value": list(stop.value or ())})
+    plan = format_compatibility_plan(
+        request,
+        client_format=client_format,
+        target_format=target_format,
+        mode=semantic_conversion_mode,
+    )
+    changes.extend(dict(item) for item in plan.transformations)
+    changes.extend(dict(item) for item in plan.dropped_hints)
     return changes
 
 

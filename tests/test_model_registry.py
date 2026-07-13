@@ -44,6 +44,20 @@ class FakeUpstreamClient:
         return response
 
 
+class KeyAwareFakeUpstreamClient(FakeUpstreamClient):
+    def fetch_models(self, base_url, models_path, headers, timeout_s=10, proxy_url=None):
+        self.calls.append(
+            {
+                "base_url": base_url,
+                "models_path": models_path,
+                "headers": headers,
+                "timeout_s": timeout_s,
+                "proxy_url": proxy_url,
+            }
+        )
+        return self.responses.get(headers.get("Authorization"))
+
+
 def registry_config(models_source="union"):
     return {
         "models": {
@@ -97,6 +111,59 @@ class ModelRegistryTests(unittest.TestCase):
         self.assertEqual(caps["alpha"]["canonical_map"]["deepseek-v4-flash"], "deepseek-v4-flash")
         self.assertEqual(caps["beta"]["canonical_map"]["v4-flash"], "v4-flash")
         self.assertNotIn("deepseek-v4-flash", caps["beta"]["canonical_map"])
+
+    def test_provider_refresh_discovers_and_merges_each_key_model_catalog(self):
+        cfg = registry_config("union")
+        cfg["providers"]["alpha"]["keys"] = ["alpha-key-a", "alpha-key-b"]
+        client = KeyAwareFakeUpstreamClient(
+            {
+                "Bearer alpha-key-a": {"data": [{"id": "model-high"}]},
+                "Bearer alpha-key-b": {"data": [{"id": "model-low"}]},
+            }
+        )
+
+        model_registry.fetch_upstream_models(
+            cfg,
+            FakeRouter(),
+            client,
+            only_provider="alpha",
+        )
+
+        key_caps = cfg["models"]["provider_key_model_capabilities"]["alpha"]
+        self.assertEqual(len(key_caps), 2)
+        self.assertEqual(
+            {tuple(entry["models"]) for entry in key_caps.values()},
+            {("model-high",), ("model-low",)},
+        )
+        self.assertNotIn("alpha-key-a", str(key_caps))
+        self.assertNotIn("alpha-key-b", str(key_caps))
+        self.assertEqual(
+            cfg["models"]["provider_model_capabilities"]["alpha"]["canonical_map"],
+            {"model-high": "model-high", "model-low": "model-low"},
+        )
+
+    def test_union_refresh_discovers_every_key_catalog(self):
+        cfg = registry_config("union")
+        cfg["providers"]["alpha"]["keys"] = ["alpha-key-a", "alpha-key-b"]
+        client = KeyAwareFakeUpstreamClient(
+            {
+                "Bearer alpha-key-a": {"data": [{"id": "model-high"}]},
+                "Bearer alpha-key-b": {"data": [{"id": "model-low"}]},
+                "Bearer beta-key": {"data": [{"id": "beta-model"}]},
+            }
+        )
+
+        result = model_registry.fetch_upstream_models(cfg, FakeRouter(), client)
+
+        self.assertEqual(
+            [item["id"] for item in result["data"]],
+            ["model-high", "model-low", "beta-model"],
+        )
+        self.assertEqual(
+            {tuple(entry["models"]) for entry in cfg["models"]["provider_key_model_capabilities"]["alpha"].values()},
+            {("model-high",), ("model-low",)},
+        )
+        self.assertEqual(len(client.calls), 3)
 
     def test_union_fetch_merges_safe_vendor_slash_ids(self):
         cfg = registry_config("union")
@@ -425,6 +492,9 @@ class ModelRegistryTests(unittest.TestCase):
         cfg = registry_config("union")
         cfg["proxy"] = "http://127.0.0.1:7000"
         cfg["providers"]["alpha"]["proxy"] = "http://127.0.0.1:8000"
+        cfg["providers"]["alpha"]["keys"] = [
+            {"key": "alpha-key-object", "proxy": "http://127.0.0.1:9000"}
+        ]
         client = FakeUpstreamClient({"https://alpha.example": {"data": [{"id": "alpha-model"}]}})
 
         result = model_registry.fetch_upstream_models(

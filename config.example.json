@@ -17,7 +17,8 @@
     "max_attempts": 6,
     "connect_timeout_s": 15,
     "read_timeout_s": 120,
-    "first_token_timeout_s": 30
+    "first_token_timeout_s": 30,
+    "semantic_conversion": "safe"
   },
   "retry": {
     "retryable_status": [
@@ -170,6 +171,20 @@
         "deepseek-v4-pro": "deepseek-v4-pro"
       }
     },
+    "provider_model_variants": {
+      "rawchat": {
+        "gpt-5.5": [
+          {
+            "model": "gpt-5.5-high",
+            "priority": 100
+          },
+          {
+            "model": "gpt-5.5-low",
+            "priority": 10
+          }
+        ]
+      }
+    },
     "provider_model_capabilities": {},
     "assume_supports_unknown_models": true,
     "models_source": "first_healthy_provider"
@@ -228,7 +243,18 @@
       },
       "models_path": "/v1/models",
       "keys": [
-        "sk-your-rawchat-key"
+        {
+          "key": "sk-your-rawchat-key-high",
+          "models": {
+            "gpt-5.5": "gpt-5.5-high"
+          }
+        },
+        {
+          "key": "sk-your-rawchat-key-low",
+          "models": {
+            "gpt-5.5": "gpt-5.5-low"
+          }
+        }
       ],
       "headers": {
         "User-Agent": "Mozilla/5.0"

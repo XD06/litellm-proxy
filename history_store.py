@@ -224,7 +224,8 @@ class RequestHistoryStore:
               cost_usd REAL NOT NULL DEFAULT 0,
               started_at INTEGER NOT NULL DEFAULT 0,
               finished_at INTEGER NOT NULL DEFAULT 0,
-              error TEXT NOT NULL DEFAULT ''
+              error TEXT NOT NULL DEFAULT '',
+              routing_trace TEXT NOT NULL DEFAULT ''
             );
 
             CREATE TABLE IF NOT EXISTS attempts (
@@ -239,6 +240,8 @@ class RequestHistoryStore:
               outcome TEXT NOT NULL DEFAULT '',
               error_type TEXT NOT NULL DEFAULT '',
               reason TEXT NOT NULL DEFAULT '',
+              failure_owner TEXT NOT NULL DEFAULT '',
+              state_action TEXT NOT NULL DEFAULT '',
               http_status INTEGER,
               diagnostic_stage TEXT NOT NULL DEFAULT '',
               upstream_error_summary TEXT NOT NULL DEFAULT '',
@@ -276,6 +279,7 @@ class RequestHistoryStore:
                 "total_tokens": "INTEGER NOT NULL DEFAULT 0",
                 "cost_usd": "REAL NOT NULL DEFAULT 0",
                 "first_byte_ms": "INTEGER NOT NULL DEFAULT 0",
+                "routing_trace": "TEXT NOT NULL DEFAULT ''",
             },
         )
         RequestHistoryStore._ensure_columns(
@@ -293,6 +297,8 @@ class RequestHistoryStore:
                 "upstream_error_param": "TEXT NOT NULL DEFAULT ''",
                 "parameter_adaptations": "TEXT NOT NULL DEFAULT ''",
                 "duration_ms": "INTEGER NOT NULL DEFAULT 0",
+                "failure_owner": "TEXT NOT NULL DEFAULT ''",
+                "state_action": "TEXT NOT NULL DEFAULT ''",
             },
         )
 
@@ -355,8 +361,8 @@ class RequestHistoryStore:
             INSERT OR REPLACE INTO requests (
               request_id, client_format, endpoint, model, stream, path,
               status_code, status, duration_ms, first_byte_ms, input_tokens, output_tokens,
-              total_tokens, cost_usd, started_at, finished_at, error
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              total_tokens, cost_usd, started_at, finished_at, error, routing_trace
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 request_id,
@@ -376,6 +382,7 @@ class RequestHistoryStore:
                 started_at,
                 finished_at,
                 str(item.get("error") or "")[:500],
+                json.dumps(item.get("routing_trace") or [], ensure_ascii=False),
             ),
         )
         conn.execute("DELETE FROM attempts WHERE request_id = ?", (request_id,))
@@ -393,8 +400,9 @@ class RequestHistoryStore:
               request_id, attempt_no, provider, key_index, key_masked, key_id,
               provider_model, upstream_format, outcome, error_type, reason, http_status,
               diagnostic_stage, upstream_error_summary, upstream_error_type, upstream_error_code,
-              upstream_error_param, parameter_adaptations, duration_ms, input_tokens, output_tokens, total_tokens, cost_usd
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              upstream_error_param, parameter_adaptations, failure_owner, state_action,
+              duration_ms, input_tokens, output_tokens, total_tokens, cost_usd
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 request_id,
@@ -415,6 +423,8 @@ class RequestHistoryStore:
                 str(attempt.get("upstream_error_code") or "")[:500],
                 str(attempt.get("upstream_error_param") or "")[:500],
                 json.dumps(attempt.get("parameter_adaptations") or [], ensure_ascii=False),
+                str(attempt.get("failure_owner") or "")[:100],
+                json.dumps(attempt.get("state_action") or {}, ensure_ascii=False),
                 max(0, int(attempt.get("duration_ms") or 0)),
                 usage_totals["input_tokens"],
                 usage_totals["output_tokens"],
@@ -951,6 +961,13 @@ class RequestHistoryStore:
         }
         if row["error"]:
             out["error"] = str(row["error"])[:500]
+        if "routing_trace" in row.keys() and row["routing_trace"]:
+            try:
+                trace = json.loads(row["routing_trace"])
+                if isinstance(trace, list):
+                    out["routing_trace"] = trace
+            except (TypeError, ValueError):
+                pass
         return out
 
     @staticmethod
@@ -1019,6 +1036,7 @@ class RequestHistoryStore:
             "upstream_error_type",
             "upstream_error_code",
             "upstream_error_param",
+            "failure_owner",
         ):
             if row[key]:
                 item[key] = row[key]
@@ -1027,6 +1045,13 @@ class RequestHistoryStore:
         if "parameter_adaptations" in row.keys() and row["parameter_adaptations"]:
             try:
                 item["parameter_adaptations"] = json.loads(row["parameter_adaptations"])
+            except (TypeError, ValueError):
+                pass
+        if "state_action" in row.keys() and row["state_action"]:
+            try:
+                action = json.loads(row["state_action"])
+                if isinstance(action, dict) and action:
+                    item["state_action"] = action
             except (TypeError, ValueError):
                 pass
         usage_totals = {

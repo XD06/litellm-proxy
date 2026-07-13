@@ -1,6 +1,8 @@
 import unittest
 
+from proxy_utils import key_fingerprint
 from router import Attempt, UpstreamRouter
+from routing_trace import RoutingTrace
 
 
 def base_config():
@@ -45,6 +47,22 @@ def base_config():
 
 
 class RouterTests(unittest.TestCase):
+    def test_snapshot_exposes_effective_runtime_priority_override(self):
+        cfg = base_config()
+        cfg["providers"]["alpha"]["priority"] = 10
+        router = UpstreamRouter(cfg)
+
+        before = router.snapshot()["providers"]["alpha"]
+        router.update_provider_priority("alpha", 90)
+        after = router.snapshot()["providers"]["alpha"]
+
+        self.assertEqual(before["priority"], 10)
+        self.assertEqual(before["configured_priority"], 10)
+        self.assertFalse(before["priority_override_active"])
+        self.assertEqual(after["priority"], 90)
+        self.assertEqual(after["configured_priority"], 10)
+        self.assertTrue(after["priority_override_active"])
+
     def test_priority_failover_prefers_high_priority_provider_and_orders_keys_as_fallbacks(self):
         cfg = base_config()
         cfg["routing"]["provider_select"] = "priority_failover"
@@ -204,6 +222,136 @@ class RouterTests(unittest.TestCase):
         self.assertEqual(attempts[0].headers["Authorization"], "Bearer beta-key-1")
         self.assertEqual(attempts[0].headers["X-Static"], "configured")
         self.assertEqual(attempts[0].headers["X-Trace"], "trace-id")
+
+    def test_provider_model_variants_expand_one_canonical_model_by_priority(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha"]
+        cfg["routing"]["max_attempts"] = 3
+        cfg["providers"]["alpha"]["keys"] = ["alpha-key"]
+        cfg["providers"]["beta"]["enabled"] = False
+        cfg["models"]["provider_model_variants"] = {
+            "alpha": {
+                "grok-4.3": [
+                    {"model": "grok-4.3-low", "priority": 10},
+                    {"model": "grok-4.3-high", "priority": 100},
+                    {"model": "grok-4.3-console", "priority": 50},
+                ]
+            }
+        }
+
+        attempts = list(UpstreamRouter(cfg).iter_attempts("grok-4.3", False, "req-variants"))
+
+        self.assertEqual(
+            [attempt.provider_model for attempt in attempts],
+            ["grok-4.3-high", "grok-4.3-console", "grok-4.3-low"],
+        )
+
+    def test_model_variant_priority_precedes_key_order(self):
+        cfg = base_config()
+        cfg["routing"]["provider_select"] = "priority_failover"
+        cfg["routing"]["default_provider_pool"] = ["alpha"]
+        cfg["routing"]["max_attempts"] = 4
+        cfg["providers"]["alpha"]["keys"] = ["alpha-key-a", "alpha-key-b"]
+        cfg["providers"]["beta"]["enabled"] = False
+        cfg["models"]["provider_model_variants"] = {
+            "alpha": {
+                "grok-4.3": [
+                    {"model": "grok-4.3-low", "priority": 10},
+                    {"model": "grok-4.3-high", "priority": 100},
+                ]
+            }
+        }
+
+        attempts = list(UpstreamRouter(cfg).iter_attempts("grok-4.3", False, "req-variant-keys"))
+
+        self.assertEqual(
+            [(attempt.provider_model, attempt.key_index) for attempt in attempts],
+            [
+                ("grok-4.3-high", 0),
+                ("grok-4.3-high", 1),
+                ("grok-4.3-low", 0),
+                ("grok-4.3-low", 1),
+            ],
+        )
+
+    def test_key_model_maps_bind_each_raw_model_to_a_supporting_key(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha"]
+        cfg["routing"]["max_attempts"] = 4
+        cfg["providers"]["alpha"]["keys"] = [
+            {"key": "alpha-high-key", "models": {"grok-4.3": "grok-4.3-high"}},
+            {"key": "alpha-low-key", "models": {"grok-4.3": "grok-4.3-low"}},
+        ]
+        cfg["providers"]["beta"]["enabled"] = False
+
+        attempts = list(UpstreamRouter(cfg).iter_attempts("grok-4.3", False, "req-key-models"))
+
+        self.assertEqual(
+            [(attempt.key_index, attempt.provider_model) for attempt in attempts],
+            [(0, "grok-4.3-high"), (1, "grok-4.3-low")],
+        )
+
+    def test_discovered_key_capabilities_route_only_to_supporting_key(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha"]
+        cfg["providers"]["alpha"]["keys"] = ["alpha-high-key", "alpha-low-key"]
+        cfg["providers"]["beta"]["enabled"] = False
+        cfg["models"]["provider_model_capabilities"] = {
+            "alpha": {
+                "status": "ok",
+                "models": ["grok-4.3-high", "grok-4.3-low"],
+                "canonical_map": {
+                    "grok-4.3-high": "grok-4.3-high",
+                    "grok-4.3-low": "grok-4.3-low",
+                },
+            }
+        }
+        cfg["models"]["provider_key_model_capabilities"] = {
+            "alpha": {
+                key_fingerprint("alpha-high-key"): {
+                    "status": "ok",
+                    "models": ["grok-4.3-high"],
+                    "canonical_map": {"grok-4.3-high": "grok-4.3-high"},
+                },
+                key_fingerprint("alpha-low-key"): {
+                    "status": "ok",
+                    "models": ["grok-4.3-low"],
+                    "canonical_map": {"grok-4.3-low": "grok-4.3-low"},
+                },
+            }
+        }
+
+        attempts = list(UpstreamRouter(cfg).iter_attempts("grok-4.3-high", False, "req-key-caps"))
+
+        self.assertEqual(
+            [(attempt.key_index, attempt.provider_model) for attempt in attempts],
+            [(0, "grok-4.3-high")],
+        )
+
+    def test_routing_trace_records_rejected_and_selected_key_candidates(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha"]
+        cfg["providers"]["alpha"]["keys"] = [
+            {"key": "alpha-other-key", "models": {"other": "other"}},
+            {"key": "alpha-target-key", "models": {"target": "target-raw"}},
+        ]
+        cfg["providers"]["beta"]["enabled"] = False
+        trace = RoutingTrace()
+
+        attempts = list(
+            UpstreamRouter(cfg).iter_attempts(
+                "target",
+                False,
+                "req-trace",
+                routing_trace=trace,
+            )
+        )
+
+        self.assertEqual([(attempt.key_index, attempt.provider_model) for attempt in attempts], [(1, "target-raw")])
+        events = trace.snapshot()
+        self.assertTrue(any(event["code"] == "model_unsupported_by_key" and event["key_index"] == 0 for event in events))
+        self.assertTrue(any(event["code"] == "selected" and event["key_index"] == 1 for event in events))
+        self.assertNotIn("alpha-target-key", str(events))
 
     def test_iter_attempts_does_not_repeat_same_provider_key_format_in_one_request(self):
         cfg = base_config()
@@ -803,6 +951,29 @@ class RouterTests(unittest.TestCase):
         self.assertNotEqual(attempts[0].provider, "alpha")
         self.assertEqual(restored.snapshot()["compatibility_circuits"]["active"], 1)
 
+    def test_model_mapping_change_drops_stale_raw_model_compatibility_circuit(self):
+        old_cfg = base_config()
+        old_cfg["routing"]["default_provider_pool"] = ["alpha"]
+        old_cfg["providers"]["beta"]["enabled"] = False
+        old_cfg["models"]["provider_model_map"] = {"alpha": {"alias": "wrong-raw"}}
+        old_router = UpstreamRouter(old_cfg)
+        failed = next(old_router.iter_attempts("alias", False, "req-old"))
+        old_router.report_failure(failed, error_type="provider_compat", http_status=422)
+
+        new_cfg = base_config()
+        new_cfg["routing"]["default_provider_pool"] = ["alpha"]
+        new_cfg["providers"]["beta"]["enabled"] = False
+        new_cfg["models"]["provider_model_map"] = {"alpha": {"alias": "correct-raw"}}
+        new_router = UpstreamRouter(new_cfg)
+        new_router.migrate_state_from(old_router)
+
+        self.assertEqual(new_router.snapshot()["compatibility_circuits"]["active"], 0)
+        self.assertEqual(next(new_router.iter_attempts("alias", False, "req-new")).provider_model, "correct-raw")
+
+        restarted_router = UpstreamRouter(new_cfg)
+        restarted_router.load_state(old_router.dump_state())
+        self.assertEqual(restarted_router.snapshot()["compatibility_circuits"]["active"], 0)
+
     def test_runtime_provider_disable_enable_controls_attempts(self):
         cfg = base_config()
         cfg["routing"]["default_provider_pool"] = ["alpha", "beta"]
@@ -930,9 +1101,13 @@ class RouterTests(unittest.TestCase):
             upstream_format="chat_completions",
         )
 
-        router.report_failure(failed_attempt, error_type="quota_or_balance", http_status=402)
+        action = router.report_failure(failed_attempt, error_type="quota_or_balance", http_status=402)
 
         snap = router.snapshot()
+        self.assertEqual(action["scope"], "key")
+        self.assertEqual(action["action"], "cooldown")
+        self.assertGreaterEqual(action["cooldown_s"], 3600)
+        self.assertEqual(action["key_id"], router.key_id("beta-key-1"))
         self.assertGreaterEqual(snap["providers"]["beta"]["keys"][0]["cooldown_remaining_s"], 1800)
         self.assertTrue(snap["providers"]["beta"]["keys"][0]["has_failure"])
         attempts = list(router.iter_attempts("any-model", False, "req-quota-next"))
@@ -1112,7 +1287,16 @@ class RouterTests(unittest.TestCase):
         ))
         self.assertNotEqual(same_profile[0].provider, "alpha")
         self.assertEqual(plain[0].provider, "alpha")
-        self.assertEqual(router.snapshot()["compatibility_circuits"]["active"], 1)
+        circuits = router.snapshot()["compatibility_circuits"]
+        self.assertEqual(circuits["active"], 1)
+        entry = circuits["entries"][0]
+        self.assertEqual(entry["provider"], "alpha")
+        self.assertEqual(entry["canonical_model"], "any-model")
+        self.assertEqual(entry["provider_model"], "any-model")
+        self.assertEqual(entry["upstream_format"], "chat_completions")
+        self.assertEqual(entry["compatibility_profile"], "tools")
+        self.assertEqual(entry["key_id"], router.key_id("alpha-key"))
+        self.assertNotIn("alpha-key", str(circuits))
 
     def test_compatibility_failures_use_10_60_3600_ladder_without_key_cooldown(self):
         cfg = base_config()

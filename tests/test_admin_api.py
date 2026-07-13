@@ -13,7 +13,7 @@ from unittest.mock import patch, MagicMock
 import sse2json
 import config_manager
 from observability import ProxyObservability
-from router import Attempt, _KeyState
+from router import Attempt, UpstreamRouter, _KeyState
 
 
 class FakeRouter:
@@ -237,6 +237,17 @@ class AdminApiTests(unittest.TestCase):
                         "formats": ["chat_completions"],
                     }
                 },
+                "provider_key_model_capabilities": {
+                    "alpha": {
+                        "abcdef1234567890": {
+                            "status": "ok",
+                            "key_index": 0,
+                            "models": ["alpha-model"],
+                            "canonical_map": {"alpha-model": "alpha-model"},
+                            "fetched_at": 123,
+                        }
+                    }
+                },
             },
             "providers": {
                 "alpha": {
@@ -273,7 +284,11 @@ class AdminApiTests(unittest.TestCase):
         self.assertNotIn("raw-alpha-key", json.dumps(router_body))
         self.assertEqual(body["policy"]["failure_policies"]["empty_visible_output"]["cooldown_scope"], "none")
         self.assertEqual(models_status, 200)
+        self.assertEqual(models_body["models_epoch_ms"], sse2json._MODEL_CAPABILITY_EPOCH_MS)
+        self.assertEqual(models_body["models_version"], sse2json.model_registry.models_version())
         self.assertEqual(models_body["providers"]["alpha"]["status"], "ok")
+        self.assertEqual(models_body["providers"]["alpha"]["keys"][0]["key_id"], "abcdef1234")
+        self.assertEqual(models_body["providers"]["alpha"]["keys"][0]["models"], ["alpha-model"])
         self.assertNotIn("ghost", models_body["providers"])
         self.assertNotIn("raw-alpha-key", json.dumps(body))
         self.assertNotIn("raw-alpha-key", json.dumps(models_body))
@@ -631,6 +646,64 @@ class AdminApiTests(unittest.TestCase):
         model_ids = [m["id"] for m in models_body["data"]]
         self.assertIn("client-alpha", model_ids)
         self.assertNotIn("alpha-model", model_ids)
+
+    def test_admin_provider_model_variants_update_runtime_routing(self):
+        cfg = {
+            "server": {"admin_key": "admin-secret"},
+            "routing": {"default_provider_pool": ["alpha"], "provider_select": "priority_failover"},
+            "models": {},
+            "providers": {"alpha": {"base_url": "https://alpha.example", "keys": ["raw-alpha-key"], "enabled": True}},
+        }
+        manager = config_manager.RuntimeConfigManager(cfg, overlay_path=self.temp_overlay_path())
+        headers = {"Content-Type": "application/json", "X-Admin-Key": "admin-secret"}
+
+        with self.runtime_config(manager):
+            status, body = self.patch_json(
+                "/-/admin/providers/alpha/models/grok-4.3/variants",
+                {
+                    "variants": [
+                        {"model": "grok-4.3-low", "priority": 10},
+                        {"model": "grok-4.3-high", "priority": 100},
+                    ]
+                },
+                headers=headers,
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(body["action"], "provider_model_variants_updated")
+        self.assertEqual(
+            manager.config["models"]["provider_model_variants"]["alpha"]["grok-4.3"][0]["model"],
+            "grok-4.3-high",
+        )
+
+    def test_hot_priority_response_returns_authoritative_router_snapshot(self):
+        cfg = {
+            "server": {"admin_key": "admin-secret"},
+            "routing": {"default_provider_pool": ["alpha"]},
+            "models": {},
+            "providers": {
+                "alpha": {
+                    "base_url": "https://alpha.example",
+                    "keys": ["raw-alpha-key"],
+                    "enabled": True,
+                    "priority": 10,
+                }
+            },
+        }
+        manager = config_manager.RuntimeConfigManager(cfg, overlay_path=self.temp_overlay_path())
+        headers = {"Content-Type": "application/json", "X-Admin-Key": "admin-secret"}
+
+        runtime_router = UpstreamRouter(manager.config)
+        with self.runtime_config(manager), patch.object(sse2json, "ROUTER", runtime_router):
+            status, body = self.patch_json(
+                "/-/admin/providers/alpha/priority",
+                {"priority": 90},
+                headers=headers,
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(body["router"]["providers"]["alpha"]["priority"], 90)
+        self.assertTrue(body["router"]["providers"]["alpha"]["priority_override_active"])
 
     def test_client_models_uses_saved_capabilities_without_upstream_fetch(self):
         cfg = {
@@ -1606,6 +1679,15 @@ class AdminApiTests(unittest.TestCase):
         self.assertIn(b'restoreNode("sectionNav")', js_body)
         self.assertIn(b"openProviderEditors", js_body)
         self.assertIn(b"proxyConsoleView", js_body)
+        self.assertIn(b"Routing path", js_body)
+        self.assertIn(b"Diagnostic events", js_body)
+        self.assertIn(b"Routing exceptions", js_body)
+        self.assertIn(b"Models by key", js_body)
+        self.assertIn(b"Canonical aliases", js_body)
+        self.assertIn(b"parseKeyModelsText", js_body)
+        self.assertIn(b"parseModelVariants", js_body)
+        self.assertIn(b"OptimisticConfigStore", js_body)
+        self.assertIn(b"beginOptimisticConfigMutation", js_body)
         self.assertNotIn(b"adminKeyInput", js_body)
         self.assertNotIn(b"saveKeyButton", js_body)
         self.assertIn(b"key_masked || attempt.key_id", js_body)

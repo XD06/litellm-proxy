@@ -36,6 +36,21 @@ class SchedulerPolicyTests(unittest.TestCase):
                 self.assertEqual(decision.error_type, "quota_or_balance")
                 self.assertEqual(decision.reason, "quota_or_balance")
 
+    def test_422_insufficient_credits_is_quota_not_client_schema_error(self):
+        decision = scheduler_policy.classify_http_error(
+            cfg(),
+            422,
+            error_body=(
+                '{"error":{"type":"billing_error","code":"billing_error",'
+                '"message":"Insufficient credits. Top up at the billing page"}}'
+            ),
+        )
+
+        self.assertEqual(decision.error_type, "quota_or_balance")
+        self.assertEqual(decision.reason, "quota_or_balance")
+        self.assertEqual(decision.cooldown_scope, "key")
+        self.assertGreaterEqual(decision.cooldown_s, 3600)
+
     def test_invalid_auth_message_remains_key_invalid(self):
         decision = scheduler_policy.classify_http_error(
             cfg(), 401, error_body='{"error":{"message":"invalid api key"}}'

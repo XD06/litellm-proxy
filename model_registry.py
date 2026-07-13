@@ -12,7 +12,7 @@ import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
-from proxy_utils import key_proxy, key_value, resolve_proxy_url
+from proxy_utils import key_fingerprint, key_proxy, key_value, resolve_proxy_url
 
 
 _cached_models_by_provider: Dict[str, Dict[str, Any]] = {}
@@ -748,20 +748,149 @@ def merge_similar_models(union_map: dict, auto_provider_map: dict) -> None:
 
 
 def resolve_provider_model(config: Dict[str, Any], provider: str, canonical_model: str) -> str:
+    return resolve_provider_model_candidates(config, provider, canonical_model)[0]
+
+
+def resolve_provider_model_candidates(
+    config: Dict[str, Any], provider: str, canonical_model: str
+) -> List[str]:
+    variants = (
+        ((config.get("models") or {}).get("provider_model_variants") or {}).get(provider) or {}
+    )
+    raw_variants = variants.get(canonical_model) if isinstance(variants, dict) else None
+    if raw_variants is None and isinstance(variants, dict):
+        raw_variants = variants.get(str(canonical_model or "").lower())
+    if isinstance(raw_variants, list):
+        parsed = []
+        for index, entry in enumerate(raw_variants):
+            if isinstance(entry, str):
+                raw_model = entry.strip()
+                priority = 0
+            elif isinstance(entry, dict):
+                raw_model = str(entry.get("model") or entry.get("raw_model") or "").strip()
+                try:
+                    priority = int(entry.get("priority") or 0)
+                except (TypeError, ValueError):
+                    priority = 0
+            else:
+                continue
+            if raw_model:
+                parsed.append((raw_model, priority, index))
+        parsed.sort(key=lambda item: (-item[1], item[2]))
+        ordered = _dedupe([item[0] for item in parsed])
+        if ordered:
+            return _dedupe(
+                ordered
+                + _key_manual_raw_models(config, provider, canonical_model)
+                + _key_discovered_raw_models(config, provider, canonical_model)
+            )
+
+    key_models = _dedupe(
+        _key_manual_raw_models(config, provider, canonical_model)
+        + _key_discovered_raw_models(config, provider, canonical_model)
+    )
+    if key_models:
+        return key_models
+
     manual_map = ((config.get("models") or {}).get("provider_model_map") or {}).get(provider) or {}
     if canonical_model in manual_map:
-        return str(manual_map[canonical_model])
+        return [str(manual_map[canonical_model])]
 
     caps = ((config.get("models") or {}).get("provider_model_capabilities") or {}).get(provider) or {}
     if isinstance(caps, dict):
         canonical_map = caps.get("canonical_map") or {}
         if canonical_model in canonical_map:
-            return str(canonical_map[canonical_model])
+            return [str(canonical_map[canonical_model])]
         lower_model = str(canonical_model or "").lower()
         if lower_model in canonical_map:
-            return str(canonical_map[lower_model])
+            return [str(canonical_map[lower_model])]
 
-    return canonical_model
+    return [canonical_model]
+
+
+def _key_manual_raw_models(
+    config: Dict[str, Any], provider: str, canonical_model: str
+) -> List[str]:
+    pcfg = ((config.get("providers") or {}).get(provider) or {})
+    canonical = str(canonical_model or "")
+    lower = canonical.lower()
+    raw_models = []
+    for entry in pcfg.get("keys") or []:
+        if not isinstance(entry, dict):
+            continue
+        models = entry.get("models") if "models" in entry else entry.get("model_map")
+        if not isinstance(models, dict):
+            continue
+        raw = models.get(canonical)
+        if raw is None:
+            raw = models.get(lower)
+        raw = str(raw or "").strip()
+        if raw:
+            raw_models.append(raw)
+    return _dedupe(raw_models)
+
+
+def _key_discovered_raw_models(
+    config: Dict[str, Any], provider: str, canonical_model: str
+) -> List[str]:
+    provider_caps = (
+        ((config.get("models") or {}).get("provider_key_model_capabilities") or {}).get(provider) or {}
+    )
+    raw_models = []
+    for entry in provider_caps.values() if isinstance(provider_caps, dict) else []:
+        if not isinstance(entry, dict) or entry.get("status") not in ("ok", "stale"):
+            continue
+        canonical_map = entry.get("canonical_map") or {}
+        raw = canonical_map.get(canonical_model)
+        if raw is None:
+            raw = canonical_map.get(str(canonical_model or "").lower())
+        raw = str(raw or "").strip()
+        if raw:
+            raw_models.append(raw)
+    return _dedupe(raw_models)
+
+
+def key_supports_provider_model(
+    config: Dict[str, Any],
+    provider: str,
+    key_index: int,
+    canonical_model: str,
+    provider_model: str,
+) -> Optional[bool]:
+    """Return True/False for known key capability, or None when unknown."""
+    keys = (((config.get("providers") or {}).get(provider) or {}).get("keys") or [])
+    if key_index < 0 or key_index >= len(keys):
+        return False
+    entry = keys[key_index]
+    if isinstance(entry, dict):
+        models = entry.get("models") if "models" in entry else entry.get("model_map")
+        if isinstance(models, dict):
+            canonical = str(canonical_model or "")
+            expected = models.get(canonical)
+            if expected is None:
+                expected = models.get(canonical.lower())
+            if expected is None:
+                return False
+            return str(expected or "").strip() == str(provider_model or "").strip()
+        if isinstance(models, list):
+            known = {str(model or "").strip() for model in models}
+            return str(provider_model or "").strip() in known
+    fingerprint = key_fingerprint(entry)
+    provider_caps = (
+        ((config.get("models") or {}).get("provider_key_model_capabilities") or {}).get(provider) or {}
+    )
+    capability = provider_caps.get(fingerprint) if isinstance(provider_caps, dict) else None
+    if isinstance(capability, dict) and capability.get("status") in ("ok", "stale"):
+        canonical_map = capability.get("canonical_map") or {}
+        expected = canonical_map.get(canonical_model)
+        if expected is None:
+            expected = canonical_map.get(str(canonical_model or "").lower())
+        if expected is not None:
+            return str(expected or "").strip() == str(provider_model or "").strip()
+        return str(provider_model or "").strip() in {
+            str(model or "").strip() for model in capability.get("models") or []
+        }
+    return None
 
 
 def find_providers_for_model(
@@ -934,15 +1063,15 @@ def fetch_upstream_models(
     providers_cfg = config.get("providers") or {}
     hprov = format_provider or (lambda provider: f"provider={provider}")
 
-    def fetch_one(provider: str):
+    def fetch_one(provider: str, selected_key_entry: Any = None):
         pcfg = providers_cfg.get(provider) or {}
         if not pcfg.get("enabled", True):
             return None
 
         base_url = (pcfg.get("base_url") or "").rstrip("/")
         models_path = pcfg.get("models_path") or "/v1/models"
-        key_entry = None
-        if hasattr(router, "first_healthy_key_entry"):
+        key_entry = selected_key_entry
+        if key_entry is None and hasattr(router, "first_healthy_key_entry"):
             selected = router.first_healthy_key_entry(provider)
             if selected:
                 _key_index, key_entry = selected
@@ -1020,21 +1149,84 @@ def fetch_upstream_models(
             raise ValueError(f"unknown provider: {provider}")
         clear_cache(provider)
         try:
-            upstream_data = fetch_one(provider)
-            if not upstream_data:
-                raise RuntimeError("empty upstream models")
-            anth = to_anthropic_models(upstream_data)
-            provider_union, canonical_map, raw_ids = parse_provider_models(provider, upstream_data)
-            _ = provider_union
+            pcfg = providers_cfg.get(provider) or {}
+            configured_keys = list(pcfg.get("keys") or [])
+            if not configured_keys:
+                configured_keys = [""]
+            previous_key_caps = (
+                ((config.get("models") or {}).get("provider_key_model_capabilities") or {}).get(provider) or {}
+            )
+            next_key_caps = {}
+            provider_union: Dict[str, Dict[str, Any]] = {}
+            canonical_map: Dict[str, str] = {}
+            raw_ids: List[str] = []
+            errors = []
+            for key_index, key_entry in enumerate(configured_keys):
+                fingerprint = key_fingerprint(key_entry)
+                try:
+                    upstream_data = fetch_one(provider, key_entry)
+                    if not upstream_data:
+                        raise RuntimeError("empty upstream models")
+                    key_union, key_map, key_raw_ids = parse_provider_models(provider, upstream_data)
+                    if not key_raw_ids:
+                        raise RuntimeError("empty upstream models")
+                    fallback_error = (
+                        str(upstream_data.get("_error") or "")
+                        if isinstance(upstream_data, dict)
+                        else ""
+                    )
+                    key_capability = {
+                        "status": "ok",
+                        "key_index": key_index,
+                        "fetched_at": int(time.time()),
+                        "models": list(key_raw_ids),
+                        "canonical_map": dict(key_map),
+                    }
+                    if fallback_error:
+                        key_capability["error"] = fallback_error
+                        errors.append(f"key {key_index}: {fallback_error}")
+                    next_key_caps[fingerprint] = key_capability
+                    for model_id, model_info in key_union.items():
+                        provider_union.setdefault(model_id, model_info)
+                    for model_id, raw_model in key_map.items():
+                        canonical_map.setdefault(model_id, raw_model)
+                    raw_ids.extend(key_raw_ids)
+                except Exception as exc:
+                    error = _sanitize_error(exc, configured_keys)
+                    errors.append(f"key {key_index}: {error}")
+                    previous = previous_key_caps.get(fingerprint) if isinstance(previous_key_caps, dict) else None
+                    if isinstance(previous, dict) and previous.get("status") in ("ok", "stale"):
+                        retained = dict(previous)
+                        retained["status"] = "stale"
+                        retained["key_index"] = key_index
+                        retained["error"] = error
+                        next_key_caps[fingerprint] = retained
+                        for model_id, raw_model in (retained.get("canonical_map") or {}).items():
+                            canonical_map.setdefault(model_id, raw_model)
+                        raw_ids.extend(retained.get("models") or [])
+                    else:
+                        next_key_caps[fingerprint] = {
+                            "status": "error",
+                            "key_index": key_index,
+                            "fetched_at": int(time.time()),
+                            "models": [],
+                            "canonical_map": {},
+                            "error": error,
+                        }
             if not raw_ids:
-                raise RuntimeError("empty upstream models")
+                raise RuntimeError("; ".join(errors) or "empty upstream models")
+            models_cfg = config.setdefault("models", {})
+            all_key_caps = models_cfg.setdefault("provider_key_model_capabilities", {})
+            all_key_caps[provider] = next_key_caps
+            raw_ids = _dedupe([str(model) for model in raw_ids if str(model or "").strip()])
+            anth = _models_payload_from_ids(raw_ids)
             _store_provider_capabilities(
                 config,
                 provider,
                 status="ok",
                 canonical_map=canonical_map,
                 raw_ids=raw_ids,
-                error=str(upstream_data.get("_error") or "") if isinstance(upstream_data, dict) else "",
+                error="; ".join(errors),
             )
             with _cache_lock:
                 _cached_models_by_provider[provider] = anth
@@ -1062,55 +1254,48 @@ def fetch_upstream_models(
             if cache_key in _cached_models_by_provider:
                 return _cached_models_by_provider[cache_key]
 
-        union_map: Dict[str, Dict[str, Any]] = {}
-        auto_provider_map: Dict[str, Dict[str, str]] = {}
-
         providers_list = [p for p in providers_cfg.keys() if (providers_cfg.get(p) or {}).get("enabled", True)]
+        # A provider-level catalog is not enough when keys have different
+        # entitlements. Reuse the provider refresh path, which walks every key.
         with concurrent.futures.ThreadPoolExecutor(max_workers=min(4, max(1, len(providers_list)))) as ex:
-            futs = {ex.submit(fetch_one, p): p for p in providers_list}
+            futs = {
+                ex.submit(
+                    fetch_upstream_models,
+                    config,
+                    router,
+                    upstream_client,
+                    format_provider=format_provider,
+                    only_provider=p,
+                ): p
+                for p in providers_list
+            }
             end = time.time() + 8.0
             for fut, p in list(futs.items()):
                 remaining = max(0.0, end - time.time())
                 if remaining <= 0:
                     break
                 try:
-                    upstream_data = fut.result(timeout=remaining)
-                    if not upstream_data:
-                        raise RuntimeError("empty upstream models")
-                    provider_union, canonical_map, raw_ids = parse_provider_models(p, upstream_data)
-                    if not raw_ids:
-                        raise RuntimeError("empty upstream models")
-                    for mid, model_info in provider_union.items():
-                        union_map.setdefault(mid, model_info)
-                    auto_provider_map[p] = canonical_map
-                    _store_provider_capabilities(
-                        config,
-                        p,
-                        status="ok",
-                        canonical_map=canonical_map,
-                        raw_ids=raw_ids,
-                        error=str(upstream_data.get("_error") or "") if isinstance(upstream_data, dict) else "",
-                    )
-                except Exception as e:
-                    pcfg = providers_cfg.get(p) or {}
-                    err_msg = _sanitize_error(e, pcfg.get("keys") or [])
-                    _store_provider_capabilities(
-                        config,
-                        p,
-                        status="error",
-                        error=err_msg,
-                    )
+                    fut.result(timeout=remaining)
+                except Exception:
+                    # Provider refresh stores its own sanitized error state.
                     continue
-
-        merge_similar_models(union_map, auto_provider_map)
-
-        fetched_payload = {
-            "data": list(union_map.values()),
-            "has_more": False,
-            "first_id": next(iter(union_map.keys()), ""),
-            "last_id": list(union_map.keys())[-1] if union_map else "",
-        }
-        # rebuild deferred to _union_dirty flag; just refresh model ID set
+        # Preserve the live-discovery response contract: publish discovered
+        # canonical IDs only. Configured aliases are included by the separate
+        # saved snapshot path, not injected into an upstream refresh response.
+        discovered_ids: List[str] = []
+        capabilities = ((config.get("models") or {}).get("provider_model_capabilities") or {})
+        for provider in providers_list:
+            capability = capabilities.get(provider) if isinstance(capabilities, dict) else None
+            if not isinstance(capability, dict) or capability.get("status") != "ok":
+                continue
+            discovered_ids.extend(
+                str(model_id)
+                for model_id in (capability.get("canonical_map") or {}).keys()
+                if str(model_id or "").strip()
+            )
+        fetched_payload = _models_payload_from_ids(discovered_ids)
+        with _cache_lock:
+            _cached_models_by_provider[cache_key] = fetched_payload
         _rebuild_union_model_ids_from_capabilities(config)
         print(f"[proxy] Auto-fetched union models: {len(fetched_payload.get('data') or [])}", flush=True)
         return fetched_payload if fetched_payload.get("data") else default_models()
@@ -1123,35 +1308,10 @@ def fetch_upstream_models(
         if provider in _cached_models_by_provider:
             return _cached_models_by_provider[provider]
 
-    try:
-        upstream_data = fetch_one(provider)
-        if not upstream_data:
-            raise RuntimeError("empty upstream models")
-        anth = to_anthropic_models(upstream_data)
-        provider_union, canonical_map, raw_ids = parse_provider_models(provider, upstream_data)
-        _ = provider_union
-        if raw_ids:
-            _store_provider_capabilities(
-                config,
-                provider,
-                status="ok",
-                canonical_map=canonical_map,
-                raw_ids=raw_ids,
-                error=str(upstream_data.get("_error") or "") if isinstance(upstream_data, dict) else "",
-            )
-        with _cache_lock:
-            _cached_models_by_provider[provider] = anth
-        # rebuild deferred to _union_dirty flag; just refresh model ID set
-        _rebuild_union_model_ids_from_capabilities(config)
-        print(f"[proxy] Auto-fetched {len(anth.get('data') or [])} models from {hprov(provider)}", flush=True)
-        return anth
-    except Exception as e:
-        pcfg = providers_cfg.get(provider) or {}
-        _store_provider_capabilities(
-            config,
-            provider,
-            status="error",
-            error=_sanitize_error(e, pcfg.get("keys") or []),
-        )
-        print(f"[proxy] Failed to fetch upstream models ({hprov(provider)}): {e}", flush=True)
-        return default_models()
+    return fetch_upstream_models(
+        config,
+        router,
+        upstream_client,
+        format_provider=format_provider,
+        only_provider=provider,
+    )

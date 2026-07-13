@@ -5,6 +5,7 @@ from parameter_compatibility import (
     ParameterCompatibilityError,
     alternate_output_token_payload,
     extract_output_token_limit,
+    format_compatibility_plan,
     native_only_request_parameters,
     upstream_format_eligibility,
 )
@@ -136,6 +137,70 @@ class OutputTokenCompatibilityTests(unittest.TestCase):
         self.assertEqual(allowed, [RESPONSES])
         self.assertEqual(blocked[CHAT], ("previous_response_id",))
         self.assertEqual(blocked[ANTHROPIC], ("previous_response_id",))
+
+    def test_safe_anthropic_agent_fields_produce_explicit_cross_format_plan(self):
+        request = {
+            "model": "m",
+            "messages": [],
+            "thinking": {"type": "enabled", "budget_tokens": 4096},
+            "cache_control": {"type": "ephemeral"},
+            "service_tier": "auto",
+        }
+
+        chat_plan = format_compatibility_plan(
+            request,
+            client_format=ANTHROPIC,
+            target_format=CHAT,
+            mode="safe",
+        )
+        responses_plan = format_compatibility_plan(
+            request,
+            client_format=ANTHROPIC,
+            target_format=RESPONSES,
+            mode="safe",
+        )
+
+        self.assertTrue(chat_plan.allowed)
+        self.assertTrue(responses_plan.allowed)
+        self.assertEqual(chat_plan.blockers, ())
+        self.assertEqual(
+            {item["field"] for item in chat_plan.transformations},
+            {"thinking"},
+        )
+        self.assertEqual(
+            {item["field"] for item in chat_plan.dropped_hints},
+            {"cache_control", "service_tier"},
+        )
+
+    def test_safe_anthropic_stateful_field_still_blocks_cross_format(self):
+        plan = format_compatibility_plan(
+            {"model": "m", "messages": [], "context_management": {"edits": []}},
+            client_format=ANTHROPIC,
+            target_format=CHAT,
+            mode="safe",
+        )
+
+        self.assertFalse(plan.allowed)
+        self.assertEqual(plan.blockers, ("context_management",))
+
+    def test_anthropic_thinking_control_is_applied_to_cross_format_payloads(self):
+        request = {
+            "model": "m",
+            "messages": [{"role": "user", "content": "hello"}],
+            "thinking": {"type": "enabled", "budget_tokens": 4096},
+            "cache_control": {"type": "ephemeral"},
+            "service_tier": "auto",
+        }
+
+        chat = convert_request(ANTHROPIC, CHAT, request, resolve_model=lambda model: model)
+        responses = convert_request(ANTHROPIC, RESPONSES, request, resolve_model=lambda model: model)
+
+        self.assertEqual(chat["reasoning_effort"], "medium")
+        self.assertEqual(responses["reasoning"], {"effort": "medium"})
+        for payload in (chat, responses):
+            self.assertNotIn("thinking", payload)
+            self.assertNotIn("cache_control", payload)
+            self.assertNotIn("service_tier", payload)
 
     def test_responses_parallel_tools_can_convert_to_chat_but_not_anthropic(self):
         allowed, blocked = upstream_format_eligibility(

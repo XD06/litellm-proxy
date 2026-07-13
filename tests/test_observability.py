@@ -5,6 +5,7 @@ import warnings
 
 from observability import ProxyObservability
 from router import Attempt
+from routing_trace import RoutingTrace
 
 
 def make_attempt(
@@ -29,6 +30,33 @@ def make_attempt(
 
 
 class ObservabilityTests(unittest.TestCase):
+    def test_request_routing_trace_is_snapshotted_and_redacts_secrets(self):
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+        trace = RoutingTrace()
+        obs.record_request_start(
+            "req-trace",
+            client_format="anthropic_messages",
+            endpoint="messages",
+            model="client-model",
+            stream=True,
+            path="/v1/messages",
+            routing_trace=trace,
+        )
+        trace.record(
+            "selected",
+            stage="routing",
+            provider="requesty",
+            key="raw-secret-key",
+            key_id="safe-id",
+            provider_model="deepseek/deepseek-v4-flash",
+        )
+        obs.record_request_end("req-trace", status_code=200)
+
+        item = obs.snapshot()["recent_requests"][0]
+        self.assertEqual(item["routing_trace"][0]["code"], "selected")
+        self.assertEqual(item["routing_trace"][0]["key"], "***")
+        self.assertNotIn("raw-secret-key", str(item))
+
     def test_records_request_attempt_and_recent_snapshot(self):
         obs = ProxyObservability(
             {
@@ -147,6 +175,7 @@ class ObservabilityTests(unittest.TestCase):
 
     def test_records_failure_reason_breakdowns(self):
         obs = ProxyObservability({"observability": {"recent_requests_limit": 2}})
+        trace = RoutingTrace()
         attempt = Attempt(
             request_id="req-1",
             attempt_no=1,
@@ -166,6 +195,7 @@ class ObservabilityTests(unittest.TestCase):
             model="client-model",
             stream=False,
             path="/v1/chat/completions",
+            routing_trace=trace,
         )
         obs.record_attempt(
             "req-1",
@@ -179,6 +209,8 @@ class ObservabilityTests(unittest.TestCase):
             upstream_error_type="invalid_request_error",
             upstream_error_code="invalid_request_error",
             upstream_error_param="content[].thinking",
+            failure_owner="upstream",
+            state_action={"scope": "key", "action": "cooldown", "cooldown_s": 10},
         )
         obs.record_request_end("req-1", status_code=502)
 
@@ -203,6 +235,11 @@ class ObservabilityTests(unittest.TestCase):
         self.assertEqual(failed_attempt["upstream_error_type"], "invalid_request_error")
         self.assertEqual(failed_attempt["upstream_error_code"], "invalid_request_error")
         self.assertEqual(failed_attempt["upstream_error_param"], "content[].thinking")
+        self.assertEqual(failed_attempt["failure_owner"], "upstream")
+        self.assertEqual(failed_attempt["state_action"]["cooldown_s"], 10)
+        self.assertTrue(
+            any(event["code"] == "attempt_failed" for event in snap["recent_requests"][0]["routing_trace"])
+        )
 
     def test_recent_requests_limit_is_enforced(self):
         obs = ProxyObservability({"observability": {"recent_requests_limit": 1}})

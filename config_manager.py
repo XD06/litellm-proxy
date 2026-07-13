@@ -195,7 +195,9 @@ class RuntimeConfigManager:
             self._remove_provider_from_routes(models, name)
             self._remove_provider_map_entry(models, name, "provider_model_map")
             self._remove_provider_map_entry(models, name, "provider_model_capabilities")
+            self._remove_provider_map_entry(models, name, "provider_key_model_capabilities")
             self._remove_provider_map_entry(models, name, "provider_model_disabled")
+            self._remove_provider_map_entry(models, name, "provider_model_variants")
         return self.config
 
     def add_key(self, provider: str, key: str, proxy: Any = "") -> Dict[str, Any]:
@@ -218,7 +220,7 @@ class RuntimeConfigManager:
         self._require_provider(provider)
         if not isinstance(patch, dict) or not patch:
             raise ConfigValidationError("key patch must be a non-empty object")
-        allowed = {"proxy"}
+        allowed = {"proxy", "models"}
         for field in patch.keys():
             if field not in allowed:
                 raise ConfigValidationError(f"unsupported key field: {field}")
@@ -229,11 +231,32 @@ class RuntimeConfigManager:
             if key_index < 0 or key_index >= len(keys):
                 raise ConfigValidationError(f"unknown key: {provider}/{key_index}")
 
-            raw_key = key_value(keys[key_index])
+            existing_entry = keys[key_index]
+            raw_key = key_value(existing_entry)
             if not raw_key:
                 raise ConfigValidationError(f"invalid key: {provider}/{key_index}")
-            proxy = normalize_proxy_config(patch.get("proxy"))
-            keys[key_index] = {"key": raw_key, "proxy": proxy} if proxy else raw_key
+            existing_proxy = existing_entry.get("proxy") if isinstance(existing_entry, dict) else {}
+            proxy = normalize_proxy_config(patch.get("proxy")) if "proxy" in patch else normalize_proxy_config(existing_proxy)
+            existing_models = existing_entry.get("models") if isinstance(existing_entry, dict) else None
+            models = patch.get("models") if "models" in patch else existing_models
+            if models is not None and not isinstance(models, (dict, list)):
+                raise ConfigValidationError("models must be an object or list")
+            key_patch: Dict[str, Any] = {"key": raw_key}
+            if proxy:
+                key_patch["proxy"] = proxy
+            if isinstance(models, dict):
+                key_patch["models"] = {
+                    self._validate_model_id(canonical): self._validate_model_id(raw_model)
+                    for canonical, raw_model in models.items()
+                }
+            elif isinstance(models, list):
+                key_patch["models"] = [self._validate_model_id(model) for model in models]
+            normalized_key = normalize_key_entry(key_patch)
+            keys[key_index] = (
+                normalized_key
+                if normalized_key is not None and (proxy or models)
+                else raw_key
+            )
             current["keys"] = keys
             overlay.setdefault("providers", {})[provider] = current
         return self.config
@@ -522,6 +545,56 @@ class RuntimeConfigManager:
             models["provider_model_map"] = overlay_maps
         return self.config
 
+    def update_provider_model_variants(
+        self,
+        provider: str,
+        *,
+        model: str,
+        variants: Any,
+    ) -> Dict[str, Any]:
+        self._require_provider(provider)
+        canonical_model = self._validate_model_id(model)
+        if not isinstance(variants, list):
+            raise ConfigValidationError("variants must be a list")
+        if len(variants) > 32:
+            raise ConfigValidationError("variants cannot contain more than 32 models")
+
+        clean_variants = []
+        seen = set()
+        for index, entry in enumerate(variants):
+            if isinstance(entry, str):
+                raw_model = self._validate_model_id(entry)
+                priority = 0
+            elif isinstance(entry, dict):
+                raw_model = self._validate_model_id(entry.get("model") or entry.get("raw_model"))
+                priority = self._bounded_int(entry.get("priority", 0), "variant priority", -1000, 1000)
+            else:
+                raise ConfigValidationError(f"invalid variant at index {index}")
+            if raw_model in seen:
+                continue
+            seen.add(raw_model)
+            clean_variants.append({"model": raw_model, "priority": priority, "_index": index})
+        clean_variants.sort(key=lambda item: (-item["priority"], item["_index"]))
+        for item in clean_variants:
+            item.pop("_index", None)
+
+        with self._locked_overlay() as overlay:
+            models = overlay.setdefault("models", {})
+            variants_map = copy.deepcopy(
+                (self.config.get("models") or {}).get("provider_model_variants") or {}
+            )
+            provider_map = copy.deepcopy(variants_map.get(provider) or {})
+            if clean_variants:
+                provider_map[canonical_model] = clean_variants
+            else:
+                provider_map.pop(canonical_model, None)
+            if provider_map:
+                variants_map[provider] = provider_map
+            else:
+                variants_map.pop(provider, None)
+            models["provider_model_variants"] = variants_map
+        return self.config
+
     def _remove_provider_from_routes(self, overlay_models: Dict[str, Any], provider: str) -> None:
         routes = copy.deepcopy(overlay_models.get("routes") or (self.config.get("models") or {}).get("routes") or {})
         if not isinstance(routes, dict):
@@ -700,6 +773,7 @@ class RuntimeConfigManager:
             "read_timeout_s",
             "first_token_timeout_s",
             "anthropic_default_max_tokens",
+            "semantic_conversion",
         }
         clean: Dict[str, Any] = {}
         for key, value in patch.items():
@@ -716,6 +790,11 @@ class RuntimeConfigManager:
                 mode = str(value or "").strip()
                 if mode not in FORMAT_PREFERENCE_MODES:
                     raise ConfigValidationError(f"unsupported format_preference: {mode}")
+                clean[key] = mode
+            elif key == "semantic_conversion":
+                mode = str(value or "").strip().lower()
+                if mode not in ("safe", "strict"):
+                    raise ConfigValidationError(f"unsupported semantic_conversion: {mode}")
                 clean[key] = mode
             elif key == "max_attempts":
                 clean[key] = self._bounded_int(value, key, 1, 50)
@@ -965,7 +1044,13 @@ class RuntimeConfigManager:
                 routes.pop(model, None)
         models = normalized.get("models") or {}
         if isinstance(models, dict):
-            for field in ("provider_model_map", "provider_model_capabilities", "provider_model_disabled"):
+            for field in (
+                "provider_model_map",
+                "provider_model_capabilities",
+                "provider_key_model_capabilities",
+                "provider_model_disabled",
+                "provider_model_variants",
+            ):
                 entries = models.get(field) or {}
                 if isinstance(entries, dict):
                     for provider in [name for name, value in entries.items() if value is None]:
@@ -1018,15 +1103,33 @@ class RuntimeConfigManager:
                 if not routes:
                     models.pop("routes", None)
 
-            for field in ("provider_model_map", "provider_model_capabilities", "provider_model_disabled"):
+            for field in (
+                "provider_model_map",
+                "provider_model_capabilities",
+                "provider_key_model_capabilities",
+                "provider_model_disabled",
+                "provider_model_variants",
+            ):
                 entries = models.get(field)
                 if not isinstance(entries, dict):
                     continue
                 base_entries = (self.base_config.get("models") or {}).get(field) or {}
+                if field in ("provider_model_capabilities", "provider_key_model_capabilities"):
+                    # Discovery snapshots are runtime state persisted in
+                    # tmp/router_state.json.  Legacy overlays may contain old
+                    # copies; discard concrete values on the next overlay
+                    # write while retaining None tombstones needed to delete a
+                    # provider that existed in the base config.
+                    for provider in [name for name, value in entries.items() if value is not None]:
+                        entries.pop(provider, None)
                 for provider in [name for name, value in entries.items() if value is None and name not in base_entries]:
                     entries.pop(provider, None)
                 if not entries:
                     models.pop(field, None)
+
+            # The union snapshot is derived from provider capabilities and is
+            # persisted with router state; it is never editable configuration.
+            models.pop("models_union_snapshot", None)
 
             if not models:
                 overlay.pop("models", None)
@@ -1093,6 +1196,7 @@ class RuntimeConfigManager:
         view = copy.deepcopy(models)
         view.pop("provider_model_capabilities", None)
         view.pop("models_union_snapshot", None)
+        view.pop("provider_key_model_capabilities", None)
         view.setdefault("routes", {})
         view.setdefault("provider_model_map", {})
         view.setdefault("provider_model_disabled", {})
@@ -1111,6 +1215,7 @@ class RuntimeConfigManager:
                     "key_id": _hash_key_short(key_s),
                     "masked": _mask_key(key_s),
                     "proxy": proxy_display(key.get("proxy") if isinstance(key, dict) else {}),
+                    "models": copy.deepcopy(key.get("models")) if isinstance(key, dict) and key.get("models") is not None else {},
                 }
             )
         view["keys"] = keys

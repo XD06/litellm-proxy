@@ -307,6 +307,7 @@ def _default_config() -> Dict[str, Any]:
             # same-format (native) only wins ties. native_first: legacy, all
             # native providers precede all fallback providers.
             "format_preference": "priority_first",
+            "semantic_conversion": "safe",
             "max_attempts": 6,
             "connect_timeout_s": 15,
             "read_timeout_s": 120,
@@ -358,7 +359,9 @@ def _default_config() -> Dict[str, Any]:
             "client_model_map": {},
             "routes": {},
             "provider_model_map": {},
+            "provider_model_variants": {},
             "provider_model_capabilities": {},
+            "provider_key_model_capabilities": {},
             "assume_supports_unknown_models": True,
             "models_source": "first_healthy_provider",
         },

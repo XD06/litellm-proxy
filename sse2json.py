@@ -29,13 +29,15 @@ from parameter_compatibility import (
     alternate_output_token_payload,
     extract_output_token_limit,
     extract_stop_sequences,
+    format_compatibility_plan,
     parameter_adaptations,
     request_compatibility_profile,
     upstream_format_eligibility,
 )
-from proxy_utils import key_value, mask_proxy_url
+from proxy_utils import key_fingerprint, key_value, mask_proxy_url
 from request_routes import classify_get, classify_post
 from router import UpstreamRouter, parse_retry_after_seconds
+from routing_trace import RoutingTrace
 from stream_adapters import (
     prefetch_first_stream_line,
     prefetch_initial_stream_lines,
@@ -105,6 +107,7 @@ _KEY_PROBE_INFLIGHT = {}
 _ROUTER_STATE_FILE = os.path.join(os.path.dirname(__file__), "tmp", "router_state.json")
 _ROUTER_STATE_INTERVAL_S = 60  # Save router state every 60 seconds.
 _ROUTER_STATE_SAVE_LOCK = threading.Lock()
+_MODEL_CAPABILITY_EPOCH_MS = int(time.time() * 1000)
 
 
 def _safe_model_capabilities_for_state(config: Optional[dict] = None) -> dict:
@@ -203,6 +206,62 @@ def _restore_model_capabilities(caps: dict, union_model_ids: Optional[List[str]]
     model_registry.bump_models_version()
 
 
+def _safe_key_model_capabilities_for_state(config: Optional[dict] = None) -> dict:
+    cfg = config or CONFIG
+    providers_cfg = cfg.get("providers") or {}
+    source = ((cfg.get("models") or {}).get("provider_key_model_capabilities") or {})
+    out = {}
+    for provider, entries in source.items() if isinstance(source, dict) else []:
+        pcfg = providers_cfg.get(provider) or {}
+        current_hints = {key_fingerprint(entry) for entry in (pcfg.get("keys") or []) if key_fingerprint(entry)}
+        if not isinstance(entries, dict):
+            continue
+        clean_entries = {}
+        for hint, entry in entries.items():
+            if hint not in current_hints or not isinstance(entry, dict):
+                continue
+            clean = {
+                "status": str(entry.get("status") or "unknown"),
+                "key_index": int(entry.get("key_index") or 0),
+                "fetched_at": int(entry.get("fetched_at") or 0),
+                "models": [str(model) for model in (entry.get("models") or []) if str(model or "").strip()],
+                "canonical_map": {
+                    str(k): str(v) for k, v in (entry.get("canonical_map") or {}).items()
+                    if str(k or "").strip() and str(v or "").strip()
+                },
+            }
+            if entry.get("error"):
+                error = str(entry.get("error") or "")
+                for key_entry in pcfg.get("keys") or []:
+                    raw_key = key_value(key_entry)
+                    if raw_key:
+                        error = error.replace(raw_key, "***")
+                clean["error"] = error[:500]
+            clean_entries[str(hint)] = clean
+        if clean_entries:
+            out[str(provider)] = clean_entries
+    return out
+
+
+def _restore_key_model_capabilities(caps: dict) -> None:
+    if not isinstance(caps, dict):
+        return
+    providers_cfg = CONFIG.get("providers") or {}
+    destination = CONFIG.setdefault("models", {}).setdefault("provider_key_model_capabilities", {})
+    for provider, entries in caps.items():
+        pcfg = providers_cfg.get(provider) or {}
+        current_hints = {key_fingerprint(entry) for entry in (pcfg.get("keys") or []) if key_fingerprint(entry)}
+        if not isinstance(entries, dict):
+            continue
+        retained = {
+            str(hint): copy.deepcopy(entry)
+            for hint, entry in entries.items()
+            if hint in current_hints and isinstance(entry, dict)
+        }
+        if retained:
+            destination[str(provider)] = retained
+
+
 def _restore_models_union_snapshot(snapshot: dict) -> None:
     if not isinstance(snapshot, dict) or snapshot.get("status") != "ok":
         return
@@ -227,6 +286,7 @@ def _save_router_state() -> None:
                 "saved_at": time.time(),
                 "router": rt.router.dump_state(),
                 "model_capabilities": _safe_model_capabilities_for_state(rt.config),
+                "key_model_capabilities": _safe_key_model_capabilities_for_state(rt.config),
                 "union_model_ids": sorted(model_registry.union_model_ids()),
                 "models_union_snapshot": _safe_models_union_snapshot_for_state(rt.config),
             }
@@ -267,6 +327,7 @@ def _load_router_state() -> None:
                 state.get("model_capabilities") or state.get("provider_model_capabilities") or {},
                 state.get("union_model_ids") or [],
             )
+            _restore_key_model_capabilities(state.get("key_model_capabilities") or {})
             _restore_models_union_snapshot(state.get("models_union_snapshot") or {})
         saved_at = router_state.get("saved_at") if isinstance(router_state, dict) else 0
         saved_at = state.get("saved_at") if isinstance(state, dict) and state.get("saved_at") else saved_at
@@ -1714,6 +1775,7 @@ def _apply_runtime_config(new_config: dict) -> None:
     old_obs = OBSERVABILITY
     old_upstream_client = UPSTREAM_CLIENT
     old_caps = dict(((CONFIG.get("models") or {}).get("provider_model_capabilities") or {})) if CONFIG else {}
+    old_key_caps = dict(((CONFIG.get("models") or {}).get("provider_key_model_capabilities") or {})) if CONFIG else {}
     new_config = apply_env_overlays(new_config)
     # Preserve provider model capabilities across runtime config reloads.
     # Without this, key probes can lose discovered model choices after edits.
@@ -1722,8 +1784,32 @@ def _apply_runtime_config(new_config: dict) -> None:
         models_cfg = new_config.setdefault("models", {})
         caps = models_cfg.setdefault("provider_model_capabilities", {})
         for prov, entry in old_caps.items():
-            if prov in providers_cfg and prov not in caps:
-                caps[prov] = entry
+            if prov in providers_cfg:
+                # Discovered capabilities are runtime state, not editable
+                # configuration.  A legacy runtime_config overlay may still
+                # contain an older snapshot; always keep the live snapshot
+                # across config hot-swaps so a provider/key/priority edit
+                # cannot make the model catalog move backwards.
+                caps[prov] = copy.deepcopy(entry)
+    if old_key_caps:
+        providers_cfg = new_config.get("providers") or {}
+        models_cfg = new_config.setdefault("models", {})
+        key_caps = models_cfg.setdefault("provider_key_model_capabilities", {})
+        for prov, entries in old_key_caps.items():
+            if prov not in providers_cfg or not isinstance(entries, dict):
+                continue
+            current_hints = {
+                key_fingerprint(entry)
+                for entry in ((providers_cfg.get(prov) or {}).get("keys") or [])
+                if key_fingerprint(entry)
+            }
+            retained = {
+                hint: copy.deepcopy(entry)
+                for hint, entry in entries.items()
+                if hint in current_hints and isinstance(entry, dict)
+            }
+            if retained:
+                key_caps[prov] = retained
     model_registry.clear_cache()
     model_registry.rebuild_models_union_snapshot(new_config)
     new_router = UpstreamRouter(new_config)
@@ -1922,6 +2008,11 @@ def _merge_provider_model_capability_from(source_config: dict, provider: str) ->
         models_cfg = target.setdefault("models", {})
         caps = models_cfg.setdefault("provider_model_capabilities", {})
         caps[provider] = copy.deepcopy(entry)
+        source_key_caps = ((source_config.get("models") or {}).get("provider_key_model_capabilities") or {})
+        provider_key_caps = source_key_caps.get(provider) if isinstance(source_key_caps, dict) else None
+        if isinstance(provider_key_caps, dict):
+            target_key_caps = models_cfg.setdefault("provider_key_model_capabilities", {})
+            target_key_caps[provider] = copy.deepcopy(provider_key_caps)
     model_registry.rebuild_models_union_snapshot(CONFIG, ROUTER)
     model_registry.bump_models_version()
     return True
@@ -2555,6 +2646,92 @@ def _native_stream_usage_mode(config: dict = None) -> str:
     return _config_choice(config or CONFIG, "observability", "native_stream_usage", "full", {"full", "off"})
 
 
+def _semantic_conversion_mode(config: dict = None) -> str:
+    return _config_choice(config or CONFIG, "routing", "semantic_conversion", "safe", {"safe", "strict"})
+
+
+def _trace_format_compatibility(
+    trace: RoutingTrace,
+    request: dict,
+    *,
+    client_format: str,
+    candidate_formats: list,
+    mode: str,
+):
+    allowed = []
+    blocked = {}
+    for target_format in candidate_formats:
+        plan = format_compatibility_plan(
+            request,
+            client_format=client_format,
+            target_format=target_format,
+            mode=mode,
+        )
+        if plan.allowed:
+            allowed.append(target_format)
+            trace.record(
+                "format_eligible",
+                stage="format_compatibility",
+                target_format=target_format,
+                fidelity=plan.fidelity,
+            )
+        else:
+            blocked[target_format] = plan.blockers
+        for item in plan.transformations:
+            trace.record(
+                "format_parameter_mapped",
+                stage="format_compatibility",
+                owner="proxy_conversion",
+                target_format=target_format,
+                **dict(item),
+            )
+        for item in plan.dropped_hints:
+            trace.record(
+                "format_hint_dropped",
+                stage="format_compatibility",
+                owner="proxy_conversion",
+                target_format=target_format,
+                **dict(item),
+            )
+        for field in plan.blockers:
+            trace.record(
+                "format_blocked_by_parameter",
+                stage="format_compatibility",
+                owner="proxy_conversion",
+                target_format=target_format,
+                field=field,
+            )
+    return allowed, blocked
+
+
+def _no_candidate_error(trace: RoutingTrace, canonical_model: str) -> dict:
+    blocked = []
+    for event in trace.snapshot():
+        if event.get("code") != "format_blocked_by_parameter":
+            continue
+        blocked.append(
+            {
+                "target_format": str(event.get("target_format") or ""),
+                "field": str(event.get("field") or ""),
+            }
+        )
+    message = f"No eligible upstream candidate for model '{canonical_model}'."
+    if blocked:
+        summary = ", ".join(
+            f"{item['target_format']} blocked by {item['field']}" for item in blocked
+        )
+        message += f" Format constraints: {summary}."
+    return {
+        "error": {
+            "type": "proxy_routing_error",
+            "code": "no_eligible_candidate",
+            "owner": "proxy_routing",
+            "message": message,
+            "details": {"format_blockers": blocked},
+        }
+    }
+
+
 def _discovery_status() -> dict:
     """Expose the background discovery-queue state so the dashboard can show
     which providers are queued / cooling down, and the TTL/retry cadence."""
@@ -2565,6 +2742,7 @@ def _discovery_status() -> dict:
 
 def _model_capabilities_snapshot() -> dict:
     caps = ((CONFIG.get("models") or {}).get("provider_model_capabilities") or {})
+    key_caps = ((CONFIG.get("models") or {}).get("provider_key_model_capabilities") or {})
     providers_cfg = CONFIG.get("providers") or {}
     providers = {}
     for provider, entry in caps.items():
@@ -2578,16 +2756,43 @@ def _model_capabilities_snapshot() -> dict:
                 status = "stale"
         except Exception:
             pass
+        provider_keys = []
+        for key_hint, key_entry in (
+            (key_caps.get(provider) or {}).items()
+            if isinstance(key_caps.get(provider), dict)
+            else []
+        ):
+            if not isinstance(key_entry, dict):
+                continue
+            provider_keys.append(
+                {
+                    "key_id": str(key_hint)[:10],
+                    "key_index": int(key_entry.get("key_index") or 0),
+                    "status": str(key_entry.get("status") or "unknown"),
+                    "fetched_at": int(key_entry.get("fetched_at") or 0),
+                    "models": list(key_entry.get("models") or []),
+                    "canonical_map": dict(key_entry.get("canonical_map") or {}),
+                    "error": _sanitize_diagnostic_text(key_entry.get("error") or "", 500),
+                }
+            )
+        provider_keys.sort(key=lambda item: (item["key_index"], item["key_id"]))
         providers[provider] = {
             "status": status,
             "fetched_at": entry.get("fetched_at", 0),
             "models": list(entry.get("models") or []),
             "canonical_map": dict(entry.get("canonical_map") or {}),
             "formats": list(entry.get("formats") or []),
+            "keys": provider_keys,
         }
         if entry.get("error"):
             providers[provider]["error"] = str(entry.get("error"))[:500]
     return {
+        # Stable process epoch + monotonic version let the dashboard reject an
+        # older GET that arrives after a newer capability response.  Keeping
+        # the epoch stable also preserves useful ETag/304 responses while the
+        # model snapshot is unchanged.
+        "models_epoch_ms": _MODEL_CAPABILITY_EPOCH_MS,
+        "models_version": model_registry.models_version(),
         "models_source": str((CONFIG.get("models") or {}).get("models_source", "first_healthy_provider")),
         "union_model_ids": sorted(model_registry.union_model_ids()),
         "providers": providers,
@@ -3022,6 +3227,8 @@ def _record_failed_attempt(
     http_status=None,
     duration_ms=None,
     diagnostics=None,
+    failure_owner: str = "",
+    state_action=None,
 ) -> None:
     diagnostics = diagnostics or {}
     _current_rt().observability.record_attempt(
@@ -3032,6 +3239,8 @@ def _record_failed_attempt(
         http_status=int(http_status) if http_status is not None else None,
         reason=reason,
         duration_ms=duration_ms,
+        failure_owner=failure_owner,
+        state_action=state_action,
         **diagnostics,
     )
     _write_attempt_diagnostic_log(
@@ -3050,7 +3259,7 @@ def _record_upstream_http_failure(request_id, attempt, status, error_body, decis
     err_type = decision.error_type
     final_reason = reason or decision.reason
     diagnostics = _upstream_error_diagnostics("upstream_http_error", error_body)
-    _current_rt().router.report_failure(
+    state_action = _current_rt().router.report_failure(
         attempt,
         error_type=err_type,
         http_status=int(status) if status else None,
@@ -3064,6 +3273,8 @@ def _record_upstream_http_failure(request_id, attempt, status, error_body, decis
         http_status=int(status) if status else None,
         duration_ms=duration_ms,
         diagnostics=diagnostics,
+        failure_owner="upstream",
+        state_action=state_action,
     )
     attempt_errors.append(f"{attempt.provider}:{status}:{err_type}:{final_reason}")
     _log_upstream_error(request_id, attempt, status, err_type, final_reason, diagnostics)
@@ -3075,7 +3286,7 @@ def _record_request_conversion_failure(request_id, attempt, client_format: str, 
     summary = f"Could not convert client {client_format} request to upstream {attempt.upstream_format}: {exception}"
     diagnostics = _upstream_error_diagnostics("request_conversion", exception=exception)
     diagnostics["upstream_error_summary"] = _sanitize_diagnostic_text(summary)
-    _current_rt().router.report_failure(attempt, error_type="provider_compat")
+    state_action = _current_rt().router.report_failure(attempt, error_type="provider_compat")
     _record_failed_attempt(
         request_id,
         attempt,
@@ -3083,6 +3294,8 @@ def _record_request_conversion_failure(request_id, attempt, client_format: str, 
         reason=reason,
         duration_ms=duration_ms,
         diagnostics=diagnostics,
+        failure_owner="proxy_conversion",
+        state_action=state_action,
     )
     attempt_errors.append(f"{attempt.provider}:request_conversion:{attempt.upstream_format}")
     print(
@@ -3105,7 +3318,7 @@ def _record_transport_failure(
     decision = scheduler_policy.classify_transport_error(type(exception).__name__, _current_rt().config)
     final_reason = reason or decision.reason
     diagnostics = _upstream_error_diagnostics(stage, exception=exception)
-    _current_rt().router.report_failure(attempt, error_type=decision.error_type)
+    state_action = _current_rt().router.report_failure(attempt, error_type=decision.error_type)
     _record_failed_attempt(
         request_id,
         attempt,
@@ -3113,6 +3326,8 @@ def _record_transport_failure(
         reason=final_reason,
         duration_ms=duration_ms,
         diagnostics=diagnostics,
+        failure_owner="transport",
+        state_action=state_action,
     )
     attempt_errors.append(f"{attempt.provider}:{final_reason}:{type(exception).__name__}")
     print(
@@ -3969,6 +4184,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         original_model = req.get("model", "")
         resolved_model = resolve_model(original_model or "", rt.config)
         canonical_model = resolved_model
+        routing_trace = RoutingTrace()
         OBSERVABILITY.record_request_start(
             request_id,
             client_format=CHAT,
@@ -3976,6 +4192,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             model=canonical_model,
             stream=is_stream,
             path="/v1/chat/completions",
+            routing_trace=routing_trace,
         )
         msgs_count = len(req.get("messages", []))
         attempt_errors = []
@@ -3992,8 +4209,10 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         first_byte_t = int(routing_cfg.get("first_token_timeout_s", 30))  # Total budget before first stream event.
         max_attempts = int(routing_cfg.get("max_attempts", 6))
         max_budget = (connect_t + read_t) * min(3, max(1, max_attempts))
-        allowed_formats, blocked_formats = upstream_format_eligibility(
-            req, client_format=CHAT, candidate_formats=[CHAT, RESPONSES, ANTHROPIC]
+        semantic_conversion_mode = _semantic_conversion_mode(CONFIG)
+        allowed_formats, blocked_formats = _trace_format_compatibility(
+            routing_trace, req, client_format=CHAT, candidate_formats=[CHAT, RESPONSES, ANTHROPIC],
+            mode=semantic_conversion_mode,
         )
         compatibility_profile = request_compatibility_profile(req, client_format=CHAT)
         if blocked_formats and log_each:
@@ -4008,6 +4227,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             client_format="chat_completions",
             allowed_upstream_formats=allowed_formats,
             compatibility_profile=compatibility_profile,
+            routing_trace=routing_trace,
         ):
             has_attempt = True
             elapsed = time.time() - total_start
@@ -4035,6 +4255,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                         resolve_model=resolve_model,
                         output_token_field=output_token_field,
                         anthropic_default_max_tokens=anthropic_default_max_tokens,
+                        semantic_conversion_mode=semantic_conversion_mode,
                     )
                 except ValueError as e:
                     _record_request_conversion_failure(request_id, attempt, CHAT, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
@@ -4045,7 +4266,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             _force_chat_reasoning_content_if_needed(attempt, payload, log_each=log_each)
             _force_anthropic_thinking_if_needed(attempt, payload, log_each=log_each)
             actual_token_field = next((field for field in ("max_output_tokens", "max_completion_tokens", "max_tokens") if field in payload), output_token_field)
-            attempt_parameter_adaptations = parameter_adaptations(req, client_format=CHAT, target_format=fmt, output_token_field=actual_token_field, anthropic_default_max_tokens=anthropic_default_max_tokens)
+            attempt_parameter_adaptations = parameter_adaptations(req, client_format=CHAT, target_format=fmt, output_token_field=actual_token_field, anthropic_default_max_tokens=anthropic_default_max_tokens, semantic_conversion_mode=semantic_conversion_mode)
             response_started = False
             upstream_conn = None
 
@@ -4255,22 +4476,16 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                 _close_upstream_conn(upstream_conn)
 
         if not has_attempt:
-            if is_stream:
-                OBSERVABILITY.record_request_end(request_id, status_code=501)
-                return self._resp_json(
-                    {
-                        "error": {
-                            "message": "Chat Completions streaming currently requires a native Chat Completions, Responses, or Anthropic Messages upstream provider",
-                            "request_id": request_id,
-                        }
-                    },
-                    501,
-                )
-            OBSERVABILITY.record_request_end(request_id, status_code=400)
-            return self._resp_json(
-                {"error": {"message": f"No provider supports model '{canonical_model}'", "request_id": request_id}},
-                400,
+            routing_trace.record(
+                "no_candidate",
+                stage="routing",
+                owner="proxy_routing",
+                canonical_model=canonical_model,
             )
+            payload = _no_candidate_error(routing_trace, canonical_model)
+            payload["error"]["request_id"] = request_id
+            OBSERVABILITY.record_request_end(request_id, status_code=503, error=payload["error"]["message"])
+            return self._resp_json(payload, 503)
 
         dur_ms = int((time.time() - start_ts) * 1000)
         detail_log = "; ".join(attempt_errors[-10:])
@@ -4292,6 +4507,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         original_model = req.get("model", "")
         resolved_model = resolve_model(original_model or "", rt.config)
         canonical_model = resolved_model
+        routing_trace = RoutingTrace()
         OBSERVABILITY.record_request_start(
             request_id,
             client_format=RESPONSES,
@@ -4299,9 +4515,12 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             model=canonical_model,
             stream=is_stream,
             path=path,
+            routing_trace=routing_trace,
         )
-        allowed_formats, blocked_formats = upstream_format_eligibility(
-            req, client_format=RESPONSES, candidate_formats=[RESPONSES, CHAT, ANTHROPIC]
+        semantic_conversion_mode = _semantic_conversion_mode(CONFIG)
+        allowed_formats, blocked_formats = _trace_format_compatibility(
+            routing_trace, req, client_format=RESPONSES, candidate_formats=[RESPONSES, CHAT, ANTHROPIC],
+            mode=semantic_conversion_mode,
         )
         compatibility_profile = request_compatibility_profile(req, client_format=RESPONSES)
         attempt_errors = []
@@ -4330,6 +4549,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             client_format="responses",
             allowed_upstream_formats=allowed_formats,
             compatibility_profile=compatibility_profile,
+            routing_trace=routing_trace,
         ):
             has_attempt = True
             elapsed = time.time() - total_start
@@ -4357,6 +4577,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                         resolve_model=resolve_model,
                         output_token_field=output_token_field,
                         anthropic_default_max_tokens=anthropic_default_max_tokens,
+                        semantic_conversion_mode=semantic_conversion_mode,
                     )
                 except ValueError as e:
                     _record_request_conversion_failure(request_id, attempt, RESPONSES, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
@@ -4367,7 +4588,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             _force_chat_reasoning_content_if_needed(attempt, payload, log_each=log_each)
             _force_anthropic_thinking_if_needed(attempt, payload, log_each=log_each)
             actual_token_field = next((field for field in ("max_output_tokens", "max_completion_tokens", "max_tokens") if field in payload), output_token_field)
-            attempt_parameter_adaptations = parameter_adaptations(req, client_format=RESPONSES, target_format=fmt, output_token_field=actual_token_field, anthropic_default_max_tokens=anthropic_default_max_tokens)
+            attempt_parameter_adaptations = parameter_adaptations(req, client_format=RESPONSES, target_format=fmt, output_token_field=actual_token_field, anthropic_default_max_tokens=anthropic_default_max_tokens, semantic_conversion_mode=semantic_conversion_mode)
 
             response_started = False
             upstream_conn = None
@@ -4581,22 +4802,16 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                 _close_upstream_conn(upstream_conn)
 
         if not has_attempt:
-            if is_stream:
-                OBSERVABILITY.record_request_end(request_id, status_code=501)
-                return self._resp_json(
-                    {
-                        "error": {
-                            "message": "Responses streaming currently requires a native Responses, Chat Completions, or Anthropic Messages upstream provider",
-                            "request_id": request_id,
-                        }
-                    },
-                    501,
-                )
-            OBSERVABILITY.record_request_end(request_id, status_code=400)
-            return self._resp_json(
-                {"error": {"message": f"No provider supports model '{canonical_model}'", "request_id": request_id}},
-                400,
+            routing_trace.record(
+                "no_candidate",
+                stage="routing",
+                owner="proxy_routing",
+                canonical_model=canonical_model,
             )
+            payload = _no_candidate_error(routing_trace, canonical_model)
+            payload["error"]["request_id"] = request_id
+            OBSERVABILITY.record_request_end(request_id, status_code=503, error=payload["error"]["message"])
+            return self._resp_json(payload, 503)
 
         dur_ms = int((time.time() - start_ts) * 1000)
         detail_log = "; ".join(attempt_errors[-10:])
@@ -4714,6 +4929,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             if resolved_model != original_model and log_each:
                 print(f"[proxy] model alias: {original_model} -> {resolved_model}", flush=True)
             canonical_model = resolved_model
+            routing_trace = RoutingTrace()
             OBSERVABILITY.record_request_start(
                 request_id,
                 client_format=ANTHROPIC,
@@ -4721,11 +4937,18 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                 model=canonical_model,
                 stream=bool(is_stream),
                 path="/anthropic/v1/messages" if not route.legacy else "/v1/messages",
+                routing_trace=routing_trace,
             )
 
             payload_base = None
             if DEBUG_LOG:
-                payload_base = convert_request(ANTHROPIC, CHAT, req, resolve_model=resolve_model)
+                payload_base = convert_request(
+                    ANTHROPIC,
+                    CHAT,
+                    req,
+                    resolve_model=resolve_model,
+                    semantic_conversion_mode=_semantic_conversion_mode(CONFIG),
+                )
                 for i, m in enumerate(payload_base.get("messages", [])[:5]):
                     if "reasoning_content" in m:
                         rv = m.get("reasoning_content")
@@ -4748,8 +4971,10 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             # Keep a bounded global routing budget across attempts.
             max_budget = (connect_t + read_t) * min(3, max(1, max_attempts))
 
-            allowed_formats, blocked_formats = upstream_format_eligibility(
-                req, client_format=ANTHROPIC, candidate_formats=[ANTHROPIC, CHAT, RESPONSES]
+            semantic_conversion_mode = _semantic_conversion_mode(CONFIG)
+            allowed_formats, blocked_formats = _trace_format_compatibility(
+                routing_trace, req, client_format=ANTHROPIC, candidate_formats=[ANTHROPIC, CHAT, RESPONSES],
+                mode=semantic_conversion_mode,
             )
             compatibility_profile = request_compatibility_profile(req, client_format=ANTHROPIC)
             if blocked_formats and log_each:
@@ -4763,6 +4988,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                 client_format=ANTHROPIC,
                 allowed_upstream_formats=allowed_formats,
                 compatibility_profile=compatibility_profile,
+                routing_trace=routing_trace,
             ):
                 has_attempt = True
                 # Shrink per-attempt timeout as total routing budget is consumed.
@@ -4792,6 +5018,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                             resolve_model=resolve_model,
                             output_token_field=output_token_field,
                             anthropic_default_max_tokens=anthropic_default_max_tokens,
+                            semantic_conversion_mode=semantic_conversion_mode,
                         )
                     except ValueError as e:
                         _record_request_conversion_failure(request_id, attempt, ANTHROPIC, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
@@ -4802,7 +5029,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                 _force_chat_reasoning_content_if_needed(attempt, payload, log_each=log_each)
                 _force_anthropic_thinking_if_needed(attempt, payload, log_each=log_each)
                 actual_token_field = next((field for field in ("max_output_tokens", "max_completion_tokens", "max_tokens") if field in payload), output_token_field)
-                attempt_parameter_adaptations = parameter_adaptations(req, client_format=ANTHROPIC, target_format=fmt, output_token_field=actual_token_field, anthropic_default_max_tokens=anthropic_default_max_tokens)
+                attempt_parameter_adaptations = parameter_adaptations(req, client_format=ANTHROPIC, target_format=fmt, output_token_field=actual_token_field, anthropic_default_max_tokens=anthropic_default_max_tokens, semantic_conversion_mode=semantic_conversion_mode)
 
                 response_started = False
                 upstream_conn = None
@@ -5047,21 +5274,16 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
 
             # All attempts failed before writing SSE/response body.
             if not has_attempt:
-                if is_stream:
-                    OBSERVABILITY.record_request_end(request_id, status_code=501)
-                    return self._resp_json(
-                        {
-                            "error": {
-                                "message": "Anthropic Messages streaming currently requires a native Anthropic Messages, Chat Completions, or Responses upstream provider",
-                                "request_id": request_id,
-                            }
-                        },
-                        501,
-                    )
-                OBSERVABILITY.record_request_end(request_id, status_code=400)
-                return self._resp_json(
-                    {"error": {"message": f"No provider supports model '{canonical_model}'", "request_id": request_id}}, 400
+                routing_trace.record(
+                    "no_candidate",
+                    stage="routing",
+                    owner="proxy_routing",
+                    canonical_model=canonical_model,
                 )
+                payload = _no_candidate_error(routing_trace, canonical_model)
+                payload["error"]["request_id"] = request_id
+                OBSERVABILITY.record_request_end(request_id, status_code=503, error=payload["error"]["message"])
+                return self._resp_json(payload, 503)
             dur_ms = int((time.time() - start_ts) * 1000)
             detail_log = "; ".join(attempt_errors[-10:])
             print(f"[proxy] ALL ATTEMPTS FAILED req={request_id} {dur_ms}ms: {detail_log}", flush=True)

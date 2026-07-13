@@ -61,6 +61,11 @@
     "read_timeout_s": 120,
     "first_token_timeout_s": 30,
 
+    // 跨格式参数语义策略：
+    // - safe：映射可安全转换的字段，丢弃 cache_control 等非语义提示，并在请求详情记录决定
+    // - strict：任何无法无损保留的字段都会阻止该格式候选
+    "semantic_conversion": "safe",
+
     // 原生同格式非流式响应：
     // - safe: 旧行为，解析上游 JSON 后重新序列化返回
     // - validated: 解析一次做 usage/空输出校验，但向客户端返回上游原始 JSON bytes，减少重序列化开销
@@ -188,6 +193,17 @@
       }
     },
 
+    // 同一个 canonical model 可对应同一 provider 的多个真实模型。
+    // priority 越大越先尝试；候选身份包含 raw model，因此失败/兼容熔断不会串到其它 variant。
+    "provider_model_variants": {
+      "rawchat": {
+        "gpt-5.5": [
+          { "model": "gpt-5.5-high", "priority": 100 },
+          { "model": "gpt-5.5-low", "priority": 10 }
+        ]
+      }
+    },
+
     // Provider 模型发现快照：后台发现、添加/修改 provider、手动刷新时写入。
     // GET /v1/models 只读取本地快照，不会临时请求上游，避免请求时等待。
     "provider_model_capabilities": {},
@@ -284,7 +300,12 @@
         "anthropic_messages": { "enabled": false, "path": "/v1/messages" }
       },
       "models_path": "/v1/models",
-      "keys": ["sk-your-rawchat-key"],
+      // 每把 key 可声明自己的 canonical → raw model 映射。路由只会把 raw model
+      // 发给明确支持它的 key；后台发现也会逐 key 保存独立 catalog。
+      "keys": [
+        { "key": "sk-your-rawchat-key-high", "models": { "gpt-5.5": "gpt-5.5-high" } },
+        { "key": "sk-your-rawchat-key-low", "models": { "gpt-5.5": "gpt-5.5-low" } }
+      ],
       "headers": { "User-Agent": "Mozilla/5.0" },
       "enabled": true
     },

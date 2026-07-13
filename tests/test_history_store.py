@@ -38,6 +38,12 @@ def sample_request(request_id="req-1", *, status_code=200, provider="alpha", fin
                 "outcome": "success" if status_code < 400 else "failed",
                 "error_type": "" if status_code < 400 else "server_error",
                 "reason": "" if status_code < 400 else "upstream_5xx",
+                "failure_owner": "" if status_code < 400 else "upstream",
+                "state_action": {} if status_code < 400 else {
+                    "scope": "key",
+                    "action": "cooldown",
+                    "cooldown_s": 10,
+                },
                 "http_status": None if status_code < 400 else 502,
                 "diagnostic_stage": "" if status_code < 400 else "upstream_http_error",
                 "upstream_error_summary": "" if status_code < 400 else "The content thinking block must be passed back.",
@@ -47,6 +53,20 @@ def sample_request(request_id="req-1", *, status_code=200, provider="alpha", fin
                 "usage": {"input_tokens": 4, "output_tokens": 6, "total_tokens": 10},
                 "cost_usd": 0.000016,
             }
+        ],
+        "routing_trace": [
+            {
+                "stage": "format_compatibility",
+                "code": "format_blocked_by_parameter",
+                "owner": "proxy_conversion",
+                "target_format": "chat_completions",
+                "field": "context_management",
+            },
+            {
+                "stage": "routing",
+                "code": "no_candidate",
+                "owner": "proxy_routing",
+            },
         ],
     }
 
@@ -101,6 +121,14 @@ class RequestHistoryStoreTests(unittest.TestCase):
         self.assertEqual(listed["items"][0]["attempt_http_statuses"], ["502"])
         self.assertEqual(listed["items"][0]["routing_summary"]["outcome"], "failed")
         self.assertNotIn("secret", str(listed))
+
+        detail = store.get_request("req-fail")
+        self.assertEqual(detail["routing_trace"], sample_request("expected")["routing_trace"])
+        self.assertEqual(detail["attempts"][0]["failure_owner"], "upstream")
+        self.assertEqual(
+            detail["attempts"][0]["state_action"],
+            {"scope": "key", "action": "cooldown", "cooldown_s": 10},
+        )
 
     def test_fuzzy_filtering_on_requests(self):
         store = self.store()

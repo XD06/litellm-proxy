@@ -1,6 +1,6 @@
 (function() {
 	var __vite_style__ = document.createElement("style");
-	__vite_style__.textContent = ":root {\r\n  color-scheme: light;\r\n  --bg: #f4f4f5;\r\n  --surface: #ffffff;\r\n  --surface-raised: #fafafa;\r\n  --surface-soft: #f1f1f3;\r\n  --surface-strong: #e4e4e7;\r\n  --sidebar: #ffffff;\r\n  --sidebar-soft: #f4f4f5;\r\n  --line: #e4e4e7;\r\n  --line-soft: #f0f0f2;\r\n  --line-strong: #d4d4d8;\r\n  --text: #09090b;\r\n  --muted: #52525b;\r\n  --faint: #b97983;\r\n  --accent: #09090b;\r\n  --accent-strong: #18181b;\r\n  --accent-soft: #f4f4f5;\r\n  --success: #14795c;\r\n  --success-soft: #e6f5ee;\r\n  --warning: #d1431f;\r\n  --warning-soft: #fff3dc;\r\n  --danger: #b23a48;\r\n  --danger-soft: #fde8eb;\r\n  --info: #20d264;\r\n  --info-soft: #e8efff;\r\n  --compat: #6f55c4;\r\n  --compat-soft: #f0edff;\r\n  --metric-neutral: #2f3437;\r\n  --metric-requests: #2f3437;\r\n  --metric-success: #14795c;\r\n  --metric-failure: #b36a20;\r\n  --metric-provider: #3267c7;\r\n  --metric-token: #6f55c4;\r\n  --metric-cost: #7a5a25;\r\n  --neutral: #52525b;\r\n  --neutral-soft: #f4f4f5;\r\n  --ok: var(--success);\r\n  --warn: var(--warning);\r\n  --bad: var(--danger);\r\n  /* Provider mini-chart palette — single accent for line/area/dots */\r\n  --pmc-accent: var(--accent);\r\n  --pmc-green: var(--success);\r\n  --pmc-amber: var(--warning);\r\n  --pmc-red: var(--danger);\r\n  --shadow: 0 1px 3px rgba(0, 0, 0, 0.045), 0 1px 2px rgba(0, 0, 0, 0.035);\r\n  --shadow-tight: 0 8px 18px rgba(0, 0, 0, 0.055);\r\n  --mono: ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"Liberation Mono\", monospace;\r\n  --sans: system-ui, -apple-system, BlinkMacSystemFont, \"SF Pro Display\", \"SF Pro Text\", \"Helvetica Neue\", sans-serif;\r\n}\r\n\r\n* {\r\n  box-sizing: border-box;\r\n}\r\n\r\n::-webkit-scrollbar {\r\n  width: 5px;\r\n  height: 5px;\r\n}\r\n::-webkit-scrollbar-track {\r\n  background: transparent;\r\n}\r\n::-webkit-scrollbar-thumb {\r\n  background: var(--line-strong);\r\n  border-radius: 999px;\r\n}\r\n::-webkit-scrollbar-thumb:hover {\r\n  background: var(--muted);\r\n}\r\n::-webkit-scrollbar-corner {\r\n  background: transparent;\r\n}\r\nhtml {\r\n  scrollbar-width: thin;\r\n  scrollbar-color: var(--line-strong) transparent;\r\n}\r\n\r\nhtml {\r\n  scroll-behavior: smooth;\r\n}\r\n\r\nbody {\r\n  margin: 0;\r\n  min-width: 320px;\r\n  background: var(--bg);\r\n  color: var(--text);\r\n  font-family: var(--sans);\r\n  font-size: 13px;\r\n  font-variant-numeric: tabular-nums;\r\n  line-height: 1.5;\r\n  -webkit-font-smoothing: antialiased;\r\n}\r\n\r\nbutton,\r\ninput,\r\nselect {\r\n  font: inherit;\r\n}\r\n\r\nbutton,\r\ninput,\r\nselect,\r\ntextarea {\r\n  outline: none;\r\n}\r\n\r\nbutton:focus-visible,\r\ninput:focus-visible,\r\nselect:focus-visible {\r\n  box-shadow: 0 0 0 3px rgba(47, 52, 55, 0.16);\r\n}\r\n\r\n.shell {\r\n  display: grid;\r\n  grid-template-columns: 240px minmax(0, 1fr);\r\n  min-height: 100dvh;\r\n}\r\n\r\n[hidden] {\r\n  display: none !important;\r\n}\r\n\r\n.login-gate {\r\n  min-height: 100dvh;\r\n  display: grid;\r\n  place-items: center;\r\n  padding: 24px;\r\n  background: var(--bg);\r\n}\r\n\r\n.login-card {\r\n  width: min(420px, 100%);\r\n  display: grid;\r\n  gap: 16px;\r\n  padding: 26px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 10px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.login-mark {\r\n  display: grid;\r\n  width: 34px;\r\n  height: 34px;\r\n  place-items: center;\r\n  border-radius: 7px;\r\n  background: var(--text);\r\n  color: #fff;\r\n  font: 760 11px var(--mono);\r\n}\r\n\r\n.login-card h1 {\r\n  font-size: 24px;\r\n  letter-spacing: 0;\r\n}\r\n\r\n.login-card p {\r\n  margin-top: 6px;\r\n  max-width: 34rem;\r\n  color: var(--muted);\r\n  line-height: 1.45;\r\n}\r\n\r\n.auth-card {\r\n  gap: 18px;\r\n}\r\n\r\n.auth-progress {\r\n  position: relative;\r\n  height: 3px;\r\n  overflow: hidden;\r\n  border-radius: 999px;\r\n  background: var(--surface-soft);\r\n}\r\n\r\n.auth-progress::after {\r\n  position: absolute;\r\n  inset: 0;\r\n  width: 42%;\r\n  border-radius: inherit;\r\n  background: var(--accent);\r\n  content: \"\";\r\n  animation: auth-progress 1.1s ease-in-out infinite;\r\n}\r\n\r\n@keyframes auth-progress {\r\n  0% {\r\n    transform: translateX(-120%);\r\n  }\r\n  100% {\r\n    transform: translateX(260%);\r\n  }\r\n}\r\n\r\n.login-field {\r\n  display: grid;\r\n  gap: 7px;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-weight: 720;\r\n}\r\n\r\n.login-field input {\r\n  min-height: 42px;\r\n  padding: 0 11px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: #fff;\r\n  color: var(--text);\r\n  font-family: var(--mono);\r\n}\r\n\r\n.login-error {\r\n  min-height: 18px;\r\n  color: var(--danger) !important;\r\n  font-size: 12px;\r\n}\r\n\r\n.sidebar {\r\n  position: sticky;\r\n  top: 0;\r\n  height: 100dvh;\r\n  display: flex;\r\n  flex-direction: column;\r\n  border-right: 1px solid var(--line-strong);\r\n  background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);\r\n  box-shadow: 10px 0 26px rgba(9, 9, 11, 0.045);\r\n  color: var(--text);\r\n  z-index: 10;\r\n}\r\n\r\n.sidebar::after {\r\n  position: absolute;\r\n  top: 0;\r\n  right: -1px;\r\n  bottom: 0;\r\n  width: 1px;\r\n  background: linear-gradient(180deg, rgba(9, 9, 11, 0.12), rgba(9, 9, 11, 0.04));\r\n  content: \"\";\r\n  pointer-events: none;\r\n}\r\n\r\n.brand {\r\n  display: flex;\r\n  gap: 10px;\r\n  align-items: center;\r\n  padding: 24px 16px 18px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n}\r\n\r\n.brand-mark {\r\n  display: grid;\r\n  width: 24px;\r\n  height: 24px;\r\n  place-items: center;\r\n  border: 0;\r\n  border-radius: 6px;\r\n  background: var(--text);\r\n  color: #fff;\r\n  font: 760 10px var(--mono);\r\n  letter-spacing: 0;\r\n}\r\n\r\n.brand-title {\r\n  font-size: 14px;\r\n  font-weight: 720;\r\n}\r\n\r\n.brand-subtitle {\r\n  margin-top: 2px;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n}\r\n\r\n.nav {\r\n  display: grid;\r\n  gap: 3px;\r\n  margin: 10px 10px 10px;\r\n  padding: 4px 0;\r\n}\r\n\r\n.nav-item {\r\n  position: relative;\r\n  width: 100%;\r\n  min-height: 38px;\r\n  padding: 8px 14px;\r\n  border: 1px solid transparent;\r\n  border-radius: 7px;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  text-align: left;\r\n  cursor: pointer;\r\n  font-weight: 560;\r\n  transition: background 160ms ease, color 160ms ease, transform 160ms ease, border-color 160ms ease;\r\n}\r\n\r\n.nav-item:hover {\r\n  border-color: transparent;\r\n  background: color-mix(in srgb, var(--surface) 94%, var(--surface-soft));\r\n  color: var(--text);\r\n}\r\n\r\n.nav-item.is-active {\r\n  border-color: color-mix(in srgb, var(--accent) 12%, var(--line-strong));\r\n  background: color-mix(in srgb, var(--accent) 5%, var(--surface));\r\n  color: var(--text);\r\n  font-weight: 720;\r\n  box-shadow: none;\r\n}\r\n\r\n.nav-item.is-active::before {\r\n  display: none;\r\n}\r\n\r\n.sidebar-actions {\r\n  display: grid;\r\n  grid-template-columns: 1fr;\r\n  gap: 8px;\r\n  margin-top: auto;\r\n  padding: 12px 16px 8px;\r\n  border-top: 0;\r\n}\r\n\r\n.sidebar-actions .button {\r\n  min-width: 0;\r\n}\r\n\r\n.sidebar-actions .icon-button {\r\n  width: 28px;\r\n  height: 28px;\r\n  padding: 0;\r\n  border: 1px solid var(--line);\r\n  background: var(--surface);\r\n  color: var(--muted);\r\n  border-radius: 6px;\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n}\r\n\r\n.sidebar-actions .icon-button:hover {\r\n  border-color: var(--line-strong);\r\n  background: var(--surface-raised);\r\n  color: var(--text);\r\n}\r\n\r\n.lang-toggle-btn {\r\n  font-size: 12px;\r\n  font-weight: 600;\r\n  letter-spacing: 0.02em;\r\n  opacity: 0.85;\r\n  padding: 6px 10px;\r\n}\r\n.lang-toggle-btn:hover {\r\n  opacity: 1;\r\n}\r\n\r\n.lang-toggle-link {\r\n  margin-left: auto;\r\n  padding: 2px 6px;\r\n  border: none;\r\n  background: transparent;\r\n  color: var(--faint);\r\n  font-size: 11px;\r\n  font-weight: 500;\r\n  cursor: pointer;\r\n}\r\n\r\n.lang-toggle-link:hover {\r\n  color: var(--muted);\r\n}\r\n\r\n.sidebar-footer {\r\n  display: flex;\r\n  gap: 9px;\r\n  align-items: center;\r\n  margin-top: 0;\r\n  padding: 6px 20px 24px;\r\n  border-top: 0;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.dot {\r\n  width: 8px;\r\n  height: 8px;\r\n  border-radius: 999px;\r\n  background: var(--neutral);\r\n}\r\n\r\n.dot.ok {\r\n  background: var(--success);\r\n}\r\n\r\n.dot.bad {\r\n  background: var(--danger);\r\n}\r\n\r\n.workspace {\r\n  min-width: 0;\r\n  width: 100%;\r\n  max-width: 1220px;\r\n  margin: 0 auto;\r\n  padding: 12px 40px 40px;\r\n}\r\n\r\n.topbar {\r\n  position: sticky;\r\n  top: 0;\r\n  z-index: 9;\r\n  display: none;\r\n  gap: 16px;\r\n  align-items: flex-start;\r\n  justify-content: space-between;\r\n  margin: -20px -20px 16px;\r\n  padding: 18px 20px 14px;\r\n  border-bottom: 1px solid var(--line);\r\n  background: rgba(244, 244, 245, 0.88);\r\n  backdrop-filter: blur(18px);\r\n}\r\n\r\nh1,\r\nh2,\r\nh3,\r\np {\r\n  margin: 0;\r\n}\r\n\r\nh1 {\r\n  font-size: 22px;\r\n  line-height: 1.15;\r\n  letter-spacing: 0;\r\n}\r\n\r\nh2 {\r\n  color: var(--text);\r\n  font-size: 14px;\r\n  line-height: 1.35;\r\n  font-weight: 720;\r\n}\r\n\r\n.topbar p,\r\n.panel-head p {\r\n  margin-top: 4px;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.mobile-settings-button,\r\n.mobile-settings-backdrop,\r\n.mobile-settings-drawer {\r\n  display: none;\r\n}\r\n\r\n.button,\r\n.icon-button {\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  cursor: pointer;\r\n  transition: background 150ms ease, border-color 150ms ease, color 150ms ease, transform 120ms ease, box-shadow 150ms ease;\r\n  touch-action: manipulation;\r\n}\r\n\r\n.button {\r\n  min-height: 36px;\r\n  padding: 0 12px;\r\n  font-size: 12.5px;\r\n  font-weight: 680;\r\n}\r\n\r\n.button.icon-action {\r\n  display: inline-grid;\r\n  width: 32px;\r\n  min-width: 32px;\r\n  height: 32px;\r\n  min-height: 32px;\r\n  place-items: center;\r\n  padding: 0;\r\n  font: 780 15px/1 var(--mono);\r\n}\r\n\r\n.button.icon-action span {\r\n  display: block;\r\n  transform: translateY(-0.5px);\r\n}\r\n\r\n.icon-svg {\r\n  width: 16px;\r\n  height: 16px;\r\n  fill: none;\r\n  stroke: currentColor;\r\n  stroke-linecap: round;\r\n  stroke-linejoin: round;\r\n  stroke-width: 2;\r\n  pointer-events: none;\r\n}\r\n\r\n.button.icon-action .icon-svg {\r\n  width: 15px;\r\n  height: 15px;\r\n}\r\n\r\n.button:hover,\r\n.icon-button:hover {\r\n  border-color: #c8c8ce;\r\n  box-shadow: var(--shadow-tight);\r\n}\r\n\r\n.button:active,\r\n.icon-button:active {\r\n  transform: translateY(1px);\r\n  box-shadow: none;\r\n}\r\n\r\n.button:disabled,\r\n.icon-button:disabled {\r\n  cursor: not-allowed;\r\n  opacity: 0.55;\r\n  transform: none;\r\n  box-shadow: none;\r\n}\r\n\r\n.button.primary {\r\n  border-color: var(--accent);\r\n  border-radius: 7px;\r\n  background: var(--accent);\r\n  color: #fff;\r\n}\r\n\r\n.button.primary:hover {\r\n  border-color: var(--accent-strong);\r\n  background: var(--accent-strong);\r\n}\r\n\r\n.button.secondary {\r\n  background: var(--surface);\r\n  color: var(--text);\r\n}\r\n\r\n.button.secondary:hover {\r\n  border-color: #c8c8ce;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.button.ghost {\r\n  border-color: transparent;\r\n  background: transparent;\r\n  color: var(--muted);\r\n}\r\n\r\n.button.ghost:hover {\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n}\r\n\r\n.button.danger {\r\n  border-color: color-mix(in srgb, var(--danger) 24%, white);\r\n  background: var(--danger-soft);\r\n  color: var(--danger);\r\n}\r\n\r\n.icon-button {\r\n  width: 34px;\r\n  height: 34px;\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  font-size: 18px;\r\n}\r\n\r\n.toast-stack {\r\n  position: fixed;\r\n  top: 18px;\r\n  left: 50%;\r\n  z-index: 1200;\r\n  display: flex;\r\n  flex-direction: column;\r\n  align-items: center;\r\n  gap: 10px;\r\n  width: min(360px, calc(100vw - 36px));\r\n  transform: translateX(-50%);\r\n  pointer-events: none;\r\n}\r\n\r\n.toast {\r\n  pointer-events: auto;\r\n  padding: 12px 14px;\r\n  border: 1px solid color-mix(in srgb, var(--danger) 22%, white);\r\n  border-radius: 11px;\r\n  background: color-mix(in srgb, var(--danger) 12%, var(--surface));\r\n  color: var(--danger);\r\n  font-size: 13px;\r\n  font-weight: 640;\r\n  line-height: 1.4;\r\n  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.14);\r\n  opacity: 0;\r\n  transform: translateY(-10px);\r\n  transition: opacity 0.2s ease, transform 0.2s ease;\r\n  width: 100%;\r\n  word-break: break-word;\r\n  overflow-wrap: anywhere;\r\n  white-space: pre-wrap;\r\n  max-height: 80vh;\r\n  overflow-y: auto;\r\n  backdrop-filter: blur(24px);\r\n  -webkit-backdrop-filter: blur(24px);\r\n}\r\n\r\n.toast.toast-in {\r\n  opacity: 1;\r\n  transform: translateY(0);\r\n}\r\n\r\n.toast.toast-leaving {\r\n  opacity: 0;\r\n  transform: translateY(-10px);\r\n}\r\n\r\n.toast[data-tone=\"ok\"] {\r\n  border-color: color-mix(in srgb, var(--success) 22%, white);\r\n  background: color-mix(in srgb, var(--success) 12%, var(--surface));\r\n  color: var(--success);\r\n}\r\n\r\n.toast[data-tone=\"warn\"] {\r\n  border-color: color-mix(in srgb, var(--warning) 22%, white);\r\n  background: color-mix(in srgb, var(--warning) 12%, var(--surface));\r\n  color: var(--warning);\r\n}\r\n\r\n.toast[data-tone=\"info\"] {\r\n  border-color: color-mix(in srgb, var(--info) 26%, white);\r\n  background: color-mix(in srgb, var(--info) 10%, var(--surface));\r\n  color: var(--info);\r\n}\r\n\r\n.notice {\r\n  padding: 11px 12px;\r\n  border: 1px solid color-mix(in srgb, var(--danger) 22%, white);\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--danger) 12%, var(--surface));\r\n  color: var(--danger);\r\n}\r\n\r\n.is-hidden {\r\n  display: none !important;\r\n}\r\n\r\n@keyframes viewFadeIn {\r\n  0% { opacity: 0; transform: translateY(4px); }\r\n  100% { opacity: 1; transform: translateY(0); }\r\n}\r\n\r\n.view {\r\n  display: none;\r\n}\r\n\r\n.view.is-active {\r\n  display: block;\r\n  animation: viewFadeIn 300ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;\r\n}\r\n\r\n.time-range-control {\r\n  display: flex;\r\n  gap: 12px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  margin-bottom: 14px;\r\n  padding: 10px 12px;\r\n  border: 1px solid var(--line);\r\n  border-left: 3px solid var(--text);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.eyebrow {\r\n  display: block;\r\n  color: var(--muted);\r\n  font-size: 10.5px;\r\n  font-weight: 700;\r\n  letter-spacing: 0.04em;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.time-range-control strong {\r\n  display: block;\r\n  margin-top: 3px;\r\n  font-size: 13px;\r\n  line-height: 1.2;\r\n}\r\n\r\n.segmented-control {\r\n  display: inline-grid;\r\n  grid-auto-flow: column;\r\n  gap: 2px;\r\n  padding: 4px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.segmented-button {\r\n  min-width: 48px;\r\n  min-height: 30px;\r\n  padding: 0 10px;\r\n  border: 0;\r\n  border-radius: 5px;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 680;\r\n  cursor: pointer;\r\n  transition: background 160ms ease, color 160ms ease, transform 120ms ease;\r\n}\r\n\r\n.segmented-button:hover {\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n}\r\n\r\n.segmented-button:active {\r\n  transform: translateY(1px);\r\n}\r\n\r\n.segmented-button.is-active {\r\n  background: var(--text);\r\n  color: #fff;\r\n}\r\n\r\n.metric-grid {\r\n  display: none;\r\n  grid-template-columns: repeat(6, minmax(0, 1fr));\r\n  gap: 14px;\r\n  margin-bottom: 24px;\r\n}\r\n\r\n.metric {\r\n  --metric-color: var(--metric-neutral);\r\n  --metric-soft: rgba(47, 52, 55, 0.045);\r\n  position: relative;\r\n  min-height: 108px;\r\n  overflow: hidden;\r\n  padding: 15px 16px;\r\n  border: 1px solid color-mix(in srgb, var(--metric-color) 24%, var(--line));\r\n  border-radius: 9px;\r\n  background:\r\n    linear-gradient(180deg, var(--metric-soft), rgba(255, 255, 255, 0) 58%),\r\n    var(--surface);\r\n  box-shadow: var(--shadow);\r\n  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;\r\n}\r\n\r\n.metric::before {\r\n  content: \"\";\r\n  position: absolute;\r\n  top: 0;\r\n  right: 0;\r\n  left: 0;\r\n  height: 2px;\r\n  background: var(--metric-color);\r\n}\r\n\r\n.metric::after {\r\n  content: \"\";\r\n  position: absolute;\r\n  right: auto;\r\n  bottom: 0;\r\n  left: 0;\r\n  width: var(--metric-progress, 0%);\r\n  height: 3px;\r\n  border-radius: 0 999px 999px 0;\r\n  background: var(--metric-color);\r\n  opacity: 0.72;\r\n  transition: width 260ms ease;\r\n}\r\n\r\n.metric:hover {\r\n  border-color: color-mix(in srgb, var(--metric-color) 42%, var(--line));\r\n  box-shadow: var(--shadow-tight);\r\n}\r\n\r\n.metric:nth-child(1) {\r\n  --metric-color: var(--metric-requests);\r\n  --metric-soft: rgba(47, 52, 55, 0.052);\r\n}\r\n\r\n.metric:nth-child(2) {\r\n  --metric-color: var(--metric-success);\r\n  --metric-soft: rgba(20, 121, 92, 0.08);\r\n}\r\n\r\n.metric:nth-child(3) {\r\n  --metric-color: var(--metric-failure);\r\n  --metric-soft: rgba(179, 106, 32, 0.085);\r\n}\r\n\r\n.metric:nth-child(4) {\r\n  --metric-color: var(--metric-provider);\r\n  --metric-soft: rgba(50, 103, 199, 0.08);\r\n}\r\n\r\n.metric:nth-child(5) {\r\n  --metric-color: var(--metric-token);\r\n  --metric-soft: rgba(111, 85, 196, 0.08);\r\n}\r\n\r\n.metric:nth-child(6) {\r\n  --metric-color: var(--metric-cost);\r\n  --metric-soft: rgba(122, 90, 37, 0.075);\r\n}\r\n\r\n.metric-label {\r\n  display: block;\r\n  color: var(--muted);\r\n  font-size: 10.5px;\r\n  font-weight: 760;\r\n  letter-spacing: 0.045em;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.metric strong {\r\n  display: block;\r\n  margin-top: 8px;\r\n  color: color-mix(in srgb, var(--metric-color) 20%, var(--text));\r\n  font-size: 28px;\r\n  font-weight: 720;\r\n  line-height: 1;\r\n  letter-spacing: 0;\r\n}\r\n\r\n.metric small {\r\n  display: block;\r\n  margin-top: 8px;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.overview-visuals {\r\n  display: grid;\r\n  grid-template-columns: repeat(5, minmax(0, 1fr));\r\n  gap: 10px;\r\n  margin: 0 0 18px;\r\n}\r\n\r\n.visual-card {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  gap: 10px;\r\n  align-items: center;\r\n  min-width: 0;\r\n  min-height: 74px;\r\n  padding: 11px 12px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 10px;\r\n  background:\r\n    linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(244, 244, 245, 0.52)),\r\n    var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.visual-card span,\r\n.visual-card small {\r\n  display: block;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 720;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.visual-card strong {\r\n  display: block;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--text);\r\n  font: 840 18px/1.16 var(--mono);\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.visual-card-icon,\r\n.visual-ring {\r\n  display: grid;\r\n  width: 42px;\r\n  height: 42px;\r\n  place-items: center;\r\n  border-radius: 12px;\r\n}\r\n\r\n.visual-card-icon {\r\n  border: 1px solid var(--line);\r\n  background: var(--surface-raised);\r\n  color: var(--neutral);\r\n}\r\n\r\n.visual-card-icon.tone-success {\r\n  border-color: color-mix(in srgb, var(--success) 18%, var(--line));\r\n  background: var(--success-soft);\r\n  color: var(--success);\r\n}\r\n\r\n.visual-card-icon.tone-warning {\r\n  border-color: color-mix(in srgb, var(--warning) 18%, var(--line));\r\n  background: var(--warning-soft);\r\n  color: var(--warning);\r\n}\r\n\r\n.visual-card-icon.tone-danger {\r\n  border-color: color-mix(in srgb, var(--danger) 18%, var(--line));\r\n  background: var(--danger-soft);\r\n  color: var(--danger);\r\n}\r\n\r\n.visual-card-icon.tone-info {\r\n  border-color: color-mix(in srgb, var(--info) 18%, var(--line));\r\n  background: var(--info-soft);\r\n  color: var(--info);\r\n}\r\n\r\n.visual-card-icon.tone-compat {\r\n  border-color: color-mix(in srgb, var(--compat) 18%, var(--line));\r\n  background: var(--compat-soft);\r\n  color: var(--compat);\r\n}\r\n\r\n.visual-ring {\r\n  --ring-color: var(--neutral);\r\n  --ring-value: 0%;\r\n  background:\r\n    radial-gradient(circle at center, var(--surface) 0 55%, transparent 56%),\r\n    conic-gradient(var(--ring-color) var(--ring-value), var(--line-soft) 0);\r\n}\r\n\r\n.visual-ring strong {\r\n  max-width: 32px;\r\n  font-size: 10.5px;\r\n  text-align: center;\r\n}\r\n\r\n.visual-ring-card.tone-success,\r\n.visual-ring-card.tone-ok {\r\n  --ring-color: var(--success);\r\n  border-color: color-mix(in srgb, var(--success) 18%, var(--line));\r\n}\r\n\r\n.visual-ring-card.tone-warn,\r\n.visual-ring-card.tone-warning {\r\n  --ring-color: var(--warning);\r\n  border-color: color-mix(in srgb, var(--warning) 18%, var(--line));\r\n}\r\n\r\n.visual-ring-card.tone-bad,\r\n.visual-ring-card.tone-danger {\r\n  --ring-color: var(--danger);\r\n  border-color: color-mix(in srgb, var(--danger) 18%, var(--line));\r\n}\r\n\r\n.visual-progress-card {\r\n  --progress-color: var(--neutral);\r\n}\r\n\r\n.visual-progress-card.tone-success,\r\n.visual-progress-card.tone-ok {\r\n  --progress-color: var(--success);\r\n  border-color: color-mix(in srgb, var(--success) 18%, var(--line));\r\n}\r\n\r\n.visual-progress-card.tone-warn,\r\n.visual-progress-card.tone-warning {\r\n  --progress-color: var(--warning);\r\n  border-color: color-mix(in srgb, var(--warning) 18%, var(--line));\r\n}\r\n\r\n.visual-progress-card.tone-bad,\r\n.visual-progress-card.tone-danger {\r\n  --progress-color: var(--danger);\r\n  border-color: color-mix(in srgb, var(--danger) 18%, var(--line));\r\n}\r\n\r\n.visual-progress {\r\n  position: relative;\r\n  height: 5px;\r\n  margin-top: 6px;\r\n  overflow: hidden;\r\n  border-radius: 999px;\r\n  background: var(--line-soft);\r\n}\r\n\r\n.visual-progress::before {\r\n  content: \"\";\r\n  position: absolute;\r\n  inset: 0 auto 0 0;\r\n  width: var(--progress, 0%);\r\n  border-radius: inherit;\r\n  background: var(--progress-color);\r\n}\r\n\r\n.token-split {\r\n  display: flex;\r\n  height: 5px;\r\n  margin-top: 6px;\r\n  overflow: hidden;\r\n  border-radius: 999px;\r\n  background: var(--compat-soft);\r\n}\r\n\r\n.token-split i,\r\n.token-split b {\r\n  display: block;\r\n  min-width: 2px;\r\n  height: 100%;\r\n}\r\n\r\n.token-split i {\r\n  background: var(--info);\r\n}\r\n\r\n.token-split b {\r\n  flex: 1;\r\n  background: var(--compat);\r\n}\r\n\r\n.overview-grid,\r\n.policy-grid,\r\n.config-grid {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 2fr) minmax(340px, 1fr);\r\n  gap: 16px 20px;\r\n}\r\n\r\n.config-grid {\r\n  grid-template-columns: minmax(460px, 1.45fr) minmax(320px, 0.85fr);\r\n  align-items: start;\r\n}\r\n\r\n.config-column {\r\n  display: grid;\r\n  gap: 16px;\r\n  align-content: start;\r\n  min-width: 0;\r\n}\r\n\r\n.config-column > .panel {\r\n  margin-bottom: 0;\r\n}\r\n\r\n.config-status-panel {\r\n  --panel-accent: var(--metric-neutral);\r\n}\r\n\r\n.model-routes-panel {\r\n  --panel-accent: var(--metric-neutral);\r\n}\r\n\r\n.config-provider-panel,\r\n.config-audit-panel,\r\n.config-advanced-panel,\r\n.global-proxy-panel,\r\n.provider-model-map-panel {\r\n  --panel-accent: var(--metric-neutral);\r\n}\r\n\r\n.panel {\r\n  --panel-accent: var(--metric-neutral);\r\n  min-width: 0;\r\n  margin-bottom: 20px;\r\n  overflow: hidden;\r\n  border: 1px solid color-mix(in srgb, var(--panel-accent) 14%, var(--line));\r\n  border-radius: 9px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.overview-grid > .panel:nth-child(1) {\r\n  --panel-accent: var(--success);\r\n}\r\n\r\n.overview-grid > .panel:nth-child(2) {\r\n  --panel-accent: var(--metric-token);\r\n}\r\n\r\n.overview-grid > .panel:nth-child(3) {\r\n  --panel-accent: var(--metric-provider);\r\n}\r\n\r\n.overview-grid > .panel:nth-child(4) {\r\n  --panel-accent: var(--danger);\r\n}\r\n\r\n.panel-wide {\r\n  grid-column: span 1;\r\n}\r\n\r\n.panel-head {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  gap: 10px 16px;\r\n  align-items: flex-start;\r\n  justify-content: space-between;\r\n  padding: 13px 18px;\r\n  border-bottom: 1px solid color-mix(in srgb, var(--panel-accent) 14%, var(--line));\r\n  background:\r\n    linear-gradient(90deg, color-mix(in srgb, var(--panel-accent) 8%, transparent), rgba(255, 255, 255, 0) 52%),\r\n    var(--surface-raised);\r\n}\r\n\r\n.panel-head h2 {\r\n  color: color-mix(in srgb, var(--panel-accent) 16%, var(--text));\r\n  font-size: 14px;\r\n  font-weight: 760;\r\n}\r\n\r\n.panel-head > div {\r\n  min-width: 0;\r\n}\r\n\r\n.panel-head .tag {\r\n  max-width: min(100%, 360px);\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n}\r\n\r\n.tag,\r\n.badge {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  min-height: 22px;\r\n  padding: 0 8px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 6px;\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  font: 680 10.5px var(--mono);\r\n  white-space: nowrap;\r\n}\r\n\r\n.badge.ok {\r\n  border-color: #bbf7d0;\r\n  background: var(--success-soft);\r\n  color: var(--success);\r\n  font-weight: 820;\r\n}\r\n\r\n.badge.warn {\r\n  border-color: #fde68a;\r\n  background: var(--warning-soft);\r\n  color: var(--warning);\r\n  font-weight: 820;\r\n}\r\n\r\n.badge.bad {\r\n  border-color: #fecaca;\r\n  background: var(--danger-soft);\r\n  color: var(--danger);\r\n  font-weight: 820;\r\n}\r\n\r\n.badge.prio-0 {\r\n  color: var(--text);\r\n}\r\n\r\n.badge.prio-1 {\r\n  color: var(--info);\r\n  border-color: color-mix(in srgb, var(--info) 30%, white);\r\n}\r\n\r\n.badge.prio-2 {\r\n  color: var(--warning);\r\n  border-color: color-mix(in srgb, var(--warning) 30%, white);\r\n}\r\n\r\n.badge.prio-3 {\r\n  color: var(--danger);\r\n  border-color: color-mix(in srgb, var(--danger) 30%, white);\r\n  font-weight: 820;\r\n}\r\n\r\n.chart {\r\n  min-height: 332px;\r\n  padding: 15px 18px 16px;\r\n  background: var(--surface);\r\n}\r\n\r\n.traffic-legend {\r\n  display: grid;\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  gap: 9px;\r\n  margin-bottom: 12px;\r\n}\r\n\r\n.traffic-legend-item {\r\n  --series-color: var(--neutral);\r\n  --series-soft: rgba(82, 82, 91, 0.055);\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 9px;\r\n  min-width: 0;\r\n  padding: 10px 11px;\r\n  border: 1px solid color-mix(in srgb, var(--series-color) 20%, var(--line));\r\n  border-radius: 8px;\r\n  background:\r\n    linear-gradient(180deg, var(--series-soft), rgba(255, 255, 255, 0) 70%),\r\n    var(--surface-raised);\r\n}\r\n\r\n.traffic-legend-item.tone-success {\r\n  --series-color: var(--success);\r\n  --series-soft: rgba(20, 121, 92, 0.075);\r\n}\r\n\r\n.traffic-legend-item.tone-danger {\r\n  --series-color: var(--danger);\r\n  --series-soft: rgba(178, 58, 72, 0.075);\r\n}\r\n\r\n.traffic-legend-item.tone-info {\r\n  --series-color: var(--info);\r\n  --series-soft: rgba(50, 103, 199, 0.075);\r\n}\r\n\r\n.traffic-legend-item.tone-compat {\r\n  --series-color: var(--compat);\r\n  --series-soft: rgba(111, 85, 163, 0.075);\r\n}\r\n\r\n.traffic-legend-item > span {\r\n  width: 28px;\r\n  height: 18px;\r\n  border-radius: 5px;\r\n  background:\r\n    linear-gradient(180deg, color-mix(in srgb, var(--series-color) 74%, white), var(--series-color));\r\n  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42);\r\n}\r\n\r\n.traffic-legend-item.tone-info > span {\r\n  background: var(--text);\r\n}\r\n\r\n.traffic-legend-item.tone-compat > span {\r\n  background: #7c3aed;\r\n}\r\n\r\n.traffic-legend-item strong,\r\n.traffic-legend-item small {\r\n  display: block;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.traffic-legend-item strong {\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-weight: 780;\r\n}\r\n\r\n.traffic-legend-item small {\r\n  margin-top: 1px;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n}\r\n\r\n.traffic-chart-shell {\r\n  overflow: hidden;\r\n  border: 1px solid color-mix(in srgb, var(--panel-accent) 12%, var(--line));\r\n  border-radius: 12px;\r\n  background:\r\n    radial-gradient(circle at 82% 4%, color-mix(in srgb, var(--info) 8%, transparent), transparent 34%),\r\n    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 250, 0.92)),\r\n    var(--surface);\r\n  box-shadow:\r\n    inset 0 1px 0 rgba(255, 255, 255, 0.78),\r\n    0 12px 28px rgba(15, 23, 42, 0.045);\r\n}\r\n\r\n.traffic-chart-shell svg {\r\n  display: block;\r\n  width: 100%;\r\n  height: 286px;\r\n}\r\n\r\n.chart-stats {\r\n  display: grid;\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  gap: 8px;\r\n  margin-bottom: 12px;\r\n}\r\n\r\n.chart-stats div {\r\n  min-width: 0;\r\n  padding: 10px 12px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.chart-stats span {\r\n  display: block;\r\n  color: var(--muted);\r\n  font-size: 10.5px;\r\n  font-weight: 700;\r\n  letter-spacing: 0.03em;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.chart-stats strong {\r\n  display: block;\r\n  margin-top: 2px;\r\n  color: var(--text);\r\n  font: 760 16px/1.15 var(--mono);\r\n}\r\n\r\n.chart > svg {\r\n  display: block;\r\n  width: 100%;\r\n  height: 248px;\r\n}\r\n\r\n.chart .axis {\r\n  stroke: color-mix(in srgb, var(--line-strong) 44%, transparent);\r\n  stroke-width: 1;\r\n}\r\n\r\n.traffic-bar {\r\n  opacity: 0.9;\r\n  rx: 4px;\r\n  shape-rendering: geometricPrecision;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.traffic-bar-success {\r\n  fill: url(\"#trafficSuccessBar\");\r\n}\r\n\r\n.traffic-bar-failed {\r\n  fill: url(\"#trafficFailedBar\");\r\n}\r\n\r\n.traffic-firstbyte-area {\r\n  fill: url(\"#trafficFirstByteArea\");\r\n  pointer-events: none;\r\n}\r\n\r\n.traffic-firstbyte-line {\r\n  fill: none;\r\n  stroke: var(--info);\r\n  stroke-linecap: round;\r\n  stroke-linejoin: round;\r\n  stroke-width: 3.4;\r\n  filter: drop-shadow(0 6px 12px color-mix(in srgb, var(--info) 18%, transparent));\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.traffic-firstbyte-dot {\r\n  fill: var(--info);\r\n  stroke: var(--surface);\r\n  stroke-width: 2.2;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.traffic-firstbyte-dot.warn,\r\n.traffic-firstbyte-dot.slow {\r\n  fill: var(--warning);\r\n}\r\n\r\n.traffic-firstbyte-label {\r\n  fill: var(--info);\r\n  font: 760 11px var(--mono);\r\n  paint-order: stroke;\r\n  stroke: var(--surface);\r\n  stroke-linejoin: round;\r\n  stroke-width: 4px;\r\n}\r\n\r\n.chart .line,\r\n.chart .success-line,\r\n.chart .fail-line,\r\n.chart .latency-line {\r\n  fill: none;\r\n  stroke-linecap: round;\r\n  stroke-linejoin: round;\r\n  stroke-width: 3.2;\r\n  filter: none;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.chart .line {\r\n  stroke: var(--text);\r\n  stroke-width: 2.2;\r\n}\r\n\r\n.chart .success-line {\r\n  stroke: var(--success);\r\n}\r\n\r\n.chart .fail-line {\r\n  stroke: var(--danger);\r\n  filter: none;\r\n}\r\n\r\n.chart .latency-line {\r\n  stroke: var(--info);\r\n}\r\n\r\n.chart .success-line-dot,\r\n.chart .fail-line-dot,\r\n.chart .latency-line-dot,\r\n.chart .latency-dot {\r\n  stroke: var(--surface);\r\n  stroke-width: 2;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.chart .success-line-dot {\r\n  fill: var(--success);\r\n}\r\n\r\n.chart .fail-line-dot {\r\n  fill: var(--danger);\r\n}\r\n\r\n.chart .latency-line-dot {\r\n  fill: var(--info);\r\n}\r\n\r\n.traffic-value-label {\r\n  font: 760 11px var(--mono);\r\n  paint-order: stroke;\r\n  stroke: var(--surface);\r\n  stroke-width: 4px;\r\n  stroke-linejoin: round;\r\n}\r\n\r\n.success-line-label {\r\n  fill: var(--success);\r\n}\r\n\r\n.fail-line-label {\r\n  fill: var(--danger);\r\n}\r\n\r\n.latency-line-label {\r\n  fill: var(--info);\r\n}\r\n\r\n.chart .latency-dot.ok {\r\n  fill: var(--success);\r\n}\r\n\r\n.chart .latency-dot.warn {\r\n  fill: var(--warning);\r\n}\r\n\r\n.chart .latency-dot.slow {\r\n  fill: var(--warning);\r\n}\r\n\r\n.chart .animated-line {\r\n  stroke-dasharray: 1;\r\n  stroke-dashoffset: 1;\r\n  animation: drawLine 680ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;\r\n}\r\n\r\n.latency-samples {\r\n  display: flex;\r\n  gap: 6px;\r\n  min-height: 38px;\r\n  margin-top: 8px;\r\n  overflow-x: auto;\r\n  padding-bottom: 2px;\r\n}\r\n\r\n.latency-sample {\r\n  --latency: 12%;\r\n  position: relative;\r\n  display: grid;\r\n  min-width: 88px;\r\n  overflow: hidden;\r\n  padding: 7px 9px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n  color: var(--text);\r\n}\r\n\r\n.latency-sample::before {\r\n  content: \"\";\r\n  position: absolute;\r\n  inset: auto 0 0 0;\r\n  height: 3px;\r\n  width: var(--latency);\r\n  background: var(--success);\r\n}\r\n\r\n.latency-sample.warn::before {\r\n  background: var(--warning);\r\n}\r\n\r\n.latency-sample.slow::before {\r\n  background: var(--warning);\r\n}\r\n\r\n.latency-sample span {\r\n  position: relative;\r\n  font: 760 12px var(--mono);\r\n}\r\n\r\n.latency-sample small {\r\n  position: relative;\r\n  margin-top: 1px;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 10px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.usage-chart {\r\n  display: grid;\r\n  gap: 13px;\r\n  padding: 14px 16px 16px;\r\n}\r\n\r\n.usage-summary {\r\n  display: grid;\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 9px;\r\n}\r\n\r\n.usage-columns {\r\n  display: grid;\r\n  grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  gap: 14px;\r\n}\r\n\r\n.usage-columns.usage-model-only {\r\n  grid-template-columns: 1fr;\r\n}\r\n\r\n.usage-columns section {\r\n  min-width: 0;\r\n}\r\n\r\n.usage-columns h3 {\r\n  margin: 0 0 8px;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 820;\r\n  letter-spacing: 0;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.usage-section-title {\r\n  display: flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  margin-bottom: 8px;\r\n}\r\n\r\n.usage-section-title h3 {\r\n  margin: 0;\r\n}\r\n\r\n.usage-section-title span {\r\n  color: var(--muted);\r\n  font: 680 10.5px var(--mono);\r\n  white-space: nowrap;\r\n}\r\n\r\n.usage-bars {\r\n  display: grid;\r\n  gap: 10px;\r\n}\r\n\r\n.usage-row {\r\n  display: grid;\r\n  gap: 9px;\r\n  min-width: 0;\r\n  padding: 11px 12px;\r\n  border: 1px solid color-mix(in srgb, var(--metric-token) 16%, #d8d8dd);\r\n  border-radius: 8px;\r\n  background:\r\n    linear-gradient(180deg, rgba(111, 85, 196, 0.045), rgba(255, 255, 255, 0) 68%),\r\n    #fff;\r\n}\r\n\r\n.usage-row-head,\r\n.usage-row-foot {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  gap: 8px;\r\n  min-width: 0;\r\n}\r\n\r\n.usage-row-head strong {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 6px;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.usage-model-name {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n}\r\n\r\n.usage-rank {\r\n  display: inline-flex;\r\n  min-width: 28px;\r\n  justify-content: center;\r\n  padding: 1px 5px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 5px;\r\n  background: var(--compat-soft);\r\n  color: var(--compat);\r\n  font: 760 10px var(--mono);\r\n}\r\n\r\n.usage-call-count,\r\n.usage-row-foot span {\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  white-space: nowrap;\r\n}\r\n\r\n.usage-row-foot {\r\n  flex-wrap: wrap;\r\n  justify-content: flex-start;\r\n  gap: 6px 12px;\r\n}\r\n\r\n.usage-row-foot strong {\r\n  color: var(--text);\r\n  font: 760 12px var(--mono);\r\n}\r\n\r\n.usage-track {\r\n  position: relative;\r\n  display: flex;\r\n  gap: 2px;\r\n  height: 7px;\r\n  overflow: hidden;\r\n  border-radius: 999px;\r\n  background: #ededf0;\r\n}\r\n\r\n.usage-fill {\r\n  display: block;\r\n  min-width: 2px;\r\n  height: 100%;\r\n  border-radius: 999px;\r\n}\r\n\r\n.usage-fill.calls {\r\n  background: linear-gradient(90deg, var(--metric-token), color-mix(in srgb, var(--metric-token) 62%, var(--text)));\r\n}\r\n\r\n.usage-track-calls {\r\n  height: 7px;\r\n}\r\n\r\n.provider-health {\r\n  display: grid;\r\n  gap: 10px;\r\n  padding: 12px;\r\n}\r\n\r\n#recentFailures.table-wrap {\r\n  overflow: visible;\r\n}\r\n\r\n.overview-summary-meta {\r\n  display: flex;\r\n  gap: 10px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  min-width: 0;\r\n  padding: 3px 2px 1px;\r\n  color: var(--muted);\r\n  font: 760 11px var(--mono);\r\n  text-transform: uppercase;\r\n}\r\n\r\n.overview-summary-meta span {\r\n  display: inline-flex;\r\n  gap: 6px;\r\n  align-items: center;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.overview-summary-meta .icon-svg {\r\n  width: 14px;\r\n  height: 14px;\r\n}\r\n\r\n.overview-jump-button {\r\n  display: inline-grid;\r\n  width: 28px;\r\n  height: 28px;\r\n  place-items: center;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  cursor: pointer;\r\n  transition: border-color 160ms ease, background 160ms ease, transform 120ms ease;\r\n}\r\n\r\n.overview-jump-button:hover {\r\n  border-color: var(--text);\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.overview-jump-button:active {\r\n  transform: translateY(1px);\r\n}\r\n\r\n.overview-provider-list,\r\n.recent-failure-list {\r\n  display: grid;\r\n  gap: 8px;\r\n}\r\n\r\n.overview-provider-row,\r\n.recent-failure-row {\r\n  --row-tone: var(--neutral);\r\n  display: grid;\r\n  gap: 10px;\r\n  align-items: center;\r\n  width: 100%;\r\n  min-width: 0;\r\n  border: 1px solid color-mix(in srgb, var(--row-tone) 16%, var(--line));\r\n  border-radius: 8px;\r\n  background:\r\n    linear-gradient(90deg, color-mix(in srgb, var(--row-tone) 7%, transparent), rgba(255, 255, 255, 0) 48%),\r\n    var(--surface);\r\n  color: var(--text);\r\n  text-align: left;\r\n  cursor: pointer;\r\n  transition: border-color 160ms ease, background 160ms ease, transform 120ms ease;\r\n}\r\n\r\n.overview-provider-row {\r\n  grid-template-columns: auto minmax(0, 1fr) auto;\r\n  padding: 10px 11px;\r\n}\r\n\r\n.recent-failure-row {\r\n  grid-template-columns: auto minmax(160px, 1fr) auto minmax(160px, 1.2fr);\r\n  padding: 10px 12px;\r\n}\r\n\r\n.overview-provider-row:hover,\r\n.recent-failure-row:hover,\r\n.overview-provider-row:focus-visible,\r\n.recent-failure-row:focus-visible {\r\n  border-color: color-mix(in srgb, var(--row-tone) 38%, var(--line-strong));\r\n  background:\r\n    linear-gradient(90deg, color-mix(in srgb, var(--row-tone) 11%, transparent), rgba(255, 255, 255, 0) 58%),\r\n    var(--surface-raised);\r\n}\r\n\r\n.overview-provider-row:active,\r\n.recent-failure-row:active {\r\n  transform: translateY(1px);\r\n}\r\n\r\n.overview-provider-row.tone-ok,\r\n.recent-failure-row.tone-success {\r\n  --row-tone: var(--success);\r\n}\r\n\r\n.overview-provider-row.tone-warn,\r\n.recent-failure-row.tone-warning {\r\n  --row-tone: var(--warning);\r\n}\r\n\r\n.overview-provider-row.tone-bad,\r\n.recent-failure-row.tone-danger {\r\n  --row-tone: var(--danger);\r\n}\r\n\r\n.overview-provider-main,\r\n.recent-failure-main {\r\n  display: grid;\r\n  gap: 2px;\r\n  min-width: 0;\r\n}\r\n\r\n.overview-provider-main strong,\r\n.recent-failure-main strong {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  font-size: 12px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.overview-provider-main small,\r\n.recent-failure-main small,\r\n.overview-provider-kpi small {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.overview-provider-kpi {\r\n  display: grid;\r\n  justify-items: end;\r\n  min-width: 46px;\r\n}\r\n\r\n.overview-provider-kpi strong {\r\n  font: 820 12px var(--mono);\r\n}\r\n\r\n.recent-failure-status {\r\n  min-width: 0;\r\n}\r\n\r\n.recent-failure-reason {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-card {\r\n  display: grid;\r\n  gap: 9px;\r\n  padding: 12px 13px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.provider-card-head {\r\n  display: flex;\r\n  justify-content: space-between;\r\n  gap: 8px;\r\n}\r\n\r\n.provider-name {\r\n  font-family: var(--mono);\r\n  font-weight: 760;\r\n}\r\n\r\n.provider-name.name-ok {\r\n  color: var(--success);\r\n}\r\n\r\n.provider-name.name-warn {\r\n  color: var(--warning);\r\n}\r\n\r\n.provider-name.name-bad {\r\n  color: var(--danger);\r\n}\r\n\r\n.provider-meta {\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.toolbar {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 8px;\r\n  margin-bottom: 14px;\r\n  padding: 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 9px;\r\n  background: var(--surface-raised);\r\n  box-shadow: var(--shadow-tight);\r\n}\r\n\r\n#requestsToolbar {\r\n  position: relative;\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  gap: 12px;\r\n  align-items: center;\r\n  margin-bottom: 16px;\r\n  padding: 11px;\r\n  border: 1px solid color-mix(in srgb, var(--line-strong) 78%, var(--line));\r\n  border-radius: 11px;\r\n  background: color-mix(in srgb, var(--surface) 92%, var(--surface-raised));\r\n  box-shadow: 0 8px 22px rgba(30, 41, 59, 0.055), 0 1px 2px rgba(30, 41, 59, 0.045);\r\n}\r\n\r\n.request-filter-primary,\r\n.request-bulk-actions,\r\n.request-status-chips,\r\n.advanced-filter-fields {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 8px;\r\n  align-items: center;\r\n  min-width: 0;\r\n}\r\n\r\n.request-filter-title {\r\n  display: grid;\r\n  gap: 1px;\r\n  min-width: 96px;\r\n  padding-right: 4px;\r\n}\r\n\r\n.request-filter-title span {\r\n  color: var(--muted);\r\n  font-size: 10px;\r\n  font-weight: 780;\r\n  letter-spacing: 0.055em;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.request-filter-title strong {\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-weight: 780;\r\n}\r\n\r\n.request-status-chips {\r\n  gap: 6px;\r\n  padding: 3px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 9px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.filter-chip {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  min-height: 28px;\r\n  padding: 0 10px;\r\n  border: 1px solid transparent;\r\n  border-radius: 7px;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 760;\r\n  cursor: pointer;\r\n  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;\r\n}\r\n\r\n.filter-chip:hover,\r\n.filter-chip:focus-visible {\r\n  border-color: var(--line);\r\n  background: var(--surface);\r\n  color: var(--text);\r\n}\r\n\r\n.filter-chip.is-active {\r\n  border-color: color-mix(in srgb, var(--text) 13%, var(--line));\r\n  background: var(--text);\r\n  color: #fff;\r\n}\r\n\r\n.filter-chip.tone-success.is-active {\r\n  border-color: color-mix(in srgb, var(--success) 36%, var(--line));\r\n  background: var(--success);\r\n}\r\n\r\n.filter-chip.tone-danger.is-active {\r\n  border-color: color-mix(in srgb, var(--danger) 38%, var(--line));\r\n  background: var(--danger);\r\n}\r\n\r\n.filter-search-field {\r\n  min-width: 0;\r\n}\r\n\r\n#requestsToolbar .control {\r\n  width: 168px;\r\n  min-height: 34px;\r\n  border-color: color-mix(in srgb, var(--info) 12%, var(--line));\r\n  background: rgba(255, 255, 255, 0.82);\r\n}\r\n\r\n#requestsToolbar .control:focus-visible {\r\n  border-color: color-mix(in srgb, var(--info) 62%, var(--line));\r\n  box-shadow: 0 0 0 3px rgba(50, 103, 199, 0.14);\r\n}\r\n\r\n#requestsToolbar .button.secondary {\r\n  border-color: color-mix(in srgb, var(--text) 86%, var(--line));\r\n  background: var(--text);\r\n  color: #fff;\r\n}\r\n\r\n#requestsToolbar .button.ghost {\r\n  color: color-mix(in srgb, var(--text) 72%, var(--muted));\r\n}\r\n\r\n.advanced-filter-box {\r\n  position: relative;\r\n}\r\n\r\n.advanced-filter-box summary {\r\n  display: inline-flex;\r\n  min-height: 34px;\r\n  align-items: center;\r\n  padding: 0 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface);\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 760;\r\n  cursor: pointer;\r\n  list-style: none;\r\n}\r\n\r\n.advanced-filter-box summary::-webkit-details-marker {\r\n  display: none;\r\n}\r\n\r\n.advanced-filter-box[open] summary {\r\n  border-color: color-mix(in srgb, var(--info) 36%, var(--line));\r\n  color: var(--text);\r\n}\r\n\r\n.advanced-filter-fields {\r\n  position: absolute;\r\n  top: calc(100% + 8px);\r\n  right: 0;\r\n  z-index: 8;\r\n  width: min(520px, calc(100vw - 48px));\r\n  padding: 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 10px;\r\n  background: var(--surface);\r\n  box-shadow: 0 14px 34px rgba(30, 41, 59, 0.14);\r\n}\r\n\r\n.request-bulk-actions {\r\n  justify-content: flex-end;\r\n  padding-left: 12px;\r\n  border-left: 1px solid var(--line-soft);\r\n}\r\n\r\n.selection-count {\r\n  min-width: 78px;\r\n  color: var(--muted);\r\n  font: 720 11px var(--mono);\r\n  text-align: right;\r\n}\r\n\r\n.request-bulk-actions .button {\r\n  gap: 6px;\r\n}\r\n\r\n.request-bulk-actions .icon-svg {\r\n  width: 15px;\r\n  height: 15px;\r\n}\r\n\r\n.sr-only {\r\n  position: absolute;\r\n  width: 1px;\r\n  height: 1px;\r\n  overflow: hidden;\r\n  clip: rect(0, 0, 0, 0);\r\n  white-space: nowrap;\r\n}\r\n\r\n.control {\r\n  min-height: 36px;\r\n  padding: 0 11px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  transition: border-color 160ms ease, box-shadow 160ms ease;\r\n}\r\n\r\n.control:hover {\r\n  border-color: #c8c8ce;\r\n}\r\n\r\n.table-wrap {\r\n  overflow: auto;\r\n}\r\n\r\n#requestsTable.table-wrap {\r\n  overflow-x: hidden;\r\n}\r\n\r\n.request-list-head {\r\n  display: flex;\r\n  gap: 12px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  padding: 10px 14px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n  background: linear-gradient(90deg, rgba(50, 103, 199, 0.04), rgba(255, 255, 255, 0));\r\n}\r\n\r\n.request-page-summary {\r\n  display: flex;\r\n  gap: 6px;\r\n  align-items: baseline;\r\n  min-width: 0;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.request-page-select {\r\n  display: inline-flex;\r\n  gap: 6px;\r\n  align-items: center;\r\n  margin-right: 8px;\r\n  padding-right: 10px;\r\n  border-right: 1px solid var(--line-soft);\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 720;\r\n  white-space: nowrap;\r\n}\r\n\r\n.request-page-select input,\r\n.request-row-select input {\r\n  width: 15px;\r\n  height: 15px;\r\n  margin: 0;\r\n  accent-color: var(--text);\r\n  cursor: pointer;\r\n}\r\n\r\n.request-page-summary strong {\r\n  color: var(--text);\r\n  font: 760 12px var(--mono);\r\n}\r\n\r\n.request-pagination {\r\n  display: inline-flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n  white-space: nowrap;\r\n}\r\n\r\n.request-page-indicator {\r\n  color: var(--muted);\r\n  font: 680 11px var(--mono);\r\n}\r\n\r\n.request-page-vitals {\r\n  display: grid;\r\n  grid-template-columns: repeat(5, minmax(0, 1fr));\r\n  gap: 8px;\r\n  padding: 10px 14px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n  background: color-mix(in srgb, var(--surface-raised) 72%, var(--surface));\r\n}\r\n\r\n.request-vital {\r\n  --vital-color: var(--neutral);\r\n  --vital: 0%;\r\n  position: relative;\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  gap: 2px 8px;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  padding: 8px 9px;\r\n  border: 1px solid color-mix(in srgb, var(--vital-color) 18%, var(--line));\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n}\r\n\r\n.request-vital::after {\r\n  content: \"\";\r\n  position: absolute;\r\n  inset: auto 0 0 0;\r\n  width: var(--vital);\r\n  height: 3px;\r\n  background: var(--vital-color);\r\n  opacity: 0.75;\r\n}\r\n\r\n.request-vital .icon-svg {\r\n  grid-row: 1 / span 2;\r\n  align-self: center;\r\n  color: var(--vital-color);\r\n}\r\n\r\n.request-vital strong {\r\n  overflow: hidden;\r\n  color: var(--text);\r\n  font: 840 13px/1 var(--mono);\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.request-vital small {\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 10px;\r\n  font-weight: 720;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.request-vital-success {\r\n  --vital-color: var(--success);\r\n}\r\n\r\n.request-vital-warning {\r\n  --vital-color: var(--warning);\r\n}\r\n\r\n.request-vital-danger {\r\n  --vital-color: var(--danger);\r\n}\r\n\r\n.request-vital-info {\r\n  --vital-color: var(--info);\r\n}\r\n\r\n.request-vital-compat {\r\n  --vital-color: var(--compat);\r\n}\r\n\r\n.request-summary-list {\r\n  display: grid;\r\n  gap: 0;\r\n}\r\n\r\n.request-summary-row {\r\n  --row-tone: var(--neutral);\r\n  display: grid;\r\n  grid-template-columns: 24px 10px minmax(180px, 1.35fr) minmax(108px, 0.55fr) minmax(145px, 0.9fr) minmax(146px, 0.72fr) 28px;\r\n  gap: 10px;\r\n  align-items: center;\r\n  width: 100%;\r\n  min-width: 0;\r\n  padding: 11px 14px;\r\n  border: 0;\r\n  border-bottom: 1px solid color-mix(in srgb, var(--line-strong) 52%, var(--line-soft));\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  text-align: left;\r\n  cursor: pointer;\r\n  transition: background 140ms ease, box-shadow 140ms ease, border-color 140ms ease;\r\n}\r\n\r\n.request-summary-row:nth-child(even) {\r\n  background: color-mix(in srgb, var(--surface-raised) 62%, var(--surface));\r\n}\r\n\r\n.request-summary-row:hover,\r\n.request-summary-row:focus-visible {\r\n  background: color-mix(in srgb, var(--info-soft) 36%, var(--surface));\r\n  box-shadow: inset 3px 0 0 var(--row-tone);\r\n}\r\n\r\n.request-summary-row.is-selected {\r\n  background: color-mix(in srgb, var(--info-soft) 56%, var(--surface));\r\n  box-shadow: inset 3px 0 0 var(--info);\r\n}\r\n\r\n.request-summary-row.tone-success {\r\n  --row-tone: var(--success);\r\n}\r\n\r\n.request-summary-row.tone-warning {\r\n  --row-tone: var(--warning);\r\n}\r\n\r\n.request-summary-row.tone-danger {\r\n  --row-tone: var(--danger);\r\n}\r\n\r\n.request-row-dot {\r\n  width: 10px;\r\n  height: 10px;\r\n  border-radius: 50%;\r\n  background: var(--row-tone);\r\n  box-shadow: 0 0 0 3px color-mix(in srgb, var(--row-tone) 14%, transparent);\r\n}\r\n\r\n.request-row-select {\r\n  display: grid;\r\n  width: 24px;\r\n  height: 24px;\r\n  place-items: center;\r\n  border: 1px solid transparent;\r\n  border-radius: 7px;\r\n  cursor: pointer;\r\n}\r\n\r\n.request-row-select:hover,\r\n.request-row-select:focus-within {\r\n  border-color: var(--line);\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.request-row-main,\r\n.request-row-status,\r\n.request-row-route,\r\n.request-row-metrics {\r\n  min-width: 0;\r\n}\r\n\r\n.request-row-main {\r\n  display: grid;\r\n  gap: 3px;\r\n}\r\n\r\n.request-row-main strong {\r\n  overflow: hidden;\r\n  font-size: 12.5px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.request-row-main small,\r\n.request-row-metrics small {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 4px 8px;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  line-height: 1.25;\r\n}\r\n\r\n.request-row-main small span {\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.request-row-status {\r\n  display: flex;\r\n  gap: 6px;\r\n  align-items: center;\r\n}\r\n\r\n.request-row-status small {\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n}\r\n\r\n.request-row-route {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n  align-items: center;\r\n}\r\n\r\n.request-provider-pill,\r\n.route-pill {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  min-width: 0;\r\n  max-width: 100%;\r\n  min-height: 22px;\r\n  padding: 2px 7px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 6px;\r\n  background: var(--surface-raised);\r\n  font: 760 11px var(--mono);\r\n}\r\n\r\n.request-provider-pill {\r\n  overflow: hidden;\r\n  color: var(--text);\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.route-pill.ok {\r\n  border-color: color-mix(in srgb, var(--success) 24%, var(--line));\r\n  background: var(--success-soft);\r\n  color: var(--success);\r\n}\r\n\r\n.route-pill.warn {\r\n  border-color: color-mix(in srgb, var(--warning) 24%, var(--line));\r\n  background: var(--warning-soft);\r\n  color: var(--warning);\r\n}\r\n\r\n.route-pill.bad {\r\n  border-color: color-mix(in srgb, var(--danger) 24%, var(--line));\r\n  background: var(--danger-soft);\r\n  color: var(--danger);\r\n}\r\n\r\n.route-pill.neutral {\r\n  color: var(--muted);\r\n}\r\n\r\n.request-row-metrics {\r\n  display: grid;\r\n  gap: 2px;\r\n  justify-items: start;\r\n}\r\n\r\n.request-row-metrics strong {\r\n  font-size: 13px;\r\n}\r\n\r\n.request-row-open {\r\n  display: grid;\r\n  width: 28px;\r\n  height: 28px;\r\n  place-items: center;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 7px;\r\n  color: var(--muted);\r\n}\r\n\r\n.requests-summary-table {\r\n  border-top: 1px solid var(--line);\r\n  table-layout: fixed;\r\n}\r\n\r\n.requests-summary-table th:nth-child(1),\r\n.requests-summary-table td:nth-child(1) {\r\n  width: 16%;\r\n}\r\n\r\n.requests-summary-table th:nth-child(2),\r\n.requests-summary-table td:nth-child(2) {\r\n  width: 15%;\r\n}\r\n\r\n.requests-summary-table th:nth-child(3),\r\n.requests-summary-table td:nth-child(3) {\r\n  width: 25%;\r\n}\r\n\r\n.requests-summary-table th:nth-child(4),\r\n.requests-summary-table td:nth-child(4) {\r\n  width: 16%;\r\n}\r\n\r\n.requests-summary-table th:nth-child(5),\r\n.requests-summary-table td:nth-child(5) {\r\n  width: 14%;\r\n}\r\n\r\n.requests-summary-table th:nth-child(6),\r\n.requests-summary-table td:nth-child(6) {\r\n  width: 14%;\r\n}\r\n\r\n.request-model-cell,\r\n.request-provider-cell,\r\n.request-route-cell,\r\n.request-status-cell {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n}\r\n\r\n.request-time-cell {\r\n  white-space: normal;\r\n}\r\n\r\n.request-usage-cell small {\r\n  display: inline;\r\n  margin-left: 7px;\r\n  color: var(--muted);\r\n  font: 680 11px var(--mono);\r\n}\r\n\r\n.request-usage-cell small::before {\r\n  content: \"/\";\r\n  margin-right: 7px;\r\n  color: var(--faint);\r\n}\r\n\r\ntable {\r\n  width: 100%;\r\n  border-collapse: collapse;\r\n}\r\n\r\nth,\r\ntd {\r\n  padding: 12px 13px;\r\n  border-bottom: 1px solid color-mix(in srgb, var(--line-strong) 58%, var(--line-soft));\r\n  text-align: left;\r\n  vertical-align: top;\r\n}\r\n\r\nth {\r\n  position: sticky;\r\n  top: 0;\r\n  z-index: 1;\r\n  background: var(--surface-raised);\r\n  color: var(--muted);\r\n  font-size: 10.5px;\r\n  font-weight: 720;\r\n  letter-spacing: 0.045em;\r\n  text-transform: uppercase;\r\n}\r\n\r\ntd {\r\n  color: var(--text);\r\n  font-size: 12.5px;\r\n}\r\n\r\ntr.clickable {\r\n  cursor: pointer;\r\n}\r\n\r\ntbody tr {\r\n  position: relative;\r\n  transition: background 140ms ease, box-shadow 140ms ease;\r\n}\r\n\r\ntbody tr:nth-child(even) {\r\n  background: rgba(244, 244, 245, 0.42);\r\n}\r\n\r\ntbody tr:hover,\r\ntr.clickable:hover {\r\n  background: color-mix(in srgb, var(--info-soft) 28%, var(--surface));\r\n  box-shadow: inset 3px 0 0 var(--info);\r\n}\r\n\r\n.mono {\r\n  font-family: var(--mono);\r\n}\r\n\r\n.muted {\r\n  color: var(--muted);\r\n}\r\n\r\n.empty {\r\n  color: var(--muted);\r\n  font-size: 13px;\r\n}\r\n\r\n.pad {\r\n  padding: 15px;\r\n}\r\n\r\n.keyword {\r\n  border-radius: 5px;\r\n  padding: 1px 4px;\r\n  font-weight: 760;\r\n}\r\n\r\n.keyword.danger,\r\n.message-text.danger,\r\n.message-chip.danger {\r\n  color: var(--danger);\r\n}\r\n\r\n.keyword.warn,\r\n.message-text.warn,\r\n.message-chip.warn {\r\n  color: var(--warning);\r\n}\r\n\r\n.keyword.info,\r\n.message-text.info,\r\n.message-chip.info {\r\n  color: var(--info);\r\n}\r\n\r\n.keyword.compat,\r\n.message-text.compat,\r\n.message-chip.compat {\r\n  color: var(--compat);\r\n}\r\n\r\n.keyword.success,\r\n.message-text.success,\r\n.message-chip.success {\r\n  color: var(--success);\r\n}\r\n\r\n.keyword.neutral,\r\n.message-text.neutral,\r\n.message-chip.neutral {\r\n  color: var(--neutral);\r\n}\r\n\r\n.keyword.muted,\r\n.message-text.muted,\r\n.message-chip.muted {\r\n  color: var(--faint);\r\n}\r\n\r\n.keyword.danger {\r\n  background: var(--danger-soft);\r\n}\r\n\r\n.keyword.warn {\r\n  background: var(--warning-soft);\r\n}\r\n\r\n.keyword.info {\r\n  background: var(--info-soft);\r\n}\r\n\r\n.keyword.compat {\r\n  background: var(--compat-soft);\r\n}\r\n\r\n.keyword.success {\r\n  background: var(--success-soft);\r\n}\r\n\r\n.message-text {\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.chip-list {\r\n  display: inline-flex;\r\n  flex-wrap: wrap;\r\n  gap: 5px;\r\n  vertical-align: middle;\r\n}\r\n\r\n.message-chip {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  min-height: 22px;\r\n  padding: 2px 7px;\r\n  border: 1px solid color-mix(in srgb, currentColor 42%, white);\r\n  border-radius: 6px;\r\n  background: color-mix(in srgb, currentColor 15%, white);\r\n  font: 780 11px var(--mono);\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-table {\r\n  display: block;\r\n  overflow: visible;\r\n  padding: 12px;\r\n}\r\n\r\n.provider-card-grid {\r\n  display: grid;\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  align-items: stretch;\r\n  gap: 12px;\r\n}\r\n\r\n.panel-pagination {\r\n  display: flex;\r\n  gap: 10px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  margin-bottom: 10px;\r\n  padding: 8px 10px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--surface-raised) 72%, var(--surface));\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.panel-pagination strong {\r\n  color: var(--text);\r\n  font-family: var(--mono);\r\n}\r\n\r\n.panel-pagination-actions {\r\n  display: inline-flex;\r\n  gap: 7px;\r\n  align-items: center;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-toolbar {\r\n  display: grid;\r\n  grid-template-columns: minmax(220px, 1.4fr) minmax(150px, 0.75fr) minmax(150px, 0.75fr) minmax(150px, 0.75fr) auto;\r\n  gap: 10px;\r\n  align-items: end;\r\n  margin: 0 12px 4px;\r\n  padding: 12px;\r\n  border: 1px solid color-mix(in srgb, var(--info) 10%, var(--line));\r\n  border-radius: 10px;\r\n  background:\r\n    linear-gradient(135deg, color-mix(in srgb, var(--info-soft) 50%, var(--surface)) 0, var(--surface) 52%),\r\n    var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.provider-search-field {\r\n  min-width: 0;\r\n}\r\n\r\n.provider-model-list {\r\n  display: grid;\r\n  gap: 10px;\r\n  padding: 14px;\r\n}\r\n\r\n.model-capability-summary {\r\n  display: grid;\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  gap: 8px;\r\n}\r\n\r\n.model-capability-card {\r\n  display: grid;\r\n  gap: 10px;\r\n  min-width: 0;\r\n  padding: 12px;\r\n  border: 1px solid var(--line);\r\n  border-left: 3px solid var(--neutral);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.model-capability-card.tone-success {\r\n  border-left-color: var(--success);\r\n}\r\n\r\n.model-capability-card.tone-danger {\r\n  border-left-color: var(--danger);\r\n}\r\n\r\n.model-chip-list {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n  min-width: 0;\r\n}\r\n\r\n.model-chip-list .tag,\r\n.model-map-chip {\r\n  max-width: 100%;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.model-map-chip {\r\n  display: grid;\r\n  gap: 2px;\r\n  min-width: 0;\r\n  padding: 5px 8px 6px;\r\n  border: 1px solid color-mix(in srgb, var(--info) 14%, var(--line-soft));\r\n  border-radius: 6px;\r\n  background: color-mix(in srgb, var(--info-soft) 36%, var(--surface));\r\n  font-size: 11px;\r\n  cursor: pointer;\r\n  transition: all 0.12s ease;\r\n}\r\n\r\n.model-map-chip:hover {\r\n  background: color-mix(in srgb, var(--info-soft) 72%, var(--surface));\r\n  border-color: color-mix(in srgb, var(--info) 45%, var(--line));\r\n  transform: translateY(-1px);\r\n  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);\r\n}\r\n\r\n.model-map-chip b,\r\n.model-map-chip small {\r\n  min-width: 0;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.model-map-chip b {\r\n  font-family: var(--mono);\r\n  font-weight: 780;\r\n}\r\n\r\n.model-map-chip small {\r\n  color: var(--muted);\r\n  font-family: var(--mono);\r\n  font-size: 10px;\r\n}\r\n\r\n.provider-model-toolbar {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 8px;\r\n  align-items: center;\r\n  min-width: 0;\r\n}\r\n\r\n.provider-model-search {\r\n  flex: 1 1 180px;\r\n  min-width: 0;\r\n}\r\n\r\n.provider-model-status-filter {\r\n  flex: 0 0 118px;\r\n}\r\n\r\n.provider-model-chip {\r\n  position: relative;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  align-items: start;\r\n  color: inherit;\r\n  font: inherit;\r\n  text-align: left;\r\n}\r\n\r\n.model-chip-toggle,\r\n.model-map-edit-button {\r\n  appearance: none;\r\n  border: 0;\r\n  background: transparent;\r\n  color: inherit;\r\n  font: inherit;\r\n}\r\n\r\n.model-chip-toggle {\r\n  display: grid;\r\n  gap: 2px;\r\n  min-width: 0;\r\n  padding: 0;\r\n  text-align: left;\r\n  cursor: pointer;\r\n}\r\n\r\n.model-map-edit-button {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  width: 22px;\r\n  height: 22px;\r\n  padding: 0;\r\n  border-radius: 5px;\r\n  color: var(--muted);\r\n  cursor: pointer;\r\n}\r\n\r\n.model-map-edit-button:hover {\r\n  color: var(--info);\r\n  background: color-mix(in srgb, var(--info-soft) 64%, transparent);\r\n}\r\n\r\n.model-chip-toggle:focus-visible,\r\n.model-map-edit-button:focus-visible {\r\n  outline: 2px solid color-mix(in srgb, var(--info) 70%, transparent);\r\n  outline-offset: 2px;\r\n}\r\n\r\n.provider-model-chip.is-disabled {\r\n  border-color: color-mix(in srgb, var(--danger) 34%, var(--line));\r\n  background: color-mix(in srgb, var(--danger-soft) 48%, var(--surface));\r\n}\r\n\r\n.provider-model-chip.is-pending {\r\n  outline: 1px dashed color-mix(in srgb, var(--warning) 70%, var(--line));\r\n  outline-offset: 2px;\r\n}\r\n\r\n.provider-model-chip.is-manual-map {\r\n  border-color: color-mix(in srgb, var(--success) 28%, var(--line));\r\n  background: color-mix(in srgb, var(--success-soft) 42%, var(--surface));\r\n}\r\n\r\n.provider-model-chip.is-disabled b {\r\n  color: color-mix(in srgb, var(--danger) 72%, var(--text));\r\n  text-decoration: line-through;\r\n  text-decoration-thickness: 2px;\r\n  text-decoration-color: var(--danger);\r\n}\r\n\r\n.model-pending-note {\r\n  color: color-mix(in srgb, var(--warning) 78%, var(--muted));\r\n}\r\n\r\n.model-price-tip {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  margin-left: 4px;\r\n  vertical-align: -2px;\r\n  color: var(--muted);\r\n  opacity: 0.55;\r\n  cursor: help;\r\n  transition: opacity 0.12s ease;\r\n}\r\n\r\n.model-price-tip .icon-svg {\r\n  width: 12px;\r\n  height: 12px;\r\n}\r\n\r\n.model-price-tip:hover {\r\n  opacity: 1;\r\n  color: var(--info, #3b82f6);\r\n}\r\n\r\n.provider-model-pill .model-price-tip {\r\n  margin-left: 6px;\r\n}\r\n\r\n.static-model-chip {\r\n  position: relative;\r\n  padding-right: 24px;\r\n}\r\n\r\n.static-model-delete {\r\n  position: absolute;\r\n  top: 4px;\r\n  right: 5px;\r\n  width: 16px;\r\n  height: 16px;\r\n  display: grid;\r\n  place-items: center;\r\n  border: 1px solid transparent;\r\n  border-radius: 999px;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  cursor: pointer;\r\n  font-size: 12px;\r\n  line-height: 1;\r\n}\r\n\r\n.static-model-delete:hover {\r\n  border-color: var(--danger);\r\n  color: var(--danger);\r\n  background: color-mix(in srgb, var(--danger) 8%, transparent);\r\n}\r\n\r\n.model-capability-error {\r\n  padding: 8px;\r\n  border: 1px solid var(--danger);\r\n  border-radius: 8px;\r\n  background: var(--danger-soft);\r\n  color: var(--danger);\r\n  font-size: 12px;\r\n  font-weight: 740;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.provider-runtime-card {\r\n  position: relative;\r\n  display: grid;\r\n  min-width: 0;\r\n  gap: 10px;\r\n  padding: 15px 16px 14px;\r\n  border: 1px solid color-mix(in srgb, var(--neutral) 10%, var(--line));\r\n  border-top: 3px solid var(--neutral);\r\n  border-radius: 12px;\r\n  background: var(--surface);\r\n  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 12px 28px rgba(15, 23, 42, 0.06);\r\n  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease, background 180ms ease;\r\n}\r\n\r\n.provider-health-tile {\r\n  min-height: 180px;\r\n  height: 100%;\r\n}\r\n\r\n.provider-health-tile:hover {\r\n  border-color: color-mix(in srgb, var(--info) 22%, var(--line));\r\n  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 16px 32px rgba(15, 23, 42, 0.08);\r\n  transform: translateY(-1px);\r\n}\r\n\r\n.provider-health-tile:focus-visible {\r\n  box-shadow: 0 0 0 3px rgba(50, 103, 199, 0.16), 0 8px 24px rgba(0, 0, 0, 0.08);\r\n}\r\n\r\n.provider-runtime-card.is-available {\r\n  border-top-color: var(--success);\r\n}\r\n\r\n.provider-runtime-card.is-degraded,\r\n.provider-runtime-card.is-cooldown {\r\n  border-top-color: var(--warning);\r\n}\r\n\r\n.provider-runtime-card.is-unavailable {\r\n  border-top-color: var(--danger);\r\n}\r\n\r\n.provider-runtime-card.is-disabled {\r\n  border-top-color: var(--faint);\r\n  opacity: 0.76;\r\n}\r\n\r\n.provider-card-topline {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr) auto;\r\n  gap: 10px;\r\n  align-items: center;\r\n  min-width: 0;\r\n}\r\n\r\n.provider-card-settings-btn {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  width: 26px;\r\n  height: 26px;\r\n  padding: 0;\r\n  border: none;\r\n  border-radius: 6px;\r\n  background: transparent;\r\n  color: var(--line-strong);\r\n  cursor: pointer;\r\n  transition: color 160ms ease, background 160ms ease;\r\n  flex-shrink: 0;\r\n}\r\n\r\n.provider-card-settings-btn:hover {\r\n  color: var(--text);\r\n  background: var(--surface-soft);\r\n}\r\n\r\n.provider-card-settings-btn:active {\r\n  transform: scale(0.92);\r\n}\r\n\r\n.provider-card-settings-btn .icon-svg {\r\n  width: 16px;\r\n  height: 16px;\r\n}\r\n\r\n.priority-chip {\r\n  margin-right: 4px;\r\n  min-height: 21px;\r\n  padding: 2px 6px;\r\n  border-radius: 5px;\r\n  font-size: 10px;\r\n  font-weight: 600;\r\n  font-variant-numeric: tabular-nums;\r\n  line-height: 1;\r\n  display: inline-flex;\r\n  align-items: center;\r\n  color: var(--muted);\r\n  background: var(--surface-soft);\r\n}\r\n\r\n.priority-chip.prio-hi {\r\n  color: #fff;\r\n  background: #09090b;\r\n}\r\n\r\n.priority-chip.prio-mid {\r\n  color: var(--text);\r\n  background: #d4d4d8;\r\n}\r\n\r\n.priority-chip.prio-lo {\r\n  color: var(--muted);\r\n  background: var(--surface-soft);\r\n}\r\n\r\n.provider-status-dot {\r\n  width: 10px;\r\n  height: 10px;\r\n  border-radius: 50%;\r\n  background: var(--neutral);\r\n  box-shadow: 0 0 0 4px color-mix(in srgb, var(--neutral) 8%, transparent);\r\n  transition: box-shadow 200ms ease;\r\n}\r\n\r\n.provider-status-dot.ok {\r\n  background: var(--success);\r\n  box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 14%, transparent);\r\n}\r\n\r\n.provider-status-dot.warn {\r\n  background: var(--warning);\r\n  box-shadow: 0 0 0 4px color-mix(in srgb, var(--warning) 16%, transparent);\r\n}\r\n\r\n.provider-status-dot.bad {\r\n  background: var(--danger);\r\n  box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 14%, transparent);\r\n}\r\n\r\n.provider-card-models {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n  min-height: 28px;\r\n  align-content: start;\r\n  padding-top: 2px;\r\n}\r\n\r\n.provider-model-summary {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 7px;\r\n  min-height: 28px;\r\n  padding: 4px 9px;\r\n  border: 1px solid color-mix(in srgb, var(--info) 18%, var(--line));\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--info-soft) 44%, var(--surface));\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  line-height: 1.1;\r\n}\r\n\r\n.provider-model-summary .icon-svg {\r\n  width: 15px;\r\n  height: 15px;\r\n  color: var(--info);\r\n}\r\n\r\n.provider-model-summary strong {\r\n  color: var(--text);\r\n  font: 760 12px/1 var(--mono);\r\n  font-variant-numeric: tabular-nums;\r\n}\r\n\r\n.provider-model-summary span {\r\n  color: var(--muted);\r\n  font-weight: 650;\r\n}\r\n\r\n.provider-card-state-row {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n  min-width: 0;\r\n  padding: 2px 0 1px;\r\n}\r\n\r\n.provider-state-badge {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  min-height: 24px;\r\n  padding: 0 8px;\r\n  border-radius: 999px;\r\n  background: var(--surface-raised);\r\n  color: var(--muted);\r\n  font: 720 11px/1 var(--mono);\r\n  letter-spacing: 0.01em;\r\n  text-transform: capitalize;\r\n}\r\n\r\n.provider-state-badge.tone-ok {\r\n  color: var(--success);\r\n  background: color-mix(in srgb, var(--success) 10%, var(--surface-raised));\r\n}\r\n\r\n.provider-state-badge.tone-warn {\r\n  color: var(--warning);\r\n  background: color-mix(in srgb, var(--warning) 12%, var(--surface-raised));\r\n}\r\n\r\n.provider-state-badge.tone-bad {\r\n  color: var(--danger);\r\n  background: color-mix(in srgb, var(--danger) 10%, var(--surface-raised));\r\n}\r\n\r\n.provider-state-badge.tone-disabled {\r\n  color: var(--muted);\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.provider-state-note {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-model-pill,\r\n.provider-model-more,\r\n.format-chip {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  min-width: 0;\r\n  max-width: 100%;\r\n  min-height: 24px;\r\n  padding: 3px 7px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 6px;\r\n  background: var(--surface-raised);\r\n  color: var(--text);\r\n  font: 720 11px/1.2 var(--mono);\r\n}\r\n\r\n.provider-model-pill {\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-model-pill.provider-model-refreshing {\r\n  border-color: var(--accent, #3b82f6);\r\n  background: var(--surface-raised);\r\n  color: var(--text);\r\n  font-weight: 720;\r\n  gap: 6px;\r\n}\r\n\r\n.refresh-spinner {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  width: 14px;\r\n  height: 14px;\r\n  vertical-align: -2px;\r\n}\r\n\r\n.refresh-spinner .icon-svg {\r\n  width: 14px;\r\n  height: 14px;\r\n  animation: refresh-spin 0.9s linear infinite;\r\n}\r\n\r\n@keyframes refresh-spin {\r\n  from { transform: rotate(0deg); }\r\n  to { transform: rotate(360deg); }\r\n}\r\n\r\n.provider-cap-refreshing-badge {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 5px;\r\n}\r\n\r\n.model-capability-refreshing {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n  padding: 8px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 8px;\r\n  background: var(--surface-raised);\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-weight: 740;\r\n}\r\n\r\n.provider-model-more {\r\n  color: var(--info);\r\n  border-color: color-mix(in srgb, var(--info) 18%, var(--line));\r\n  background: color-mix(in srgb, var(--info-soft) 55%, var(--surface));\r\n}\r\n\r\n.format-chip {\r\n  margin-right: 4px;\r\n  min-height: 21px;\r\n  padding: 2px 6px;\r\n  color: var(--info);\r\n  border-color: color-mix(in srgb, var(--info) 18%, var(--line));\r\n  background: color-mix(in srgb, var(--info-soft) 64%, var(--surface));\r\n  font-size: 10px;\r\n}\r\n\r\n.format-chip.tone-compat {\r\n  color: var(--compat);\r\n  border-color: color-mix(in srgb, var(--compat) 18%, var(--line));\r\n  background: color-mix(in srgb, var(--compat-soft) 64%, var(--surface));\r\n}\r\n\r\n.provider-card-metrics {\r\n  display: grid;\r\n  grid-template-columns: repeat(5, minmax(0, 1fr));\r\n  gap: 5px;\r\n}\r\n\r\n.provider-card-metric {\r\n  display: grid;\r\n  grid-template-columns: 16px minmax(0, auto);\r\n  min-width: 0;\r\n  justify-content: start;\r\n  gap: 1px 3px;\r\n  align-items: center;\r\n  min-height: 39px;\r\n  padding: 7px 5px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--surface-raised) 86%, var(--surface));\r\n}\r\n\r\n.provider-card-metric small {\r\n  display: none;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 10px;\r\n  font-weight: 720;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-card-metric b {\r\n  display: grid;\r\n  width: 16px;\r\n  height: 18px;\r\n  place-items: center;\r\n  border-radius: 5px;\r\n  background: transparent;\r\n  color: var(--muted);\r\n}\r\n\r\n.provider-card-metric b .icon-svg {\r\n  width: 12px;\r\n  height: 12px;\r\n}\r\n\r\n.provider-card-metric strong {\r\n  overflow: visible;\r\n  color: var(--text);\r\n  font: 820 13px/1.15 var(--mono);\r\n  text-overflow: clip;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-card-error {\r\n  display: flex;\r\n  gap: 6px;\r\n  align-items: center;\r\n  min-height: 28px;\r\n  padding: 6px 9px;\r\n  border: 1px solid color-mix(in srgb, var(--warning) 18%, var(--line));\r\n  border-radius: 6px;\r\n  background: color-mix(in srgb, var(--warning-soft) 50%, var(--surface));\r\n}\r\n\r\n.provider-card-error-icon {\r\n  display: inline-flex;\r\n  flex-shrink: 0;\r\n  color: var(--warning);\r\n}\r\n\r\n.provider-card-error-icon .icon-svg {\r\n  width: 13px;\r\n  height: 13px;\r\n}\r\n\r\n.provider-card-error strong {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--text);\r\n  font-size: 11px;\r\n  font-weight: 720;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n/* ── Provider mini chart block ── */\r\n.provider-chart-block {\r\n  display: grid;\r\n  gap: 5px;\r\n  padding: 10px 10px 8px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 10px;\r\n  background: color-mix(in srgb, var(--surface) 88%, var(--surface-raised));\r\n}\r\n\r\n.provider-chart-block.is-empty {\r\n  opacity: 0.72;\r\n}\r\n\r\n.pmc-legend {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 6px;\r\n  font-size: 10px;\r\n  line-height: 1;\r\n  color: var(--muted);\r\n}\r\n\r\n.pmc-legend-label {\r\n  font-size: 9px;\r\n  font-weight: 600;\r\n  letter-spacing: 0.06em;\r\n  text-transform: uppercase;\r\n  color: var(--muted);\r\n  opacity: 0.7;\r\n}\r\n\r\n.pmc-legend-val {\r\n  font-size: 11px;\r\n  font-weight: 700;\r\n  font-variant-numeric: tabular-nums;\r\n  letter-spacing: -0.01em;\r\n}\r\n\r\n.pmc-legend-val.muted {\r\n  color: var(--line-strong);\r\n  font-weight: 500;\r\n}\r\n\r\n.pmc-legend-sep {\r\n  width: 1px;\r\n  height: 9px;\r\n  background: var(--line);\r\n  flex-shrink: 0;\r\n}\r\n\r\n.pmc-legend-meta {\r\n  font-size: 9px;\r\n  color: var(--muted);\r\n  opacity: 0.7;\r\n  margin-left: auto;\r\n  white-space: nowrap;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n}\r\n\r\n.pmc-chart-wrap {\r\n  position: relative;\r\n  width: 100%;\r\n}\r\n\r\n.pmc-empty-label {\r\n  position: absolute;\r\n  top: 50%;\r\n  left: 50%;\r\n  transform: translate(-50%, -50%);\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  pointer-events: none;\r\n}\r\n\r\n.pmc-empty-label .icon-svg {\r\n  width: 18px;\r\n  height: 18px;\r\n  color: var(--info);\r\n  opacity: 0.45;\r\n  stroke-width: 1.5;\r\n}\r\n\r\n.provider-mini-chart {\r\n  display: block;\r\n  width: 100%;\r\n  height: 56px;\r\n  overflow: visible;\r\n}\r\n\r\n.provider-mini-chart path {\r\n  transition: d 300ms ease;\r\n}\r\n\r\n.provider-mini-chart.is-empty {\r\n  opacity: 0.6;\r\n}\r\n\r\n.pmc-pulse-dot {\r\n  animation: pmc-pulse 2.4s ease-in-out infinite;\r\n  transform-origin: center;\r\n  transform-box: fill-box;\r\n}\r\n\r\n@keyframes pmc-pulse {\r\n  0%, 100% { opacity: 0.3; r: 1.5; }\r\n  50% { opacity: 0.8; r: 3; }\r\n}\r\n\r\n.pmc-axis {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  font-size: 9px;\r\n  line-height: 1;\r\n  color: var(--muted);\r\n}\r\n\r\n.pmc-axis-label {\r\n  font-weight: 500;\r\n  letter-spacing: 0.02em;\r\n}\r\n\r\n.pmc-axis-label.muted {\r\n  opacity: 0.6;\r\n  font-weight: 400;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n  max-width: 70%;\r\n}\r\n\r\n.provider-card-footer {\r\n  display: flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  margin-top: auto;\r\n  padding-top: 3px;\r\n  border-top: 1px solid var(--line-soft);\r\n}\r\n\r\n.provider-card-stats {\r\n  display: flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n  min-width: 0;\r\n}\r\n\r\n.provider-stat {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 4px;\r\n  min-height: 30px;\r\n  padding: 0 8px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n}\r\n\r\n.provider-stat .icon-svg {\r\n  width: 13px;\r\n  height: 13px;\r\n  opacity: 0.7;\r\n}\r\n\r\n.provider-stat strong {\r\n  color: var(--text);\r\n  font: 760 12px/1.2 var(--mono);\r\n}\r\n\r\n.provider-stat.ok .icon-svg { color: var(--success); opacity: 1; }\r\n.provider-stat.ok strong { color: var(--success); }\r\n.provider-stat.warn .icon-svg { color: var(--warning); opacity: 1; }\r\n.provider-stat.warn strong { color: var(--warning); }\r\n.provider-stat.bad .icon-svg { color: var(--danger); opacity: 1; }\r\n.provider-stat.bad strong { color: var(--danger); }\r\n\r\n.provider-runtime-head,\r\n.key-card-head,\r\n.failure-policy-head {\r\n  display: flex;\r\n  gap: 10px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n}\r\n\r\n.failure-policy-head {\r\n  align-items: center;\r\n}\r\n\r\n.key-card-badges {\r\n  display: inline-flex;\r\n  gap: 6px;\r\n  align-items: center;\r\n  flex-wrap: wrap;\r\n  justify-content: flex-end;\r\n}\r\n\r\n.compact-control {\r\n  width: auto;\r\n  min-width: 142px;\r\n  min-height: 32px;\r\n  padding: 0 9px;\r\n  font-family: var(--mono);\r\n  font-size: 12px;\r\n  font-weight: 720;\r\n}\r\n\r\n.provider-title-block {\r\n  min-width: 0;\r\n}\r\n\r\n.provider-runtime-actions {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n  justify-content: flex-end;\r\n}\r\n\r\n.provider-runtime-actions .button {\r\n  min-height: 30px;\r\n  padding: 0 9px;\r\n  font-size: 11.5px;\r\n}\r\n\r\n.provider-runtime-actions .button.icon-action {\r\n  width: 30px;\r\n  min-width: 30px;\r\n  height: 30px;\r\n  min-height: 30px;\r\n  padding: 0;\r\n}\r\n\r\n.provider-runtime-actions .badge {\r\n  min-height: 30px;\r\n}\r\n\r\n.provider-compact-stats {\r\n  display: grid;\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 7px;\r\n}\r\n\r\n.compact-stat {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  gap: 1px 8px;\r\n  min-width: 0;\r\n  padding: 7px 8px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.compact-stat b,\r\n.compact-stat small {\r\n  color: var(--muted);\r\n  font-size: 10.5px;\r\n  font-weight: 720;\r\n}\r\n\r\n.compact-stat strong {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--text);\r\n  font: 800 13px/1.2 var(--mono);\r\n  text-align: right;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.compact-stat small {\r\n  grid-column: 1 / -1;\r\n  color: var(--faint);\r\n}\r\n\r\n.provider-metrics,\r\n.policy-summary-grid {\r\n  display: grid;\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 8px;\r\n}\r\n\r\n.mini-metric {\r\n  min-width: 0;\r\n  padding: 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.mini-metric span {\r\n  display: block;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--text);\r\n  font-size: 11px;\r\n  font-weight: 780;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.mini-metric strong {\r\n  display: block;\r\n  min-width: 0;\r\n  margin-top: 2px;\r\n  overflow: hidden;\r\n  color: var(--text);\r\n  font: 820 17px/1.2 var(--mono);\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.mini-metric small {\r\n  display: block;\r\n  min-width: 0;\r\n  margin-top: 2px;\r\n  overflow: hidden;\r\n  color: var(--faint);\r\n  font-size: 10px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.runtime-state-strip,\r\n.policy-decision-strip {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n}\r\n\r\n.provider-runtime-details {\r\n  border-top: 1px solid var(--line-soft);\r\n  padding-top: 4px;\r\n}\r\n\r\n.provider-runtime-details > summary {\r\n  cursor: pointer;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 760;\r\n}\r\n\r\n.provider-runtime-details[open] {\r\n  display: grid;\r\n  gap: 9px;\r\n}\r\n\r\n.provider-runtime-details[open] > summary {\r\n  color: var(--text);\r\n}\r\n\r\n.format-route-list {\r\n  display: grid;\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  gap: 8px;\r\n}\r\n\r\n.format-route {\r\n  position: relative;\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  align-items: center;\r\n  gap: 10px;\r\n  min-width: 0;\r\n  padding: 9px 10px 9px 12px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 10px;\r\n  background: var(--surface);\r\n  opacity: 1;\r\n  transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease;\r\n}\r\n\r\n.format-route.enabled {\r\n  border-color: color-mix(in srgb, var(--success) 28%, var(--line));\r\n  background: color-mix(in srgb, var(--success-soft) 34%, var(--surface));\r\n  box-shadow: 0 0 0 1px color-mix(in srgb, var(--success) 10%, transparent) inset;\r\n}\r\n\r\n.format-route.enabled b {\r\n  color: black;\r\n}\r\n\r\n.format-route.disabled {\r\n  background: color-mix(in srgb, var(--surface-soft) 72%, var(--surface));\r\n  color: var(--muted);\r\n  opacity: 1;\r\n}\r\n\r\n.format-route-main {\r\n  display: grid;\r\n  gap: 2px;\r\n  min-width: 0;\r\n}\r\n\r\n.format-route-main b,\r\n.format-route-main small {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.format-route-main b {\r\n  font: 760 11px var(--mono);\r\n}\r\n\r\n.format-route-main small {\r\n  color: var(--muted);\r\n  font: 11px var(--mono);\r\n}\r\n\r\n.format-route.is-interactive {\r\n  cursor: default;\r\n  user-select: none;\r\n}\r\n\r\n.format-route.is-interactive.enabled::after {\r\n  display: none !important;\r\n  content: none !important;\r\n}\r\n\r\n.format-route.is-interactive:hover {\r\n  border-color: color-mix(in srgb, var(--line-strong) 70%, var(--line));\r\n  background: color-mix(in srgb, var(--surface-soft) 42%, var(--surface));\r\n}\r\n\r\n.format-route.is-interactive.enabled:hover {\r\n  border-color: color-mix(in srgb, var(--success) 34%, var(--line));\r\n  background: color-mix(in srgb, var(--success-soft) 40%, var(--surface));\r\n}\r\n\r\n.format-route.is-interactive:focus-visible {\r\n  outline: 2px solid var(--info, #3b82f6);\r\n  outline-offset: 1px;\r\n}\r\n\r\n.format-route-actions {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 7px;\r\n  min-width: 0;\r\n}\r\n\r\n.format-route-switch {\r\n  position: relative;\r\n  display: inline-flex;\r\n  align-items: center;\r\n  width: 38px;\r\n  height: 22px;\r\n  padding: 0;\r\n  border: 1px solid color-mix(in srgb, var(--line-strong) 38%, var(--line));\r\n  border-radius: 999px;\r\n  background: #e8edf3;\r\n  cursor: pointer;\r\n  transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;\r\n}\r\n\r\n.format-route-switch span {\r\n  position: absolute;\r\n  left: 3px;\r\n  width: 16px;\r\n  height: 16px;\r\n  border-radius: 50%;\r\n  background: #fff;\r\n  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);\r\n  transition: transform 0.16s ease;\r\n}\r\n\r\n.format-route-switch.is-on {\r\n  border-color: color-mix(in srgb, var(--success) 42%, #dfe5ec);\r\n  background: color-mix(in srgb, var(--success) 82%, #0f172a);\r\n  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 11%, transparent);\r\n}\r\n\r\n.format-route-switch.is-on span {\r\n  transform: translateX(16px);\r\n}\r\n\r\n.format-route-switch:hover {\r\n  border-color: color-mix(in srgb, var(--info) 34%, var(--line));\r\n}\r\n\r\n.format-route-switch:focus-visible {\r\n  outline: 2px solid var(--info);\r\n  outline-offset: 2px;\r\n}\r\n\r\n.format-route-edit {\r\n  position: relative;\r\n  z-index: 1;\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  width: 28px;\r\n  height: 28px;\r\n  margin-left: 8px;\r\n  border: 1px solid transparent;\r\n  border-radius: 7px;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  cursor: pointer;\r\n  transition: color 0.14s ease, background 0.14s ease, border-color 0.14s ease, transform 0.06s ease;\r\n}\r\n\r\n.format-route-edit:hover {\r\n  border-color: var(--line);\r\n  background: var(--surface-raised);\r\n  color: var(--text);\r\n}\r\n\r\n.format-route-edit:active {\r\n  transform: translateY(1px);\r\n}\r\n\r\n.format-route-edit:focus-visible {\r\n  outline: 2px solid var(--info, #3b82f6);\r\n  outline-offset: 1px;\r\n}\r\n\r\n.format-route.is-interactive.is-busy {\r\n  opacity: 0.6;\r\n  pointer-events: none;\r\n}\r\n\r\n.format-route-hint {\r\n  display: block;\r\n  margin-top: 3px;\r\n  font: 600 9px/1.3 var(--mono);\r\n  color: var(--muted);\r\n  opacity: 0.62;\r\n  letter-spacing: 0.02em;\r\n}\r\n\r\n.provider-key-list {\r\n  display: grid;\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  gap: 8px;\r\n}\r\n\r\n.provider-key-card {\r\n  display: grid;\r\n  gap: 9px;\r\n  min-width: 0;\r\n  padding: 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.key-title {\r\n  color: var(--text);\r\n  font-weight: 760;\r\n}\r\n\r\n.provider-key-card .provider-meta {\r\n  font-family: var(--mono);\r\n  color: var(--text);\r\n}\r\n\r\n.key-card-grid {\r\n  display: grid;\r\n  grid-template-columns: auto 1fr;\r\n  gap: 4px 10px;\r\n  font-size: 12px;\r\n}\r\n\r\n.key-card-grid span {\r\n  color: var(--muted);\r\n}\r\n\r\n.key-card-grid strong {\r\n  min-width: 0;\r\n  color: var(--text);\r\n  font-family: var(--mono);\r\n  text-align: right;\r\n}\r\n\r\n.key-actions {\r\n  justify-content: flex-start;\r\n}\r\n\r\n.key-probe-model {\r\n  position: relative;\r\n  flex: 1 1 170px;\r\n  min-width: 0;\r\n}\r\n\r\n.key-probe-trigger {\r\n  width: 100%;\r\n  max-width: 100%;\r\n  justify-content: flex-start;\r\n  text-align: left;\r\n}\r\n\r\n.key-probe-trigger span {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.key-probe-menu {\r\n  position: absolute;\r\n  z-index: 40;\r\n  top: calc(100% + 5px);\r\n  left: 0;\r\n  width: min(360px, calc(100vw - 32px));\r\n  max-width: 100%;\r\n  padding: 7px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n  box-shadow: 0 14px 34px color-mix(in srgb, var(--shadow) 22%, transparent);\r\n}\r\n\r\n.key-probe-search {\r\n  width: 100%;\r\n  min-height: 30px;\r\n  margin-bottom: 6px;\r\n  font-family: var(--mono);\r\n  font-size: 12px;\r\n}\r\n\r\n.key-probe-option-list {\r\n  display: grid;\r\n  gap: 3px;\r\n  max-height: min(260px, 42vh);\r\n  overflow-y: auto;\r\n  overscroll-behavior: contain;\r\n  scrollbar-width: thin;\r\n  scrollbar-color: color-mix(in srgb, var(--muted) 35%, transparent) transparent;\r\n}\r\n\r\n.key-probe-option-list::-webkit-scrollbar {\r\n  width: 6px;\r\n}\r\n\r\n.key-probe-option-list::-webkit-scrollbar-thumb {\r\n  border-radius: 999px;\r\n  background: color-mix(in srgb, var(--muted) 28%, transparent);\r\n}\r\n\r\n.key-probe-option,\r\n.key-probe-empty {\r\n  min-width: 0;\r\n  min-height: 28px;\r\n  padding: 0 7px;\r\n  border: 1px solid transparent;\r\n  border-radius: 5px;\r\n  background: transparent;\r\n  color: var(--text);\r\n  font: 720 11.5px/1.2 var(--mono);\r\n  text-align: left;\r\n}\r\n\r\n.key-probe-option {\r\n  display: flex;\r\n  align-items: center;\r\n  cursor: pointer;\r\n}\r\n\r\n.key-probe-option span {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.key-probe-option:hover,\r\n.key-probe-option.is-selected {\r\n  border-color: color-mix(in srgb, var(--info) 42%, transparent);\r\n  background: var(--info-soft);\r\n  color: var(--info);\r\n}\r\n\r\n.key-probe-empty {\r\n  display: grid;\r\n  place-items: center start;\r\n  color: var(--muted);\r\n}\r\n\r\n.provider-edit-drawer {\r\n  border-top: 1px solid var(--line);\r\n  padding-top: 2px;\r\n}\r\n\r\n.provider-edit-drawer summary,\r\n.raw-config-details summary {\r\n  cursor: pointer;\r\n  color: var(--text);\r\n  font-weight: 820;\r\n}\r\n\r\n.provider-edit-panel {\r\n  display: grid;\r\n  gap: 10px;\r\n  margin-top: 10px;\r\n  padding: 12px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.provider-inline-form {\r\n  display: grid;\r\n  grid-template-columns: minmax(220px, 1.2fr) minmax(180px, 0.8fr) auto auto;\r\n  gap: 8px;\r\n  align-items: end;\r\n}\r\n\r\n.provider-inline-key-form {\r\n  display: grid;\r\n  grid-template-columns: minmax(180px, 1fr) minmax(180px, 0.9fr) auto;\r\n  gap: 8px;\r\n  align-items: end;\r\n}\r\n\r\n.provider-key-chips {\r\n  padding: 2px 0;\r\n}\r\n\r\n.key-proxy-list {\r\n  display: grid;\r\n  gap: 7px;\r\n}\r\n\r\n.key-proxy-row {\r\n  display: grid;\r\n  grid-template-columns: minmax(150px, 0.85fr) minmax(220px, 1fr) auto;\r\n  gap: 8px;\r\n  align-items: end;\r\n  padding: 8px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface);\r\n}\r\n\r\n.key-proxy-id {\r\n  display: grid;\r\n  gap: 2px;\r\n  min-width: 0;\r\n}\r\n\r\n.key-proxy-id strong {\r\n  color: var(--text);\r\n  font-size: 12px;\r\n}\r\n\r\n.key-proxy-id span {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.key-proxy-field {\r\n  min-width: 0;\r\n}\r\n\r\n.provider-format-edit-list {\r\n  grid-template-columns: 1fr;\r\n}\r\n\r\n.actions {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n  justify-content: flex-end;\r\n}\r\n\r\n.actions .button {\r\n  min-height: 31px;\r\n  font-size: 12px;\r\n}\r\n\r\n.policy-summary-grid {\r\n  padding: 14px 14px 0;\r\n}\r\n\r\n.policy-controls {\r\n  padding: 14px;\r\n}\r\n\r\n.policy-control-grid {\r\n  display: grid;\r\n  grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  gap: 12px;\r\n}\r\n\r\n.policy-control-card {\r\n  display: grid;\r\n  gap: 11px;\r\n  min-width: 0;\r\n  padding: 13px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.policy-control-card-head h3 {\r\n  margin: 0 0 4px;\r\n  font-size: 14px;\r\n  font-weight: 820;\r\n}\r\n\r\n.policy-control-card-head p {\r\n  margin: 0;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  line-height: 1.4;\r\n}\r\n\r\n.form-pair-grid {\r\n  display: grid;\r\n  grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  gap: 9px;\r\n}\r\n\r\n.policy-advanced {\r\n  border-top: 1px solid var(--line-soft);\r\n  padding-top: 10px;\r\n  margin-top: 2px;\r\n}\r\n\r\n.policy-advanced > summary {\r\n  cursor: pointer;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 720;\r\n  user-select: none;\r\n  padding: 2px 0;\r\n  list-style: none;\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 5px;\r\n}\r\n\r\n.policy-advanced > summary::before {\r\n  content: \"▸\";\r\n  font-size: 10px;\r\n  transition: transform 140ms ease;\r\n  color: var(--muted);\r\n}\r\n\r\n.policy-advanced[open] > summary::before {\r\n  transform: rotate(90deg);\r\n}\r\n\r\n.policy-advanced > summary:hover {\r\n  color: var(--text);\r\n}\r\n\r\n.policy-card-list,\r\n.failure-policy-list {\r\n  display: grid;\r\n  gap: 10px;\r\n  padding: 14px;\r\n}\r\n\r\n.policy-rule-card,\r\n.failure-policy-card {\r\n  display: grid;\r\n  gap: 10px;\r\n  min-width: 0;\r\n  padding: 12px;\r\n  border: 1px solid var(--line);\r\n  border-left: 3px solid var(--neutral);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.policy-rule-card.tone-danger,\r\n.failure-policy-card.tone-danger {\r\n  border-left-color: var(--danger);\r\n}\r\n\r\n.policy-rule-card.tone-warn,\r\n.failure-policy-card.tone-warn {\r\n  border-left-color: var(--warning);\r\n}\r\n\r\n.policy-rule-card.tone-info,\r\n.failure-policy-card.tone-info {\r\n  border-left-color: var(--info);\r\n}\r\n\r\n.policy-rule-card.tone-compat,\r\n.failure-policy-card.tone-compat {\r\n  border-left-color: var(--compat);\r\n}\r\n\r\n.policy-rule-card.tone-success,\r\n.failure-policy-card.tone-success {\r\n  border-left-color: var(--success);\r\n}\r\n\r\n.policy-rule-head {\r\n  display: grid;\r\n  grid-template-columns: 34px minmax(0, 1fr);\r\n  gap: 10px;\r\n}\r\n\r\n.rule-index {\r\n  display: grid;\r\n  width: 30px;\r\n  height: 30px;\r\n  place-items: center;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  color: var(--muted);\r\n  font: 760 11px var(--mono);\r\n}\r\n\r\n.policy-rule-head h3,\r\n.failure-policy-head h3 {\r\n  margin: 0;\r\n  color: var(--text);\r\n  font-size: 14px;\r\n  font-weight: 820;\r\n  line-height: 1.35;\r\n}\r\n\r\n.policy-rule-head p,\r\n.failure-policy-card p {\r\n  margin-top: 3px;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  line-height: 1.45;\r\n}\r\n\r\n.policy-rule-meta,\r\n.failure-policy-grid {\r\n  display: grid;\r\n  grid-template-columns: minmax(68px, auto) minmax(0, 1fr);\r\n  gap: 5px 10px;\r\n  padding-top: 2px;\r\n  font-size: 12px;\r\n}\r\n\r\n.policy-rule-meta span,\r\n.failure-policy-grid span {\r\n  color: var(--muted);\r\n}\r\n\r\n.policy-rule-meta strong,\r\n.failure-policy-grid strong {\r\n  min-width: 0;\r\n  color: var(--text);\r\n  font-family: var(--mono);\r\n  font-weight: 780;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.failure-policy-edit-grid {\r\n  display: grid;\r\n  grid-template-columns: minmax(130px, 1fr) minmax(130px, 1fr);\r\n  gap: 8px;\r\n  align-items: end;\r\n}\r\n\r\n.failure-disable-check {\r\n  min-height: 36px;\r\n}\r\n\r\n.failure-policy-edit-grid .button {\r\n  justify-self: start;\r\n}\r\n\r\n.code-block {\r\n  box-sizing: border-box;\r\n  width: 100%;\r\n  max-width: 100%;\r\n  min-width: 0;\r\n  max-height: 620px;\r\n  margin: 0;\r\n  overflow: auto;\r\n  overflow-wrap: normal;\r\n  padding: 15px;\r\n  background: #18181b;\r\n  color: #f4f4f5;\r\n  font: 12px/1.58 var(--mono);\r\n  white-space: pre;\r\n}\r\n\r\n.form-grid {\r\n  display: grid;\r\n  gap: 9px;\r\n  padding: 15px;\r\n}\r\n\r\n.form-actions {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 8px;\r\n  align-items: center;\r\n}\r\n\r\n.provider-create-form {\r\n  display: grid;\r\n  grid-template-columns: minmax(150px, 0.8fr) minmax(260px, 1.4fr);\r\n  gap: 10px 12px;\r\n  padding: 13px 16px 14px;\r\n}\r\n\r\n.provider-create-format {\r\n  grid-column: 1 / -1;\r\n}\r\n\r\n.provider-create-form .control {\r\n  min-height: 34px;\r\n}\r\n\r\n.provider-create-actions {\r\n  grid-column: 1 / -1;\r\n}\r\n\r\n.provider-create-form .control {\r\n  width: 100%;\r\n  min-width: 0;\r\n}\r\n\r\n.field-help,\r\n.form-note {\r\n  color: var(--muted);\r\n  font-size: 10.5px;\r\n  font-weight: 560;\r\n  line-height: 1.25;\r\n}\r\n\r\n.field-help {\r\n  margin-top: 1px;\r\n}\r\n\r\n.form-note {\r\n  max-width: 38rem;\r\n}\r\n\r\n.global-proxy-form {\r\n  display: grid;\r\n  grid-template-columns: minmax(220px, 1fr) auto;\r\n  gap: 8px;\r\n  align-items: end;\r\n  padding: 12px 14px 14px;\r\n}\r\n\r\n.global-proxy-form .form-note {\r\n  grid-column: 1 / -1;\r\n}\r\n\r\n.proxy-control-row {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) 30px;\r\n  gap: 6px;\r\n  align-items: center;\r\n  min-width: 0;\r\n}\r\n\r\n.proxy-control-row .control {\r\n  min-width: 0;\r\n}\r\n\r\n.proxy-test-button {\r\n  width: 30px;\r\n  min-width: 30px;\r\n  height: 30px;\r\n  min-height: 30px;\r\n  border-radius: 8px;\r\n  color: var(--muted);\r\n}\r\n\r\n.proxy-test-button .icon-svg {\r\n  width: 13px;\r\n  height: 13px;\r\n}\r\n\r\n.proxy-test-button.is-testing {\r\n  color: var(--info);\r\n}\r\n\r\n.proxy-test-button.is-ok {\r\n  border-color: color-mix(in srgb, var(--success) 24%, var(--line));\r\n  background: var(--success-soft);\r\n  color: var(--success);\r\n}\r\n\r\n.proxy-test-button.is-bad {\r\n  border-color: color-mix(in srgb, var(--danger) 24%, var(--line));\r\n  background: var(--danger-soft);\r\n  color: var(--danger);\r\n}\r\n\r\n.config-primary-panel .panel-head,\r\n.model-routes-panel .panel-head,\r\n.provider-model-map-panel .panel-head,\r\n.config-provider-panel .panel-head,\r\n.global-proxy-panel .panel-head,\r\n.config-status-panel .panel-head,\r\n.config-audit-panel .panel-head {\r\n  padding-top: 11px;\r\n  padding-bottom: 10px;\r\n}\r\n\r\n.model-route-form {\r\n  display: grid;\r\n  grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.4fr) minmax(150px, 0.8fr) auto;\r\n  gap: 9px;\r\n  align-items: end;\r\n  padding: 10px 0 0;\r\n}\r\n\r\n.model-route-editor {\r\n  padding: 10px 12px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n}\r\n\r\n.model-route-editor > summary {\r\n  cursor: pointer;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-weight: 780;\r\n}\r\n\r\n.config-side-column .model-route-form {\r\n  grid-template-columns: minmax(0, 1fr);\r\n  align-items: stretch;\r\n  padding: 10px 0 0;\r\n}\r\n\r\n.config-side-column .model-route-form .form-actions {\r\n  justify-content: flex-start;\r\n}\r\n\r\n.model-route-form .form-actions {\r\n  align-self: end;\r\n}\r\n\r\n.model-route-list {\r\n  display: grid;\r\n  gap: 6px;\r\n  padding: 10px;\r\n}\r\n\r\n.provider-model-map-list {\r\n  display: grid;\r\n  gap: 6px;\r\n  padding: 10px;\r\n}\r\n\r\n.config-provider-page-list,\r\n.model-route-page-list,\r\n.provider-model-map-page-list,\r\n.audit-page-list {\r\n  display: grid;\r\n  gap: 6px;\r\n}\r\n\r\n.model-route-hint {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n  align-items: center;\r\n  padding: 7px 8px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 720;\r\n}\r\n\r\n.model-route-card {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  gap: 8px;\r\n  align-items: center;\r\n  padding: 9px 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.model-route-main,\r\n.model-route-side {\r\n  min-width: 0;\r\n}\r\n\r\n.model-route-main {\r\n  display: grid;\r\n  gap: 5px;\r\n}\r\n\r\n.model-route-provider-list {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n}\r\n\r\n.model-route-side {\r\n  display: grid;\r\n  gap: 5px;\r\n  justify-items: end;\r\n}\r\n\r\n.provider-model-map-card {\r\n  display: grid;\r\n  gap: 8px;\r\n  padding: 9px 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.provider-model-map-head {\r\n  display: flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  min-width: 0;\r\n}\r\n\r\n.provider-model-map-pairs {\r\n  display: grid;\r\n  gap: 5px;\r\n}\r\n\r\n.provider-model-map-pair {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);\r\n  gap: 7px;\r\n  align-items: center;\r\n  padding: 6px 7px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n  font-size: 11px;\r\n}\r\n\r\n.provider-model-map-pair span,\r\n.provider-model-map-pair strong {\r\n  min-width: 0;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.provider-model-map-pair strong {\r\n  color: var(--text);\r\n  font-weight: 760;\r\n}\r\n\r\n.actions.tight {\r\n  gap: 4px;\r\n}\r\n\r\n.compact-action {\r\n  min-height: 30px;\r\n  padding: 0 9px;\r\n  font-size: 11.5px;\r\n}\r\n\r\n.pad-slim {\r\n  padding: 8px 2px 0;\r\n}\r\n\r\n.config-provider-list {\r\n  display: grid;\r\n  gap: 6px;\r\n  padding: 10px;\r\n}\r\n\r\n.config-summary {\r\n  padding: 14px;\r\n}\r\n\r\n.config-summary-compact {\r\n  padding: 10px;\r\n}\r\n\r\n.overlay-safety {\r\n  padding: 12px 0 0;\r\n}\r\n\r\n.config-summary-grid {\r\n  display: grid;\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 8px;\r\n}\r\n\r\n.config-status-grid {\r\n  grid-template-columns: repeat(2, minmax(0, 1fr));\r\n}\r\n\r\n.config-summary-compact .mini-metric {\r\n  padding: 8px;\r\n}\r\n\r\n.config-summary-compact .mini-metric strong {\r\n  font-size: 14px;\r\n}\r\n\r\n.config-path-row {\r\n  display: grid;\r\n  grid-template-columns: 110px minmax(0, 1fr);\r\n  gap: 10px;\r\n  margin-top: 8px;\r\n  padding: 8px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n  font-size: 12px;\r\n}\r\n\r\n.config-path-row span {\r\n  color: var(--muted);\r\n  font-weight: 720;\r\n}\r\n\r\n.config-path-row strong {\r\n  min-width: 0;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.config-provider-summary-card {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto auto;\r\n  gap: 7px 10px;\r\n  align-items: center;\r\n  min-height: 66px;\r\n  padding: 8px 10px;\r\n  border: 1px solid var(--line);\r\n  border-left: 3px solid var(--info);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.config-provider-summary-main,\r\n.config-provider-summary-keys,\r\n.config-provider-summary-formats {\r\n  min-width: 0;\r\n}\r\n\r\n.config-provider-summary-main {\r\n  grid-column: 1;\r\n  grid-row: 1;\r\n}\r\n\r\n.config-provider-summary-badges {\r\n  grid-column: 2;\r\n  grid-row: 1;\r\n  justify-self: end;\r\n  display: inline-flex;\r\n  flex-wrap: wrap;\r\n  justify-content: flex-end;\r\n  gap: 5px;\r\n}\r\n\r\n.config-provider-summary-keys,\r\n.config-provider-summary-formats {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.config-provider-summary-keys {\r\n  grid-column: 1;\r\n  grid-row: 2;\r\n}\r\n\r\n.config-provider-summary-formats {\r\n  grid-column: 2 / span 2;\r\n  grid-row: 2;\r\n  justify-self: end;\r\n}\r\n\r\n.config-provider-summary-card > .button {\r\n  grid-column: 3;\r\n  grid-row: 1;\r\n  justify-self: end;\r\n}\r\n\r\n.config-provider-summary-card .provider-name,\r\n.config-provider-summary-card .provider-meta {\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.audit-list {\r\n  display: grid;\r\n  gap: 8px;\r\n  max-height: 460px;\r\n  overflow: auto;\r\n  padding: 12px;\r\n}\r\n\r\n.audit-item {\r\n  min-width: 0;\r\n  padding: 9px 10px;\r\n  border: 1px solid var(--line);\r\n  border-left-width: 3px;\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n}\r\n\r\n.audit-item.tone-ok {\r\n  border-left-color: var(--success);\r\n}\r\n\r\n.audit-item.tone-bad {\r\n  border-left-color: var(--danger);\r\n}\r\n\r\n.audit-item-title {\r\n  display: flex;\r\n  min-width: 0;\r\n  gap: 8px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n}\r\n\r\n.audit-item-title .mono {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  font-size: 11.5px;\r\n}\r\n\r\n.audit-item-meta {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px 10px;\r\n  margin-top: 4px;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 700;\r\n}\r\n\r\n.audit-detail-details,\r\n.audit-older {\r\n  margin-top: 7px;\r\n}\r\n\r\n.audit-detail-details > summary,\r\n.audit-older > summary {\r\n  cursor: pointer;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 760;\r\n}\r\n\r\n.audit-older-list {\r\n  display: grid;\r\n  gap: 8px;\r\n  margin-top: 8px;\r\n}\r\n\r\n.audit-detail {\r\n  max-height: 120px;\r\n  margin: 6px 0 0;\r\n  overflow: auto;\r\n  padding: 8px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n  color: var(--text);\r\n  font: 11px/1.45 var(--mono);\r\n  white-space: pre-wrap;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.audit-error {\r\n  margin-top: 8px;\r\n  color: var(--danger);\r\n  font-size: 12px;\r\n  font-weight: 750;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.raw-config-details {\r\n  min-width: 0;\r\n  padding: 14px;\r\n}\r\n\r\n.raw-config-details .code-block {\r\n  margin-top: 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n}\r\n\r\n.config-advanced-panel {\r\n  min-width: 0;\r\n  background: color-mix(in srgb, var(--surface-raised) 66%, var(--surface));\r\n}\r\n\r\n.config-advanced-details {\r\n  min-width: 0;\r\n  padding: 13px 14px;\r\n}\r\n\r\n.config-advanced-details > summary {\r\n  display: grid;\r\n  gap: 2px;\r\n  cursor: pointer;\r\n  list-style: none;\r\n}\r\n\r\n.config-advanced-details > summary::-webkit-details-marker {\r\n  display: none;\r\n}\r\n\r\n.config-advanced-details > summary span {\r\n  color: var(--text);\r\n  font-size: 13px;\r\n  font-weight: 760;\r\n}\r\n\r\n.config-advanced-details > summary small {\r\n  color: var(--muted);\r\n  font-size: 11.5px;\r\n}\r\n\r\n.config-advanced-details > .actions {\r\n  margin-top: 12px;\r\n}\r\n\r\n.nested-details {\r\n  padding: 10px 0 0;\r\n}\r\n\r\n.config-provider-card {\r\n  display: grid;\r\n  gap: 12px;\r\n  padding: 14px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n}\r\n\r\n.config-provider-card:last-child {\r\n  border-bottom: 0;\r\n}\r\n\r\n.config-provider-head {\r\n  display: flex;\r\n  gap: 10px;\r\n  align-items: flex-start;\r\n  justify-content: space-between;\r\n}\r\n\r\n.config-provider-form,\r\n.config-key-form {\r\n  display: grid;\r\n  gap: 8px;\r\n}\r\n\r\n.field {\r\n  display: grid;\r\n  gap: 5px;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 720;\r\n}\r\n\r\n.field .control {\r\n  width: 100%;\r\n  font-weight: 500;\r\n  min-width: 0;\r\n}\r\n\r\n.check-field {\r\n  display: flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n  min-height: 28px;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-weight: 700;\r\n}\r\n\r\n.check-field input {\r\n  width: 15px;\r\n  height: 15px;\r\n  accent-color: var(--accent);\r\n}\r\n\r\n.masked-key-list {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n}\r\n\r\n.format-edit-list {\r\n  display: grid;\r\n  gap: 7px;\r\n}\r\n\r\n.format-edit-row {\r\n  display: grid;\r\n  grid-template-columns: minmax(156px, 0.8fr) minmax(130px, 1fr) auto;\r\n  gap: 7px;\r\n  align-items: center;\r\n}\r\n\r\n.format-edit-row .control {\r\n  width: 100%;\r\n}\r\n\r\n.drawer {\r\n  position: fixed;\r\n  top: 0;\r\n  right: 0;\r\n  width: min(580px, 100vw);\r\n  height: 100dvh;\r\n  border-left: 1px solid var(--line);\r\n  background: rgba(255, 255, 255, 0.75);\r\n  backdrop-filter: blur(30px) saturate(200%);\r\n  -webkit-backdrop-filter: blur(30px) saturate(200%);\r\n  box-shadow: -24px 0 60px rgba(9, 9, 11, 0);\r\n  transform: translateX(100%);\r\n  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 220ms ease;\r\n  z-index: 20;\r\n}\r\n\r\n.drawer.is-open {\r\n  transform: translateX(0);\r\n  box-shadow: -24px 0 60px rgba(9, 9, 11, 0.1);\r\n}\r\n\r\n#detailDrawer {\r\n  z-index: 36;\r\n}\r\n\r\n.drawer-head {\r\n  display: flex;\r\n  align-items: flex-start;\r\n  justify-content: space-between;\r\n  gap: 12px;\r\n  padding: 17px;\r\n  border-bottom: 1px solid var(--line);\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.drawer-head p {\r\n  margin-top: 4px;\r\n  color: var(--muted);\r\n  font-family: var(--mono);\r\n  font-size: 12px;\r\n}\r\n\r\n.drawer-body {\r\n  height: calc(100dvh - 74px);\r\n  overflow: auto;\r\n  padding: 15px;\r\n}\r\n\r\n.provider-drawer {\r\n  width: min(720px, 100vw);\r\n}\r\n\r\n.provider-drawer-body {\r\n  display: flex;\r\n  flex-direction: column;\r\n  min-height: 0;\r\n  overflow: hidden;\r\n  background:\r\n    radial-gradient(120% 180px at 50% 0, color-mix(in srgb, var(--info, #3b82f6) 7%, transparent) 0, transparent 70%),\r\n    var(--surface);\r\n}\r\n\r\n.provider-drawer-tabs {\r\n  position: relative;\r\n  top: auto;\r\n  flex: 0 0 auto;\r\n  z-index: 2;\r\n  display: grid;\r\n  grid-template-columns: repeat(5, minmax(0, 1fr));\r\n  gap: 5px;\r\n  padding: 4px 0 8px;\r\n  background: color-mix(in srgb, var(--surface) 88%, transparent);\r\n  backdrop-filter: blur(14px) saturate(1.3);\r\n  -webkit-backdrop-filter: blur(14px) saturate(1.3);\r\n}\r\n\r\n.provider-drawer-tab {\r\n  min-width: 0;\r\n  min-height: 32px;\r\n  padding: 0 8px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 9px;\r\n  background: var(--surface);\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 760;\r\n  cursor: pointer;\r\n  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 0.06s ease;\r\n}\r\n\r\n.provider-drawer-tab:hover {\r\n  border-color: color-mix(in srgb, var(--info, #3b82f6) 32%, var(--line));\r\n  background: color-mix(in srgb, var(--info, #3b82f6) 6%, var(--surface));\r\n  color: var(--text);\r\n}\r\n\r\n.provider-drawer-tab:active {\r\n  transform: translateY(1px);\r\n}\r\n\r\n.provider-drawer-tab.is-active {\r\n  border-color: color-mix(in srgb, var(--info, #3b82f6) 55%, var(--line));\r\n  background: color-mix(in srgb, var(--info, #3b82f6) 14%, var(--surface));\r\n  color: color-mix(in srgb, var(--info, #3b82f6) 90%, var(--text));\r\n  box-shadow: 0 0 0 1px color-mix(in srgb, var(--info, #3b82f6) 18%, transparent) inset;\r\n}\r\n\r\n.provider-drawer-section {\r\n  display: grid;\r\n  flex: 1 1 auto;\r\n  gap: 12px;\r\n  align-content: start;\r\n  grid-auto-rows: max-content;\r\n  overflow: auto;\r\n  min-width: 0;\r\n  min-height: 0;\r\n  margin-top: 10px;\r\n  padding-right: 2px;\r\n}\r\n\r\n.provider-models-actions {\r\n  display: flex;\r\n  justify-content: flex-end;\r\n  min-width: 0;\r\n  margin-top: -2px;\r\n}\r\n\r\n.provider-detail-hero {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  gap: 12px;\r\n  align-items: center;\r\n  padding: 14px;\r\n  border: 1px solid var(--line);\r\n  border-top: 3px solid var(--neutral);\r\n  border-radius: 10px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.provider-detail-hero.is-available {\r\n  border-top-color: var(--success);\r\n}\r\n\r\n.provider-detail-hero.is-degraded,\r\n.provider-detail-hero.is-cooldown {\r\n  border-top-color: var(--warning);\r\n}\r\n\r\n.provider-detail-hero.is-unavailable {\r\n  border-top-color: var(--danger);\r\n}\r\n\r\n.provider-detail-hero.is-disabled {\r\n  border-top-color: var(--faint);\r\n}\r\n\r\n.provider-detail-hero > div:first-child {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  gap: 3px 8px;\r\n  align-items: center;\r\n  min-width: 0;\r\n}\r\n\r\n.provider-detail-hero strong,\r\n.provider-detail-hero p {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-detail-hero p {\r\n  grid-column: 2;\r\n  margin: 0;\r\n  color: var(--muted);\r\n  font-family: var(--mono);\r\n  font-size: 11px;\r\n}\r\n\r\n.provider-detail-metrics {\r\n  display: grid;\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 8px;\r\n  align-items: start;\r\n  grid-auto-rows: max-content;\r\n}\r\n\r\n.provider-detail-metrics .mini-metric {\r\n  align-self: start;\r\n}\r\n\r\n.provider-detail-metrics .mini-metric span,\r\n.provider-detail-metrics .mini-metric strong,\r\n.provider-detail-metrics .mini-metric small {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-activity-list,\r\n.provider-probe-list,\r\n.provider-route-list {\r\n  display: grid;\r\n  gap: 7px;\r\n}\r\n\r\n.provider-activity-row,\r\n.provider-route-card {\r\n  display: grid;\r\n  min-width: 0;\r\n  align-items: center;\r\n  gap: 8px;\r\n  padding: 9px 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.provider-activity-row {\r\n  grid-template-columns: 10px minmax(140px, 1.05fr) minmax(132px, 0.8fr) minmax(86px, auto) minmax(64px, auto);\r\n  width: 100%;\r\n  min-height: 38px;\r\n  padding: 7px 10px;\r\n  border-color: #edf1f5;\r\n  border-radius: 8px;\r\n  background: #fff;\r\n  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.035);\r\n  color: var(--text);\r\n  text-align: left;\r\n  cursor: pointer;\r\n}\r\n\r\n.provider-activity-row:hover {\r\n  border-color: #dce5ef;\r\n  background: #fbfcfd;\r\n  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.045);\r\n}\r\n\r\n.provider-activity-row strong,\r\n.provider-activity-row span,\r\n.provider-activity-row small,\r\n.provider-activity-row em,\r\n.provider-route-card strong,\r\n.provider-route-card small {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-activity-row small {\r\n  color: #7b8491;\r\n  font-family: var(--mono);\r\n  font-size: 10.5px;\r\n}\r\n\r\n.provider-activity-row strong {\r\n  color: #1f2937;\r\n  font-size: 12px;\r\n  font-weight: 760;\r\n}\r\n\r\n.provider-activity-status {\r\n  justify-self: start;\r\n  min-height: 20px;\r\n  padding: 2px 8px;\r\n  border-radius: 6px;\r\n  background: #f4f8f6;\r\n  color: var(--success);\r\n  font-size: 10.5px;\r\n  font-weight: 740;\r\n}\r\n\r\n.provider-activity-row.warn .provider-activity-status {\r\n  background: color-mix(in srgb, var(--warning) 10%, #fff);\r\n  color: var(--warning);\r\n}\r\n\r\n.provider-activity-row.bad .provider-activity-status {\r\n  background: color-mix(in srgb, var(--danger) 10%, #fff);\r\n  color: var(--danger);\r\n}\r\n\r\n.provider-activity-row em {\r\n  color: #4b5563;\r\n  font-family: var(--mono);\r\n  font-size: 10.5px;\r\n  font-weight: 680;\r\n  font-style: normal;\r\n  text-align: right;\r\n}\r\n\r\n.provider-probe-row {\r\n  display: grid;\r\n  grid-template-columns: 10px minmax(118px, 1.1fr) minmax(128px, 1fr) minmax(64px, auto);\r\n  grid-template-areas:\r\n    \"dot reason model timing\"\r\n    \". meta action action\"\r\n    \". tier next time\";\r\n  align-items: center;\r\n  gap: 5px 9px;\r\n  min-width: 0;\r\n  padding: 9px 10px;\r\n  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);\r\n  border-radius: 8px;\r\n  background:\r\n    linear-gradient(180deg, color-mix(in srgb, var(--surface) 96%, #fff), var(--surface));\r\n  color: var(--text);\r\n  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);\r\n}\r\n\r\n.provider-probe-row .provider-status-dot {\r\n  grid-area: dot;\r\n  align-self: start;\r\n  margin-top: 3px;\r\n}\r\n\r\n.provider-probe-row strong,\r\n.provider-probe-row span,\r\n.provider-probe-row small,\r\n.provider-probe-row em,\r\n.provider-probe-row b {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-probe-row strong {\r\n  grid-area: reason;\r\n  color: #162033;\r\n  font-size: 12px;\r\n  font-weight: 760;\r\n  line-height: 1.2;\r\n}\r\n\r\n.provider-probe-row > span:not(.provider-status-dot):not(.probe-tier-badge):not(.probe-next-badge):not(.probe-time-badge) {\r\n  grid-area: model;\r\n  color: #526176;\r\n  font-size: 10.5px;\r\n}\r\n\r\n.provider-probe-row small {\r\n  grid-area: meta;\r\n}\r\n\r\n.provider-probe-row em {\r\n  grid-area: action;\r\n}\r\n\r\n.provider-probe-row span,\r\n.provider-probe-row small,\r\n.provider-probe-row em,\r\n.provider-probe-row b {\r\n  color: var(--muted);\r\n  font-family: var(--mono);\r\n  font-size: 10.5px;\r\n  font-style: normal;\r\n}\r\n\r\n.provider-probe-row b {\r\n  grid-area: timing;\r\n  color: var(--text);\r\n  font-size: 11px;\r\n  font-weight: 720;\r\n  text-align: right;\r\n}\r\n\r\n.provider-probe-row.tone-ok {\r\n  border-color: color-mix(in srgb, var(--success) 18%, var(--line));\r\n  background:\r\n    linear-gradient(90deg, color-mix(in srgb, var(--success) 7%, transparent), transparent 42%),\r\n    var(--surface);\r\n}\r\n\r\n.provider-probe-row.tone-warn {\r\n  border-color: color-mix(in srgb, var(--warning) 20%, var(--line));\r\n  background:\r\n    linear-gradient(90deg, color-mix(in srgb, var(--warning) 7%, transparent), transparent 42%),\r\n    var(--surface);\r\n}\r\n\r\n.provider-probe-row.tone-bad {\r\n  border-color: color-mix(in srgb, var(--danger) 18%, var(--line));\r\n  background:\r\n    linear-gradient(90deg, color-mix(in srgb, var(--danger) 7%, transparent), transparent 42%),\r\n    var(--surface);\r\n}\r\n\r\n.probe-tier-badge {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  min-width: 0;\r\n  padding: 2px 7px;\r\n  border-radius: 6px;\r\n  font-size: 10px;\r\n  font-weight: 600;\r\n  letter-spacing: 0;\r\n  white-space: nowrap;\r\n  flex-shrink: 0;\r\n  border: 1px solid transparent;\r\n}\r\n.probe-tier-badge.tone-neutral {\r\n  background: #f4f6f8;\r\n  border-color: #e7ebef;\r\n  color: var(--muted);\r\n}\r\n.probe-tier-badge.tone-ok {\r\n  background: color-mix(in srgb, var(--success) 12%, #fff);\r\n  border-color: color-mix(in srgb, var(--success) 18%, #e7ebef);\r\n  color: var(--success);\r\n}\r\n.probe-tier-badge.tone-warn {\r\n  background: color-mix(in srgb, var(--warning) 13%, #fff);\r\n  border-color: color-mix(in srgb, var(--warning) 20%, #e7ebef);\r\n  color: var(--warning);\r\n}\r\n.probe-tier-badge.tone-soft {\r\n  background: color-mix(in srgb, var(--warning) 8%, #fff);\r\n  border-color: color-mix(in srgb, var(--warning) 14%, #e7ebef);\r\n  color: color-mix(in srgb, var(--warning) 70%, var(--muted));\r\n}\r\n.provider-probe-row .probe-tier-badge {\r\n  grid-area: tier;\r\n  justify-self: start;\r\n}\r\n.probe-next-badge {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  padding: 2px 7px;\r\n  border-radius: 6px;\r\n  font-size: 10px;\r\n  font-weight: 500;\r\n  white-space: nowrap;\r\n  flex-shrink: 0;\r\n  background: #f2f5f8;\r\n  color: #536174;\r\n  font-family: var(--mono);\r\n  border: 1px solid #e5eaf0;\r\n}\r\n.provider-probe-row .probe-next-badge {\r\n  grid-area: next;\r\n  justify-self: start;\r\n}\r\n.probe-time-badge {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  padding: 2px 7px;\r\n  border-radius: 6px;\r\n  font-size: 10px;\r\n  font-weight: 500;\r\n  white-space: nowrap;\r\n  flex-shrink: 0;\r\n  background: #f7f8fa;\r\n  color: #6b7584;\r\n  font-family: var(--mono);\r\n  border: 1px solid #e8edf2;\r\n}\r\n.provider-probe-row .probe-time-badge {\r\n  grid-area: time;\r\n  justify-self: end;\r\n}\r\n.idle-state-bar {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 6px;\r\n  padding: 8px 10px;\r\n  margin-bottom: 8px;\r\n  border-radius: 8px;\r\n  font-size: 12px;\r\n  background: #f8fafc;\r\n  border: 1px solid #e8edf2;\r\n  color: #455266;\r\n}\r\n.idle-state-bar .icon-svg {\r\n  width: 14px;\r\n  height: 14px;\r\n  opacity: 0.6;\r\n  flex-shrink: 0;\r\n}\r\n.idle-state-tier {\r\n  font-weight: 600;\r\n  padding: 2px 7px;\r\n  border-radius: 6px;\r\n  font-size: 11px;\r\n  border: 1px solid transparent;\r\n}\r\n.idle-state-tier.tone-neutral {\r\n  background: #f4f6f8;\r\n  border-color: #e7ebef;\r\n  color: var(--muted);\r\n}\r\n.idle-state-tier.tone-ok {\r\n  background: color-mix(in srgb, var(--success) 12%, #fff);\r\n  border-color: color-mix(in srgb, var(--success) 18%, #e7ebef);\r\n  color: var(--success);\r\n}\r\n.idle-state-tier.tone-warn {\r\n  background: color-mix(in srgb, var(--warning) 13%, #fff);\r\n  border-color: color-mix(in srgb, var(--warning) 20%, #e7ebef);\r\n  color: var(--warning);\r\n}\r\n.idle-state-tier.tone-soft {\r\n  background: color-mix(in srgb, var(--warning) 8%, #fff);\r\n  border-color: color-mix(in srgb, var(--warning) 14%, #e7ebef);\r\n  color: color-mix(in srgb, var(--warning) 70%, var(--muted));\r\n}\r\n.idle-state-sep {\r\n  color: var(--muted);\r\n  opacity: 0.4;\r\n}\r\n.idle-state-cadence {\r\n  color: #334155;\r\n  font-family: var(--mono);\r\n  font-size: 11px;\r\n}\r\n.idle-state-idle {\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n}\r\n\r\n.provider-route-card {\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n}\r\n\r\n.provider-route-card small {\r\n  display: block;\r\n  margin-top: 2px;\r\n  color: var(--muted);\r\n  font-family: var(--mono);\r\n  font-size: 11px;\r\n}\r\n\r\n.drawer-key-list,\r\n.drawer-format-list,\r\n.provider-drawer-models {\r\n  padding: 0;\r\n}\r\n\r\n.provider-danger-zone {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  gap: 10px;\r\n  align-items: center;\r\n  padding: 12px;\r\n  border: 1px solid color-mix(in srgb, var(--danger) 22%, var(--line));\r\n  border-radius: 10px;\r\n  background: color-mix(in srgb, var(--danger-soft) 52%, var(--surface));\r\n}\r\n\r\n.provider-danger-zone p {\r\n  margin: 2px 0 0;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.provider-danger-zone .icon-action {\r\n  width: 36px;\r\n  min-width: 36px;\r\n  height: 36px;\r\n}\r\n\r\n.confirm-backdrop {\r\n  position: fixed;\r\n  inset: 0;\r\n  z-index: 38;\r\n  background: rgba(9, 9, 11, 0.32);\r\n  backdrop-filter: blur(3px);\r\n}\r\n\r\n.confirm-dialog {\r\n  position: fixed;\r\n  top: 50%;\r\n  left: 50%;\r\n  z-index: 39;\r\n  width: min(420px, calc(100vw - 32px));\r\n  display: grid;\r\n  gap: 18px;\r\n  padding: 18px;\r\n  border: 1px solid var(--line-strong);\r\n  border-radius: 12px;\r\n  background: var(--surface);\r\n  box-shadow: 0 24px 64px rgba(9, 9, 11, 0.2);\r\n  transform: translate(-50%, -48%) scale(0.98);\r\n  opacity: 0;\r\n  pointer-events: none;\r\n  transition: opacity 120ms ease, transform 120ms ease;\r\n}\r\n\r\n.confirm-dialog.is-open {\r\n  transform: translate(-50%, -50%) scale(1);\r\n  opacity: 1;\r\n  pointer-events: auto;\r\n}\r\n\r\n.confirm-head {\r\n  display: grid;\r\n  grid-template-columns: 34px minmax(0, 1fr);\r\n  gap: 12px;\r\n  align-items: start;\r\n}\r\n\r\n.confirm-tone {\r\n  position: relative;\r\n  width: 34px;\r\n  height: 34px;\r\n  border: 1px solid color-mix(in srgb, var(--danger) 24%, white);\r\n  border-radius: 9px;\r\n  background: var(--danger-soft);\r\n}\r\n\r\n.confirm-tone::before {\r\n  position: absolute;\r\n  top: 8px;\r\n  left: 16px;\r\n  width: 2px;\r\n  height: 11px;\r\n  border-radius: 999px;\r\n  background: var(--danger);\r\n  content: \"\";\r\n}\r\n\r\n.confirm-tone::after {\r\n  position: absolute;\r\n  left: 16px;\r\n  bottom: 8px;\r\n  width: 2px;\r\n  height: 2px;\r\n  border-radius: 999px;\r\n  background: var(--danger);\r\n  content: \"\";\r\n}\r\n\r\n.confirm-dialog h2 {\r\n  margin: 0;\r\n  font-size: 15px;\r\n  letter-spacing: 0;\r\n}\r\n\r\n.confirm-dialog p {\r\n  margin: 5px 0 0;\r\n  color: var(--muted);\r\n  line-height: 1.45;\r\n}\r\n\r\n.confirm-actions {\r\n  display: flex;\r\n  justify-content: flex-end;\r\n  gap: 8px;\r\n}\r\n\r\n/* ---- Form modal (Add Provider, etc.) ---- */\r\n.form-modal {\r\n  position: fixed;\r\n  top: 50%;\r\n  left: 50%;\r\n  transform: translate(-50%, -48%) scale(0.97);\r\n  width: min(540px, calc(100vw - 32px));\r\n  max-height: calc(100dvh - 48px);\r\n  display: flex;\r\n  flex-direction: column;\r\n  border: 1px solid var(--line);\r\n  border-radius: 14px;\r\n  background: var(--surface);\r\n  box-shadow: 0 24px 64px rgba(9, 9, 11, 0.2);\r\n  z-index: 39;\r\n  opacity: 0;\r\n  pointer-events: none;\r\n  transition: opacity 180ms ease, transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);\r\n}\r\n\r\n.form-modal.is-open {\r\n  opacity: 1;\r\n  pointer-events: auto;\r\n  transform: translate(-50%, -50%) scale(1);\r\n}\r\n\r\n.form-modal-head {\r\n  display: flex;\r\n  align-items: flex-start;\r\n  justify-content: space-between;\r\n  gap: 12px;\r\n  padding: 18px 20px 14px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n}\r\n\r\n.form-modal-head h2 {\r\n  font-size: 16px;\r\n  font-weight: 780;\r\n}\r\n\r\n.form-modal-head p {\r\n  margin-top: 3px;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.form-modal-body {\r\n  padding: 18px 20px;\r\n  overflow: auto;\r\n  display: grid;\r\n  gap: 14px;\r\n}\r\n\r\n.form-modal .provider-create-form {\r\n  display: grid;\r\n  gap: 12px;\r\n}\r\n\r\n.form-modal .provider-create-form .form-field-inline {\r\n  display: grid;\r\n  grid-template-columns: 1fr;\r\n  gap: 6px;\r\n}\r\n\r\n.form-modal .provider-create-form .form-row-2 {\r\n  display: grid;\r\n  grid-template-columns: 1fr 1fr;\r\n  gap: 10px;\r\n}\r\n\r\n.form-modal .provider-create-form details {\r\n  border-top: 1px solid var(--line-soft);\r\n  padding-top: 10px;\r\n  margin-top: 4px;\r\n}\r\n\r\n.form-modal .provider-create-form summary {\r\n  cursor: pointer;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 720;\r\n  user-select: none;\r\n  padding: 2px 0;\r\n}\r\n\r\n.form-modal .form-actions {\r\n  display: flex;\r\n  justify-content: flex-end;\r\n  gap: 8px;\r\n  border-top: 1px solid var(--line-soft);\r\n  padding-top: 14px;\r\n  margin-top: 4px;\r\n}\r\n\r\n.form-modal.is-model-map-modal,\r\n.form-modal.is-format-path-modal {\r\n  width: min(480px, calc(100vw - 32px));\r\n}\r\n\r\n.form-modal.is-model-map-modal .form-modal-body,\r\n.form-modal.is-format-path-modal .form-modal-body {\r\n  padding-top: 16px;\r\n}\r\n\r\n.model-map-form,\r\n.format-path-form {\r\n  display: grid;\r\n  gap: 14px;\r\n}\r\n\r\n.model-map-field,\r\n.format-path-field {\r\n  display: grid;\r\n  gap: 7px;\r\n}\r\n\r\n.model-map-field span,\r\n.model-map-raw-line span,\r\n.format-path-field span {\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 720;\r\n}\r\n\r\n.model-map-field input,\r\n.format-path-field input {\r\n  width: 100%;\r\n  min-width: 0;\r\n  height: 42px;\r\n  padding: 0 12px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  font: 13px var(--mono-font, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", monospace);\r\n}\r\n\r\n.model-map-field input:focus,\r\n.format-path-field input:focus {\r\n  border-color: color-mix(in srgb, var(--info) 70%, var(--line));\r\n  outline: 3px solid color-mix(in srgb, var(--info-soft) 80%, transparent);\r\n}\r\n\r\n.model-map-raw-line {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  align-items: center;\r\n  gap: 10px;\r\n  min-height: 38px;\r\n  padding: 8px 10px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--surface-muted) 72%, transparent);\r\n}\r\n\r\n.model-map-raw-line code {\r\n  min-width: 0;\r\n  justify-self: end;\r\n  overflow-wrap: anywhere;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  text-align: right;\r\n}\r\n\r\n.model-map-hint {\r\n  margin: -2px 0 0;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.format-path-summary {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  align-items: center;\r\n  gap: 10px;\r\n  padding: 10px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--surface-muted) 72%, transparent);\r\n}\r\n\r\n.format-path-summary > div {\r\n  display: grid;\r\n  gap: 3px;\r\n  min-width: 0;\r\n}\r\n\r\n.format-path-summary strong,\r\n.format-path-summary code {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.format-path-summary strong {\r\n  color: var(--text);\r\n  font-size: 13px;\r\n  font-weight: 780;\r\n}\r\n\r\n.format-path-summary code {\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.format-path-state {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  width: 28px;\r\n  height: 28px;\r\n  border-radius: 8px;\r\n  border: 1px solid var(--line);\r\n  color: var(--muted);\r\n  background: var(--surface);\r\n}\r\n\r\n.format-path-state.is-enabled {\r\n  border-color: color-mix(in srgb, var(--success) 48%, var(--line));\r\n  color: var(--success);\r\n  background: color-mix(in srgb, var(--success-soft) 76%, var(--surface));\r\n}\r\n\r\n.format-path-state.is-disabled {\r\n  border-color: color-mix(in srgb, var(--danger) 42%, var(--line));\r\n  color: var(--danger);\r\n  background: color-mix(in srgb, var(--danger-soft) 76%, var(--surface));\r\n}\r\n\r\n.format-path-hint {\r\n  margin: -4px 0 0;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  line-height: 1.45;\r\n}\r\n\r\n.model-map-actions {\r\n  display: flex;\r\n  justify-content: flex-end;\r\n  gap: 8px;\r\n  padding-top: 12px;\r\n  border-top: 1px solid var(--line-soft);\r\n}\r\n\r\n.model-map-action {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  width: 36px;\r\n  height: 36px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  color: var(--muted);\r\n  cursor: pointer;\r\n}\r\n\r\n.model-map-action:hover {\r\n  color: var(--text);\r\n  background: var(--surface-muted);\r\n}\r\n\r\n.model-map-action.primary {\r\n  border-color: color-mix(in srgb, var(--info) 42%, var(--line));\r\n  background: var(--text);\r\n  color: var(--surface);\r\n}\r\n\r\n.model-map-action.primary:hover {\r\n  background: color-mix(in srgb, var(--text) 88%, var(--info));\r\n}\r\n\r\n.mobile-settings-body {\r\n  display: grid;\r\n  gap: 16px;\r\n  height: calc(100dvh - 74px);\r\n  align-content: start;\r\n  overflow: auto;\r\n  padding: 15px;\r\n}\r\n\r\n.mobile-settings-section {\r\n  display: grid;\r\n  gap: 10px;\r\n  align-content: start;\r\n}\r\n\r\n.mobile-settings-section-title {\r\n  margin: 0;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 780;\r\n  letter-spacing: 0;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.drawer-section-title {\r\n  margin: 10px 0 10px;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 780;\r\n}\r\n\r\n.drawer-section-hint {\r\n  margin-left: 6px;\r\n  color: var(--muted);\r\n  font-size: 10px;\r\n  font-weight: 600;\r\n  opacity: 0.7;\r\n  letter-spacing: 0.01em;\r\n}\r\n\r\n.provider-formats-group {\r\n  margin-top: 14px;\r\n  padding-top: 12px;\r\n  border-top: 1px solid var(--line-soft);\r\n}\r\n\r\n.provider-formats-group .format-route-list {\r\n  margin-top: 2px;\r\n}\r\n\r\n.drawer-kv {\r\n  padding: 13px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.routing-summary-card {\r\n  display: grid;\r\n  gap: 12px;\r\n  margin-bottom: 12px;\r\n  padding: 14px;\r\n  border: 1px solid var(--line);\r\n  border-left: 3px solid var(--neutral);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.routing-summary-card.tone-ok {\r\n  border-left-color: var(--success);\r\n}\r\n\r\n.routing-summary-card.tone-warn {\r\n  border-left-color: var(--warning);\r\n}\r\n\r\n.routing-summary-card.tone-bad {\r\n  border-left-color: var(--danger);\r\n}\r\n\r\n.routing-summary-head {\r\n  display: flex;\r\n  align-items: flex-start;\r\n  justify-content: space-between;\r\n  gap: 12px;\r\n}\r\n\r\n.routing-summary-head h3 {\r\n  margin: 0 0 5px;\r\n  color: var(--text);\r\n  font-size: 14px;\r\n}\r\n\r\n.routing-summary-head p {\r\n  margin: 0;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  line-height: 1.5;\r\n}\r\n\r\n.routing-summary-card .badge,\r\n.routing-summary-card .message-chip {\r\n  justify-self: start;\r\n  width: fit-content;\r\n  max-width: 100%;\r\n}\r\n\r\n.routing-summary-card .chip-list {\r\n  justify-content: flex-start;\r\n}\r\n\r\n.routing-summary-grid,\r\n.routing-next-action {\r\n  display: grid;\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 8px;\r\n}\r\n\r\n.routing-summary-grid span,\r\n.routing-next-action span {\r\n  display: block;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 760;\r\n}\r\n\r\n.routing-summary-grid strong,\r\n.routing-next-action strong {\r\n  display: block;\r\n  min-width: 0;\r\n  overflow-wrap: anywhere;\r\n  color: var(--text);\r\n  font-family: var(--mono);\r\n  font-size: 12px;\r\n}\r\n\r\n.routing-next-action {\r\n  grid-template-columns: 86px minmax(0, 1fr);\r\n  align-items: start;\r\n  padding-top: 10px;\r\n  border-top: 1px solid var(--line);\r\n}\r\n\r\n.route-inline {\r\n  display: grid;\r\n  gap: 5px;\r\n  min-width: 220px;\r\n  max-width: 360px;\r\n}\r\n\r\n.route-inline .badge {\r\n  width: fit-content;\r\n}\r\n\r\n.route-inline .message-text {\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  line-height: 1.35;\r\n}\r\n\r\n.attempt {\r\n  display: grid;\r\n  gap: 9px;\r\n  margin-bottom: 10px;\r\n  padding: 13px;\r\n  border: 1px solid var(--line);\r\n  border-left: 3px solid var(--neutral);\r\n  border-radius: 8px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.attempt.tone-success,\r\n.attempt.tone-ok {\r\n  border-color: color-mix(in srgb, var(--ok) 40%, var(--line));\r\n  border-left-color: var(--success);\r\n}\r\n\r\n.attempt.tone-warn,\r\n.attempt.tone-compat {\r\n  border-color: color-mix(in srgb, var(--warn) 46%, var(--line));\r\n  border-left-color: var(--warning);\r\n}\r\n\r\n.attempt.tone-danger,\r\n.attempt.tone-bad {\r\n  border-color: color-mix(in srgb, var(--bad) 42%, var(--line));\r\n  border-left-color: var(--danger);\r\n}\r\n\r\n.attempt-head {\r\n  display: flex;\r\n  justify-content: space-between;\r\n  gap: 8px;\r\n}\r\n\r\n.attempt-explain {\r\n  display: grid;\r\n  gap: 7px;\r\n  padding: 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n}\r\n\r\n.attempt-explain div {\r\n  display: grid;\r\n  grid-template-columns: 74px minmax(0, 1fr);\r\n  gap: 8px;\r\n}\r\n\r\n.attempt-explain span {\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 760;\r\n}\r\n\r\n.attempt-explain strong {\r\n  min-width: 0;\r\n  overflow-wrap: anywhere;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-weight: 680;\r\n  line-height: 1.45;\r\n}\r\n\r\n.kv-grid {\r\n  display: grid;\r\n  grid-template-columns: 128px minmax(0, 1fr);\r\n  gap: 7px 11px;\r\n  font-size: 12px;\r\n}\r\n\r\n.kv-grid span:nth-child(odd) {\r\n  color: var(--muted);\r\n}\r\n\r\n.kv-grid span:nth-child(even) {\r\n  min-width: 0;\r\n  overflow-wrap: anywhere;\r\n  font-family: var(--mono);\r\n}\r\n\r\n@keyframes viewIn {\r\n  from {\r\n    opacity: 0;\r\n    transform: translateY(4px);\r\n  }\r\n  to {\r\n    opacity: 1;\r\n    transform: translateY(0);\r\n  }\r\n}\r\n\r\n@keyframes drawLine {\r\n  to {\r\n    stroke-dashoffset: 0;\r\n  }\r\n}\r\n\r\n@keyframes barRise {\r\n  from {\r\n    opacity: 0;\r\n    transform: scaleY(0.2);\r\n  }\r\n  to {\r\n    opacity: 1;\r\n    transform: scaleY(1);\r\n  }\r\n}\r\n\r\n/* Modern overview pass: reduce table-like borders and make the dashboard read as a runtime product surface. */\r\n:root {\r\n  --bg: #eef4fb;\r\n  --surface: #ffffff;\r\n  --surface-raised: #f8fbff;\r\n  --surface-soft: #eef5ff;\r\n  --surface-strong: #dce8f6;\r\n  --sidebar: #ffffff;\r\n  --sidebar-soft: #edf5ff;\r\n  --line: #e3edf8;\r\n  --line-soft: #eef4fb;\r\n  --line-strong: #cfdded;\r\n  --text: #111827;\r\n  --muted: #637083;\r\n  --faint: #8994a6;\r\n  --accent: #2563eb;\r\n  --accent-strong: #1d4ed8;\r\n  --accent-soft: #e7f0ff;\r\n  --success: #10b981;\r\n  --success-soft: #e8f8f1;\r\n  --warning: #d97706;\r\n  --warning-soft: #fff4df;\r\n  --danger: #e5485d;\r\n  --danger-soft: #ffedf0;\r\n  --info: #20d264;\r\n  --info-soft: #e8f2ff;\r\n  --compat: #8b5cf6;\r\n  --compat-soft: #f2edff;\r\n  --metric-neutral: #334155;\r\n  --metric-requests: #2563eb;\r\n  --metric-success: #12a474;\r\n  --metric-failure: #e5485d;\r\n  --metric-provider: #0ea5e9;\r\n  --metric-token: #8b5cf6;\r\n  --metric-cost: #d97706;\r\n  --pmc-accent: #2563eb;\r\n  --pmc-green: #12a474;\r\n  --pmc-amber: #d97706;\r\n  --pmc-red: #e5485d;\r\n  --shadow: 0 12px 30px rgba(31, 56, 88, 0.07);\r\n  --shadow-tight: 0 18px 44px rgba(31, 56, 88, 0.11);\r\n}\r\n\r\nbody {\r\n  background:\r\n    linear-gradient(180deg, #f7fbff 0, #eef5fc 330px, #f6f8fb 100%);\r\n}\r\n\r\n.shell {\r\n  grid-template-columns: 248px minmax(0, 1fr);\r\n}\r\n\r\n.sidebar {\r\n  border-right: 0;\r\n  background:\r\n    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 253, 255, 0.96)),\r\n    var(--sidebar);\r\n  box-shadow: 18px 0 46px rgba(31, 56, 88, 0.08);\r\n}\r\n\r\n.sidebar::after {\r\n  right: 0;\r\n  width: 1px;\r\n  background: linear-gradient(180deg, rgba(37, 99, 235, 0.18), rgba(37, 99, 235, 0.04));\r\n}\r\n\r\n.brand {\r\n  padding: 26px 20px 18px;\r\n  border-bottom: 0;\r\n}\r\n\r\n.brand-mark,\r\n.login-mark {\r\n  border-radius: 11px;\r\n  background: linear-gradient(135deg, #2563eb, #0ea5e9);\r\n  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.22);\r\n}\r\n\r\n.brand-title {\r\n  font-size: 15px;\r\n  font-weight: 800;\r\n}\r\n\r\n.nav {\r\n  gap: 6px;\r\n  padding: 12px 14px;\r\n}\r\n\r\n.nav-item {\r\n  min-height: 42px;\r\n  padding: 10px 13px;\r\n  border: 0;\r\n  border-radius: 14px;\r\n  color: #4b5565;\r\n  font-weight: 650;\r\n}\r\n\r\n.nav-item:hover {\r\n  background: rgba(37, 99, 235, 0.06);\r\n  color: var(--accent-strong);\r\n  box-shadow: none;\r\n}\r\n\r\n.nav-item.is-active {\r\n  border: 0;\r\n  background: var(--accent-soft);\r\n  color: var(--accent-strong);\r\n  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.08);\r\n}\r\n\r\n.sidebar-actions {\r\n  gap: 10px;\r\n  padding: 14px 16px 10px;\r\n}\r\n\r\n.button {\r\n  border-radius: 11px;\r\n}\r\n\r\n.button.primary {\r\n  border-color: var(--accent);\r\n  background: var(--accent);\r\n  color: #fff;\r\n  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);\r\n}\r\n\r\n.button.primary:hover {\r\n  border-color: var(--accent-strong);\r\n  background: var(--accent-strong);\r\n  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);\r\n}\r\n\r\n.button.secondary {\r\n  border-color: rgba(148, 163, 184, 0.24);\r\n  background: rgba(255, 255, 255, 0.82);\r\n}\r\n\r\n.workspace {\r\n  max-width: 1480px;\r\n  padding: 24px 44px 48px;\r\n}\r\n\r\n.time-range-control {\r\n  width: fit-content;\r\n  max-width: 100%;\r\n  margin: 0 0 18px auto;\r\n  padding: 8px 10px 8px 14px;\r\n  border: 0;\r\n  border-radius: 18px;\r\n  background: rgba(255, 255, 255, 0.86);\r\n  box-shadow: 0 12px 30px rgba(31, 56, 88, 0.08), inset 0 0 0 1px rgba(207, 221, 237, 0.7);\r\n}\r\n\r\n.time-range-control .eyebrow {\r\n  color: var(--accent);\r\n}\r\n\r\n.time-range-control strong {\r\n  color: var(--text);\r\n}\r\n\r\n.segmented-control {\r\n  border: 0;\r\n  border-radius: 14px;\r\n  background: #edf4fb;\r\n  box-shadow: inset 0 0 0 1px rgba(207, 221, 237, 0.62);\r\n}\r\n\r\n.segmented-button {\r\n  min-height: 34px;\r\n  border-radius: 11px;\r\n}\r\n\r\n.segmented-button.is-active {\r\n  background: #ffffff;\r\n  color: var(--accent-strong);\r\n  box-shadow: 0 8px 18px rgba(31, 56, 88, 0.08);\r\n}\r\n\r\n.overview-visuals {\r\n  grid-template-columns: minmax(280px, 1.35fr) repeat(4, minmax(132px, 1fr));\r\n  gap: 16px;\r\n  margin: 0 0 22px;\r\n  min-width: 0;\r\n}\r\n\r\n.visual-card {\r\n  grid-template-columns: 44px minmax(0, 1fr);\r\n  min-height: 122px;\r\n  gap: 12px;\r\n  padding: 16px;\r\n  min-width: 0;\r\n  border: 0;\r\n  border-radius: 22px;\r\n  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(250, 253, 255, 0.94));\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.visual-card:hover {\r\n  transform: translateY(-1px);\r\n  box-shadow: var(--shadow-tight);\r\n}\r\n\r\n.visual-card-icon,\r\n.visual-ring {\r\n  width: 44px;\r\n  height: 44px;\r\n  border: 0;\r\n  border-radius: 16px;\r\n}\r\n\r\n.visual-card-icon {\r\n  background: var(--surface-soft);\r\n}\r\n\r\n.visual-card-icon.tone-info {\r\n  background: var(--info-soft);\r\n}\r\n\r\n.visual-card-icon.tone-success {\r\n  background: var(--success-soft);\r\n}\r\n\r\n.visual-card-icon.tone-warning {\r\n  background: var(--warning-soft);\r\n}\r\n\r\n.visual-card-icon.tone-danger {\r\n  background: var(--danger-soft);\r\n}\r\n\r\n.visual-card-icon.tone-compat {\r\n  background: var(--compat-soft);\r\n}\r\n\r\n.visual-card span,\r\n.visual-card small {\r\n  color: var(--muted);\r\n  font-weight: 700;\r\n}\r\n\r\n.visual-card small {\r\n  line-height: 1.25;\r\n  white-space: normal;\r\n}\r\n\r\n.visual-card strong {\r\n  margin-top: 4px;\r\n  overflow: visible;\r\n  color: var(--text);\r\n  font-family: var(--sans);\r\n  font-variant-numeric: tabular-nums;\r\n  font-size: 21px;\r\n  font-weight: 850;\r\n  line-height: 1.08;\r\n  text-overflow: clip;\r\n  white-space: normal;\r\n}\r\n\r\n.visual-hero-card {\r\n  grid-column: span 1;\r\n  min-height: 146px;\r\n  align-items: start;\r\n  background:\r\n    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(232, 242, 255, 0.95)),\r\n    var(--surface);\r\n  box-shadow: 0 18px 44px rgba(37, 99, 235, 0.12);\r\n}\r\n\r\n@media (max-width: 1360px) {\r\n  .overview-visuals {\r\n    grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  }\r\n\r\n  .visual-hero-card {\r\n    grid-column: span 2;\r\n  }\r\n}\r\n\r\n@media (max-width: 1180px) {\r\n  .overview-visuals {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  }\r\n\r\n  .visual-hero-card {\r\n    grid-column: 1 / -1;\r\n  }\r\n}\r\n\r\n.visual-hero-card .visual-card-icon {\r\n  color: var(--accent);\r\n  background: #dbeafe;\r\n}\r\n\r\n.visual-hero-card.tone-warning .visual-card-icon {\r\n  color: var(--warning);\r\n  background: var(--warning-soft);\r\n}\r\n\r\n.visual-hero-card.tone-danger .visual-card-icon {\r\n  color: var(--danger);\r\n  background: var(--danger-soft);\r\n}\r\n\r\n.visual-hero-card.tone-warning .visual-hero-meta b {\r\n  background: rgba(217, 119, 6, 0.1);\r\n  color: var(--warning);\r\n}\r\n\r\n.visual-hero-card.tone-danger .visual-hero-meta b {\r\n  background: rgba(229, 72, 93, 0.1);\r\n  color: var(--danger);\r\n}\r\n\r\n.visual-hero-card strong {\r\n  margin-top: 6px;\r\n  font-size: 42px;\r\n  letter-spacing: 0;\r\n  white-space: nowrap;\r\n}\r\n\r\n.visual-hero-card small {\r\n  margin-top: 5px;\r\n  font-size: 12px;\r\n}\r\n\r\n.visual-hero-meta {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 7px;\r\n  margin-top: 12px;\r\n}\r\n\r\n.visual-hero-meta b {\r\n  display: inline-flex;\r\n  min-height: 24px;\r\n  align-items: center;\r\n  padding: 0 9px;\r\n  border-radius: 999px;\r\n  background: rgba(37, 99, 235, 0.08);\r\n  color: var(--accent-strong);\r\n  font: 750 11px var(--mono);\r\n}\r\n\r\n.visual-progress {\r\n  height: 6px;\r\n  background: #edf2f7;\r\n}\r\n\r\n.token-split {\r\n  height: 6px;\r\n}\r\n\r\n.overview-grid {\r\n  grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr);\r\n  gap: 22px;\r\n  align-items: start;\r\n}\r\n\r\n.overview-traffic-panel,\r\n.overview-failures-panel {\r\n  grid-column: 1 / -1;\r\n}\r\n\r\n.panel {\r\n  border: 0;\r\n  border-radius: 24px;\r\n  background: rgba(255, 255, 255, 0.96);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.panel-head {\r\n  padding: 22px 24px 8px;\r\n  border-bottom: 0;\r\n  background: transparent;\r\n}\r\n\r\n.panel-head h2 {\r\n  color: var(--text);\r\n  font-size: 18px;\r\n  font-weight: 820;\r\n}\r\n\r\n.panel-head p {\r\n  margin-top: 3px;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.panel-head .tag {\r\n  border: 0;\r\n  border-radius: 999px;\r\n  background: var(--accent-soft);\r\n  color: var(--accent-strong);\r\n}\r\n\r\n.chart {\r\n  min-height: 420px;\r\n  padding: 8px 24px 24px;\r\n}\r\n\r\n.traffic-legend {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 14px 22px;\r\n  align-items: center;\r\n  margin: 0 0 12px;\r\n  padding: 0 4px;\r\n}\r\n\r\n.traffic-legend-item {\r\n  display: inline-flex;\r\n  gap: 8px;\r\n  padding: 0;\r\n  border: 0;\r\n  background: transparent;\r\n  box-shadow: none;\r\n}\r\n\r\n.traffic-legend-item > span {\r\n  width: 28px;\r\n  height: 4px;\r\n  border-radius: 999px;\r\n  background: var(--series-color);\r\n  box-shadow: none;\r\n}\r\n\r\n.traffic-legend-item.tone-danger > span {\r\n  background-image: repeating-linear-gradient(90deg, #dc2626 0 6px, transparent 6px 10px);\r\n}\r\n\r\n.traffic-legend-item strong {\r\n  font-size: 12px;\r\n}\r\n\r\n.traffic-legend-item small {\r\n  color: var(--faint);\r\n}\r\n\r\n.traffic-chart-shell {\r\n  border: 0;\r\n  border-radius: 22px;\r\n  background: linear-gradient(180deg, #ffffff, #f8fbff);\r\n  box-shadow: inset 0 0 0 1px rgba(207, 221, 237, 0.55);\r\n}\r\n\r\n.traffic-chart-shell svg {\r\n  height: 352px;\r\n}\r\n\r\n.chart .axis {\r\n  stroke: rgba(148, 163, 184, 0.22);\r\n}\r\n\r\n.traffic-axis-label {\r\n  fill: var(--faint);\r\n  font: 650 11px var(--sans);\r\n}\r\n\r\n.traffic-axis-title {\r\n  font-weight: 760;\r\n}\r\n\r\n.traffic-axis-label-info {\r\n  fill: color-mix(in srgb, var(--info) 76%, var(--muted));\r\n}\r\n\r\n.traffic-success-area {\r\n  fill: url(\"#trafficSuccessArea\");\r\n  pointer-events: none;\r\n}\r\n\r\n.traffic-success-line,\r\n.traffic-failed-line,\r\n.traffic-firstbyte-line {\r\n  fill: none;\r\n  stroke-linecap: round;\r\n  stroke-linejoin: round;\r\n  stroke-width: 3.2;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.traffic-success-line {\r\n  stroke: var(--success);\r\n}\r\n\r\n.traffic-failed-line {\r\n  stroke: var(--danger);\r\n  stroke-dasharray: 7 7;\r\n}\r\n\r\n.traffic-firstbyte-line {\r\n  stroke: var(--info);\r\n  filter: drop-shadow(0 8px 14px rgba(47, 128, 237, 0.18));\r\n}\r\n\r\n.traffic-series-dot,\r\n.traffic-firstbyte-dot {\r\n  stroke: #fff;\r\n  stroke-width: 2.4;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.traffic-success-dot {\r\n  fill: var(--success);\r\n}\r\n\r\n.traffic-failed-dot {\r\n  fill: var(--danger);\r\n}\r\n\r\n.traffic-firstbyte-dot {\r\n  fill: var(--info);\r\n}\r\n\r\n.traffic-firstbyte-label {\r\n  fill: var(--info);\r\n  font: 760 11px var(--mono);\r\n}\r\n\r\n.usage-chart {\r\n  gap: 16px;\r\n  padding: 14px 22px 22px;\r\n}\r\n\r\n.usage-summary {\r\n  gap: 12px;\r\n}\r\n\r\n.usage-chart .mini-metric {\r\n  border: 0;\r\n  border-radius: 16px;\r\n  background: linear-gradient(180deg, #f8fbff, #f1f6fd);\r\n  box-shadow: inset 0 0 0 1px rgba(207, 221, 237, 0.48);\r\n}\r\n\r\n.usage-section-title h3 {\r\n  color: var(--text);\r\n  font-size: 13px;\r\n  letter-spacing: 0;\r\n  text-transform: none;\r\n}\r\n\r\n.usage-bars {\r\n  display: grid;\r\n  gap: 10px;\r\n}\r\n\r\n.usage-row {\r\n  border: 0;\r\n  border-radius: 16px;\r\n  background: #f8fbff;\r\n  box-shadow: inset 0 0 0 1px rgba(207, 221, 237, 0.48);\r\n}\r\n\r\n.usage-rank {\r\n  border: 0;\r\n  border-radius: 999px;\r\n  background: var(--compat-soft);\r\n}\r\n\r\n.usage-track {\r\n  height: 8px;\r\n  background: #e6edf7;\r\n}\r\n\r\n.provider-health {\r\n  gap: 10px;\r\n  padding: 14px 18px 20px;\r\n}\r\n\r\n.overview-summary-meta {\r\n  padding: 0 0 4px;\r\n  color: var(--faint);\r\n  font-family: var(--sans);\r\n  font-size: 11px;\r\n  letter-spacing: 0;\r\n  text-transform: none;\r\n}\r\n\r\n.overview-provider-row,\r\n.recent-failure-row {\r\n  border: 0;\r\n  border-radius: 16px;\r\n  background: #f8fbff;\r\n  box-shadow: inset 0 0 0 1px rgba(207, 221, 237, 0.5);\r\n}\r\n\r\n.overview-provider-row:hover,\r\n.recent-failure-row:hover,\r\n.overview-provider-row:focus-visible,\r\n.recent-failure-row:focus-visible {\r\n  background: #ffffff;\r\n  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.2), 0 12px 24px rgba(31, 56, 88, 0.08);\r\n}\r\n\r\n.recent-failure-list {\r\n  padding: 0 18px 18px;\r\n}\r\n\r\n/* Minimalist correction: warm monochrome surface, low shadow, muted semantic color only. */\r\n:root {\r\n  --bg: #f7f6f3;\r\n  --surface: #ffffff;\r\n  --surface-raised: #fbfbfa;\r\n  --surface-soft: #f3f2ef;\r\n  --surface-strong: #eceae6;\r\n  --sidebar: #ffffff;\r\n  --sidebar-soft: #f7f6f3;\r\n  --line: #e8e6e1;\r\n  --line-soft: #efede8;\r\n  --line-strong: #d9d6cf;\r\n  --text: #222320;\r\n  --muted: #6f706a;\r\n  --faint: #9a9a93;\r\n  --accent: #222320;\r\n  --accent-strong: #343530;\r\n  --accent-soft: #f2f1ed;\r\n  --success: #346538;\r\n  --success-soft: #edf3ec;\r\n  --warning: #956400;\r\n  --warning-soft: #fbf3db;\r\n  --danger: #9f2f2d;\r\n  --danger-soft: #fdebec;\r\n  --info: #20d264;\r\n  --info-soft: #e1f3fe;\r\n  --compat: #6f55a3;\r\n  --compat-soft: #eee9f7;\r\n  --metric-neutral: #3f403b;\r\n  --metric-requests: #1f6c9f;\r\n  --metric-success: #346538;\r\n  --metric-failure: #9f2f2d;\r\n  --metric-provider: #53717d;\r\n  --metric-token: #6f55a3;\r\n  --metric-cost: #956400;\r\n  --pmc-accent: #1f6c9f;\r\n  --pmc-green: #346538;\r\n  --pmc-amber: #956400;\r\n  --pmc-red: #9f2f2d;\r\n  --shadow: 0 2px 10px rgba(34, 35, 32, 0.035);\r\n  --shadow-tight: 0 4px 16px rgba(34, 35, 32, 0.05);\r\n}\r\n\r\nbody {\r\n  background: var(--bg);\r\n}\r\n\r\n.sidebar {\r\n  border-right: 1px solid var(--line);\r\n  background: var(--sidebar);\r\n  box-shadow: none;\r\n}\r\n\r\n.sidebar::after {\r\n  display: none;\r\n}\r\n\r\n.brand {\r\n  border-bottom: 1px solid var(--line-soft);\r\n}\r\n\r\n.brand-mark,\r\n.login-mark {\r\n  background: var(--text);\r\n  box-shadow: none;\r\n}\r\n\r\n.nav-item:hover {\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n}\r\n\r\n.nav-item.is-active {\r\n  background: var(--text);\r\n  color: #fff;\r\n  box-shadow: none;\r\n}\r\n\r\n.button.primary {\r\n  border-color: var(--accent);\r\n  background: var(--accent);\r\n  box-shadow: none;\r\n}\r\n\r\n.button.primary:hover {\r\n  border-color: var(--accent-strong);\r\n  background: var(--accent-strong);\r\n}\r\n\r\n.button.secondary,\r\n.time-range-control,\r\n.segmented-control {\r\n  box-shadow: none;\r\n}\r\n\r\n.time-range-control {\r\n  border: 1px solid var(--line);\r\n  background: var(--surface);\r\n}\r\n\r\n.time-range-control .eyebrow {\r\n  color: var(--muted);\r\n}\r\n\r\n.segmented-control {\r\n  border: 1px solid var(--line);\r\n  background: var(--surface-soft);\r\n}\r\n\r\n.segmented-button.is-active {\r\n  background: var(--text);\r\n  color: #fff;\r\n  box-shadow: none;\r\n}\r\n\r\n.visual-card,\r\n.panel {\r\n  border: 1px solid var(--line);\r\n  border-radius: 12px;\r\n  background: var(--surface);\r\n  box-shadow: none;\r\n}\r\n\r\n.visual-card:hover,\r\n.panel:hover {\r\n  box-shadow: var(--shadow-tight);\r\n}\r\n\r\n.visual-card-icon,\r\n.visual-ring {\r\n  border-radius: 10px;\r\n}\r\n\r\n.visual-hero-card {\r\n  background: var(--surface);\r\n  box-shadow: none;\r\n}\r\n\r\n.visual-hero-card .visual-card-icon {\r\n  color: var(--info);\r\n  background: var(--info-soft);\r\n}\r\n\r\n.visual-hero-card strong {\r\n  color: var(--text);\r\n}\r\n\r\n.visual-hero-meta b {\r\n  background: var(--accent-soft);\r\n  color: var(--text);\r\n}\r\n\r\n.panel-head .tag {\r\n  background: var(--surface-soft);\r\n  color: var(--muted);\r\n}\r\n\r\n.traffic-chart-shell,\r\n.usage-chart .mini-metric,\r\n.usage-row,\r\n.overview-provider-row,\r\n.recent-failure-row {\r\n  border: 1px solid var(--line);\r\n  border-radius: 12px;\r\n  background: var(--surface-raised);\r\n  box-shadow: none;\r\n}\r\n\r\n.traffic-chart-shell {\r\n  background: #fff;\r\n}\r\n\r\n.traffic-firstbyte-line {\r\n  filter: none;\r\n}\r\n\r\n.overview-provider-row:hover,\r\n.recent-failure-row:hover,\r\n.overview-provider-row:focus-visible,\r\n.recent-failure-row:focus-visible {\r\n  background: #fff;\r\n  box-shadow: var(--shadow-tight);\r\n}\r\n\r\n/* Overview mockup skin: crisp operations console, based on design_mockup.html. */\r\n:root {\r\n  /* macOS Aqua/System UI Theme */\r\n  --bg: #f5f5f7;\r\n  --surface: #ffffff;\r\n  --surface-raised: #fbfbfd;\r\n  --surface-soft: #f2f2f7;\r\n  --surface-strong: #e5e5ea;\r\n  --sidebar: rgba(255, 255, 255, 0.75);\r\n  \r\n  /* Mac-style borders rely on transparency */\r\n  --line: rgba(0, 0, 0, 0.14);\r\n  --line-soft: rgba(0, 0, 0, 0.08);\r\n  --line-strong: rgba(0, 0, 0, 0.22);\r\n  \r\n  /* Apple Typography Colors */\r\n  --text: #1d1d1f;\r\n  --muted: #86868b;\r\n  --faint: #d2d2d7;\r\n  \r\n  /* Graphite / Monochrome Accent */\r\n  --accent: #1d1d1f;\r\n  --accent-strong: #000000;\r\n  --accent-soft: rgba(0, 0, 0, 0.04);\r\n  --accent-hover: #3a3a3c;\r\n  \r\n  /* Semantic Colors (Apple HIG) */\r\n  --success: #34c759;\r\n  --success-soft: rgba(52, 199, 89, 0.1);\r\n  --warning: #ff9500;\r\n  --warning-soft: rgba(255, 149, 0, 0.1);\r\n  --danger: #ff3b30;\r\n  --danger-soft: rgba(255, 59, 48, 0.1);\r\n  --info: #86868b;\r\n  --info-soft: rgba(0, 0, 0, 0.05);\r\n  --compat: #1d1d1f; \r\n  --compat-soft: rgba(0, 0, 0, 0.05);\r\n  --pmc-accent: #007aff;\r\n  --pmc-green: #34c759;\r\n  --pmc-amber: #ff9500;\r\n  --pmc-red: #ff3b30;\r\n  /* Mac Window/Card Elevation */\r\n  --shadow: 0 2px 6px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04);\r\n  --shadow-tight: 0 4px 12px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.05);\r\n}\r\n\r\nbody {\r\n  background: var(--bg);\r\n}\r\n\r\n.shell {\r\n  grid-template-columns: 240px minmax(0, 1fr);\r\n}\r\n\r\n.workspace {\r\n  max-width: 1200px;\r\n  padding: 12px 40px 48px;\r\n}\r\n\r\n.sidebar {\r\n  border-right: 1px solid var(--line);\r\n  background: var(--sidebar);\r\n  backdrop-filter: blur(28px) saturate(200%);\r\n  -webkit-backdrop-filter: blur(28px) saturate(200%);\r\n  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.04);\r\n  z-index: 10;\r\n}\r\n\r\n.brand {\r\n  padding: 24px 16px 28px;\r\n  border-bottom: 0;\r\n}\r\n\r\n.brand-mark,\r\n.login-mark {\r\n  width: 24px;\r\n  height: 24px;\r\n  border-radius: 6px;\r\n  background: var(--text);\r\n  color: #fff;\r\n  font-size: 10px;\r\n  box-shadow: none;\r\n}\r\n\r\n.brand-title {\r\n  font-size: 14px;\r\n  font-weight: 700;\r\n  letter-spacing: 0;\r\n}\r\n\r\n.brand-subtitle {\r\n  color: var(--muted);\r\n}\r\n\r\n.nav {\r\n  gap: 2px;\r\n  padding: 0 16px;\r\n}\r\n\r\n.nav-item {\r\n  min-height: 40px;\r\n  padding: 8px 12px;\r\n  border: 1px solid transparent;\r\n  border-radius: 6px;\r\n  color: var(--muted);\r\n  font-weight: 620;\r\n}\r\n\r\n.nav-item:hover {\r\n  border-color: transparent;\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n}\r\n\r\n.nav-item.is-active {\r\n  border: 1px solid var(--line);\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n  font-weight: 760;\r\n}\r\n\r\n.sidebar-actions {\r\n  gap: 8px;\r\n  padding: 12px 16px 8px;\r\n}\r\n\r\n.button {\r\n  border-radius: 6px;\r\n  box-shadow: none;\r\n}\r\n\r\n.button.primary {\r\n  border-color: var(--accent);\r\n  background: var(--accent);\r\n  color: #fff;\r\n}\r\n\r\n.button.primary:hover {\r\n  border-color: var(--accent-strong);\r\n  background: var(--accent-strong);\r\n}\r\n\r\n.button.secondary {\r\n  border-color: var(--line);\r\n  background: var(--surface);\r\n}\r\n\r\n.overview-page-head {\r\n  display: flex;\r\n  gap: 20px;\r\n  align-items: flex-end;\r\n  justify-content: space-between;\r\n  margin-bottom: 24px;\r\n  padding-top: 16px;\r\n  padding-bottom: 16px;\r\n  border-bottom: 1px solid var(--line);\r\n}\r\n\r\n.overview-page-head h1 {\r\n  color: var(--text);\r\n  font-size: 20px;\r\n  font-weight: 720;\r\n  letter-spacing: 0;\r\n}\r\n\r\n.overview-page-head p {\r\n  margin-top: 4px;\r\n  color: var(--muted);\r\n  font-size: 12.5px;\r\n}\r\n\r\n.overview-page-head .time-range-control {\r\n  margin: 0;\r\n}\r\n\r\n.time-range-control {\r\n  width: fit-content;\r\n  padding: 0;\r\n  border: 0;\r\n  border-left: 0;\r\n  border-radius: 0;\r\n  background: transparent;\r\n}\r\n\r\n.time-range-control > div:first-child {\r\n  display: none;\r\n}\r\n\r\n.segmented-control {\r\n  gap: 2px;\r\n  padding: 3px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.segmented-button {\r\n  min-width: 44px;\r\n  min-height: 30px;\r\n  border-radius: 6px;\r\n  font-size: 12px;\r\n  font-weight: 680;\r\n}\r\n\r\n.segmented-button.is-active {\r\n  background: var(--text);\r\n  color: #fff;\r\n}\r\n\r\n.overview-visuals {\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 16px;\r\n  margin-bottom: 24px;\r\n}\r\n\r\n.visual-card {\r\n  position: relative;\r\n  display: flex;\r\n  min-height: 100px;\r\n  flex-direction: column;\r\n  align-items: stretch;\r\n  justify-content: space-between;\r\n  gap: 10px;\r\n  overflow: hidden;\r\n  padding: 16px 20px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.visual-card::before {\r\n  position: absolute;\r\n  top: 0;\r\n  right: 0;\r\n  left: 0;\r\n  height: 2px;\r\n  background: transparent;\r\n  content: \"\";\r\n}\r\n\r\n.visual-card.accent-info::before {\r\n  background: #3b82f6;\r\n}\r\n\r\n.visual-card.accent-success::before {\r\n  background: #10b981;\r\n}\r\n\r\n.visual-card.accent-warning::before {\r\n  background: #f59e0b;\r\n}\r\n\r\n.visual-card.accent-danger::before {\r\n  background: #ef4444;\r\n}\r\n\r\n.visual-card:hover {\r\n  border-color: rgba(9, 9, 11, 0.14);\r\n  box-shadow: var(--shadow-tight);\r\n  transform: none;\r\n}\r\n\r\n.visual-card .metric-header {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n}\r\n\r\n.visual-card .metric-label {\r\n  color: var(--muted);\r\n  font-size: 10.5px;\r\n  font-weight: 720;\r\n  letter-spacing: 0.05em;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.visual-card .metric-icon {\r\n  display: inline-grid;\r\n  color: var(--faint);\r\n}\r\n\r\n.visual-card .metric-icon .icon-svg {\r\n  width: 15px;\r\n  height: 15px;\r\n}\r\n\r\n.visual-card .metric-val {\r\n  display: block;\r\n  margin: 0;\r\n  overflow: visible;\r\n  color: var(--text);\r\n  font-family: var(--sans);\r\n  font-size: 26px;\r\n  font-weight: 760;\r\n  line-height: 1.05;\r\n  letter-spacing: 0;\r\n  white-space: nowrap;\r\n}\r\n\r\n.visual-card.accent-success .metric-val {\r\n  color: var(--success);\r\n}\r\n\r\n.visual-card.accent-danger .metric-val {\r\n  color: var(--danger);\r\n}\r\n\r\n.visual-card.accent-warning .metric-val {\r\n  color: var(--warning);\r\n}\r\n\r\n.visual-card.accent-info .metric-val {\r\n  color: var(--info);\r\n}\r\n\r\n.visual-card .metric-sub {\r\n  display: flex;\r\n  gap: 5px;\r\n  align-items: center;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 500;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.metric-dot {\r\n  display: inline-block;\r\n  width: 5px;\r\n  min-width: 5px;\r\n  height: 5px;\r\n  border-radius: 50%;\r\n  background: var(--info);\r\n}\r\n\r\n.metric-dot.success {\r\n  background: #16a34a;\r\n}\r\n\r\n.metric-dot.warning {\r\n  background: #d97706;\r\n}\r\n\r\n.metric-dot.danger {\r\n  background: #dc2626;\r\n}\r\n\r\n.overview-grid {\r\n  grid-template-columns: 1fr;\r\n  gap: 24px;\r\n}\r\n\r\n.overview-traffic-panel,\r\n.overview-secondary-layout {\r\n  grid-column: 1 / -1;\r\n}\r\n\r\n.overview-secondary-layout {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1.9fr) minmax(320px, 0.9fr);\r\n  gap: 24px;\r\n  align-items: start;\r\n}\r\n\r\n.overview-main-column,\r\n.overview-side-column {\r\n  display: grid;\r\n  gap: 24px;\r\n  min-width: 0;\r\n  align-content: start;\r\n}\r\n\r\n.panel {\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.panel-head {\r\n  padding: 12px 20px;\r\n  border-bottom: 1px solid var(--line);\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.panel-head h2 {\r\n  color: var(--text);\r\n  font-size: 13px;\r\n  font-weight: 760;\r\n  letter-spacing: 0;\r\n}\r\n\r\n.panel-head p {\r\n  display: none;\r\n}\r\n\r\n.panel-head .tag,\r\n.panel-head .badge {\r\n  min-height: 22px;\r\n  border-radius: 4px;\r\n  font-family: var(--mono);\r\n  font-size: 11px;\r\n  font-weight: 720;\r\n  letter-spacing: 0.02em;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.panel-head .badge.info {\r\n  border-color: #bfdbfe;\r\n  background: #dbeafe;\r\n  color: #1e3a8a;\r\n}\r\n\r\n.chart {\r\n  min-height: 332px;\r\n  padding: 20px;\r\n}\r\n\r\n.traffic-legend {\r\n  gap: 18px;\r\n  margin-bottom: 14px;\r\n  padding: 0;\r\n}\r\n\r\n.traffic-legend-item {\r\n  gap: 8px;\r\n}\r\n\r\n.traffic-legend-item > span {\r\n  width: 28px;\r\n  height: 3px;\r\n  border-radius: 3px;\r\n}\r\n\r\n.traffic-legend-item strong {\r\n  font-size: 12px;\r\n  font-weight: 720;\r\n}\r\n\r\n.traffic-legend-item small {\r\n  color: var(--muted);\r\n  font-family: var(--mono);\r\n  font-size: 10.5px;\r\n}\r\n\r\n.traffic-chart-shell {\r\n  border: 0;\r\n  border-radius: 0;\r\n  background: #fff;\r\n  box-shadow: none;\r\n}\r\n\r\n.traffic-chart-shell svg {\r\n  height: 250px;\r\n}\r\n\r\n.chart .axis {\r\n  stroke: #d4d4d8;\r\n  stroke-dasharray: 2 2;\r\n  stroke-width: 1.2;\r\n}\r\n\r\n.traffic-firstbyte-area,\r\n.traffic-success-area {\r\n  display: none;\r\n}\r\n\r\n.traffic-success-line,\r\n.traffic-failed-line,\r\n.traffic-firstbyte-line {\r\n  stroke-width: 2.8;\r\n  filter: none;\r\n}\r\n\r\n.traffic-firstbyte-line {\r\n  stroke: var(--text);\r\n}\r\n\r\n.traffic-success-line {\r\n  stroke: #3b82f6;\r\n}\r\n\r\n.traffic-failed-line {\r\n  stroke: #dc2626;\r\n  stroke-dasharray: 5 5;\r\n}\r\n\r\n.traffic-firstbyte-dot,\r\n.traffic-series-dot,\r\n.traffic-token-dot {\r\n  stroke: #fff;\r\n  stroke-width: 1.8;\r\n}\r\n\r\n.traffic-token-bar {\r\n  fill: rgba(124, 58, 237, 0.22);\r\n  stroke: rgba(124, 58, 237, 0.72);\r\n  stroke-width: 1;\r\n}\r\n\r\n.traffic-token-dot {\r\n  fill: #7c3aed;\r\n}\r\n\r\n.traffic-firstbyte-label {\r\n  display: none;\r\n}\r\n\r\n.traffic-axis-label {\r\n  fill: #52525b;\r\n  font: 680 11px var(--mono);\r\n}\r\n\r\n.usage-chart {\r\n  grid-template-columns: 1fr;\r\n  align-items: start;\r\n  padding: 20px;\r\n}\r\n\r\n.usage-summary {\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 12px;\r\n}\r\n\r\n.usage-columns.usage-model-only {\r\n  grid-template-columns: 1fr;\r\n}\r\n\r\n.usage-chart .mini-metric,\r\n.usage-row,\r\n.overview-provider-row,\r\n.recent-failure-row {\r\n  border: 1px solid var(--line);\r\n  border-radius: 6px;\r\n  background: var(--surface);\r\n  box-shadow: none;\r\n}\r\n\r\n.usage-chart .mini-metric {\r\n  padding: 12px;\r\n}\r\n\r\n.usage-row {\r\n  padding: 11px 12px;\r\n}\r\n\r\n.provider-health {\r\n  padding: 20px;\r\n}\r\n\r\n.overview-summary-meta {\r\n  color: var(--muted);\r\n  font: 650 11px var(--mono);\r\n  text-transform: uppercase;\r\n}\r\n\r\n.overview-provider-row {\r\n  padding: 12px;\r\n}\r\n\r\n.recent-failure-list {\r\n  padding: 0;\r\n}\r\n\r\n#recentFailures {\r\n  padding: 20px;\r\n}\r\n\r\n.recent-failure-row {\r\n  grid-template-columns: auto minmax(180px, 1fr) auto minmax(180px, 1.1fr);\r\n  padding: 12px;\r\n}\r\n\r\n.recent-failure-list .recent-failure-row.tone-warning .request-row-dot,\r\n#recentFailures .recent-failure-row.tone-warning .request-row-dot {\r\n  background: var(--warning);\r\n}\r\n\r\n.recent-failure-list .recent-failure-row.tone-danger .request-row-dot,\r\n#recentFailures .recent-failure-row.tone-danger .request-row-dot {\r\n  background: var(--danger);\r\n}\r\n\r\n.recent-failure-list .recent-failure-row.tone-success .request-row-dot,\r\n#recentFailures .recent-failure-row.tone-success .request-row-dot {\r\n  background: var(--success);\r\n}\r\n\r\n@media (max-width: 1080px) {\r\n  .shell {\r\n    width: 100%;\r\n    max-width: 100vw;\r\n    overflow-x: clip;\r\n    align-content: start;\r\n    grid-auto-rows: max-content;\r\n    grid-template-columns: minmax(0, 1fr);\r\n  }\r\n\r\n  .sidebar {\r\n    position: static;\r\n    height: auto;\r\n    width: 100%;\r\n    max-width: 100vw;\r\n    align-self: start;\r\n    overflow: hidden;\r\n    border-right: 0;\r\n    border-bottom: 1px solid var(--line-strong);\r\n    box-shadow: 0 8px 18px rgba(9, 9, 11, 0.04);\r\n  }\r\n\r\n  .sidebar::after {\r\n    display: none;\r\n  }\r\n\r\n  .brand {\r\n    padding: 14px 14px 12px;\r\n  }\r\n\r\n  .nav {\r\n    grid-template-columns: repeat(5, minmax(0, 1fr));\r\n    padding: 10px;\r\n  }\r\n\r\n  .nav-item {\r\n    padding: 10px 8px;\r\n    text-align: center;\r\n  }\r\n\r\n  .nav-item.is-active::before {\r\n    right: 18px;\r\n    bottom: 5px;\r\n    left: 18px;\r\n    top: auto;\r\n    width: auto;\r\n    height: 3px;\r\n  }\r\n\r\n  .sidebar-actions {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n    padding: 0 10px 10px;\r\n    border-top: 0;\r\n  }\r\n\r\n  .sidebar-footer {\r\n    display: none;\r\n  }\r\n\r\n  .overview-grid,\r\n  .policy-grid,\r\n  .config-grid {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .overview-secondary-layout {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .overview-traffic-panel,\r\n  .overview-failures-panel,\r\n  .overview-health-panel,\r\n  .overview-usage-panel {\r\n    grid-column: 1 / -1;\r\n  }\r\n\r\n  .metric-grid {\r\n    grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  }\r\n\r\n  .overview-visuals {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  }\r\n\r\n  .usage-chart {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .request-summary-row {\r\n    grid-template-columns: 24px 10px minmax(150px, 1fr) minmax(96px, auto) minmax(122px, 0.8fr) minmax(118px, auto) 28px;\r\n  }\r\n\r\n  .provider-card-grid {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  }\r\n\r\n  .provider-toolbar {\r\n    grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(130px, 0.7fr)) auto;\r\n  }\r\n\r\n  .workspace {\r\n    width: 100%;\r\n    max-width: 100vw;\r\n  }\r\n}\r\n\r\n@media (max-width: 760px) {\r\n  body.is-mobile-settings-open {\r\n    overflow: hidden;\r\n  }\r\n\r\n  .sidebar {\r\n    display: none;\r\n  }\r\n\r\n  .workspace {\r\n    padding: 10px;\r\n  }\r\n\r\n  .topbar {\r\n    display: grid;\r\n    grid-template-columns: minmax(0, 1fr) auto;\r\n    margin: 1px 1px 5px 0px;\r\n    padding: 10px;\r\n    align-items: start;\r\n    background: transparent;\r\n    border: 1px solid var(--line-strong);\r\n    border-radius: 12px;\r\n    box-shadow: var(--shadow);\r\n    \r\n  }\r\n\r\n\r\n\r\n\r\n  \r\n  .brand {\r\n    gap: 10px;\r\n    padding: 10px 12px 9px;\r\n  }\r\n\r\n  .brand-mark {\r\n    width: 32px;\r\n    height: 32px;\r\n    border-radius: 7px;\r\n    font-size: 11px;\r\n  }\r\n\r\n  .brand-title {\r\n    font-size: 14px;\r\n  }\r\n\r\n  .brand-subtitle {\r\n    margin-top: 0;\r\n    font-size: 11px;\r\n  }\r\n\r\n  h1 {\r\n    font-size: 22px;\r\n  }\r\n\r\n  .topbar p {\r\n    margin-top: 2px;\r\n    font-size: 11px;\r\n    line-height: 1.35;\r\n  }\r\n\r\n  .mobile-settings-button {\r\n    display: inline-flex;\r\n    align-items: center;\r\n    justify-content: center;\r\n    justify-self: end;\r\n    min-height: 34px;\r\n    padding: 0 11px;\r\n    white-space: nowrap;\r\n  }\r\n\r\n  .mobile-settings-backdrop {\r\n    position: fixed;\r\n    inset: 0;\r\n    z-index: 28;\r\n    display: block;\r\n    background: rgba(9, 9, 11, 0.28);\r\n    backdrop-filter: blur(2px);\r\n    opacity: 0;\r\n    pointer-events: none;\r\n    transition: opacity 180ms ease;\r\n  }\r\n\r\n  .mobile-settings-backdrop[hidden] {\r\n    display: none;\r\n  }\r\n\r\n  .mobile-settings-backdrop.is-open {\r\n    opacity: 1;\r\n    pointer-events: auto;\r\n  }\r\n\r\n  .mobile-settings-drawer {\r\n    position: fixed;\r\n    top: 0;\r\n    right: 0;\r\n    z-index: 29;\r\n    display: flex;\r\n    width: min(322px, calc(100vw - 42px));\r\n    height: 100dvh;\r\n    flex-direction: column;\r\n    border-left: 1px solid var(--line);\r\n    background: rgba(255, 255, 255, 0.75);\r\n    backdrop-filter: blur(30px) saturate(200%);\r\n    -webkit-backdrop-filter: blur(30px) saturate(200%);\r\n    box-shadow: -22px 0 42px rgba(9, 9, 11, 0);\r\n    transform: translateX(100%);\r\n    transition: transform 190ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 190ms ease;\r\n  }\r\n\r\n  .mobile-settings-drawer.is-open {\r\n    transform: translateX(0);\r\n    box-shadow: -22px 0 42px rgba(9, 9, 11, 0.18);\r\n  }\r\n\r\n  .mobile-settings-drawer .drawer-head {\r\n    display: grid;\r\n    grid-template-columns: minmax(0, 1fr) 34px;\r\n    gap: 10px;\r\n    align-items: center;\r\n    padding: 14px 14px 12px;\r\n    border-bottom: 1px solid color-mix(in srgb, var(--info) 14%, var(--line));\r\n    background: transparent;\r\n  }\r\n\r\n  .mobile-settings-drawer .drawer-head h2 {\r\n    font-size: 16px;\r\n    line-height: 1.15;\r\n  }\r\n\r\n  .mobile-settings-drawer .drawer-head p {\r\n    max-width: 19rem;\r\n    margin-top: 3px;\r\n    color: var(--muted);\r\n    font-family: var(--sans);\r\n    font-size: 11px;\r\n    line-height: 1.35;\r\n  }\r\n\r\n  .mobile-settings-drawer .icon-button {\r\n    width: 34px;\r\n    height: 34px;\r\n    border-color: color-mix(in srgb, var(--info) 18%, var(--line));\r\n    background: color-mix(in srgb, var(--surface) 86%, var(--info-soft));\r\n    font-size: 17px;\r\n  }\r\n\r\n  .mobile-settings-body {\r\n    gap: 11px;\r\n    height: calc(100dvh - 72px);\r\n    padding: 12px;\r\n  }\r\n\r\n  .mobile-settings-section .nav,\r\n  .mobile-settings-section .sidebar-actions,\r\n  .mobile-settings-section .toolbar {\r\n    display: grid;\r\n    gap: 8px;\r\n    justify-content: stretch;\r\n    margin: 0;\r\n    padding: 0;\r\n    border: 0;\r\n    border-radius: 0;\r\n    background: transparent;\r\n    box-shadow: none;\r\n  }\r\n\r\n  .mobile-settings-section {\r\n    gap: 8px;\r\n    padding: 10px;\r\n    border: 1px solid var(--line);\r\n    border-radius: 10px;\r\n    background: color-mix(in srgb, var(--surface) 88%, var(--surface-raised));\r\n    box-shadow: var(--shadow);\r\n  }\r\n\r\n  .mobile-settings-section-title {\r\n    color: color-mix(in srgb, var(--muted) 84%, var(--text));\r\n    font-size: 10px;\r\n    letter-spacing: 0.04em;\r\n  }\r\n\r\n  .mobile-settings-section #requestsToolbar::before {\r\n    display: none;\r\n  }\r\n\r\n  .mobile-settings-section #requestsToolbar,\r\n  #requestsToolbar {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .request-filter-primary,\r\n  .request-bulk-actions {\r\n    width: 100%;\r\n  }\r\n\r\n  .request-filter-title,\r\n  .request-status-chips,\r\n  .filter-search-field,\r\n  #requestsToolbar .control,\r\n  .advanced-filter-box,\r\n  .advanced-filter-box summary {\r\n    width: 100%;\r\n  }\r\n\r\n  .request-status-chips {\r\n    display: grid;\r\n    grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  }\r\n\r\n  .filter-chip {\r\n    text-align: center;\r\n  }\r\n\r\n  .advanced-filter-fields {\r\n    position: static;\r\n    width: 100%;\r\n    margin-top: 8px;\r\n    box-shadow: none;\r\n  }\r\n\r\n  .request-bulk-actions {\r\n    justify-content: stretch;\r\n    padding: 9px 0 0;\r\n    border-top: 1px solid var(--line-soft);\r\n    border-left: 0;\r\n  }\r\n\r\n  .request-bulk-actions .button,\r\n  .selection-count {\r\n    width: 100%;\r\n    justify-content: center;\r\n    text-align: center;\r\n  }\r\n\r\n  .mobile-settings-section .nav {\r\n    grid-template-columns: 1fr;\r\n    width: 100%;\r\n    max-width: none;\r\n    overflow: visible;\r\n  }\r\n\r\n  .mobile-settings-section .nav-item {\r\n    width: 100%;\r\n    min-height: 36px;\r\n    padding: 8px 10px 8px 13px;\r\n    border-color: var(--line-soft);\r\n    background: var(--surface);\r\n    text-align: left;\r\n    white-space: normal;\r\n    box-shadow: none;\r\n  }\r\n\r\n  .mobile-settings-section .nav-item.is-active::before {\r\n    top: 8px;\r\n    right: auto;\r\n    bottom: 8px;\r\n    left: 6px;\r\n    width: 2px;\r\n    height: auto;\r\n  }\r\n\r\n  .mobile-settings-section .nav-item.is-active {\r\n    border-color: color-mix(in srgb, var(--accent) 18%, var(--line));\r\n    background: color-mix(in srgb, var(--accent-soft) 62%, var(--surface));\r\n    box-shadow: none;\r\n  }\r\n\r\n  .mobile-settings-section .nav::-webkit-scrollbar {\r\n    display: none;\r\n  }\r\n\r\n  .mobile-settings-section .nav > *,\r\n  .mobile-settings-section .sidebar-actions > *,\r\n  .mobile-settings-section .toolbar > * {\r\n    width: 100%;\r\n    min-width: 0;\r\n  }\r\n\r\n  .nav {\r\n    width: 100%;\r\n    max-width: 100vw;\r\n  }\r\n\r\n  .time-range-control {\r\n    width: 100%;\r\n    display: grid;\r\n    gap: 8px;\r\n    margin-bottom: 10px;\r\n    padding: 10px;\r\n    border-radius: 8px;\r\n  }\r\n\r\n  .overview-page-head {\r\n    display: block;\r\n    margin-bottom: 12px;\r\n    padding-bottom: 0;\r\n    border-bottom: 0;\r\n  }\r\n\r\n  .overview-page-head > div:first-child {\r\n    display: none;\r\n  }\r\n\r\n  .overview-page-head .time-range-control {\r\n    margin: 0;\r\n  }\r\n\r\n  .segmented-control {\r\n    width: 100%;\r\n    grid-auto-flow: column;\r\n  }\r\n\r\n  .segmented-button {\r\n    min-width: 0;\r\n    padding: 0 6px;\r\n  }\r\n\r\n  .metric-grid {\r\n    gap: 8px;\r\n    grid-template-columns: 1fr 1fr;\r\n    margin-bottom: 8px;\r\n  }\r\n\r\n  .overview-visuals {\r\n    grid-template-columns: 1fr;\r\n    gap: 7px;\r\n    margin: 0 0 8px;\r\n  }\r\n\r\n  .visual-hero-card {\r\n    min-height: 116px;\r\n  }\r\n\r\n  .visual-hero-card strong {\r\n    font-size: 30px;\r\n  }\r\n\r\n  .visual-hero-meta {\r\n    gap: 5px;\r\n    margin-top: 8px;\r\n  }\r\n\r\n  .visual-hero-meta b {\r\n    min-height: 22px;\r\n    padding: 0 7px;\r\n    font-size: 10px;\r\n  }\r\n\r\n  .visual-card {\r\n    min-height: 64px;\r\n    padding: 9px 10px;\r\n    border-radius: 8px;\r\n  }\r\n\r\n  .visual-card-icon,\r\n  .visual-ring {\r\n    width: 36px;\r\n    height: 36px;\r\n    border-radius: 9px;\r\n  }\r\n\r\n  .metric {\r\n    min-height: 76px;\r\n    padding: 10px 11px;\r\n    border-radius: 8px;\r\n  }\r\n\r\n  .metric-label {\r\n    font-size: 11px;\r\n  }\r\n\r\n  .metric strong {\r\n    margin-top: 5px;\r\n    font-size: 23px;\r\n  }\r\n\r\n  .metric small {\r\n    margin-top: 5px;\r\n    font-size: 11px;\r\n    line-height: 1.25;\r\n  }\r\n\r\n  .overview-grid,\r\n  .policy-grid,\r\n  .config-grid {\r\n    gap: 8px;\r\n  }\r\n\r\n  .panel {\r\n    margin-bottom: 8px;\r\n    border-radius: 8px;\r\n  }\r\n\r\n  .panel-head {\r\n    display: grid;\r\n    grid-template-columns: minmax(0, 1fr);\r\n    gap: 8px;\r\n    padding: 10px 11px 9px;\r\n  }\r\n\r\n  .panel-head > .tag,\r\n  .panel-head > .badge,\r\n  .panel-head > .button,\r\n  .panel-head > .actions {\r\n    justify-self: start;\r\n  }\r\n\r\n  .overview-traffic-panel .panel-head {\r\n    gap: 6px;\r\n  }\r\n\r\n  .panel-head > .tag,\r\n  .panel-head > .badge {\r\n    max-width: 100%;\r\n    white-space: normal;\r\n    overflow-wrap: anywhere;\r\n  }\r\n\r\n  .panel-head p {\r\n    display: none;\r\n  }\r\n\r\n  .tag,\r\n  .badge {\r\n    min-height: 21px;\r\n    padding: 0 7px;\r\n    font-size: 10px;\r\n  }\r\n\r\n  .chart {\r\n    min-height: 320px;\r\n    padding: 8px 9px 7px;\r\n  }\r\n\r\n  .traffic-chart-shell {\r\n    border-radius: 14px;\r\n  }\r\n\r\n  .traffic-chart-shell svg {\r\n    height: 282px;\r\n  }\r\n\r\n  .request-page-vitals {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n    gap: 6px;\r\n    padding: 8px;\r\n  }\r\n\r\n  .request-summary-row {\r\n    grid-template-columns: 24px 9px minmax(0, 1fr) 28px;\r\n    gap: 8px;\r\n    padding: 10px;\r\n  }\r\n\r\n  .request-row-status,\r\n  .request-row-route,\r\n  .request-row-metrics {\r\n    grid-column: 3 / -1;\r\n  }\r\n\r\n  .request-row-open {\r\n    grid-column: 4;\r\n    grid-row: 1;\r\n  }\r\n\r\n  .chart-stats {\r\n    gap: 5px;\r\n  }\r\n\r\n  .chart-stats div {\r\n    padding: 7px;\r\n  }\r\n\r\n  .chart-stats span {\r\n    font-size: 10px;\r\n  }\r\n\r\n  .chart-stats strong {\r\n    font-size: 12px;\r\n  }\r\n\r\n  .chart > svg {\r\n    height: 220px;\r\n  }\r\n\r\n  .usage-chart {\r\n    gap: 9px;\r\n    padding: 9px;\r\n  }\r\n\r\n  .usage-summary {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n    gap: 6px;\r\n  }\r\n\r\n  .usage-columns {\r\n    grid-template-columns: 1fr;\r\n    gap: 10px;\r\n  }\r\n\r\n  .usage-row {\r\n    gap: 6px;\r\n    padding: 8px;\r\n  }\r\n\r\n  .usage-row-foot {\r\n    display: grid;\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  }\r\n\r\n  .latency-samples {\r\n    min-height: 38px;\r\n  }\r\n\r\n  .latency-sample {\r\n    min-width: 82px;\r\n    padding: 6px 7px;\r\n  }\r\n\r\n  .provider-health,\r\n  .pad,\r\n  .form-grid,\r\n  .drawer-body,\r\n  .mobile-settings-body {\r\n    padding: 11px;\r\n  }\r\n\r\n  th,\r\n  td {\r\n    padding: 9px 10px;\r\n  }\r\n\r\n  .button {\r\n    min-height: 34px;\r\n  }\r\n\r\n  .control {\r\n    min-height: 34px;\r\n  }\r\n\r\n  .config-provider-card {\r\n    gap: 10px;\r\n    padding: 11px;\r\n  }\r\n\r\n  .config-provider-head,\r\n  .format-edit-row {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .config-provider-head {\r\n    display: grid;\r\n  }\r\n\r\n  .format-edit-row {\r\n    gap: 6px;\r\n  }\r\n\r\n  .provider-runtime-head,\r\n  .key-card-head,\r\n  .failure-policy-head {\r\n    display: grid;\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .compact-control {\r\n    width: 100%;\r\n    min-width: 0;\r\n  }\r\n  .key-probe-menu {\r\n    position: fixed;\r\n    right: 12px;\r\n    left: 12px;\r\n    width: auto;\r\n    max-width: none;\r\n  }\r\n\r\n  .provider-runtime-actions,\r\n  .actions {\r\n    justify-content: flex-start;\r\n  }\r\n\r\n  .provider-card-grid,\r\n  .provider-model-list,\r\n  .policy-card-list,\r\n  .failure-policy-list {\r\n    grid-template-columns: 1fr;\r\n    gap: 8px;\r\n  }\r\n\r\n  .provider-toolbar {\r\n    grid-template-columns: 1fr;\r\n    margin: 0 9px 4px;\r\n    padding: 10px;\r\n  }\r\n\r\n  .recent-failure-row {\r\n    grid-template-columns: auto minmax(0, 1fr) auto;\r\n  }\r\n\r\n  .recent-failure-reason {\r\n    grid-column: 2 / -1;\r\n  }\r\n\r\n  .provider-runtime-card,\r\n  .model-capability-card,\r\n  .policy-rule-card,\r\n  .failure-policy-card {\r\n    gap: 10px;\r\n    padding: 10px;\r\n    border-radius: 8px;\r\n  }\r\n\r\n  .provider-metrics,\r\n  .provider-compact-stats,\r\n  .provider-card-metrics,\r\n  .model-capability-summary,\r\n  .policy-summary-grid {\r\n    grid-template-columns: 1fr 1fr;\r\n    gap: 7px;\r\n  }\r\n\r\n  .provider-detail-metrics {\r\n    grid-template-columns: repeat(3, minmax(0, 1fr));\r\n    gap: 6px;\r\n  }\r\n\r\n  .provider-detail-metrics .mini-metric {\r\n    min-height: 0;\r\n    padding: 6px 7px;\r\n    border-radius: 6px;\r\n  }\r\n\r\n  .provider-detail-metrics .mini-metric span {\r\n    font-size: 10px;\r\n    line-height: 1.1;\r\n  }\r\n\r\n  .provider-detail-metrics .mini-metric strong {\r\n    margin-top: 1px;\r\n    font-size: 12px;\r\n    line-height: 1.1;\r\n  }\r\n\r\n  .provider-detail-metrics .mini-metric small {\r\n    display: none;\r\n  }\r\n\r\n  .provider-health-tile {\r\n    min-height: 0;\r\n  }\r\n\r\n  .provider-card-footer,\r\n  .provider-detail-hero,\r\n  .provider-danger-zone {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .provider-card-footer {\r\n    align-items: center;\r\n    gap: 4px;\r\n  }\r\n\r\n  .provider-card-stats {\r\n    flex: 1 1 0;\r\n    min-width: 0;\r\n    overflow: hidden;\r\n  }\r\n\r\n  .provider-runtime-actions {\r\n    flex-shrink: 0;\r\n  }\r\n\r\n  .provider-drawer {\r\n    width: 100vw;\r\n  }\r\n\r\n  .provider-drawer-tabs {\r\n    grid-template-columns: repeat(6, minmax(94px, 1fr));\r\n    overflow-x: auto;\r\n    padding-bottom: 8px;\r\n  }\r\n\r\n  .provider-activity-row {\r\n    grid-template-columns: 10px minmax(0, 1fr) auto;\r\n  }\r\n\r\n  .provider-activity-row > span:not(.provider-status-dot) {\r\n    grid-column: 2 / -1;\r\n  }\r\n\r\n  .provider-activity-row small {\r\n    display: none;\r\n  }\r\n\r\n  .policy-summary-grid {\r\n    padding: 9px 9px 0;\r\n  }\r\n\r\n  .policy-controls {\r\n    padding: 9px;\r\n  }\r\n\r\n  .policy-control-grid,\r\n  .form-pair-grid,\r\n  .failure-policy-edit-grid,\r\n  .model-route-form {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .policy-control-card {\r\n    padding: 10px;\r\n  }\r\n\r\n  .mini-metric {\r\n    padding: 8px;\r\n  }\r\n\r\n  .mini-metric strong {\r\n    font-size: 13px;\r\n  }\r\n\r\n  .format-route-list,\r\n  .provider-key-list,\r\n  .provider-inline-form,\r\n  .provider-inline-key-form,\r\n  .key-proxy-row,\r\n  .global-proxy-form,\r\n  .provider-create-form,\r\n  .config-summary-grid,\r\n  .config-provider-summary-card,\r\n  .model-route-card {\r\n    grid-template-columns: 1fr;\r\n    gap: 7px;\r\n  }\r\n\r\n  .provider-create-actions,\r\n  .provider-create-format,\r\n  .global-proxy-form .form-note,\r\n  .config-provider-summary-main,\r\n  .config-provider-summary-keys,\r\n  .config-provider-summary-formats,\r\n  .config-provider-summary-card > .badge,\r\n  .config-provider-summary-card > .button {\r\n    grid-column: 1 / -1;\r\n    grid-row: auto;\r\n  }\r\n\r\n  .config-provider-summary-card {\r\n    min-height: 0;\r\n  }\r\n\r\n  .config-provider-summary-card > .badge {\r\n    justify-self: start;\r\n  }\r\n\r\n  .config-provider-summary-card > .button {\r\n    justify-self: start;\r\n  }\r\n\r\n  .model-route-form,\r\n  .model-route-list {\r\n    padding: 9px;\r\n  }\r\n\r\n  .model-route-side {\r\n    justify-items: start;\r\n  }\r\n\r\n  .provider-edit-panel,\r\n  .raw-config-details,\r\n  .overlay-safety,\r\n  .config-summary {\r\n    padding: 9px;\r\n  }\r\n\r\n  .config-path-row {\r\n    grid-template-columns: 1fr;\r\n    gap: 4px;\r\n  }\r\n\r\n  .policy-rule-head {\r\n    grid-template-columns: 28px minmax(0, 1fr);\r\n    gap: 8px;\r\n  }\r\n\r\n  .rule-index {\r\n    width: 26px;\r\n    height: 26px;\r\n    border-radius: 7px;\r\n    font-size: 10px;\r\n  }\r\n\r\n  .kv-grid {\r\n    grid-template-columns: 104px minmax(0, 1fr);\r\n  }\r\n\r\n  .routing-summary-card,\r\n  .attempt {\r\n    padding: 10px;\r\n    border-radius: 8px;\r\n  }\r\n\r\n  .routing-summary-head {\r\n    align-items: flex-start;\r\n  }\r\n\r\n  .routing-summary-grid {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  }\r\n\r\n  .routing-next-action,\r\n  .attempt-explain div {\r\n    grid-template-columns: 1fr;\r\n    gap: 4px;\r\n  }\r\n\r\n  .attempt-explain {\r\n    padding: 8px;\r\n  }\r\n\r\n  .route-inline {\r\n    min-width: 180px;\r\n    max-width: 280px;\r\n  }\r\n\r\n  .view {\r\n    animation: none;\r\n  }\r\n}\r\n\r\n@media (max-width: 420px) {\r\n  .metric-grid {\r\n    grid-template-columns: 1fr 1fr;\r\n  }\r\n\r\n  .routing-summary-head,\r\n  .attempt-head {\r\n    display: grid;\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .routing-summary-grid {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .kv-grid {\r\n    grid-template-columns: 92px minmax(0, 1fr);\r\n  }\r\n}\r\n\r\n@media (max-width: 340px) {\r\n  .metric-grid {\r\n    grid-template-columns: 1fr;\r\n  }\r\n}\r\n\r\n@media (prefers-reduced-motion: reduce) {\r\n  html {\r\n    scroll-behavior: auto;\r\n  }\r\n\r\n  .view,\r\n  .button,\r\n  .icon-button,\r\n  .drawer,\r\n  .nav-item,\r\n  .animated-line {\r\n    animation: none !important;\r\n    transition: none !important;\r\n  }\r\n}\r\n\r\n/* Usage trend chart refresh. Keep this block late so older telemetry chart skins do not leak through. */\r\n.overview-traffic-panel .panel-head {\r\n  align-items: center;\r\n}\r\n\r\n.overview-traffic-panel .panel-head h2 {\r\n  font-size: 15px;\r\n  font-weight: 780;\r\n}\r\n\r\n.overview-traffic-panel .panel-head .badge.info {\r\n  border: 1px solid #e5e7eb;\r\n  background: #fff;\r\n  color: #6b7280;\r\n  text-transform: none;\r\n}\r\n\r\n.overview-traffic-panel .chart {\r\n  min-height: 500px;\r\n  padding: 18px 24px 24px;\r\n  background: #fff;\r\n}\r\n\r\n.usage-trend-overview {\r\n  display: grid;\r\n  grid-template-columns: minmax(250px, 0.62fr) minmax(0, 1.38fr);\r\n  gap: 10px;\r\n  align-items: stretch;\r\n  margin-bottom: 14px;\r\n}\r\n\r\n.usage-trend-total,\r\n.usage-trend-kpi {\r\n  border: 1px solid #eceff3;\r\n  background: #fff;\r\n}\r\n\r\n.usage-trend-total {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  grid-template-rows: auto auto auto;\r\n  gap: 2px 9px;\r\n  align-content: center;\r\n  min-height: 68px;\r\n  padding: 8px 12px;\r\n  border-radius: 10px;\r\n  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.035);\r\n}\r\n\r\n.usage-trend-total-label,\r\n.usage-trend-kpi span {\r\n  color: #767b85;\r\n  font-size: 11px;\r\n  font-weight: 720;\r\n}\r\n\r\n.usage-trend-total-icon {\r\n  grid-row: 1 / span 3;\r\n  display: inline-grid;\r\n  width: 24px;\r\n  height: 24px;\r\n  place-items: center;\r\n  align-self: center;\r\n  border: 1px solid rgba(17, 24, 39, 0.08);\r\n  border-radius: 8px;\r\n  background: #f8fafc;\r\n  color: #64748b;\r\n}\r\n\r\n.usage-trend-total-icon .icon-svg {\r\n  width: 13px;\r\n  height: 13px;\r\n}\r\n\r\n.usage-trend-total strong {\r\n  color: #09090b;\r\n  font: 820 24px/1 var(--mono);\r\n  letter-spacing: 0;\r\n}\r\n\r\n.usage-trend-total small {\r\n  color: #8b919b;\r\n  font: 650 10.5px/1.2 var(--mono);\r\n}\r\n\r\n.usage-trend-kpis {\r\n  display: grid;\r\n  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));\r\n  gap: 8px;\r\n}\r\n\r\n.usage-trend-kpi {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  grid-template-rows: auto auto;\r\n  gap: 4px 8px;\r\n  align-content: center;\r\n  min-height: 68px;\r\n  padding: 8px 10px;\r\n  border-radius: 10px;\r\n}\r\n\r\n.usage-trend-kpi i {\r\n  grid-row: 1 / span 2;\r\n  width: 10px;\r\n  height: 10px;\r\n  margin-top: 4px;\r\n  border-radius: 999px;\r\n  background: #71717a;\r\n  box-shadow: 0 0 0 4px rgba(113, 113, 122, 0.08);\r\n}\r\n\r\n.usage-trend-icon {\r\n  grid-row: 1 / span 2;\r\n  display: inline-grid;\r\n  width: 24px;\r\n  height: 24px;\r\n  place-items: center;\r\n  align-self: center;\r\n  border: 1px solid transparent;\r\n  border-radius: 7px;\r\n  background: #f4f6f9;\r\n  color: #71717a;\r\n}\r\n\r\n.usage-trend-icon .icon-svg {\r\n  width: 13px;\r\n  height: 13px;\r\n  stroke-width: 2.2;\r\n}\r\n\r\n.usage-trend-kpi strong {\r\n  min-width: 0;\r\n  overflow: visible;\r\n  color: #18181b;\r\n  font: 780 16px/1 var(--mono);\r\n  overflow-wrap: anywhere;\r\n  white-space: normal;\r\n}\r\n\r\n.usage-trend-kpi.usage-input i {\r\n  background: #2563eb;\r\n  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);\r\n}\r\n\r\n.usage-trend-kpi.usage-input .usage-trend-icon {\r\n  background: rgba(37, 99, 235, 0.1);\r\n  border-color: rgba(37, 99, 235, 0.14);\r\n  color: #2563eb;\r\n}\r\n\r\n.usage-trend-kpi.usage-output i,\r\n.usage-trend-kpi.usage-success i {\r\n  background: #10b981;\r\n  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);\r\n}\r\n\r\n.usage-trend-kpi.usage-output .usage-trend-icon,\r\n.usage-trend-kpi.usage-success .usage-trend-icon {\r\n  background: rgba(16, 185, 129, 0.1);\r\n  border-color: rgba(16, 185, 129, 0.14);\r\n  color: #10b981;\r\n}\r\n\r\n.usage-trend-kpi.usage-request i {\r\n  background: #f97316;\r\n  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.12);\r\n}\r\n\r\n.usage-trend-kpi.usage-request .usage-trend-icon {\r\n  background: rgba(249, 115, 22, 0.12);\r\n  border-color: rgba(249, 115, 22, 0.16);\r\n  color: #f97316;\r\n}\r\n\r\n.usage-trend-kpi.usage-failure i {\r\n  background: #f43f5e;\r\n  box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.11);\r\n}\r\n\r\n.usage-trend-kpi.usage-failure .usage-trend-icon {\r\n  background: rgba(244, 63, 94, 0.11);\r\n  border-color: rgba(244, 63, 94, 0.16);\r\n  color: #f43f5e;\r\n}\r\n\r\n.traffic-chart-shell {\r\n  overflow: visible;\r\n  padding: 18px 18px 12px;\r\n  border: 1px solid #dce3ec;\r\n  border-radius: 14px;\r\n  background: #fff;\r\n  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.045);\r\n}\r\n\r\n.traffic-chart-shell svg {\r\n  display: block;\r\n  width: 100%;\r\n  height: 390px;\r\n}\r\n\r\n.traffic-plot-bg {\r\n  fill: #fff;\r\n}\r\n\r\n.chart .traffic-grid-line,\r\n.chart .traffic-x-tick {\r\n  stroke: #e6eaf0;\r\n  stroke-dasharray: 4 5;\r\n  stroke-width: 1;\r\n}\r\n\r\n.chart .traffic-x-tick {\r\n  opacity: 0.46;\r\n}\r\n\r\n.chart .traffic-baseline {\r\n  stroke: #8f98a6;\r\n  stroke-width: 1.5;\r\n}\r\n\r\n.traffic-axis-label {\r\n  fill: #667085;\r\n  font: 760 12px var(--mono);\r\n  paint-order: stroke;\r\n  stroke: #fff;\r\n  stroke-linejoin: round;\r\n  stroke-width: 3px;\r\n}\r\n\r\n.traffic-axis-title {\r\n  fill: #344054;\r\n  font: 820 12px var(--mono);\r\n  letter-spacing: 0.01em;\r\n}\r\n\r\n.traffic-axis-label-info {\r\n  fill: #8a5a22;\r\n}\r\n\r\n.traffic-token-area {\r\n  fill: url(\"#trafficTokenArea\");\r\n  pointer-events: none;\r\n}\r\n\r\n.traffic-plot-bg {\r\n  fill: transparent;\r\n}\r\n\r\n.traffic-total-line,\r\n.traffic-input-line,\r\n.traffic-output-line {\r\n  fill: none;\r\n  stroke-linecap: round;\r\n  stroke-linejoin: round;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.traffic-total-line {\r\n  stroke: #a855f7;\r\n  stroke-width: 2.2;\r\n  filter: drop-shadow(0 4px 6px rgba(168, 85, 247, 0.22));\r\n}\r\n\r\n.traffic-input-line {\r\n  stroke: #3b82f6;\r\n  stroke-width: 1.5;\r\n  stroke-dasharray: 6 4;\r\n}\r\n\r\n.traffic-output-line {\r\n  stroke: #10b981;\r\n  stroke-width: 1.5;\r\n  stroke-dasharray: 2 3;\r\n}\r\n\r\n.traffic-bar-success {\r\n  fill: #10b981;\r\n  opacity: 0.85;\r\n  transition: opacity 0.12s ease;\r\n}\r\n\r\n.traffic-bar-success:hover {\r\n  opacity: 1;\r\n}\r\n\r\n.traffic-bar-fail {\r\n  fill: #ef4444;\r\n  opacity: 0.9;\r\n  transition: opacity 0.12s ease;\r\n}\r\n\r\n.traffic-bar-fail:hover {\r\n  opacity: 1;\r\n}\r\n\r\n.traffic-latency-line {\r\n  fill: none;\r\n  stroke: #f59e0b;\r\n  stroke-width: 2.0;\r\n  stroke-linecap: round;\r\n  stroke-linejoin: round;\r\n  filter: drop-shadow(0 4px 6px rgba(245, 158, 11, 0.22));\r\n}\r\n\r\n.traffic-latency-region {\r\n  fill: url(\"#trafficLatencyArea\");\r\n  pointer-events: none;\r\n}\r\n\r\n.traffic-latency-dot {\r\n  fill: #f59e0b;\r\n  stroke: #ffffff;\r\n  stroke-width: 2;\r\n}\r\n\r\n.traffic-cost-line {\r\n  fill: none;\r\n  stroke: #f59e0b;\r\n  stroke-width: 2.0;\r\n  stroke-linecap: round;\r\n  stroke-linejoin: round;\r\n  filter: drop-shadow(0 4px 6px rgba(245, 158, 11, 0.22));\r\n}\r\n\r\n.traffic-cost-dot {\r\n  fill: #f59e0b;\r\n  stroke: #ffffff;\r\n  stroke-width: 2;\r\n}\r\n\r\n.traffic-trend-dot {\r\n  stroke: #fff;\r\n  stroke-width: 2.4;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.traffic-total-dot {\r\n  fill: #a855f7;\r\n}\r\n\r\n.traffic-input-dot {\r\n  fill: #3b82f6;\r\n}\r\n\r\n.traffic-output-dot {\r\n  fill: #10b981;\r\n}\r\n\r\n.traffic-chart-header {\r\n  display: flex;\r\n  justify-content: space-between;\r\n  align-items: center;\r\n  padding: 14px 20px;\r\n  border-bottom: 1px solid color-mix(in srgb, var(--line) 40%, transparent);\r\n}\r\n\r\n.traffic-chart-header .traffic-trend-legend {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 16px;\r\n  align-items: center;\r\n  padding: 0;\r\n  margin: 0;\r\n}\r\n\r\n.traffic-mode-selectors {\r\n  display: inline-flex;\r\n  background: #f1f5f9;\r\n  padding: 3px;\r\n  border-radius: 99px;\r\n  border: 1px solid #e2e8f0;\r\n}\r\n\r\n.traffic-mode-selectors .pill-toggle {\r\n  background: transparent;\r\n  border: none;\r\n  outline: none;\r\n  font-size: 11px;\r\n  font-weight: 700;\r\n  color: #64748b;\r\n  padding: 6px 12px;\r\n  border-radius: 99px;\r\n  cursor: pointer;\r\n  transition: all 0.15s ease;\r\n  margin: 0;\r\n  height: auto;\r\n  line-height: 1.2;\r\n}\r\n\r\n.traffic-mode-selectors .pill-toggle:hover {\r\n  color: #1e293b;\r\n}\r\n\r\n.traffic-mode-selectors .pill-toggle.is-active {\r\n  background: #ffffff;\r\n  color: #0f172a;\r\n  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);\r\n  font-weight: 800;\r\n}\r\n\r\n.traffic-trend-legend-item {\r\n  display: inline-flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n  color: #475569;\r\n  font-size: 12px;\r\n  font-weight: 600;\r\n}\r\n\r\n.traffic-trend-legend-item i {\r\n  display: inline-block;\r\n  vertical-align: middle;\r\n}\r\n\r\n/* Line series legend indicators (pills/lines) */\r\n.traffic-trend-legend-item.traffic-latency-legend i,\r\n.traffic-trend-legend-item.traffic-total-dot i,\r\n.traffic-trend-legend-item.traffic-input-dot i,\r\n.traffic-trend-legend-item.traffic-output-dot i,\r\n.traffic-trend-legend-item.traffic-cost-legend i {\r\n  width: 18px;\r\n  height: 2px;\r\n  border-radius: 999px;\r\n}\r\n\r\n.traffic-trend-legend-item.traffic-latency-legend i {\r\n  background: #f59e0b;\r\n}\r\n\r\n.traffic-trend-legend-item.traffic-total-dot i {\r\n  background: #a855f7;\r\n}\r\n\r\n.traffic-trend-legend-item.traffic-input-dot i {\r\n  background: repeating-linear-gradient(90deg, #3b82f6 0 6px, transparent 6px 10px);\r\n}\r\n\r\n.traffic-trend-legend-item.traffic-output-dot i {\r\n  background: repeating-linear-gradient(90deg, #10b981 0 3px, transparent 3px 6px);\r\n}\r\n\r\n.traffic-trend-legend-item.traffic-cost-legend i {\r\n  background: #f59e0b;\r\n}\r\n\r\n/* Bar series legend indicators (squares/dots) */\r\n.traffic-trend-legend-item.traffic-bar-success-legend i,\r\n.traffic-trend-legend-item.traffic-bar-fail-legend i {\r\n  width: 11px;\r\n  height: 11px;\r\n  border-radius: 3px;\r\n}\r\n\r\n.traffic-trend-legend-item.traffic-bar-success-legend i {\r\n  background: #10b981;\r\n}\r\n\r\n.traffic-trend-legend-item.traffic-bar-fail-legend i {\r\n  background: #ef4444;\r\n}\r\n\r\n/* Cleaner provider health status dots. */\r\n.provider-status-dot {\r\n  width: 10px;\r\n  height: 10px;\r\n  margin-top: 5px;\r\n  border: 2px solid #fff;\r\n  background: #94a3b8;\r\n  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.18);\r\n}\r\n\r\n.provider-status-dot.ok {\r\n  background: #10b981;\r\n  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.16);\r\n}\r\n\r\n.provider-status-dot.warn {\r\n  background: #f59e0b;\r\n  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);\r\n}\r\n\r\n.provider-status-dot.bad {\r\n  background: #ef4444;\r\n  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.16);\r\n}\r\n\r\n.request-row-dot {\r\n  border: 2px solid #fff;\r\n}\r\n\r\n.recent-failure-list .recent-failure-row.tone-success .request-row-dot,\r\n#recentFailures .recent-failure-row.tone-success .request-row-dot {\r\n  background: #10b981;\r\n  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.16);\r\n}\r\n\r\n.recent-failure-list .recent-failure-row.tone-warning .request-row-dot,\r\n#recentFailures .recent-failure-row.tone-warning .request-row-dot {\r\n  background: #f59e0b;\r\n  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);\r\n}\r\n\r\n.recent-failure-list .recent-failure-row.tone-danger .request-row-dot,\r\n#recentFailures .recent-failure-row.tone-danger .request-row-dot {\r\n  background: #ef4444;\r\n  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.16);\r\n}\r\n\r\n.provider-activity-row .provider-status-dot {\r\n  margin-top: 0;\r\n  flex-shrink: 0;\r\n}\r\n\r\n@media (max-width: 980px) {\r\n  .usage-trend-overview {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .usage-trend-kpis {\r\n    grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  }\r\n}\r\n\r\n@media (max-width: 760px) {\r\n  .overview-traffic-panel .chart {\r\n    min-height: 450px;\r\n    padding: 10px;\r\n  }\r\n\r\n  .usage-trend-total {\r\n    min-height: 96px;\r\n    padding: 15px;\r\n  }\r\n\r\n  .usage-trend-total strong {\r\n    font-size: 28px;\r\n  }\r\n\r\n  .usage-trend-kpis {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n    gap: 8px;\r\n  }\r\n\r\n  .usage-trend-kpi {\r\n    min-height: 78px;\r\n    padding: 11px;\r\n  }\r\n\r\n  .usage-trend-kpi strong {\r\n    font-size: 15px;\r\n  }\r\n\r\n  .traffic-chart-shell {\r\n    padding: 10px 6px 8px;\r\n    border-radius: 12px;\r\n  }\r\n\r\n  .traffic-chart-shell svg {\r\n    height: 300px;\r\n  }\r\n\r\n  .traffic-axis-label {\r\n    font-size: 10px;\r\n  }\r\n}\r\n\r\n/* Final shell polish: brand plaque and unified provider tools. */\r\n.sidebar .brand {\r\n  position: relative;\r\n  gap: 11px;\r\n  margin: 14px 12px 16px;\r\n  padding: 13px 13px 14px;\r\n  border: 1px solid color-mix(in srgb, var(--line-strong) 72%, var(--line));\r\n  border-radius: 11px;\r\n  background:\r\n    linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 74%, #fff) 0%, var(--surface) 100%),\r\n    var(--surface);\r\n  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.055);\r\n}\r\n\r\n.sidebar .brand::after {\r\n  position: absolute;\r\n  right: 12px;\r\n  bottom: -9px;\r\n  left: 12px;\r\n  height: 1px;\r\n  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--line-strong) 80%, transparent), transparent);\r\n  content: \"\";\r\n}\r\n\r\n.sidebar .brand-mark {\r\n  width: 26px;\r\n  height: 26px;\r\n  border-radius: 7px;\r\n  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22) inset, 0 8px 16px rgba(9, 9, 11, 0.12);\r\n}\r\n\r\n.sidebar .brand-title {\r\n  font-size: 13.5px;\r\n  font-weight: 780;\r\n  line-height: 1.15;\r\n}\r\n\r\n.sidebar .brand-subtitle {\r\n  margin-top: 3px;\r\n  color: color-mix(in srgb, var(--muted) 84%, var(--text));\r\n  font-size: 11px;\r\n  line-height: 1.2;\r\n}\r\n\r\n.providers-panel {\r\n  overflow: visible;\r\n}\r\n\r\n.providers-panel .providers-tools {\r\n  border-bottom: 1px solid color-mix(in srgb, var(--line-strong) 64%, var(--line-soft));\r\n  background:\r\n    linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 70%, var(--surface)) 0%, var(--surface) 100%),\r\n    var(--surface);\r\n}\r\n\r\n.providers-tools-head {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  gap: 12px;\r\n  align-items: center;\r\n  padding: 14px 18px 10px;\r\n}\r\n\r\n.providers-tools-head h2 {\r\n  color: var(--text);\r\n  font-size: 15px;\r\n  font-weight: 800;\r\n  letter-spacing: 0;\r\n}\r\n\r\n.providers-tools-head p {\r\n  margin-top: 3px;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  line-height: 1.25;\r\n}\r\n\r\n.providers-tools-head .button {\r\n  min-height: 34px;\r\n}\r\n\r\n#providersView .provider-toolbar {\r\n  grid-template-columns: minmax(240px, 1.55fr) minmax(140px, 0.75fr) minmax(140px, 0.75fr) minmax(140px, 0.75fr) auto;\r\n  gap: 9px;\r\n  align-items: end;\r\n  margin: 0;\r\n  padding: 0 18px 16px;\r\n  border: 0;\r\n  border-radius: 0;\r\n  background: transparent;\r\n  box-shadow: none;\r\n}\r\n\r\n#providersView .provider-toolbar .field {\r\n  gap: 6px;\r\n}\r\n\r\n#providersView .provider-toolbar .field > span {\r\n  color: color-mix(in srgb, var(--muted) 88%, var(--text));\r\n  font-size: 10.5px;\r\n  font-weight: 780;\r\n  letter-spacing: 0.02em;\r\n}\r\n\r\n#providersView .provider-toolbar .control {\r\n  min-height: 36px;\r\n  border-color: color-mix(in srgb, var(--line-strong) 74%, var(--line));\r\n  background: rgba(255, 255, 255, 0.78);\r\n}\r\n\r\n#providersView .provider-toolbar .control:focus-visible {\r\n  border-color: color-mix(in srgb, var(--info) 56%, var(--line));\r\n  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);\r\n}\r\n\r\n#providersView .provider-toolbar #clearProviderFiltersButton {\r\n  min-height: 36px;\r\n  padding-inline: 13px;\r\n  border-color: color-mix(in srgb, var(--line-strong) 68%, var(--line));\r\n}\r\n\r\n#providersView .provider-table {\r\n  padding-top: 12px;\r\n}\r\n\r\n@media (max-width: 1024px) {\r\n  #providersView .provider-toolbar {\r\n    grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(130px, 0.7fr)) auto;\r\n  }\r\n}\r\n\r\n@media (max-width: 760px) {\r\n  .sidebar .brand {\r\n    margin: 10px;\r\n    padding: 11px 12px;\r\n  }\r\n\r\n  .sidebar .brand::after {\r\n    display: none;\r\n  }\r\n\r\n  .providers-tools-head,\r\n  #providersView .provider-toolbar {\r\n    grid-template-columns: 1fr;\r\n    padding-right: 12px;\r\n    padding-left: 12px;\r\n  }\r\n\r\n  .providers-tools-head .button,\r\n  #providersView .provider-toolbar .button,\r\n  #providersView .provider-toolbar .field,\r\n  #providersView .provider-toolbar .control {\r\n    width: 100%;\r\n  }\r\n}\r\n\r\n/* static models form */\r\n.config-static-models-form {\r\n  display: grid;\r\n  gap: 8px;\r\n  padding: 12px 14px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n}\r\n\r\n.config-static-models-form .form-row {\r\n  display: grid;\r\n  gap: 5px;\r\n}\r\n\r\n.config-static-models-form label {\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 720;\r\n}\r\n\r\n.config-static-models-form input[type=\"text\"] {\r\n  width: 100%;\r\n  min-height: 32px;\r\n  padding: 4px 8px;\r\n  background: var(--bg);\r\n  border: 1px solid var(--line);\r\n  border-radius: 6px;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-family: var(--mono, monospace);\r\n  box-sizing: border-box;\r\n}\r\n\r\n.config-static-models-form input[type=\"text\"]:focus {\r\n  outline: none;\r\n  border-color: var(--accent);\r\n}\r\n\r\n.config-static-models-form small.muted {\r\n  font-size: 11px;\r\n  color: var(--muted);\r\n}\r\n\r\n.request-select-all-banner {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  gap: 12px;\r\n  padding: 8px 14px;\r\n  background-color: color-mix(in srgb, var(--accent, #3b82f6) 8%, transparent);\r\n  border-bottom: 1px dashed var(--line-soft);\r\n  font-size: 12px;\r\n  color: var(--text);\r\n  animation: viewIn 0.15s ease-out;\r\n}\r\n\r\n.request-select-all-banner .button.link-action {\r\n  background: none;\r\n  border: none;\r\n  padding: 0;\r\n  color: var(--accent);\r\n  font-weight: 600;\r\n  text-decoration: underline;\r\n  cursor: pointer;\r\n  font-family: inherit;\r\n}\r\n\r\n.request-select-all-banner .button.link-action:hover {\r\n  color: var(--accent-hover, #2563eb);\r\n}\r\n\r\n/* ---- Custom tooltip (Apple-style frosted popover) ---------------------- */\r\n.lp-tip {\r\n  position: fixed;\r\n  top: 0;\r\n  left: 0;\r\n  z-index: 1000;\r\n  max-width: 320px;\r\n  padding: 7px 11px;\r\n  border-radius: 9px;\r\n  background: color-mix(in srgb, #1d1d1f 86%, transparent);\r\n  color: #f5f5f7;\r\n  font: 600 11.5px/1.45 var(--mono);\r\n  letter-spacing: 0.01em;\r\n  box-shadow:\r\n    0 1px 2px rgba(0, 0, 0, 0.18),\r\n    0 8px 24px rgba(0, 0, 0, 0.22);\r\n  backdrop-filter: blur(18px) saturate(1.5);\r\n  -webkit-backdrop-filter: blur(18px) saturate(1.5);\r\n  pointer-events: none;\r\n  opacity: 0;\r\n  /* No transform on the resting state so getBoundingClientRect measures the\r\n     true size during positioning. The entrance transform lives on is-visible\r\n     and animates back to none, which does not affect layout measurement\r\n     because measurement happens before is-visible is added. */\r\n  visibility: hidden;\r\n  transition: opacity 130ms ease, transform 130ms cubic-bezier(0.2, 0.8, 0.2, 1);\r\n}\r\n\r\n.lp-tip.is-below {\r\n  transform-origin: top center;\r\n}\r\n\r\n.lp-tip.is-visible {\r\n  opacity: 1;\r\n  visibility: visible;\r\n  transform: translateY(0) scale(1);\r\n}\r\n\r\n.lp-tip::after {\r\n  content: \"\";\r\n  position: absolute;\r\n  left: 50%;\r\n  bottom: -4px;\r\n  width: 8px;\r\n  height: 8px;\r\n  background: inherit;\r\n  border-radius: 1px;\r\n  transform: translateX(-50%) rotate(45deg);\r\n  box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.12);\r\n}\r\n\r\n.lp-tip.is-below::after {\r\n  bottom: auto;\r\n  top: -4px;\r\n  box-shadow: -1px -1px 2px rgba(0, 0, 0, 0.12);\r\n}\r\n\r\n/* ─── Playground ────────────────────────────────────────── */\r\n\r\n.playground-layout {\r\n  display: grid;\r\n  grid-template-columns: 280px minmax(0, 1fr);\r\n  gap: 0;\r\n  height: calc(100dvh - 58px);\r\n  overflow: hidden;\r\n}\r\n\r\n/* ── Config sidebar ── */\r\n.playground-config {\r\n  display: flex;\r\n  flex-direction: column;\r\n  gap: 0;\r\n  border-right: 1px solid var(--line);\r\n  background: var(--surface);\r\n  overflow-y: auto;\r\n  scrollbar-width: thin;\r\n  scrollbar-color: var(--line-strong) transparent;\r\n}\r\n\r\n.playground-config::-webkit-scrollbar {\r\n  width: 5px;\r\n}\r\n.playground-config::-webkit-scrollbar-thumb {\r\n  background: var(--line-strong);\r\n  border-radius: 3px;\r\n}\r\n\r\n/* Config section header bar */\r\n.pg-config-section {\r\n  border-bottom: 1px solid var(--line-soft);\r\n}\r\n\r\n.pg-config-section summary {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 6px;\r\n  padding: 10px 16px;\r\n  font-size: 10px;\r\n  font-weight: 760;\r\n  text-transform: uppercase;\r\n  letter-spacing: 0.08em;\r\n  color: var(--muted);\r\n  cursor: pointer;\r\n  transition: background 120ms ease, color 120ms ease;\r\n  list-style: none;\r\n  user-select: none;\r\n}\r\n\r\n.pg-config-section summary::-webkit-details-marker {\r\n  display: none;\r\n}\r\n\r\n.pg-config-section summary::before {\r\n  content: \"\";\r\n  display: inline-block;\r\n  width: 6px;\r\n  height: 6px;\r\n  border-right: 1.5px solid var(--line-strong);\r\n  border-bottom: 1.5px solid var(--line-strong);\r\n  transform: rotate(-45deg);\r\n  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1);\r\n  flex-shrink: 0;\r\n}\r\n\r\n.pg-config-section[open] summary::before {\r\n  transform: rotate(45deg);\r\n}\r\n\r\n.pg-config-section summary:hover {\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n}\r\n\r\n.pg-config-body {\r\n  display: grid;\r\n  gap: 10px;\r\n  padding: 4px 16px 14px;\r\n}\r\n\r\n/* Parameter grid */\r\n.pg-param-grid {\r\n  grid-template-columns: 1fr 1fr;\r\n  gap: 8px 10px;\r\n}\r\n\r\n.pg-param {\r\n  display: grid;\r\n  gap: 3px;\r\n}\r\n\r\n.pg-param span {\r\n  font-size: 10px;\r\n  font-weight: 680;\r\n  color: var(--muted);\r\n  letter-spacing: 0.01em;\r\n}\r\n\r\n.pg-param .control {\r\n  min-height: 32px;\r\n  padding: 0 10px;\r\n  font-size: 12px;\r\n  font-family: var(--mono);\r\n  border-radius: 6px;\r\n  transition: border-color 150ms ease, box-shadow 150ms ease;\r\n}\r\n\r\n.pg-param .control:focus-visible {\r\n  border-color: var(--accent);\r\n  box-shadow: 0 0 0 3px rgba(9, 9, 11, 0.08);\r\n}\r\n\r\n/* Model select */\r\n.pg-config-body .control {\r\n  min-height: 32px;\r\n  font-size: 12px;\r\n  border-radius: 6px;\r\n  transition: border-color 150ms ease, box-shadow 150ms ease;\r\n}\r\n\r\n.pg-config-body .control:focus-visible {\r\n  border-color: var(--accent);\r\n  box-shadow: 0 0 0 3px rgba(9, 9, 11, 0.08);\r\n}\r\n\r\n/* Segmented control */\r\n.pg-segment-row {\r\n  margin-bottom: 2px;\r\n}\r\n\r\n.pg-segment-row .segmented-control {\r\n  display: flex;\r\n  border-radius: 6px;\r\n  overflow: hidden;\r\n  border: 1px solid var(--line);\r\n}\r\n\r\n.pg-segment-row .segmented-button {\r\n  flex: 1;\r\n  min-height: 32px;\r\n  font-size: 11px;\r\n  font-weight: 640;\r\n  border: none;\r\n  border-right: 1px solid var(--line);\r\n  background: var(--surface);\r\n  color: var(--muted);\r\n  cursor: pointer;\r\n  transition: background 120ms ease, color 120ms ease;\r\n}\r\n\r\n.pg-segment-row .segmented-button:last-child {\r\n  border-right: none;\r\n}\r\n\r\n.pg-segment-row .segmented-button:hover {\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n}\r\n\r\n.pg-segment-row .segmented-button.is-active {\r\n  background: var(--text);\r\n  color: #fff;\r\n}\r\n\r\n/* Checkbox field */\r\n.pg-config-body .check-field {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n  min-height: 28px;\r\n  font-size: 11.5px;\r\n  font-weight: 580;\r\n  color: var(--text);\r\n  cursor: pointer;\r\n}\r\n\r\n.pg-config-body .check-field input[type=\"checkbox\"] {\r\n  width: 14px;\r\n  height: 14px;\r\n  accent-color: var(--text);\r\n  cursor: pointer;\r\n}\r\n\r\n/* System prompt textarea */\r\n.pg-system-prompt {\r\n  min-height: 56px;\r\n  max-height: 140px;\r\n  resize: vertical;\r\n  font-family: var(--sans);\r\n  font-size: 12px;\r\n  line-height: 1.5;\r\n  border-radius: 6px;\r\n  padding: 8px 10px;\r\n  transition: border-color 150ms ease, box-shadow 150ms ease;\r\n}\r\n\r\n.pg-system-prompt:focus-visible {\r\n  border-color: var(--accent);\r\n  box-shadow: 0 0 0 3px rgba(9, 9, 11, 0.08);\r\n}\r\n\r\n/* Footer */\r\n.pg-config-footer {\r\n  padding: 10px 16px 14px;\r\n  margin-top: auto;\r\n  border-top: 1px solid var(--line-soft);\r\n}\r\n\r\n.pg-config-footer .button {\r\n  width: 100%;\r\n  min-height: 32px;\r\n  font-size: 11.5px;\r\n  font-weight: 640;\r\n  border-radius: 6px;\r\n}\r\n\r\n/* ── Main chat area ── */\r\n.playground-main {\r\n  display: flex;\r\n  flex-direction: column;\r\n  min-width: 0;\r\n  min-height: 0;\r\n  background: var(--bg);\r\n}\r\n\r\n.pg-chat-wrap {\r\n  flex: 1;\r\n  display: flex;\r\n  flex-direction: column;\r\n  min-height: 0;\r\n  overflow: hidden;\r\n}\r\n\r\n.pg-chat {\r\n  flex: 1;\r\n  overflow-y: auto;\r\n  padding: 20px 24px;\r\n  min-height: 0;\r\n  scrollbar-width: thin;\r\n  scrollbar-color: var(--line-strong) transparent;\r\n}\r\n\r\n.pg-chat::-webkit-scrollbar {\r\n  width: 6px;\r\n}\r\n.pg-chat::-webkit-scrollbar-thumb {\r\n  background: var(--line-strong);\r\n  border-radius: 3px;\r\n}\r\n\r\n/* Empty state */\r\n.pg-empty {\r\n  display: flex;\r\n  flex-direction: column;\r\n  align-items: center;\r\n  justify-content: center;\r\n  gap: 10px;\r\n  height: 100%;\r\n  min-height: 200px;\r\n  color: var(--muted);\r\n}\r\n\r\n.pg-empty::before {\r\n  content: \"\";\r\n  display: block;\r\n  width: 32px;\r\n  height: 32px;\r\n  border: 1.5px solid var(--line-strong);\r\n  border-radius: 50%;\r\n  position: relative;\r\n}\r\n\r\n.pg-empty-text {\r\n  font-size: 13px;\r\n  font-weight: 580;\r\n}\r\n\r\n/* Message blocks */\r\n.pg-message {\r\n  margin-bottom: 16px;\r\n  max-width: 760px;\r\n  animation: pg-msg-in 300ms cubic-bezier(0.16, 1, 0.3, 1);\r\n}\r\n\r\n@keyframes pg-msg-in {\r\n  from { opacity: 0; transform: translateY(6px); }\r\n  to   { opacity: 1; transform: translateY(0); }\r\n}\r\n\r\n.pg-message:last-child {\r\n  margin-bottom: 8px;\r\n}\r\n\r\n.pg-message-head {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 7px;\r\n  margin-bottom: 5px;\r\n}\r\n\r\n.pg-message-role {\r\n  font-size: 10px;\r\n  font-weight: 760;\r\n  text-transform: uppercase;\r\n  letter-spacing: 0.06em;\r\n  color: var(--muted);\r\n  font-family: var(--mono);\r\n}\r\n\r\n.pg-message-content {\r\n  padding: 11px 15px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 10px;\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  font-size: 13px;\r\n  line-height: 1.65;\r\n  white-space: pre-wrap;\r\n  word-break: break-word;\r\n  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);\r\n  transition: box-shadow 200ms ease;\r\n}\r\n\r\n.pg-message-content:hover {\r\n  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);\r\n}\r\n\r\n.pg-role-assistant .pg-message-content {\r\n  border-color: color-mix(in srgb, var(--success) 20%, var(--line));\r\n  background: var(--success-soft);\r\n}\r\n\r\n.pg-role-assistant .pg-message-role {\r\n  color: var(--success);\r\n}\r\n\r\n.pg-role-user .pg-message-content {\r\n  border-color: color-mix(in srgb, var(--info) 16%, var(--line));\r\n  background: var(--info-soft);\r\n}\r\n\r\n.pg-role-user .pg-message-role {\r\n  color: color-mix(in srgb, var(--info) 80%, var(--text));\r\n}\r\n\r\n.pg-role-system .pg-message-content {\r\n  border-color: color-mix(in srgb, var(--compat) 18%, var(--line));\r\n  background: var(--compat-soft);\r\n}\r\n\r\n.pg-role-system .pg-message-role {\r\n  color: var(--compat);\r\n}\r\n\r\n.pg-message-error {\r\n  padding: 11px 15px;\r\n  border: 1px solid color-mix(in srgb, var(--danger) 24%, var(--line));\r\n  border-radius: 10px;\r\n  background: var(--danger-soft);\r\n  color: var(--danger);\r\n  font-size: 12.5px;\r\n  font-weight: 600;\r\n  line-height: 1.55;\r\n  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);\r\n}\r\n\r\n.pg-message-meta {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 5px;\r\n  margin-top: 6px;\r\n}\r\n\r\n.pg-message-meta .badge {\r\n  font-size: 10px;\r\n  font-weight: 620;\r\n  font-family: var(--mono);\r\n  min-height: 20px;\r\n  padding: 0 7px;\r\n  border-radius: 4px;\r\n  display: inline-flex;\r\n  align-items: center;\r\n}\r\n\r\n/* Streaming cursor */\r\n.pg-stream-cursor {\r\n  display: inline-block;\r\n  width: 7px;\r\n  height: 15px;\r\n  margin-left: 2px;\r\n  vertical-align: text-bottom;\r\n  background: var(--text);\r\n  border-radius: 1px;\r\n  animation: pg-blink 1s steps(2) infinite;\r\n}\r\n\r\n@keyframes pg-blink {\r\n  0%, 50% { opacity: 1; }\r\n  51%, 100% { opacity: 0; }\r\n}\r\n\r\n/* ── Trace strip ── */\r\n.pg-trace-strip {\r\n  flex-shrink: 0;\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  align-items: center;\r\n  gap: 0;\r\n  padding: 0 24px;\r\n  border-top: 1px solid var(--line-soft);\r\n  background: var(--surface-raised);\r\n  font-size: 11px;\r\n  font-family: var(--mono);\r\n}\r\n\r\n.pg-trace-strip .pg-trace-item {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 5px;\r\n  padding: 7px 12px 7px 0;\r\n  border-right: 1px solid var(--line-soft);\r\n  margin-right: 10px;\r\n}\r\n\r\n.pg-trace-strip .pg-trace-item:last-child {\r\n  border-right: none;\r\n}\r\n\r\n.pg-trace-strip .pg-trace-k {\r\n  color: var(--muted);\r\n  font-size: 9px;\r\n  text-transform: uppercase;\r\n  letter-spacing: 0.06em;\r\n  font-weight: 720;\r\n}\r\n\r\n.pg-trace-strip .pg-trace-v {\r\n  color: var(--text);\r\n  font-weight: 620;\r\n}\r\n\r\n/* ── Model search combobox ── */\r\n.pg-model-combo {\r\n  position: relative;\r\n}\r\n\r\n.pg-model-combo input {\r\n  width: 100%;\r\n}\r\n\r\n.pg-model-dropdown {\r\n  position: absolute;\r\n  top: calc(100% + 2px);\r\n  left: 0;\r\n  right: 0;\r\n  max-height: 260px;\r\n  overflow-y: auto;\r\n  background: var(--surface-raised, #fff);\r\n  border: 1px solid var(--line-soft, #ddd);\r\n  border-radius: 6px;\r\n  z-index: 100;\r\n  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);\r\n}\r\n\r\n.pg-model-option {\r\n  padding: 8px 12px;\r\n  font-size: 12px;\r\n  font-family: var(--mono, monospace);\r\n  cursor: pointer;\r\n  border-bottom: 1px solid var(--line-soft, #eee);\r\n  transition: background 0.12s;\r\n}\r\n\r\n.pg-model-option:last-child {\r\n  border-bottom: none;\r\n}\r\n\r\n.pg-model-option:hover {\r\n  background: var(--surface-soft, #f5f5f5);\r\n}\r\n\r\n.pg-model-option.selected {\r\n  background: var(--accent-soft, #e8f0fe);\r\n  font-weight: 600;\r\n}\r\n\r\n.pg-model-empty {\r\n  padding: 12px;\r\n  font-size: 12px;\r\n  color: var(--muted, #999);\r\n  text-align: center;\r\n}\r\n\r\n/* ── Input bar ── */\r\n.pg-input-bar {\r\n  flex-shrink: 0;\r\n  display: flex;\r\n  gap: 10px;\r\n  align-items: flex-end;\r\n  padding: 12px 20px 10px;\r\n  border-top: 1px solid var(--line);\r\n  background: var(--surface);\r\n  box-shadow: 0 -1px 0 rgba(0, 0, 0, 0.02);\r\n}\r\n\r\n.pg-input {\r\n  flex: 1;\r\n  min-height: 40px;\r\n  max-height: 140px;\r\n  resize: none;\r\n  font-family: var(--sans);\r\n  font-size: 13px;\r\n  line-height: 1.55;\r\n  padding: 9px 13px;\r\n  border-radius: 8px;\r\n  border: 1px solid var(--line);\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  transition: border-color 150ms ease, box-shadow 150ms ease;\r\n}\r\n\r\n.pg-input::placeholder {\r\n  color: var(--line-strong);\r\n}\r\n\r\n.pg-input:focus-visible {\r\n  border-color: var(--accent);\r\n  box-shadow: 0 0 0 3px rgba(9, 9, 11, 0.08);\r\n}\r\n\r\n.pg-send-btn,\r\n.pg-stop-btn {\r\n  min-height: 40px;\r\n  padding: 0 20px;\r\n  font-size: 12.5px;\r\n  font-weight: 680;\r\n  white-space: nowrap;\r\n  border-radius: 8px;\r\n  transition: background 150ms ease, border-color 150ms ease, transform 100ms ease, box-shadow 150ms ease;\r\n}\r\n\r\n.pg-send-btn {\r\n  border: 1px solid var(--text);\r\n  background: var(--text);\r\n  color: #fff;\r\n  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);\r\n}\r\n\r\n.pg-send-btn:hover {\r\n  background: var(--accent-strong);\r\n  border-color: var(--accent-strong);\r\n  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);\r\n}\r\n\r\n.pg-send-btn:active {\r\n  transform: scale(0.97);\r\n}\r\n\r\n.pg-send-btn:disabled {\r\n  opacity: 0.5;\r\n  cursor: not-allowed;\r\n  transform: none;\r\n}\r\n\r\n.pg-stop-btn {\r\n  border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--line));\r\n  background: var(--danger-soft);\r\n  color: var(--danger);\r\n}\r\n\r\n.pg-stop-btn:hover {\r\n  background: color-mix(in srgb, var(--danger) 12%, var(--danger-soft));\r\n  border-color: var(--danger);\r\n}\r\n\r\n.pg-stop-btn:active {\r\n  transform: scale(0.97);\r\n}\r\n\r\n/* ── Status bar ── */\r\n.pg-status-bar {\r\n  flex-shrink: 0;\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n  padding: 5px 20px 7px;\r\n  font-size: 10px;\r\n  font-weight: 560;\r\n  color: var(--muted);\r\n  background: var(--surface);\r\n  border-top: 1px solid var(--line-soft);\r\n  font-family: var(--mono);\r\n  letter-spacing: 0.02em;\r\n}\r\n\r\n.pg-status-bar::before {\r\n  content: \"\";\r\n  display: inline-block;\r\n  width: 6px;\r\n  height: 6px;\r\n  border-radius: 50%;\r\n  background: var(--line-strong);\r\n  flex-shrink: 0;\r\n}\r\n\r\n/* ── Responsive ── */\r\n@media (max-width: 760px) {\r\n  .playground-layout {\r\n    grid-template-columns: 1fr;\r\n    height: auto;\r\n  }\r\n\r\n  .playground-config {\r\n    border-right: none;\r\n    border-bottom: 1px solid var(--line);\r\n    max-height: 40dvh;\r\n  }\r\n\r\n  .playground-main {\r\n    min-height: 50dvh;\r\n  }\r\n\r\n  .pg-chat {\r\n    min-height: 200px;\r\n    padding: 14px 16px;\r\n  }\r\n\r\n  .pg-input-bar {\r\n    padding: 10px 14px 8px;\r\n  }\r\n\r\n  .pg-status-bar {\r\n    padding: 5px 14px 7px;\r\n  }\r\n}\r\n\r\n/* ─── Playground polish override ───────────────────────────────────────── */\r\n\r\n.playground-view {\r\n  height: calc(100dvh - 52px);\r\n  min-height: 560px;\r\n}\r\n\r\n.playground-layout {\r\n  grid-template-columns: minmax(260px, 310px) minmax(0, 1fr);\r\n  gap: 14px;\r\n  height: 100%;\r\n  min-height: 0;\r\n  padding: 0;\r\n  overflow: hidden;\r\n}\r\n\r\n.playground-config,\r\n.playground-main,\r\n.pg-compose-panel {\r\n  border: 1px solid color-mix(in srgb, var(--line-strong) 72%, var(--line));\r\n  background: #fff;\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.playground-config {\r\n  min-height: 0;\r\n  border-radius: 10px;\r\n  border-right: 1px solid color-mix(in srgb, var(--line-strong) 72%, var(--line));\r\n  overflow-x: hidden;\r\n}\r\n\r\n.pg-config-head {\r\n  display: grid;\r\n  gap: 4px;\r\n  padding: 16px 16px 14px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n  background:\r\n    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(250, 250, 250, 0.78)),\r\n    var(--surface);\r\n}\r\n\r\n.pg-config-head h2,\r\n.pg-workbench-head h2 {\r\n  font-size: 15px;\r\n  font-weight: 760;\r\n  line-height: 1.2;\r\n}\r\n\r\n.pg-config-head p {\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  line-height: 1.45;\r\n}\r\n\r\n.pg-config-section {\r\n  border-bottom: 1px solid var(--line-soft);\r\n  background: transparent;\r\n}\r\n\r\n.pg-config-section summary {\r\n  min-height: 38px;\r\n  padding: 10px 16px;\r\n  color: color-mix(in srgb, var(--muted) 86%, var(--text));\r\n  font-size: 10.5px;\r\n  letter-spacing: 0.055em;\r\n}\r\n\r\n.pg-config-section[open] summary {\r\n  color: var(--text);\r\n}\r\n\r\n.pg-config-body {\r\n  gap: 11px;\r\n  padding: 0 16px 16px;\r\n}\r\n\r\n.pg-model-combo {\r\n  z-index: 20;\r\n}\r\n\r\n.pg-model-combo input,\r\n.pg-param .control,\r\n.pg-config-body .control {\r\n  min-height: 36px;\r\n  border-color: color-mix(in srgb, var(--line-strong) 70%, var(--line));\r\n  background: rgba(255, 255, 255, 0.92);\r\n  color: var(--text);\r\n}\r\n\r\n.pg-model-combo input {\r\n  padding-inline: 11px;\r\n  font-family: var(--mono);\r\n}\r\n\r\n.pg-param-grid {\r\n  display: grid;\r\n  grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  gap: 12px;\r\n}\r\n\r\n.pg-param span {\r\n  color: color-mix(in srgb, var(--muted) 90%, var(--text));\r\n  font-size: 10.5px;\r\n  font-weight: 740;\r\n}\r\n\r\n.pg-param .control {\r\n  width: 100%;\r\n}\r\n\r\n.pg-param-wide {\r\n  grid-column: 1 / -1;\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  min-height: 36px;\r\n  padding: 0 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: #fff;\r\n}\r\n\r\n.pg-param:has(#pgStream) {\r\n  align-content: end;\r\n}\r\n\r\n.pg-param #pgStream,\r\n.pg-param #pgIncludeHistory {\r\n  width: 18px;\r\n  height: 18px;\r\n  margin: 8px 0 5px;\r\n  accent-color: var(--text);\r\n}\r\n\r\n.pg-system-prompt {\r\n  min-height: 112px;\r\n  padding: 10px 11px;\r\n  resize: vertical;\r\n}\r\n\r\n.pg-format-selector {\r\n  display: grid;\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  gap: 4px;\r\n  padding: 4px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface-soft);\r\n}\r\n\r\n.pg-format-btn {\r\n  min-width: 0;\r\n  min-height: 32px;\r\n  padding: 0 8px;\r\n  border: 0;\r\n  border-radius: 6px;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  font: 700 11px/1 var(--sans);\r\n  cursor: pointer;\r\n  transition: background 150ms ease, color 150ms ease, box-shadow 150ms ease, transform 120ms ease;\r\n}\r\n\r\n.pg-format-btn:hover {\r\n  background: rgba(255, 255, 255, 0.72);\r\n  color: var(--text);\r\n}\r\n\r\n.pg-format-btn:active {\r\n  transform: translateY(1px);\r\n}\r\n\r\n.pg-format-btn.is-active {\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  box-shadow: 0 1px 4px rgba(9, 9, 11, 0.08);\r\n}\r\n\r\n.playground-main {\r\n  min-height: 0;\r\n  border-radius: 10px;\r\n  overflow: hidden;\r\n  background: #fff;\r\n}\r\n\r\n.pg-workbench-head {\r\n  flex-shrink: 0;\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  gap: 16px;\r\n  padding: 14px 18px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n  background: rgba(255, 255, 255, 0.78);\r\n}\r\n\r\n.pg-status {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 7px;\r\n  min-height: 28px;\r\n  max-width: 50%;\r\n  overflow: hidden;\r\n  padding: 0 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 999px;\r\n  background: var(--surface);\r\n  color: var(--muted);\r\n  font: 680 11px/1 var(--mono);\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.pg-status::before {\r\n  width: 6px;\r\n  height: 6px;\r\n  border-radius: 999px;\r\n  background: var(--success);\r\n  content: \"\";\r\n}\r\n\r\n.pg-chat-wrap {\r\n  min-height: 0;\r\n  background: #fafafa;\r\n}\r\n\r\n.pg-chat-area {\r\n  flex: 1;\r\n  min-height: 0;\r\n  height: 100%;\r\n  overflow-y: auto;\r\n  padding: 26px 28px 30px;\r\n  scrollbar-width: thin;\r\n  scrollbar-color: var(--line-strong) transparent;\r\n}\r\n\r\n.pg-chat-area::-webkit-scrollbar {\r\n  width: 6px;\r\n}\r\n\r\n.pg-chat-area::-webkit-scrollbar-thumb {\r\n  border-radius: 999px;\r\n  background: var(--line-strong);\r\n}\r\n\r\n.pg-empty {\r\n  min-height: 100%;\r\n  gap: 12px;\r\n  color: var(--muted);\r\n}\r\n\r\n.pg-empty::before {\r\n  width: 38px;\r\n  height: 38px;\r\n  border: 1px solid color-mix(in srgb, var(--line-strong) 78%, var(--line));\r\n  background:\r\n    linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(244, 244, 245, 0.74));\r\n  box-shadow: inset 0 0 0 8px rgba(255, 255, 255, 0.45);\r\n}\r\n\r\n.pg-empty-text {\r\n  color: color-mix(in srgb, var(--muted) 88%, var(--text));\r\n  font-size: 13px;\r\n  font-weight: 660;\r\n}\r\n\r\n.pg-message {\r\n  max-width: min(780px, 92%);\r\n  margin-bottom: 18px;\r\n  animation: none;\r\n}\r\n\r\n.pg-role-assistant,\r\n.pg-role-system {\r\n  width: min(780px, 92%);\r\n}\r\n\r\n.pg-role-user {\r\n  width: fit-content;\r\n  max-width: min(520px, 74%);\r\n  margin-left: auto;\r\n}\r\n\r\n.pg-role-user .pg-message-head {\r\n  justify-content: flex-end;\r\n}\r\n\r\n.pg-message-role {\r\n  color: var(--muted);\r\n  font-size: 10px;\r\n  letter-spacing: 0.05em;\r\n}\r\n\r\n.pg-message-content,\r\n.pg-message-error {\r\n  border-radius: 8px;\r\n  font-size: 13px;\r\n  line-height: 1.68;\r\n  box-shadow: none;\r\n}\r\n\r\n.pg-message-content {\r\n  border-color: var(--line);\r\n  background: #fff;\r\n}\r\n\r\n.pg-role-user .pg-message-content {\r\n  border-color: color-mix(in srgb, var(--text) 16%, var(--line));\r\n  background: #f5f5f6;\r\n  color: var(--text);\r\n  padding: 10px 13px;\r\n}\r\n\r\n.pg-role-user .pg-message-role {\r\n  color: var(--text);\r\n}\r\n\r\n.pg-role-assistant .pg-message-content {\r\n  border-color: color-mix(in srgb, var(--success) 14%, var(--line));\r\n  background: #fff;\r\n}\r\n\r\n.pg-thinking {\r\n  margin: 0 0 8px;\r\n  border: 1px solid color-mix(in srgb, var(--compat) 18%, var(--line));\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--compat-soft) 58%, #fff);\r\n  color: var(--text);\r\n  overflow: hidden;\r\n}\r\n\r\n.pg-thinking summary {\r\n  min-height: 32px;\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n  padding: 0 11px;\r\n  color: color-mix(in srgb, var(--compat) 72%, var(--text));\r\n  cursor: pointer;\r\n  font: 700 11px/1 var(--mono);\r\n  list-style: none;\r\n}\r\n\r\n.pg-thinking summary::-webkit-details-marker {\r\n  display: none;\r\n}\r\n\r\n.pg-thinking summary::before {\r\n  width: 6px;\r\n  height: 6px;\r\n  border-radius: 999px;\r\n  background: currentColor;\r\n  opacity: 0.55;\r\n  content: \"\";\r\n}\r\n\r\n.pg-thinking-text {\r\n  max-height: 220px;\r\n  margin: 0;\r\n  padding: 10px 12px 12px;\r\n  overflow: auto;\r\n  border-top: 1px solid color-mix(in srgb, var(--compat) 12%, var(--line));\r\n  color: color-mix(in srgb, var(--muted) 82%, var(--text));\r\n  font: 12px/1.6 var(--mono);\r\n  white-space: pre-wrap;\r\n  word-break: break-word;\r\n}\r\n\r\n.pg-message-content:hover {\r\n  box-shadow: none;\r\n}\r\n\r\n.pg-stream-cursor {\r\n  display: inline-block;\r\n  width: 2px;\r\n  height: 1em;\r\n  margin-left: 3px;\r\n  vertical-align: -0.12em;\r\n  background: color-mix(in srgb, var(--text) 58%, transparent);\r\n  border-radius: 1px;\r\n  animation: none;\r\n}\r\n\r\n.pg-message-meta {\r\n  gap: 6px;\r\n  margin-top: 8px;\r\n}\r\n\r\n.pg-message-meta .badge {\r\n  min-height: 22px;\r\n  border-color: transparent;\r\n  border-radius: 6px;\r\n  background: rgba(255, 255, 255, 0.78);\r\n  color: var(--muted);\r\n}\r\n\r\n.pg-compose-panel {\r\n  flex-shrink: 0;\r\n  border-width: 1px 0 0;\r\n  border-radius: 0;\r\n  background: rgba(255, 255, 255, 0.9);\r\n  box-shadow: 0 -10px 24px rgba(9, 9, 11, 0.045);\r\n}\r\n\r\n.pg-trace-strip {\r\n  min-height: 0;\r\n  padding: 8px 18px 0;\r\n  border-top: 0;\r\n  background: transparent;\r\n}\r\n\r\n.pg-trace-strip[hidden] {\r\n  display: none !important;\r\n}\r\n\r\n.pg-trace-strip .pg-trace-item {\r\n  margin: 0 6px 8px 0;\r\n  padding: 5px 8px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface);\r\n}\r\n\r\n.pg-input-bar {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  gap: 12px;\r\n  align-items: end;\r\n  padding: 12px 18px 16px;\r\n  border-top: 0;\r\n  background: transparent;\r\n  box-shadow: none;\r\n}\r\n\r\n.pg-input {\r\n  min-height: 48px;\r\n  max-height: 150px;\r\n  padding: 12px 13px;\r\n  border-color: color-mix(in srgb, var(--line-strong) 72%, var(--line));\r\n  border-radius: 9px;\r\n  background: #fff;\r\n}\r\n\r\n.pg-input::placeholder {\r\n  color: color-mix(in srgb, var(--muted) 55%, var(--line-strong));\r\n}\r\n\r\n.pg-input-actions {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n}\r\n\r\n.pg-btn {\r\n  min-height: 40px;\r\n  border-radius: 8px;\r\n}\r\n\r\n.pg-send-btn,\r\n.pg-stop-btn {\r\n  min-height: 40px;\r\n}\r\n\r\n.pg-model-dropdown {\r\n  top: calc(100% + 6px);\r\n  border-color: var(--line);\r\n  border-radius: 8px;\r\n  box-shadow: 0 16px 34px rgba(9, 9, 11, 0.14);\r\n}\r\n\r\n.pg-model-option {\r\n  padding: 9px 11px;\r\n}\r\n\r\n.playground-view {\r\n  --pg-scroll-thumb: color-mix(in srgb, var(--muted) 14%, transparent);\r\n  --pg-scroll-thumb-hover: color-mix(in srgb, var(--muted) 28%, transparent);\r\n  --pg-scroll-track: transparent;\r\n}\r\n\r\n.playground-config,\r\n.pg-chat-area,\r\n.pg-model-dropdown,\r\n.pg-thinking-text {\r\n  scrollbar-width: thin;\r\n  scrollbar-color: var(--pg-scroll-thumb) var(--pg-scroll-track);\r\n}\r\n\r\n.playground-config::-webkit-scrollbar,\r\n.pg-chat-area::-webkit-scrollbar,\r\n.pg-model-dropdown::-webkit-scrollbar,\r\n.pg-thinking-text::-webkit-scrollbar {\r\n  width: 3px;\r\n  height: 3px;\r\n}\r\n\r\n.playground-config::-webkit-scrollbar-track,\r\n.pg-chat-area::-webkit-scrollbar-track,\r\n.pg-model-dropdown::-webkit-scrollbar-track,\r\n.pg-thinking-text::-webkit-scrollbar-track {\r\n  background: var(--pg-scroll-track);\r\n}\r\n\r\n.playground-config::-webkit-scrollbar-thumb,\r\n.pg-chat-area::-webkit-scrollbar-thumb,\r\n.pg-model-dropdown::-webkit-scrollbar-thumb,\r\n.pg-thinking-text::-webkit-scrollbar-thumb {\r\n  border-radius: 999px;\r\n  background: var(--pg-scroll-thumb);\r\n}\r\n\r\n.playground-config::-webkit-scrollbar-thumb:hover,\r\n.pg-chat-area::-webkit-scrollbar-thumb:hover,\r\n.pg-model-dropdown::-webkit-scrollbar-thumb:hover,\r\n.pg-thinking-text::-webkit-scrollbar-thumb:hover {\r\n  background: var(--pg-scroll-thumb-hover);\r\n}\r\n\r\n.playground-config::-webkit-scrollbar-corner,\r\n.pg-chat-area::-webkit-scrollbar-corner,\r\n.pg-model-dropdown::-webkit-scrollbar-corner,\r\n.pg-thinking-text::-webkit-scrollbar-corner {\r\n  background: transparent;\r\n}\r\n\r\n/* ---- Playground Markdown rendering ---- */\r\n\r\n.pg-role-assistant .pg-message-content {\r\n  white-space: normal;\r\n}\r\n\r\n.pg-message-content .pg-md-p {\r\n  margin: 0 0 8px;\r\n}\r\n\r\n.pg-message-content .pg-md-p:last-child {\r\n  margin-bottom: 0;\r\n}\r\n\r\n.pg-message-content .pg-md-h1,\r\n.pg-message-content .pg-md-h2,\r\n.pg-message-content .pg-md-h3,\r\n.pg-message-content .pg-md-h4 {\r\n  margin: 12px 0 6px;\r\n  font-weight: 700;\r\n  line-height: 1.35;\r\n  color: var(--text);\r\n}\r\n\r\n.pg-message-content .pg-md-h1 { font-size: 17px; }\r\n.pg-message-content .pg-md-h2 { font-size: 15px; }\r\n.pg-message-content .pg-md-h3 { font-size: 14px; }\r\n.pg-message-content .pg-md-h4 { font-size: 13px; }\r\n\r\n.pg-message-content .pg-md-h1:first-child,\r\n.pg-message-content .pg-md-h2:first-child,\r\n.pg-message-content .pg-md-h3:first-child,\r\n.pg-message-content .pg-md-h4:first-child {\r\n  margin-top: 0;\r\n}\r\n\r\n.pg-message-content .pg-md-ul,\r\n.pg-message-content .pg-md-ol {\r\n  margin: 0 0 8px;\r\n  padding-left: 20px;\r\n}\r\n\r\n.pg-message-content .pg-md-ul:last-child,\r\n.pg-message-content .pg-md-ol:last-child {\r\n  margin-bottom: 0;\r\n}\r\n\r\n.pg-message-content .pg-md-ul { list-style: disc; }\r\n.pg-message-content .pg-md-ol { list-style: decimal; }\r\n\r\n.pg-message-content .pg-md-ul li,\r\n.pg-message-content .pg-md-ol li {\r\n  margin: 2px 0;\r\n}\r\n\r\n.pg-message-content .pg-md-code {\r\n  margin: 0 0 8px;\r\n  padding: 10px 12px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 6px;\r\n  background: color-mix(in srgb, var(--surface) 80%, #000 4%);\r\n  overflow-x: auto;\r\n  font: 12px/1.55 var(--mono);\r\n  white-space: pre;\r\n}\r\n\r\n.pg-message-content .pg-md-code:last-child {\r\n  margin-bottom: 0;\r\n}\r\n\r\n.pg-message-content .pg-md-code code {\r\n  font-family: inherit;\r\n  background: none;\r\n  padding: 0;\r\n  border: none;\r\n  color: var(--text);\r\n}\r\n\r\n.pg-message-content .pg-md-inline {\r\n  padding: 1px 5px;\r\n  border-radius: 3px;\r\n  background: color-mix(in srgb, var(--surface) 70%, #000 6%);\r\n  font: 12px/1.4 var(--mono);\r\n  color: color-mix(in srgb, var(--compat) 80%, var(--text));\r\n}\r\n\r\n.pg-message-content .pg-md-quote {\r\n  margin: 0 0 8px;\r\n  padding: 4px 12px;\r\n  border-left: 3px solid color-mix(in srgb, var(--compat) 40%, var(--line));\r\n  color: var(--muted);\r\n  font-style: italic;\r\n}\r\n\r\n.pg-message-content .pg-md-quote:last-child {\r\n  margin-bottom: 0;\r\n}\r\n\r\n.pg-message-content .pg-md-hr {\r\n  margin: 10px 0;\r\n  border: none;\r\n  border-top: 1px solid var(--line);\r\n}\r\n\r\n.pg-message-content .pg-md-link {\r\n  color: var(--info);\r\n  text-decoration: none;\r\n  border-bottom: 1px solid color-mix(in srgb, var(--info) 30%, transparent);\r\n}\r\n\r\n.pg-message-content .pg-md-link:hover {\r\n  text-decoration: underline;\r\n}\r\n\r\n.pg-message-content strong {\r\n  font-weight: 700;\r\n}\r\n\r\n.pg-message-content em {\r\n  font-style: italic;\r\n}\r\n\r\n.pg-message-content del {\r\n  text-decoration: line-through;\r\n  opacity: 0.7;\r\n}\r\n\r\n@media (max-width: 980px) {\r\n  .playground-view {\r\n    height: auto;\r\n    min-height: 0;\r\n  }\r\n\r\n  .playground-layout {\r\n    grid-template-columns: 1fr;\r\n    overflow: visible;\r\n  }\r\n\r\n  .playground-config {\r\n    max-height: none;\r\n  }\r\n\r\n  .playground-main {\r\n    min-height: 620px;\r\n  }\r\n}\r\n\r\n@media (max-width: 760px) {\r\n  .playground-layout {\r\n    gap: 10px;\r\n  }\r\n\r\n  .pg-config-head,\r\n  .pg-workbench-head {\r\n    padding: 13px 14px;\r\n  }\r\n\r\n  .pg-param-grid {\r\n    grid-template-columns: 1fr 1fr;\r\n  }\r\n\r\n  .pg-format-selector {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .pg-status {\r\n    max-width: 44vw;\r\n  }\r\n\r\n  .pg-chat-area {\r\n    padding: 18px 14px 20px;\r\n  }\r\n\r\n  .pg-message {\r\n    max-width: 100%;\r\n  }\r\n\r\n  .pg-input-bar {\r\n    grid-template-columns: 1fr;\r\n    padding: 10px 12px 12px;\r\n  }\r\n\r\n    .pg-input-actions {\r\n    justify-content: flex-end;\r\n  }\r\n}\r\n\r\n/* ============================================================\r\n   UI/UX Optimization Components (minimalist-ui + ui-ux-pro-max)\r\n   ============================================================ */\r\n\r\n/* G1: Status Dot — semantic color indicator */\r\n.status-dot {\r\n  display: inline-block;\r\n  width: 8px;\r\n  height: 8px;\r\n  border-radius: 50%;\r\n  flex-shrink: 0;\r\n  transition: background 200ms ease;\r\n}\r\n.status-dot.ok { background: var(--success); }\r\n.status-dot.warn { background: var(--warning); }\r\n.status-dot.bad { background: var(--danger); }\r\n.status-dot.off { background: var(--line-strong); }\r\n\r\n/* G2: Help Tip — ? icon (uses existing JS .lp-tip floating tooltip via data-tip) */\r\n.help-tip {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  width: 16px;\r\n  height: 16px;\r\n  border-radius: 50%;\r\n  background: var(--surface-soft);\r\n  color: var(--muted);\r\n  font-size: 10px;\r\n  font-weight: 700;\r\n  cursor: help;\r\n  vertical-align: middle;\r\n  margin-left: 6px;\r\n  flex-shrink: 0;\r\n  transition: background 150ms ease, color 150ms ease;\r\n}\r\n.help-tip:hover {\r\n  background: var(--surface-strong);\r\n  color: var(--text);\r\n}\r\n\r\n/* G3: Toggle Switch — iOS-style checkbox replacement */\r\n.toggle-switch {\r\n  position: relative;\r\n  display: inline-block;\r\n  width: 36px;\r\n  height: 20px;\r\n  flex-shrink: 0;\r\n}\r\n.toggle-switch input {\r\n  opacity: 0;\r\n  width: 0;\r\n  height: 0;\r\n  position: absolute;\r\n}\r\n.toggle-switch .slider {\r\n  position: absolute;\r\n  inset: 0;\r\n  background: var(--line-strong);\r\n  border-radius: 999px;\r\n  transition: background 200ms ease;\r\n  cursor: pointer;\r\n}\r\n.toggle-switch .slider::before {\r\n  content: \"\";\r\n  position: absolute;\r\n  top: 2px;\r\n  left: 2px;\r\n  width: 16px;\r\n  height: 16px;\r\n  background: #fff;\r\n  border-radius: 50%;\r\n  transition: transform 200ms ease;\r\n  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);\r\n}\r\n.toggle-switch input:checked + .slider {\r\n  background: var(--success);\r\n}\r\n.toggle-switch input:checked + .slider::before {\r\n  transform: translateX(16px);\r\n}\r\n.toggle-switch input:focus-visible + .slider {\r\n  outline: 2px solid var(--accent);\r\n  outline-offset: 2px;\r\n}\r\n\r\n/* G4: Icon Button Group — segmented control for choices */\r\n.icon-btn-group {\r\n  display: inline-flex;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  overflow: hidden;\r\n}\r\n.icon-btn-group button {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 6px;\r\n  padding: 7px 12px;\r\n  border: none;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 560;\r\n  cursor: pointer;\r\n  transition: background 150ms ease, color 150ms ease;\r\n  white-space: nowrap;\r\n}\r\n.icon-btn-group button:hover {\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n}\r\n.icon-btn-group button.is-active {\r\n  background: var(--text);\r\n  color: #fff;\r\n}\r\n.icon-btn-group button + button {\r\n  border-left: 1px solid var(--line);\r\n}\r\n.icon-btn-group button svg {\r\n  width: 14px;\r\n  height: 14px;\r\n  flex-shrink: 0;\r\n}\r\n/* Responsive: hide text labels on narrow screens, keep icons */\r\n@media (max-width: 640px) {\r\n  .icon-btn-group button span {\r\n    display: none;\r\n  }\r\n  .icon-btn-group button {\r\n    padding: 8px 10px;\r\n  }\r\n}\r\n/* Toggle switch in check-field: align with label text */\r\n.check-field .toggle-switch {\r\n  margin-right: 2px;\r\n}\r\n\r\n/* G5: Tab Nav — horizontal tab navigation */\r\n.config-tab-nav {\r\n  display: flex;\r\n  gap: 0;\r\n  border-bottom: 1px solid var(--line);\r\n  margin-bottom: 0;\r\n  overflow-x: auto;\r\n  scrollbar-width: none;\r\n}\r\n.config-tab-nav::-webkit-scrollbar {\r\n  display: none;\r\n}\r\n.config-tab-nav button {\r\n  padding: 10px 16px;\r\n  border: none;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 620;\r\n  cursor: pointer;\r\n  border-bottom: 2px solid transparent;\r\n  transition: color 150ms ease, border-color 150ms ease;\r\n  white-space: nowrap;\r\n}\r\n.config-tab-nav button:hover {\r\n  color: var(--text);\r\n}\r\n.config-tab-nav button.is-active {\r\n  color: var(--text);\r\n  border-bottom-color: var(--text);\r\n}\r\n\r\n/* G6: Collapsible Card — expandable container */\r\n.collapsible-card {\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  overflow: hidden;\r\n  transition: box-shadow 200ms ease;\r\n}\r\n.collapsible-card:hover {\r\n  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);\r\n}\r\n.collapsible-card-header {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n  padding: 12px 16px;\r\n  cursor: pointer;\r\n  user-select: none;\r\n  transition: background 150ms ease;\r\n}\r\n.collapsible-card-header:hover {\r\n  background: var(--surface-soft);\r\n}\r\n.collapsible-card-body {\r\n  max-height: 0;\r\n  overflow: hidden;\r\n  transition: max-height 250ms ease-out;\r\n}\r\n.collapsible-card.is-open .collapsible-card-body {\r\n  max-height: 5000px;\r\n}\r\n.collapsible-card .chevron {\r\n  transition: transform 200ms ease;\r\n  flex-shrink: 0;\r\n  color: var(--muted);\r\n}\r\n.collapsible-card.is-open .chevron {\r\n  transform: rotate(90deg);\r\n}\r\n\r\n/* Helper: compact label with help-tip */\r\n.label-with-tip {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 2px;\r\n}\r\n\r\n/* === Collapsible Card overrides for existing cards === */\r\n\r\n/* Config Provider Card as collapsible */\r\n.config-provider-card.collapsible-card {\r\n  display: block;\r\n  padding: 0;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  border-bottom: 1px solid var(--line);\r\n  margin-bottom: 8px;\r\n  overflow: hidden;\r\n  transition: box-shadow 200ms ease;\r\n}\r\n.config-provider-card.collapsible-card:hover {\r\n  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);\r\n}\r\n.config-provider-card .collapsible-card-header {\r\n  padding: 12px 14px;\r\n}\r\n.config-provider-body-inner {\r\n  display: grid;\r\n  gap: 12px;\r\n  padding: 14px;\r\n  border-top: 1px solid var(--line-soft);\r\n}\r\n\r\n/* Failure Policy Card as collapsible */\r\n.failure-policy-card.collapsible-card {\r\n  padding: 0;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  overflow: hidden;\r\n  margin-bottom: 8px;\r\n}\r\n.failure-policy-card .collapsible-card-header {\r\n  padding: 10px 14px;\r\n}\r\n.failure-policy-card .collapsible-card-body .failure-policy-edit-grid {\r\n  padding: 14px;\r\n  border-top: 1px solid var(--line-soft);\r\n}\r\n\r\n/* Policy page layout repair */\r\n#routingControlForm .routing-mode-grid {\r\n  grid-template-columns: minmax(0, 1fr) minmax(96px, 118px);\r\n  align-items: end;\r\n}\r\n\r\n.selection-mode-field {\r\n  display: grid;\r\n  gap: 7px;\r\n  padding: 9px 10px 10px;\r\n  border: 1px solid color-mix(in srgb, var(--line-strong) 72%, transparent);\r\n  border-radius: 9px;\r\n  background: color-mix(in srgb, var(--surface-raised) 72%, var(--surface));\r\n}\r\n\r\n.field-head {\r\n  display: grid;\r\n  gap: 3px;\r\n  min-width: 0;\r\n}\r\n\r\n.field-hint {\r\n  min-width: 0;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  line-height: 1.3;\r\n}\r\n\r\n#routingControlForm #routeModeGroup {\r\n  display: grid;\r\n  grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  width: 100%;\r\n  gap: 0;\r\n  overflow: hidden;\r\n  border: 1px solid var(--line-strong);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n}\r\n\r\n#routingControlForm #routeModeGroup button {\r\n  justify-content: center;\r\n  min-width: 0;\r\n  min-height: 36px;\r\n  padding-inline: 10px;\r\n  border: 0;\r\n  border-radius: 0;\r\n  background: transparent;\r\n}\r\n\r\n#routingControlForm #routeModeGroup button:nth-child(odd) {\r\n  border-right: 1px solid var(--line-soft);\r\n}\r\n\r\n#routingControlForm #routeModeGroup button:nth-child(n + 3) {\r\n  border-top: 1px solid var(--line-soft);\r\n}\r\n\r\n#routingControlForm #routeModeGroup button span {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n}\r\n\r\n#routingControlForm #routeModeGroup button:not(.is-active) {\r\n  background: transparent;\r\n}\r\n\r\n#routingControlForm #routeModeGroup button.is-active {\r\n  background: var(--text);\r\n  color: #fff;\r\n  box-shadow: none;\r\n}\r\n\r\n.policy-rule-head {\r\n  grid-template-columns: 8px 34px minmax(0, 1fr);\r\n  align-items: start;\r\n}\r\n\r\n.policy-rule-head > .status-dot {\r\n  margin-top: 11px;\r\n}\r\n\r\n.policy-rule-head h3,\r\n.policy-rule-head p {\r\n  overflow-wrap: anywhere;\r\n  word-break: normal;\r\n}\r\n\r\n.policy-rule-head .message-text {\r\n  white-space: normal;\r\n}\r\n\r\n.failure-policy-head h3 {\r\n  min-width: 0;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.failure-policy-card .failure-policy-head {\r\n  display: grid;\r\n  grid-template-columns: 8px minmax(0, 1fr) auto 16px;\r\n  gap: 8px 10px;\r\n  align-items: center;\r\n}\r\n\r\n.failure-policy-card .failure-policy-head > .status-dot {\r\n  margin-top: 0;\r\n}\r\n\r\n.failure-policy-card .failure-policy-head h3 {\r\n  overflow-wrap: normal;\r\n  word-break: normal;\r\n}\r\n\r\n.failure-policy-card .failure-policy-head .compact-control {\r\n  grid-column: 2 / -1;\r\n  width: 100%;\r\n  min-width: 0;\r\n}\r\n\r\n.failure-policy-card .failure-policy-head .badge {\r\n  margin-left: 0 !important;\r\n}\r\n\r\n.config-side-column,\r\n.config-side-column > *,\r\n.config-side-column .config-tab-panel,\r\n.config-side-column .panel,\r\n.config-side-column details,\r\n.config-side-column summary,\r\n.config-side-column .actions {\r\n  box-sizing: border-box;\r\n  max-width: 100%;\r\n  min-width: 0;\r\n}\r\n\r\n.config-side-column .config-tab-nav {\r\n  width: 100%;\r\n  max-width: 100%;\r\n}\r\n\r\n.config-side-column .config-tab-panel {\r\n  width: 100%;\r\n  overflow: hidden;\r\n}\r\n\r\n.config-side-column .panel-head,\r\n.config-side-column .config-advanced-details > summary {\r\n  min-width: 0;\r\n}\r\n\r\n.config-side-column .panel-head > div,\r\n.config-side-column .config-advanced-details > summary span,\r\n.config-side-column .config-advanced-details > summary small {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n}\r\n\r\n.config-side-column .config-advanced-details > .actions {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 8px;\r\n}\r\n\r\n.config-side-column .config-advanced-details > .actions .button {\r\n  min-width: 0;\r\n}\r\n\r\n@media (max-width: 1120px) {\r\n  #routingControlForm .routing-mode-grid {\r\n    grid-template-columns: 1fr;\r\n  }\r\n}\r\n\r\n/* ---- Policy page refinement: clearer hierarchy for routing vs retry ---- */\r\n#policyView > .panel {\r\n  border-color: #dfe5ec;\r\n  border-radius: 10px;\r\n  background: #fff;\r\n  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.045);\r\n}\r\n\r\n#policyView > .panel > .panel-head {\r\n  min-height: 46px;\r\n  padding: 11px 16px;\r\n  border-bottom-color: #e7ecf2;\r\n  background: #fbfcfd;\r\n}\r\n\r\n#policyView .policy-controls {\r\n  padding: 12px;\r\n}\r\n\r\n#policyView .policy-control-grid {\r\n  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.85fr);\r\n  gap: 12px;\r\n}\r\n\r\n#policyView .policy-control-card {\r\n  gap: 12px;\r\n  padding: 14px;\r\n  border-color: #e3e8ef;\r\n  border-radius: 10px;\r\n  background: #fff;\r\n  box-shadow: none;\r\n}\r\n\r\n#policyView #routingControlForm {\r\n  border-left: 3px solid #111827;\r\n}\r\n\r\n#policyView #retryControlForm {\r\n  background: #fbfcfd;\r\n}\r\n\r\n#policyView .policy-control-card-head {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  gap: 10px;\r\n  min-height: 26px;\r\n}\r\n\r\n#policyView .policy-control-card-head h3 {\r\n  margin: 0;\r\n  color: #111827;\r\n  font-size: 13px;\r\n  font-weight: 820;\r\n}\r\n\r\n#policyView .field {\r\n  gap: 6px;\r\n}\r\n\r\n#policyView .field > span,\r\n#policyView .label-with-tip {\r\n  color: #64748b;\r\n  font-size: 11px;\r\n  font-weight: 740;\r\n}\r\n\r\n#policyView .control {\r\n  min-height: 38px;\r\n  border-color: #dfe5ec;\r\n  border-radius: 8px;\r\n  background: #fff;\r\n}\r\n\r\n#policyView #routingControlForm .routing-mode-grid {\r\n  grid-template-columns: minmax(0, 1fr) 112px;\r\n  gap: 10px;\r\n  align-items: stretch;\r\n}\r\n\r\n#policyView .selection-mode-field {\r\n  gap: 8px;\r\n  padding: 10px;\r\n  border-color: #dfe5ec;\r\n  border-radius: 10px;\r\n  background: #fbfcfd;\r\n}\r\n\r\n#policyView #routingControlForm #routeModeGroup {\r\n  display: grid;\r\n  grid-template-columns: repeat(5, minmax(0, 1fr));\r\n  gap: 6px;\r\n  overflow: visible;\r\n  border: 0;\r\n  border-radius: 0;\r\n  background: transparent;\r\n}\r\n\r\n#policyView #routingControlForm #routeModeGroup button,\r\n#policyView #routingControlForm #routeModeGroup button:nth-child(odd),\r\n#policyView #routingControlForm #routeModeGroup button:nth-child(n + 3) {\r\n  min-height: 42px;\r\n  padding: 7px 8px;\r\n  border: 1px solid #dfe5ec;\r\n  border-radius: 8px;\r\n  background: #fff;\r\n  color: #475569;\r\n  font-size: 11.5px;\r\n  font-weight: 720;\r\n}\r\n\r\n#policyView #routingControlForm #routeModeGroup button .icon-svg {\r\n  width: 14px;\r\n  height: 14px;\r\n  color: #94a3b8;\r\n}\r\n\r\n#policyView #routingControlForm #routeModeGroup button:hover {\r\n  border-color: #cbd5e1;\r\n  background: #f8fafc;\r\n  color: #111827;\r\n}\r\n\r\n#policyView #routingControlForm #routeModeGroup button.is-active {\r\n  border-color: #111827;\r\n  background: #111827;\r\n  color: #fff;\r\n}\r\n\r\n#policyView #routingControlForm #routeModeGroup button.is-active .icon-svg {\r\n  color: currentColor;\r\n}\r\n\r\n#policyView .policy-advanced {\r\n  border: 1px solid #edf1f5;\r\n  border-radius: 9px;\r\n  background: #fbfcfd;\r\n}\r\n\r\n#policyView .policy-advanced summary {\r\n  padding: 9px 10px;\r\n  color: #64748b;\r\n  font-size: 11.5px;\r\n  font-weight: 720;\r\n}\r\n\r\n#policyView .policy-control-card > .button {\r\n  min-height: 38px;\r\n  border-radius: 8px;\r\n  background: #fff;\r\n}\r\n\r\n#policyView #routingControlForm > .button {\r\n  border-color: #111827;\r\n  background: #111827;\r\n  color: #fff;\r\n}\r\n\r\n#policyView .policy-grid {\r\n  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.55fr);\r\n  gap: 14px;\r\n  margin-top: 14px;\r\n}\r\n\r\n@media (max-width: 1180px) {\r\n  #policyView .policy-control-grid,\r\n  #policyView .policy-grid {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  #policyView #routingControlForm #routeModeGroup {\r\n    grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  }\r\n}\r\n\r\n@media (max-width: 760px) {\r\n  #policyView #routingControlForm .routing-mode-grid {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  #policyView #routingControlForm #routeModeGroup {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  }\r\n}\r\n\r\n/* ---- Provider drawer config: grouped controls instead of a flat form ---- */\r\n.provider-drawer-section .provider-edit-panel {\r\n  display: grid;\r\n  gap: 12px;\r\n}\r\n\r\n.provider-drawer-section .provider-inline-form,\r\n.provider-drawer-section .provider-config-block {\r\n  display: grid;\r\n  gap: 12px;\r\n  min-width: 0;\r\n}\r\n\r\n.provider-config-block {\r\n  padding: 12px;\r\n  border: 1px solid #e3e8ef;\r\n  border-radius: 12px;\r\n  background: #fbfcfd;\r\n}\r\n\r\n.provider-config-block-head {\r\n  display: grid;\r\n  grid-template-columns: 30px minmax(0, 1fr);\r\n  gap: 10px;\r\n  align-items: center;\r\n  min-width: 0;\r\n}\r\n\r\n.provider-config-block-head strong,\r\n.provider-config-block-head small {\r\n  display: block;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-config-block-head strong {\r\n  color: #111827;\r\n  font-size: 12.5px;\r\n  font-weight: 820;\r\n}\r\n\r\n.provider-config-block-head small {\r\n  margin-top: 2px;\r\n  color: #7b8491;\r\n  font-size: 11px;\r\n}\r\n\r\n.provider-config-block-icon {\r\n  display: inline-grid;\r\n  width: 30px;\r\n  height: 30px;\r\n  place-items: center;\r\n  border: 1px solid #dfe5ec;\r\n  border-radius: 8px;\r\n  background: #fff;\r\n  color: #64748b;\r\n}\r\n\r\n.provider-config-block-icon .icon-svg {\r\n  width: 15px;\r\n  height: 15px;\r\n}\r\n\r\n.provider-config-grid {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);\r\n  gap: 10px;\r\n}\r\n\r\n.provider-config-wide {\r\n  grid-column: 1 / -1;\r\n}\r\n\r\n.provider-config-runtime-row {\r\n  display: grid;\r\n  grid-template-columns: minmax(90px, 0.45fr) minmax(150px, 1fr);\r\n  gap: 10px;\r\n  align-items: end;\r\n}\r\n\r\n.provider-config-runtime-row .button {\r\n  grid-column: 1 / -1;\r\n}\r\n\r\n/* --- Skip-probe capsule toggles --- */\r\n.provider-skip-probe-row {\r\n  display: flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n  margin-top: 8px;\r\n  flex-wrap: wrap;\r\n}\r\n\r\n.capsule-toggle {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 6px;\r\n  cursor: pointer;\r\n  user-select: none;\r\n  padding: 4px 12px;\r\n  border-radius: 999px;\r\n  border: 1px solid #dfe5ec;\r\n  background: #f8fafc;\r\n  font-size: 12px;\r\n  font-weight: 500;\r\n  color: #64748b;\r\n  transition: all 0.15s ease;\r\n}\r\n\r\n.capsule-toggle:hover {\r\n  border-color: #cbd5e1;\r\n  background: #f1f5f9;\r\n}\r\n\r\n.capsule-toggle input[type=\"checkbox\"] {\r\n  appearance: none;\r\n  -webkit-appearance: none;\r\n  width: 14px;\r\n  height: 14px;\r\n  border-radius: 50%;\r\n  border: 2px solid #cbd5e1;\r\n  background: #fff;\r\n  margin: 0;\r\n  cursor: pointer;\r\n  transition: all 0.15s ease;\r\n  position: relative;\r\n  flex-shrink: 0;\r\n}\r\n\r\n.capsule-toggle input[type=\"checkbox\"]:checked {\r\n  border-color: #ef4444;\r\n  background: #ef4444;\r\n}\r\n\r\n.capsule-toggle input[type=\"checkbox\"]:checked::after {\r\n  content: \"\";\r\n  position: absolute;\r\n  top: 50%;\r\n  left: 50%;\r\n  transform: translate(-50%, -50%);\r\n  width: 5px;\r\n  height: 5px;\r\n  border-radius: 50%;\r\n  background: #fff;\r\n}\r\n\r\n.capsule-toggle:has(input:checked) {\r\n  border-color: #fca5a5;\r\n  background: #fef2f2;\r\n  color: #dc2626;\r\n}\r\n\r\n.capsule-toggle-label {\r\n  line-height: 1;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-enabled-check {\r\n  min-height: 38px;\r\n  align-self: end;\r\n  padding: 0 10px;\r\n  border: 1px solid #dfe5ec;\r\n  border-radius: 8px;\r\n  background: #fff;\r\n}\r\n\r\n.provider-config-block .field > span,\r\n.provider-config-block .key-proxy-field > span {\r\n  color: #64748b;\r\n  font-size: 11px;\r\n  font-weight: 740;\r\n}\r\n\r\n.provider-config-block .control {\r\n  min-height: 36px;\r\n  border-color: #dfe5ec;\r\n  border-radius: 8px;\r\n  background: #fff;\r\n}\r\n\r\n.provider-config-block .button.primary {\r\n  min-height: 38px;\r\n  border-color: #111827;\r\n  background: #111827;\r\n}\r\n\r\n.provider-config-keys .key-proxy-list {\r\n  display: grid;\r\n  gap: 8px;\r\n}\r\n\r\n.provider-config-keys .key-proxy-row {\r\n  display: grid;\r\n  grid-template-columns: minmax(120px, 0.55fr) minmax(0, 1fr) auto;\r\n  gap: 10px;\r\n  align-items: end;\r\n  padding: 10px;\r\n  border: 1px solid #e7ecf2;\r\n  border-radius: 10px;\r\n  background: #fff;\r\n}\r\n\r\n.provider-config-keys .key-proxy-id {\r\n  align-self: center;\r\n}\r\n\r\n.provider-config-keys .key-proxy-id strong,\r\n.provider-config-keys .key-proxy-id span {\r\n  display: block;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n}\r\n\r\n.provider-config-keys .key-proxy-id span {\r\n  margin-top: 2px;\r\n  color: #7b8491;\r\n  font-size: 11px;\r\n}\r\n\r\n.provider-config-keys .provider-inline-key-form {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr) auto;\r\n  gap: 8px;\r\n}\r\n\r\n.provider-formats-group .format-route-list {\r\n  display: grid;\r\n  gap: 8px;\r\n}\r\n\r\n.provider-formats-group .format-route {\r\n  min-height: 48px;\r\n  padding: 8px 9px 8px 11px;\r\n  border-color: #dfe5ec;\r\n  border-radius: 10px;\r\n  background: #fff;\r\n}\r\n\r\n.provider-formats-group .format-route.enabled {\r\n  border-color: color-mix(in srgb, var(--success) 22%, #dfe5ec);\r\n  background: color-mix(in srgb, var(--success-soft) 42%, #fff);\r\n}\r\n\r\n.provider-danger-zone {\r\n  border-radius: 12px;\r\n}\r\n\r\n@media (max-width: 760px) {\r\n  .provider-config-grid,\r\n  .provider-config-runtime-row,\r\n  .provider-config-keys .key-proxy-row,\r\n  .provider-config-keys .provider-inline-key-form {\r\n    grid-template-columns: 1fr;\r\n  }\r\n}\r\n\r\n/* ---- Policy rules and failure cards: compact, scannable rows ---- */\r\n#policyView .policy-control-grid {\r\n  align-items: start;\r\n}\r\n\r\n#policyView .policy-control-card {\r\n  align-self: start;\r\n}\r\n\r\n#policyView .policy-rule-card {\r\n  gap: 9px;\r\n  padding: 12px;\r\n  border-color: #e3e8ef;\r\n  border-radius: 10px;\r\n  box-shadow: none;\r\n}\r\n\r\n#policyView .policy-rule-head {\r\n  grid-template-columns: 8px 32px minmax(0, 1fr);\r\n  gap: 9px;\r\n}\r\n\r\n#policyView .policy-rule-head h3 {\r\n  font-size: 13px;\r\n}\r\n\r\n#policyView .policy-rule-head p {\r\n  display: -webkit-box;\r\n  max-width: 100%;\r\n  overflow: hidden;\r\n  color: #64748b;\r\n  -webkit-box-orient: vertical;\r\n  -webkit-line-clamp: 2;\r\n}\r\n\r\n#policyView .policy-decision-strip {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n}\r\n\r\n#policyView .policy-rule-meta {\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  gap: 8px;\r\n  padding-top: 0;\r\n}\r\n\r\n#policyView .policy-rule-meta span,\r\n#policyView .policy-rule-meta strong {\r\n  display: block;\r\n}\r\n\r\n#policyView .policy-rule-meta span {\r\n  color: #7b8491;\r\n  font-size: 10.5px;\r\n}\r\n\r\n#policyView .policy-rule-meta strong {\r\n  margin-top: 2px;\r\n  font-size: 11.5px;\r\n}\r\n\r\n#policyView .failure-policy-card.collapsible-card {\r\n  border-color: #e3e8ef;\r\n  border-radius: 10px;\r\n  background: #fff;\r\n  box-shadow: none;\r\n}\r\n\r\n#policyView .failure-policy-card .failure-policy-head {\r\n  grid-template-columns: 8px minmax(0, 1fr) auto 16px;\r\n  padding: 11px 12px;\r\n}\r\n\r\n#policyView .failure-policy-card .failure-policy-head h3 {\r\n  font-size: 13px;\r\n}\r\n\r\n#policyView .failure-policy-card .failure-policy-head .compact-control {\r\n  grid-column: 2 / -1;\r\n  min-height: 34px;\r\n}\r\n\r\n#policyView .failure-policy-card .collapsible-card-body .failure-policy-edit-grid {\r\n  grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  gap: 10px;\r\n  padding: 12px;\r\n  background: #fbfcfd;\r\n}\r\n\r\n/* ---- Config advanced tools: contained, icon-like action cluster ---- */\r\n.config-side-column .config-advanced-panel {\r\n  border-color: #dfe5ec;\r\n  border-radius: 10px;\r\n  background: #fff;\r\n}\r\n\r\n.config-side-column .config-advanced-details {\r\n  padding: 12px;\r\n}\r\n\r\n.config-side-column .config-advanced-details > summary {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  gap: 6px 10px;\r\n  align-items: center;\r\n  padding: 2px 0;\r\n}\r\n\r\n.config-side-column .config-advanced-details > summary::after {\r\n  display: grid;\r\n  width: 24px;\r\n  height: 24px;\r\n  place-items: center;\r\n  border: 1px solid #dfe5ec;\r\n  border-radius: 7px;\r\n  background: #fbfcfd;\r\n  color: #64748b;\r\n  content: \">\";\r\n  font: 760 13px/1 var(--mono);\r\n  transition: transform 160ms ease;\r\n}\r\n\r\n.config-side-column .config-advanced-details[open] > summary::after {\r\n  transform: rotate(90deg);\r\n}\r\n\r\n.config-side-column .config-advanced-details > summary span {\r\n  color: #111827;\r\n  font-size: 12.5px;\r\n  font-weight: 820;\r\n}\r\n\r\n.config-side-column .config-advanced-details > summary small {\r\n  grid-column: 1 / 2;\r\n  color: #7b8491;\r\n  font-size: 11px;\r\n  line-height: 1.35;\r\n  white-space: normal;\r\n}\r\n\r\n.config-side-column .config-advanced-details > .actions {\r\n  display: grid;\r\n  grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  gap: 8px;\r\n  margin-top: 12px;\r\n  padding-top: 12px;\r\n  border-top: 1px solid #edf1f5;\r\n}\r\n\r\n.config-side-column .config-advanced-details > .actions .button {\r\n  justify-content: center;\r\n  min-width: 0;\r\n  min-height: 34px;\r\n  border-radius: 8px;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.config-side-column .config-advanced-details > .actions .button.danger,\r\n.config-side-column .config-advanced-details > .actions .button.primary {\r\n  grid-column: 1 / -1;\r\n}\r\n\r\n\r\n\r\n/* ===== Onboarding Banner ===== */\r\n.onboarding-banner {\r\n  display: flex;\r\n  gap: 16px;\r\n  align-items: flex-start;\r\n  padding: 18px 20px;\r\n  margin-bottom: 16px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 14px;\r\n  background: linear-gradient(135deg, var(--surface-soft, #f3f2ef), var(--surface, #fff));\r\n  box-shadow: 0 2px 10px rgba(34, 35, 32, 0.04);\r\n}\r\n.onboarding-banner-icon {\r\n  flex-shrink: 0;\r\n  display: grid;\r\n  place-items: center;\r\n  width: 44px;\r\n  height: 44px;\r\n  border-radius: 12px;\r\n  background: var(--accent-soft, #f2f1ed);\r\n  color: var(--accent, #222320);\r\n}\r\n.onboarding-banner-icon .icon-svg { width: 22px; height: 22px; }\r\n.onboarding-banner-content { flex: 1; min-width: 0; }\r\n.onboarding-banner-content h3 {\r\n  margin: 0 0 4px;\r\n  font: 760 15px var(--sans, system-ui);\r\n  color: var(--text, #222);\r\n}\r\n.onboarding-banner-content p {\r\n  margin: 0 0 10px;\r\n  font-size: 13px;\r\n  color: var(--muted, #6f706a);\r\n  line-height: 1.5;\r\n}\r\n.onboarding-presets {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n  align-items: center;\r\n  margin-bottom: 10px;\r\n}\r\n.onboarding-presets-label {\r\n  font-size: 11px;\r\n  color: var(--faint, #9a9a93);\r\n  text-transform: uppercase;\r\n  letter-spacing: 0.04em;\r\n}\r\n.onboarding-preset-chip {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  padding: 3px 10px;\r\n  border: 1px solid var(--line, #e8e6e1);\r\n  border-radius: 999px;\r\n  background: var(--surface, #fff);\r\n  font: 600 11px var(--mono, monospace);\r\n  color: var(--text, #222);\r\n}\r\n.onboarding-banner-actions {\r\n  display: flex;\r\n  gap: 8px;\r\n  flex-wrap: wrap;\r\n}\r\n\r\n/* ===== Provider Preset Chips (Add Provider modal) ===== */\r\n.provider-preset-section {\r\n  display: flex;\r\n  gap: 8px;\r\n  align-items: flex-start;\r\n  padding: 10px 0;\r\n  margin-bottom: 4px;\r\n  border-bottom: 1px solid var(--line-soft, #efede8);\r\n}\r\n.provider-preset-label {\r\n  flex-shrink: 0;\r\n  padding-top: 5px;\r\n  font: 600 11px var(--sans, system-ui);\r\n  color: var(--muted, #6f706a);\r\n  text-transform: uppercase;\r\n  letter-spacing: 0.04em;\r\n}\r\n.provider-preset-chips {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n}\r\n.provider-preset-chip {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  padding: 4px 12px;\r\n  border: 1px solid var(--line, #e8e6e1);\r\n  border-radius: 8px;\r\n  background: var(--surface, #fff);\r\n  font: 600 12px var(--sans, system-ui);\r\n  color: var(--text, #222);\r\n  cursor: pointer;\r\n  transition: border-color 120ms ease, background 120ms ease;\r\n}\r\n.provider-preset-chip:hover {\r\n  border-color: var(--accent, #222320);\r\n  background: var(--accent-soft, #f2f1ed);\r\n}\r\n.provider-preset-chip:active { transform: translateY(1px); }\r\n\r\n/* ===== Health Overview Widget ===== */\r\n.health-overview {\r\n  display: grid;\r\n  gap: 10px;\r\n  padding: 14px 18px 20px;\r\n}\r\n.health-overview-empty {\r\n  padding: 20px;\r\n  text-align: center;\r\n  color: var(--muted, #6f706a);\r\n  font-size: 13px;\r\n}\r\n.health-overview-loading {\r\n  padding: 20px;\r\n  text-align: center;\r\n  color: var(--muted, #6f706a);\r\n  font-size: 13px;\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  gap: 8px;\r\n}\r\n.health-overview-loading svg {\r\n  animation: refresh-spin 1.2s linear infinite;\r\n}\r\n.probe-list-more {\r\n  padding: 8px 12px;\r\n  text-align: center;\r\n  font-size: 12px;\r\n  color: var(--muted, #6f706a);\r\n  cursor: default;\r\n  border-top: 1px dashed var(--border, rgba(255,255,255,0.08));\r\n  margin-top: 4px;\r\n}\r\n.section-count-badge {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  min-width: 20px;\r\n  height: 20px;\r\n  padding: 0 6px;\r\n  border-radius: 10px;\r\n  font-size: 11px;\r\n  font-weight: 600;\r\n  background: var(--accent-bg, rgba(99,102,241,0.15));\r\n  color: var(--accent, #6366f1);\r\n  margin-left: 6px;\r\n  vertical-align: middle;\r\n}\r\n.health-overview-header {\r\n  display: flex;\r\n  gap: 16px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  padding-bottom: 8px;\r\n  border-bottom: 1px solid var(--line-soft, #efede8);\r\n}\r\n.health-overview-score {\r\n  display: flex;\r\n  gap: 10px;\r\n  align-items: center;\r\n}\r\n.health-score-ring {\r\n  display: inline-flex;\r\n  flex-direction: column;\r\n  align-items: center;\r\n  justify-content: center;\r\n  width: 56px;\r\n  height: 56px;\r\n  border-radius: 50%;\r\n  border: 3px solid var(--line, #e8e6e1);\r\n  font-family: var(--mono, monospace);\r\n}\r\n.health-score-ring.excellent { border-color: var(--success, #346538); background: var(--success-soft, #edf3ec); }\r\n.health-score-ring.good { border-color: var(--success, #346538); background: var(--success-soft, #edf3ec); }\r\n.health-score-ring.fair { border-color: var(--warning, #956400); background: var(--warning-soft, #fbf3db); }\r\n.health-score-ring.poor { border-color: var(--danger, #9f2f2d); background: var(--danger-soft, #fdebec); }\r\n.health-score-ring.critical { border-color: var(--danger, #9f2f2d); background: var(--danger-soft, #fdebec); }\r\n.health-score-ring strong { font-size: 18px; color: var(--text, #222); line-height: 1; }\r\n.health-score-ring small { font-size: 9px; color: var(--muted, #6f706a); }\r\n.health-score-label {\r\n  font: 760 12px var(--sans, system-ui);\r\n  text-transform: capitalize;\r\n  color: var(--text, #222);\r\n}\r\n.health-overview-meta {\r\n  font: 600 11px var(--sans, system-ui);\r\n  color: var(--faint, #9a9a93);\r\n}\r\n.health-overview-meta .icon-svg { width: 14px; height: 14px; vertical-align: -2px; }\r\n.health-overview-list {\r\n  display: grid;\r\n  gap: 6px;\r\n}\r\n.health-provider-row {\r\n  display: grid;\r\n  grid-template-columns: minmax(60px, 120px) 1fr auto auto;\r\n  gap: 8px;\r\n  align-items: center;\r\n  padding: 6px 10px;\r\n  border-radius: 8px;\r\n  background: var(--surface-soft, #f3f2ef);\r\n}\r\n.health-provider-name {\r\n  font: 600 11px var(--mono, monospace);\r\n  color: var(--text, #222);\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n.health-provider-bar {\r\n  height: 6px;\r\n  border-radius: 999px;\r\n  background: var(--line, #e8e6e1);\r\n  overflow: hidden;\r\n}\r\n.health-provider-bar-fill {\r\n  height: 100%;\r\n  border-radius: 999px;\r\n  transition: width 300ms ease;\r\n}\r\n.health-provider-bar-fill.tone-ok { background: var(--success, #346538); }\r\n.health-provider-bar-fill.tone-warn { background: var(--warning, #956400); }\r\n.health-provider-bar-fill.tone-soft { background: var(--warning, #956400); opacity: 0.7; }\r\n.health-provider-bar-fill.tone-bad { background: var(--danger, #9f2f2d); }\r\n.health-provider-score {\r\n  font: 760 13px var(--mono, monospace);\r\n  color: var(--text, #222);\r\n  min-width: 28px;\r\n  text-align: right;\r\n}\r\n.health-provider-grade {\r\n  font: 600 10px var(--sans, system-ui);\r\n  text-transform: uppercase;\r\n  letter-spacing: 0.04em;\r\n  padding: 2px 8px;\r\n  border-radius: 999px;\r\n}\r\n.grade-excellent { background: var(--success-soft, #edf3ec); color: var(--success, #346538); }\r\n.grade-good { background: var(--success-soft, #edf3ec); color: var(--success, #346538); }\r\n.grade-fair { background: var(--warning-soft, #fbf3db); color: var(--warning, #956400); }\r\n.grade-poor { background: var(--danger-soft, #fdebec); color: var(--danger, #9f2f2d); }\r\n.grade-critical { background: var(--danger-soft, #fdebec); color: var(--danger, #9f2f2d); }\r\n\r\n@media (max-width: 768px) {\r\n  .health-provider-row {\r\n    grid-template-columns: minmax(50px, 80px) 1fr auto;\r\n  }\r\n  .health-provider-grade { display: none; }\r\n}\r\n\r\n/* ---- Playground workbench refinement ---- */\r\n.playground-view {\r\n  min-height: calc(100dvh - 52px);\r\n}\r\n\r\n.playground-layout {\r\n  grid-template-columns: 330px minmax(0, 1fr);\r\n  gap: 14px;\r\n  margin-top: 10px;\r\n  padding: 0;\r\n  overflow: hidden;\r\n}\r\n\r\n.playground-config,\r\n.playground-main {\r\n  overflow: hidden;\r\n  border: 1px solid #dfe5ec;\r\n  border-radius: 10px;\r\n  background: #fff;\r\n  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.045);\r\n}\r\n\r\n.playground-config {\r\n  border-right: 1px solid #dfe5ec;\r\n}\r\n\r\n.pg-config-head,\r\n.pg-workbench-head {\r\n  border-bottom-color: #e7ecf2;\r\n  background: #fbfcfd;\r\n}\r\n\r\n.pg-config-head {\r\n  padding: 15px 16px 13px;\r\n}\r\n\r\n.pg-config-head .eyebrow {\r\n  color: #64748b;\r\n}\r\n\r\n.pg-config-head h2,\r\n.pg-workbench-head h2 {\r\n  color: #111827;\r\n  font-size: 15px;\r\n  font-weight: 820;\r\n}\r\n\r\n.pg-config-head p {\r\n  max-width: 26rem;\r\n  color: #64748b;\r\n  font-size: 12px;\r\n}\r\n\r\n.pg-config-section {\r\n  border-bottom-color: #edf1f5;\r\n}\r\n\r\n.pg-config-section summary {\r\n  min-height: 42px;\r\n  padding: 0 16px;\r\n  color: #475569;\r\n  font-size: 12px;\r\n  font-weight: 760;\r\n  letter-spacing: 0;\r\n  text-transform: none;\r\n}\r\n\r\n.pg-config-section summary:hover {\r\n  background: #f8fafc;\r\n}\r\n\r\n.pg-config-body {\r\n  gap: 10px;\r\n  padding: 0 16px 14px;\r\n}\r\n\r\n.pg-param-grid {\r\n  grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  gap: 10px;\r\n}\r\n\r\n.pg-param.pg-param-wide {\r\n  grid-column: 1 / -1;\r\n}\r\n\r\n.pg-param span {\r\n  color: #64748b;\r\n  font-size: 11px;\r\n  font-weight: 720;\r\n}\r\n\r\n.pg-param .control,\r\n.pg-config-body .control {\r\n  min-height: 38px;\r\n  border-color: #dfe5ec;\r\n  border-radius: 8px;\r\n  background: #fff;\r\n  font-size: 12px;\r\n}\r\n\r\n.pg-config-body input[type=\"checkbox\"] {\r\n  width: 17px;\r\n  height: 17px;\r\n  accent-color: #111827;\r\n}\r\n\r\n.pg-format-selector {\r\n  display: grid;\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  gap: 6px;\r\n}\r\n\r\n.pg-format-btn {\r\n  min-height: 34px;\r\n  border: 1px solid #dfe5ec;\r\n  border-radius: 8px;\r\n  background: #fff;\r\n  color: #475569;\r\n  font-size: 11.5px;\r\n  font-weight: 720;\r\n}\r\n\r\n.pg-format-btn.is-active {\r\n  border-color: #111827;\r\n  background: #111827;\r\n  color: #fff;\r\n}\r\n\r\n.pg-workbench-head {\r\n  padding: 14px 18px;\r\n}\r\n\r\n.pg-chat-wrap {\r\n  background: #fbfcfd;\r\n}\r\n\r\n.pg-chat-area {\r\n  padding: 24px 26px 28px;\r\n}\r\n\r\n.pg-compose-panel {\r\n  border-top-color: #e7ecf2;\r\n  background: #fff;\r\n  box-shadow: none;\r\n}\r\n\r\n.pg-input-bar {\r\n  padding: 12px 16px 14px;\r\n}\r\n\r\n.pg-input {\r\n  min-height: 48px;\r\n  border-color: #dfe5ec;\r\n  border-radius: 10px;\r\n}\r\n\r\n.pg-input:focus-visible {\r\n  border-color: #111827;\r\n  box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.08);\r\n}\r\n\r\n.pg-send-btn {\r\n  border-color: #111827;\r\n  background: #111827;\r\n  color: #fff;\r\n}\r\n\r\n@media (max-width: 1180px) {\r\n  .playground-layout {\r\n    grid-template-columns: 310px minmax(0, 1fr);\r\n  }\r\n}\r\n\r\n/* ---- Hot-reload priority controls ---- */\r\n.provider-hot-reload-controls {\r\n  margin: 10px 0;\r\n  padding: 10px 12px;\r\n  background: var(--bg-elevated, #f6f7f9);\r\n  border-radius: 8px;\r\n  border: 1px solid var(--border-soft, #e2e5ea);\r\n}\r\n.hot-reload-row {\r\n  display: flex;\r\n  gap: 10px;\r\n  align-items: flex-end;\r\n}\r\n.hot-reload-field {\r\n  flex: 1;\r\n  margin: 0;\r\n}\r\n.hot-reload-input-row {\r\n  display: flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n}\r\n.hot-reload-input-row input {\r\n  flex: 1;\r\n  min-width: 80px;\r\n}\r\n\r\n/* ---- Sidebar refinement: quiet rail, clear active state, compact runtime tools ---- */\r\n.sidebar {\r\n  border-right-color: color-mix(in srgb, var(--line-strong) 78%, #fff);\r\n  background: var(--surface);\r\n  box-shadow: 10px 0 30px rgba(15, 23, 42, 0.045);\r\n}\r\n\r\n.sidebar .brand {\r\n  margin: 0;\r\n  padding: 22px 18px 18px;\r\n  border: 0;\r\n  border-bottom: 1px solid color-mix(in srgb, var(--line-soft) 86%, transparent);\r\n  border-radius: 0;\r\n  background: transparent;\r\n  box-shadow: none;\r\n}\r\n\r\n.sidebar .brand::after {\r\n  display: none;\r\n}\r\n\r\n.sidebar .brand-mark {\r\n  width: 32px;\r\n  height: 32px;\r\n  border: 1px solid #111827;\r\n  border-radius: 8px;\r\n  background: #111827;\r\n  color: #fff;\r\n  box-shadow: 0 10px 20px rgba(17, 24, 39, 0.14);\r\n  font-size: 10.5px;\r\n  font-weight: 820;\r\n}\r\n\r\n.sidebar .brand-title {\r\n  font-size: 14.5px;\r\n  font-weight: 800;\r\n  line-height: 1.15;\r\n}\r\n\r\n.sidebar .brand-subtitle {\r\n  margin-top: 3px;\r\n  color: var(--muted);\r\n  font-size: 11.5px;\r\n}\r\n\r\n.sidebar .nav {\r\n  gap: 4px;\r\n  margin: 14px 10px 0;\r\n  padding: 0;\r\n}\r\n\r\n.sidebar .nav-item {\r\n  display: grid;\r\n  grid-template-columns: 18px minmax(0, 1fr);\r\n  gap: 10px;\r\n  align-items: center;\r\n  min-height: 39px;\r\n  padding: 8px 12px 8px 14px;\r\n  border: 0;\r\n  border-radius: 8px;\r\n  background: transparent;\r\n  color: color-mix(in srgb, var(--muted) 90%, var(--text));\r\n  font-size: 13px;\r\n  font-weight: 650;\r\n  box-shadow: none;\r\n}\r\n\r\n.sidebar .nav-item::after {\r\n  display: block;\r\n  width: 18px;\r\n  height: 18px;\r\n  background: currentColor;\r\n  content: \"\";\r\n  opacity: 0.66;\r\n  grid-column: 1;\r\n  grid-row: 1;\r\n  justify-self: center;\r\n  mask: var(--nav-icon) center / 16px 16px no-repeat;\r\n  -webkit-mask: var(--nav-icon) center / 16px 16px no-repeat;\r\n}\r\n\r\n.sidebar .nav-item[data-view=\"overview\"] {\r\n  --nav-icon: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 13h6V4H4z'/%3E%3Cpath d='M14 20h6V4h-6z'/%3E%3Cpath d='M4 20h6v-3H4z'/%3E%3C/svg%3E\");\r\n}\r\n\r\n.sidebar .nav-item[data-view=\"requests\"] {\r\n  --nav-icon: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 6h13'/%3E%3Cpath d='M8 12h13'/%3E%3Cpath d='M8 18h13'/%3E%3Cpath d='M3 6h.01'/%3E%3Cpath d='M3 12h.01'/%3E%3Cpath d='M3 18h.01'/%3E%3C/svg%3E\");\r\n}\r\n\r\n.sidebar .nav-item[data-view=\"providers\"] {\r\n  --nav-icon: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='4' width='16' height='6' rx='2'/%3E%3Crect x='4' y='14' width='16' height='6' rx='2'/%3E%3Cpath d='M8 7h.01'/%3E%3Cpath d='M8 17h.01'/%3E%3C/svg%3E\");\r\n}\r\n\r\n.sidebar .nav-item[data-view=\"policy\"] {\r\n  --nav-icon: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 7h10'/%3E%3Cpath d='M4 17h10'/%3E%3Cpath d='M18 5v4'/%3E%3Cpath d='M18 15v4'/%3E%3Ccircle cx='18' cy='7' r='2'/%3E%3Ccircle cx='18' cy='17' r='2'/%3E%3C/svg%3E\");\r\n}\r\n\r\n.sidebar .nav-item[data-view=\"config\"] {\r\n  --nav-icon: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v3'/%3E%3Cpath d='M12 18v3'/%3E%3Cpath d='M3 12h3'/%3E%3Cpath d='M18 12h3'/%3E%3Ccircle cx='12' cy='12' r='4'/%3E%3C/svg%3E\");\r\n}\r\n\r\n.sidebar .nav-item[data-view=\"playground\"] {\r\n  --nav-icon: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 8h10'/%3E%3Cpath d='M7 12h6'/%3E%3Cpath d='M5 20l3-4h9a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v6a3 3 0 0 0 3 3'/%3E%3C/svg%3E\");\r\n}\r\n\r\n.sidebar .nav-item:hover {\r\n  background: #f6f7f9;\r\n  color: var(--text);\r\n}\r\n\r\n.sidebar .nav-item.is-active {\r\n  background: #f3f5f8;\r\n  color: #111827;\r\n  font-weight: 780;\r\n  box-shadow: inset 0 0 0 1px rgba(17, 24, 39, 0.055);\r\n}\r\n\r\n.sidebar .nav-item.is-active::after {\r\n  opacity: 0.92;\r\n}\r\n\r\n.sidebar .nav-item.is-active::before {\r\n  display: block;\r\n  position: absolute;\r\n  top: 8px;\r\n  bottom: 8px;\r\n  left: 7px;\r\n  width: 3px;\r\n  border-radius: 999px;\r\n  background: #111827;\r\n  content: \"\";\r\n}\r\n\r\n/* ---- Requests page: denser log view with clearer status and route metadata ---- */\r\n#requestsView > .panel {\r\n  border-color: #dfe5ec;\r\n  border-radius: 10px;\r\n  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.045);\r\n}\r\n\r\n#requestsView > .panel .panel-head {\r\n  background: #fbfcfd;\r\n  border-bottom-color: #e7ecf2;\r\n}\r\n\r\n#requestsTable.table-wrap {\r\n  background: #fff;\r\n}\r\n\r\n#requestsTable .request-list-head {\r\n  padding: 10px 14px;\r\n  border-bottom-color: #e7ecf2;\r\n  background: #fbfcfd;\r\n}\r\n\r\n#requestsTable .request-page-vitals {\r\n  gap: 10px;\r\n  padding: 12px 14px;\r\n  border-bottom-color: #e7ecf2;\r\n  background: #fff;\r\n}\r\n\r\n#requestsTable .request-vital {\r\n  min-height: 58px;\r\n  padding: 9px 10px;\r\n  border-color: color-mix(in srgb, var(--vital-color) 16%, #e5e7eb);\r\n  border-radius: 9px;\r\n  background: #fbfcfd;\r\n}\r\n\r\n#requestsTable .request-vital::after {\r\n  height: 2px;\r\n}\r\n\r\n#requestsTable .request-vital .icon-svg {\r\n  width: 17px;\r\n  height: 17px;\r\n}\r\n\r\n#requestsTable .request-vital strong {\r\n  font-size: 15px;\r\n}\r\n\r\n#requestsTable .request-summary-list {\r\n  background: #fff;\r\n}\r\n\r\n#requestsTable .request-summary-row {\r\n  grid-template-columns: 26px 30px minmax(190px, 1.35fr) minmax(112px, 0.55fr) minmax(190px, 0.95fr) minmax(156px, 0.72fr) 30px;\r\n  gap: 11px;\r\n  min-height: 68px;\r\n  padding: 10px 14px;\r\n  border-bottom-color: #edf1f5;\r\n  background: #fff;\r\n}\r\n\r\n#requestsTable .request-summary-row:nth-child(even) {\r\n  background: #fbfcfd;\r\n}\r\n\r\n#requestsTable .request-summary-row:hover,\r\n#requestsTable .request-summary-row:focus-visible {\r\n  background: #f6f9fc;\r\n  box-shadow: inset 3px 0 0 var(--row-tone);\r\n}\r\n\r\n#requestsTable .request-summary-row.is-selected {\r\n  background: #f1f6ff;\r\n}\r\n\r\n.request-row-state {\r\n  display: grid;\r\n  width: 30px;\r\n  height: 30px;\r\n  place-items: center;\r\n  border: 1px solid color-mix(in srgb, var(--row-tone) 20%, #e5e7eb);\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--row-tone) 8%, #fff);\r\n  color: var(--row-tone);\r\n}\r\n\r\n.request-row-state .icon-svg {\r\n  width: 15px;\r\n  height: 15px;\r\n  stroke-width: 2.3;\r\n}\r\n\r\n#requestsTable .request-row-main strong {\r\n  font-size: 13px;\r\n  font-weight: 780;\r\n}\r\n\r\n#requestsTable .request-row-main small,\r\n#requestsTable .request-row-metrics small {\r\n  color: #7b8491;\r\n  font-size: 10.8px;\r\n}\r\n\r\n#requestsTable .badge,\r\n#requestsTable .request-provider-pill,\r\n#requestsTable .route-pill {\r\n  border-radius: 999px;\r\n}\r\n\r\n#requestsTable .badge {\r\n  min-height: 23px;\r\n  padding-inline: 9px;\r\n  text-transform: none;\r\n}\r\n\r\n#requestsTable .request-provider-pill,\r\n#requestsTable .route-pill {\r\n  min-height: 24px;\r\n  padding: 2px 8px;\r\n  background: #fff;\r\n}\r\n\r\n#requestsTable .request-provider-pill {\r\n  gap: 5px;\r\n  max-width: 128px;\r\n  border-color: #e5e7eb;\r\n  color: #334155;\r\n}\r\n\r\n#requestsTable .request-provider-pill .icon-svg {\r\n  width: 13px;\r\n  height: 13px;\r\n  flex: 0 0 auto;\r\n  color: #7b8491;\r\n}\r\n\r\n#requestsTable .request-row-metrics strong {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 7px;\r\n  color: #111827;\r\n  font-size: 13px;\r\n  font-weight: 760;\r\n}\r\n\r\n#requestsTable .request-row-metrics strong i {\r\n  display: block;\r\n  width: 1px;\r\n  height: 12px;\r\n  background: #d8dee6;\r\n}\r\n\r\n#requestsTable .request-row-open {\r\n  width: 30px;\r\n  height: 30px;\r\n  border-color: transparent;\r\n  background: transparent;\r\n}\r\n\r\n#requestsTable .request-summary-row:hover .request-row-open,\r\n#requestsTable .request-summary-row:focus-visible .request-row-open {\r\n  border-color: #dbe2ea;\r\n  background: #fff;\r\n  color: #111827;\r\n}\r\n\r\n#requestsTable .request-row-dot {\r\n  display: none;\r\n}\r\n\r\n@media (max-width: 1180px) {\r\n  #requestsTable .request-summary-row {\r\n    grid-template-columns: 26px 30px minmax(160px, 1.25fr) minmax(102px, 0.5fr) minmax(150px, 0.8fr) minmax(128px, 0.6fr) 30px;\r\n    gap: 9px;\r\n  }\r\n\r\n  #requestsTable .request-provider-pill {\r\n    max-width: 106px;\r\n  }\r\n}\r\n\r\n@media (max-width: 900px) {\r\n  #requestsTable .request-page-vitals {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  }\r\n\r\n  #requestsTable .request-summary-row {\r\n    grid-template-columns: 26px 30px minmax(0, 1fr) auto 30px;\r\n    grid-template-areas:\r\n      \"select state main status open\"\r\n      \"select state route metrics open\";\r\n    align-items: center;\r\n  }\r\n\r\n  #requestsTable .request-row-select {\r\n    grid-area: select;\r\n  }\r\n\r\n  #requestsTable .request-row-state {\r\n    grid-area: state;\r\n  }\r\n\r\n  #requestsTable .request-row-main {\r\n    grid-area: main;\r\n  }\r\n\r\n  #requestsTable .request-row-status {\r\n    grid-area: status;\r\n    justify-content: flex-end;\r\n  }\r\n\r\n  #requestsTable .request-row-route {\r\n    grid-area: route;\r\n  }\r\n\r\n  #requestsTable .request-row-metrics {\r\n    grid-area: metrics;\r\n    justify-items: end;\r\n  }\r\n\r\n  #requestsTable .request-row-open {\r\n    grid-area: open;\r\n  }\r\n\r\n  #requestsTable .request-provider-pill {\r\n    max-width: 150px;\r\n  }\r\n}\r\n\r\n.sidebar-actions {\r\n  display: flex;\r\n  justify-content: stretch;\r\n  align-items: center;\r\n  margin-top: auto;\r\n  padding: 12px 18px 6px;\r\n  border-top: 1px solid color-mix(in srgb, var(--line-soft) 86%, transparent);\r\n}\r\n\r\n.auto-refresh-toggle {\r\n  display: flex;\r\n  width: 100%;\r\n  min-width: 0;\r\n  min-height: 36px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  gap: 12px;\r\n  padding: 3px 0;\r\n  border: 0;\r\n  border-radius: 999px;\r\n  background: transparent;\r\n  color: #7a7370;\r\n  cursor: pointer;\r\n  font: 720 11px/1.2 var(--sans);\r\n  box-shadow: none;\r\n  transition: border-color 160ms ease, background 160ms ease, color 160ms ease, box-shadow 160ms ease;\r\n}\r\n\r\n.auto-refresh-toggle-text {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.auto-refresh-switch {\r\n  position: relative;\r\n  display: block;\r\n  width: 38px;\r\n  height: 22px;\r\n  flex: 0 0 auto;\r\n  border-radius: 999px;\r\n  background: #111827;\r\n  box-shadow: inset 0 0 0 1px rgba(17, 24, 39, 0.08);\r\n  transition: background 180ms ease, box-shadow 180ms ease;\r\n}\r\n\r\n.auto-refresh-switch span {\r\n  position: absolute;\r\n  top: 3px;\r\n  right: 3px;\r\n  width: 16px;\r\n  height: 16px;\r\n  border-radius: 50%;\r\n  background: #fff;\r\n  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.24);\r\n  transition: transform 180ms ease, right 180ms ease;\r\n}\r\n\r\n.auto-refresh-toggle:hover {\r\n  color: #111827;\r\n}\r\n\r\n.auto-refresh-toggle.is-paused {\r\n  color: #8a817c;\r\n}\r\n\r\n.auto-refresh-toggle.is-paused .auto-refresh-switch {\r\n  background: #e5e7eb;\r\n  box-shadow: inset 0 0 0 1px rgba(107, 114, 128, 0.12);\r\n}\r\n\r\n.auto-refresh-toggle.is-paused .auto-refresh-switch span {\r\n  right: 19px;\r\n  box-shadow: 0 1px 4px rgba(75, 85, 99, 0.12);\r\n}\r\n\r\n.auto-refresh-toggle:active .auto-refresh-switch span {\r\n  transform: scale(0.94);\r\n}\r\n\r\n/* ---- Dialog and drawer polish: stronger hierarchy without copying another theme ---- */\r\n.confirm-backdrop,\r\n.form-modal-backdrop {\r\n  background: rgba(17, 24, 39, 0.48);\r\n  backdrop-filter: blur(5px) saturate(1.08);\r\n  -webkit-backdrop-filter: blur(5px) saturate(1.08);\r\n}\r\n\r\n.form-modal,\r\n.confirm-dialog {\r\n  border-color: rgba(17, 24, 39, 0.12);\r\n  border-radius: 16px;\r\n  background: #fff;\r\n  box-shadow: 0 28px 90px rgba(15, 23, 42, 0.24), 0 1px 0 rgba(255, 255, 255, 0.82) inset;\r\n}\r\n\r\n.form-modal-head {\r\n  padding: 22px 24px 16px;\r\n  border-bottom: 1px solid #edf1f5;\r\n  background: linear-gradient(180deg, #fff 0%, #fbfcfd 100%);\r\n  border-radius: 20%;\r\n}\r\n\r\n.form-modal-head h2,\r\n.confirm-dialog h2,\r\n.drawer-head h2 {\r\n  color: #111827;\r\n  font-weight: 820;\r\n  letter-spacing: 0;\r\n}\r\n\r\n.form-modal-head p,\r\n.confirm-dialog p,\r\n.drawer-head p {\r\n  color: #7b8491;\r\n}\r\n\r\n.form-modal-body {\r\n  gap: 16px;\r\n  padding: 20px 24px 22px;\r\n  background: #fff;\r\n  border-radius: 15%;\r\n}\r\n\r\n.form-modal .provider-create-form details,\r\n.model-map-form,\r\n.format-path-form,\r\n.confirm-head {\r\n  border: 1px solid #edf1f5;\r\n  border-radius: 13px;\r\n  background: #fbfcfd;\r\n}\r\n\r\n.form-modal .provider-create-form details,\r\n.model-map-form,\r\n.format-path-form {\r\n  padding: 14px;\r\n}\r\n\r\n.confirm-head {\r\n  padding: 14px;\r\n}\r\n\r\n.form-modal .form-actions {\r\n  margin: 0 -24px -22px;\r\n  padding: 14px 24px 18px;\r\n  border-top: 1px solid #edf1f5;\r\n  background: #fbfcfd;\r\n}\r\n\r\n.confirm-actions {\r\n  padding: 14px 18px 18px;\r\n  border: 1px solid #edf1f5;\r\n  background: #fbfcfd;\r\n}\r\n\r\n.form-modal #formModalClose,\r\n.drawer-head .icon-button {\r\n  width: 32px;\r\n  min-width: 32px;\r\n  height: 32px;\r\n  min-height: 32px;\r\n  border-color: transparent;\r\n  border-radius: 9px;\r\n  background: transparent;\r\n  color: #6b7280;\r\n  box-shadow: none;\r\n}\r\n\r\n.form-modal #formModalClose:hover,\r\n.drawer-head .icon-button:hover {\r\n  border-color: #e5e7eb;\r\n  background: #fff;\r\n  color: #111827;\r\n}\r\n\r\n.drawer {\r\n  border-left-color: rgba(17, 24, 39, 0.1);\r\n  background: #fff;\r\n  backdrop-filter: none;\r\n  -webkit-backdrop-filter: none;\r\n}\r\n\r\n.drawer.is-open {\r\n  box-shadow: -24px 0 80px rgba(15, 23, 42, 0.14);\r\n}\r\n\r\n.drawer-head {\r\n  padding: 20px 22px 16px;\r\n  border-bottom-color: #edf1f5;\r\n  background: #fbfcfd;\r\n}\r\n\r\n.drawer-body {\r\n  padding: 18px;\r\n  background: #fff;\r\n}\r\n\r\n.provider-drawer-body {\r\n  background: #fff;\r\n}\r\n\r\n.provider-drawer-tabs {\r\n  padding: 0 0 12px;\r\n  background: #fff;\r\n  backdrop-filter: none;\r\n  -webkit-backdrop-filter: none;\r\n}\r\n\r\n.provider-drawer-tab {\r\n  border-color: #e5e7eb;\r\n  border-radius: 999px;\r\n}\r\n\r\n.provider-drawer-tab.is-active {\r\n  border-color: #111827;\r\n  background: #111827;\r\n  color: #fff;\r\n  box-shadow: none;\r\n}\r\n\r\n.form-modal .provider-create-form {\r\n  grid-template-columns: minmax(0, 1fr);\r\n  gap: 14px;\r\n  padding: 0;\r\n}\r\n\r\n.form-modal .provider-create-form > .field,\r\n.form-modal .provider-create-form > .form-row-2,\r\n.form-modal .provider-create-form > details {\r\n  min-width: 0;\r\n}\r\n\r\n.form-modal .provider-create-form .provider-preset-section {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  gap: 10px 12px;\r\n  align-items: start;\r\n  margin: 0;\r\n  padding: 12px;\r\n  border: 1px solid #edf1f5;\r\n  border-radius: 12px;\r\n  background: #fbfcfd;\r\n}\r\n\r\n.form-modal .provider-create-form .provider-preset-label {\r\n  padding-top: 5px;\r\n  color: #7b8491;\r\n  font: 780 10.5px/1.2 var(--mono);\r\n  letter-spacing: 0;\r\n  text-transform: uppercase;\r\n  white-space: nowrap;\r\n}\r\n\r\n.form-modal .provider-create-form .provider-preset-chips {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n  min-width: 0;\r\n}\r\n\r\n.form-modal .provider-create-form .provider-preset-chip {\r\n  min-height: 26px;\r\n  padding: 0 9px;\r\n  border-color: #e1e7ef;\r\n  border-radius: 999px;\r\n  background: #fff;\r\n  color: #334155;\r\n  font: 720 11px/1 var(--sans);\r\n}\r\n\r\n.form-modal .provider-create-form .provider-preset-chip:hover {\r\n  border-color: #111827;\r\n  background: #111827;\r\n  color: #fff;\r\n}\r\n\r\n.form-modal .provider-create-form > .field {\r\n  padding: 0;\r\n}\r\n\r\n.form-modal .provider-create-form .field > span {\r\n  color: #64748b;\r\n  font-size: 11px;\r\n  font-weight: 760;\r\n}\r\n\r\n.form-modal .provider-create-form .provider-main-fields,\r\n.form-modal .provider-create-form > .form-row-2 {\r\n  gap: 12px;\r\n}\r\n\r\n.form-modal .provider-create-form details {\r\n  margin: 0;\r\n  padding: 12px;\r\n  border: 1px solid #edf1f5;\r\n  border-radius: 12px;\r\n  background: #fbfcfd;\r\n}\r\n\r\n.form-modal .provider-create-form details summary {\r\n  padding: 0;\r\n  color: #475569;\r\n  font-size: 12px;\r\n  font-weight: 760;\r\n}\r\n\r\n.form-modal .provider-create-form details .form-field-inline {\r\n  margin-top: 12px !important;\r\n}\r\n\r\n.form-modal .provider-create-form .form-actions {\r\n  margin-top: 2px;\r\n}\r\n\r\n.sidebar-footer {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr) auto;\r\n  gap: 7px;\r\n  align-items: center;\r\n  padding: 4px 18px 18px;\r\n  color: var(--faint);\r\n  font-size: 11px;\r\n}\r\n\r\n.sidebar-footer #connectionText {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.sidebar-footer .dot {\r\n  width: 6px;\r\n  height: 6px;\r\n  flex: 0 0 auto;\r\n}\r\n\r\n.sidebar-footer .lang-toggle-link {\r\n  flex: 0 0 auto;\r\n  margin-left: auto;\r\n  padding: 2px 6px;\r\n  border: 1px solid #e5e7eb;\r\n  border-radius: 6px;\r\n  background: #fff;\r\n  color: #6b7280;\r\n  font: 680 10.5px/1.4 var(--mono);\r\n}\r\n\r\n.sidebar-footer .lang-toggle-link:hover {\r\n  border-color: #d1d5db;\r\n  background: #f9fafb;\r\n  color: #111827;\r\n}\r\n\r\n/* ---- Drawer config + overview failure trace: compact final pass ---- */\r\n.provider-drawer-section .provider-edit-panel {\r\n  padding: 10px;\r\n  border-color: #edf1f5;\r\n  background: #fff;\r\n}\r\n\r\n.provider-drawer-section .provider-inline-form,\r\n.provider-drawer-section .provider-config-grid,\r\n.provider-drawer-section .provider-config-runtime-row,\r\n.provider-drawer-section .provider-config-keys .key-proxy-row,\r\n.provider-drawer-section .provider-config-keys .provider-inline-key-form {\r\n  grid-template-columns: 1fr;\r\n}\r\n\r\n.provider-drawer-section .provider-config-block {\r\n  gap: 10px;\r\n  padding: 11px;\r\n  border-color: #edf1f5;\r\n  border-radius: 10px;\r\n  background: #fbfcfd;\r\n}\r\n\r\n.provider-drawer-section .provider-config-block-head {\r\n  grid-template-columns: 26px minmax(0, 1fr);\r\n  gap: 8px;\r\n}\r\n\r\n.provider-drawer-section .provider-config-block-icon {\r\n  width: 26px;\r\n  height: 26px;\r\n  border-radius: 7px;\r\n  color: #475569;\r\n}\r\n\r\n.provider-drawer-section .provider-config-block-icon .icon-svg {\r\n  width: 14px;\r\n  height: 14px;\r\n}\r\n\r\n.provider-drawer-section .provider-config-block-head strong {\r\n  font-size: 12px;\r\n  line-height: 1.15;\r\n}\r\n\r\n.provider-drawer-section .provider-config-block-head small {\r\n  margin-top: 1px;\r\n  color: #94a3b8;\r\n  font-size: 10.5px;\r\n  line-height: 1.15;\r\n}\r\n\r\n.provider-drawer-section .provider-config-block .field {\r\n  min-width: 0;\r\n  gap: 4px;\r\n}\r\n\r\n.provider-drawer-section .provider-config-block .field > span,\r\n.provider-drawer-section .provider-config-block .key-proxy-field > span {\r\n  overflow: hidden;\r\n  color: #64748b;\r\n  font-size: 10.5px;\r\n  line-height: 1.15;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-drawer-section .provider-config-block .control {\r\n  width: 100%;\r\n  min-width: 0;\r\n  min-height: 34px;\r\n  padding-inline: 10px;\r\n  font-size: 12px;\r\n}\r\n\r\n.provider-drawer-section .provider-config-block .control::placeholder {\r\n  color: #a6b0bd;\r\n}\r\n\r\n.provider-drawer-section .provider-enabled-check {\r\n  min-height: 34px;\r\n  padding: 0 10px;\r\n}\r\n\r\n.provider-drawer-section .provider-config-block .button {\r\n  min-width: 0;\r\n}\r\n\r\n.provider-drawer-section .provider-config-keys .key-proxy-row {\r\n  gap: 8px;\r\n  padding: 9px;\r\n  border-radius: 9px;\r\n}\r\n\r\n.provider-drawer-section .provider-config-keys .key-proxy-id {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  gap: 7px;\r\n  align-items: center;\r\n}\r\n\r\n.provider-drawer-section .provider-config-keys .key-proxy-id span {\r\n  margin-top: 0;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-drawer-section .provider-config-keys .compact-action,\r\n.provider-drawer-section .provider-inline-key-form .button {\r\n  justify-content: center;\r\n  width: 100%;\r\n}\r\n\r\n.provider-drawer-section .provider-formats-group .format-route {\r\n  min-height: 46px;\r\n  padding: 8px 9px 8px 11px;\r\n}\r\n\r\n.provider-drawer-section .provider-formats-group .format-route-edit {\r\n  width: 24px;\r\n  height: 24px;\r\n  margin-left: 0;\r\n  border-radius: 7px;\r\n}\r\n\r\n.provider-drawer-section .provider-formats-group .format-route-edit .icon-svg {\r\n  width: 13px;\r\n  height: 13px;\r\n}\r\n\r\n.provider-drawer-section .provider-formats-group .format-route-switch {\r\n  width: 36px;\r\n  height: 21px;\r\n}\r\n\r\n.provider-drawer-section .provider-formats-group .format-route-switch span {\r\n  width: 15px;\r\n  height: 15px;\r\n}\r\n\r\n.provider-drawer-section .provider-formats-group .format-route-switch.is-on span {\r\n  transform: translateX(15px);\r\n}\r\n\r\n#recentFailures .overview-summary-meta {\r\n  padding: 0 2px 8px;\r\n}\r\n\r\n#recentFailures .recent-failure-list {\r\n  gap: 7px;\r\n  padding: 0;\r\n}\r\n\r\n#recentFailures .recent-failure-row {\r\n  grid-template-columns: 30px minmax(0, 1.2fr) minmax(92px, auto) minmax(120px, .9fr);\r\n  gap: 9px;\r\n  min-height: 52px;\r\n  padding: 9px 10px;\r\n  border: 1px solid color-mix(in srgb, var(--row-tone) 18%, #e5e7eb);\r\n  border-radius: 11px;\r\n  background:\r\n    linear-gradient(90deg, color-mix(in srgb, var(--row-tone) 6%, transparent), transparent 45%),\r\n    #fff;\r\n  box-shadow: none;\r\n}\r\n\r\n#recentFailures .recent-failure-icon {\r\n  display: inline-grid;\r\n  width: 28px;\r\n  height: 28px;\r\n  place-items: center;\r\n  border: 1px solid color-mix(in srgb, var(--row-tone) 24%, #e5e7eb);\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--row-tone) 8%, #fff);\r\n  color: var(--row-tone);\r\n}\r\n\r\n#recentFailures .recent-failure-icon .icon-svg,\r\n#recentFailures .recent-failure-main small .icon-svg,\r\n#recentFailures .recent-failure-latency .icon-svg {\r\n  width: 13px;\r\n  height: 13px;\r\n}\r\n\r\n#recentFailures .recent-failure-main {\r\n  gap: 3px;\r\n}\r\n\r\n#recentFailures .recent-failure-main strong {\r\n  font-size: 12px;\r\n  line-height: 1.2;\r\n}\r\n\r\n#recentFailures .recent-failure-main small {\r\n  display: inline-flex;\r\n  gap: 4px;\r\n  align-items: center;\r\n  font-size: 10.5px;\r\n  line-height: 1.1;\r\n}\r\n\r\n#recentFailures .recent-failure-metrics {\r\n  display: grid;\r\n  gap: 4px;\r\n  justify-items: end;\r\n  min-width: 0;\r\n}\r\n\r\n#recentFailures .recent-failure-status {\r\n  display: inline-flex;\r\n  justify-content: flex-end;\r\n  min-width: 0;\r\n}\r\n\r\n#recentFailures .recent-failure-latency {\r\n  display: inline-flex;\r\n  gap: 4px;\r\n  align-items: center;\r\n  color: #64748b;\r\n  font: 720 10.5px/1 var(--mono);\r\n  white-space: nowrap;\r\n}\r\n\r\n#recentFailures .recent-failure-reason {\r\n  min-width: 0;\r\n  padding: 5px 8px;\r\n  border: 1px solid #eef2f7;\r\n  border-radius: 999px;\r\n  background: #fbfcfd;\r\n  color: #64748b;\r\n  font-size: 11px;\r\n  line-height: 1.1;\r\n}\r\n\r\n#recentFailures .recent-failure-row:hover,\r\n#recentFailures .recent-failure-row:focus-visible {\r\n  border-color: color-mix(in srgb, var(--row-tone) 32%, #d1d5db);\r\n  background:\r\n    linear-gradient(90deg, color-mix(in srgb, var(--row-tone) 9%, transparent), transparent 54%),\r\n    #fff;\r\n  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06);\r\n}\r\n\r\n.usage-model-only .usage-bars {\r\n  gap: 7px;\r\n}\r\n\r\n.usage-model-only .usage-row {\r\n  padding: 9px 10px;\r\n  border-radius: 10px;\r\n  background: #fff;\r\n}\r\n\r\n.usage-model-only .usage-row-head {\r\n  gap: 8px;\r\n}\r\n\r\n.usage-model-only .usage-rank {\r\n  min-width: 26px;\r\n  border-radius: 999px;\r\n  background: #f8fafc;\r\n  color: #475569;\r\n}\r\n\r\n.usage-model-only .usage-track {\r\n  height: 5px;\r\n}\r\n\r\n@media (max-width: 980px) {\r\n  #recentFailures .recent-failure-row {\r\n    grid-template-columns: 30px minmax(0, 1fr) auto;\r\n  }\r\n\r\n  #recentFailures .recent-failure-reason {\r\n    grid-column: 2 / -1;\r\n    justify-self: stretch;\r\n  }\r\n}\r\n\r\n@media (max-width: 520px) {\r\n  #recentFailures .recent-failure-row {\r\n    grid-template-columns: 28px minmax(0, 1fr);\r\n  }\r\n\r\n  #recentFailures .recent-failure-metrics,\r\n  #recentFailures .recent-failure-reason {\r\n    grid-column: 2 / -1;\r\n    justify-self: stretch;\r\n  }\r\n\r\n  #recentFailures .recent-failure-metrics {\r\n    grid-template-columns: auto 1fr;\r\n    justify-items: start;\r\n  }\r\n}\r\n\r\n/* ---- Usage ranking + playground empty state polish ---- */\r\n.usage-section-title h3 {\r\n  display: inline-flex;\r\n  gap: 7px;\r\n  align-items: center;\r\n}\r\n\r\n.usage-section-title h3 .icon-svg {\r\n  width: 15px;\r\n  height: 15px;\r\n  color: #475569;\r\n}\r\n\r\n.usage-model-only .usage-bars {\r\n  gap: 6px;\r\n}\r\n\r\n.usage-model-only .usage-model-row {\r\n  display: grid;\r\n  grid-template-columns: 34px minmax(0, 1fr) minmax(126px, auto);\r\n  grid-template-areas:\r\n    \"rank head foot\"\r\n    \"rank track foot\";\r\n  gap: 7px 10px;\r\n  align-items: center;\r\n  min-height: 58px;\r\n  padding: 8px 10px;\r\n  border: 1px solid #edf1f5;\r\n  border-radius: 10px;\r\n  background: #fff;\r\n}\r\n\r\n.usage-model-only .usage-rank-tile {\r\n  grid-area: rank;\r\n  display: inline-grid;\r\n  width: 30px;\r\n  min-width: 30px;\r\n  height: 30px;\r\n  place-items: center;\r\n  padding: 0;\r\n  border: 1px solid #e5e7eb;\r\n  border-radius: 8px;\r\n  background: #f8fafc;\r\n  color: #475569;\r\n  font: 780 10.5px/1 var(--mono);\r\n}\r\n\r\n.usage-model-only .usage-row-head {\r\n  grid-area: head;\r\n  gap: 8px;\r\n}\r\n\r\n.usage-model-only .usage-row-head strong {\r\n  font-size: 12px;\r\n}\r\n\r\n.usage-model-only .usage-call-count {\r\n  display: inline-flex;\r\n  min-height: 20px;\r\n  align-items: center;\r\n  padding: 2px 7px;\r\n  border: 1px solid #edf1f5;\r\n  border-radius: 999px;\r\n  background: #fbfcfd;\r\n  color: #64748b;\r\n  font: 720 10.5px/1 var(--mono);\r\n}\r\n\r\n.usage-model-only .usage-track {\r\n  grid-area: track;\r\n  height: 5px;\r\n  background: #eef2f7;\r\n}\r\n\r\n.usage-model-only .usage-fill.calls {\r\n  background: #111827;\r\n}\r\n\r\n.usage-model-only .usage-model-foot {\r\n  grid-area: foot;\r\n  display: grid;\r\n  grid-template-columns: 1fr;\r\n  justify-items: end;\r\n  gap: 4px;\r\n}\r\n\r\n.usage-model-only .usage-model-foot span {\r\n  display: inline-flex;\r\n  gap: 4px;\r\n  align-items: center;\r\n  color: #64748b;\r\n  font: 680 10.5px/1 var(--mono);\r\n}\r\n\r\n.usage-model-only .usage-model-foot strong {\r\n  color: #111827;\r\n  font-size: 11.5px;\r\n}\r\n\r\n.usage-model-only .usage-model-foot .icon-svg {\r\n  width: 12px;\r\n  height: 12px;\r\n  color: #94a3b8;\r\n}\r\n\r\n.pg-empty::before {\r\n  display: none;\r\n}\r\n\r\n.pg-empty-icon {\r\n  display: inline-grid;\r\n  width: 42px;\r\n  height: 42px;\r\n  place-items: center;\r\n  border: 1px solid #dfe5ec;\r\n  border-radius: 13px;\r\n  background: #fbfcfd;\r\n  color: #475569;\r\n  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.84);\r\n}\r\n\r\n.pg-empty-icon .icon-svg {\r\n  width: 20px;\r\n  height: 20px;\r\n  stroke-width: 1.8;\r\n}\r\n\r\n@media (max-width: 760px) {\r\n  .usage-model-only .usage-model-row {\r\n    grid-template-columns: 32px minmax(0, 1fr);\r\n    grid-template-areas:\r\n      \"rank head\"\r\n      \"rank track\"\r\n      \"rank foot\";\r\n  }\r\n\r\n  .usage-model-only .usage-model-foot {\r\n    grid-template-columns: repeat(3, minmax(0, auto));\r\n    justify-items: start;\r\n    justify-content: start;\r\n  }\r\n}\r\n\r\n/* ---- Overview dashboard density pass ---- */\r\n#overviewView .overview-page-head {\r\n  margin-bottom: 12px;\r\n}\r\n\r\n#overviewView .overview-page-head h1 {\r\n  font-size: 20px;\r\n  line-height: 1.15;\r\n}\r\n\r\n#overviewView .overview-page-head p {\r\n  margin-top: 3px;\r\n  font-size: 12px;\r\n}\r\n\r\n#overviewView .time-range-control {\r\n  min-height: 36px;\r\n  padding: 3px;\r\n}\r\n\r\n#overviewView .time-range-control > div:first-child {\r\n  display: none;\r\n}\r\n\r\n#overviewView .segmented-button {\r\n  min-height: 28px;\r\n  padding: 0 10px;\r\n  font-size: 11px;\r\n}\r\n\r\n#overviewView .overview-visuals {\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 10px;\r\n  margin-bottom: 12px;\r\n}\r\n\r\n#overviewView .visual-card {\r\n  min-height: 82px;\r\n  padding: 12px 14px;\r\n  border-radius: 12px;\r\n  background: #fff;\r\n  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.055);\r\n}\r\n\r\n#overviewView .metric-header {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  gap: 8px;\r\n}\r\n\r\n#overviewView .visual-card .metric-label {\r\n  color: #64748b;\r\n  font-size: 11px;\r\n  font-weight: 720;\r\n  letter-spacing: 0;\r\n  text-transform: none;\r\n}\r\n\r\n#overviewView .visual-card .metric-val {\r\n  margin-top: 7px;\r\n  color: #111827;\r\n  font: 820 24px/1 var(--mono);\r\n}\r\n\r\n#overviewView .visual-card .metric-sub {\r\n  margin-top: 6px;\r\n  color: #7b8491;\r\n  font-size: 11px;\r\n}\r\n\r\n#overviewView .visual-card .metric-icon {\r\n  display: inline-grid;\r\n  width: 28px;\r\n  height: 28px;\r\n  place-items: center;\r\n  border: 1px solid #edf1f5;\r\n  border-radius: 9px;\r\n  background: #fbfcfd;\r\n  color: #94a3b8;\r\n}\r\n\r\n#overviewView .visual-card .metric-icon .icon-svg {\r\n  width: 14px;\r\n  height: 14px;\r\n}\r\n\r\n#overviewView .overview-grid {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1.55fr) minmax(330px, 0.85fr);\r\n  grid-template-rows: 520px 390px;\r\n  gap: 14px;\r\n  align-items: stretch;\r\n}\r\n\r\n#overviewView .overview-secondary-layout,\r\n#overviewView .overview-main-column,\r\n#overviewView .overview-side-column {\r\n  display: contents;\r\n}\r\n\r\n#overviewView .overview-traffic-panel {\r\n  grid-column: 1;\r\n  grid-row: 1;\r\n}\r\n\r\n#overviewView .overview-health-score-panel {\r\n  grid-column: 2;\r\n  grid-row: 1;\r\n}\r\n\r\n#overviewView .overview-failures-panel {\r\n  grid-column: 2;\r\n  grid-row: 2;\r\n}\r\n\r\n#overviewView .overview-usage-panel {\r\n  grid-column: 1;\r\n  grid-row: 2;\r\n}\r\n\r\n#overviewView .panel {\r\n  display: grid;\r\n  grid-template-rows: auto minmax(0, 1fr);\r\n  height: 100%;\r\n  margin-bottom: 0;\r\n  border-color: #e5e7eb;\r\n  border-radius: 14px;\r\n  background: #fff;\r\n  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);\r\n}\r\n\r\n#overviewView .panel-head {\r\n  min-height: 48px;\r\n  padding: 12px 16px 10px;\r\n  border-bottom: 1px solid #edf1f5;\r\n  background: #fbfcfd;\r\n}\r\n\r\n#overviewView .panel-head h2 {\r\n  color: #111827;\r\n  font-size: 14px;\r\n  font-weight: 780;\r\n}\r\n\r\n#overviewView .panel-head p {\r\n  display: none;\r\n}\r\n\r\n#overviewView .panel-head .tag,\r\n#overviewView .panel-head .badge {\r\n  min-height: 24px;\r\n  border-color: #e5e7eb;\r\n  border-radius: 999px;\r\n  background: #fff;\r\n  color: #64748b;\r\n  font: 700 10.5px/1 var(--mono);\r\n  text-transform: none;\r\n}\r\n\r\n#overviewView .overview-traffic-panel .chart {\r\n  min-height: 0;\r\n  padding: 12px 14px 14px;\r\n  background: #fff;\r\n}\r\n\r\n#overviewView .usage-trend-overview {\r\n  grid-template-columns: minmax(210px, 0.55fr) minmax(0, 1.45fr);\r\n  gap: 8px;\r\n  margin-bottom: 10px;\r\n}\r\n\r\n#overviewView .usage-trend-total,\r\n#overviewView .usage-trend-kpi {\r\n  border-color: #edf1f5;\r\n  border-radius: 10px;\r\n  box-shadow: none;\r\n}\r\n\r\n#overviewView .usage-trend-total {\r\n  min-height: 64px;\r\n  padding: 8px 10px;\r\n}\r\n\r\n#overviewView .usage-trend-total strong {\r\n  font-size: 22px;\r\n}\r\n\r\n#overviewView .usage-trend-total small,\r\n#overviewView .usage-trend-total-label,\r\n#overviewView .usage-trend-kpi span {\r\n  font-size: 10.5px;\r\n}\r\n\r\n#overviewView .usage-trend-kpis {\r\n  gap: 8px;\r\n}\r\n\r\n#overviewView .usage-trend-kpi {\r\n  min-height: 64px;\r\n  padding: 8px 10px;\r\n}\r\n\r\n#overviewView .usage-trend-kpi strong {\r\n  font-size: 15px;\r\n}\r\n\r\n#overviewView .traffic-chart-shell {\r\n  padding: 12px 12px 8px;\r\n  border-color: #edf1f5;\r\n  border-radius: 12px;\r\n  box-shadow: none;\r\n}\r\n\r\n#overviewView .traffic-chart-shell svg {\r\n  height: 250px;\r\n}\r\n\r\n#overviewView .health-overview {\r\n  gap: 8px;\r\n  padding: 12px;\r\n  max-height: none;\r\n  overflow: hidden;\r\n}\r\n\r\n#overviewView .health-overview-header {\r\n  padding-bottom: 8px;\r\n}\r\n\r\n#overviewView .health-score-ring {\r\n  width: 46px;\r\n  height: 46px;\r\n  border-width: 2px;\r\n}\r\n\r\n#overviewView .health-score-ring strong {\r\n  font-size: 15px;\r\n}\r\n\r\n#overviewView .health-provider-row {\r\n  grid-template-columns: minmax(92px, 1fr) 72px 30px 74px;\r\n  gap: 7px;\r\n  padding: 6px 8px;\r\n  border-radius: 8px;\r\n  background: #fbfcfd;\r\n}\r\n\r\n#overviewView .health-overview-more {\r\n  padding: 7px 8px 1px;\r\n  color: #94a3b8;\r\n  font: 700 10.5px/1 var(--mono);\r\n}\r\n\r\n#overviewView .health-provider-bar {\r\n  height: 5px;\r\n}\r\n\r\n#overviewView #recentFailures {\r\n  min-height: 0;\r\n  overflow: hidden;\r\n  padding: 10px;\r\n}\r\n\r\n#overviewView #recentFailures .recent-failure-row {\r\n  grid-template-columns: 26px minmax(0, 1fr) auto minmax(72px, auto);\r\n  gap: 7px;\r\n  min-height: 38px;\r\n  padding: 6px 8px;\r\n  border-radius: 9px;\r\n}\r\n\r\n#overviewView #recentFailures .recent-failure-reason {\r\n  grid-column: auto;\r\n  justify-self: stretch;\r\n  padding: 4px 7px;\r\n  font-size: 10.5px;\r\n}\r\n\r\n#overviewView #recentFailures .recent-failure-icon {\r\n  width: 24px;\r\n  height: 24px;\r\n  border-radius: 7px;\r\n}\r\n\r\n#overviewView #recentFailures .recent-failure-main {\r\n  gap: 1px;\r\n}\r\n\r\n#overviewView #recentFailures .recent-failure-main strong {\r\n  font-size: 11px;\r\n}\r\n\r\n#overviewView #recentFailures .recent-failure-main small,\r\n#overviewView #recentFailures .recent-failure-latency {\r\n  font-size: 10px;\r\n}\r\n\r\n#overviewView #recentFailures .recent-failure-metrics {\r\n  gap: 2px;\r\n}\r\n\r\n#overviewView .usage-chart {\r\n  min-height: 0;\r\n  overflow: hidden;\r\n  padding: 10px 12px 12px;\r\n}\r\n\r\n#overviewView .usage-summary {\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 8px;\r\n}\r\n\r\n#overviewView .usage-chart .mini-metric {\r\n  min-height: 58px;\r\n  padding: 9px 10px;\r\n  border-color: #edf1f5;\r\n  border-radius: 10px;\r\n  background: #fbfcfd;\r\n}\r\n\r\n#overviewView .usage-chart .mini-metric strong {\r\n  font-size: 16px;\r\n}\r\n\r\n#overviewView .usage-columns.usage-model-only {\r\n  margin-top: 2px;\r\n}\r\n\r\n#overviewView .overview-failures-panel .recent-failure-list {\r\n  gap: 6px;\r\n}\r\n\r\n@media (max-width: 1180px) {\r\n  #overviewView .overview-grid {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  #overviewView .overview-secondary-layout,\r\n  #overviewView .overview-main-column,\r\n  #overviewView .overview-side-column {\r\n    display: grid;\r\n  }\r\n\r\n  #overviewView .overview-traffic-panel,\r\n  #overviewView .overview-health-score-panel,\r\n  #overviewView .overview-failures-panel,\r\n  #overviewView .overview-usage-panel {\r\n    grid-column: 1;\r\n    grid-row: auto;\r\n  }\r\n\r\n  #overviewView .overview-secondary-layout {\r\n    gap: 14px;\r\n  }\r\n}\r\n\r\n@media (max-width: 760px) {\r\n  #overviewView .overview-page-head {\r\n    align-items: stretch;\r\n  }\r\n\r\n  #overviewView .overview-visuals,\r\n  #overviewView .usage-summary {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  }\r\n\r\n  #overviewView .overview-traffic-panel .chart {\r\n    min-height: 360px;\r\n    padding: 10px;\r\n  }\r\n\r\n  #overviewView .traffic-chart-shell svg {\r\n    height: 260px;\r\n  }\r\n}\r\n\r\n/* Requests page density pass: keep one 10-row page visible without page scroll. */\r\n#requestsView.view:not(.is-active) {\r\n  display: none;\r\n}\r\n\r\n#requestsView.view.is-active {\r\n  display: grid;\r\n  grid-template-rows: auto minmax(0, 1fr);\r\n  gap: 8px;\r\n  min-height: 0;\r\n}\r\n\r\n#requestsToolbar.request-filter-bar {\r\n  min-height: 44px;\r\n  margin: 0 0 8px;\r\n  padding: 8px 10px;\r\n  gap: 8px;\r\n  align-items: center;\r\n  border-radius: 12px;\r\n}\r\n\r\n#requestsToolbar .request-filter-primary {\r\n  align-items: center;\r\n  gap: 7px;\r\n}\r\n\r\n#requestsToolbar .request-status-chips {\r\n  gap: 4px;\r\n}\r\n\r\n#requestsToolbar .filter-chip,\r\n#requestsToolbar .compact-action,\r\n#requestsToolbar .advanced-filter-box > summary {\r\n  min-height: 30px;\r\n  padding: 0 9px;\r\n  border-radius: 8px;\r\n  font-size: 11px;\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n}\r\n\r\n#requestsToolbar .filter-search-field {\r\n  min-width: 108px;\r\n}\r\n\r\n#requestsToolbar .control {\r\n  min-height: 30px;\r\n  padding: 0 9px;\r\n  border-radius: 8px;\r\n  font-size: 11px;\r\n}\r\n\r\n#requestsToolbar .request-bulk-actions {\r\n  align-items: center;\r\n  gap: 6px;\r\n}\r\n\r\n#requestsToolbar .selection-count {\r\n  min-height: 26px;\r\n  padding: 0 8px;\r\n  font-size: 10.5px;\r\n}\r\n\r\n#requestsToolbar .icon-action {\r\n  width: 30px;\r\n  height: 30px;\r\n  min-height: 30px;\r\n}\r\n\r\n#requestsView > .panel {\r\n  display: grid;\r\n  grid-template-rows: auto minmax(0, 1fr);\r\n  min-height: 0;\r\n  margin: 0;\r\n  overflow: hidden;\r\n}\r\n\r\n#requestsView > .panel .panel-head {\r\n  min-height: 34px;\r\n  padding: 8px 12px;\r\n}\r\n\r\n#requestsView > .panel .panel-head h2 {\r\n  font-size: 13px;\r\n}\r\n\r\n#requestsView > .panel .panel-head p {\r\n  display: none;\r\n}\r\n\r\n#requestsTable.table-wrap {\r\n  display: grid;\r\n  grid-template-rows: auto auto auto minmax(0, 1fr);\r\n  gap: 7px;\r\n  min-height: 0;\r\n  padding: 9px;\r\n  overflow: hidden;\r\n}\r\n\r\n#requestsTable .request-list-head {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  align-items: center;\r\n  min-height: 30px;\r\n  padding: 5px 8px;\r\n  border-radius: 10px;\r\n}\r\n\r\n#requestsTable .request-page-summary {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 7px;\r\n  min-width: 0;\r\n  min-height: 26px;\r\n  font-size: 10.5px;\r\n  line-height: 1;\r\n}\r\n\r\n#requestsTable .request-page-summary strong {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  min-height: 22px;\r\n  font-size: 12px;\r\n  line-height: 1;\r\n}\r\n\r\n#requestsTable .request-page-summary > span {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  min-height: 22px;\r\n  line-height: 1;\r\n}\r\n\r\n#requestsTable .request-page-select {\r\n  min-height: 24px;\r\n  padding: 0 8px 0 2px;\r\n  gap: 4px;\r\n  align-items: center;\r\n  border-right-color: #dde4ec;\r\n  line-height: 1;\r\n}\r\n\r\n#requestsTable .request-page-select input {\r\n  width: 14px;\r\n  height: 14px;\r\n  flex: 0 0 auto;\r\n}\r\n\r\n#requestsTable .request-page-select span {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  min-height: 20px;\r\n}\r\n\r\n#requestsTable .request-pagination {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 5px;\r\n  min-height: 26px;\r\n}\r\n\r\n#requestsTable .request-pagination .icon-action {\r\n  width: 26px;\r\n  height: 26px;\r\n  min-height: 26px;\r\n  border-radius: 8px;\r\n}\r\n\r\n#requestsTable .request-page-indicator {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  min-height: 26px;\r\n  padding: 0 8px;\r\n  border: 1px solid #edf1f5;\r\n  border-radius: 8px;\r\n  background: #fbfcfd;\r\n  font-size: 10.5px;\r\n  line-height: 1;\r\n}\r\n\r\n#requestsTable .request-page-vitals {\r\n  grid-template-columns: repeat(5, minmax(0, 1fr));\r\n  gap: 6px;\r\n}\r\n\r\n#requestsTable .request-vital {\r\n  min-height: 34px;\r\n  padding: 5px 8px;\r\n  gap: 6px;\r\n  border-radius: 9px;\r\n}\r\n\r\n#requestsTable .request-vital::after {\r\n  height: 2px;\r\n}\r\n\r\n#requestsTable .request-vital .icon-svg {\r\n  width: 13px;\r\n  height: 13px;\r\n}\r\n\r\n#requestsTable .request-vital strong {\r\n  font-size: 13px;\r\n}\r\n\r\n#requestsTable .request-vital small {\r\n  font-size: 9.5px;\r\n}\r\n\r\n#requestsTable .request-summary-list {\r\n  gap: 6px;\r\n  min-height: 0;\r\n  overflow: hidden;\r\n}\r\n\r\n#requestsTable .request-summary-row {\r\n  grid-template-columns: 20px 22px minmax(178px, 1.4fr) 70px minmax(160px, 0.95fr) minmax(118px, 0.72fr) 20px;\r\n  min-height: 50px;\r\n  padding: 7px 9px;\r\n  gap: 7px;\r\n  border-radius: 10px;\r\n  border-color: #e5e7eb;\r\n  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.035), 0 5px 12px rgba(15, 23, 42, 0.025);\r\n}\r\n\r\n#requestsTable .request-row-select input {\r\n  width: 13px;\r\n  height: 13px;\r\n}\r\n\r\n#requestsTable .request-row-state {\r\n  width: 20px;\r\n  height: 20px;\r\n  border-radius: 7px;\r\n}\r\n\r\n#requestsTable .request-row-state .icon-svg {\r\n  width: 12px;\r\n  height: 12px;\r\n}\r\n\r\n#requestsTable .request-row-main {\r\n  gap: 1px;\r\n}\r\n\r\n#requestsTable .request-row-main strong {\r\n  max-width: 100%;\r\n  font-size: 12.5px;\r\n}\r\n\r\n#requestsTable .request-row-main small {\r\n  gap: 4px;\r\n  font-size: 10.5px;\r\n  white-space: nowrap;\r\n}\r\n\r\n#requestsTable .request-row-status {\r\n  gap: 3px;\r\n}\r\n\r\n#requestsTable .request-row-status .badge {\r\n  min-height: 18px;\r\n  padding: 0 6px;\r\n  font-size: 10px;\r\n}\r\n\r\n#requestsTable .request-row-status small {\r\n  font-size: 10px;\r\n}\r\n\r\n#requestsTable .request-row-route {\r\n  gap: 4px;\r\n}\r\n\r\n#requestsTable .request-provider-pill,\r\n#requestsTable .route-pill {\r\n  min-height: 20px;\r\n  padding: 0 6px;\r\n  border-radius: 7px;\r\n  font-size: 10.3px;\r\n}\r\n\r\n#requestsTable .request-provider-pill .icon-svg {\r\n  width: 11px;\r\n  height: 11px;\r\n}\r\n\r\n#requestsTable .request-row-metrics {\r\n  gap: 2px;\r\n}\r\n\r\n#requestsTable .request-row-metrics strong {\r\n  font-size: 12px;\r\n}\r\n\r\n#requestsTable .request-row-metrics small {\r\n  font-size: 10px;\r\n}\r\n\r\n#requestsTable .request-row-open {\r\n  width: 20px;\r\n  height: 20px;\r\n  border-radius: 7px;\r\n}\r\n\r\n#requestsTable .request-row-open .icon-svg {\r\n  width: 12px;\r\n  height: 12px;\r\n}\r\n\r\n/* Providers page density redesign: 8 providers per page, no page scroll at desktop sizes. */\r\n#providersView.view:not(.is-active) {\r\n  display: none;\r\n}\r\n\r\n#providersView.view.is-active {\r\n  display: grid;\r\n  min-height: calc(100dvh - 24px);\r\n}\r\n\r\n#providersView .providers-panel {\r\n  display: grid;\r\n  grid-template-rows: auto minmax(0, 1fr) auto;\r\n  height: 100%;\r\n  min-height: 0;\r\n  overflow: hidden;\r\n  border-radius: 14px;\r\n}\r\n\r\n#providersView .providers-tools {\r\n  border-bottom: 1px solid #edf1f5;\r\n  background: #fff;\r\n}\r\n\r\n#providersView .providers-tools-head {\r\n  min-height: 46px;\r\n  padding: 10px 14px 6px;\r\n}\r\n\r\n#providersView .providers-tools-head h2 {\r\n  font-size: 14px;\r\n  line-height: 1.15;\r\n}\r\n\r\n#providersView .providers-tools-head p {\r\n  margin-top: 2px;\r\n  font-size: 11px;\r\n  line-height: 1.2;\r\n}\r\n\r\n#providersView .providers-tools-head .button {\r\n  min-height: 30px;\r\n  padding-inline: 12px;\r\n  border-radius: 8px;\r\n  font-size: 11px;\r\n}\r\n\r\n#providersView .provider-toolbar {\r\n  grid-template-columns: minmax(210px, 1.25fr) repeat(3, minmax(118px, 0.72fr)) auto;\r\n  gap: 7px;\r\n  align-items: end;\r\n  padding: 0 14px 10px;\r\n}\r\n\r\n#providersView .provider-toolbar .field {\r\n  gap: 4px;\r\n}\r\n\r\n#providersView .provider-toolbar .field > span {\r\n  font-size: 10px;\r\n}\r\n\r\n#providersView .provider-toolbar .control,\r\n#providersView .provider-toolbar #clearProviderFiltersButton {\r\n  min-height: 30px;\r\n  border-radius: 8px;\r\n  font-size: 11px;\r\n}\r\n\r\n#providersView .provider-table {\r\n  display: grid;\r\n  grid-template-rows: auto minmax(0, 1fr);\r\n  gap: 8px;\r\n  min-height: 0;\r\n  padding: 9px 10px 10px;\r\n  overflow: hidden;\r\n}\r\n\r\n#providersView .panel-pagination {\r\n  min-height: 30px;\r\n  margin: 0;\r\n  padding: 5px 8px;\r\n  border-radius: 9px;\r\n  font-size: 11px;\r\n}\r\n\r\n#providersView .panel-pagination-actions {\r\n  gap: 5px;\r\n}\r\n\r\n#providersView .panel-pagination .icon-action {\r\n  width: 26px;\r\n  height: 26px;\r\n  min-height: 26px;\r\n  border-radius: 8px;\r\n}\r\n\r\n#providersView .panel-pagination .request-page-indicator {\r\n  padding-inline: 7px;\r\n  font-size: 10.5px;\r\n}\r\n\r\n#providersView .provider-card-grid {\r\n  display: grid;\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  grid-template-rows: repeat(2, minmax(0, 1fr));\r\n  gap: 10px;\r\n  min-height: 0;\r\n  overflow: hidden;\r\n}\r\n\r\n#providersView .provider-runtime-card {\r\n  display: flex;\r\n  flex-direction: column;\r\n  gap: 7px;\r\n  justify-content: space-between;\r\n  min-height: 0;\r\n  height: 95%;\r\n  padding: 13px 12px 11px;\r\n  border-top-width: 2px;\r\n  border-radius: 12px;\r\n  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.045);\r\n}\r\n\r\n#providersView .provider-health-tile {\r\n  min-height: 0;\r\n}\r\n\r\n#providersView .provider-card-topline {\r\n  gap: 7px;\r\n  align-items: flex-start;\r\n}\r\n\r\n#providersView .provider-status-dot {\r\n  width: 8px;\r\n  height: 8px;\r\n  box-shadow: 0 0 0 3px color-mix(in srgb, var(--neutral) 8%, transparent);\r\n}\r\n\r\n#providersView .provider-title-block {\r\n  display: grid;\r\n  gap: 4px;\r\n  min-width: 0;\r\n}\r\n\r\n#providersView .provider-name {\r\n  overflow: hidden;\r\n  font-size: 15px;\r\n  font-weight: 840;\r\n  line-height: 1.12;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n#providersView .provider-meta {\r\n  display: flex;\r\n  gap: 4px;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n}\r\n\r\n#providersView .format-chip,\r\n#providersView .priority-chip {\r\n  min-height: 18px;\r\n  padding: 1px 5px;\r\n  border-radius: 6px;\r\n  font-size: 9px;\r\n}\r\n\r\n#providersView .provider-card-settings-btn {\r\n  width: 22px;\r\n  height: 22px;\r\n  border-radius: 7px;\r\n}\r\n\r\n#providersView .provider-card-settings-btn .icon-svg {\r\n  width: 13px;\r\n  height: 13px;\r\n}\r\n\r\n#providersView .provider-card-state-row {\r\n  gap: 6px;\r\n  align-items: center;\r\n  padding: 0;\r\n}\r\n\r\n#providersView .provider-state-badge {\r\n  min-height: 20px;\r\n  padding: 0 7px;\r\n  font-size: 9.5px;\r\n}\r\n\r\n#providersView .provider-state-note {\r\n  font-size: 10px;\r\n}\r\n\r\n#providersView .provider-card-signal {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1.35fr) minmax(82px, 0.8fr);\r\n  grid-template-rows: repeat(2, minmax(0, 1fr));\r\n  gap: 6px;\r\n  min-height: 73px;\r\n}\r\n\r\n#providersView .provider-probe-summary {\r\n  display: grid;\r\n  grid-template-columns: 14px minmax(0, 1fr) auto;\r\n  align-items: center;\r\n  gap: 6px;\r\n  min-height: 26px;\r\n  padding: 0 8px;\r\n  border: 1px solid #e8edf2;\r\n  border-radius: 7px;\r\n  background:\r\n    linear-gradient(180deg, #ffffff, #f9fbfc);\r\n  color: #5f6f82;\r\n  font-size: 10.5px;\r\n  line-height: 1;\r\n  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);\r\n}\r\n\r\n#providersView .provider-probe-summary .icon-svg {\r\n  width: 13px;\r\n  height: 13px;\r\n  color: #8795a8;\r\n}\r\n\r\n#providersView .provider-probe-summary span,\r\n#providersView .provider-probe-summary small {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n#providersView .provider-probe-summary span {\r\n  grid-column: 2;\r\n  color: #27364a;\r\n  font-weight: 720;\r\n}\r\n\r\n#providersView .provider-probe-summary small {\r\n  grid-column: 3;\r\n  color: #6c7888;\r\n  font-family: var(--mono);\r\n  font-size: 10px;\r\n  font-weight: 680;\r\n  text-align: right;\r\n}\r\n\r\n#providersView .provider-probe-summary.tone-ok .icon-svg,\r\n#providersView .provider-probe-summary.tone-ok span {\r\n  color: var(--success);\r\n}\r\n\r\n#providersView .provider-probe-summary.tone-ok {\r\n  border-color: color-mix(in srgb, var(--success) 20%, #e8edf2);\r\n  background:\r\n    linear-gradient(90deg, color-mix(in srgb, var(--success) 8%, #fff), #fff 54%);\r\n}\r\n\r\n#providersView .provider-probe-summary.tone-warn .icon-svg,\r\n#providersView .provider-probe-summary.tone-warn span {\r\n  color: var(--warning);\r\n}\r\n\r\n#providersView .provider-probe-summary.tone-warn {\r\n  border-color: color-mix(in srgb, var(--warning) 22%, #e8edf2);\r\n  background:\r\n    linear-gradient(90deg, color-mix(in srgb, var(--warning) 8%, #fff), #fff 54%);\r\n}\r\n\r\n#providersView .provider-probe-summary.tone-bad .icon-svg,\r\n#providersView .provider-probe-summary.tone-bad span {\r\n  color: var(--danger);\r\n}\r\n\r\n#providersView .provider-probe-summary.tone-bad {\r\n  border-color: color-mix(in srgb, var(--danger) 22%, #e8edf2);\r\n  background:\r\n    linear-gradient(90deg, color-mix(in srgb, var(--danger) 8%, #fff), #fff 54%);\r\n}\r\n\r\n#providersView .provider-probe-summary.empty {\r\n  color: #94a3b8;\r\n  background: #f9fbfc;\r\n}\r\n\r\n#providersView .provider-signal-item {\r\n  display: grid;\r\n  grid-template-columns: 14px minmax(0, 1fr);\r\n  grid-template-areas:\r\n    \"icon value\"\r\n    \"icon label\";\r\n  gap: 1px 5px;\r\n  align-items: center;\r\n  min-width: 0;\r\n  min-height: 0;\r\n  padding: 7px 8px;\r\n  border: 1px solid #edf1f5;\r\n  border-radius: 8px;\r\n  background: #fbfcfd;\r\n}\r\n\r\n#providersView .provider-signal-item:nth-child(1) {\r\n  grid-row: 1 / span 2;\r\n  grid-template-columns: 1fr;\r\n  grid-template-areas:\r\n    \"label\"\r\n    \"value\";\r\n  align-content: center;\r\n  justify-items: start;\r\n  min-height: 73px;\r\n  padding: 10px 11px;\r\n  border-color: color-mix(in srgb, var(--success) 18%, #edf1f5);\r\n  background: linear-gradient(180deg, rgba(20, 121, 92, 0.055), rgba(255, 255, 255, 0) 72%), #fbfcfd;\r\n}\r\n\r\n#providersView .provider-signal-item:nth-child(1).warn {\r\n  border-color: color-mix(in srgb, var(--warning) 18%, #edf1f5);\r\n  background: linear-gradient(180deg, rgba(209, 67, 31, 0.06), rgba(255, 255, 255, 0) 72%), #fbfcfd;\r\n}\r\n\r\n#providersView .provider-signal-item:nth-child(1).bad {\r\n  border-color: color-mix(in srgb, var(--danger) 20%, #edf1f5);\r\n  background: linear-gradient(180deg, rgba(178, 58, 72, 0.065), rgba(255, 255, 255, 0) 72%), #fbfcfd;\r\n}\r\n\r\n#providersView .provider-signal-item:nth-child(1).neutral {\r\n  border-color: #edf1f5;\r\n  background: #fbfcfd;\r\n}\r\n\r\n#providersView .provider-signal-item .icon-svg {\r\n  grid-area: icon;\r\n  width: 13px;\r\n  height: 13px;\r\n  color: #94a3b8;\r\n}\r\n\r\n#providersView .provider-signal-item:nth-child(1) .icon-svg {\r\n  display: none;\r\n}\r\n\r\n#providersView .provider-signal-item strong {\r\n  grid-area: value;\r\n  overflow: hidden;\r\n  color: #111827;\r\n  font: 780 11.5px/1 var(--mono);\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n#providersView .provider-signal-item:nth-child(1) strong {\r\n  font-size: 22px;\r\n  letter-spacing: -0.01em;\r\n}\r\n\r\n#providersView .provider-signal-item small {\r\n  grid-area: label;\r\n  overflow: hidden;\r\n  color: #7b8491;\r\n  font-size: 9px;\r\n  line-height: 1;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n#providersView .provider-signal-item:nth-child(1) small {\r\n  font-size: 10px;\r\n  font-weight: 760;\r\n  letter-spacing: 0.03em;\r\n  text-transform: uppercase;\r\n}\r\n\r\n#providersView .provider-signal-item.ok .icon-svg,\r\n#providersView .provider-signal-item.ok strong {\r\n  color: var(--success);\r\n}\r\n\r\n#providersView .provider-signal-item.warn .icon-svg,\r\n#providersView .provider-signal-item.warn strong {\r\n  color: var(--warning);\r\n}\r\n\r\n#providersView .provider-signal-item.bad .icon-svg,\r\n#providersView .provider-signal-item.bad strong {\r\n  color: var(--danger);\r\n}\r\n\r\n#providersView .provider-card-error {\r\n  min-height: 24px;\r\n  padding: 4px 7px;\r\n  border-radius: 7px;\r\n}\r\n\r\n#providersView .provider-card-error strong {\r\n  font-size: 10px;\r\n}\r\n\r\n#providersView .provider-card-footer {\r\n  gap: 6px;\r\n  justify-content: space-between;\r\n  margin-top: 0;\r\n  padding-top: 7px;\r\n  border-top: 1px solid #edf1f5;\r\n}\r\n\r\n#providersView .provider-card-stats {\r\n  display: flex;\r\n  gap: 4px;\r\n}\r\n\r\n#providersView .provider-stat {\r\n  min-height: 24px;\r\n  padding: 0 5px;\r\n  border-radius: 7px;\r\n  font-size: 10px;\r\n  white-space: nowrap;\r\n}\r\n\r\n#providersView .provider-stat .icon-svg {\r\n  width: 12px;\r\n  height: 12px;\r\n}\r\n\r\n#providersView .provider-stat strong {\r\n  font-size: 10.5px;\r\n  white-space: nowrap;\r\n}\r\n\r\n#providersView .provider-runtime-actions {\r\n  gap: 4px;\r\n}\r\n\r\n#providersView .provider-runtime-actions .button.icon-action {\r\n  width: 24px;\r\n  min-width: 24px;\r\n  height: 24px;\r\n  min-height: 24px;\r\n  border-radius: 7px;\r\n}\r\n\r\n#providersView .provider-runtime-actions .button.icon-action .icon-svg {\r\n  width: 12px;\r\n  height: 12px;\r\n}\r\n\r\n#providersView .provider-runtime-card.is-disabled {\r\n  border-color: #f1cfd5;\r\n  border-top-color: #d86a78;\r\n  background:\r\n    repeating-linear-gradient(135deg, rgba(178, 58, 72, 0.035) 0 8px, transparent 8px 16px),\r\n    #fff8f9;\r\n  opacity: 1;\r\n}\r\n\r\n#providersView .provider-runtime-card.is-disabled:hover,\r\n#providersView .provider-runtime-card.is-disabled:focus-visible {\r\n  border-color: #e6a3ac;\r\n  box-shadow: 0 8px 18px rgba(178, 58, 72, 0.055);\r\n}\r\n\r\n#providersView .provider-runtime-card.is-disabled .provider-name,\r\n#providersView .provider-runtime-card.is-disabled .provider-state-note,\r\n#providersView .provider-runtime-card.is-disabled .provider-call-axis {\r\n  color: #8f4d58;\r\n}\r\n\r\n#providersView .provider-runtime-card.is-disabled .provider-status-dot {\r\n  background: #b23a48;\r\n  box-shadow: 0 0 0 3px rgba(178, 58, 72, 0.13);\r\n}\r\n\r\n#providersView .provider-runtime-card.is-disabled .provider-state-badge {\r\n  background: #fde8eb;\r\n  color: #b23a48;\r\n}\r\n\r\n#providersView .provider-runtime-card.is-disabled .provider-signal-item,\r\n#providersView .provider-runtime-card.is-disabled .provider-stat {\r\n  border-color: #f4d7dc;\r\n  background: #fffafb;\r\n}\r\n\r\n#providersView .provider-runtime-card.is-disabled .provider-call-bars i {\r\n  background: #d86a78;\r\n  opacity: 0.62;\r\n}\r\n\r\n#providersView .provider-runtime-card.is-disabled .provider-call-bars rect:not(.is-empty-slot) {\r\n  fill: #d86a78;\r\n  opacity: 0.72;\r\n}\r\n\r\n#providersView .provider-sparkline {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr);\r\n  gap: 3px;\r\n  min-height: 22px;\r\n  padding: 0 1px;\r\n  border: 0;\r\n  border-radius: 0;\r\n  background: transparent;\r\n  color: #64748b;\r\n}\r\n\r\n#providersView .provider-call-axis {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  min-width: 0;\r\n}\r\n\r\n#providersView .provider-call-bars {\r\n  display: block;\r\n  width: 100%;\r\n  height: 14px;\r\n  min-width: 0;\r\n}\r\n\r\n#providersView .provider-call-bars rect {\r\n  fill: #23a36b;\r\n  shape-rendering: geometricPrecision;\r\n}\r\n\r\n#providersView .provider-call-bars rect.is-empty-slot {\r\n  fill: #dce3eb;\r\n  opacity: 0.68;\r\n}\r\n\r\n#providersView .provider-call-bars rect.is-warn {\r\n  fill: #f97316;\r\n}\r\n\r\n#providersView .provider-call-bars rect.is-bad {\r\n  fill: #d84e5b;\r\n}\r\n\r\n#providersView .provider-call-axis {\r\n  color: #94a3b8;\r\n  font: 700 7.5px/1 var(--mono);\r\n  letter-spacing: 0.08em;\r\n}\r\n\r\n#providersView .provider-sparkline.is-empty {\r\n  color: #94a3b8;\r\n}\r\n\r\n#providersView .provider-sparkline.is-empty .provider-call-bars rect {\r\n  fill: #d9e0e8;\r\n  opacity: 0.65;\r\n}\r\n\r\n@media (max-width: 1180px) {\r\n  #providersView .provider-card-grid {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n    grid-template-rows: none;\r\n    overflow: visible;\r\n  }\r\n\r\n  #providersView .providers-panel,\r\n  #providersView .provider-table {\r\n    overflow: visible;\r\n  }\r\n}\r\n\r\n/* ---- Health Monitor panel ---- */\r\n.health-monitor-panel {\r\n  border-color: #dfe5ec;\r\n  border-radius: 10px;\r\n  background: #fff;\r\n}\r\n\r\n.health-monitor-form {\r\n  display: flex;\r\n  flex-direction: column;\r\n  gap: 16px;\r\n  padding: 4px 0;\r\n}\r\n\r\n.health-monitor-section {\r\n  border: 1px solid #e8edf3;\r\n  border-radius: 8px;\r\n  padding: 14px;\r\n  background: #fafbfc;\r\n}\r\n\r\n.health-monitor-section-head {\r\n  display: flex;\r\n  align-items: flex-start;\r\n  gap: 12px;\r\n  margin-bottom: 12px;\r\n}\r\n\r\n.health-monitor-section-head > div {\r\n  flex: 1;\r\n  min-width: 0;\r\n}\r\n\r\n.health-monitor-section-head strong {\r\n  display: block;\r\n  font-size: 13px;\r\n  font-weight: 600;\r\n  color: #1a2332;\r\n  margin-bottom: 2px;\r\n}\r\n\r\n.health-monitor-section-head small {\r\n  display: block;\r\n  font-size: 11px;\r\n  color: #6b7785;\r\n  line-height: 1.4;\r\n}\r\n\r\n.health-monitor-fields {\r\n  display: grid;\r\n  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));\r\n  gap: 10px;\r\n}\r\n\r\n.health-monitor-fields .field {\r\n  display: flex;\r\n  flex-direction: column;\r\n  gap: 4px;\r\n}\r\n\r\n.health-monitor-fields .field span {\r\n  font-size: 11px;\r\n  color: #6b7785;\r\n  font-weight: 500;\r\n}\r\n\r\n.health-monitor-fields .field input {\r\n  width: 100%;\r\n  padding: 6px 8px;\r\n  font-size: 12px;\r\n  border: 1px solid #d1d9e0;\r\n  border-radius: 6px;\r\n  background: #fff;\r\n}\r\n\r\n.health-monitor-fields .field input:focus {\r\n  border-color: var(--accent, #4a6cf7);\r\n  outline: none;\r\n  box-shadow: 0 0 0 2px rgba(74, 108, 247, 0.1);\r\n}\r\n\r\n/* Capsule switch */\r\n.capsule-switch {\r\n  position: relative;\r\n  display: inline-block;\r\n  flex-shrink: 0;\r\n  cursor: pointer;\r\n  margin-top: 2px;\r\n}\r\n\r\n.capsule-switch input[type=\"checkbox\"] {\r\n  opacity: 0;\r\n  width: 0;\r\n  height: 0;\r\n  position: absolute;\r\n}\r\n\r\n.capsule-switch-track {\r\n  display: block;\r\n  width: 36px;\r\n  height: 20px;\r\n  border-radius: 20px;\r\n  background: #c5cdd6;\r\n  transition: background 0.2s ease;\r\n  position: relative;\r\n}\r\n\r\n.capsule-switch-track::after {\r\n  content: \"\";\r\n  position: absolute;\r\n  top: 2px;\r\n  left: 2px;\r\n  width: 16px;\r\n  height: 16px;\r\n  border-radius: 50%;\r\n  background: #fff;\r\n  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);\r\n  transition: transform 0.2s ease;\r\n}\r\n\r\n.capsule-switch input:checked + .capsule-switch-track {\r\n  background: var(--accent, #4a6cf7);\r\n}\r\n\r\n.capsule-switch input:checked + .capsule-switch-track::after {\r\n  transform: translateX(16px);\r\n}\r\n\r\n.health-monitor-status {\r\n  font-size: 12px;\r\n  padding: 6px 0;\r\n  min-height: 20px;\r\n}\r\n\r\n.health-monitor-status.info { color: #4a6cf7; }\r\n.health-monitor-status.ok { color: #1a8754; }\r\n.health-monitor-status.bad { color: #d93026; }\r\n\r\n/* ---- Patrol probe visual distinction ---- */\r\n.provider-probe-summary.patrol-probe {\r\n  border-color: rgba(74, 108, 247, 0.25);\r\n  background: rgba(74, 108, 247, 0.04);\r\n}\r\n\r\n.probe-tier-badge.patrol-badge {\r\n  background: rgba(74, 108, 247, 0.12);\r\n  color: #4a6cf7;\r\n  border-color: rgba(74, 108, 247, 0.2);\r\n}\r\n\r\n/* ---- Health Monitor runtime status cards ---- */\r\n.health-monitor-runtime {\r\n  margin-top: 14px;\r\n}\r\n\r\n.hm-runtime-row {\r\n  display: grid;\r\n  grid-template-columns: 1fr 1fr;\r\n  gap: 12px;\r\n}\r\n\r\n@media (max-width: 700px) {\r\n  .hm-runtime-row {\r\n    grid-template-columns: 1fr;\r\n  }\r\n}\r\n\r\n.hm-runtime-card {\r\n  border: 1px solid #e0e5ec;\r\n  border-radius: 8px;\r\n  padding: 12px 14px;\r\n  background: #fff;\r\n  display: flex;\r\n  flex-direction: column;\r\n  gap: 10px;\r\n}\r\n\r\n.hm-runtime-card-head {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n}\r\n\r\n.hm-runtime-card-head strong {\r\n  font-size: 12px;\r\n  font-weight: 600;\r\n  color: #1a2332;\r\n  flex: 1;\r\n}\r\n\r\n.hm-runtime-icon {\r\n  font-size: 16px;\r\n  line-height: 1;\r\n}\r\n\r\n.hm-runtime-status {\r\n  font-size: 11px;\r\n  font-weight: 600;\r\n  padding: 2px 8px;\r\n  border-radius: 10px;\r\n  background: #eef1f5;\r\n  color: #6b7785;\r\n  white-space: nowrap;\r\n}\r\n\r\n.hm-runtime-status.ok {\r\n  background: #e6f7ee;\r\n  color: #1a8754;\r\n}\r\n\r\n.hm-runtime-status.warn {\r\n  background: #fff4e6;\r\n  color: #b8730d;\r\n}\r\n\r\n.hm-runtime-status.bad {\r\n  background: #fde8e8;\r\n  color: #d93026;\r\n}\r\n\r\n.hm-runtime-status.off {\r\n  background: #f0f0f0;\r\n  color: #999;\r\n}\r\n\r\n.hm-runtime-status.running {\r\n  background: #e8f0fe;\r\n  color: #4a6cf7;\r\n  animation: hm-pulse 1.5s ease-in-out infinite;\r\n}\r\n\r\n@keyframes hm-pulse {\r\n  0%, 100% { opacity: 1; }\r\n  50% { opacity: 0.6; }\r\n}\r\n\r\n.hm-run-btn {\r\n  font-size: 11px !important;\r\n  padding: 3px 10px !important;\r\n  border-radius: 6px !important;\r\n  white-space: nowrap;\r\n}\r\n\r\n.hm-runtime-card-body {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 10px 20px;\r\n}\r\n\r\n.hm-runtime-field {\r\n  display: flex;\r\n  flex-direction: column;\r\n  gap: 2px;\r\n}\r\n\r\n.hm-runtime-label {\r\n  font-size: 10px;\r\n  color: #94a3b8;\r\n  text-transform: uppercase;\r\n  letter-spacing: 0.04em;\r\n  font-weight: 600;\r\n}\r\n\r\n.hm-runtime-value {\r\n  font-size: 13px;\r\n  font-weight: 500;\r\n  color: #1a2332;\r\n  font-variant-numeric: tabular-nums;\r\n}\r\n/*$vite$:1*/";
+	__vite_style__.textContent = ":root {\r\n  color-scheme: light;\r\n  --bg: #f4f4f5;\r\n  --surface: #ffffff;\r\n  --surface-raised: #fafafa;\r\n  --surface-soft: #f1f1f3;\r\n  --surface-strong: #e4e4e7;\r\n  --sidebar: #ffffff;\r\n  --sidebar-soft: #f4f4f5;\r\n  --line: #e4e4e7;\r\n  --line-soft: #f0f0f2;\r\n  --line-strong: #d4d4d8;\r\n  --text: #09090b;\r\n  --muted: #52525b;\r\n  --faint: #b97983;\r\n  --accent: #09090b;\r\n  --accent-strong: #18181b;\r\n  --accent-soft: #f4f4f5;\r\n  --success: #14795c;\r\n  --success-soft: #e6f5ee;\r\n  --warning: #d1431f;\r\n  --warning-soft: #fff3dc;\r\n  --danger: #b23a48;\r\n  --danger-soft: #fde8eb;\r\n  --info: #20d264;\r\n  --info-soft: #e8efff;\r\n  --compat: #6f55c4;\r\n  --compat-soft: #f0edff;\r\n  --metric-neutral: #2f3437;\r\n  --metric-requests: #2f3437;\r\n  --metric-success: #14795c;\r\n  --metric-failure: #b36a20;\r\n  --metric-provider: #3267c7;\r\n  --metric-token: #6f55c4;\r\n  --metric-cost: #7a5a25;\r\n  --neutral: #52525b;\r\n  --neutral-soft: #f4f4f5;\r\n  --ok: var(--success);\r\n  --warn: var(--warning);\r\n  --bad: var(--danger);\r\n  /* Provider mini-chart palette — single accent for line/area/dots */\r\n  --pmc-accent: var(--accent);\r\n  --pmc-green: var(--success);\r\n  --pmc-amber: var(--warning);\r\n  --pmc-red: var(--danger);\r\n  --shadow: 0 1px 3px rgba(0, 0, 0, 0.045), 0 1px 2px rgba(0, 0, 0, 0.035);\r\n  --shadow-tight: 0 8px 18px rgba(0, 0, 0, 0.055);\r\n  --mono: ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"Liberation Mono\", monospace;\r\n  --sans: system-ui, -apple-system, BlinkMacSystemFont, \"SF Pro Display\", \"SF Pro Text\", \"Helvetica Neue\", sans-serif;\r\n}\r\n\r\n* {\r\n  box-sizing: border-box;\r\n}\r\n\r\n::-webkit-scrollbar {\r\n  width: 5px;\r\n  height: 5px;\r\n}\r\n::-webkit-scrollbar-track {\r\n  background: transparent;\r\n}\r\n::-webkit-scrollbar-thumb {\r\n  background: var(--line-strong);\r\n  border-radius: 999px;\r\n}\r\n::-webkit-scrollbar-thumb:hover {\r\n  background: var(--muted);\r\n}\r\n::-webkit-scrollbar-corner {\r\n  background: transparent;\r\n}\r\nhtml {\r\n  scrollbar-width: thin;\r\n  scrollbar-color: var(--line-strong) transparent;\r\n}\r\n\r\nhtml {\r\n  scroll-behavior: smooth;\r\n}\r\n\r\nbody {\r\n  margin: 0;\r\n  min-width: 320px;\r\n  background: var(--bg);\r\n  color: var(--text);\r\n  font-family: var(--sans);\r\n  font-size: 13px;\r\n  font-variant-numeric: tabular-nums;\r\n  line-height: 1.5;\r\n  -webkit-font-smoothing: antialiased;\r\n}\r\n\r\nbutton,\r\ninput,\r\nselect {\r\n  font: inherit;\r\n}\r\n\r\nbutton,\r\ninput,\r\nselect,\r\ntextarea {\r\n  outline: none;\r\n}\r\n\r\nbutton:focus-visible,\r\ninput:focus-visible,\r\nselect:focus-visible {\r\n  box-shadow: 0 0 0 3px rgba(47, 52, 55, 0.16);\r\n}\r\n\r\n.shell {\r\n  display: grid;\r\n  grid-template-columns: 240px minmax(0, 1fr);\r\n  min-height: 100dvh;\r\n}\r\n\r\n[hidden] {\r\n  display: none !important;\r\n}\r\n\r\n.login-gate {\r\n  min-height: 100dvh;\r\n  display: grid;\r\n  place-items: center;\r\n  padding: 24px;\r\n  background: var(--bg);\r\n}\r\n\r\n.login-card {\r\n  width: min(420px, 100%);\r\n  display: grid;\r\n  gap: 16px;\r\n  padding: 26px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 10px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.login-mark {\r\n  display: grid;\r\n  width: 34px;\r\n  height: 34px;\r\n  place-items: center;\r\n  border-radius: 7px;\r\n  background: var(--text);\r\n  color: #fff;\r\n  font: 760 11px var(--mono);\r\n}\r\n\r\n.login-card h1 {\r\n  font-size: 24px;\r\n  letter-spacing: 0;\r\n}\r\n\r\n.login-card p {\r\n  margin-top: 6px;\r\n  max-width: 34rem;\r\n  color: var(--muted);\r\n  line-height: 1.45;\r\n}\r\n\r\n.auth-card {\r\n  gap: 18px;\r\n}\r\n\r\n.auth-progress {\r\n  position: relative;\r\n  height: 3px;\r\n  overflow: hidden;\r\n  border-radius: 999px;\r\n  background: var(--surface-soft);\r\n}\r\n\r\n.auth-progress::after {\r\n  position: absolute;\r\n  inset: 0;\r\n  width: 42%;\r\n  border-radius: inherit;\r\n  background: var(--accent);\r\n  content: \"\";\r\n  animation: auth-progress 1.1s ease-in-out infinite;\r\n}\r\n\r\n@keyframes auth-progress {\r\n  0% {\r\n    transform: translateX(-120%);\r\n  }\r\n  100% {\r\n    transform: translateX(260%);\r\n  }\r\n}\r\n\r\n.login-field {\r\n  display: grid;\r\n  gap: 7px;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-weight: 720;\r\n}\r\n\r\n.login-field input {\r\n  min-height: 42px;\r\n  padding: 0 11px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: #fff;\r\n  color: var(--text);\r\n  font-family: var(--mono);\r\n}\r\n\r\n.login-error {\r\n  min-height: 18px;\r\n  color: var(--danger) !important;\r\n  font-size: 12px;\r\n}\r\n\r\n.sidebar {\r\n  position: sticky;\r\n  top: 0;\r\n  height: 100dvh;\r\n  display: flex;\r\n  flex-direction: column;\r\n  border-right: 1px solid var(--line-strong);\r\n  background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);\r\n  box-shadow: 10px 0 26px rgba(9, 9, 11, 0.045);\r\n  color: var(--text);\r\n  z-index: 10;\r\n}\r\n\r\n.sidebar::after {\r\n  position: absolute;\r\n  top: 0;\r\n  right: -1px;\r\n  bottom: 0;\r\n  width: 1px;\r\n  background: linear-gradient(180deg, rgba(9, 9, 11, 0.12), rgba(9, 9, 11, 0.04));\r\n  content: \"\";\r\n  pointer-events: none;\r\n}\r\n\r\n.brand {\r\n  display: flex;\r\n  gap: 10px;\r\n  align-items: center;\r\n  padding: 24px 16px 18px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n}\r\n\r\n.brand-mark {\r\n  display: grid;\r\n  width: 24px;\r\n  height: 24px;\r\n  place-items: center;\r\n  border: 0;\r\n  border-radius: 6px;\r\n  background: var(--text);\r\n  color: #fff;\r\n  font: 760 10px var(--mono);\r\n  letter-spacing: 0;\r\n}\r\n\r\n.brand-title {\r\n  font-size: 14px;\r\n  font-weight: 720;\r\n}\r\n\r\n.brand-subtitle {\r\n  margin-top: 2px;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n}\r\n\r\n.nav {\r\n  display: grid;\r\n  gap: 3px;\r\n  margin: 10px 10px 10px;\r\n  padding: 4px 0;\r\n}\r\n\r\n.nav-item {\r\n  position: relative;\r\n  width: 100%;\r\n  min-height: 38px;\r\n  padding: 8px 14px;\r\n  border: 1px solid transparent;\r\n  border-radius: 7px;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  text-align: left;\r\n  cursor: pointer;\r\n  font-weight: 560;\r\n  transition: background 160ms ease, color 160ms ease, transform 160ms ease, border-color 160ms ease;\r\n}\r\n\r\n.nav-item:hover {\r\n  border-color: transparent;\r\n  background: color-mix(in srgb, var(--surface) 94%, var(--surface-soft));\r\n  color: var(--text);\r\n}\r\n\r\n.nav-item.is-active {\r\n  border-color: color-mix(in srgb, var(--accent) 12%, var(--line-strong));\r\n  background: color-mix(in srgb, var(--accent) 5%, var(--surface));\r\n  color: var(--text);\r\n  font-weight: 720;\r\n  box-shadow: none;\r\n}\r\n\r\n.nav-item.is-active::before {\r\n  display: none;\r\n}\r\n\r\n.sidebar-actions {\r\n  display: grid;\r\n  grid-template-columns: 1fr;\r\n  gap: 8px;\r\n  margin-top: auto;\r\n  padding: 12px 16px 8px;\r\n  border-top: 0;\r\n}\r\n\r\n.sidebar-actions .button {\r\n  min-width: 0;\r\n}\r\n\r\n.sidebar-actions .icon-button {\r\n  width: 28px;\r\n  height: 28px;\r\n  padding: 0;\r\n  border: 1px solid var(--line);\r\n  background: var(--surface);\r\n  color: var(--muted);\r\n  border-radius: 6px;\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n}\r\n\r\n.sidebar-actions .icon-button:hover {\r\n  border-color: var(--line-strong);\r\n  background: var(--surface-raised);\r\n  color: var(--text);\r\n}\r\n\r\n.lang-toggle-btn {\r\n  font-size: 12px;\r\n  font-weight: 600;\r\n  letter-spacing: 0.02em;\r\n  opacity: 0.85;\r\n  padding: 6px 10px;\r\n}\r\n.lang-toggle-btn:hover {\r\n  opacity: 1;\r\n}\r\n\r\n.lang-toggle-link {\r\n  margin-left: auto;\r\n  padding: 2px 6px;\r\n  border: none;\r\n  background: transparent;\r\n  color: var(--faint);\r\n  font-size: 11px;\r\n  font-weight: 500;\r\n  cursor: pointer;\r\n}\r\n\r\n.lang-toggle-link:hover {\r\n  color: var(--muted);\r\n}\r\n\r\n.sidebar-footer {\r\n  display: flex;\r\n  gap: 9px;\r\n  align-items: center;\r\n  margin-top: 0;\r\n  padding: 6px 20px 24px;\r\n  border-top: 0;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.dot {\r\n  width: 8px;\r\n  height: 8px;\r\n  border-radius: 999px;\r\n  background: var(--neutral);\r\n}\r\n\r\n.dot.ok {\r\n  background: var(--success);\r\n}\r\n\r\n.dot.bad {\r\n  background: var(--danger);\r\n}\r\n\r\n.workspace {\r\n  min-width: 0;\r\n  width: 100%;\r\n  max-width: 1220px;\r\n  margin: 0 auto;\r\n  padding: 12px 40px 40px;\r\n}\r\n\r\n.topbar {\r\n  position: sticky;\r\n  top: 0;\r\n  z-index: 9;\r\n  display: none;\r\n  gap: 16px;\r\n  align-items: flex-start;\r\n  justify-content: space-between;\r\n  margin: -20px -20px 16px;\r\n  padding: 18px 20px 14px;\r\n  border-bottom: 1px solid var(--line);\r\n  background: rgba(244, 244, 245, 0.88);\r\n  backdrop-filter: blur(18px);\r\n}\r\n\r\nh1,\r\nh2,\r\nh3,\r\np {\r\n  margin: 0;\r\n}\r\n\r\nh1 {\r\n  font-size: 22px;\r\n  line-height: 1.15;\r\n  letter-spacing: 0;\r\n}\r\n\r\nh2 {\r\n  color: var(--text);\r\n  font-size: 14px;\r\n  line-height: 1.35;\r\n  font-weight: 720;\r\n}\r\n\r\n.topbar p,\r\n.panel-head p {\r\n  margin-top: 4px;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.mobile-settings-button,\r\n.mobile-settings-backdrop,\r\n.mobile-settings-drawer {\r\n  display: none;\r\n}\r\n\r\n.button,\r\n.icon-button {\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  cursor: pointer;\r\n  transition: background 150ms ease, border-color 150ms ease, color 150ms ease, transform 120ms ease, box-shadow 150ms ease;\r\n  touch-action: manipulation;\r\n}\r\n\r\n.button {\r\n  min-height: 36px;\r\n  padding: 0 12px;\r\n  font-size: 12.5px;\r\n  font-weight: 680;\r\n}\r\n\r\n.button.icon-action {\r\n  display: inline-grid;\r\n  width: 32px;\r\n  min-width: 32px;\r\n  height: 32px;\r\n  min-height: 32px;\r\n  place-items: center;\r\n  padding: 0;\r\n  font: 780 15px/1 var(--mono);\r\n}\r\n\r\n.button.icon-action span {\r\n  display: block;\r\n  transform: translateY(-0.5px);\r\n}\r\n\r\n.icon-svg {\r\n  width: 16px;\r\n  height: 16px;\r\n  fill: none;\r\n  stroke: currentColor;\r\n  stroke-linecap: round;\r\n  stroke-linejoin: round;\r\n  stroke-width: 2;\r\n  pointer-events: none;\r\n}\r\n\r\n.button.icon-action .icon-svg {\r\n  width: 15px;\r\n  height: 15px;\r\n}\r\n\r\n.button:hover,\r\n.icon-button:hover {\r\n  border-color: #c8c8ce;\r\n  box-shadow: var(--shadow-tight);\r\n}\r\n\r\n.button:active,\r\n.icon-button:active {\r\n  transform: translateY(1px);\r\n  box-shadow: none;\r\n}\r\n\r\n.button:disabled,\r\n.icon-button:disabled {\r\n  cursor: not-allowed;\r\n  opacity: 0.55;\r\n  transform: none;\r\n  box-shadow: none;\r\n}\r\n\r\n.button.primary {\r\n  border-color: var(--accent);\r\n  border-radius: 7px;\r\n  background: var(--accent);\r\n  color: #fff;\r\n}\r\n\r\n.button.primary:hover {\r\n  border-color: var(--accent-strong);\r\n  background: var(--accent-strong);\r\n}\r\n\r\n.button.secondary {\r\n  background: var(--surface);\r\n  color: var(--text);\r\n}\r\n\r\n.button.secondary:hover {\r\n  border-color: #c8c8ce;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.button.ghost {\r\n  border-color: transparent;\r\n  background: transparent;\r\n  color: var(--muted);\r\n}\r\n\r\n.button.ghost:hover {\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n}\r\n\r\n.button.danger {\r\n  border-color: color-mix(in srgb, var(--danger) 24%, white);\r\n  background: var(--danger-soft);\r\n  color: var(--danger);\r\n}\r\n\r\n.icon-button {\r\n  width: 34px;\r\n  height: 34px;\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  font-size: 18px;\r\n}\r\n\r\n.toast-stack {\r\n  position: fixed;\r\n  top: 18px;\r\n  left: 50%;\r\n  z-index: 1200;\r\n  display: flex;\r\n  flex-direction: column;\r\n  align-items: center;\r\n  gap: 10px;\r\n  width: min(360px, calc(100vw - 36px));\r\n  transform: translateX(-50%);\r\n  pointer-events: none;\r\n}\r\n\r\n.toast {\r\n  pointer-events: auto;\r\n  padding: 12px 14px;\r\n  border: 1px solid color-mix(in srgb, var(--danger) 22%, white);\r\n  border-radius: 11px;\r\n  background: color-mix(in srgb, var(--danger) 12%, var(--surface));\r\n  color: var(--danger);\r\n  font-size: 13px;\r\n  font-weight: 640;\r\n  line-height: 1.4;\r\n  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.14);\r\n  opacity: 0;\r\n  transform: translateY(-10px);\r\n  transition: opacity 0.2s ease, transform 0.2s ease;\r\n  width: 100%;\r\n  word-break: break-word;\r\n  overflow-wrap: anywhere;\r\n  white-space: pre-wrap;\r\n  max-height: 80vh;\r\n  overflow-y: auto;\r\n  backdrop-filter: blur(24px);\r\n  -webkit-backdrop-filter: blur(24px);\r\n}\r\n\r\n.toast.toast-in {\r\n  opacity: 1;\r\n  transform: translateY(0);\r\n}\r\n\r\n.toast.toast-leaving {\r\n  opacity: 0;\r\n  transform: translateY(-10px);\r\n}\r\n\r\n.toast[data-tone=\"ok\"] {\r\n  border-color: color-mix(in srgb, var(--success) 22%, white);\r\n  background: color-mix(in srgb, var(--success) 12%, var(--surface));\r\n  color: var(--success);\r\n}\r\n\r\n.toast[data-tone=\"warn\"] {\r\n  border-color: color-mix(in srgb, var(--warning) 22%, white);\r\n  background: color-mix(in srgb, var(--warning) 12%, var(--surface));\r\n  color: var(--warning);\r\n}\r\n\r\n.toast[data-tone=\"info\"] {\r\n  border-color: color-mix(in srgb, var(--info) 26%, white);\r\n  background: color-mix(in srgb, var(--info) 10%, var(--surface));\r\n  color: var(--info);\r\n}\r\n\r\n.notice {\r\n  padding: 11px 12px;\r\n  border: 1px solid color-mix(in srgb, var(--danger) 22%, white);\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--danger) 12%, var(--surface));\r\n  color: var(--danger);\r\n}\r\n\r\n.is-hidden {\r\n  display: none !important;\r\n}\r\n\r\n@keyframes viewFadeIn {\r\n  0% { opacity: 0; transform: translateY(4px); }\r\n  100% { opacity: 1; transform: translateY(0); }\r\n}\r\n\r\n.view {\r\n  display: none;\r\n}\r\n\r\n.view.is-active {\r\n  display: block;\r\n  animation: viewFadeIn 300ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;\r\n}\r\n\r\n.time-range-control {\r\n  display: flex;\r\n  gap: 12px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  margin-bottom: 14px;\r\n  padding: 10px 12px;\r\n  border: 1px solid var(--line);\r\n  border-left: 3px solid var(--text);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.eyebrow {\r\n  display: block;\r\n  color: var(--muted);\r\n  font-size: 10.5px;\r\n  font-weight: 700;\r\n  letter-spacing: 0.04em;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.time-range-control strong {\r\n  display: block;\r\n  margin-top: 3px;\r\n  font-size: 13px;\r\n  line-height: 1.2;\r\n}\r\n\r\n.segmented-control {\r\n  display: inline-grid;\r\n  grid-auto-flow: column;\r\n  gap: 2px;\r\n  padding: 4px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.segmented-button {\r\n  min-width: 48px;\r\n  min-height: 30px;\r\n  padding: 0 10px;\r\n  border: 0;\r\n  border-radius: 5px;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 680;\r\n  cursor: pointer;\r\n  transition: background 160ms ease, color 160ms ease, transform 120ms ease;\r\n}\r\n\r\n.segmented-button:hover {\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n}\r\n\r\n.segmented-button:active {\r\n  transform: translateY(1px);\r\n}\r\n\r\n.segmented-button.is-active {\r\n  background: var(--text);\r\n  color: #fff;\r\n}\r\n\r\n.metric-grid {\r\n  display: none;\r\n  grid-template-columns: repeat(6, minmax(0, 1fr));\r\n  gap: 14px;\r\n  margin-bottom: 24px;\r\n}\r\n\r\n.metric {\r\n  --metric-color: var(--metric-neutral);\r\n  --metric-soft: rgba(47, 52, 55, 0.045);\r\n  position: relative;\r\n  min-height: 108px;\r\n  overflow: hidden;\r\n  padding: 15px 16px;\r\n  border: 1px solid color-mix(in srgb, var(--metric-color) 24%, var(--line));\r\n  border-radius: 9px;\r\n  background:\r\n    linear-gradient(180deg, var(--metric-soft), rgba(255, 255, 255, 0) 58%),\r\n    var(--surface);\r\n  box-shadow: var(--shadow);\r\n  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;\r\n}\r\n\r\n.metric::before {\r\n  content: \"\";\r\n  position: absolute;\r\n  top: 0;\r\n  right: 0;\r\n  left: 0;\r\n  height: 2px;\r\n  background: var(--metric-color);\r\n}\r\n\r\n.metric::after {\r\n  content: \"\";\r\n  position: absolute;\r\n  right: auto;\r\n  bottom: 0;\r\n  left: 0;\r\n  width: var(--metric-progress, 0%);\r\n  height: 3px;\r\n  border-radius: 0 999px 999px 0;\r\n  background: var(--metric-color);\r\n  opacity: 0.72;\r\n  transition: width 260ms ease;\r\n}\r\n\r\n.metric:hover {\r\n  border-color: color-mix(in srgb, var(--metric-color) 42%, var(--line));\r\n  box-shadow: var(--shadow-tight);\r\n}\r\n\r\n.metric:nth-child(1) {\r\n  --metric-color: var(--metric-requests);\r\n  --metric-soft: rgba(47, 52, 55, 0.052);\r\n}\r\n\r\n.metric:nth-child(2) {\r\n  --metric-color: var(--metric-success);\r\n  --metric-soft: rgba(20, 121, 92, 0.08);\r\n}\r\n\r\n.metric:nth-child(3) {\r\n  --metric-color: var(--metric-failure);\r\n  --metric-soft: rgba(179, 106, 32, 0.085);\r\n}\r\n\r\n.metric:nth-child(4) {\r\n  --metric-color: var(--metric-provider);\r\n  --metric-soft: rgba(50, 103, 199, 0.08);\r\n}\r\n\r\n.metric:nth-child(5) {\r\n  --metric-color: var(--metric-token);\r\n  --metric-soft: rgba(111, 85, 196, 0.08);\r\n}\r\n\r\n.metric:nth-child(6) {\r\n  --metric-color: var(--metric-cost);\r\n  --metric-soft: rgba(122, 90, 37, 0.075);\r\n}\r\n\r\n.metric-label {\r\n  display: block;\r\n  color: var(--muted);\r\n  font-size: 10.5px;\r\n  font-weight: 760;\r\n  letter-spacing: 0.045em;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.metric strong {\r\n  display: block;\r\n  margin-top: 8px;\r\n  color: color-mix(in srgb, var(--metric-color) 20%, var(--text));\r\n  font-size: 28px;\r\n  font-weight: 720;\r\n  line-height: 1;\r\n  letter-spacing: 0;\r\n}\r\n\r\n.metric small {\r\n  display: block;\r\n  margin-top: 8px;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.overview-visuals {\r\n  display: grid;\r\n  grid-template-columns: repeat(5, minmax(0, 1fr));\r\n  gap: 10px;\r\n  margin: 0 0 18px;\r\n}\r\n\r\n.visual-card {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  gap: 10px;\r\n  align-items: center;\r\n  min-width: 0;\r\n  min-height: 74px;\r\n  padding: 11px 12px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 10px;\r\n  background:\r\n    linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(244, 244, 245, 0.52)),\r\n    var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.visual-card span,\r\n.visual-card small {\r\n  display: block;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 720;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.visual-card strong {\r\n  display: block;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--text);\r\n  font: 840 18px/1.16 var(--mono);\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.visual-card-icon,\r\n.visual-ring {\r\n  display: grid;\r\n  width: 42px;\r\n  height: 42px;\r\n  place-items: center;\r\n  border-radius: 12px;\r\n}\r\n\r\n.visual-card-icon {\r\n  border: 1px solid var(--line);\r\n  background: var(--surface-raised);\r\n  color: var(--neutral);\r\n}\r\n\r\n.visual-card-icon.tone-success {\r\n  border-color: color-mix(in srgb, var(--success) 18%, var(--line));\r\n  background: var(--success-soft);\r\n  color: var(--success);\r\n}\r\n\r\n.visual-card-icon.tone-warning {\r\n  border-color: color-mix(in srgb, var(--warning) 18%, var(--line));\r\n  background: var(--warning-soft);\r\n  color: var(--warning);\r\n}\r\n\r\n.visual-card-icon.tone-danger {\r\n  border-color: color-mix(in srgb, var(--danger) 18%, var(--line));\r\n  background: var(--danger-soft);\r\n  color: var(--danger);\r\n}\r\n\r\n.visual-card-icon.tone-info {\r\n  border-color: color-mix(in srgb, var(--info) 18%, var(--line));\r\n  background: var(--info-soft);\r\n  color: var(--info);\r\n}\r\n\r\n.visual-card-icon.tone-compat {\r\n  border-color: color-mix(in srgb, var(--compat) 18%, var(--line));\r\n  background: var(--compat-soft);\r\n  color: var(--compat);\r\n}\r\n\r\n.visual-ring {\r\n  --ring-color: var(--neutral);\r\n  --ring-value: 0%;\r\n  background:\r\n    radial-gradient(circle at center, var(--surface) 0 55%, transparent 56%),\r\n    conic-gradient(var(--ring-color) var(--ring-value), var(--line-soft) 0);\r\n}\r\n\r\n.visual-ring strong {\r\n  max-width: 32px;\r\n  font-size: 10.5px;\r\n  text-align: center;\r\n}\r\n\r\n.visual-ring-card.tone-success,\r\n.visual-ring-card.tone-ok {\r\n  --ring-color: var(--success);\r\n  border-color: color-mix(in srgb, var(--success) 18%, var(--line));\r\n}\r\n\r\n.visual-ring-card.tone-warn,\r\n.visual-ring-card.tone-warning {\r\n  --ring-color: var(--warning);\r\n  border-color: color-mix(in srgb, var(--warning) 18%, var(--line));\r\n}\r\n\r\n.visual-ring-card.tone-bad,\r\n.visual-ring-card.tone-danger {\r\n  --ring-color: var(--danger);\r\n  border-color: color-mix(in srgb, var(--danger) 18%, var(--line));\r\n}\r\n\r\n.visual-progress-card {\r\n  --progress-color: var(--neutral);\r\n}\r\n\r\n.visual-progress-card.tone-success,\r\n.visual-progress-card.tone-ok {\r\n  --progress-color: var(--success);\r\n  border-color: color-mix(in srgb, var(--success) 18%, var(--line));\r\n}\r\n\r\n.visual-progress-card.tone-warn,\r\n.visual-progress-card.tone-warning {\r\n  --progress-color: var(--warning);\r\n  border-color: color-mix(in srgb, var(--warning) 18%, var(--line));\r\n}\r\n\r\n.visual-progress-card.tone-bad,\r\n.visual-progress-card.tone-danger {\r\n  --progress-color: var(--danger);\r\n  border-color: color-mix(in srgb, var(--danger) 18%, var(--line));\r\n}\r\n\r\n.visual-progress {\r\n  position: relative;\r\n  height: 5px;\r\n  margin-top: 6px;\r\n  overflow: hidden;\r\n  border-radius: 999px;\r\n  background: var(--line-soft);\r\n}\r\n\r\n.visual-progress::before {\r\n  content: \"\";\r\n  position: absolute;\r\n  inset: 0 auto 0 0;\r\n  width: var(--progress, 0%);\r\n  border-radius: inherit;\r\n  background: var(--progress-color);\r\n}\r\n\r\n.token-split {\r\n  display: flex;\r\n  height: 5px;\r\n  margin-top: 6px;\r\n  overflow: hidden;\r\n  border-radius: 999px;\r\n  background: var(--compat-soft);\r\n}\r\n\r\n.token-split i,\r\n.token-split b {\r\n  display: block;\r\n  min-width: 2px;\r\n  height: 100%;\r\n}\r\n\r\n.token-split i {\r\n  background: var(--info);\r\n}\r\n\r\n.token-split b {\r\n  flex: 1;\r\n  background: var(--compat);\r\n}\r\n\r\n.overview-grid,\r\n.policy-grid,\r\n.config-grid {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 2fr) minmax(340px, 1fr);\r\n  gap: 16px 20px;\r\n}\r\n\r\n.config-grid {\r\n  grid-template-columns: minmax(460px, 1.45fr) minmax(320px, 0.85fr);\r\n  align-items: start;\r\n}\r\n\r\n.config-column {\r\n  display: grid;\r\n  gap: 16px;\r\n  align-content: start;\r\n  min-width: 0;\r\n}\r\n\r\n.config-column > .panel {\r\n  margin-bottom: 0;\r\n}\r\n\r\n.config-status-panel {\r\n  --panel-accent: var(--metric-neutral);\r\n}\r\n\r\n.model-routes-panel {\r\n  --panel-accent: var(--metric-neutral);\r\n}\r\n\r\n.config-provider-panel,\r\n.config-audit-panel,\r\n.config-advanced-panel,\r\n.global-proxy-panel,\r\n.provider-model-map-panel {\r\n  --panel-accent: var(--metric-neutral);\r\n}\r\n\r\n.panel {\r\n  --panel-accent: var(--metric-neutral);\r\n  min-width: 0;\r\n  margin-bottom: 20px;\r\n  overflow: hidden;\r\n  border: 1px solid color-mix(in srgb, var(--panel-accent) 14%, var(--line));\r\n  border-radius: 9px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.overview-grid > .panel:nth-child(1) {\r\n  --panel-accent: var(--success);\r\n}\r\n\r\n.overview-grid > .panel:nth-child(2) {\r\n  --panel-accent: var(--metric-token);\r\n}\r\n\r\n.overview-grid > .panel:nth-child(3) {\r\n  --panel-accent: var(--metric-provider);\r\n}\r\n\r\n.overview-grid > .panel:nth-child(4) {\r\n  --panel-accent: var(--danger);\r\n}\r\n\r\n.panel-wide {\r\n  grid-column: span 1;\r\n}\r\n\r\n.panel-head {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  gap: 10px 16px;\r\n  align-items: flex-start;\r\n  justify-content: space-between;\r\n  padding: 13px 18px;\r\n  border-bottom: 1px solid color-mix(in srgb, var(--panel-accent) 14%, var(--line));\r\n  background:\r\n    linear-gradient(90deg, color-mix(in srgb, var(--panel-accent) 8%, transparent), rgba(255, 255, 255, 0) 52%),\r\n    var(--surface-raised);\r\n}\r\n\r\n.panel-head h2 {\r\n  color: color-mix(in srgb, var(--panel-accent) 16%, var(--text));\r\n  font-size: 14px;\r\n  font-weight: 760;\r\n}\r\n\r\n.panel-head > div {\r\n  min-width: 0;\r\n}\r\n\r\n.panel-head .tag {\r\n  max-width: min(100%, 360px);\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n}\r\n\r\n.tag,\r\n.badge {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  min-height: 22px;\r\n  padding: 0 8px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 6px;\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  font: 680 10.5px var(--mono);\r\n  white-space: nowrap;\r\n}\r\n\r\n.badge.ok {\r\n  border-color: #bbf7d0;\r\n  background: var(--success-soft);\r\n  color: var(--success);\r\n  font-weight: 820;\r\n}\r\n\r\n.badge.warn {\r\n  border-color: #fde68a;\r\n  background: var(--warning-soft);\r\n  color: var(--warning);\r\n  font-weight: 820;\r\n}\r\n\r\n.badge.bad {\r\n  border-color: #fecaca;\r\n  background: var(--danger-soft);\r\n  color: var(--danger);\r\n  font-weight: 820;\r\n}\r\n\r\n.badge.prio-0 {\r\n  color: var(--text);\r\n}\r\n\r\n.badge.prio-1 {\r\n  color: var(--info);\r\n  border-color: color-mix(in srgb, var(--info) 30%, white);\r\n}\r\n\r\n.badge.prio-2 {\r\n  color: var(--warning);\r\n  border-color: color-mix(in srgb, var(--warning) 30%, white);\r\n}\r\n\r\n.badge.prio-3 {\r\n  color: var(--danger);\r\n  border-color: color-mix(in srgb, var(--danger) 30%, white);\r\n  font-weight: 820;\r\n}\r\n\r\n.chart {\r\n  min-height: 332px;\r\n  padding: 15px 18px 16px;\r\n  background: var(--surface);\r\n}\r\n\r\n.traffic-legend {\r\n  display: grid;\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  gap: 9px;\r\n  margin-bottom: 12px;\r\n}\r\n\r\n.traffic-legend-item {\r\n  --series-color: var(--neutral);\r\n  --series-soft: rgba(82, 82, 91, 0.055);\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 9px;\r\n  min-width: 0;\r\n  padding: 10px 11px;\r\n  border: 1px solid color-mix(in srgb, var(--series-color) 20%, var(--line));\r\n  border-radius: 8px;\r\n  background:\r\n    linear-gradient(180deg, var(--series-soft), rgba(255, 255, 255, 0) 70%),\r\n    var(--surface-raised);\r\n}\r\n\r\n.traffic-legend-item.tone-success {\r\n  --series-color: var(--success);\r\n  --series-soft: rgba(20, 121, 92, 0.075);\r\n}\r\n\r\n.traffic-legend-item.tone-danger {\r\n  --series-color: var(--danger);\r\n  --series-soft: rgba(178, 58, 72, 0.075);\r\n}\r\n\r\n.traffic-legend-item.tone-info {\r\n  --series-color: var(--info);\r\n  --series-soft: rgba(50, 103, 199, 0.075);\r\n}\r\n\r\n.traffic-legend-item.tone-compat {\r\n  --series-color: var(--compat);\r\n  --series-soft: rgba(111, 85, 163, 0.075);\r\n}\r\n\r\n.traffic-legend-item > span {\r\n  width: 28px;\r\n  height: 18px;\r\n  border-radius: 5px;\r\n  background:\r\n    linear-gradient(180deg, color-mix(in srgb, var(--series-color) 74%, white), var(--series-color));\r\n  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42);\r\n}\r\n\r\n.traffic-legend-item.tone-info > span {\r\n  background: var(--text);\r\n}\r\n\r\n.traffic-legend-item.tone-compat > span {\r\n  background: #7c3aed;\r\n}\r\n\r\n.traffic-legend-item strong,\r\n.traffic-legend-item small {\r\n  display: block;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.traffic-legend-item strong {\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-weight: 780;\r\n}\r\n\r\n.traffic-legend-item small {\r\n  margin-top: 1px;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n}\r\n\r\n.traffic-chart-shell {\r\n  overflow: hidden;\r\n  border: 1px solid color-mix(in srgb, var(--panel-accent) 12%, var(--line));\r\n  border-radius: 12px;\r\n  background:\r\n    radial-gradient(circle at 82% 4%, color-mix(in srgb, var(--info) 8%, transparent), transparent 34%),\r\n    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 250, 0.92)),\r\n    var(--surface);\r\n  box-shadow:\r\n    inset 0 1px 0 rgba(255, 255, 255, 0.78),\r\n    0 12px 28px rgba(15, 23, 42, 0.045);\r\n}\r\n\r\n.traffic-chart-shell svg {\r\n  display: block;\r\n  width: 100%;\r\n  height: 286px;\r\n}\r\n\r\n.chart-stats {\r\n  display: grid;\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  gap: 8px;\r\n  margin-bottom: 12px;\r\n}\r\n\r\n.chart-stats div {\r\n  min-width: 0;\r\n  padding: 10px 12px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.chart-stats span {\r\n  display: block;\r\n  color: var(--muted);\r\n  font-size: 10.5px;\r\n  font-weight: 700;\r\n  letter-spacing: 0.03em;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.chart-stats strong {\r\n  display: block;\r\n  margin-top: 2px;\r\n  color: var(--text);\r\n  font: 760 16px/1.15 var(--mono);\r\n}\r\n\r\n.chart > svg {\r\n  display: block;\r\n  width: 100%;\r\n  height: 248px;\r\n}\r\n\r\n.chart .axis {\r\n  stroke: color-mix(in srgb, var(--line-strong) 44%, transparent);\r\n  stroke-width: 1;\r\n}\r\n\r\n.traffic-bar {\r\n  opacity: 0.9;\r\n  rx: 4px;\r\n  shape-rendering: geometricPrecision;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.traffic-bar-success {\r\n  fill: url(\"#trafficSuccessBar\");\r\n}\r\n\r\n.traffic-bar-failed {\r\n  fill: url(\"#trafficFailedBar\");\r\n}\r\n\r\n.traffic-firstbyte-area {\r\n  fill: url(\"#trafficFirstByteArea\");\r\n  pointer-events: none;\r\n}\r\n\r\n.traffic-firstbyte-line {\r\n  fill: none;\r\n  stroke: var(--info);\r\n  stroke-linecap: round;\r\n  stroke-linejoin: round;\r\n  stroke-width: 3.4;\r\n  filter: drop-shadow(0 6px 12px color-mix(in srgb, var(--info) 18%, transparent));\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.traffic-firstbyte-dot {\r\n  fill: var(--info);\r\n  stroke: var(--surface);\r\n  stroke-width: 2.2;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.traffic-firstbyte-dot.warn,\r\n.traffic-firstbyte-dot.slow {\r\n  fill: var(--warning);\r\n}\r\n\r\n.traffic-firstbyte-label {\r\n  fill: var(--info);\r\n  font: 760 11px var(--mono);\r\n  paint-order: stroke;\r\n  stroke: var(--surface);\r\n  stroke-linejoin: round;\r\n  stroke-width: 4px;\r\n}\r\n\r\n.chart .line,\r\n.chart .success-line,\r\n.chart .fail-line,\r\n.chart .latency-line {\r\n  fill: none;\r\n  stroke-linecap: round;\r\n  stroke-linejoin: round;\r\n  stroke-width: 3.2;\r\n  filter: none;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.chart .line {\r\n  stroke: var(--text);\r\n  stroke-width: 2.2;\r\n}\r\n\r\n.chart .success-line {\r\n  stroke: var(--success);\r\n}\r\n\r\n.chart .fail-line {\r\n  stroke: var(--danger);\r\n  filter: none;\r\n}\r\n\r\n.chart .latency-line {\r\n  stroke: var(--info);\r\n}\r\n\r\n.chart .success-line-dot,\r\n.chart .fail-line-dot,\r\n.chart .latency-line-dot,\r\n.chart .latency-dot {\r\n  stroke: var(--surface);\r\n  stroke-width: 2;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.chart .success-line-dot {\r\n  fill: var(--success);\r\n}\r\n\r\n.chart .fail-line-dot {\r\n  fill: var(--danger);\r\n}\r\n\r\n.chart .latency-line-dot {\r\n  fill: var(--info);\r\n}\r\n\r\n.traffic-value-label {\r\n  font: 760 11px var(--mono);\r\n  paint-order: stroke;\r\n  stroke: var(--surface);\r\n  stroke-width: 4px;\r\n  stroke-linejoin: round;\r\n}\r\n\r\n.success-line-label {\r\n  fill: var(--success);\r\n}\r\n\r\n.fail-line-label {\r\n  fill: var(--danger);\r\n}\r\n\r\n.latency-line-label {\r\n  fill: var(--info);\r\n}\r\n\r\n.chart .latency-dot.ok {\r\n  fill: var(--success);\r\n}\r\n\r\n.chart .latency-dot.warn {\r\n  fill: var(--warning);\r\n}\r\n\r\n.chart .latency-dot.slow {\r\n  fill: var(--warning);\r\n}\r\n\r\n.chart .animated-line {\r\n  stroke-dasharray: 1;\r\n  stroke-dashoffset: 1;\r\n  animation: drawLine 680ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;\r\n}\r\n\r\n.latency-samples {\r\n  display: flex;\r\n  gap: 6px;\r\n  min-height: 38px;\r\n  margin-top: 8px;\r\n  overflow-x: auto;\r\n  padding-bottom: 2px;\r\n}\r\n\r\n.latency-sample {\r\n  --latency: 12%;\r\n  position: relative;\r\n  display: grid;\r\n  min-width: 88px;\r\n  overflow: hidden;\r\n  padding: 7px 9px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n  color: var(--text);\r\n}\r\n\r\n.latency-sample::before {\r\n  content: \"\";\r\n  position: absolute;\r\n  inset: auto 0 0 0;\r\n  height: 3px;\r\n  width: var(--latency);\r\n  background: var(--success);\r\n}\r\n\r\n.latency-sample.warn::before {\r\n  background: var(--warning);\r\n}\r\n\r\n.latency-sample.slow::before {\r\n  background: var(--warning);\r\n}\r\n\r\n.latency-sample span {\r\n  position: relative;\r\n  font: 760 12px var(--mono);\r\n}\r\n\r\n.latency-sample small {\r\n  position: relative;\r\n  margin-top: 1px;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 10px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.usage-chart {\r\n  display: grid;\r\n  gap: 13px;\r\n  padding: 14px 16px 16px;\r\n}\r\n\r\n.usage-summary {\r\n  display: grid;\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 9px;\r\n}\r\n\r\n.usage-columns {\r\n  display: grid;\r\n  grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  gap: 14px;\r\n}\r\n\r\n.usage-columns.usage-model-only {\r\n  grid-template-columns: 1fr;\r\n}\r\n\r\n.usage-columns section {\r\n  min-width: 0;\r\n}\r\n\r\n.usage-columns h3 {\r\n  margin: 0 0 8px;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 820;\r\n  letter-spacing: 0;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.usage-section-title {\r\n  display: flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  margin-bottom: 8px;\r\n}\r\n\r\n.usage-section-title h3 {\r\n  margin: 0;\r\n}\r\n\r\n.usage-section-title span {\r\n  color: var(--muted);\r\n  font: 680 10.5px var(--mono);\r\n  white-space: nowrap;\r\n}\r\n\r\n.usage-bars {\r\n  display: grid;\r\n  gap: 10px;\r\n}\r\n\r\n.usage-row {\r\n  display: grid;\r\n  gap: 9px;\r\n  min-width: 0;\r\n  padding: 11px 12px;\r\n  border: 1px solid color-mix(in srgb, var(--metric-token) 16%, #d8d8dd);\r\n  border-radius: 8px;\r\n  background:\r\n    linear-gradient(180deg, rgba(111, 85, 196, 0.045), rgba(255, 255, 255, 0) 68%),\r\n    #fff;\r\n}\r\n\r\n.usage-row-head,\r\n.usage-row-foot {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  gap: 8px;\r\n  min-width: 0;\r\n}\r\n\r\n.usage-row-head strong {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 6px;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.usage-model-name {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n}\r\n\r\n.usage-rank {\r\n  display: inline-flex;\r\n  min-width: 28px;\r\n  justify-content: center;\r\n  padding: 1px 5px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 5px;\r\n  background: var(--compat-soft);\r\n  color: var(--compat);\r\n  font: 760 10px var(--mono);\r\n}\r\n\r\n.usage-call-count,\r\n.usage-row-foot span {\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  white-space: nowrap;\r\n}\r\n\r\n.usage-row-foot {\r\n  flex-wrap: wrap;\r\n  justify-content: flex-start;\r\n  gap: 6px 12px;\r\n}\r\n\r\n.usage-row-foot strong {\r\n  color: var(--text);\r\n  font: 760 12px var(--mono);\r\n}\r\n\r\n.usage-track {\r\n  position: relative;\r\n  display: flex;\r\n  gap: 2px;\r\n  height: 7px;\r\n  overflow: hidden;\r\n  border-radius: 999px;\r\n  background: #ededf0;\r\n}\r\n\r\n.usage-fill {\r\n  display: block;\r\n  min-width: 2px;\r\n  height: 100%;\r\n  border-radius: 999px;\r\n}\r\n\r\n.usage-fill.calls {\r\n  background: linear-gradient(90deg, var(--metric-token), color-mix(in srgb, var(--metric-token) 62%, var(--text)));\r\n}\r\n\r\n.usage-track-calls {\r\n  height: 7px;\r\n}\r\n\r\n.provider-health {\r\n  display: grid;\r\n  gap: 10px;\r\n  padding: 12px;\r\n}\r\n\r\n#recentFailures.table-wrap {\r\n  overflow: visible;\r\n}\r\n\r\n.overview-summary-meta {\r\n  display: flex;\r\n  gap: 10px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  min-width: 0;\r\n  padding: 3px 2px 1px;\r\n  color: var(--muted);\r\n  font: 760 11px var(--mono);\r\n  text-transform: uppercase;\r\n}\r\n\r\n.overview-summary-meta span {\r\n  display: inline-flex;\r\n  gap: 6px;\r\n  align-items: center;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.overview-summary-meta .icon-svg {\r\n  width: 14px;\r\n  height: 14px;\r\n}\r\n\r\n.overview-jump-button {\r\n  display: inline-grid;\r\n  width: 28px;\r\n  height: 28px;\r\n  place-items: center;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  cursor: pointer;\r\n  transition: border-color 160ms ease, background 160ms ease, transform 120ms ease;\r\n}\r\n\r\n.overview-jump-button:hover {\r\n  border-color: var(--text);\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.overview-jump-button:active {\r\n  transform: translateY(1px);\r\n}\r\n\r\n.overview-provider-list,\r\n.recent-failure-list {\r\n  display: grid;\r\n  gap: 8px;\r\n}\r\n\r\n.overview-provider-row,\r\n.recent-failure-row {\r\n  --row-tone: var(--neutral);\r\n  display: grid;\r\n  gap: 10px;\r\n  align-items: center;\r\n  width: 100%;\r\n  min-width: 0;\r\n  border: 1px solid color-mix(in srgb, var(--row-tone) 16%, var(--line));\r\n  border-radius: 8px;\r\n  background:\r\n    linear-gradient(90deg, color-mix(in srgb, var(--row-tone) 7%, transparent), rgba(255, 255, 255, 0) 48%),\r\n    var(--surface);\r\n  color: var(--text);\r\n  text-align: left;\r\n  cursor: pointer;\r\n  transition: border-color 160ms ease, background 160ms ease, transform 120ms ease;\r\n}\r\n\r\n.overview-provider-row {\r\n  grid-template-columns: auto minmax(0, 1fr) auto;\r\n  padding: 10px 11px;\r\n}\r\n\r\n.recent-failure-row {\r\n  grid-template-columns: auto minmax(160px, 1fr) auto minmax(160px, 1.2fr);\r\n  padding: 10px 12px;\r\n}\r\n\r\n.overview-provider-row:hover,\r\n.recent-failure-row:hover,\r\n.overview-provider-row:focus-visible,\r\n.recent-failure-row:focus-visible {\r\n  border-color: color-mix(in srgb, var(--row-tone) 38%, var(--line-strong));\r\n  background:\r\n    linear-gradient(90deg, color-mix(in srgb, var(--row-tone) 11%, transparent), rgba(255, 255, 255, 0) 58%),\r\n    var(--surface-raised);\r\n}\r\n\r\n.overview-provider-row:active,\r\n.recent-failure-row:active {\r\n  transform: translateY(1px);\r\n}\r\n\r\n.overview-provider-row.tone-ok,\r\n.recent-failure-row.tone-success {\r\n  --row-tone: var(--success);\r\n}\r\n\r\n.overview-provider-row.tone-warn,\r\n.recent-failure-row.tone-warning {\r\n  --row-tone: var(--warning);\r\n}\r\n\r\n.overview-provider-row.tone-bad,\r\n.recent-failure-row.tone-danger {\r\n  --row-tone: var(--danger);\r\n}\r\n\r\n.overview-provider-main,\r\n.recent-failure-main {\r\n  display: grid;\r\n  gap: 2px;\r\n  min-width: 0;\r\n}\r\n\r\n.overview-provider-main strong,\r\n.recent-failure-main strong {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  font-size: 12px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.overview-provider-main small,\r\n.recent-failure-main small,\r\n.overview-provider-kpi small {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.overview-provider-kpi {\r\n  display: grid;\r\n  justify-items: end;\r\n  min-width: 46px;\r\n}\r\n\r\n.overview-provider-kpi strong {\r\n  font: 820 12px var(--mono);\r\n}\r\n\r\n.recent-failure-status {\r\n  min-width: 0;\r\n}\r\n\r\n.recent-failure-reason {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-card {\r\n  display: grid;\r\n  gap: 9px;\r\n  padding: 12px 13px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.provider-card-head {\r\n  display: flex;\r\n  justify-content: space-between;\r\n  gap: 8px;\r\n}\r\n\r\n.provider-name {\r\n  font-family: var(--mono);\r\n  font-weight: 760;\r\n}\r\n\r\n.provider-name.name-ok {\r\n  color: var(--success);\r\n}\r\n\r\n.provider-name.name-warn {\r\n  color: var(--warning);\r\n}\r\n\r\n.provider-name.name-bad {\r\n  color: var(--danger);\r\n}\r\n\r\n.provider-meta {\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.toolbar {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 8px;\r\n  margin-bottom: 14px;\r\n  padding: 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 9px;\r\n  background: var(--surface-raised);\r\n  box-shadow: var(--shadow-tight);\r\n}\r\n\r\n#requestsToolbar {\r\n  position: relative;\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  gap: 12px;\r\n  align-items: center;\r\n  margin-bottom: 16px;\r\n  padding: 11px;\r\n  border: 1px solid color-mix(in srgb, var(--line-strong) 78%, var(--line));\r\n  border-radius: 11px;\r\n  background: color-mix(in srgb, var(--surface) 92%, var(--surface-raised));\r\n  box-shadow: 0 8px 22px rgba(30, 41, 59, 0.055), 0 1px 2px rgba(30, 41, 59, 0.045);\r\n}\r\n\r\n.request-filter-primary,\r\n.request-bulk-actions,\r\n.request-status-chips,\r\n.advanced-filter-fields {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 8px;\r\n  align-items: center;\r\n  min-width: 0;\r\n}\r\n\r\n.request-filter-title {\r\n  display: grid;\r\n  gap: 1px;\r\n  min-width: 96px;\r\n  padding-right: 4px;\r\n}\r\n\r\n.request-filter-title span {\r\n  color: var(--muted);\r\n  font-size: 10px;\r\n  font-weight: 780;\r\n  letter-spacing: 0.055em;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.request-filter-title strong {\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-weight: 780;\r\n}\r\n\r\n.request-status-chips {\r\n  gap: 6px;\r\n  padding: 3px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 9px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.filter-chip {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  min-height: 28px;\r\n  padding: 0 10px;\r\n  border: 1px solid transparent;\r\n  border-radius: 7px;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 760;\r\n  cursor: pointer;\r\n  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;\r\n}\r\n\r\n.filter-chip:hover,\r\n.filter-chip:focus-visible {\r\n  border-color: var(--line);\r\n  background: var(--surface);\r\n  color: var(--text);\r\n}\r\n\r\n.filter-chip.is-active {\r\n  border-color: color-mix(in srgb, var(--text) 13%, var(--line));\r\n  background: var(--text);\r\n  color: #fff;\r\n}\r\n\r\n.filter-chip.tone-success.is-active {\r\n  border-color: color-mix(in srgb, var(--success) 36%, var(--line));\r\n  background: var(--success);\r\n}\r\n\r\n.filter-chip.tone-danger.is-active {\r\n  border-color: color-mix(in srgb, var(--danger) 38%, var(--line));\r\n  background: var(--danger);\r\n}\r\n\r\n.filter-search-field {\r\n  min-width: 0;\r\n}\r\n\r\n#requestsToolbar .control {\r\n  width: 168px;\r\n  min-height: 34px;\r\n  border-color: color-mix(in srgb, var(--info) 12%, var(--line));\r\n  background: rgba(255, 255, 255, 0.82);\r\n}\r\n\r\n#requestsToolbar .control:focus-visible {\r\n  border-color: color-mix(in srgb, var(--info) 62%, var(--line));\r\n  box-shadow: 0 0 0 3px rgba(50, 103, 199, 0.14);\r\n}\r\n\r\n#requestsToolbar .button.secondary {\r\n  border-color: color-mix(in srgb, var(--text) 86%, var(--line));\r\n  background: var(--text);\r\n  color: #fff;\r\n}\r\n\r\n#requestsToolbar .button.ghost {\r\n  color: color-mix(in srgb, var(--text) 72%, var(--muted));\r\n}\r\n\r\n.advanced-filter-box {\r\n  position: relative;\r\n}\r\n\r\n.advanced-filter-box summary {\r\n  display: inline-flex;\r\n  min-height: 34px;\r\n  align-items: center;\r\n  padding: 0 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface);\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 760;\r\n  cursor: pointer;\r\n  list-style: none;\r\n}\r\n\r\n.advanced-filter-box summary::-webkit-details-marker {\r\n  display: none;\r\n}\r\n\r\n.advanced-filter-box[open] summary {\r\n  border-color: color-mix(in srgb, var(--info) 36%, var(--line));\r\n  color: var(--text);\r\n}\r\n\r\n.advanced-filter-fields {\r\n  position: absolute;\r\n  top: calc(100% + 8px);\r\n  right: 0;\r\n  z-index: 8;\r\n  width: min(520px, calc(100vw - 48px));\r\n  padding: 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 10px;\r\n  background: var(--surface);\r\n  box-shadow: 0 14px 34px rgba(30, 41, 59, 0.14);\r\n}\r\n\r\n.request-bulk-actions {\r\n  justify-content: flex-end;\r\n  padding-left: 12px;\r\n  border-left: 1px solid var(--line-soft);\r\n}\r\n\r\n.selection-count {\r\n  min-width: 78px;\r\n  color: var(--muted);\r\n  font: 720 11px var(--mono);\r\n  text-align: right;\r\n}\r\n\r\n.request-bulk-actions .button {\r\n  gap: 6px;\r\n}\r\n\r\n.request-bulk-actions .icon-svg {\r\n  width: 15px;\r\n  height: 15px;\r\n}\r\n\r\n.sr-only {\r\n  position: absolute;\r\n  width: 1px;\r\n  height: 1px;\r\n  overflow: hidden;\r\n  clip: rect(0, 0, 0, 0);\r\n  white-space: nowrap;\r\n}\r\n\r\n.control {\r\n  min-height: 36px;\r\n  padding: 0 11px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  transition: border-color 160ms ease, box-shadow 160ms ease;\r\n}\r\n\r\n.control:hover {\r\n  border-color: #c8c8ce;\r\n}\r\n\r\n.table-wrap {\r\n  overflow: auto;\r\n}\r\n\r\n#requestsTable.table-wrap {\r\n  overflow-x: hidden;\r\n}\r\n\r\n.request-list-head {\r\n  display: flex;\r\n  gap: 12px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  padding: 10px 14px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n  background: linear-gradient(90deg, rgba(50, 103, 199, 0.04), rgba(255, 255, 255, 0));\r\n}\r\n\r\n.request-page-summary {\r\n  display: flex;\r\n  gap: 6px;\r\n  align-items: baseline;\r\n  min-width: 0;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.request-page-select {\r\n  display: inline-flex;\r\n  gap: 6px;\r\n  align-items: center;\r\n  margin-right: 8px;\r\n  padding-right: 10px;\r\n  border-right: 1px solid var(--line-soft);\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 720;\r\n  white-space: nowrap;\r\n}\r\n\r\n.request-page-select input,\r\n.request-row-select input {\r\n  width: 15px;\r\n  height: 15px;\r\n  margin: 0;\r\n  accent-color: var(--text);\r\n  cursor: pointer;\r\n}\r\n\r\n.request-page-summary strong {\r\n  color: var(--text);\r\n  font: 760 12px var(--mono);\r\n}\r\n\r\n.request-pagination {\r\n  display: inline-flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n  white-space: nowrap;\r\n}\r\n\r\n.request-page-indicator {\r\n  color: var(--muted);\r\n  font: 680 11px var(--mono);\r\n}\r\n\r\n.request-page-vitals {\r\n  display: grid;\r\n  grid-template-columns: repeat(5, minmax(0, 1fr));\r\n  gap: 8px;\r\n  padding: 10px 14px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n  background: color-mix(in srgb, var(--surface-raised) 72%, var(--surface));\r\n}\r\n\r\n.request-vital {\r\n  --vital-color: var(--neutral);\r\n  --vital: 0%;\r\n  position: relative;\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  gap: 2px 8px;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  padding: 8px 9px;\r\n  border: 1px solid color-mix(in srgb, var(--vital-color) 18%, var(--line));\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n}\r\n\r\n.request-vital::after {\r\n  content: \"\";\r\n  position: absolute;\r\n  inset: auto 0 0 0;\r\n  width: var(--vital);\r\n  height: 3px;\r\n  background: var(--vital-color);\r\n  opacity: 0.75;\r\n}\r\n\r\n.request-vital .icon-svg {\r\n  grid-row: 1 / span 2;\r\n  align-self: center;\r\n  color: var(--vital-color);\r\n}\r\n\r\n.request-vital strong {\r\n  overflow: hidden;\r\n  color: var(--text);\r\n  font: 840 13px/1 var(--mono);\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.request-vital small {\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 10px;\r\n  font-weight: 720;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.request-vital-success {\r\n  --vital-color: var(--success);\r\n}\r\n\r\n.request-vital-warning {\r\n  --vital-color: var(--warning);\r\n}\r\n\r\n.request-vital-danger {\r\n  --vital-color: var(--danger);\r\n}\r\n\r\n.request-vital-info {\r\n  --vital-color: var(--info);\r\n}\r\n\r\n.request-vital-compat {\r\n  --vital-color: var(--compat);\r\n}\r\n\r\n.request-summary-list {\r\n  display: grid;\r\n  gap: 0;\r\n}\r\n\r\n.request-summary-row {\r\n  --row-tone: var(--neutral);\r\n  display: grid;\r\n  grid-template-columns: 24px 10px minmax(180px, 1.35fr) minmax(108px, 0.55fr) minmax(145px, 0.9fr) minmax(146px, 0.72fr) 28px;\r\n  gap: 10px;\r\n  align-items: center;\r\n  width: 100%;\r\n  min-width: 0;\r\n  padding: 11px 14px;\r\n  border: 0;\r\n  border-bottom: 1px solid color-mix(in srgb, var(--line-strong) 52%, var(--line-soft));\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  text-align: left;\r\n  cursor: pointer;\r\n  transition: background 140ms ease, box-shadow 140ms ease, border-color 140ms ease;\r\n}\r\n\r\n.request-summary-row:nth-child(even) {\r\n  background: color-mix(in srgb, var(--surface-raised) 62%, var(--surface));\r\n}\r\n\r\n.request-summary-row:hover,\r\n.request-summary-row:focus-visible {\r\n  background: color-mix(in srgb, var(--info-soft) 36%, var(--surface));\r\n  box-shadow: inset 3px 0 0 var(--row-tone);\r\n}\r\n\r\n.request-summary-row.is-selected {\r\n  background: color-mix(in srgb, var(--info-soft) 56%, var(--surface));\r\n  box-shadow: inset 3px 0 0 var(--info);\r\n}\r\n\r\n.request-summary-row.tone-success {\r\n  --row-tone: var(--success);\r\n}\r\n\r\n.request-summary-row.tone-warning {\r\n  --row-tone: var(--warning);\r\n}\r\n\r\n.request-summary-row.tone-danger {\r\n  --row-tone: var(--danger);\r\n}\r\n\r\n.request-row-dot {\r\n  width: 10px;\r\n  height: 10px;\r\n  border-radius: 50%;\r\n  background: var(--row-tone);\r\n  box-shadow: 0 0 0 3px color-mix(in srgb, var(--row-tone) 14%, transparent);\r\n}\r\n\r\n.request-row-select {\r\n  display: grid;\r\n  width: 24px;\r\n  height: 24px;\r\n  place-items: center;\r\n  border: 1px solid transparent;\r\n  border-radius: 7px;\r\n  cursor: pointer;\r\n}\r\n\r\n.request-row-select:hover,\r\n.request-row-select:focus-within {\r\n  border-color: var(--line);\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.request-row-main,\r\n.request-row-status,\r\n.request-row-route,\r\n.request-row-metrics {\r\n  min-width: 0;\r\n}\r\n\r\n.request-row-main {\r\n  display: grid;\r\n  gap: 3px;\r\n}\r\n\r\n.request-row-main strong {\r\n  overflow: hidden;\r\n  font-size: 12.5px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.request-row-main small,\r\n.request-row-metrics small {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 4px 8px;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  line-height: 1.25;\r\n}\r\n\r\n.request-row-main small span {\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.request-row-status {\r\n  display: flex;\r\n  gap: 6px;\r\n  align-items: center;\r\n}\r\n\r\n.request-row-status small {\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n}\r\n\r\n.request-row-route {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n  align-items: center;\r\n}\r\n\r\n.request-provider-pill,\r\n.route-pill {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  min-width: 0;\r\n  max-width: 100%;\r\n  min-height: 22px;\r\n  padding: 2px 7px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 6px;\r\n  background: var(--surface-raised);\r\n  font: 760 11px var(--mono);\r\n}\r\n\r\n.request-provider-pill {\r\n  overflow: hidden;\r\n  color: var(--text);\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.route-pill.ok {\r\n  border-color: color-mix(in srgb, var(--success) 24%, var(--line));\r\n  background: var(--success-soft);\r\n  color: var(--success);\r\n}\r\n\r\n.route-pill.warn {\r\n  border-color: color-mix(in srgb, var(--warning) 24%, var(--line));\r\n  background: var(--warning-soft);\r\n  color: var(--warning);\r\n}\r\n\r\n.route-pill.bad {\r\n  border-color: color-mix(in srgb, var(--danger) 24%, var(--line));\r\n  background: var(--danger-soft);\r\n  color: var(--danger);\r\n}\r\n\r\n.route-pill.neutral {\r\n  color: var(--muted);\r\n}\r\n\r\n.request-row-metrics {\r\n  display: grid;\r\n  gap: 2px;\r\n  justify-items: start;\r\n}\r\n\r\n.request-row-metrics strong {\r\n  font-size: 13px;\r\n}\r\n\r\n.request-row-open {\r\n  display: grid;\r\n  width: 28px;\r\n  height: 28px;\r\n  place-items: center;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 7px;\r\n  color: var(--muted);\r\n}\r\n\r\n.requests-summary-table {\r\n  border-top: 1px solid var(--line);\r\n  table-layout: fixed;\r\n}\r\n\r\n.requests-summary-table th:nth-child(1),\r\n.requests-summary-table td:nth-child(1) {\r\n  width: 16%;\r\n}\r\n\r\n.requests-summary-table th:nth-child(2),\r\n.requests-summary-table td:nth-child(2) {\r\n  width: 15%;\r\n}\r\n\r\n.requests-summary-table th:nth-child(3),\r\n.requests-summary-table td:nth-child(3) {\r\n  width: 25%;\r\n}\r\n\r\n.requests-summary-table th:nth-child(4),\r\n.requests-summary-table td:nth-child(4) {\r\n  width: 16%;\r\n}\r\n\r\n.requests-summary-table th:nth-child(5),\r\n.requests-summary-table td:nth-child(5) {\r\n  width: 14%;\r\n}\r\n\r\n.requests-summary-table th:nth-child(6),\r\n.requests-summary-table td:nth-child(6) {\r\n  width: 14%;\r\n}\r\n\r\n.request-model-cell,\r\n.request-provider-cell,\r\n.request-route-cell,\r\n.request-status-cell {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n}\r\n\r\n.request-time-cell {\r\n  white-space: normal;\r\n}\r\n\r\n.request-usage-cell small {\r\n  display: inline;\r\n  margin-left: 7px;\r\n  color: var(--muted);\r\n  font: 680 11px var(--mono);\r\n}\r\n\r\n.request-usage-cell small::before {\r\n  content: \"/\";\r\n  margin-right: 7px;\r\n  color: var(--faint);\r\n}\r\n\r\ntable {\r\n  width: 100%;\r\n  border-collapse: collapse;\r\n}\r\n\r\nth,\r\ntd {\r\n  padding: 12px 13px;\r\n  border-bottom: 1px solid color-mix(in srgb, var(--line-strong) 58%, var(--line-soft));\r\n  text-align: left;\r\n  vertical-align: top;\r\n}\r\n\r\nth {\r\n  position: sticky;\r\n  top: 0;\r\n  z-index: 1;\r\n  background: var(--surface-raised);\r\n  color: var(--muted);\r\n  font-size: 10.5px;\r\n  font-weight: 720;\r\n  letter-spacing: 0.045em;\r\n  text-transform: uppercase;\r\n}\r\n\r\ntd {\r\n  color: var(--text);\r\n  font-size: 12.5px;\r\n}\r\n\r\ntr.clickable {\r\n  cursor: pointer;\r\n}\r\n\r\ntbody tr {\r\n  position: relative;\r\n  transition: background 140ms ease, box-shadow 140ms ease;\r\n}\r\n\r\ntbody tr:nth-child(even) {\r\n  background: rgba(244, 244, 245, 0.42);\r\n}\r\n\r\ntbody tr:hover,\r\ntr.clickable:hover {\r\n  background: color-mix(in srgb, var(--info-soft) 28%, var(--surface));\r\n  box-shadow: inset 3px 0 0 var(--info);\r\n}\r\n\r\n.mono {\r\n  font-family: var(--mono);\r\n}\r\n\r\n.muted {\r\n  color: var(--muted);\r\n}\r\n\r\n.empty {\r\n  color: var(--muted);\r\n  font-size: 13px;\r\n}\r\n\r\n.pad {\r\n  padding: 15px;\r\n}\r\n\r\n.keyword {\r\n  border-radius: 5px;\r\n  padding: 1px 4px;\r\n  font-weight: 760;\r\n}\r\n\r\n.keyword.danger,\r\n.message-text.danger,\r\n.message-chip.danger {\r\n  color: var(--danger);\r\n}\r\n\r\n.keyword.warn,\r\n.message-text.warn,\r\n.message-chip.warn {\r\n  color: var(--warning);\r\n}\r\n\r\n.keyword.info,\r\n.message-text.info,\r\n.message-chip.info {\r\n  color: var(--info);\r\n}\r\n\r\n.keyword.compat,\r\n.message-text.compat,\r\n.message-chip.compat {\r\n  color: var(--compat);\r\n}\r\n\r\n.keyword.success,\r\n.message-text.success,\r\n.message-chip.success {\r\n  color: var(--success);\r\n}\r\n\r\n.keyword.neutral,\r\n.message-text.neutral,\r\n.message-chip.neutral {\r\n  color: var(--neutral);\r\n}\r\n\r\n.keyword.muted,\r\n.message-text.muted,\r\n.message-chip.muted {\r\n  color: var(--faint);\r\n}\r\n\r\n.keyword.danger {\r\n  background: var(--danger-soft);\r\n}\r\n\r\n.keyword.warn {\r\n  background: var(--warning-soft);\r\n}\r\n\r\n.keyword.info {\r\n  background: var(--info-soft);\r\n}\r\n\r\n.keyword.compat {\r\n  background: var(--compat-soft);\r\n}\r\n\r\n.keyword.success {\r\n  background: var(--success-soft);\r\n}\r\n\r\n.message-text {\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.chip-list {\r\n  display: inline-flex;\r\n  flex-wrap: wrap;\r\n  gap: 5px;\r\n  vertical-align: middle;\r\n}\r\n\r\n.message-chip {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  min-height: 22px;\r\n  padding: 2px 7px;\r\n  border: 1px solid color-mix(in srgb, currentColor 42%, white);\r\n  border-radius: 6px;\r\n  background: color-mix(in srgb, currentColor 15%, white);\r\n  font: 780 11px var(--mono);\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-table {\r\n  display: block;\r\n  overflow: visible;\r\n  padding: 12px;\r\n}\r\n\r\n.provider-card-grid {\r\n  display: grid;\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  align-items: stretch;\r\n  gap: 12px;\r\n}\r\n\r\n.panel-pagination {\r\n  display: flex;\r\n  gap: 10px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  margin-bottom: 10px;\r\n  padding: 8px 10px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--surface-raised) 72%, var(--surface));\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.panel-pagination strong {\r\n  color: var(--text);\r\n  font-family: var(--mono);\r\n}\r\n\r\n.panel-pagination-actions {\r\n  display: inline-flex;\r\n  gap: 7px;\r\n  align-items: center;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-toolbar {\r\n  display: grid;\r\n  grid-template-columns: minmax(220px, 1.4fr) minmax(150px, 0.75fr) minmax(150px, 0.75fr) minmax(150px, 0.75fr) auto;\r\n  gap: 10px;\r\n  align-items: end;\r\n  margin: 0 12px 4px;\r\n  padding: 12px;\r\n  border: 1px solid color-mix(in srgb, var(--info) 10%, var(--line));\r\n  border-radius: 10px;\r\n  background:\r\n    linear-gradient(135deg, color-mix(in srgb, var(--info-soft) 50%, var(--surface)) 0, var(--surface) 52%),\r\n    var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.provider-search-field {\r\n  min-width: 0;\r\n}\r\n\r\n.provider-model-list {\r\n  display: grid;\r\n  gap: 10px;\r\n  padding: 14px;\r\n}\r\n\r\n.model-capability-summary {\r\n  display: grid;\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  gap: 8px;\r\n}\r\n\r\n.model-capability-card {\r\n  display: grid;\r\n  gap: 10px;\r\n  min-width: 0;\r\n  padding: 12px;\r\n  border: 1px solid var(--line);\r\n  border-left: 3px solid var(--neutral);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.model-capability-card.tone-success {\r\n  border-left-color: var(--success);\r\n}\r\n\r\n.model-capability-card.tone-danger {\r\n  border-left-color: var(--danger);\r\n}\r\n\r\n.model-chip-list {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n  min-width: 0;\r\n}\r\n\r\n.model-chip-list .tag,\r\n.model-map-chip {\r\n  max-width: 100%;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.model-map-chip {\r\n  display: grid;\r\n  gap: 2px;\r\n  min-width: 0;\r\n  padding: 5px 8px 6px;\r\n  border: 1px solid color-mix(in srgb, var(--info) 14%, var(--line-soft));\r\n  border-radius: 6px;\r\n  background: color-mix(in srgb, var(--info-soft) 36%, var(--surface));\r\n  font-size: 11px;\r\n  cursor: pointer;\r\n  transition: all 0.12s ease;\r\n}\r\n\r\n.model-map-chip:hover {\r\n  background: color-mix(in srgb, var(--info-soft) 72%, var(--surface));\r\n  border-color: color-mix(in srgb, var(--info) 45%, var(--line));\r\n  transform: translateY(-1px);\r\n  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);\r\n}\r\n\r\n.model-map-chip b,\r\n.model-map-chip small {\r\n  min-width: 0;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.model-map-chip b {\r\n  font-family: var(--mono);\r\n  font-weight: 780;\r\n}\r\n\r\n.model-map-chip small {\r\n  color: var(--muted);\r\n  font-family: var(--mono);\r\n  font-size: 10px;\r\n}\r\n\r\n.provider-model-toolbar {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 8px;\r\n  align-items: center;\r\n  min-width: 0;\r\n}\r\n\r\n.provider-model-search {\r\n  flex: 1 1 180px;\r\n  min-width: 0;\r\n}\r\n\r\n.provider-model-status-filter {\r\n  flex: 0 0 118px;\r\n}\r\n\r\n.provider-model-chip {\r\n  position: relative;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  align-items: start;\r\n  color: inherit;\r\n  font: inherit;\r\n  text-align: left;\r\n}\r\n\r\n.model-chip-toggle,\r\n.model-map-edit-button {\r\n  appearance: none;\r\n  border: 0;\r\n  background: transparent;\r\n  color: inherit;\r\n  font: inherit;\r\n}\r\n\r\n.model-chip-toggle {\r\n  display: grid;\r\n  gap: 2px;\r\n  min-width: 0;\r\n  padding: 0;\r\n  text-align: left;\r\n  cursor: pointer;\r\n}\r\n\r\n.model-map-edit-button {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  width: 22px;\r\n  height: 22px;\r\n  padding: 0;\r\n  border-radius: 5px;\r\n  color: var(--muted);\r\n  cursor: pointer;\r\n}\r\n\r\n.model-map-edit-button:hover {\r\n  color: var(--info);\r\n  background: color-mix(in srgb, var(--info-soft) 64%, transparent);\r\n}\r\n\r\n.model-chip-toggle:focus-visible,\r\n.model-map-edit-button:focus-visible {\r\n  outline: 2px solid color-mix(in srgb, var(--info) 70%, transparent);\r\n  outline-offset: 2px;\r\n}\r\n\r\n.provider-model-chip.is-disabled {\r\n  border-color: color-mix(in srgb, var(--danger) 34%, var(--line));\r\n  background: color-mix(in srgb, var(--danger-soft) 48%, var(--surface));\r\n}\r\n\r\n.provider-model-chip.is-pending {\r\n  outline: 1px dashed color-mix(in srgb, var(--warning) 70%, var(--line));\r\n  outline-offset: 2px;\r\n}\r\n\r\n.provider-model-chip.is-manual-map {\r\n  border-color: color-mix(in srgb, var(--success) 28%, var(--line));\r\n  background: color-mix(in srgb, var(--success-soft) 42%, var(--surface));\r\n}\r\n\r\n.provider-model-chip.is-disabled b {\r\n  color: color-mix(in srgb, var(--danger) 72%, var(--text));\r\n  text-decoration: line-through;\r\n  text-decoration-thickness: 2px;\r\n  text-decoration-color: var(--danger);\r\n}\r\n\r\n.model-pending-note {\r\n  color: color-mix(in srgb, var(--warning) 78%, var(--muted));\r\n}\r\n\r\n.model-price-tip {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  margin-left: 4px;\r\n  vertical-align: -2px;\r\n  color: var(--muted);\r\n  opacity: 0.55;\r\n  cursor: help;\r\n  transition: opacity 0.12s ease;\r\n}\r\n\r\n.model-price-tip .icon-svg {\r\n  width: 12px;\r\n  height: 12px;\r\n}\r\n\r\n.model-price-tip:hover {\r\n  opacity: 1;\r\n  color: var(--info, #3b82f6);\r\n}\r\n\r\n.provider-model-pill .model-price-tip {\r\n  margin-left: 6px;\r\n}\r\n\r\n.static-model-chip {\r\n  position: relative;\r\n  padding-right: 24px;\r\n}\r\n\r\n.static-model-delete {\r\n  position: absolute;\r\n  top: 4px;\r\n  right: 5px;\r\n  width: 16px;\r\n  height: 16px;\r\n  display: grid;\r\n  place-items: center;\r\n  border: 1px solid transparent;\r\n  border-radius: 999px;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  cursor: pointer;\r\n  font-size: 12px;\r\n  line-height: 1;\r\n}\r\n\r\n.static-model-delete:hover {\r\n  border-color: var(--danger);\r\n  color: var(--danger);\r\n  background: color-mix(in srgb, var(--danger) 8%, transparent);\r\n}\r\n\r\n.model-capability-error {\r\n  padding: 8px;\r\n  border: 1px solid var(--danger);\r\n  border-radius: 8px;\r\n  background: var(--danger-soft);\r\n  color: var(--danger);\r\n  font-size: 12px;\r\n  font-weight: 740;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.provider-runtime-card {\r\n  position: relative;\r\n  display: grid;\r\n  min-width: 0;\r\n  gap: 10px;\r\n  padding: 15px 16px 14px;\r\n  border: 1px solid color-mix(in srgb, var(--neutral) 10%, var(--line));\r\n  border-top: 3px solid var(--neutral);\r\n  border-radius: 12px;\r\n  background: var(--surface);\r\n  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 12px 28px rgba(15, 23, 42, 0.06);\r\n  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease, background 180ms ease;\r\n}\r\n\r\n.provider-health-tile {\r\n  min-height: 180px;\r\n  height: 100%;\r\n}\r\n\r\n.provider-health-tile:hover {\r\n  border-color: color-mix(in srgb, var(--info) 22%, var(--line));\r\n  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 16px 32px rgba(15, 23, 42, 0.08);\r\n  transform: translateY(-1px);\r\n}\r\n\r\n.provider-health-tile:focus-visible {\r\n  box-shadow: 0 0 0 3px rgba(50, 103, 199, 0.16), 0 8px 24px rgba(0, 0, 0, 0.08);\r\n}\r\n\r\n.provider-runtime-card.is-available {\r\n  border-top-color: var(--success);\r\n}\r\n\r\n.provider-runtime-card.is-degraded,\r\n.provider-runtime-card.is-cooldown {\r\n  border-top-color: var(--warning);\r\n}\r\n\r\n.provider-runtime-card.is-unavailable {\r\n  border-top-color: var(--danger);\r\n}\r\n\r\n.provider-runtime-card.is-disabled {\r\n  border-top-color: var(--faint);\r\n  opacity: 0.76;\r\n}\r\n\r\n.provider-card-topline {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr) auto;\r\n  gap: 10px;\r\n  align-items: center;\r\n  min-width: 0;\r\n}\r\n\r\n.provider-card-settings-btn {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  width: 26px;\r\n  height: 26px;\r\n  padding: 0;\r\n  border: none;\r\n  border-radius: 6px;\r\n  background: transparent;\r\n  color: var(--line-strong);\r\n  cursor: pointer;\r\n  transition: color 160ms ease, background 160ms ease;\r\n  flex-shrink: 0;\r\n}\r\n\r\n.provider-card-settings-btn:hover {\r\n  color: var(--text);\r\n  background: var(--surface-soft);\r\n}\r\n\r\n.provider-card-settings-btn:active {\r\n  transform: scale(0.92);\r\n}\r\n\r\n.provider-card-settings-btn .icon-svg {\r\n  width: 16px;\r\n  height: 16px;\r\n}\r\n\r\n.priority-chip {\r\n  margin-right: 4px;\r\n  min-height: 21px;\r\n  padding: 2px 6px;\r\n  border-radius: 5px;\r\n  font-size: 10px;\r\n  font-weight: 600;\r\n  font-variant-numeric: tabular-nums;\r\n  line-height: 1;\r\n  display: inline-flex;\r\n  align-items: center;\r\n  color: var(--muted);\r\n  background: var(--surface-soft);\r\n}\r\n\r\n.priority-chip.prio-hi {\r\n  color: #fff;\r\n  background: #09090b;\r\n}\r\n\r\n.priority-chip.prio-mid {\r\n  color: var(--text);\r\n  background: #d4d4d8;\r\n}\r\n\r\n.priority-chip.prio-lo {\r\n  color: var(--muted);\r\n  background: var(--surface-soft);\r\n}\r\n\r\n.provider-status-dot {\r\n  width: 10px;\r\n  height: 10px;\r\n  border-radius: 50%;\r\n  background: var(--neutral);\r\n  box-shadow: 0 0 0 4px color-mix(in srgb, var(--neutral) 8%, transparent);\r\n  transition: box-shadow 200ms ease;\r\n}\r\n\r\n.provider-status-dot.ok {\r\n  background: var(--success);\r\n  box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 14%, transparent);\r\n}\r\n\r\n.provider-status-dot.warn {\r\n  background: var(--warning);\r\n  box-shadow: 0 0 0 4px color-mix(in srgb, var(--warning) 16%, transparent);\r\n}\r\n\r\n.provider-status-dot.bad {\r\n  background: var(--danger);\r\n  box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 14%, transparent);\r\n}\r\n\r\n.provider-card-models {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n  min-height: 28px;\r\n  align-content: start;\r\n  padding-top: 2px;\r\n}\r\n\r\n.provider-model-summary {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 7px;\r\n  min-height: 28px;\r\n  padding: 4px 9px;\r\n  border: 1px solid color-mix(in srgb, var(--info) 18%, var(--line));\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--info-soft) 44%, var(--surface));\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  line-height: 1.1;\r\n}\r\n\r\n.provider-model-summary .icon-svg {\r\n  width: 15px;\r\n  height: 15px;\r\n  color: var(--info);\r\n}\r\n\r\n.provider-model-summary strong {\r\n  color: var(--text);\r\n  font: 760 12px/1 var(--mono);\r\n  font-variant-numeric: tabular-nums;\r\n}\r\n\r\n.provider-model-summary span {\r\n  color: var(--muted);\r\n  font-weight: 650;\r\n}\r\n\r\n.provider-card-state-row {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n  min-width: 0;\r\n  padding: 2px 0 1px;\r\n}\r\n\r\n.provider-state-badge {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  min-height: 24px;\r\n  padding: 0 8px;\r\n  border-radius: 999px;\r\n  background: var(--surface-raised);\r\n  color: var(--muted);\r\n  font: 720 11px/1 var(--mono);\r\n  letter-spacing: 0.01em;\r\n  text-transform: capitalize;\r\n}\r\n\r\n.provider-state-badge.tone-ok {\r\n  color: var(--success);\r\n  background: color-mix(in srgb, var(--success) 10%, var(--surface-raised));\r\n}\r\n\r\n.provider-state-badge.tone-warn {\r\n  color: var(--warning);\r\n  background: color-mix(in srgb, var(--warning) 12%, var(--surface-raised));\r\n}\r\n\r\n.provider-state-badge.tone-bad {\r\n  color: var(--danger);\r\n  background: color-mix(in srgb, var(--danger) 10%, var(--surface-raised));\r\n}\r\n\r\n.provider-state-badge.tone-disabled {\r\n  color: var(--muted);\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.provider-state-note {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-model-pill,\r\n.provider-model-more,\r\n.format-chip {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  min-width: 0;\r\n  max-width: 100%;\r\n  min-height: 24px;\r\n  padding: 3px 7px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 6px;\r\n  background: var(--surface-raised);\r\n  color: var(--text);\r\n  font: 720 11px/1.2 var(--mono);\r\n}\r\n\r\n.provider-model-pill {\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-model-pill.provider-model-refreshing {\r\n  border-color: var(--accent, #3b82f6);\r\n  background: var(--surface-raised);\r\n  color: var(--text);\r\n  font-weight: 720;\r\n  gap: 6px;\r\n}\r\n\r\n.refresh-spinner {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  width: 14px;\r\n  height: 14px;\r\n  vertical-align: -2px;\r\n}\r\n\r\n.refresh-spinner .icon-svg {\r\n  width: 14px;\r\n  height: 14px;\r\n  animation: refresh-spin 0.9s linear infinite;\r\n}\r\n\r\n@keyframes refresh-spin {\r\n  from { transform: rotate(0deg); }\r\n  to { transform: rotate(360deg); }\r\n}\r\n\r\n.provider-cap-refreshing-badge {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 5px;\r\n}\r\n\r\n.model-capability-refreshing {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n  padding: 8px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 8px;\r\n  background: var(--surface-raised);\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-weight: 740;\r\n}\r\n\r\n.provider-model-more {\r\n  color: var(--info);\r\n  border-color: color-mix(in srgb, var(--info) 18%, var(--line));\r\n  background: color-mix(in srgb, var(--info-soft) 55%, var(--surface));\r\n}\r\n\r\n.format-chip {\r\n  margin-right: 4px;\r\n  min-height: 21px;\r\n  padding: 2px 6px;\r\n  color: var(--info);\r\n  border-color: color-mix(in srgb, var(--info) 18%, var(--line));\r\n  background: color-mix(in srgb, var(--info-soft) 64%, var(--surface));\r\n  font-size: 10px;\r\n}\r\n\r\n.format-chip.tone-compat {\r\n  color: var(--compat);\r\n  border-color: color-mix(in srgb, var(--compat) 18%, var(--line));\r\n  background: color-mix(in srgb, var(--compat-soft) 64%, var(--surface));\r\n}\r\n\r\n.provider-card-metrics {\r\n  display: grid;\r\n  grid-template-columns: repeat(5, minmax(0, 1fr));\r\n  gap: 5px;\r\n}\r\n\r\n.provider-card-metric {\r\n  display: grid;\r\n  grid-template-columns: 16px minmax(0, auto);\r\n  min-width: 0;\r\n  justify-content: start;\r\n  gap: 1px 3px;\r\n  align-items: center;\r\n  min-height: 39px;\r\n  padding: 7px 5px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--surface-raised) 86%, var(--surface));\r\n}\r\n\r\n.provider-card-metric small {\r\n  display: none;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 10px;\r\n  font-weight: 720;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-card-metric b {\r\n  display: grid;\r\n  width: 16px;\r\n  height: 18px;\r\n  place-items: center;\r\n  border-radius: 5px;\r\n  background: transparent;\r\n  color: var(--muted);\r\n}\r\n\r\n.provider-card-metric b .icon-svg {\r\n  width: 12px;\r\n  height: 12px;\r\n}\r\n\r\n.provider-card-metric strong {\r\n  overflow: visible;\r\n  color: var(--text);\r\n  font: 820 13px/1.15 var(--mono);\r\n  text-overflow: clip;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-card-error {\r\n  display: flex;\r\n  gap: 6px;\r\n  align-items: center;\r\n  min-height: 28px;\r\n  padding: 6px 9px;\r\n  border: 1px solid color-mix(in srgb, var(--warning) 18%, var(--line));\r\n  border-radius: 6px;\r\n  background: color-mix(in srgb, var(--warning-soft) 50%, var(--surface));\r\n}\r\n\r\n.provider-card-error-icon {\r\n  display: inline-flex;\r\n  flex-shrink: 0;\r\n  color: var(--warning);\r\n}\r\n\r\n.provider-card-error-icon .icon-svg {\r\n  width: 13px;\r\n  height: 13px;\r\n}\r\n\r\n.provider-card-error strong {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--text);\r\n  font-size: 11px;\r\n  font-weight: 720;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n/* ── Provider mini chart block ── */\r\n.provider-chart-block {\r\n  display: grid;\r\n  gap: 5px;\r\n  padding: 10px 10px 8px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 10px;\r\n  background: color-mix(in srgb, var(--surface) 88%, var(--surface-raised));\r\n}\r\n\r\n.provider-chart-block.is-empty {\r\n  opacity: 0.72;\r\n}\r\n\r\n.pmc-legend {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 6px;\r\n  font-size: 10px;\r\n  line-height: 1;\r\n  color: var(--muted);\r\n}\r\n\r\n.pmc-legend-label {\r\n  font-size: 9px;\r\n  font-weight: 600;\r\n  letter-spacing: 0.06em;\r\n  text-transform: uppercase;\r\n  color: var(--muted);\r\n  opacity: 0.7;\r\n}\r\n\r\n.pmc-legend-val {\r\n  font-size: 11px;\r\n  font-weight: 700;\r\n  font-variant-numeric: tabular-nums;\r\n  letter-spacing: -0.01em;\r\n}\r\n\r\n.pmc-legend-val.muted {\r\n  color: var(--line-strong);\r\n  font-weight: 500;\r\n}\r\n\r\n.pmc-legend-sep {\r\n  width: 1px;\r\n  height: 9px;\r\n  background: var(--line);\r\n  flex-shrink: 0;\r\n}\r\n\r\n.pmc-legend-meta {\r\n  font-size: 9px;\r\n  color: var(--muted);\r\n  opacity: 0.7;\r\n  margin-left: auto;\r\n  white-space: nowrap;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n}\r\n\r\n.pmc-chart-wrap {\r\n  position: relative;\r\n  width: 100%;\r\n}\r\n\r\n.pmc-empty-label {\r\n  position: absolute;\r\n  top: 50%;\r\n  left: 50%;\r\n  transform: translate(-50%, -50%);\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  pointer-events: none;\r\n}\r\n\r\n.pmc-empty-label .icon-svg {\r\n  width: 18px;\r\n  height: 18px;\r\n  color: var(--info);\r\n  opacity: 0.45;\r\n  stroke-width: 1.5;\r\n}\r\n\r\n.provider-mini-chart {\r\n  display: block;\r\n  width: 100%;\r\n  height: 56px;\r\n  overflow: visible;\r\n}\r\n\r\n.provider-mini-chart path {\r\n  transition: d 300ms ease;\r\n}\r\n\r\n.provider-mini-chart.is-empty {\r\n  opacity: 0.6;\r\n}\r\n\r\n.pmc-pulse-dot {\r\n  animation: pmc-pulse 2.4s ease-in-out infinite;\r\n  transform-origin: center;\r\n  transform-box: fill-box;\r\n}\r\n\r\n@keyframes pmc-pulse {\r\n  0%, 100% { opacity: 0.3; r: 1.5; }\r\n  50% { opacity: 0.8; r: 3; }\r\n}\r\n\r\n.pmc-axis {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  font-size: 9px;\r\n  line-height: 1;\r\n  color: var(--muted);\r\n}\r\n\r\n.pmc-axis-label {\r\n  font-weight: 500;\r\n  letter-spacing: 0.02em;\r\n}\r\n\r\n.pmc-axis-label.muted {\r\n  opacity: 0.6;\r\n  font-weight: 400;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n  max-width: 70%;\r\n}\r\n\r\n.provider-card-footer {\r\n  display: flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  margin-top: auto;\r\n  padding-top: 3px;\r\n  border-top: 1px solid var(--line-soft);\r\n}\r\n\r\n.provider-card-stats {\r\n  display: flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n  min-width: 0;\r\n}\r\n\r\n.provider-stat {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 4px;\r\n  min-height: 30px;\r\n  padding: 0 8px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n}\r\n\r\n.provider-stat .icon-svg {\r\n  width: 13px;\r\n  height: 13px;\r\n  opacity: 0.7;\r\n}\r\n\r\n.provider-stat strong {\r\n  color: var(--text);\r\n  font: 760 12px/1.2 var(--mono);\r\n}\r\n\r\n.provider-stat.ok .icon-svg { color: var(--success); opacity: 1; }\r\n.provider-stat.ok strong { color: var(--success); }\r\n.provider-stat.warn .icon-svg { color: var(--warning); opacity: 1; }\r\n.provider-stat.warn strong { color: var(--warning); }\r\n.provider-stat.bad .icon-svg { color: var(--danger); opacity: 1; }\r\n.provider-stat.bad strong { color: var(--danger); }\r\n\r\n.provider-runtime-head,\r\n.key-card-head,\r\n.failure-policy-head {\r\n  display: flex;\r\n  gap: 10px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n}\r\n\r\n.failure-policy-head {\r\n  align-items: center;\r\n}\r\n\r\n.key-card-badges {\r\n  display: inline-flex;\r\n  gap: 6px;\r\n  align-items: center;\r\n  flex-wrap: wrap;\r\n  justify-content: flex-end;\r\n}\r\n\r\n.compact-control {\r\n  width: auto;\r\n  min-width: 142px;\r\n  min-height: 32px;\r\n  padding: 0 9px;\r\n  font-family: var(--mono);\r\n  font-size: 12px;\r\n  font-weight: 720;\r\n}\r\n\r\n.provider-title-block {\r\n  min-width: 0;\r\n}\r\n\r\n.provider-runtime-actions {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n  justify-content: flex-end;\r\n}\r\n\r\n.provider-runtime-actions .button {\r\n  min-height: 30px;\r\n  padding: 0 9px;\r\n  font-size: 11.5px;\r\n}\r\n\r\n.provider-runtime-actions .button.icon-action {\r\n  width: 30px;\r\n  min-width: 30px;\r\n  height: 30px;\r\n  min-height: 30px;\r\n  padding: 0;\r\n}\r\n\r\n.provider-runtime-actions .badge {\r\n  min-height: 30px;\r\n}\r\n\r\n.provider-compact-stats {\r\n  display: grid;\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 7px;\r\n}\r\n\r\n.compact-stat {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  gap: 1px 8px;\r\n  min-width: 0;\r\n  padding: 7px 8px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.compact-stat b,\r\n.compact-stat small {\r\n  color: var(--muted);\r\n  font-size: 10.5px;\r\n  font-weight: 720;\r\n}\r\n\r\n.compact-stat strong {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--text);\r\n  font: 800 13px/1.2 var(--mono);\r\n  text-align: right;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.compact-stat small {\r\n  grid-column: 1 / -1;\r\n  color: var(--faint);\r\n}\r\n\r\n.provider-metrics,\r\n.policy-summary-grid {\r\n  display: grid;\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 8px;\r\n}\r\n\r\n.mini-metric {\r\n  min-width: 0;\r\n  padding: 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.mini-metric span {\r\n  display: block;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--text);\r\n  font-size: 11px;\r\n  font-weight: 780;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.mini-metric strong {\r\n  display: block;\r\n  min-width: 0;\r\n  margin-top: 2px;\r\n  overflow: hidden;\r\n  color: var(--text);\r\n  font: 820 17px/1.2 var(--mono);\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.mini-metric small {\r\n  display: block;\r\n  min-width: 0;\r\n  margin-top: 2px;\r\n  overflow: hidden;\r\n  color: var(--faint);\r\n  font-size: 10px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.runtime-state-strip,\r\n.policy-decision-strip {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n}\r\n\r\n.provider-runtime-details {\r\n  border-top: 1px solid var(--line-soft);\r\n  padding-top: 4px;\r\n}\r\n\r\n.provider-runtime-details > summary {\r\n  cursor: pointer;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 760;\r\n}\r\n\r\n.provider-runtime-details[open] {\r\n  display: grid;\r\n  gap: 9px;\r\n}\r\n\r\n.provider-runtime-details[open] > summary {\r\n  color: var(--text);\r\n}\r\n\r\n.format-route-list {\r\n  display: grid;\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  gap: 8px;\r\n}\r\n\r\n.format-route {\r\n  position: relative;\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  align-items: center;\r\n  gap: 10px;\r\n  min-width: 0;\r\n  padding: 9px 10px 9px 12px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 10px;\r\n  background: var(--surface);\r\n  opacity: 1;\r\n  transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease;\r\n}\r\n\r\n.format-route.enabled {\r\n  border-color: color-mix(in srgb, var(--success) 28%, var(--line));\r\n  background: color-mix(in srgb, var(--success-soft) 34%, var(--surface));\r\n  box-shadow: 0 0 0 1px color-mix(in srgb, var(--success) 10%, transparent) inset;\r\n}\r\n\r\n.format-route.enabled b {\r\n  color: black;\r\n}\r\n\r\n.format-route.disabled {\r\n  background: color-mix(in srgb, var(--surface-soft) 72%, var(--surface));\r\n  color: var(--muted);\r\n  opacity: 1;\r\n}\r\n\r\n.format-route-main {\r\n  display: grid;\r\n  gap: 2px;\r\n  min-width: 0;\r\n}\r\n\r\n.format-route-main b,\r\n.format-route-main small {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.format-route-main b {\r\n  font: 760 11px var(--mono);\r\n}\r\n\r\n.format-route-main small {\r\n  color: var(--muted);\r\n  font: 11px var(--mono);\r\n}\r\n\r\n.format-route.is-interactive {\r\n  cursor: default;\r\n  user-select: none;\r\n}\r\n\r\n.format-route.is-interactive.enabled::after {\r\n  display: none !important;\r\n  content: none !important;\r\n}\r\n\r\n.format-route.is-interactive:hover {\r\n  border-color: color-mix(in srgb, var(--line-strong) 70%, var(--line));\r\n  background: color-mix(in srgb, var(--surface-soft) 42%, var(--surface));\r\n}\r\n\r\n.format-route.is-interactive.enabled:hover {\r\n  border-color: color-mix(in srgb, var(--success) 34%, var(--line));\r\n  background: color-mix(in srgb, var(--success-soft) 40%, var(--surface));\r\n}\r\n\r\n.format-route.is-interactive:focus-visible {\r\n  outline: 2px solid var(--info, #3b82f6);\r\n  outline-offset: 1px;\r\n}\r\n\r\n.format-route-actions {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 7px;\r\n  min-width: 0;\r\n}\r\n\r\n.format-route-switch {\r\n  position: relative;\r\n  display: inline-flex;\r\n  align-items: center;\r\n  width: 38px;\r\n  height: 22px;\r\n  padding: 0;\r\n  border: 1px solid color-mix(in srgb, var(--line-strong) 38%, var(--line));\r\n  border-radius: 999px;\r\n  background: #e8edf3;\r\n  cursor: pointer;\r\n  transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;\r\n}\r\n\r\n.format-route-switch span {\r\n  position: absolute;\r\n  left: 3px;\r\n  width: 16px;\r\n  height: 16px;\r\n  border-radius: 50%;\r\n  background: #fff;\r\n  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);\r\n  transition: transform 0.16s ease;\r\n}\r\n\r\n.format-route-switch.is-on {\r\n  border-color: color-mix(in srgb, var(--success) 42%, #dfe5ec);\r\n  background: color-mix(in srgb, var(--success) 82%, #0f172a);\r\n  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 11%, transparent);\r\n}\r\n\r\n.format-route-switch.is-on span {\r\n  transform: translateX(16px);\r\n}\r\n\r\n.format-route-switch:hover {\r\n  border-color: color-mix(in srgb, var(--info) 34%, var(--line));\r\n}\r\n\r\n.format-route-switch:focus-visible {\r\n  outline: 2px solid var(--info);\r\n  outline-offset: 2px;\r\n}\r\n\r\n.format-route-edit {\r\n  position: relative;\r\n  z-index: 1;\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  width: 28px;\r\n  height: 28px;\r\n  margin-left: 8px;\r\n  border: 1px solid transparent;\r\n  border-radius: 7px;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  cursor: pointer;\r\n  transition: color 0.14s ease, background 0.14s ease, border-color 0.14s ease, transform 0.06s ease;\r\n}\r\n\r\n.format-route-edit:hover {\r\n  border-color: var(--line);\r\n  background: var(--surface-raised);\r\n  color: var(--text);\r\n}\r\n\r\n.format-route-edit:active {\r\n  transform: translateY(1px);\r\n}\r\n\r\n.format-route-edit:focus-visible {\r\n  outline: 2px solid var(--info, #3b82f6);\r\n  outline-offset: 1px;\r\n}\r\n\r\n.format-route.is-interactive.is-busy {\n  opacity: 0.6;\n  pointer-events: none;\n}\n\nform.is-busy,\nbutton.is-busy {\n  opacity: 0.68;\n}\n\nform.is-busy {\n  cursor: progress;\n}\n\r\n.format-route-hint {\r\n  display: block;\r\n  margin-top: 3px;\r\n  font: 600 9px/1.3 var(--mono);\r\n  color: var(--muted);\r\n  opacity: 0.62;\r\n  letter-spacing: 0.02em;\r\n}\r\n\r\n.provider-key-list {\r\n  display: grid;\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  gap: 8px;\r\n}\r\n\r\n.provider-key-card {\r\n  display: grid;\r\n  gap: 9px;\r\n  min-width: 0;\r\n  padding: 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.key-title {\r\n  color: var(--text);\r\n  font-weight: 760;\r\n}\r\n\r\n.provider-key-card .provider-meta {\r\n  font-family: var(--mono);\r\n  color: var(--text);\r\n}\r\n\r\n.key-card-grid {\r\n  display: grid;\r\n  grid-template-columns: auto 1fr;\r\n  gap: 4px 10px;\r\n  font-size: 12px;\r\n}\r\n\r\n.key-card-grid span {\r\n  color: var(--muted);\r\n}\r\n\r\n.key-card-grid strong {\r\n  min-width: 0;\r\n  color: var(--text);\r\n  font-family: var(--mono);\r\n  text-align: right;\r\n}\r\n\r\n.key-actions {\r\n  justify-content: flex-start;\r\n}\r\n\r\n.key-probe-model {\r\n  position: relative;\r\n  flex: 1 1 170px;\r\n  min-width: 0;\r\n}\r\n\r\n.key-probe-trigger {\r\n  width: 100%;\r\n  max-width: 100%;\r\n  justify-content: flex-start;\r\n  text-align: left;\r\n}\r\n\r\n.key-probe-trigger span {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.key-probe-menu {\r\n  position: absolute;\r\n  z-index: 40;\r\n  top: calc(100% + 5px);\r\n  left: 0;\r\n  width: min(360px, calc(100vw - 32px));\r\n  max-width: 100%;\r\n  padding: 7px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n  box-shadow: 0 14px 34px color-mix(in srgb, var(--shadow) 22%, transparent);\r\n}\r\n\r\n.key-probe-search {\r\n  width: 100%;\r\n  min-height: 30px;\r\n  margin-bottom: 6px;\r\n  font-family: var(--mono);\r\n  font-size: 12px;\r\n}\r\n\r\n.key-probe-option-list {\r\n  display: grid;\r\n  gap: 3px;\r\n  max-height: min(260px, 42vh);\r\n  overflow-y: auto;\r\n  overscroll-behavior: contain;\r\n  scrollbar-width: thin;\r\n  scrollbar-color: color-mix(in srgb, var(--muted) 35%, transparent) transparent;\r\n}\r\n\r\n.key-probe-option-list::-webkit-scrollbar {\r\n  width: 6px;\r\n}\r\n\r\n.key-probe-option-list::-webkit-scrollbar-thumb {\r\n  border-radius: 999px;\r\n  background: color-mix(in srgb, var(--muted) 28%, transparent);\r\n}\r\n\r\n.key-probe-option,\r\n.key-probe-empty {\r\n  min-width: 0;\r\n  min-height: 28px;\r\n  padding: 0 7px;\r\n  border: 1px solid transparent;\r\n  border-radius: 5px;\r\n  background: transparent;\r\n  color: var(--text);\r\n  font: 720 11.5px/1.2 var(--mono);\r\n  text-align: left;\r\n}\r\n\r\n.key-probe-option {\r\n  display: flex;\r\n  align-items: center;\r\n  cursor: pointer;\r\n}\r\n\r\n.key-probe-option span {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.key-probe-option:hover,\r\n.key-probe-option.is-selected {\r\n  border-color: color-mix(in srgb, var(--info) 42%, transparent);\r\n  background: var(--info-soft);\r\n  color: var(--info);\r\n}\r\n\r\n.key-probe-empty {\r\n  display: grid;\r\n  place-items: center start;\r\n  color: var(--muted);\r\n}\r\n\r\n.provider-edit-drawer {\r\n  border-top: 1px solid var(--line);\r\n  padding-top: 2px;\r\n}\r\n\r\n.provider-edit-drawer summary,\r\n.raw-config-details summary {\r\n  cursor: pointer;\r\n  color: var(--text);\r\n  font-weight: 820;\r\n}\r\n\r\n.provider-edit-panel {\r\n  display: grid;\r\n  gap: 10px;\r\n  margin-top: 10px;\r\n  padding: 12px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.provider-inline-form {\r\n  display: grid;\r\n  grid-template-columns: minmax(220px, 1.2fr) minmax(180px, 0.8fr) auto auto;\r\n  gap: 8px;\r\n  align-items: end;\r\n}\r\n\r\n.provider-inline-key-form {\r\n  display: grid;\r\n  grid-template-columns: minmax(180px, 1fr) minmax(180px, 0.9fr) auto;\r\n  gap: 8px;\r\n  align-items: end;\r\n}\r\n\r\n.provider-key-chips {\r\n  padding: 2px 0;\r\n}\r\n\r\n.key-proxy-list {\r\n  display: grid;\r\n  gap: 7px;\r\n}\r\n\r\n.key-proxy-row {\r\n  display: grid;\r\n  grid-template-columns: minmax(150px, 0.85fr) minmax(220px, 1fr) auto;\r\n  gap: 8px;\r\n  align-items: end;\r\n  padding: 8px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface);\r\n}\r\n\r\n.key-proxy-id {\r\n  display: grid;\r\n  gap: 2px;\r\n  min-width: 0;\r\n}\r\n\r\n.key-proxy-id strong {\r\n  color: var(--text);\r\n  font-size: 12px;\r\n}\r\n\r\n.key-proxy-id span {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.key-proxy-field {\r\n  min-width: 0;\r\n}\r\n\r\n.provider-format-edit-list {\r\n  grid-template-columns: 1fr;\r\n}\r\n\r\n.actions {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n  justify-content: flex-end;\r\n}\r\n\r\n.actions .button {\r\n  min-height: 31px;\r\n  font-size: 12px;\r\n}\r\n\r\n.policy-summary-grid {\r\n  padding: 14px 14px 0;\r\n}\r\n\r\n.policy-controls {\r\n  padding: 14px;\r\n}\r\n\r\n.policy-control-grid {\r\n  display: grid;\r\n  grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  gap: 12px;\r\n}\r\n\r\n.policy-control-card {\r\n  display: grid;\r\n  gap: 11px;\r\n  min-width: 0;\r\n  padding: 13px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.policy-control-card-head h3 {\r\n  margin: 0 0 4px;\r\n  font-size: 14px;\r\n  font-weight: 820;\r\n}\r\n\r\n.policy-control-card-head p {\r\n  margin: 0;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  line-height: 1.4;\r\n}\r\n\r\n.form-pair-grid {\r\n  display: grid;\r\n  grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  gap: 9px;\r\n}\r\n\r\n.policy-advanced {\r\n  border-top: 1px solid var(--line-soft);\r\n  padding-top: 10px;\r\n  margin-top: 2px;\r\n}\r\n\r\n.policy-advanced > summary {\r\n  cursor: pointer;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 720;\r\n  user-select: none;\r\n  padding: 2px 0;\r\n  list-style: none;\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 5px;\r\n}\r\n\r\n.policy-advanced > summary::before {\r\n  content: \"▸\";\r\n  font-size: 10px;\r\n  transition: transform 140ms ease;\r\n  color: var(--muted);\r\n}\r\n\r\n.policy-advanced[open] > summary::before {\r\n  transform: rotate(90deg);\r\n}\r\n\r\n.policy-advanced > summary:hover {\r\n  color: var(--text);\r\n}\r\n\r\n.policy-card-list,\r\n.failure-policy-list {\r\n  display: grid;\r\n  gap: 10px;\r\n  padding: 14px;\r\n}\r\n\r\n.policy-rule-card,\r\n.failure-policy-card {\r\n  display: grid;\r\n  gap: 10px;\r\n  min-width: 0;\r\n  padding: 12px;\r\n  border: 1px solid var(--line);\r\n  border-left: 3px solid var(--neutral);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.policy-rule-card.tone-danger,\r\n.failure-policy-card.tone-danger {\r\n  border-left-color: var(--danger);\r\n}\r\n\r\n.policy-rule-card.tone-warn,\r\n.failure-policy-card.tone-warn {\r\n  border-left-color: var(--warning);\r\n}\r\n\r\n.policy-rule-card.tone-info,\r\n.failure-policy-card.tone-info {\r\n  border-left-color: var(--info);\r\n}\r\n\r\n.policy-rule-card.tone-compat,\r\n.failure-policy-card.tone-compat {\r\n  border-left-color: var(--compat);\r\n}\r\n\r\n.policy-rule-card.tone-success,\r\n.failure-policy-card.tone-success {\r\n  border-left-color: var(--success);\r\n}\r\n\r\n.policy-rule-head {\r\n  display: grid;\r\n  grid-template-columns: 34px minmax(0, 1fr);\r\n  gap: 10px;\r\n}\r\n\r\n.rule-index {\r\n  display: grid;\r\n  width: 30px;\r\n  height: 30px;\r\n  place-items: center;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  color: var(--muted);\r\n  font: 760 11px var(--mono);\r\n}\r\n\r\n.policy-rule-head h3,\r\n.failure-policy-head h3 {\r\n  margin: 0;\r\n  color: var(--text);\r\n  font-size: 14px;\r\n  font-weight: 820;\r\n  line-height: 1.35;\r\n}\r\n\r\n.policy-rule-head p,\r\n.failure-policy-card p {\r\n  margin-top: 3px;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  line-height: 1.45;\r\n}\r\n\r\n.policy-rule-meta,\r\n.failure-policy-grid {\r\n  display: grid;\r\n  grid-template-columns: minmax(68px, auto) minmax(0, 1fr);\r\n  gap: 5px 10px;\r\n  padding-top: 2px;\r\n  font-size: 12px;\r\n}\r\n\r\n.policy-rule-meta span,\r\n.failure-policy-grid span {\r\n  color: var(--muted);\r\n}\r\n\r\n.policy-rule-meta strong,\r\n.failure-policy-grid strong {\r\n  min-width: 0;\r\n  color: var(--text);\r\n  font-family: var(--mono);\r\n  font-weight: 780;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.failure-policy-edit-grid {\r\n  display: grid;\r\n  grid-template-columns: minmax(130px, 1fr) minmax(130px, 1fr);\r\n  gap: 8px;\r\n  align-items: end;\r\n}\r\n\r\n.failure-disable-check {\r\n  min-height: 36px;\r\n}\r\n\r\n.failure-policy-edit-grid .button {\r\n  justify-self: start;\r\n}\r\n\r\n.code-block {\r\n  box-sizing: border-box;\r\n  width: 100%;\r\n  max-width: 100%;\r\n  min-width: 0;\r\n  max-height: 620px;\r\n  margin: 0;\r\n  overflow: auto;\r\n  overflow-wrap: normal;\r\n  padding: 15px;\r\n  background: #18181b;\r\n  color: #f4f4f5;\r\n  font: 12px/1.58 var(--mono);\r\n  white-space: pre;\r\n}\r\n\r\n.form-grid {\r\n  display: grid;\r\n  gap: 9px;\r\n  padding: 15px;\r\n}\r\n\r\n.form-actions {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 8px;\r\n  align-items: center;\r\n}\r\n\r\n.provider-create-form {\r\n  display: grid;\r\n  grid-template-columns: minmax(150px, 0.8fr) minmax(260px, 1.4fr);\r\n  gap: 10px 12px;\r\n  padding: 13px 16px 14px;\r\n}\r\n\r\n.provider-create-format {\r\n  grid-column: 1 / -1;\r\n}\r\n\r\n.provider-create-form .control {\r\n  min-height: 34px;\r\n}\r\n\r\n.provider-create-actions {\r\n  grid-column: 1 / -1;\r\n}\r\n\r\n.provider-create-form .control {\r\n  width: 100%;\r\n  min-width: 0;\r\n}\r\n\r\n.field-help,\r\n.form-note {\r\n  color: var(--muted);\r\n  font-size: 10.5px;\r\n  font-weight: 560;\r\n  line-height: 1.25;\r\n}\r\n\r\n.field-help {\r\n  margin-top: 1px;\r\n}\r\n\r\n.form-note {\r\n  max-width: 38rem;\r\n}\r\n\r\n.global-proxy-form {\r\n  display: grid;\r\n  grid-template-columns: minmax(220px, 1fr) auto;\r\n  gap: 8px;\r\n  align-items: end;\r\n  padding: 12px 14px 14px;\r\n}\r\n\r\n.global-proxy-form .form-note {\r\n  grid-column: 1 / -1;\r\n}\r\n\r\n.proxy-control-row {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) 30px;\r\n  gap: 6px;\r\n  align-items: center;\r\n  min-width: 0;\r\n}\r\n\r\n.proxy-control-row .control {\r\n  min-width: 0;\r\n}\r\n\r\n.proxy-test-button {\r\n  width: 30px;\r\n  min-width: 30px;\r\n  height: 30px;\r\n  min-height: 30px;\r\n  border-radius: 8px;\r\n  color: var(--muted);\r\n}\r\n\r\n.proxy-test-button .icon-svg {\r\n  width: 13px;\r\n  height: 13px;\r\n}\r\n\r\n.proxy-test-button.is-testing {\r\n  color: var(--info);\r\n}\r\n\r\n.proxy-test-button.is-ok {\r\n  border-color: color-mix(in srgb, var(--success) 24%, var(--line));\r\n  background: var(--success-soft);\r\n  color: var(--success);\r\n}\r\n\r\n.proxy-test-button.is-bad {\r\n  border-color: color-mix(in srgb, var(--danger) 24%, var(--line));\r\n  background: var(--danger-soft);\r\n  color: var(--danger);\r\n}\r\n\r\n.config-primary-panel .panel-head,\r\n.model-routes-panel .panel-head,\r\n.provider-model-map-panel .panel-head,\r\n.config-provider-panel .panel-head,\r\n.global-proxy-panel .panel-head,\r\n.config-status-panel .panel-head,\r\n.config-audit-panel .panel-head {\r\n  padding-top: 11px;\r\n  padding-bottom: 10px;\r\n}\r\n\r\n.model-route-form {\r\n  display: grid;\r\n  grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.4fr) minmax(150px, 0.8fr) auto;\r\n  gap: 9px;\r\n  align-items: end;\r\n  padding: 10px 0 0;\r\n}\r\n\r\n.model-route-editor {\r\n  padding: 10px 12px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n}\r\n\r\n.model-route-editor > summary {\r\n  cursor: pointer;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-weight: 780;\r\n}\r\n\r\n.config-side-column .model-route-form {\r\n  grid-template-columns: minmax(0, 1fr);\r\n  align-items: stretch;\r\n  padding: 10px 0 0;\r\n}\r\n\r\n.config-side-column .model-route-form .form-actions {\r\n  justify-content: flex-start;\r\n}\r\n\r\n.model-route-form .form-actions {\r\n  align-self: end;\r\n}\r\n\r\n.model-route-list {\r\n  display: grid;\r\n  gap: 6px;\r\n  padding: 10px;\r\n}\r\n\r\n.provider-model-map-list {\r\n  display: grid;\r\n  gap: 6px;\r\n  padding: 10px;\r\n}\r\n\r\n.config-provider-page-list,\r\n.model-route-page-list,\r\n.provider-model-map-page-list,\r\n.audit-page-list {\r\n  display: grid;\r\n  gap: 6px;\r\n}\r\n\r\n.model-route-hint {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n  align-items: center;\r\n  padding: 7px 8px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 720;\r\n}\r\n\r\n.model-route-card {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  gap: 8px;\r\n  align-items: center;\r\n  padding: 9px 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.model-route-main,\r\n.model-route-side {\r\n  min-width: 0;\r\n}\r\n\r\n.model-route-main {\r\n  display: grid;\r\n  gap: 5px;\r\n}\r\n\r\n.model-route-provider-list {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n}\r\n\r\n.model-route-side {\r\n  display: grid;\r\n  gap: 5px;\r\n  justify-items: end;\r\n}\r\n\r\n.provider-model-map-card {\r\n  display: grid;\r\n  gap: 8px;\r\n  padding: 9px 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.provider-model-map-head {\r\n  display: flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  min-width: 0;\r\n}\r\n\r\n.provider-model-map-pairs {\r\n  display: grid;\r\n  gap: 5px;\r\n}\r\n\r\n.provider-model-map-pair {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);\r\n  gap: 7px;\r\n  align-items: center;\r\n  padding: 6px 7px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n  font-size: 11px;\r\n}\r\n\r\n.provider-model-map-pair span,\r\n.provider-model-map-pair strong {\r\n  min-width: 0;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.provider-model-map-pair strong {\r\n  color: var(--text);\r\n  font-weight: 760;\r\n}\r\n\r\n.actions.tight {\r\n  gap: 4px;\r\n}\r\n\r\n.compact-action {\r\n  min-height: 30px;\r\n  padding: 0 9px;\r\n  font-size: 11.5px;\r\n}\r\n\r\n.pad-slim {\r\n  padding: 8px 2px 0;\r\n}\r\n\r\n.config-provider-list {\r\n  display: grid;\r\n  gap: 6px;\r\n  padding: 10px;\r\n}\r\n\r\n.config-summary {\r\n  padding: 14px;\r\n}\r\n\r\n.config-summary-compact {\r\n  padding: 10px;\r\n}\r\n\r\n.overlay-safety {\r\n  padding: 12px 0 0;\r\n}\r\n\r\n.config-summary-grid {\r\n  display: grid;\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 8px;\r\n}\r\n\r\n.config-status-grid {\r\n  grid-template-columns: repeat(2, minmax(0, 1fr));\r\n}\r\n\r\n.config-summary-compact .mini-metric {\r\n  padding: 8px;\r\n}\r\n\r\n.config-summary-compact .mini-metric strong {\r\n  font-size: 14px;\r\n}\r\n\r\n.config-path-row {\r\n  display: grid;\r\n  grid-template-columns: 110px minmax(0, 1fr);\r\n  gap: 10px;\r\n  margin-top: 8px;\r\n  padding: 8px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n  font-size: 12px;\r\n}\r\n\r\n.config-path-row span {\r\n  color: var(--muted);\r\n  font-weight: 720;\r\n}\r\n\r\n.config-path-row strong {\r\n  min-width: 0;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.config-provider-summary-card {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto auto;\r\n  gap: 7px 10px;\r\n  align-items: center;\r\n  min-height: 66px;\r\n  padding: 8px 10px;\r\n  border: 1px solid var(--line);\r\n  border-left: 3px solid var(--info);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.config-provider-summary-main,\r\n.config-provider-summary-keys,\r\n.config-provider-summary-formats {\r\n  min-width: 0;\r\n}\r\n\r\n.config-provider-summary-main {\r\n  grid-column: 1;\r\n  grid-row: 1;\r\n}\r\n\r\n.config-provider-summary-badges {\r\n  grid-column: 2;\r\n  grid-row: 1;\r\n  justify-self: end;\r\n  display: inline-flex;\r\n  flex-wrap: wrap;\r\n  justify-content: flex-end;\r\n  gap: 5px;\r\n}\r\n\r\n.config-provider-summary-keys,\r\n.config-provider-summary-formats {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.config-provider-summary-keys {\r\n  grid-column: 1;\r\n  grid-row: 2;\r\n}\r\n\r\n.config-provider-summary-formats {\r\n  grid-column: 2 / span 2;\r\n  grid-row: 2;\r\n  justify-self: end;\r\n}\r\n\r\n.config-provider-summary-card > .button {\r\n  grid-column: 3;\r\n  grid-row: 1;\r\n  justify-self: end;\r\n}\r\n\r\n.config-provider-summary-card .provider-name,\r\n.config-provider-summary-card .provider-meta {\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.audit-list {\r\n  display: grid;\r\n  gap: 8px;\r\n  max-height: 460px;\r\n  overflow: auto;\r\n  padding: 12px;\r\n}\r\n\r\n.audit-item {\r\n  min-width: 0;\r\n  padding: 9px 10px;\r\n  border: 1px solid var(--line);\r\n  border-left-width: 3px;\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n}\r\n\r\n.audit-item.tone-ok {\r\n  border-left-color: var(--success);\r\n}\r\n\r\n.audit-item.tone-bad {\r\n  border-left-color: var(--danger);\r\n}\r\n\r\n.audit-item-title {\r\n  display: flex;\r\n  min-width: 0;\r\n  gap: 8px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n}\r\n\r\n.audit-item-title .mono {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  font-size: 11.5px;\r\n}\r\n\r\n.audit-item-meta {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px 10px;\r\n  margin-top: 4px;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 700;\r\n}\r\n\r\n.audit-detail-details,\r\n.audit-older {\r\n  margin-top: 7px;\r\n}\r\n\r\n.audit-detail-details > summary,\r\n.audit-older > summary {\r\n  cursor: pointer;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 760;\r\n}\r\n\r\n.audit-older-list {\r\n  display: grid;\r\n  gap: 8px;\r\n  margin-top: 8px;\r\n}\r\n\r\n.audit-detail {\r\n  max-height: 120px;\r\n  margin: 6px 0 0;\r\n  overflow: auto;\r\n  padding: 8px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 7px;\r\n  background: var(--surface-raised);\r\n  color: var(--text);\r\n  font: 11px/1.45 var(--mono);\r\n  white-space: pre-wrap;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.audit-error {\r\n  margin-top: 8px;\r\n  color: var(--danger);\r\n  font-size: 12px;\r\n  font-weight: 750;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.raw-config-details {\r\n  min-width: 0;\r\n  padding: 14px;\r\n}\r\n\r\n.raw-config-details .code-block {\r\n  margin-top: 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n}\r\n\r\n.config-advanced-panel {\r\n  min-width: 0;\r\n  background: color-mix(in srgb, var(--surface-raised) 66%, var(--surface));\r\n}\r\n\r\n.config-advanced-details {\r\n  min-width: 0;\r\n  padding: 13px 14px;\r\n}\r\n\r\n.config-advanced-details > summary {\r\n  display: grid;\r\n  gap: 2px;\r\n  cursor: pointer;\r\n  list-style: none;\r\n}\r\n\r\n.config-advanced-details > summary::-webkit-details-marker {\r\n  display: none;\r\n}\r\n\r\n.config-advanced-details > summary span {\r\n  color: var(--text);\r\n  font-size: 13px;\r\n  font-weight: 760;\r\n}\r\n\r\n.config-advanced-details > summary small {\r\n  color: var(--muted);\r\n  font-size: 11.5px;\r\n}\r\n\r\n.config-advanced-details > .actions {\r\n  margin-top: 12px;\r\n}\r\n\r\n.nested-details {\r\n  padding: 10px 0 0;\r\n}\r\n\r\n.config-provider-card {\r\n  display: grid;\r\n  gap: 12px;\r\n  padding: 14px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n}\r\n\r\n.config-provider-card:last-child {\r\n  border-bottom: 0;\r\n}\r\n\r\n.config-provider-head {\r\n  display: flex;\r\n  gap: 10px;\r\n  align-items: flex-start;\r\n  justify-content: space-between;\r\n}\r\n\r\n.config-provider-form,\r\n.config-key-form {\r\n  display: grid;\r\n  gap: 8px;\r\n}\r\n\r\n.field {\r\n  display: grid;\r\n  gap: 5px;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 720;\r\n}\r\n\r\n.field .control {\r\n  width: 100%;\r\n  font-weight: 500;\r\n  min-width: 0;\r\n}\r\n\r\n.check-field {\r\n  display: flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n  min-height: 28px;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-weight: 700;\r\n}\r\n\r\n.check-field input {\r\n  width: 15px;\r\n  height: 15px;\r\n  accent-color: var(--accent);\r\n}\r\n\r\n.masked-key-list {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n}\r\n\r\n.format-edit-list {\r\n  display: grid;\r\n  gap: 7px;\r\n}\r\n\r\n.format-edit-row {\r\n  display: grid;\r\n  grid-template-columns: minmax(156px, 0.8fr) minmax(130px, 1fr) auto;\r\n  gap: 7px;\r\n  align-items: center;\r\n}\r\n\r\n.format-edit-row .control {\r\n  width: 100%;\r\n}\r\n\r\n.drawer {\r\n  position: fixed;\r\n  top: 0;\r\n  right: 0;\r\n  width: min(580px, 100vw);\r\n  height: 100dvh;\r\n  border-left: 1px solid var(--line);\r\n  background: rgba(255, 255, 255, 0.75);\r\n  backdrop-filter: blur(30px) saturate(200%);\r\n  -webkit-backdrop-filter: blur(30px) saturate(200%);\r\n  box-shadow: -24px 0 60px rgba(9, 9, 11, 0);\r\n  transform: translateX(100%);\r\n  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 220ms ease;\r\n  z-index: 20;\r\n}\r\n\r\n.drawer.is-open {\r\n  transform: translateX(0);\r\n  box-shadow: -24px 0 60px rgba(9, 9, 11, 0.1);\r\n}\r\n\r\n#detailDrawer {\r\n  z-index: 36;\r\n}\r\n\r\n.drawer-head {\r\n  display: flex;\r\n  align-items: flex-start;\r\n  justify-content: space-between;\r\n  gap: 12px;\r\n  padding: 17px;\r\n  border-bottom: 1px solid var(--line);\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.drawer-head p {\r\n  margin-top: 4px;\r\n  color: var(--muted);\r\n  font-family: var(--mono);\r\n  font-size: 12px;\r\n}\r\n\r\n.drawer-body {\r\n  height: calc(100dvh - 74px);\r\n  overflow: auto;\r\n  padding: 15px;\r\n}\r\n\r\n.provider-drawer {\r\n  width: min(720px, 100vw);\r\n}\r\n\r\n.provider-drawer-body {\r\n  display: flex;\r\n  flex-direction: column;\r\n  min-height: 0;\r\n  overflow: hidden;\r\n  background:\r\n    radial-gradient(120% 180px at 50% 0, color-mix(in srgb, var(--info, #3b82f6) 7%, transparent) 0, transparent 70%),\r\n    var(--surface);\r\n}\r\n\r\n.provider-drawer-tabs {\r\n  position: relative;\r\n  top: auto;\r\n  flex: 0 0 auto;\r\n  z-index: 2;\r\n  display: grid;\r\n  grid-template-columns: repeat(5, minmax(0, 1fr));\r\n  gap: 5px;\r\n  padding: 4px 0 8px;\r\n  background: color-mix(in srgb, var(--surface) 88%, transparent);\r\n  backdrop-filter: blur(14px) saturate(1.3);\r\n  -webkit-backdrop-filter: blur(14px) saturate(1.3);\r\n}\r\n\r\n.provider-drawer-tab {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  gap: 5px;\n  min-width: 0;\n  min-height: 32px;\n  padding: 0 8px;\n  border: 1px solid var(--line);\r\n  border-radius: 9px;\r\n  background: var(--surface);\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 760;\r\n  cursor: pointer;\r\n  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 0.06s ease;\r\n}\r\n\r\n.provider-drawer-tab:hover {\r\n  border-color: color-mix(in srgb, var(--info, #3b82f6) 32%, var(--line));\r\n  background: color-mix(in srgb, var(--info, #3b82f6) 6%, var(--surface));\r\n  color: var(--text);\r\n}\r\n\r\n.provider-drawer-tab:active {\r\n  transform: translateY(1px);\r\n}\r\n\r\n.provider-drawer-tab.is-active {\r\n  border-color: color-mix(in srgb, var(--info, #3b82f6) 55%, var(--line));\r\n  background: color-mix(in srgb, var(--info, #3b82f6) 14%, var(--surface));\r\n  color: color-mix(in srgb, var(--info, #3b82f6) 90%, var(--text));\r\n  box-shadow: 0 0 0 1px color-mix(in srgb, var(--info, #3b82f6) 18%, transparent) inset;\n}\n\n.provider-drawer-tab-icon {\n  display: inline-flex;\n  flex: 0 0 auto;\n}\n\n.provider-drawer-tab-icon .icon-svg {\n  width: 13px;\n  height: 13px;\n}\n\n.provider-drawer-tab-label {\n  min-width: 0;\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}\n\r\n.provider-drawer-section {\r\n  display: grid;\r\n  flex: 1 1 auto;\r\n  gap: 12px;\r\n  align-content: start;\r\n  grid-auto-rows: max-content;\r\n  overflow: auto;\r\n  min-width: 0;\r\n  min-height: 0;\r\n  margin-top: 10px;\r\n  padding-right: 2px;\r\n}\r\n\r\n.provider-models-actions {\r\n  display: flex;\r\n  justify-content: flex-end;\r\n  min-width: 0;\r\n  margin-top: -2px;\r\n}\r\n\r\n.provider-detail-hero {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  gap: 12px;\r\n  align-items: center;\r\n  padding: 14px;\r\n  border: 1px solid var(--line);\r\n  border-top: 3px solid var(--neutral);\r\n  border-radius: 10px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.provider-detail-hero.is-available {\r\n  border-top-color: var(--success);\r\n}\r\n\r\n.provider-detail-hero.is-degraded,\r\n.provider-detail-hero.is-cooldown {\r\n  border-top-color: var(--warning);\r\n}\r\n\r\n.provider-detail-hero.is-unavailable {\r\n  border-top-color: var(--danger);\r\n}\r\n\r\n.provider-detail-hero.is-disabled {\r\n  border-top-color: var(--faint);\r\n}\r\n\r\n.provider-detail-hero > div:first-child {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  gap: 3px 8px;\r\n  align-items: center;\r\n  min-width: 0;\r\n}\r\n\r\n.provider-detail-hero strong,\r\n.provider-detail-hero p {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-detail-hero p {\r\n  grid-column: 2;\r\n  margin: 0;\r\n  color: var(--muted);\r\n  font-family: var(--mono);\r\n  font-size: 11px;\r\n}\r\n\r\n.provider-detail-metrics {\r\n  display: grid;\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 8px;\r\n  align-items: start;\r\n  grid-auto-rows: max-content;\r\n}\r\n\r\n.provider-detail-metrics .mini-metric {\r\n  align-self: start;\r\n}\r\n\r\n.provider-detail-metrics .mini-metric span,\r\n.provider-detail-metrics .mini-metric strong,\r\n.provider-detail-metrics .mini-metric small {\n  min-width: 0;\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}\n\n/* Provider overview: routing readiness first, evidence second. */\n.provider-overview-workspace {\n  gap: 14px;\n}\n\n.provider-overview-readiness {\n  min-width: 0;\n  overflow: clip;\n  border: 1px solid var(--line);\n  border-radius: 11px;\n  background: var(--surface);\n  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);\n}\n\n.provider-overview-readiness.is-available {\n  border-color: color-mix(in srgb, var(--success) 24%, var(--line));\n}\n\n.provider-overview-readiness.is-degraded,\n.provider-overview-readiness.is-cooldown {\n  border-color: color-mix(in srgb, var(--warning) 27%, var(--line));\n}\n\n.provider-overview-readiness.is-unavailable {\n  border-color: color-mix(in srgb, var(--danger) 25%, var(--line));\n}\n\n.provider-overview-readiness.is-disabled {\n  border-color: var(--line-strong);\n}\n\n.provider-overview-readiness-head {\n  display: grid;\n  grid-template-columns: 38px minmax(0, 1fr) auto;\n  gap: 11px;\n  align-items: start;\n  min-width: 0;\n  padding: 14px 14px 12px;\n}\n\n.provider-overview-readiness-icon,\n.provider-overview-section-icon,\n.provider-overview-state-icon,\n.provider-overview-kpi-icon {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  flex: 0 0 auto;\n}\n\n.provider-overview-readiness-icon {\n  width: 38px;\n  height: 38px;\n  border-radius: 9px;\n  background: var(--surface-raised);\n  color: var(--muted);\n}\n\n.provider-overview-readiness-icon.tone-ok {\n  background: color-mix(in srgb, var(--success) 10%, var(--surface));\n  color: var(--success);\n}\n\n.provider-overview-readiness-icon.tone-warn {\n  background: color-mix(in srgb, var(--warning) 12%, var(--surface));\n  color: var(--warning);\n}\n\n.provider-overview-readiness-icon.tone-bad {\n  background: color-mix(in srgb, var(--danger) 10%, var(--surface));\n  color: var(--danger);\n}\n\n.provider-overview-readiness-icon .icon-svg {\n  width: 19px;\n  height: 19px;\n}\n\n.provider-overview-readiness-head > div {\n  min-width: 0;\n}\n\n.provider-overview-readiness-head > div > span {\n  display: block;\n  margin-bottom: 2px;\n  color: var(--muted);\n  font-size: 10px;\n  font-weight: 760;\n  letter-spacing: 0.055em;\n  text-transform: uppercase;\n}\n\n.provider-overview-readiness-head h3,\n.provider-overview-section-head h3 {\n  margin: 0;\n  color: var(--text);\n  text-wrap: balance;\n}\n\n.provider-overview-readiness-head h3 {\n  font-size: 16px;\n  line-height: 1.2;\n}\n\n.provider-overview-readiness-head p,\n.provider-overview-section-head p {\n  margin: 3px 0 0;\n  color: var(--muted);\n  text-wrap: pretty;\n}\n\n.provider-overview-readiness-head p {\n  max-width: 650px;\n  font-size: 11px;\n  line-height: 1.5;\n}\n\n.provider-overview-priority {\n  min-height: 24px;\n  padding: 5px 8px;\n  border: 1px solid var(--line-soft);\n  border-radius: 6px;\n  background: var(--surface-raised);\n  color: var(--text-soft);\n  font: 720 10.5px/1.2 var(--mono);\n  white-space: nowrap;\n}\n\n.provider-overview-endpoint {\n  display: grid;\n  grid-template-columns: auto minmax(0, 1fr);\n  gap: 10px;\n  align-items: center;\n  min-width: 0;\n  padding: 9px 14px;\n  border-top: 1px solid var(--line-soft);\n  background: color-mix(in srgb, var(--surface-raised) 58%, var(--surface));\n}\n\n.provider-overview-endpoint > span {\n  display: inline-flex;\n  align-items: center;\n  gap: 6px;\n  color: var(--muted);\n  font-size: 10.5px;\n  font-weight: 700;\n  white-space: nowrap;\n}\n\n.provider-overview-endpoint .icon-svg {\n  width: 14px;\n  height: 14px;\n}\n\n.provider-overview-endpoint code {\n  min-width: 0;\n  overflow: hidden;\n  color: var(--text-soft);\n  font-size: 10.5px;\n  text-align: right;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}\n\n.provider-overview-state-facts {\n  display: grid;\n  grid-template-columns: repeat(3, minmax(0, 1fr));\n  border-top: 1px solid var(--line-soft);\n}\n\n.provider-overview-state-fact {\n  display: grid;\n  grid-template-columns: 25px minmax(0, 1fr);\n  gap: 8px;\n  align-items: center;\n  min-width: 0;\n  padding: 10px 12px;\n  border-right: 1px solid var(--line-soft);\n}\n\n.provider-overview-state-fact:last-child {\n  border-right: 0;\n}\n\n.provider-overview-state-icon {\n  width: 25px;\n  height: 25px;\n  border-radius: 6px;\n  background: var(--surface-raised);\n  color: var(--muted);\n}\n\n.provider-overview-state-icon .icon-svg {\n  width: 13px;\n  height: 13px;\n}\n\n.provider-overview-state-fact.tone-ok .provider-overview-state-icon {\n  background: color-mix(in srgb, var(--success) 9%, var(--surface));\n  color: var(--success);\n}\n\n.provider-overview-state-fact.tone-warn .provider-overview-state-icon {\n  background: color-mix(in srgb, var(--warning) 10%, var(--surface));\n  color: var(--warning);\n}\n\n.provider-overview-state-fact.tone-bad .provider-overview-state-icon {\n  background: color-mix(in srgb, var(--danger) 9%, var(--surface));\n  color: var(--danger);\n}\n\n.provider-overview-state-fact > span:last-child {\n  display: grid;\n  min-width: 0;\n  gap: 2px;\n}\n\n.provider-overview-state-fact small,\n.provider-overview-state-fact strong {\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}\n\n.provider-overview-state-fact small {\n  color: var(--muted);\n  font-size: 9.5px;\n}\n\n.provider-overview-state-fact strong {\n  color: var(--text);\n  font-size: 11px;\n}\n\n.provider-overview-cooldown {\n  display: flex;\n  align-items: center;\n  gap: 7px;\n  padding: 8px 13px;\n  border-top: 1px solid color-mix(in srgb, var(--warning) 18%, var(--line-soft));\n  background: color-mix(in srgb, var(--warning) 8%, var(--surface));\n  color: var(--warning);\n  font-size: 11px;\n  font-weight: 720;\n}\n\n.provider-overview-cooldown .icon-svg {\n  width: 14px;\n  height: 14px;\n}\n\n.provider-overview-kpis {\n  display: grid;\n  grid-template-columns: repeat(4, minmax(0, 1fr));\n  gap: 8px;\n}\n\n.provider-overview-kpi {\n  display: grid;\n  grid-template-columns: 28px minmax(0, 1fr);\n  gap: 8px;\n  align-items: center;\n  min-width: 0;\n  min-height: 68px;\n  padding: 10px;\n  border: 1px solid var(--line-soft);\n  border-radius: 9px;\n  background: var(--surface);\n}\n\n.provider-overview-kpi-icon {\n  width: 28px;\n  height: 28px;\n  border-radius: 7px;\n  background: var(--surface-raised);\n  color: var(--muted);\n}\n\n.provider-overview-kpi-icon .icon-svg {\n  width: 14px;\n  height: 14px;\n}\n\n.provider-overview-kpi.tone-ok .provider-overview-kpi-icon {\n  background: color-mix(in srgb, var(--success) 9%, var(--surface));\n  color: var(--success);\n}\n\n.provider-overview-kpi.tone-warn .provider-overview-kpi-icon {\n  background: color-mix(in srgb, var(--warning) 10%, var(--surface));\n  color: var(--warning);\n}\n\n.provider-overview-kpi.tone-bad .provider-overview-kpi-icon {\n  background: color-mix(in srgb, var(--danger) 9%, var(--surface));\n  color: var(--danger);\n}\n\n.provider-overview-kpi.tone-info .provider-overview-kpi-icon {\n  background: color-mix(in srgb, var(--info) 9%, var(--surface));\n  color: var(--info);\n}\n\n.provider-overview-kpi > div {\n  display: grid;\n  min-width: 0;\n  gap: 1px;\n}\n\n.provider-overview-kpi small,\n.provider-overview-kpi strong,\n.provider-overview-kpi > div > span {\n  min-width: 0;\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}\n\n.provider-overview-kpi small {\n  color: var(--muted);\n  font-size: 9.5px;\n}\n\n.provider-overview-kpi strong {\n  color: var(--text);\n  font: 760 15px/1.25 var(--mono);\n  font-variant-numeric: tabular-nums;\n}\n\n.provider-overview-kpi > div > span {\n  color: var(--muted);\n  font-size: 9px;\n}\n\n.provider-overview-section {\n  display: grid;\n  gap: 9px;\n  min-width: 0;\n  padding: 12px;\n  border: 1px solid var(--line-soft);\n  border-radius: 10px;\n  background: var(--surface);\n}\n\n.provider-overview-section-head {\n  display: grid;\n  grid-template-columns: 30px minmax(0, 1fr) auto;\n  gap: 9px;\n  align-items: center;\n  min-width: 0;\n}\n\n.provider-overview-section-icon {\n  width: 30px;\n  height: 30px;\n  border-radius: 7px;\n  background: var(--surface-raised);\n  color: var(--text-soft);\n}\n\n.provider-overview-section-icon .icon-svg {\n  width: 15px;\n  height: 15px;\n}\n\n.provider-overview-section-head > div {\n  min-width: 0;\n}\n\n.provider-overview-section-head h3 {\n  font-size: 12px;\n  line-height: 1.2;\n}\n\n.provider-overview-section-head p {\n  overflow: hidden;\n  font-size: 10px;\n  line-height: 1.35;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}\n\n.provider-overview-attention {\n  border-color: color-mix(in srgb, var(--warning) 24%, var(--line));\n  background: color-mix(in srgb, var(--warning) 4%, var(--surface));\n}\n\n.provider-overview-attention .provider-overview-section-icon {\n  background: color-mix(in srgb, var(--warning) 11%, var(--surface));\n  color: var(--warning);\n}\n\n.provider-overview-exception-state {\n  display: grid;\n  justify-items: end;\n  gap: 2px;\n  color: var(--warning);\n  white-space: nowrap;\n}\n\n.provider-overview-exception-state strong {\n  font-size: 10.5px;\n}\n\n.provider-overview-exception-state small {\n  color: var(--muted);\n  font-size: 9.5px;\n}\n\n.provider-overview-disclosure {\n  min-width: 0;\n  overflow: clip;\n  border: 1px solid var(--line-soft);\n  border-radius: 10px;\n  background: var(--surface);\n}\n\n.provider-overview-disclosure > summary {\n  display: grid;\n  grid-template-columns: 30px minmax(0, 1fr) auto 14px;\n  gap: 9px;\n  align-items: center;\n  min-height: 58px;\n  padding: 11px 12px;\n  color: var(--text);\n  cursor: pointer;\n  list-style: none;\n  user-select: none;\n}\n\n.provider-overview-disclosure > summary::-webkit-details-marker {\n  display: none;\n}\n\n.provider-overview-disclosure > summary::after {\n  width: 7px;\n  height: 7px;\n  border-right: 1.5px solid var(--muted);\n  border-bottom: 1.5px solid var(--muted);\n  content: \"\";\n  transform: rotate(45deg) translateY(-2px);\n  transition: transform 160ms ease;\n}\n\n.provider-overview-disclosure[open] > summary::after {\n  transform: rotate(225deg) translate(-2px, -1px);\n}\n\n.provider-overview-disclosure > summary:hover {\n  background: color-mix(in srgb, var(--info-soft) 24%, var(--surface));\n}\n\n.provider-overview-disclosure > summary:focus-visible {\n  outline: 2px solid color-mix(in srgb, var(--info) 62%, transparent);\n  outline-offset: -2px;\n}\n\n.provider-overview-disclosure > summary > span:nth-child(2) {\n  display: grid;\n  min-width: 0;\n  gap: 3px;\n}\n\n.provider-overview-disclosure > summary strong,\n.provider-overview-disclosure > summary small {\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}\n\n.provider-overview-disclosure > summary strong {\n  font-size: 12px;\n}\n\n.provider-overview-disclosure > summary small,\n.provider-overview-disclosure-count {\n  color: var(--muted);\n  font-size: 10px;\n}\n\n.provider-overview-disclosure-count {\n  font-family: var(--mono);\n  white-space: nowrap;\n}\n\n.provider-overview-disclosure-body {\n  display: grid;\n  gap: 9px;\n  min-width: 0;\n  padding: 10px 12px 12px;\n  border-top: 1px solid var(--line-soft);\n}\n\n@media (max-width: 760px) {\n  .provider-overview-kpis {\n    grid-template-columns: repeat(2, minmax(0, 1fr));\n  }\n\n  .provider-overview-readiness-head {\n    grid-template-columns: 34px minmax(0, 1fr);\n  }\n\n  .provider-overview-readiness-icon {\n    width: 34px;\n    height: 34px;\n  }\n\n  .provider-overview-priority {\n    grid-column: 2;\n    justify-self: start;\n  }\n}\n\n@media (max-width: 520px) {\n  .provider-overview-state-facts {\n    grid-template-columns: 1fr;\n  }\n\n  .provider-overview-state-fact {\n    border-right: 0;\n    border-bottom: 1px solid var(--line-soft);\n  }\n\n  .provider-overview-state-fact:last-child {\n    border-bottom: 0;\n  }\n\n  .provider-overview-endpoint {\n    grid-template-columns: 1fr;\n    gap: 4px;\n  }\n\n  .provider-overview-endpoint code {\n    text-align: left;\n  }\n\n  .provider-overview-section-head {\n    grid-template-columns: 30px minmax(0, 1fr);\n  }\n\n  .provider-overview-section-head .section-count-badge {\n    grid-column: 2;\n    justify-self: start;\n  }\n\n  .provider-overview-disclosure > summary {\n    grid-template-columns: 30px minmax(0, 1fr) 14px;\n  }\n\n  .provider-overview-disclosure-count {\n    grid-column: 2;\n    grid-row: 2;\n  }\n\n  .provider-overview-disclosure > summary::after {\n    grid-column: 3;\n    grid-row: 1 / 3;\n  }\n}\n\n.provider-activity-list,\n.provider-probe-list,\n.provider-route-list {\n  display: grid;\r\n  gap: 7px;\r\n}\r\n\r\n.provider-activity-row,\r\n.provider-route-card {\r\n  display: grid;\r\n  min-width: 0;\r\n  align-items: center;\r\n  gap: 8px;\r\n  padding: 9px 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.provider-activity-row {\r\n  grid-template-columns: 10px minmax(140px, 1.05fr) minmax(132px, 0.8fr) minmax(86px, auto) minmax(64px, auto);\r\n  width: 100%;\r\n  min-height: 38px;\r\n  padding: 7px 10px;\r\n  border-color: #edf1f5;\r\n  border-radius: 8px;\r\n  background: #fff;\r\n  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.035);\r\n  color: var(--text);\r\n  text-align: left;\r\n  cursor: pointer;\r\n}\r\n\r\n.provider-activity-row:hover {\r\n  border-color: #dce5ef;\r\n  background: #fbfcfd;\r\n  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.045);\r\n}\r\n\r\n.provider-activity-row strong,\r\n.provider-activity-row span,\r\n.provider-activity-row small,\r\n.provider-activity-row em,\r\n.provider-route-card strong,\r\n.provider-route-card small {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-activity-row small {\r\n  color: #7b8491;\r\n  font-family: var(--mono);\r\n  font-size: 10.5px;\r\n}\r\n\r\n.provider-activity-row strong {\r\n  color: #1f2937;\r\n  font-size: 12px;\r\n  font-weight: 760;\r\n}\r\n\r\n.provider-activity-status {\r\n  justify-self: start;\r\n  min-height: 20px;\r\n  padding: 2px 8px;\r\n  border-radius: 6px;\r\n  background: #f4f8f6;\r\n  color: var(--success);\r\n  font-size: 10.5px;\r\n  font-weight: 740;\r\n}\r\n\r\n.provider-activity-row.warn .provider-activity-status {\r\n  background: color-mix(in srgb, var(--warning) 10%, #fff);\r\n  color: var(--warning);\r\n}\r\n\r\n.provider-activity-row.bad .provider-activity-status {\r\n  background: color-mix(in srgb, var(--danger) 10%, #fff);\r\n  color: var(--danger);\r\n}\r\n\r\n.provider-activity-row em {\r\n  color: #4b5563;\r\n  font-family: var(--mono);\r\n  font-size: 10.5px;\r\n  font-weight: 680;\r\n  font-style: normal;\r\n  text-align: right;\r\n}\r\n\r\n.provider-probe-row {\r\n  display: grid;\r\n  grid-template-columns: 10px minmax(118px, 1.1fr) minmax(128px, 1fr) minmax(64px, auto);\r\n  grid-template-areas:\r\n    \"dot reason model timing\"\r\n    \". meta action action\"\r\n    \". tier next time\";\r\n  align-items: center;\r\n  gap: 5px 9px;\r\n  min-width: 0;\r\n  padding: 9px 10px;\r\n  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);\r\n  border-radius: 8px;\r\n  background:\r\n    linear-gradient(180deg, color-mix(in srgb, var(--surface) 96%, #fff), var(--surface));\r\n  color: var(--text);\r\n  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);\r\n}\r\n\r\n.provider-probe-row .provider-status-dot {\r\n  grid-area: dot;\r\n  align-self: start;\r\n  margin-top: 3px;\r\n}\r\n\r\n.provider-probe-row strong,\r\n.provider-probe-row span,\r\n.provider-probe-row small,\r\n.provider-probe-row em,\r\n.provider-probe-row b {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-probe-row strong {\r\n  grid-area: reason;\r\n  color: #162033;\r\n  font-size: 12px;\r\n  font-weight: 760;\r\n  line-height: 1.2;\r\n}\r\n\r\n.provider-probe-row > span:not(.provider-status-dot):not(.probe-tier-badge):not(.probe-next-badge):not(.probe-time-badge) {\r\n  grid-area: model;\r\n  color: #526176;\r\n  font-size: 10.5px;\r\n}\r\n\r\n.provider-probe-row small {\r\n  grid-area: meta;\r\n}\r\n\r\n.provider-probe-row em {\r\n  grid-area: action;\r\n}\r\n\r\n.provider-probe-row span,\r\n.provider-probe-row small,\r\n.provider-probe-row em,\r\n.provider-probe-row b {\r\n  color: var(--muted);\r\n  font-family: var(--mono);\r\n  font-size: 10.5px;\r\n  font-style: normal;\r\n}\r\n\r\n.provider-probe-row b {\r\n  grid-area: timing;\r\n  color: var(--text);\r\n  font-size: 11px;\r\n  font-weight: 720;\r\n  text-align: right;\r\n}\r\n\r\n.provider-probe-row.tone-ok {\r\n  border-color: color-mix(in srgb, var(--success) 18%, var(--line));\r\n  background:\r\n    linear-gradient(90deg, color-mix(in srgb, var(--success) 7%, transparent), transparent 42%),\r\n    var(--surface);\r\n}\r\n\r\n.provider-probe-row.tone-warn {\r\n  border-color: color-mix(in srgb, var(--warning) 20%, var(--line));\r\n  background:\r\n    linear-gradient(90deg, color-mix(in srgb, var(--warning) 7%, transparent), transparent 42%),\r\n    var(--surface);\r\n}\r\n\r\n.provider-probe-row.tone-bad {\r\n  border-color: color-mix(in srgb, var(--danger) 18%, var(--line));\r\n  background:\r\n    linear-gradient(90deg, color-mix(in srgb, var(--danger) 7%, transparent), transparent 42%),\r\n    var(--surface);\r\n}\r\n\r\n.probe-tier-badge {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  min-width: 0;\r\n  padding: 2px 7px;\r\n  border-radius: 6px;\r\n  font-size: 10px;\r\n  font-weight: 600;\r\n  letter-spacing: 0;\r\n  white-space: nowrap;\r\n  flex-shrink: 0;\r\n  border: 1px solid transparent;\r\n}\r\n.probe-tier-badge.tone-neutral {\r\n  background: #f4f6f8;\r\n  border-color: #e7ebef;\r\n  color: var(--muted);\r\n}\r\n.probe-tier-badge.tone-ok {\r\n  background: color-mix(in srgb, var(--success) 12%, #fff);\r\n  border-color: color-mix(in srgb, var(--success) 18%, #e7ebef);\r\n  color: var(--success);\r\n}\r\n.probe-tier-badge.tone-warn {\r\n  background: color-mix(in srgb, var(--warning) 13%, #fff);\r\n  border-color: color-mix(in srgb, var(--warning) 20%, #e7ebef);\r\n  color: var(--warning);\r\n}\r\n.probe-tier-badge.tone-soft {\r\n  background: color-mix(in srgb, var(--warning) 8%, #fff);\r\n  border-color: color-mix(in srgb, var(--warning) 14%, #e7ebef);\r\n  color: color-mix(in srgb, var(--warning) 70%, var(--muted));\r\n}\r\n.provider-probe-row .probe-tier-badge {\r\n  grid-area: tier;\r\n  justify-self: start;\r\n}\r\n.probe-next-badge {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  padding: 2px 7px;\r\n  border-radius: 6px;\r\n  font-size: 10px;\r\n  font-weight: 500;\r\n  white-space: nowrap;\r\n  flex-shrink: 0;\r\n  background: #f2f5f8;\r\n  color: #536174;\r\n  font-family: var(--mono);\r\n  border: 1px solid #e5eaf0;\r\n}\r\n.provider-probe-row .probe-next-badge {\r\n  grid-area: next;\r\n  justify-self: start;\r\n}\r\n.probe-time-badge {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  padding: 2px 7px;\r\n  border-radius: 6px;\r\n  font-size: 10px;\r\n  font-weight: 500;\r\n  white-space: nowrap;\r\n  flex-shrink: 0;\r\n  background: #f7f8fa;\r\n  color: #6b7584;\r\n  font-family: var(--mono);\r\n  border: 1px solid #e8edf2;\r\n}\r\n.provider-probe-row .probe-time-badge {\r\n  grid-area: time;\r\n  justify-self: end;\r\n}\r\n.idle-state-bar {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 6px;\r\n  padding: 8px 10px;\r\n  margin-bottom: 8px;\r\n  border-radius: 8px;\r\n  font-size: 12px;\r\n  background: #f8fafc;\r\n  border: 1px solid #e8edf2;\r\n  color: #455266;\r\n}\r\n.idle-state-bar .icon-svg {\r\n  width: 14px;\r\n  height: 14px;\r\n  opacity: 0.6;\r\n  flex-shrink: 0;\r\n}\r\n.idle-state-tier {\r\n  font-weight: 600;\r\n  padding: 2px 7px;\r\n  border-radius: 6px;\r\n  font-size: 11px;\r\n  border: 1px solid transparent;\r\n}\r\n.idle-state-tier.tone-neutral {\r\n  background: #f4f6f8;\r\n  border-color: #e7ebef;\r\n  color: var(--muted);\r\n}\r\n.idle-state-tier.tone-ok {\r\n  background: color-mix(in srgb, var(--success) 12%, #fff);\r\n  border-color: color-mix(in srgb, var(--success) 18%, #e7ebef);\r\n  color: var(--success);\r\n}\r\n.idle-state-tier.tone-warn {\r\n  background: color-mix(in srgb, var(--warning) 13%, #fff);\r\n  border-color: color-mix(in srgb, var(--warning) 20%, #e7ebef);\r\n  color: var(--warning);\r\n}\r\n.idle-state-tier.tone-soft {\r\n  background: color-mix(in srgb, var(--warning) 8%, #fff);\r\n  border-color: color-mix(in srgb, var(--warning) 14%, #e7ebef);\r\n  color: color-mix(in srgb, var(--warning) 70%, var(--muted));\r\n}\r\n.idle-state-sep {\r\n  color: var(--muted);\r\n  opacity: 0.4;\r\n}\r\n.idle-state-cadence {\r\n  color: #334155;\r\n  font-family: var(--mono);\r\n  font-size: 11px;\r\n}\r\n.idle-state-idle {\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n}\r\n\r\n.provider-route-card {\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n}\r\n\r\n.provider-route-card small {\r\n  display: block;\r\n  margin-top: 2px;\r\n  color: var(--muted);\r\n  font-family: var(--mono);\r\n  font-size: 11px;\r\n}\r\n\r\n.drawer-key-list,\r\n.drawer-format-list,\r\n.provider-drawer-models {\r\n  padding: 0;\r\n}\r\n\r\n.provider-danger-zone {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  gap: 10px;\r\n  align-items: center;\r\n  padding: 12px;\r\n  border: 1px solid color-mix(in srgb, var(--danger) 22%, var(--line));\r\n  border-radius: 10px;\r\n  background: color-mix(in srgb, var(--danger-soft) 52%, var(--surface));\r\n}\r\n\r\n.provider-danger-zone p {\r\n  margin: 2px 0 0;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.provider-danger-zone .icon-action {\r\n  width: 36px;\r\n  min-width: 36px;\r\n  height: 36px;\r\n}\r\n\r\n.confirm-backdrop {\r\n  position: fixed;\r\n  inset: 0;\r\n  z-index: 38;\r\n  background: rgba(9, 9, 11, 0.32);\r\n  backdrop-filter: blur(3px);\r\n}\r\n\r\n.confirm-dialog {\r\n  position: fixed;\r\n  top: 50%;\r\n  left: 50%;\r\n  z-index: 39;\r\n  width: min(420px, calc(100vw - 32px));\r\n  display: grid;\r\n  gap: 18px;\r\n  padding: 18px;\r\n  border: 1px solid var(--line-strong);\r\n  border-radius: 12px;\r\n  background: var(--surface);\r\n  box-shadow: 0 24px 64px rgba(9, 9, 11, 0.2);\r\n  transform: translate(-50%, -48%) scale(0.98);\r\n  opacity: 0;\r\n  pointer-events: none;\r\n  transition: opacity 120ms ease, transform 120ms ease;\r\n}\r\n\r\n.confirm-dialog.is-open {\r\n  transform: translate(-50%, -50%) scale(1);\r\n  opacity: 1;\r\n  pointer-events: auto;\r\n}\r\n\r\n.confirm-head {\r\n  display: grid;\r\n  grid-template-columns: 34px minmax(0, 1fr);\r\n  gap: 12px;\r\n  align-items: start;\r\n}\r\n\r\n.confirm-tone {\r\n  position: relative;\r\n  width: 34px;\r\n  height: 34px;\r\n  border: 1px solid color-mix(in srgb, var(--danger) 24%, white);\r\n  border-radius: 9px;\r\n  background: var(--danger-soft);\r\n}\r\n\r\n.confirm-tone::before {\r\n  position: absolute;\r\n  top: 8px;\r\n  left: 16px;\r\n  width: 2px;\r\n  height: 11px;\r\n  border-radius: 999px;\r\n  background: var(--danger);\r\n  content: \"\";\r\n}\r\n\r\n.confirm-tone::after {\r\n  position: absolute;\r\n  left: 16px;\r\n  bottom: 8px;\r\n  width: 2px;\r\n  height: 2px;\r\n  border-radius: 999px;\r\n  background: var(--danger);\r\n  content: \"\";\r\n}\r\n\r\n.confirm-dialog h2 {\r\n  margin: 0;\r\n  font-size: 15px;\r\n  letter-spacing: 0;\r\n}\r\n\r\n.confirm-dialog p {\r\n  margin: 5px 0 0;\r\n  color: var(--muted);\r\n  line-height: 1.45;\r\n}\r\n\r\n.confirm-actions {\r\n  display: flex;\r\n  justify-content: flex-end;\r\n  gap: 8px;\r\n}\r\n\r\n/* ---- Form modal (Add Provider, etc.) ---- */\r\n.form-modal {\r\n  position: fixed;\r\n  top: 50%;\r\n  left: 50%;\r\n  transform: translate(-50%, -48%) scale(0.97);\r\n  width: min(540px, calc(100vw - 32px));\r\n  max-height: calc(100dvh - 48px);\r\n  display: flex;\r\n  flex-direction: column;\r\n  border: 1px solid var(--line);\r\n  border-radius: 14px;\r\n  background: var(--surface);\r\n  box-shadow: 0 24px 64px rgba(9, 9, 11, 0.2);\r\n  z-index: 39;\r\n  opacity: 0;\r\n  pointer-events: none;\r\n  transition: opacity 180ms ease, transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);\r\n}\r\n\r\n.form-modal.is-open {\r\n  opacity: 1;\r\n  pointer-events: auto;\r\n  transform: translate(-50%, -50%) scale(1);\r\n}\r\n\r\n.form-modal-head {\r\n  display: flex;\r\n  align-items: flex-start;\r\n  justify-content: space-between;\r\n  gap: 12px;\r\n  padding: 18px 20px 14px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n}\r\n\r\n.form-modal-head h2 {\r\n  font-size: 16px;\r\n  font-weight: 780;\r\n}\r\n\r\n.form-modal-head p {\r\n  margin-top: 3px;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.form-modal-body {\r\n  padding: 18px 20px;\r\n  overflow: auto;\r\n  display: grid;\r\n  gap: 14px;\r\n}\r\n\r\n.form-modal .provider-create-form {\r\n  display: grid;\r\n  gap: 12px;\r\n}\r\n\r\n.form-modal .provider-create-form .form-field-inline {\r\n  display: grid;\r\n  grid-template-columns: 1fr;\r\n  gap: 6px;\r\n}\r\n\r\n.form-modal .provider-create-form .form-row-2 {\r\n  display: grid;\r\n  grid-template-columns: 1fr 1fr;\r\n  gap: 10px;\r\n}\r\n\r\n.form-modal .provider-create-form details {\r\n  border-top: 1px solid var(--line-soft);\r\n  padding-top: 10px;\r\n  margin-top: 4px;\r\n}\r\n\r\n.form-modal .provider-create-form summary {\r\n  cursor: pointer;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 720;\r\n  user-select: none;\r\n  padding: 2px 0;\r\n}\r\n\r\n.form-modal .form-actions {\r\n  display: flex;\r\n  justify-content: flex-end;\r\n  gap: 8px;\r\n  border-top: 1px solid var(--line-soft);\r\n  padding-top: 14px;\r\n  margin-top: 4px;\r\n}\r\n\r\n.form-modal.is-model-map-modal,\r\n.form-modal.is-format-path-modal {\r\n  width: min(480px, calc(100vw - 32px));\r\n}\r\n\r\n.form-modal.is-model-map-modal .form-modal-body,\r\n.form-modal.is-format-path-modal .form-modal-body {\r\n  padding-top: 16px;\r\n}\r\n\r\n.model-map-form,\r\n.format-path-form {\r\n  display: grid;\r\n  gap: 14px;\r\n}\r\n\r\n.model-map-field,\r\n.format-path-field {\r\n  display: grid;\r\n  gap: 7px;\r\n}\r\n\r\n.model-map-field span,\r\n.model-map-raw-line span,\r\n.format-path-field span {\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 720;\r\n}\r\n\r\n.model-map-field input,\r\n.format-path-field input {\r\n  width: 100%;\r\n  min-width: 0;\r\n  height: 42px;\r\n  padding: 0 12px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  font: 13px var(--mono-font, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", monospace);\r\n}\r\n\r\n.model-map-field input:focus,\r\n.format-path-field input:focus {\r\n  border-color: color-mix(in srgb, var(--info) 70%, var(--line));\r\n  outline: 3px solid color-mix(in srgb, var(--info-soft) 80%, transparent);\r\n}\r\n\r\n.model-map-raw-line {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  align-items: center;\r\n  gap: 10px;\r\n  min-height: 38px;\r\n  padding: 8px 10px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--surface-muted) 72%, transparent);\r\n}\r\n\r\n.model-map-raw-line code {\r\n  min-width: 0;\r\n  justify-self: end;\r\n  overflow-wrap: anywhere;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  text-align: right;\r\n}\r\n\r\n.model-map-hint {\r\n  margin: -2px 0 0;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.format-path-summary {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  align-items: center;\r\n  gap: 10px;\r\n  padding: 10px;\r\n  border: 1px solid var(--line-soft);\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--surface-muted) 72%, transparent);\r\n}\r\n\r\n.format-path-summary > div {\r\n  display: grid;\r\n  gap: 3px;\r\n  min-width: 0;\r\n}\r\n\r\n.format-path-summary strong,\r\n.format-path-summary code {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.format-path-summary strong {\r\n  color: var(--text);\r\n  font-size: 13px;\r\n  font-weight: 780;\r\n}\r\n\r\n.format-path-summary code {\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.format-path-state {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  width: 28px;\r\n  height: 28px;\r\n  border-radius: 8px;\r\n  border: 1px solid var(--line);\r\n  color: var(--muted);\r\n  background: var(--surface);\r\n}\r\n\r\n.format-path-state.is-enabled {\r\n  border-color: color-mix(in srgb, var(--success) 48%, var(--line));\r\n  color: var(--success);\r\n  background: color-mix(in srgb, var(--success-soft) 76%, var(--surface));\r\n}\r\n\r\n.format-path-state.is-disabled {\r\n  border-color: color-mix(in srgb, var(--danger) 42%, var(--line));\r\n  color: var(--danger);\r\n  background: color-mix(in srgb, var(--danger-soft) 76%, var(--surface));\r\n}\r\n\r\n.format-path-hint {\r\n  margin: -4px 0 0;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  line-height: 1.45;\r\n}\r\n\r\n.model-map-actions {\r\n  display: flex;\r\n  justify-content: flex-end;\r\n  gap: 8px;\r\n  padding-top: 12px;\r\n  border-top: 1px solid var(--line-soft);\r\n}\r\n\r\n.model-map-action {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  width: 36px;\r\n  height: 36px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  color: var(--muted);\r\n  cursor: pointer;\r\n}\r\n\r\n.model-map-action:hover {\r\n  color: var(--text);\r\n  background: var(--surface-muted);\r\n}\r\n\r\n.model-map-action.primary {\r\n  border-color: color-mix(in srgb, var(--info) 42%, var(--line));\r\n  background: var(--text);\r\n  color: var(--surface);\r\n}\r\n\r\n.model-map-action.primary:hover {\r\n  background: color-mix(in srgb, var(--text) 88%, var(--info));\r\n}\r\n\r\n.mobile-settings-body {\r\n  display: grid;\r\n  gap: 16px;\r\n  height: calc(100dvh - 74px);\r\n  align-content: start;\r\n  overflow: auto;\r\n  padding: 15px;\r\n}\r\n\r\n.mobile-settings-section {\r\n  display: grid;\r\n  gap: 10px;\r\n  align-content: start;\r\n}\r\n\r\n.mobile-settings-section-title {\r\n  margin: 0;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 780;\r\n  letter-spacing: 0;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.drawer-section-title {\r\n  margin: 10px 0 10px;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 780;\r\n}\r\n\r\n.drawer-section-hint {\r\n  margin-left: 6px;\r\n  color: var(--muted);\r\n  font-size: 10px;\r\n  font-weight: 600;\r\n  opacity: 0.7;\r\n  letter-spacing: 0.01em;\r\n}\r\n\r\n.provider-formats-group {\r\n  margin-top: 14px;\r\n  padding-top: 12px;\r\n  border-top: 1px solid var(--line-soft);\r\n}\r\n\r\n.provider-formats-group .format-route-list {\r\n  margin-top: 2px;\r\n}\r\n\r\n.drawer-kv {\r\n  padding: 13px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.routing-summary-card {\n  display: grid;\n  gap: 10px;\n  margin-bottom: 12px;\n  padding: 12px;\n  border: 1px solid var(--line);\n  border-radius: 8px;\n  background: var(--surface);\n  box-shadow: none;\n}\n\n.routing-summary-card.tone-ok {\n  border-color: color-mix(in srgb, var(--success) 28%, var(--line));\n  background: color-mix(in srgb, var(--success-soft) 22%, var(--surface));\n}\n\n.routing-summary-card.tone-warn {\n  border-color: color-mix(in srgb, var(--warning) 30%, var(--line));\n  background: color-mix(in srgb, var(--warning-soft) 22%, var(--surface));\n}\n\n.routing-summary-card.tone-bad {\n  border-color: color-mix(in srgb, var(--danger) 30%, var(--line));\n  background: color-mix(in srgb, var(--danger-soft) 22%, var(--surface));\n}\r\n\r\n.routing-summary-head {\r\n  display: flex;\r\n  align-items: flex-start;\r\n  justify-content: space-between;\r\n  gap: 12px;\r\n}\r\n\r\n.routing-summary-head h3 {\r\n  margin: 0 0 5px;\r\n  color: var(--text);\r\n  font-size: 14px;\r\n}\r\n\r\n.routing-summary-head p {\r\n  margin: 0;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  line-height: 1.5;\r\n}\r\n\r\n.routing-summary-card .badge,\r\n.routing-summary-card .message-chip {\r\n  justify-self: start;\r\n  width: fit-content;\r\n  max-width: 100%;\r\n}\r\n\r\n.routing-summary-card .chip-list {\r\n  justify-content: flex-start;\r\n}\r\n\r\n.routing-summary-grid,\r\n.routing-next-action {\r\n  display: grid;\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 8px;\r\n}\r\n\r\n.routing-summary-grid span,\r\n.routing-next-action span {\r\n  display: block;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 760;\r\n}\r\n\r\n.routing-summary-grid strong,\r\n.routing-next-action strong {\r\n  display: block;\r\n  min-width: 0;\r\n  overflow-wrap: anywhere;\r\n  color: var(--text);\r\n  font-family: var(--mono);\r\n  font-size: 12px;\r\n}\r\n\r\n.routing-next-action {\r\n  grid-template-columns: 86px minmax(0, 1fr);\r\n  align-items: start;\r\n  padding-top: 10px;\r\n  border-top: 1px solid var(--line);\r\n}\r\n\r\n.route-inline {\r\n  display: grid;\r\n  gap: 5px;\r\n  min-width: 220px;\r\n  max-width: 360px;\r\n}\r\n\r\n.route-inline .badge {\r\n  width: fit-content;\r\n}\r\n\r\n.route-inline .message-text {\n  color: var(--muted);\n  font-size: 12px;\n  line-height: 1.35;\n}\n\n.routing-path-shell {\n  margin-bottom: 12px;\n  overflow: clip;\n  border: 1px solid var(--line);\n  border-radius: 8px;\n  background: var(--surface);\n}\n\n.routing-path-header {\n  display: flex;\n  align-items: flex-start;\n  justify-content: space-between;\n  gap: 12px;\n  padding: 11px 12px 10px;\n  border-bottom: 1px solid var(--line-soft);\n}\n\n.routing-path-header > div {\n  min-width: 0;\n}\n\n.routing-path-header h3 {\n  display: inline-flex;\n  align-items: center;\n  gap: 6px;\n  margin: 0;\n  color: var(--text);\n  font-size: 13px;\n  font-weight: 760;\n}\n\n.routing-path-header h3 .icon-svg {\n  width: 14px;\n  height: 14px;\n  color: var(--muted);\n}\n\n.routing-path-header p {\n  margin: 3px 0 0;\n  color: var(--muted);\n  font-size: 10.5px;\n  line-height: 1.35;\n}\n\n.routing-path-count,\n.routing-diagnostics-count {\n  flex: 0 0 auto;\n  color: var(--muted);\n  font: 650 9.5px/1.4 var(--mono);\n  font-variant-numeric: tabular-nums;\n  white-space: nowrap;\n}\n\n.routing-path,\n.routing-diagnostic-list {\n  margin: 0;\n  padding: 0;\n  list-style: none;\n}\n\n.routing-path-step {\n  position: relative;\n  display: grid;\n  grid-template-columns: 24px minmax(0, 1fr);\n  gap: 9px;\n  padding: 9px 12px;\n}\n\n.routing-path-step + .routing-path-step {\n  border-top: 1px solid var(--line-soft);\n}\n\n.routing-path-step:not(:last-child)::after {\n  position: absolute;\n  top: 31px;\n  bottom: -1px;\n  left: 23px;\n  width: 1px;\n  background: var(--line-strong);\n  content: \"\";\n}\n\n.routing-path-marker {\n  position: relative;\n  z-index: 1;\n  display: inline-grid;\n  width: 22px;\n  height: 22px;\n  place-items: center;\n  border: 1px solid var(--line-strong);\n  border-radius: 50%;\n  background: var(--surface);\n  color: var(--muted);\n}\n\n.routing-path-marker .icon-svg {\n  width: 12px;\n  height: 12px;\n}\n\n.routing-path-step.tone-ok .routing-path-marker {\n  border-color: color-mix(in srgb, var(--success) 36%, var(--line));\n  background: var(--success-soft);\n  color: color-mix(in srgb, var(--success) 68%, var(--text));\n}\n\n.routing-path-step.tone-warn .routing-path-marker {\n  border-color: color-mix(in srgb, var(--warning) 36%, var(--line));\n  background: var(--warning-soft);\n  color: color-mix(in srgb, var(--warning) 68%, var(--text));\n}\n\n.routing-path-step.tone-bad .routing-path-marker {\n  border-color: color-mix(in srgb, var(--danger) 36%, var(--line));\n  background: var(--danger-soft);\n  color: color-mix(in srgb, var(--danger) 72%, var(--text));\n}\n\n.routing-path-step-body {\n  min-width: 0;\n}\n\n.routing-path-step-head {\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  gap: 10px;\n}\n\n.routing-path-step-head > strong {\n  display: inline-flex;\n  min-width: 0;\n  align-items: baseline;\n  gap: 6px;\n  color: var(--text);\n  font-size: 11.5px;\n  font-weight: 740;\n}\n\n.routing-path-step-index {\n  color: var(--faint);\n  font: 650 9px/1.2 var(--mono);\n}\n\n.routing-path-status {\n  flex: 0 0 auto;\n  color: var(--muted);\n  font-size: 9.5px;\n  font-weight: 680;\n  white-space: nowrap;\n}\n\n.routing-path-step.tone-ok .routing-path-status {\n  color: color-mix(in srgb, var(--success) 68%, var(--text));\n}\n\n.routing-path-step.tone-warn .routing-path-status {\n  color: color-mix(in srgb, var(--warning) 68%, var(--text));\n}\n\n.routing-path-step.tone-bad .routing-path-status {\n  color: color-mix(in srgb, var(--danger) 72%, var(--text));\n}\n\n.routing-path-evidence {\n  min-width: 0;\n  margin-top: 5px;\n}\n\n.routing-path-evidence .chip-list {\n  justify-content: flex-start;\n  gap: 4px;\n}\n\n.routing-path-evidence .message-chip {\n  padding: 2px 6px;\n  font-size: 9px;\n}\n\n.routing-format-path {\n  display: inline-flex;\n  min-width: 0;\n  align-items: center;\n  gap: 5px;\n}\n\n.routing-format-path > .icon-svg {\n  width: 12px;\n  height: 12px;\n  flex: 0 0 auto;\n  color: var(--muted);\n}\n\n.routing-path-step-body > p {\n  margin: 4px 0 0;\n  color: var(--muted);\n  font-size: 10px;\n  line-height: 1.35;\n}\n\n.routing-diagnostics {\n  border-top: 1px solid var(--line);\n  background: var(--surface-raised);\n}\n\n.routing-diagnostics > summary {\n  display: grid;\n  grid-template-columns: minmax(0, 1fr) auto 12px;\n  align-items: center;\n  gap: 10px;\n  min-height: 44px;\n  padding: 7px 12px;\n  cursor: pointer;\n  list-style: none;\n}\n\n.routing-diagnostics > summary::-webkit-details-marker {\n  display: none;\n}\n\n.routing-diagnostics > summary::after {\n  width: 7px;\n  height: 7px;\n  border-right: 1.5px solid var(--muted);\n  border-bottom: 1.5px solid var(--muted);\n  content: \"\";\n  transform: rotate(45deg) translateY(-2px);\n  transition: transform 160ms ease;\n}\n\n.routing-diagnostics[open] > summary::after {\n  transform: rotate(225deg) translate(-2px, -1px);\n}\n\n.routing-diagnostics > summary:hover {\n  background: color-mix(in srgb, var(--surface-soft) 64%, var(--surface));\n}\n\n.routing-diagnostics > summary:focus-visible {\n  outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);\n  outline-offset: -2px;\n}\n\n.routing-diagnostics-title {\n  display: flex;\n  min-width: 0;\n  align-items: center;\n  gap: 8px;\n}\n\n.routing-diagnostics-title > .icon-svg {\n  width: 15px;\n  height: 15px;\n  flex: 0 0 auto;\n  color: var(--muted);\n}\n\n.routing-diagnostics-title > span {\n  display: grid;\n  min-width: 0;\n  gap: 1px;\n}\n\n.routing-diagnostics-title strong {\n  color: var(--text);\n  font-size: 10.5px;\n}\n\n.routing-diagnostics-title small {\n  overflow: hidden;\n  color: var(--muted);\n  font-size: 9.5px;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}\n\n.routing-diagnostic-list {\n  max-height: 360px;\n  overflow-y: auto;\n  border-top: 1px solid var(--line-soft);\n  background: var(--surface);\n}\n\n.routing-diagnostic-event {\n  display: grid;\n  grid-template-columns: 22px minmax(0, 1fr);\n  gap: 9px;\n  padding: 9px 12px 10px;\n}\n\n.routing-diagnostic-event + .routing-diagnostic-event {\n  border-top: 1px solid var(--line-soft);\n}\n\n.routing-diagnostic-head {\n  display: flex;\n  align-items: flex-start;\n  justify-content: space-between;\n  gap: 8px;\n}\n\n.routing-diagnostic-head > div {\n  display: grid;\n  min-width: 0;\n  gap: 1px;\n}\n\n.routing-diagnostic-head strong,\n.routing-diagnostic-head small {\n  min-width: 0;\n  overflow-wrap: anywhere;\n}\n\n.routing-diagnostic-head strong {\n  color: var(--text);\n  font-size: 10.5px;\n  line-height: 1.35;\n}\n\n.routing-diagnostic-head small {\n  color: var(--muted);\n  font-size: 9px;\n}\n\n.routing-diagnostic-marker {\n  display: inline-grid;\n  width: 20px;\n  height: 20px;\n  place-items: center;\n  border: 1px solid var(--line);\n  border-radius: 50%;\n  background: var(--surface-raised);\n  color: var(--muted);\n}\n\n.routing-diagnostic-marker .icon-svg {\n  width: 11px;\n  height: 11px;\n}\n\n.routing-diagnostic-event.tone-ok .routing-diagnostic-marker,\n.routing-diagnostic-event.tone-success .routing-diagnostic-marker {\n  border-color: color-mix(in srgb, var(--success) 30%, var(--line));\n  background: var(--success-soft);\n  color: color-mix(in srgb, var(--success) 68%, var(--text));\n}\n\n.routing-diagnostic-event.tone-warn .routing-diagnostic-marker {\n  border-color: color-mix(in srgb, var(--warning) 30%, var(--line));\n  background: var(--warning-soft);\n  color: color-mix(in srgb, var(--warning) 68%, var(--text));\n}\n\n.routing-diagnostic-event.tone-bad .routing-diagnostic-marker {\n  border-color: color-mix(in srgb, var(--danger) 30%, var(--line));\n  background: var(--danger-soft);\n  color: color-mix(in srgb, var(--danger) 72%, var(--text));\n}\n\n.routing-diagnostic-content {\n  min-width: 0;\n}\n\n.routing-diagnostic-status {\n  flex: 0 0 auto;\n  color: var(--muted);\n  font-size: 9px;\n  font-weight: 700;\n  white-space: nowrap;\n}\n\n.routing-diagnostic-event.tone-ok .routing-diagnostic-status,\n.routing-diagnostic-event.tone-success .routing-diagnostic-status {\n  color: color-mix(in srgb, var(--success) 68%, var(--text));\n}\n\n.routing-diagnostic-event.tone-warn .routing-diagnostic-status {\n  color: color-mix(in srgb, var(--warning) 68%, var(--text));\n}\n\n.routing-diagnostic-event.tone-bad .routing-diagnostic-status {\n  color: color-mix(in srgb, var(--danger) 72%, var(--text));\n}\n\n.routing-diagnostic-identity {\n  margin-top: 5px;\n}\n\n.routing-diagnostic-identity .chip-list {\n  justify-content: flex-start;\n  gap: 4px;\n}\n\n.routing-diagnostic-identity .message-chip {\n  padding: 2px 6px;\n  font-size: 9px;\n}\n\n.routing-diagnostic-content > p {\n  margin: 4px 0 0;\n  color: var(--muted);\n  font-size: 9.5px;\n  line-height: 1.4;\n}\n\n.routing-diagnostic-owner,\n.routing-diagnostic-meta {\n  color: var(--faint) !important;\n  font-family: var(--mono);\n}\n\n.routing-diagnostic-internal {\n  display: flex;\n  min-width: 0;\n  flex-wrap: wrap;\n  align-items: center;\n  gap: 4px;\n  margin-top: 5px;\n  color: var(--faint);\n  font-size: 8.5px;\n}\n\n.routing-diagnostic-internal code {\n  color: var(--muted);\n  font: 600 8.5px/1.3 var(--mono);\n}\n\n.routing-diagnostic-internal i {\n  color: var(--line-strong);\n  font-style: normal;\n}\n\r\n.attempt {\r\n  display: grid;\r\n  gap: 9px;\r\n  margin-bottom: 10px;\r\n  padding: 13px;\r\n  border: 1px solid var(--line);\r\n  border-left: 3px solid var(--neutral);\r\n  border-radius: 8px;\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.attempt.tone-success,\r\n.attempt.tone-ok {\r\n  border-color: color-mix(in srgb, var(--ok) 40%, var(--line));\r\n  border-left-color: var(--success);\r\n}\r\n\r\n.attempt.tone-warn,\r\n.attempt.tone-compat {\r\n  border-color: color-mix(in srgb, var(--warn) 46%, var(--line));\r\n  border-left-color: var(--warning);\r\n}\r\n\r\n.attempt.tone-danger,\r\n.attempt.tone-bad {\r\n  border-color: color-mix(in srgb, var(--bad) 42%, var(--line));\r\n  border-left-color: var(--danger);\r\n}\r\n\r\n.attempt-head {\r\n  display: flex;\r\n  justify-content: space-between;\r\n  gap: 8px;\r\n}\r\n\r\n.attempt-explain {\r\n  display: grid;\r\n  gap: 7px;\r\n  padding: 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n}\r\n\r\n.attempt-explain div {\r\n  display: grid;\r\n  grid-template-columns: 74px minmax(0, 1fr);\r\n  gap: 8px;\r\n}\r\n\r\n.attempt-explain span {\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 760;\r\n}\r\n\r\n.attempt-explain strong {\r\n  min-width: 0;\r\n  overflow-wrap: anywhere;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-weight: 680;\r\n  line-height: 1.45;\r\n}\r\n\r\n.kv-grid {\r\n  display: grid;\r\n  grid-template-columns: 128px minmax(0, 1fr);\r\n  gap: 7px 11px;\r\n  font-size: 12px;\r\n}\r\n\r\n.kv-grid span:nth-child(odd) {\r\n  color: var(--muted);\r\n}\r\n\r\n.kv-grid span:nth-child(even) {\r\n  min-width: 0;\r\n  overflow-wrap: anywhere;\r\n  font-family: var(--mono);\r\n}\r\n\r\n@keyframes viewIn {\r\n  from {\r\n    opacity: 0;\r\n    transform: translateY(4px);\r\n  }\r\n  to {\r\n    opacity: 1;\r\n    transform: translateY(0);\r\n  }\r\n}\r\n\r\n@keyframes drawLine {\r\n  to {\r\n    stroke-dashoffset: 0;\r\n  }\r\n}\r\n\r\n@keyframes barRise {\r\n  from {\r\n    opacity: 0;\r\n    transform: scaleY(0.2);\r\n  }\r\n  to {\r\n    opacity: 1;\r\n    transform: scaleY(1);\r\n  }\r\n}\r\n\r\n/* Modern overview pass: reduce table-like borders and make the dashboard read as a runtime product surface. */\r\n:root {\r\n  --bg: #eef4fb;\r\n  --surface: #ffffff;\r\n  --surface-raised: #f8fbff;\r\n  --surface-soft: #eef5ff;\r\n  --surface-strong: #dce8f6;\r\n  --sidebar: #ffffff;\r\n  --sidebar-soft: #edf5ff;\r\n  --line: #e3edf8;\r\n  --line-soft: #eef4fb;\r\n  --line-strong: #cfdded;\r\n  --text: #111827;\r\n  --muted: #637083;\r\n  --faint: #8994a6;\r\n  --accent: #2563eb;\r\n  --accent-strong: #1d4ed8;\r\n  --accent-soft: #e7f0ff;\r\n  --success: #10b981;\r\n  --success-soft: #e8f8f1;\r\n  --warning: #d97706;\r\n  --warning-soft: #fff4df;\r\n  --danger: #e5485d;\r\n  --danger-soft: #ffedf0;\r\n  --info: #20d264;\r\n  --info-soft: #e8f2ff;\r\n  --compat: #8b5cf6;\r\n  --compat-soft: #f2edff;\r\n  --metric-neutral: #334155;\r\n  --metric-requests: #2563eb;\r\n  --metric-success: #12a474;\r\n  --metric-failure: #e5485d;\r\n  --metric-provider: #0ea5e9;\r\n  --metric-token: #8b5cf6;\r\n  --metric-cost: #d97706;\r\n  --pmc-accent: #2563eb;\r\n  --pmc-green: #12a474;\r\n  --pmc-amber: #d97706;\r\n  --pmc-red: #e5485d;\r\n  --shadow: 0 12px 30px rgba(31, 56, 88, 0.07);\r\n  --shadow-tight: 0 18px 44px rgba(31, 56, 88, 0.11);\r\n}\r\n\r\nbody {\r\n  background:\r\n    linear-gradient(180deg, #f7fbff 0, #eef5fc 330px, #f6f8fb 100%);\r\n}\r\n\r\n.shell {\r\n  grid-template-columns: 248px minmax(0, 1fr);\r\n}\r\n\r\n.sidebar {\r\n  border-right: 0;\r\n  background:\r\n    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 253, 255, 0.96)),\r\n    var(--sidebar);\r\n  box-shadow: 18px 0 46px rgba(31, 56, 88, 0.08);\r\n}\r\n\r\n.sidebar::after {\r\n  right: 0;\r\n  width: 1px;\r\n  background: linear-gradient(180deg, rgba(37, 99, 235, 0.18), rgba(37, 99, 235, 0.04));\r\n}\r\n\r\n.brand {\r\n  padding: 26px 20px 18px;\r\n  border-bottom: 0;\r\n}\r\n\r\n.brand-mark,\r\n.login-mark {\r\n  border-radius: 11px;\r\n  background: linear-gradient(135deg, #2563eb, #0ea5e9);\r\n  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.22);\r\n}\r\n\r\n.brand-title {\r\n  font-size: 15px;\r\n  font-weight: 800;\r\n}\r\n\r\n.nav {\r\n  gap: 6px;\r\n  padding: 12px 14px;\r\n}\r\n\r\n.nav-item {\r\n  min-height: 42px;\r\n  padding: 10px 13px;\r\n  border: 0;\r\n  border-radius: 14px;\r\n  color: #4b5565;\r\n  font-weight: 650;\r\n}\r\n\r\n.nav-item:hover {\r\n  background: rgba(37, 99, 235, 0.06);\r\n  color: var(--accent-strong);\r\n  box-shadow: none;\r\n}\r\n\r\n.nav-item.is-active {\r\n  border: 0;\r\n  background: var(--accent-soft);\r\n  color: var(--accent-strong);\r\n  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.08);\r\n}\r\n\r\n.sidebar-actions {\r\n  gap: 10px;\r\n  padding: 14px 16px 10px;\r\n}\r\n\r\n.button {\r\n  border-radius: 11px;\r\n}\r\n\r\n.button.primary {\r\n  border-color: var(--accent);\r\n  background: var(--accent);\r\n  color: #fff;\r\n  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);\r\n}\r\n\r\n.button.primary:hover {\r\n  border-color: var(--accent-strong);\r\n  background: var(--accent-strong);\r\n  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);\r\n}\r\n\r\n.button.secondary {\r\n  border-color: rgba(148, 163, 184, 0.24);\r\n  background: rgba(255, 255, 255, 0.82);\r\n}\r\n\r\n.workspace {\r\n  max-width: 1480px;\r\n  padding: 24px 44px 48px;\r\n}\r\n\r\n.time-range-control {\r\n  width: fit-content;\r\n  max-width: 100%;\r\n  margin: 0 0 18px auto;\r\n  padding: 8px 10px 8px 14px;\r\n  border: 0;\r\n  border-radius: 18px;\r\n  background: rgba(255, 255, 255, 0.86);\r\n  box-shadow: 0 12px 30px rgba(31, 56, 88, 0.08), inset 0 0 0 1px rgba(207, 221, 237, 0.7);\r\n}\r\n\r\n.time-range-control .eyebrow {\r\n  color: var(--accent);\r\n}\r\n\r\n.time-range-control strong {\r\n  color: var(--text);\r\n}\r\n\r\n.segmented-control {\r\n  border: 0;\r\n  border-radius: 14px;\r\n  background: #edf4fb;\r\n  box-shadow: inset 0 0 0 1px rgba(207, 221, 237, 0.62);\r\n}\r\n\r\n.segmented-button {\r\n  min-height: 34px;\r\n  border-radius: 11px;\r\n}\r\n\r\n.segmented-button.is-active {\r\n  background: #ffffff;\r\n  color: var(--accent-strong);\r\n  box-shadow: 0 8px 18px rgba(31, 56, 88, 0.08);\r\n}\r\n\r\n.overview-visuals {\r\n  grid-template-columns: minmax(280px, 1.35fr) repeat(4, minmax(132px, 1fr));\r\n  gap: 16px;\r\n  margin: 0 0 22px;\r\n  min-width: 0;\r\n}\r\n\r\n.visual-card {\r\n  grid-template-columns: 44px minmax(0, 1fr);\r\n  min-height: 122px;\r\n  gap: 12px;\r\n  padding: 16px;\r\n  min-width: 0;\r\n  border: 0;\r\n  border-radius: 22px;\r\n  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(250, 253, 255, 0.94));\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.visual-card:hover {\r\n  transform: translateY(-1px);\r\n  box-shadow: var(--shadow-tight);\r\n}\r\n\r\n.visual-card-icon,\r\n.visual-ring {\r\n  width: 44px;\r\n  height: 44px;\r\n  border: 0;\r\n  border-radius: 16px;\r\n}\r\n\r\n.visual-card-icon {\r\n  background: var(--surface-soft);\r\n}\r\n\r\n.visual-card-icon.tone-info {\r\n  background: var(--info-soft);\r\n}\r\n\r\n.visual-card-icon.tone-success {\r\n  background: var(--success-soft);\r\n}\r\n\r\n.visual-card-icon.tone-warning {\r\n  background: var(--warning-soft);\r\n}\r\n\r\n.visual-card-icon.tone-danger {\r\n  background: var(--danger-soft);\r\n}\r\n\r\n.visual-card-icon.tone-compat {\r\n  background: var(--compat-soft);\r\n}\r\n\r\n.visual-card span,\r\n.visual-card small {\r\n  color: var(--muted);\r\n  font-weight: 700;\r\n}\r\n\r\n.visual-card small {\r\n  line-height: 1.25;\r\n  white-space: normal;\r\n}\r\n\r\n.visual-card strong {\r\n  margin-top: 4px;\r\n  overflow: visible;\r\n  color: var(--text);\r\n  font-family: var(--sans);\r\n  font-variant-numeric: tabular-nums;\r\n  font-size: 21px;\r\n  font-weight: 850;\r\n  line-height: 1.08;\r\n  text-overflow: clip;\r\n  white-space: normal;\r\n}\r\n\r\n.visual-hero-card {\r\n  grid-column: span 1;\r\n  min-height: 146px;\r\n  align-items: start;\r\n  background:\r\n    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(232, 242, 255, 0.95)),\r\n    var(--surface);\r\n  box-shadow: 0 18px 44px rgba(37, 99, 235, 0.12);\r\n}\r\n\r\n@media (max-width: 1360px) {\r\n  .overview-visuals {\r\n    grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  }\r\n\r\n  .visual-hero-card {\r\n    grid-column: span 2;\r\n  }\r\n}\r\n\r\n@media (max-width: 1180px) {\r\n  .overview-visuals {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  }\r\n\r\n  .visual-hero-card {\r\n    grid-column: 1 / -1;\r\n  }\r\n}\r\n\r\n.visual-hero-card .visual-card-icon {\r\n  color: var(--accent);\r\n  background: #dbeafe;\r\n}\r\n\r\n.visual-hero-card.tone-warning .visual-card-icon {\r\n  color: var(--warning);\r\n  background: var(--warning-soft);\r\n}\r\n\r\n.visual-hero-card.tone-danger .visual-card-icon {\r\n  color: var(--danger);\r\n  background: var(--danger-soft);\r\n}\r\n\r\n.visual-hero-card.tone-warning .visual-hero-meta b {\r\n  background: rgba(217, 119, 6, 0.1);\r\n  color: var(--warning);\r\n}\r\n\r\n.visual-hero-card.tone-danger .visual-hero-meta b {\r\n  background: rgba(229, 72, 93, 0.1);\r\n  color: var(--danger);\r\n}\r\n\r\n.visual-hero-card strong {\r\n  margin-top: 6px;\r\n  font-size: 42px;\r\n  letter-spacing: 0;\r\n  white-space: nowrap;\r\n}\r\n\r\n.visual-hero-card small {\r\n  margin-top: 5px;\r\n  font-size: 12px;\r\n}\r\n\r\n.visual-hero-meta {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 7px;\r\n  margin-top: 12px;\r\n}\r\n\r\n.visual-hero-meta b {\r\n  display: inline-flex;\r\n  min-height: 24px;\r\n  align-items: center;\r\n  padding: 0 9px;\r\n  border-radius: 999px;\r\n  background: rgba(37, 99, 235, 0.08);\r\n  color: var(--accent-strong);\r\n  font: 750 11px var(--mono);\r\n}\r\n\r\n.visual-progress {\r\n  height: 6px;\r\n  background: #edf2f7;\r\n}\r\n\r\n.token-split {\r\n  height: 6px;\r\n}\r\n\r\n.overview-grid {\r\n  grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr);\r\n  gap: 22px;\r\n  align-items: start;\r\n}\r\n\r\n.overview-traffic-panel,\r\n.overview-failures-panel {\r\n  grid-column: 1 / -1;\r\n}\r\n\r\n.panel {\r\n  border: 0;\r\n  border-radius: 24px;\r\n  background: rgba(255, 255, 255, 0.96);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.panel-head {\r\n  padding: 22px 24px 8px;\r\n  border-bottom: 0;\r\n  background: transparent;\r\n}\r\n\r\n.panel-head h2 {\r\n  color: var(--text);\r\n  font-size: 18px;\r\n  font-weight: 820;\r\n}\r\n\r\n.panel-head p {\r\n  margin-top: 3px;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n}\r\n\r\n.panel-head .tag {\r\n  border: 0;\r\n  border-radius: 999px;\r\n  background: var(--accent-soft);\r\n  color: var(--accent-strong);\r\n}\r\n\r\n.chart {\r\n  min-height: 420px;\r\n  padding: 8px 24px 24px;\r\n}\r\n\r\n.traffic-legend {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 14px 22px;\r\n  align-items: center;\r\n  margin: 0 0 12px;\r\n  padding: 0 4px;\r\n}\r\n\r\n.traffic-legend-item {\r\n  display: inline-flex;\r\n  gap: 8px;\r\n  padding: 0;\r\n  border: 0;\r\n  background: transparent;\r\n  box-shadow: none;\r\n}\r\n\r\n.traffic-legend-item > span {\r\n  width: 28px;\r\n  height: 4px;\r\n  border-radius: 999px;\r\n  background: var(--series-color);\r\n  box-shadow: none;\r\n}\r\n\r\n.traffic-legend-item.tone-danger > span {\r\n  background-image: repeating-linear-gradient(90deg, #dc2626 0 6px, transparent 6px 10px);\r\n}\r\n\r\n.traffic-legend-item strong {\r\n  font-size: 12px;\r\n}\r\n\r\n.traffic-legend-item small {\r\n  color: var(--faint);\r\n}\r\n\r\n.traffic-chart-shell {\r\n  border: 0;\r\n  border-radius: 22px;\r\n  background: linear-gradient(180deg, #ffffff, #f8fbff);\r\n  box-shadow: inset 0 0 0 1px rgba(207, 221, 237, 0.55);\r\n}\r\n\r\n.traffic-chart-shell svg {\r\n  height: 352px;\r\n}\r\n\r\n.chart .axis {\r\n  stroke: rgba(148, 163, 184, 0.22);\r\n}\r\n\r\n.traffic-axis-label {\r\n  fill: var(--faint);\r\n  font: 650 11px var(--sans);\r\n}\r\n\r\n.traffic-axis-title {\r\n  font-weight: 760;\r\n}\r\n\r\n.traffic-axis-label-info {\r\n  fill: color-mix(in srgb, var(--info) 76%, var(--muted));\r\n}\r\n\r\n.traffic-success-area {\r\n  fill: url(\"#trafficSuccessArea\");\r\n  pointer-events: none;\r\n}\r\n\r\n.traffic-success-line,\r\n.traffic-failed-line,\r\n.traffic-firstbyte-line {\r\n  fill: none;\r\n  stroke-linecap: round;\r\n  stroke-linejoin: round;\r\n  stroke-width: 3.2;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.traffic-success-line {\r\n  stroke: var(--success);\r\n}\r\n\r\n.traffic-failed-line {\r\n  stroke: var(--danger);\r\n  stroke-dasharray: 7 7;\r\n}\r\n\r\n.traffic-firstbyte-line {\r\n  stroke: var(--info);\r\n  filter: drop-shadow(0 8px 14px rgba(47, 128, 237, 0.18));\r\n}\r\n\r\n.traffic-series-dot,\r\n.traffic-firstbyte-dot {\r\n  stroke: #fff;\r\n  stroke-width: 2.4;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.traffic-success-dot {\r\n  fill: var(--success);\r\n}\r\n\r\n.traffic-failed-dot {\r\n  fill: var(--danger);\r\n}\r\n\r\n.traffic-firstbyte-dot {\r\n  fill: var(--info);\r\n}\r\n\r\n.traffic-firstbyte-label {\r\n  fill: var(--info);\r\n  font: 760 11px var(--mono);\r\n}\r\n\r\n.usage-chart {\r\n  gap: 16px;\r\n  padding: 14px 22px 22px;\r\n}\r\n\r\n.usage-summary {\r\n  gap: 12px;\r\n}\r\n\r\n.usage-chart .mini-metric {\r\n  border: 0;\r\n  border-radius: 16px;\r\n  background: linear-gradient(180deg, #f8fbff, #f1f6fd);\r\n  box-shadow: inset 0 0 0 1px rgba(207, 221, 237, 0.48);\r\n}\r\n\r\n.usage-section-title h3 {\r\n  color: var(--text);\r\n  font-size: 13px;\r\n  letter-spacing: 0;\r\n  text-transform: none;\r\n}\r\n\r\n.usage-bars {\r\n  display: grid;\r\n  gap: 10px;\r\n}\r\n\r\n.usage-row {\r\n  border: 0;\r\n  border-radius: 16px;\r\n  background: #f8fbff;\r\n  box-shadow: inset 0 0 0 1px rgba(207, 221, 237, 0.48);\r\n}\r\n\r\n.usage-rank {\r\n  border: 0;\r\n  border-radius: 999px;\r\n  background: var(--compat-soft);\r\n}\r\n\r\n.usage-track {\r\n  height: 8px;\r\n  background: #e6edf7;\r\n}\r\n\r\n.provider-health {\r\n  gap: 10px;\r\n  padding: 14px 18px 20px;\r\n}\r\n\r\n.overview-summary-meta {\r\n  padding: 0 0 4px;\r\n  color: var(--faint);\r\n  font-family: var(--sans);\r\n  font-size: 11px;\r\n  letter-spacing: 0;\r\n  text-transform: none;\r\n}\r\n\r\n.overview-provider-row,\r\n.recent-failure-row {\r\n  border: 0;\r\n  border-radius: 16px;\r\n  background: #f8fbff;\r\n  box-shadow: inset 0 0 0 1px rgba(207, 221, 237, 0.5);\r\n}\r\n\r\n.overview-provider-row:hover,\r\n.recent-failure-row:hover,\r\n.overview-provider-row:focus-visible,\r\n.recent-failure-row:focus-visible {\r\n  background: #ffffff;\r\n  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.2), 0 12px 24px rgba(31, 56, 88, 0.08);\r\n}\r\n\r\n.recent-failure-list {\r\n  padding: 0 18px 18px;\r\n}\r\n\r\n/* Minimalist correction: warm monochrome surface, low shadow, muted semantic color only. */\r\n:root {\r\n  --bg: #f7f6f3;\r\n  --surface: #ffffff;\r\n  --surface-raised: #fbfbfa;\r\n  --surface-soft: #f3f2ef;\r\n  --surface-strong: #eceae6;\r\n  --sidebar: #ffffff;\r\n  --sidebar-soft: #f7f6f3;\r\n  --line: #e8e6e1;\r\n  --line-soft: #efede8;\r\n  --line-strong: #d9d6cf;\r\n  --text: #222320;\r\n  --muted: #6f706a;\r\n  --faint: #9a9a93;\r\n  --accent: #222320;\r\n  --accent-strong: #343530;\r\n  --accent-soft: #f2f1ed;\r\n  --success: #346538;\r\n  --success-soft: #edf3ec;\r\n  --warning: #956400;\r\n  --warning-soft: #fbf3db;\r\n  --danger: #9f2f2d;\r\n  --danger-soft: #fdebec;\r\n  --info: #20d264;\r\n  --info-soft: #e1f3fe;\r\n  --compat: #6f55a3;\r\n  --compat-soft: #eee9f7;\r\n  --metric-neutral: #3f403b;\r\n  --metric-requests: #1f6c9f;\r\n  --metric-success: #346538;\r\n  --metric-failure: #9f2f2d;\r\n  --metric-provider: #53717d;\r\n  --metric-token: #6f55a3;\r\n  --metric-cost: #956400;\r\n  --pmc-accent: #1f6c9f;\r\n  --pmc-green: #346538;\r\n  --pmc-amber: #956400;\r\n  --pmc-red: #9f2f2d;\r\n  --shadow: 0 2px 10px rgba(34, 35, 32, 0.035);\r\n  --shadow-tight: 0 4px 16px rgba(34, 35, 32, 0.05);\r\n}\r\n\r\nbody {\r\n  background: var(--bg);\r\n}\r\n\r\n.sidebar {\r\n  border-right: 1px solid var(--line);\r\n  background: var(--sidebar);\r\n  box-shadow: none;\r\n}\r\n\r\n.sidebar::after {\r\n  display: none;\r\n}\r\n\r\n.brand {\r\n  border-bottom: 1px solid var(--line-soft);\r\n}\r\n\r\n.brand-mark,\r\n.login-mark {\r\n  background: var(--text);\r\n  box-shadow: none;\r\n}\r\n\r\n.nav-item:hover {\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n}\r\n\r\n.nav-item.is-active {\r\n  background: var(--text);\r\n  color: #fff;\r\n  box-shadow: none;\r\n}\r\n\r\n.button.primary {\r\n  border-color: var(--accent);\r\n  background: var(--accent);\r\n  box-shadow: none;\r\n}\r\n\r\n.button.primary:hover {\r\n  border-color: var(--accent-strong);\r\n  background: var(--accent-strong);\r\n}\r\n\r\n.button.secondary,\r\n.time-range-control,\r\n.segmented-control {\r\n  box-shadow: none;\r\n}\r\n\r\n.time-range-control {\r\n  border: 1px solid var(--line);\r\n  background: var(--surface);\r\n}\r\n\r\n.time-range-control .eyebrow {\r\n  color: var(--muted);\r\n}\r\n\r\n.segmented-control {\r\n  border: 1px solid var(--line);\r\n  background: var(--surface-soft);\r\n}\r\n\r\n.segmented-button.is-active {\r\n  background: var(--text);\r\n  color: #fff;\r\n  box-shadow: none;\r\n}\r\n\r\n.visual-card,\r\n.panel {\r\n  border: 1px solid var(--line);\r\n  border-radius: 12px;\r\n  background: var(--surface);\r\n  box-shadow: none;\r\n}\r\n\r\n.visual-card:hover,\r\n.panel:hover {\r\n  box-shadow: var(--shadow-tight);\r\n}\r\n\r\n.visual-card-icon,\r\n.visual-ring {\r\n  border-radius: 10px;\r\n}\r\n\r\n.visual-hero-card {\r\n  background: var(--surface);\r\n  box-shadow: none;\r\n}\r\n\r\n.visual-hero-card .visual-card-icon {\r\n  color: var(--info);\r\n  background: var(--info-soft);\r\n}\r\n\r\n.visual-hero-card strong {\r\n  color: var(--text);\r\n}\r\n\r\n.visual-hero-meta b {\r\n  background: var(--accent-soft);\r\n  color: var(--text);\r\n}\r\n\r\n.panel-head .tag {\r\n  background: var(--surface-soft);\r\n  color: var(--muted);\r\n}\r\n\r\n.traffic-chart-shell,\r\n.usage-chart .mini-metric,\r\n.usage-row,\r\n.overview-provider-row,\r\n.recent-failure-row {\r\n  border: 1px solid var(--line);\r\n  border-radius: 12px;\r\n  background: var(--surface-raised);\r\n  box-shadow: none;\r\n}\r\n\r\n.traffic-chart-shell {\r\n  background: #fff;\r\n}\r\n\r\n.traffic-firstbyte-line {\r\n  filter: none;\r\n}\r\n\r\n.overview-provider-row:hover,\r\n.recent-failure-row:hover,\r\n.overview-provider-row:focus-visible,\r\n.recent-failure-row:focus-visible {\r\n  background: #fff;\r\n  box-shadow: var(--shadow-tight);\r\n}\r\n\r\n/* Overview mockup skin: crisp operations console, based on design_mockup.html. */\r\n:root {\r\n  /* macOS Aqua/System UI Theme */\r\n  --bg: #f5f5f7;\r\n  --surface: #ffffff;\r\n  --surface-raised: #fbfbfd;\r\n  --surface-soft: #f2f2f7;\r\n  --surface-strong: #e5e5ea;\r\n  --sidebar: rgba(255, 255, 255, 0.75);\n\n  /* Mac-style borders rely on transparency */\r\n  --line: rgba(0, 0, 0, 0.14);\r\n  --line-soft: rgba(0, 0, 0, 0.08);\r\n  --line-strong: rgba(0, 0, 0, 0.22);\n\n  /* Apple Typography Colors */\r\n  --text: #1d1d1f;\r\n  --muted: #86868b;\r\n  --faint: #d2d2d7;\n\n  /* Graphite / Monochrome Accent */\r\n  --accent: #1d1d1f;\r\n  --accent-strong: #000000;\r\n  --accent-soft: rgba(0, 0, 0, 0.04);\r\n  --accent-hover: #3a3a3c;\n\n  /* Semantic Colors (Apple HIG) */\r\n  --success: #34c759;\r\n  --success-soft: rgba(52, 199, 89, 0.1);\r\n  --warning: #ff9500;\r\n  --warning-soft: rgba(255, 149, 0, 0.1);\r\n  --danger: #ff3b30;\r\n  --danger-soft: rgba(255, 59, 48, 0.1);\r\n  --info: #86868b;\r\n  --info-soft: rgba(0, 0, 0, 0.05);\r\n  --compat: #1d1d1f;\n  --compat-soft: rgba(0, 0, 0, 0.05);\r\n  --pmc-accent: #007aff;\r\n  --pmc-green: #34c759;\r\n  --pmc-amber: #ff9500;\r\n  --pmc-red: #ff3b30;\r\n  /* Mac Window/Card Elevation */\r\n  --shadow: 0 2px 6px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04);\r\n  --shadow-tight: 0 4px 12px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.05);\r\n}\r\n\r\nbody {\r\n  background: var(--bg);\r\n}\r\n\r\n.shell {\r\n  grid-template-columns: 240px minmax(0, 1fr);\r\n}\r\n\r\n.workspace {\r\n  max-width: 1200px;\r\n  padding: 12px 40px 48px;\r\n}\r\n\r\n.sidebar {\r\n  border-right: 1px solid var(--line);\r\n  background: var(--sidebar);\r\n  backdrop-filter: blur(28px) saturate(200%);\r\n  -webkit-backdrop-filter: blur(28px) saturate(200%);\r\n  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.04);\r\n  z-index: 10;\r\n}\r\n\r\n.brand {\r\n  padding: 24px 16px 28px;\r\n  border-bottom: 0;\r\n}\r\n\r\n.brand-mark,\r\n.login-mark {\r\n  width: 24px;\r\n  height: 24px;\r\n  border-radius: 6px;\r\n  background: var(--text);\r\n  color: #fff;\r\n  font-size: 10px;\r\n  box-shadow: none;\r\n}\r\n\r\n.brand-title {\r\n  font-size: 14px;\r\n  font-weight: 700;\r\n  letter-spacing: 0;\r\n}\r\n\r\n.brand-subtitle {\r\n  color: var(--muted);\r\n}\r\n\r\n.nav {\r\n  gap: 2px;\r\n  padding: 0 16px;\r\n}\r\n\r\n.nav-item {\r\n  min-height: 40px;\r\n  padding: 8px 12px;\r\n  border: 1px solid transparent;\r\n  border-radius: 6px;\r\n  color: var(--muted);\r\n  font-weight: 620;\r\n}\r\n\r\n.nav-item:hover {\r\n  border-color: transparent;\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n}\r\n\r\n.nav-item.is-active {\r\n  border: 1px solid var(--line);\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n  font-weight: 760;\r\n}\r\n\r\n.sidebar-actions {\r\n  gap: 8px;\r\n  padding: 12px 16px 8px;\r\n}\r\n\r\n.button {\r\n  border-radius: 6px;\r\n  box-shadow: none;\r\n}\r\n\r\n.button.primary {\r\n  border-color: var(--accent);\r\n  background: var(--accent);\r\n  color: #fff;\r\n}\r\n\r\n.button.primary:hover {\r\n  border-color: var(--accent-strong);\r\n  background: var(--accent-strong);\r\n}\r\n\r\n.button.secondary {\r\n  border-color: var(--line);\r\n  background: var(--surface);\r\n}\r\n\r\n.overview-page-head {\r\n  display: flex;\r\n  gap: 20px;\r\n  align-items: flex-end;\r\n  justify-content: space-between;\r\n  margin-bottom: 24px;\r\n  padding-top: 16px;\r\n  padding-bottom: 16px;\r\n  border-bottom: 1px solid var(--line);\r\n}\r\n\r\n.overview-page-head h1 {\r\n  color: var(--text);\r\n  font-size: 20px;\r\n  font-weight: 720;\r\n  letter-spacing: 0;\r\n}\r\n\r\n.overview-page-head p {\r\n  margin-top: 4px;\r\n  color: var(--muted);\r\n  font-size: 12.5px;\r\n}\r\n\r\n.overview-page-head .time-range-control {\r\n  margin: 0;\r\n}\r\n\r\n.time-range-control {\r\n  width: fit-content;\r\n  padding: 0;\r\n  border: 0;\r\n  border-left: 0;\r\n  border-radius: 0;\r\n  background: transparent;\r\n}\r\n\r\n.time-range-control > div:first-child {\r\n  display: none;\r\n}\r\n\r\n.segmented-control {\r\n  gap: 2px;\r\n  padding: 3px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.segmented-button {\r\n  min-width: 44px;\r\n  min-height: 30px;\r\n  border-radius: 6px;\r\n  font-size: 12px;\r\n  font-weight: 680;\r\n}\r\n\r\n.segmented-button.is-active {\r\n  background: var(--text);\r\n  color: #fff;\r\n}\r\n\r\n.overview-visuals {\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 16px;\r\n  margin-bottom: 24px;\r\n}\r\n\r\n.visual-card {\r\n  position: relative;\r\n  display: flex;\r\n  min-height: 100px;\r\n  flex-direction: column;\r\n  align-items: stretch;\r\n  justify-content: space-between;\r\n  gap: 10px;\r\n  overflow: hidden;\r\n  padding: 16px 20px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.visual-card::before {\r\n  position: absolute;\r\n  top: 0;\r\n  right: 0;\r\n  left: 0;\r\n  height: 2px;\r\n  background: transparent;\r\n  content: \"\";\r\n}\r\n\r\n.visual-card.accent-info::before {\r\n  background: #3b82f6;\r\n}\r\n\r\n.visual-card.accent-success::before {\r\n  background: #10b981;\r\n}\r\n\r\n.visual-card.accent-warning::before {\r\n  background: #f59e0b;\r\n}\r\n\r\n.visual-card.accent-danger::before {\r\n  background: #ef4444;\r\n}\r\n\r\n.visual-card:hover {\r\n  border-color: rgba(9, 9, 11, 0.14);\r\n  box-shadow: var(--shadow-tight);\r\n  transform: none;\r\n}\r\n\r\n.visual-card .metric-header {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n}\r\n\r\n.visual-card .metric-label {\r\n  color: var(--muted);\r\n  font-size: 10.5px;\r\n  font-weight: 720;\r\n  letter-spacing: 0.05em;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.visual-card .metric-icon {\r\n  display: inline-grid;\r\n  color: var(--faint);\r\n}\r\n\r\n.visual-card .metric-icon .icon-svg {\r\n  width: 15px;\r\n  height: 15px;\r\n}\r\n\r\n.visual-card .metric-val {\r\n  display: block;\r\n  margin: 0;\r\n  overflow: visible;\r\n  color: var(--text);\r\n  font-family: var(--sans);\r\n  font-size: 26px;\r\n  font-weight: 760;\r\n  line-height: 1.05;\r\n  letter-spacing: 0;\r\n  white-space: nowrap;\r\n}\r\n\r\n.visual-card.accent-success .metric-val {\r\n  color: var(--success);\r\n}\r\n\r\n.visual-card.accent-danger .metric-val {\r\n  color: var(--danger);\r\n}\r\n\r\n.visual-card.accent-warning .metric-val {\r\n  color: var(--warning);\r\n}\r\n\r\n.visual-card.accent-info .metric-val {\r\n  color: var(--info);\r\n}\r\n\r\n.visual-card .metric-sub {\r\n  display: flex;\r\n  gap: 5px;\r\n  align-items: center;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 500;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.metric-dot {\r\n  display: inline-block;\r\n  width: 5px;\r\n  min-width: 5px;\r\n  height: 5px;\r\n  border-radius: 50%;\r\n  background: var(--info);\r\n}\r\n\r\n.metric-dot.success {\r\n  background: #16a34a;\r\n}\r\n\r\n.metric-dot.warning {\r\n  background: #d97706;\r\n}\r\n\r\n.metric-dot.danger {\r\n  background: #dc2626;\r\n}\r\n\r\n.overview-grid {\r\n  grid-template-columns: 1fr;\r\n  gap: 24px;\r\n}\r\n\r\n.overview-traffic-panel,\r\n.overview-secondary-layout {\r\n  grid-column: 1 / -1;\r\n}\r\n\r\n.overview-secondary-layout {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1.9fr) minmax(320px, 0.9fr);\r\n  gap: 24px;\r\n  align-items: start;\r\n}\r\n\r\n.overview-main-column,\r\n.overview-side-column {\r\n  display: grid;\r\n  gap: 24px;\r\n  min-width: 0;\r\n  align-content: start;\r\n}\r\n\r\n.panel {\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.panel-head {\r\n  padding: 12px 20px;\r\n  border-bottom: 1px solid var(--line);\r\n  background: var(--surface-raised);\r\n}\r\n\r\n.panel-head h2 {\r\n  color: var(--text);\r\n  font-size: 13px;\r\n  font-weight: 760;\r\n  letter-spacing: 0;\r\n}\r\n\r\n.panel-head p {\r\n  display: none;\r\n}\r\n\r\n.panel-head .tag,\r\n.panel-head .badge {\r\n  min-height: 22px;\r\n  border-radius: 4px;\r\n  font-family: var(--mono);\r\n  font-size: 11px;\r\n  font-weight: 720;\r\n  letter-spacing: 0.02em;\r\n  text-transform: uppercase;\r\n}\r\n\r\n.panel-head .badge.info {\r\n  border-color: #bfdbfe;\r\n  background: #dbeafe;\r\n  color: #1e3a8a;\r\n}\r\n\r\n.chart {\r\n  min-height: 332px;\r\n  padding: 20px;\r\n}\r\n\r\n.traffic-legend {\r\n  gap: 18px;\r\n  margin-bottom: 14px;\r\n  padding: 0;\r\n}\r\n\r\n.traffic-legend-item {\r\n  gap: 8px;\r\n}\r\n\r\n.traffic-legend-item > span {\r\n  width: 28px;\r\n  height: 3px;\r\n  border-radius: 3px;\r\n}\r\n\r\n.traffic-legend-item strong {\r\n  font-size: 12px;\r\n  font-weight: 720;\r\n}\r\n\r\n.traffic-legend-item small {\r\n  color: var(--muted);\r\n  font-family: var(--mono);\r\n  font-size: 10.5px;\r\n}\r\n\r\n.traffic-chart-shell {\r\n  border: 0;\r\n  border-radius: 0;\r\n  background: #fff;\r\n  box-shadow: none;\r\n}\r\n\r\n.traffic-chart-shell svg {\r\n  height: 250px;\r\n}\r\n\r\n.chart .axis {\r\n  stroke: #d4d4d8;\r\n  stroke-dasharray: 2 2;\r\n  stroke-width: 1.2;\r\n}\r\n\r\n.traffic-firstbyte-area,\r\n.traffic-success-area {\r\n  display: none;\r\n}\r\n\r\n.traffic-success-line,\r\n.traffic-failed-line,\r\n.traffic-firstbyte-line {\r\n  stroke-width: 2.8;\r\n  filter: none;\r\n}\r\n\r\n.traffic-firstbyte-line {\r\n  stroke: var(--text);\r\n}\r\n\r\n.traffic-success-line {\r\n  stroke: #3b82f6;\r\n}\r\n\r\n.traffic-failed-line {\r\n  stroke: #dc2626;\r\n  stroke-dasharray: 5 5;\r\n}\r\n\r\n.traffic-firstbyte-dot,\r\n.traffic-series-dot,\r\n.traffic-token-dot {\r\n  stroke: #fff;\r\n  stroke-width: 1.8;\r\n}\r\n\r\n.traffic-token-bar {\r\n  fill: rgba(124, 58, 237, 0.22);\r\n  stroke: rgba(124, 58, 237, 0.72);\r\n  stroke-width: 1;\r\n}\r\n\r\n.traffic-token-dot {\r\n  fill: #7c3aed;\r\n}\r\n\r\n.traffic-firstbyte-label {\r\n  display: none;\r\n}\r\n\r\n.traffic-axis-label {\r\n  fill: #52525b;\r\n  font: 680 11px var(--mono);\r\n}\r\n\r\n.usage-chart {\r\n  grid-template-columns: 1fr;\r\n  align-items: start;\r\n  padding: 20px;\r\n}\r\n\r\n.usage-summary {\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 12px;\r\n}\r\n\r\n.usage-columns.usage-model-only {\r\n  grid-template-columns: 1fr;\r\n}\r\n\r\n.usage-chart .mini-metric,\r\n.usage-row,\r\n.overview-provider-row,\r\n.recent-failure-row {\r\n  border: 1px solid var(--line);\r\n  border-radius: 6px;\r\n  background: var(--surface);\r\n  box-shadow: none;\r\n}\r\n\r\n.usage-chart .mini-metric {\r\n  padding: 12px;\r\n}\r\n\r\n.usage-row {\r\n  padding: 11px 12px;\r\n}\r\n\r\n.provider-health {\r\n  padding: 20px;\r\n}\r\n\r\n.overview-summary-meta {\r\n  color: var(--muted);\r\n  font: 650 11px var(--mono);\r\n  text-transform: uppercase;\r\n}\r\n\r\n.overview-provider-row {\r\n  padding: 12px;\r\n}\r\n\r\n.recent-failure-list {\r\n  padding: 0;\r\n}\r\n\r\n#recentFailures {\r\n  padding: 20px;\r\n}\r\n\r\n.recent-failure-row {\r\n  grid-template-columns: auto minmax(180px, 1fr) auto minmax(180px, 1.1fr);\r\n  padding: 12px;\r\n}\r\n\r\n.recent-failure-list .recent-failure-row.tone-warning .request-row-dot,\r\n#recentFailures .recent-failure-row.tone-warning .request-row-dot {\r\n  background: var(--warning);\r\n}\r\n\r\n.recent-failure-list .recent-failure-row.tone-danger .request-row-dot,\r\n#recentFailures .recent-failure-row.tone-danger .request-row-dot {\r\n  background: var(--danger);\r\n}\r\n\r\n.recent-failure-list .recent-failure-row.tone-success .request-row-dot,\r\n#recentFailures .recent-failure-row.tone-success .request-row-dot {\r\n  background: var(--success);\r\n}\r\n\r\n@media (max-width: 1080px) {\r\n  .shell {\r\n    width: 100%;\r\n    max-width: 100vw;\r\n    overflow-x: clip;\r\n    align-content: start;\r\n    grid-auto-rows: max-content;\r\n    grid-template-columns: minmax(0, 1fr);\r\n  }\r\n\r\n  .sidebar {\r\n    position: static;\r\n    height: auto;\r\n    width: 100%;\r\n    max-width: 100vw;\r\n    align-self: start;\r\n    overflow: hidden;\r\n    border-right: 0;\r\n    border-bottom: 1px solid var(--line-strong);\r\n    box-shadow: 0 8px 18px rgba(9, 9, 11, 0.04);\r\n  }\r\n\r\n  .sidebar::after {\r\n    display: none;\r\n  }\r\n\r\n  .brand {\r\n    padding: 14px 14px 12px;\r\n  }\r\n\r\n  .nav {\r\n    grid-template-columns: repeat(5, minmax(0, 1fr));\r\n    padding: 10px;\r\n  }\r\n\r\n  .nav-item {\r\n    padding: 10px 8px;\r\n    text-align: center;\r\n  }\r\n\r\n  .nav-item.is-active::before {\r\n    right: 18px;\r\n    bottom: 5px;\r\n    left: 18px;\r\n    top: auto;\r\n    width: auto;\r\n    height: 3px;\r\n  }\r\n\r\n  .sidebar-actions {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n    padding: 0 10px 10px;\r\n    border-top: 0;\r\n  }\r\n\r\n  .sidebar-footer {\r\n    display: none;\r\n  }\r\n\r\n  .overview-grid,\r\n  .policy-grid,\r\n  .config-grid {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .overview-secondary-layout {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .overview-traffic-panel,\r\n  .overview-failures-panel,\r\n  .overview-health-panel,\r\n  .overview-usage-panel {\r\n    grid-column: 1 / -1;\r\n  }\r\n\r\n  .metric-grid {\r\n    grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  }\r\n\r\n  .overview-visuals {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  }\r\n\r\n  .usage-chart {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .request-summary-row {\r\n    grid-template-columns: 24px 10px minmax(150px, 1fr) minmax(96px, auto) minmax(122px, 0.8fr) minmax(118px, auto) 28px;\r\n  }\r\n\r\n  .provider-card-grid {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  }\r\n\r\n  .provider-toolbar {\r\n    grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(130px, 0.7fr)) auto;\r\n  }\r\n\r\n  .workspace {\r\n    width: 100%;\r\n    max-width: 100vw;\r\n  }\r\n}\r\n\r\n@media (max-width: 760px) {\r\n  body.is-mobile-settings-open {\r\n    overflow: hidden;\r\n  }\r\n\r\n  .sidebar {\r\n    display: none;\r\n  }\r\n\r\n  .workspace {\r\n    padding: 10px;\r\n  }\r\n\r\n  .topbar {\r\n    display: grid;\r\n    grid-template-columns: minmax(0, 1fr) auto;\r\n    margin: 1px 1px 5px 0px;\r\n    padding: 10px;\r\n    align-items: start;\r\n    background: transparent;\r\n    border: 1px solid var(--line-strong);\r\n    border-radius: 12px;\r\n    box-shadow: var(--shadow);\n\n  }\r\n\n\n\n\n\n  .brand {\r\n    gap: 10px;\r\n    padding: 10px 12px 9px;\r\n  }\r\n\r\n  .brand-mark {\r\n    width: 32px;\r\n    height: 32px;\r\n    border-radius: 7px;\r\n    font-size: 11px;\r\n  }\r\n\r\n  .brand-title {\r\n    font-size: 14px;\r\n  }\r\n\r\n  .brand-subtitle {\r\n    margin-top: 0;\r\n    font-size: 11px;\r\n  }\r\n\r\n  h1 {\r\n    font-size: 22px;\r\n  }\r\n\r\n  .topbar p {\r\n    margin-top: 2px;\r\n    font-size: 11px;\r\n    line-height: 1.35;\r\n  }\r\n\r\n  .mobile-settings-button {\r\n    display: inline-flex;\r\n    align-items: center;\r\n    justify-content: center;\r\n    justify-self: end;\r\n    min-height: 34px;\r\n    padding: 0 11px;\r\n    white-space: nowrap;\r\n  }\r\n\r\n  .mobile-settings-backdrop {\r\n    position: fixed;\r\n    inset: 0;\r\n    z-index: 28;\r\n    display: block;\r\n    background: rgba(9, 9, 11, 0.28);\r\n    backdrop-filter: blur(2px);\r\n    opacity: 0;\r\n    pointer-events: none;\r\n    transition: opacity 180ms ease;\r\n  }\r\n\r\n  .mobile-settings-backdrop[hidden] {\r\n    display: none;\r\n  }\r\n\r\n  .mobile-settings-backdrop.is-open {\r\n    opacity: 1;\r\n    pointer-events: auto;\r\n  }\r\n\r\n  .mobile-settings-drawer {\r\n    position: fixed;\r\n    top: 0;\r\n    right: 0;\r\n    z-index: 29;\r\n    display: flex;\r\n    width: min(322px, calc(100vw - 42px));\r\n    height: 100dvh;\r\n    flex-direction: column;\r\n    border-left: 1px solid var(--line);\r\n    background: rgba(255, 255, 255, 0.75);\r\n    backdrop-filter: blur(30px) saturate(200%);\r\n    -webkit-backdrop-filter: blur(30px) saturate(200%);\r\n    box-shadow: -22px 0 42px rgba(9, 9, 11, 0);\r\n    transform: translateX(100%);\r\n    transition: transform 190ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 190ms ease;\r\n  }\r\n\r\n  .mobile-settings-drawer.is-open {\r\n    transform: translateX(0);\r\n    box-shadow: -22px 0 42px rgba(9, 9, 11, 0.18);\r\n  }\r\n\r\n  .mobile-settings-drawer .drawer-head {\r\n    display: grid;\r\n    grid-template-columns: minmax(0, 1fr) 34px;\r\n    gap: 10px;\r\n    align-items: center;\r\n    padding: 14px 14px 12px;\r\n    border-bottom: 1px solid color-mix(in srgb, var(--info) 14%, var(--line));\r\n    background: transparent;\r\n  }\r\n\r\n  .mobile-settings-drawer .drawer-head h2 {\r\n    font-size: 16px;\r\n    line-height: 1.15;\r\n  }\r\n\r\n  .mobile-settings-drawer .drawer-head p {\r\n    max-width: 19rem;\r\n    margin-top: 3px;\r\n    color: var(--muted);\r\n    font-family: var(--sans);\r\n    font-size: 11px;\r\n    line-height: 1.35;\r\n  }\r\n\r\n  .mobile-settings-drawer .icon-button {\r\n    width: 34px;\r\n    height: 34px;\r\n    border-color: color-mix(in srgb, var(--info) 18%, var(--line));\r\n    background: color-mix(in srgb, var(--surface) 86%, var(--info-soft));\r\n    font-size: 17px;\r\n  }\r\n\r\n  .mobile-settings-body {\r\n    gap: 11px;\r\n    height: calc(100dvh - 72px);\r\n    padding: 12px;\r\n  }\r\n\r\n  .mobile-settings-section .nav,\r\n  .mobile-settings-section .sidebar-actions,\r\n  .mobile-settings-section .toolbar {\r\n    display: grid;\r\n    gap: 8px;\r\n    justify-content: stretch;\r\n    margin: 0;\r\n    padding: 0;\r\n    border: 0;\r\n    border-radius: 0;\r\n    background: transparent;\r\n    box-shadow: none;\r\n  }\r\n\r\n  .mobile-settings-section {\r\n    gap: 8px;\r\n    padding: 10px;\r\n    border: 1px solid var(--line);\r\n    border-radius: 10px;\r\n    background: color-mix(in srgb, var(--surface) 88%, var(--surface-raised));\r\n    box-shadow: var(--shadow);\r\n  }\r\n\r\n  .mobile-settings-section-title {\r\n    color: color-mix(in srgb, var(--muted) 84%, var(--text));\r\n    font-size: 10px;\r\n    letter-spacing: 0.04em;\r\n  }\r\n\r\n  .mobile-settings-section #requestsToolbar::before {\r\n    display: none;\r\n  }\r\n\r\n  .mobile-settings-section #requestsToolbar,\r\n  #requestsToolbar {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .request-filter-primary,\r\n  .request-bulk-actions {\r\n    width: 100%;\r\n  }\r\n\r\n  .request-filter-title,\r\n  .request-status-chips,\r\n  .filter-search-field,\r\n  #requestsToolbar .control,\r\n  .advanced-filter-box,\r\n  .advanced-filter-box summary {\r\n    width: 100%;\r\n  }\r\n\r\n  .request-status-chips {\r\n    display: grid;\r\n    grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  }\r\n\r\n  .filter-chip {\r\n    text-align: center;\r\n  }\r\n\r\n  .advanced-filter-fields {\r\n    position: static;\r\n    width: 100%;\r\n    margin-top: 8px;\r\n    box-shadow: none;\r\n  }\r\n\r\n  .request-bulk-actions {\r\n    justify-content: stretch;\r\n    padding: 9px 0 0;\r\n    border-top: 1px solid var(--line-soft);\r\n    border-left: 0;\r\n  }\r\n\r\n  .request-bulk-actions .button,\r\n  .selection-count {\r\n    width: 100%;\r\n    justify-content: center;\r\n    text-align: center;\r\n  }\r\n\r\n  .mobile-settings-section .nav {\r\n    grid-template-columns: 1fr;\r\n    width: 100%;\r\n    max-width: none;\r\n    overflow: visible;\r\n  }\r\n\r\n  .mobile-settings-section .nav-item {\r\n    width: 100%;\r\n    min-height: 36px;\r\n    padding: 8px 10px 8px 13px;\r\n    border-color: var(--line-soft);\r\n    background: var(--surface);\r\n    text-align: left;\r\n    white-space: normal;\r\n    box-shadow: none;\r\n  }\r\n\r\n  .mobile-settings-section .nav-item.is-active::before {\r\n    top: 8px;\r\n    right: auto;\r\n    bottom: 8px;\r\n    left: 6px;\r\n    width: 2px;\r\n    height: auto;\r\n  }\r\n\r\n  .mobile-settings-section .nav-item.is-active {\r\n    border-color: color-mix(in srgb, var(--accent) 18%, var(--line));\r\n    background: color-mix(in srgb, var(--accent-soft) 62%, var(--surface));\r\n    box-shadow: none;\r\n  }\r\n\r\n  .mobile-settings-section .nav::-webkit-scrollbar {\r\n    display: none;\r\n  }\r\n\r\n  .mobile-settings-section .nav > *,\r\n  .mobile-settings-section .sidebar-actions > *,\r\n  .mobile-settings-section .toolbar > * {\r\n    width: 100%;\r\n    min-width: 0;\r\n  }\r\n\r\n  .nav {\r\n    width: 100%;\r\n    max-width: 100vw;\r\n  }\r\n\r\n  .time-range-control {\r\n    width: 100%;\r\n    display: grid;\r\n    gap: 8px;\r\n    margin-bottom: 10px;\r\n    padding: 10px;\r\n    border-radius: 8px;\r\n  }\r\n\r\n  .overview-page-head {\r\n    display: block;\r\n    margin-bottom: 12px;\r\n    padding-bottom: 0;\r\n    border-bottom: 0;\r\n  }\r\n\r\n  .overview-page-head > div:first-child {\r\n    display: none;\r\n  }\r\n\r\n  .overview-page-head .time-range-control {\r\n    margin: 0;\r\n  }\r\n\r\n  .segmented-control {\r\n    width: 100%;\r\n    grid-auto-flow: column;\r\n  }\r\n\r\n  .segmented-button {\r\n    min-width: 0;\r\n    padding: 0 6px;\r\n  }\r\n\r\n  .metric-grid {\r\n    gap: 8px;\r\n    grid-template-columns: 1fr 1fr;\r\n    margin-bottom: 8px;\r\n  }\r\n\r\n  .overview-visuals {\r\n    grid-template-columns: 1fr;\r\n    gap: 7px;\r\n    margin: 0 0 8px;\r\n  }\r\n\r\n  .visual-hero-card {\r\n    min-height: 116px;\r\n  }\r\n\r\n  .visual-hero-card strong {\r\n    font-size: 30px;\r\n  }\r\n\r\n  .visual-hero-meta {\r\n    gap: 5px;\r\n    margin-top: 8px;\r\n  }\r\n\r\n  .visual-hero-meta b {\r\n    min-height: 22px;\r\n    padding: 0 7px;\r\n    font-size: 10px;\r\n  }\r\n\r\n  .visual-card {\r\n    min-height: 64px;\r\n    padding: 9px 10px;\r\n    border-radius: 8px;\r\n  }\r\n\r\n  .visual-card-icon,\r\n  .visual-ring {\r\n    width: 36px;\r\n    height: 36px;\r\n    border-radius: 9px;\r\n  }\r\n\r\n  .metric {\r\n    min-height: 76px;\r\n    padding: 10px 11px;\r\n    border-radius: 8px;\r\n  }\r\n\r\n  .metric-label {\r\n    font-size: 11px;\r\n  }\r\n\r\n  .metric strong {\r\n    margin-top: 5px;\r\n    font-size: 23px;\r\n  }\r\n\r\n  .metric small {\r\n    margin-top: 5px;\r\n    font-size: 11px;\r\n    line-height: 1.25;\r\n  }\r\n\r\n  .overview-grid,\r\n  .policy-grid,\r\n  .config-grid {\r\n    gap: 8px;\r\n  }\r\n\r\n  .panel {\r\n    margin-bottom: 8px;\r\n    border-radius: 8px;\r\n  }\r\n\r\n  .panel-head {\r\n    display: grid;\r\n    grid-template-columns: minmax(0, 1fr);\r\n    gap: 8px;\r\n    padding: 10px 11px 9px;\r\n  }\r\n\r\n  .panel-head > .tag,\r\n  .panel-head > .badge,\r\n  .panel-head > .button,\r\n  .panel-head > .actions {\r\n    justify-self: start;\r\n  }\r\n\r\n  .overview-traffic-panel .panel-head {\r\n    gap: 6px;\r\n  }\r\n\r\n  .panel-head > .tag,\r\n  .panel-head > .badge {\r\n    max-width: 100%;\r\n    white-space: normal;\r\n    overflow-wrap: anywhere;\r\n  }\r\n\r\n  .panel-head p {\r\n    display: none;\r\n  }\r\n\r\n  .tag,\r\n  .badge {\r\n    min-height: 21px;\r\n    padding: 0 7px;\r\n    font-size: 10px;\r\n  }\r\n\r\n  .chart {\r\n    min-height: 320px;\r\n    padding: 8px 9px 7px;\r\n  }\r\n\r\n  .traffic-chart-shell {\r\n    border-radius: 14px;\r\n  }\r\n\r\n  .traffic-chart-shell svg {\r\n    height: 282px;\r\n  }\r\n\r\n  .request-page-vitals {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n    gap: 6px;\r\n    padding: 8px;\r\n  }\r\n\r\n  .request-summary-row {\r\n    grid-template-columns: 24px 9px minmax(0, 1fr) 28px;\r\n    gap: 8px;\r\n    padding: 10px;\r\n  }\r\n\r\n  .request-row-status,\r\n  .request-row-route,\r\n  .request-row-metrics {\r\n    grid-column: 3 / -1;\r\n  }\r\n\r\n  .request-row-open {\r\n    grid-column: 4;\r\n    grid-row: 1;\r\n  }\r\n\r\n  .chart-stats {\r\n    gap: 5px;\r\n  }\r\n\r\n  .chart-stats div {\r\n    padding: 7px;\r\n  }\r\n\r\n  .chart-stats span {\r\n    font-size: 10px;\r\n  }\r\n\r\n  .chart-stats strong {\r\n    font-size: 12px;\r\n  }\r\n\r\n  .chart > svg {\r\n    height: 220px;\r\n  }\r\n\r\n  .usage-chart {\r\n    gap: 9px;\r\n    padding: 9px;\r\n  }\r\n\r\n  .usage-summary {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n    gap: 6px;\r\n  }\r\n\r\n  .usage-columns {\r\n    grid-template-columns: 1fr;\r\n    gap: 10px;\r\n  }\r\n\r\n  .usage-row {\r\n    gap: 6px;\r\n    padding: 8px;\r\n  }\r\n\r\n  .usage-row-foot {\r\n    display: grid;\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  }\r\n\r\n  .latency-samples {\r\n    min-height: 38px;\r\n  }\r\n\r\n  .latency-sample {\r\n    min-width: 82px;\r\n    padding: 6px 7px;\r\n  }\r\n\r\n  .provider-health,\r\n  .pad,\r\n  .form-grid,\r\n  .drawer-body,\r\n  .mobile-settings-body {\r\n    padding: 11px;\r\n  }\r\n\r\n  th,\r\n  td {\r\n    padding: 9px 10px;\r\n  }\r\n\r\n  .button {\r\n    min-height: 34px;\r\n  }\r\n\r\n  .control {\r\n    min-height: 34px;\r\n  }\r\n\r\n  .config-provider-card {\r\n    gap: 10px;\r\n    padding: 11px;\r\n  }\r\n\r\n  .config-provider-head,\r\n  .format-edit-row {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .config-provider-head {\r\n    display: grid;\r\n  }\r\n\r\n  .format-edit-row {\r\n    gap: 6px;\r\n  }\r\n\r\n  .provider-runtime-head,\r\n  .key-card-head,\r\n  .failure-policy-head {\r\n    display: grid;\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .compact-control {\r\n    width: 100%;\r\n    min-width: 0;\r\n  }\r\n  .key-probe-menu {\r\n    position: fixed;\r\n    right: 12px;\r\n    left: 12px;\r\n    width: auto;\r\n    max-width: none;\r\n  }\r\n\r\n  .provider-runtime-actions,\r\n  .actions {\r\n    justify-content: flex-start;\r\n  }\r\n\r\n  .provider-card-grid,\r\n  .provider-model-list,\r\n  .policy-card-list,\r\n  .failure-policy-list {\r\n    grid-template-columns: 1fr;\r\n    gap: 8px;\r\n  }\r\n\r\n  .provider-toolbar {\r\n    grid-template-columns: 1fr;\r\n    margin: 0 9px 4px;\r\n    padding: 10px;\r\n  }\r\n\r\n  .recent-failure-row {\r\n    grid-template-columns: auto minmax(0, 1fr) auto;\r\n  }\r\n\r\n  .recent-failure-reason {\r\n    grid-column: 2 / -1;\r\n  }\r\n\r\n  .provider-runtime-card,\r\n  .model-capability-card,\r\n  .policy-rule-card,\r\n  .failure-policy-card {\r\n    gap: 10px;\r\n    padding: 10px;\r\n    border-radius: 8px;\r\n  }\r\n\r\n  .provider-metrics,\r\n  .provider-compact-stats,\r\n  .provider-card-metrics,\r\n  .model-capability-summary,\r\n  .policy-summary-grid {\r\n    grid-template-columns: 1fr 1fr;\r\n    gap: 7px;\r\n  }\r\n\r\n  .provider-detail-metrics {\r\n    grid-template-columns: repeat(3, minmax(0, 1fr));\r\n    gap: 6px;\r\n  }\r\n\r\n  .provider-detail-metrics .mini-metric {\r\n    min-height: 0;\r\n    padding: 6px 7px;\r\n    border-radius: 6px;\r\n  }\r\n\r\n  .provider-detail-metrics .mini-metric span {\r\n    font-size: 10px;\r\n    line-height: 1.1;\r\n  }\r\n\r\n  .provider-detail-metrics .mini-metric strong {\r\n    margin-top: 1px;\r\n    font-size: 12px;\r\n    line-height: 1.1;\r\n  }\r\n\r\n  .provider-detail-metrics .mini-metric small {\r\n    display: none;\r\n  }\r\n\r\n  .provider-health-tile {\r\n    min-height: 0;\r\n  }\r\n\r\n  .provider-card-footer,\r\n  .provider-detail-hero,\r\n  .provider-danger-zone {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .provider-card-footer {\r\n    align-items: center;\r\n    gap: 4px;\r\n  }\r\n\r\n  .provider-card-stats {\r\n    flex: 1 1 0;\r\n    min-width: 0;\r\n    overflow: hidden;\r\n  }\r\n\r\n  .provider-runtime-actions {\r\n    flex-shrink: 0;\r\n  }\r\n\r\n  .provider-drawer {\r\n    width: 100vw;\r\n  }\r\n\r\n  .provider-drawer-tabs {\r\n    grid-template-columns: repeat(6, minmax(94px, 1fr));\r\n    overflow-x: auto;\r\n    padding-bottom: 8px;\r\n  }\r\n\r\n  .provider-activity-row {\r\n    grid-template-columns: 10px minmax(0, 1fr) auto;\r\n  }\r\n\r\n  .provider-activity-row > span:not(.provider-status-dot) {\r\n    grid-column: 2 / -1;\r\n  }\r\n\r\n  .provider-activity-row small {\r\n    display: none;\r\n  }\r\n\r\n  .policy-summary-grid {\r\n    padding: 9px 9px 0;\r\n  }\r\n\r\n  .policy-controls {\r\n    padding: 9px;\r\n  }\r\n\r\n  .policy-control-grid,\r\n  .form-pair-grid,\r\n  .failure-policy-edit-grid,\r\n  .model-route-form {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .policy-control-card {\r\n    padding: 10px;\r\n  }\r\n\r\n  .mini-metric {\r\n    padding: 8px;\r\n  }\r\n\r\n  .mini-metric strong {\r\n    font-size: 13px;\r\n  }\r\n\r\n  .format-route-list,\r\n  .provider-key-list,\r\n  .provider-inline-form,\r\n  .provider-inline-key-form,\r\n  .key-proxy-row,\r\n  .global-proxy-form,\r\n  .provider-create-form,\r\n  .config-summary-grid,\r\n  .config-provider-summary-card,\r\n  .model-route-card {\r\n    grid-template-columns: 1fr;\r\n    gap: 7px;\r\n  }\r\n\r\n  .provider-create-actions,\r\n  .provider-create-format,\r\n  .global-proxy-form .form-note,\r\n  .config-provider-summary-main,\r\n  .config-provider-summary-keys,\r\n  .config-provider-summary-formats,\r\n  .config-provider-summary-card > .badge,\r\n  .config-provider-summary-card > .button {\r\n    grid-column: 1 / -1;\r\n    grid-row: auto;\r\n  }\r\n\r\n  .config-provider-summary-card {\r\n    min-height: 0;\r\n  }\r\n\r\n  .config-provider-summary-card > .badge {\r\n    justify-self: start;\r\n  }\r\n\r\n  .config-provider-summary-card > .button {\r\n    justify-self: start;\r\n  }\r\n\r\n  .model-route-form,\r\n  .model-route-list {\r\n    padding: 9px;\r\n  }\r\n\r\n  .model-route-side {\r\n    justify-items: start;\r\n  }\r\n\r\n  .provider-edit-panel,\r\n  .raw-config-details,\r\n  .overlay-safety,\r\n  .config-summary {\r\n    padding: 9px;\r\n  }\r\n\r\n  .config-path-row {\r\n    grid-template-columns: 1fr;\r\n    gap: 4px;\r\n  }\r\n\r\n  .policy-rule-head {\r\n    grid-template-columns: 28px minmax(0, 1fr);\r\n    gap: 8px;\r\n  }\r\n\r\n  .rule-index {\r\n    width: 26px;\r\n    height: 26px;\r\n    border-radius: 7px;\r\n    font-size: 10px;\r\n  }\r\n\r\n  .kv-grid {\r\n    grid-template-columns: 104px minmax(0, 1fr);\r\n  }\r\n\r\n  .routing-summary-card,\r\n  .attempt {\r\n    padding: 10px;\r\n    border-radius: 8px;\r\n  }\r\n\r\n  .routing-summary-head {\r\n    align-items: flex-start;\r\n  }\r\n\r\n  .routing-summary-grid {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  }\r\n\r\n  .routing-next-action,\r\n  .attempt-explain div {\r\n    grid-template-columns: 1fr;\r\n    gap: 4px;\r\n  }\r\n\r\n  .attempt-explain {\r\n    padding: 8px;\r\n  }\r\n\r\n  .route-inline {\r\n    min-width: 180px;\r\n    max-width: 280px;\r\n  }\r\n\r\n  .view {\r\n    animation: none;\r\n  }\r\n}\r\n\r\n@media (max-width: 420px) {\n  .metric-grid {\r\n    grid-template-columns: 1fr 1fr;\r\n  }\r\n\r\n  .routing-summary-head,\r\n  .attempt-head {\r\n    display: grid;\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .routing-summary-grid {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .kv-grid {\n    grid-template-columns: 92px minmax(0, 1fr);\n  }\n\n  .routing-path-header,\n  .routing-path-step-head {\n    align-items: flex-start;\n    flex-direction: column;\n  }\n\n  .routing-path-header {\n    gap: 5px;\n  }\n\n  .routing-path-step-head {\n    gap: 2px;\n  }\n\n  .routing-path-step {\n    grid-template-columns: 22px minmax(0, 1fr);\n    gap: 8px;\n    padding-inline: 10px;\n  }\n\n  .routing-path-step:not(:last-child)::after {\n    left: 20px;\n  }\n\n  .routing-diagnostics > summary {\n    grid-template-columns: minmax(0, 1fr) 12px;\n  }\n\n  .routing-diagnostics-count {\n    grid-column: 1;\n    grid-row: 2;\n    padding-left: 23px;\n  }\n\n  .routing-diagnostics > summary::after {\n    grid-column: 2;\n    grid-row: 1 / 3;\n  }\n\n  .routing-diagnostic-grid {\n    grid-template-columns: 64px minmax(0, 1fr);\n  }\n}\n\r\n@media (max-width: 340px) {\r\n  .metric-grid {\r\n    grid-template-columns: 1fr;\r\n  }\r\n}\r\n\r\n@media (prefers-reduced-motion: reduce) {\r\n  html {\r\n    scroll-behavior: auto;\r\n  }\r\n\r\n  .view,\r\n  .button,\r\n  .icon-button,\r\n  .drawer,\n  .nav-item,\n  .animated-line,\n  .routing-diagnostics > summary::after {\n    animation: none !important;\r\n    transition: none !important;\r\n  }\r\n}\r\n\r\n/* Usage trend chart refresh. Keep this block late so older telemetry chart skins do not leak through. */\r\n.overview-traffic-panel .panel-head {\r\n  align-items: center;\r\n}\r\n\r\n.overview-traffic-panel .panel-head h2 {\r\n  font-size: 15px;\r\n  font-weight: 780;\r\n}\r\n\r\n.overview-traffic-panel .panel-head .badge.info {\r\n  border: 1px solid #e5e7eb;\r\n  background: #fff;\r\n  color: #6b7280;\r\n  text-transform: none;\r\n}\r\n\r\n.overview-traffic-panel .chart {\r\n  min-height: 500px;\r\n  padding: 18px 24px 24px;\r\n  background: #fff;\r\n}\r\n\r\n.usage-trend-overview {\r\n  display: grid;\r\n  grid-template-columns: minmax(250px, 0.62fr) minmax(0, 1.38fr);\r\n  gap: 10px;\r\n  align-items: stretch;\r\n  margin-bottom: 14px;\r\n}\r\n\r\n.usage-trend-total,\r\n.usage-trend-kpi {\r\n  border: 1px solid #eceff3;\r\n  background: #fff;\r\n}\r\n\r\n.usage-trend-total {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  grid-template-rows: auto auto auto;\r\n  gap: 2px 9px;\r\n  align-content: center;\r\n  min-height: 68px;\r\n  padding: 8px 12px;\r\n  border-radius: 10px;\r\n  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.035);\r\n}\r\n\r\n.usage-trend-total-label,\r\n.usage-trend-kpi span {\r\n  color: #767b85;\r\n  font-size: 11px;\r\n  font-weight: 720;\r\n}\r\n\r\n.usage-trend-total-icon {\r\n  grid-row: 1 / span 3;\r\n  display: inline-grid;\r\n  width: 24px;\r\n  height: 24px;\r\n  place-items: center;\r\n  align-self: center;\r\n  border: 1px solid rgba(17, 24, 39, 0.08);\r\n  border-radius: 8px;\r\n  background: #f8fafc;\r\n  color: #64748b;\r\n}\r\n\r\n.usage-trend-total-icon .icon-svg {\r\n  width: 13px;\r\n  height: 13px;\r\n}\r\n\r\n.usage-trend-total strong {\r\n  color: #09090b;\r\n  font: 820 24px/1 var(--mono);\r\n  letter-spacing: 0;\r\n}\r\n\r\n.usage-trend-total small {\r\n  color: #8b919b;\r\n  font: 650 10.5px/1.2 var(--mono);\r\n}\r\n\r\n.usage-trend-kpis {\r\n  display: grid;\r\n  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));\r\n  gap: 8px;\r\n}\r\n\r\n.usage-trend-kpi {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  grid-template-rows: auto auto;\r\n  gap: 4px 8px;\r\n  align-content: center;\r\n  min-height: 68px;\r\n  padding: 8px 10px;\r\n  border-radius: 10px;\r\n}\r\n\r\n.usage-trend-kpi i {\r\n  grid-row: 1 / span 2;\r\n  width: 10px;\r\n  height: 10px;\r\n  margin-top: 4px;\r\n  border-radius: 999px;\r\n  background: #71717a;\r\n  box-shadow: 0 0 0 4px rgba(113, 113, 122, 0.08);\r\n}\r\n\r\n.usage-trend-icon {\r\n  grid-row: 1 / span 2;\r\n  display: inline-grid;\r\n  width: 24px;\r\n  height: 24px;\r\n  place-items: center;\r\n  align-self: center;\r\n  border: 1px solid transparent;\r\n  border-radius: 7px;\r\n  background: #f4f6f9;\r\n  color: #71717a;\r\n}\r\n\r\n.usage-trend-icon .icon-svg {\r\n  width: 13px;\r\n  height: 13px;\r\n  stroke-width: 2.2;\r\n}\r\n\r\n.usage-trend-kpi strong {\r\n  min-width: 0;\r\n  overflow: visible;\r\n  color: #18181b;\r\n  font: 780 16px/1 var(--mono);\r\n  overflow-wrap: anywhere;\r\n  white-space: normal;\r\n}\r\n\r\n.usage-trend-kpi.usage-input i {\r\n  background: #2563eb;\r\n  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);\r\n}\r\n\r\n.usage-trend-kpi.usage-input .usage-trend-icon {\r\n  background: rgba(37, 99, 235, 0.1);\r\n  border-color: rgba(37, 99, 235, 0.14);\r\n  color: #2563eb;\r\n}\r\n\r\n.usage-trend-kpi.usage-output i,\r\n.usage-trend-kpi.usage-success i {\r\n  background: #10b981;\r\n  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);\r\n}\r\n\r\n.usage-trend-kpi.usage-output .usage-trend-icon,\r\n.usage-trend-kpi.usage-success .usage-trend-icon {\r\n  background: rgba(16, 185, 129, 0.1);\r\n  border-color: rgba(16, 185, 129, 0.14);\r\n  color: #10b981;\r\n}\r\n\r\n.usage-trend-kpi.usage-request i {\r\n  background: #f97316;\r\n  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.12);\r\n}\r\n\r\n.usage-trend-kpi.usage-request .usage-trend-icon {\r\n  background: rgba(249, 115, 22, 0.12);\r\n  border-color: rgba(249, 115, 22, 0.16);\r\n  color: #f97316;\r\n}\r\n\r\n.usage-trend-kpi.usage-failure i {\r\n  background: #f43f5e;\r\n  box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.11);\r\n}\r\n\r\n.usage-trend-kpi.usage-failure .usage-trend-icon {\r\n  background: rgba(244, 63, 94, 0.11);\r\n  border-color: rgba(244, 63, 94, 0.16);\r\n  color: #f43f5e;\r\n}\r\n\r\n.traffic-chart-shell {\r\n  overflow: visible;\r\n  padding: 18px 18px 12px;\r\n  border: 1px solid #dce3ec;\r\n  border-radius: 14px;\r\n  background: #fff;\r\n  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.045);\r\n}\r\n\r\n.traffic-chart-shell svg {\r\n  display: block;\r\n  width: 100%;\r\n  height: 390px;\r\n}\r\n\r\n.traffic-plot-bg {\r\n  fill: #fff;\r\n}\r\n\r\n.chart .traffic-grid-line,\r\n.chart .traffic-x-tick {\r\n  stroke: #e6eaf0;\r\n  stroke-dasharray: 4 5;\r\n  stroke-width: 1;\r\n}\r\n\r\n.chart .traffic-x-tick {\r\n  opacity: 0.46;\r\n}\r\n\r\n.chart .traffic-baseline {\r\n  stroke: #8f98a6;\r\n  stroke-width: 1.5;\r\n}\r\n\r\n.traffic-axis-label {\r\n  fill: #667085;\r\n  font: 760 12px var(--mono);\r\n  paint-order: stroke;\r\n  stroke: #fff;\r\n  stroke-linejoin: round;\r\n  stroke-width: 3px;\r\n}\r\n\r\n.traffic-axis-title {\r\n  fill: #344054;\r\n  font: 820 12px var(--mono);\r\n  letter-spacing: 0.01em;\r\n}\r\n\r\n.traffic-axis-label-info {\r\n  fill: #8a5a22;\r\n}\r\n\r\n.traffic-token-area {\r\n  fill: url(\"#trafficTokenArea\");\r\n  pointer-events: none;\r\n}\r\n\r\n.traffic-plot-bg {\r\n  fill: transparent;\r\n}\r\n\r\n.traffic-total-line,\r\n.traffic-input-line,\r\n.traffic-output-line {\r\n  fill: none;\r\n  stroke-linecap: round;\r\n  stroke-linejoin: round;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.traffic-total-line {\r\n  stroke: #a855f7;\r\n  stroke-width: 2.2;\r\n  filter: drop-shadow(0 4px 6px rgba(168, 85, 247, 0.22));\r\n}\r\n\r\n.traffic-input-line {\r\n  stroke: #3b82f6;\r\n  stroke-width: 1.5;\r\n  stroke-dasharray: 6 4;\r\n}\r\n\r\n.traffic-output-line {\r\n  stroke: #10b981;\r\n  stroke-width: 1.5;\r\n  stroke-dasharray: 2 3;\r\n}\r\n\r\n.traffic-bar-success {\r\n  fill: #10b981;\r\n  opacity: 0.85;\r\n  transition: opacity 0.12s ease;\r\n}\r\n\r\n.traffic-bar-success:hover {\r\n  opacity: 1;\r\n}\r\n\r\n.traffic-bar-fail {\r\n  fill: #ef4444;\r\n  opacity: 0.9;\r\n  transition: opacity 0.12s ease;\r\n}\r\n\r\n.traffic-bar-fail:hover {\r\n  opacity: 1;\r\n}\r\n\r\n.traffic-latency-line {\r\n  fill: none;\r\n  stroke: #f59e0b;\r\n  stroke-width: 2.0;\r\n  stroke-linecap: round;\r\n  stroke-linejoin: round;\r\n  filter: drop-shadow(0 4px 6px rgba(245, 158, 11, 0.22));\r\n}\r\n\r\n.traffic-latency-region {\r\n  fill: url(\"#trafficLatencyArea\");\r\n  pointer-events: none;\r\n}\r\n\r\n.traffic-latency-dot {\r\n  fill: #f59e0b;\r\n  stroke: #ffffff;\r\n  stroke-width: 2;\r\n}\r\n\r\n.traffic-cost-line {\r\n  fill: none;\r\n  stroke: #f59e0b;\r\n  stroke-width: 2.0;\r\n  stroke-linecap: round;\r\n  stroke-linejoin: round;\r\n  filter: drop-shadow(0 4px 6px rgba(245, 158, 11, 0.22));\r\n}\r\n\r\n.traffic-cost-dot {\r\n  fill: #f59e0b;\r\n  stroke: #ffffff;\r\n  stroke-width: 2;\r\n}\r\n\r\n.traffic-trend-dot {\r\n  stroke: #fff;\r\n  stroke-width: 2.4;\r\n  vector-effect: non-scaling-stroke;\r\n}\r\n\r\n.traffic-total-dot {\r\n  fill: #a855f7;\r\n}\r\n\r\n.traffic-input-dot {\r\n  fill: #3b82f6;\r\n}\r\n\r\n.traffic-output-dot {\r\n  fill: #10b981;\r\n}\r\n\r\n.traffic-chart-header {\r\n  display: flex;\r\n  justify-content: space-between;\r\n  align-items: center;\r\n  padding: 14px 20px;\r\n  border-bottom: 1px solid color-mix(in srgb, var(--line) 40%, transparent);\r\n}\r\n\r\n.traffic-chart-header .traffic-trend-legend {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 16px;\r\n  align-items: center;\r\n  padding: 0;\r\n  margin: 0;\r\n}\r\n\r\n.traffic-mode-selectors {\r\n  display: inline-flex;\r\n  background: #f1f5f9;\r\n  padding: 3px;\r\n  border-radius: 99px;\r\n  border: 1px solid #e2e8f0;\r\n}\r\n\r\n.traffic-mode-selectors .pill-toggle {\r\n  background: transparent;\r\n  border: none;\r\n  outline: none;\r\n  font-size: 11px;\r\n  font-weight: 700;\r\n  color: #64748b;\r\n  padding: 6px 12px;\r\n  border-radius: 99px;\r\n  cursor: pointer;\r\n  transition: all 0.15s ease;\r\n  margin: 0;\r\n  height: auto;\r\n  line-height: 1.2;\r\n}\r\n\r\n.traffic-mode-selectors .pill-toggle:hover {\r\n  color: #1e293b;\r\n}\r\n\r\n.traffic-mode-selectors .pill-toggle.is-active {\r\n  background: #ffffff;\r\n  color: #0f172a;\r\n  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);\r\n  font-weight: 800;\r\n}\r\n\r\n.traffic-trend-legend-item {\r\n  display: inline-flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n  color: #475569;\r\n  font-size: 12px;\r\n  font-weight: 600;\r\n}\r\n\r\n.traffic-trend-legend-item i {\r\n  display: inline-block;\r\n  vertical-align: middle;\r\n}\r\n\r\n/* Line series legend indicators (pills/lines) */\r\n.traffic-trend-legend-item.traffic-latency-legend i,\r\n.traffic-trend-legend-item.traffic-total-dot i,\r\n.traffic-trend-legend-item.traffic-input-dot i,\r\n.traffic-trend-legend-item.traffic-output-dot i,\r\n.traffic-trend-legend-item.traffic-cost-legend i {\r\n  width: 18px;\r\n  height: 2px;\r\n  border-radius: 999px;\r\n}\r\n\r\n.traffic-trend-legend-item.traffic-latency-legend i {\r\n  background: #f59e0b;\r\n}\r\n\r\n.traffic-trend-legend-item.traffic-total-dot i {\r\n  background: #a855f7;\r\n}\r\n\r\n.traffic-trend-legend-item.traffic-input-dot i {\r\n  background: repeating-linear-gradient(90deg, #3b82f6 0 6px, transparent 6px 10px);\r\n}\r\n\r\n.traffic-trend-legend-item.traffic-output-dot i {\r\n  background: repeating-linear-gradient(90deg, #10b981 0 3px, transparent 3px 6px);\r\n}\r\n\r\n.traffic-trend-legend-item.traffic-cost-legend i {\r\n  background: #f59e0b;\r\n}\r\n\r\n/* Bar series legend indicators (squares/dots) */\r\n.traffic-trend-legend-item.traffic-bar-success-legend i,\r\n.traffic-trend-legend-item.traffic-bar-fail-legend i {\r\n  width: 11px;\r\n  height: 11px;\r\n  border-radius: 3px;\r\n}\r\n\r\n.traffic-trend-legend-item.traffic-bar-success-legend i {\r\n  background: #10b981;\r\n}\r\n\r\n.traffic-trend-legend-item.traffic-bar-fail-legend i {\r\n  background: #ef4444;\r\n}\r\n\r\n/* Cleaner provider health status dots. */\r\n.provider-status-dot {\r\n  width: 10px;\r\n  height: 10px;\r\n  margin-top: 5px;\r\n  border: 2px solid #fff;\r\n  background: #94a3b8;\r\n  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.18);\r\n}\r\n\r\n.provider-status-dot.ok {\r\n  background: #10b981;\r\n  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.16);\r\n}\r\n\r\n.provider-status-dot.warn {\r\n  background: #f59e0b;\r\n  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);\r\n}\r\n\r\n.provider-status-dot.bad {\r\n  background: #ef4444;\r\n  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.16);\r\n}\r\n\r\n.request-row-dot {\r\n  border: 2px solid #fff;\r\n}\r\n\r\n.recent-failure-list .recent-failure-row.tone-success .request-row-dot,\r\n#recentFailures .recent-failure-row.tone-success .request-row-dot {\r\n  background: #10b981;\r\n  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.16);\r\n}\r\n\r\n.recent-failure-list .recent-failure-row.tone-warning .request-row-dot,\r\n#recentFailures .recent-failure-row.tone-warning .request-row-dot {\r\n  background: #f59e0b;\r\n  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);\r\n}\r\n\r\n.recent-failure-list .recent-failure-row.tone-danger .request-row-dot,\r\n#recentFailures .recent-failure-row.tone-danger .request-row-dot {\r\n  background: #ef4444;\r\n  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.16);\r\n}\r\n\r\n.provider-activity-row .provider-status-dot {\r\n  margin-top: 0;\r\n  flex-shrink: 0;\r\n}\r\n\r\n@media (max-width: 980px) {\r\n  .usage-trend-overview {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .usage-trend-kpis {\r\n    grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  }\r\n}\r\n\r\n@media (max-width: 760px) {\r\n  .overview-traffic-panel .chart {\r\n    min-height: 450px;\r\n    padding: 10px;\r\n  }\r\n\r\n  .usage-trend-total {\r\n    min-height: 96px;\r\n    padding: 15px;\r\n  }\r\n\r\n  .usage-trend-total strong {\r\n    font-size: 28px;\r\n  }\r\n\r\n  .usage-trend-kpis {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n    gap: 8px;\r\n  }\r\n\r\n  .usage-trend-kpi {\r\n    min-height: 78px;\r\n    padding: 11px;\r\n  }\r\n\r\n  .usage-trend-kpi strong {\r\n    font-size: 15px;\r\n  }\r\n\r\n  .traffic-chart-shell {\r\n    padding: 10px 6px 8px;\r\n    border-radius: 12px;\r\n  }\r\n\r\n  .traffic-chart-shell svg {\r\n    height: 300px;\r\n  }\r\n\r\n  .traffic-axis-label {\r\n    font-size: 10px;\r\n  }\r\n}\r\n\r\n/* Final shell polish: brand plaque and unified provider tools. */\r\n.sidebar .brand {\r\n  position: relative;\r\n  gap: 11px;\r\n  margin: 14px 12px 16px;\r\n  padding: 13px 13px 14px;\r\n  border: 1px solid color-mix(in srgb, var(--line-strong) 72%, var(--line));\r\n  border-radius: 11px;\r\n  background:\r\n    linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 74%, #fff) 0%, var(--surface) 100%),\r\n    var(--surface);\r\n  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.055);\r\n}\r\n\r\n.sidebar .brand::after {\r\n  position: absolute;\r\n  right: 12px;\r\n  bottom: -9px;\r\n  left: 12px;\r\n  height: 1px;\r\n  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--line-strong) 80%, transparent), transparent);\r\n  content: \"\";\r\n}\r\n\r\n.sidebar .brand-mark {\r\n  width: 26px;\r\n  height: 26px;\r\n  border-radius: 7px;\r\n  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22) inset, 0 8px 16px rgba(9, 9, 11, 0.12);\r\n}\r\n\r\n.sidebar .brand-title {\r\n  font-size: 13.5px;\r\n  font-weight: 780;\r\n  line-height: 1.15;\r\n}\r\n\r\n.sidebar .brand-subtitle {\r\n  margin-top: 3px;\r\n  color: color-mix(in srgb, var(--muted) 84%, var(--text));\r\n  font-size: 11px;\r\n  line-height: 1.2;\r\n}\r\n\r\n.providers-panel {\r\n  overflow: visible;\r\n}\r\n\r\n.providers-panel .providers-tools {\r\n  border-bottom: 1px solid color-mix(in srgb, var(--line-strong) 64%, var(--line-soft));\r\n  background:\r\n    linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 70%, var(--surface)) 0%, var(--surface) 100%),\r\n    var(--surface);\r\n}\r\n\r\n.providers-tools-head {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  gap: 12px;\r\n  align-items: center;\r\n  padding: 14px 18px 10px;\r\n}\r\n\r\n.providers-tools-head h2 {\r\n  color: var(--text);\r\n  font-size: 15px;\r\n  font-weight: 800;\r\n  letter-spacing: 0;\r\n}\r\n\r\n.providers-tools-head p {\r\n  margin-top: 3px;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  line-height: 1.25;\r\n}\r\n\r\n.providers-tools-head .button {\r\n  min-height: 34px;\r\n}\r\n\r\n#providersView .provider-toolbar {\r\n  grid-template-columns: minmax(240px, 1.55fr) minmax(140px, 0.75fr) minmax(140px, 0.75fr) minmax(140px, 0.75fr) auto;\r\n  gap: 9px;\r\n  align-items: end;\r\n  margin: 0;\r\n  padding: 0 18px 16px;\r\n  border: 0;\r\n  border-radius: 0;\r\n  background: transparent;\r\n  box-shadow: none;\r\n}\r\n\r\n#providersView .provider-toolbar .field {\r\n  gap: 6px;\r\n}\r\n\r\n#providersView .provider-toolbar .field > span {\r\n  color: color-mix(in srgb, var(--muted) 88%, var(--text));\r\n  font-size: 10.5px;\r\n  font-weight: 780;\r\n  letter-spacing: 0.02em;\r\n}\r\n\r\n#providersView .provider-toolbar .control {\r\n  min-height: 36px;\r\n  border-color: color-mix(in srgb, var(--line-strong) 74%, var(--line));\r\n  background: rgba(255, 255, 255, 0.78);\r\n}\r\n\r\n#providersView .provider-toolbar .control:focus-visible {\r\n  border-color: color-mix(in srgb, var(--info) 56%, var(--line));\r\n  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);\r\n}\r\n\r\n#providersView .provider-toolbar #clearProviderFiltersButton {\r\n  min-height: 36px;\r\n  padding-inline: 13px;\r\n  border-color: color-mix(in srgb, var(--line-strong) 68%, var(--line));\r\n}\r\n\r\n#providersView .provider-table {\r\n  padding-top: 12px;\r\n}\r\n\r\n@media (max-width: 1024px) {\r\n  #providersView .provider-toolbar {\r\n    grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(130px, 0.7fr)) auto;\r\n  }\r\n}\r\n\r\n@media (max-width: 760px) {\r\n  .sidebar .brand {\r\n    margin: 10px;\r\n    padding: 11px 12px;\r\n  }\r\n\r\n  .sidebar .brand::after {\r\n    display: none;\r\n  }\r\n\r\n  .providers-tools-head,\r\n  #providersView .provider-toolbar {\r\n    grid-template-columns: 1fr;\r\n    padding-right: 12px;\r\n    padding-left: 12px;\r\n  }\r\n\r\n  .providers-tools-head .button,\r\n  #providersView .provider-toolbar .button,\r\n  #providersView .provider-toolbar .field,\r\n  #providersView .provider-toolbar .control {\r\n    width: 100%;\r\n  }\r\n}\r\n\r\n/* static models form */\r\n.config-static-models-form {\r\n  display: grid;\r\n  gap: 8px;\r\n  padding: 12px 14px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n}\r\n\r\n.config-static-models-form .form-row {\r\n  display: grid;\r\n  gap: 5px;\r\n}\r\n\r\n.config-static-models-form label {\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  font-weight: 720;\r\n}\r\n\r\n.config-static-models-form input[type=\"text\"] {\r\n  width: 100%;\r\n  min-height: 32px;\r\n  padding: 4px 8px;\r\n  background: var(--bg);\r\n  border: 1px solid var(--line);\r\n  border-radius: 6px;\r\n  color: var(--text);\r\n  font-size: 12px;\r\n  font-family: var(--mono, monospace);\r\n  box-sizing: border-box;\r\n}\r\n\r\n.config-static-models-form input[type=\"text\"]:focus {\r\n  outline: none;\r\n  border-color: var(--accent);\r\n}\r\n\r\n.config-static-models-form small.muted {\r\n  font-size: 11px;\r\n  color: var(--muted);\r\n}\r\n\r\n.request-select-all-banner {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  gap: 12px;\r\n  padding: 8px 14px;\r\n  background-color: color-mix(in srgb, var(--accent, #3b82f6) 8%, transparent);\r\n  border-bottom: 1px dashed var(--line-soft);\r\n  font-size: 12px;\r\n  color: var(--text);\r\n  animation: viewIn 0.15s ease-out;\r\n}\r\n\r\n.request-select-all-banner .button.link-action {\r\n  background: none;\r\n  border: none;\r\n  padding: 0;\r\n  color: var(--accent);\r\n  font-weight: 600;\r\n  text-decoration: underline;\r\n  cursor: pointer;\r\n  font-family: inherit;\r\n}\r\n\r\n.request-select-all-banner .button.link-action:hover {\r\n  color: var(--accent-hover, #2563eb);\r\n}\r\n\r\n/* ---- Custom tooltip (Apple-style frosted popover) ---------------------- */\r\n.lp-tip {\r\n  position: fixed;\r\n  top: 0;\r\n  left: 0;\r\n  z-index: 1000;\r\n  max-width: 320px;\r\n  padding: 7px 11px;\r\n  border-radius: 9px;\r\n  background: color-mix(in srgb, #1d1d1f 86%, transparent);\r\n  color: #f5f5f7;\r\n  font: 600 11.5px/1.45 var(--mono);\r\n  letter-spacing: 0.01em;\r\n  box-shadow:\r\n    0 1px 2px rgba(0, 0, 0, 0.18),\r\n    0 8px 24px rgba(0, 0, 0, 0.22);\r\n  backdrop-filter: blur(18px) saturate(1.5);\r\n  -webkit-backdrop-filter: blur(18px) saturate(1.5);\r\n  pointer-events: none;\r\n  opacity: 0;\r\n  /* No transform on the resting state so getBoundingClientRect measures the\r\n     true size during positioning. The entrance transform lives on is-visible\r\n     and animates back to none, which does not affect layout measurement\r\n     because measurement happens before is-visible is added. */\r\n  visibility: hidden;\r\n  transition: opacity 130ms ease, transform 130ms cubic-bezier(0.2, 0.8, 0.2, 1);\r\n}\r\n\r\n.lp-tip.is-below {\r\n  transform-origin: top center;\r\n}\r\n\r\n.lp-tip.is-visible {\r\n  opacity: 1;\r\n  visibility: visible;\r\n  transform: translateY(0) scale(1);\r\n}\r\n\r\n.lp-tip::after {\r\n  content: \"\";\r\n  position: absolute;\r\n  left: 50%;\r\n  bottom: -4px;\r\n  width: 8px;\r\n  height: 8px;\r\n  background: inherit;\r\n  border-radius: 1px;\r\n  transform: translateX(-50%) rotate(45deg);\r\n  box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.12);\r\n}\r\n\r\n.lp-tip.is-below::after {\r\n  bottom: auto;\r\n  top: -4px;\r\n  box-shadow: -1px -1px 2px rgba(0, 0, 0, 0.12);\r\n}\r\n\r\n/* ─── Playground ────────────────────────────────────────── */\r\n\r\n.playground-layout {\r\n  display: grid;\r\n  grid-template-columns: 280px minmax(0, 1fr);\r\n  gap: 0;\r\n  height: calc(100dvh - 58px);\r\n  overflow: hidden;\r\n}\r\n\r\n/* ── Config sidebar ── */\r\n.playground-config {\r\n  display: flex;\r\n  flex-direction: column;\r\n  gap: 0;\r\n  border-right: 1px solid var(--line);\r\n  background: var(--surface);\r\n  overflow-y: auto;\r\n  scrollbar-width: thin;\r\n  scrollbar-color: var(--line-strong) transparent;\r\n}\r\n\r\n.playground-config::-webkit-scrollbar {\r\n  width: 5px;\r\n}\r\n.playground-config::-webkit-scrollbar-thumb {\r\n  background: var(--line-strong);\r\n  border-radius: 3px;\r\n}\r\n\r\n/* Config section header bar */\r\n.pg-config-section {\r\n  border-bottom: 1px solid var(--line-soft);\r\n}\r\n\r\n.pg-config-section summary {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 6px;\r\n  padding: 10px 16px;\r\n  font-size: 10px;\r\n  font-weight: 760;\r\n  text-transform: uppercase;\r\n  letter-spacing: 0.08em;\r\n  color: var(--muted);\r\n  cursor: pointer;\r\n  transition: background 120ms ease, color 120ms ease;\r\n  list-style: none;\r\n  user-select: none;\r\n}\r\n\r\n.pg-config-section summary::-webkit-details-marker {\r\n  display: none;\r\n}\r\n\r\n.pg-config-section summary::before {\r\n  content: \"\";\r\n  display: inline-block;\r\n  width: 6px;\r\n  height: 6px;\r\n  border-right: 1.5px solid var(--line-strong);\r\n  border-bottom: 1.5px solid var(--line-strong);\r\n  transform: rotate(-45deg);\r\n  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1);\r\n  flex-shrink: 0;\r\n}\r\n\r\n.pg-config-section[open] summary::before {\r\n  transform: rotate(45deg);\r\n}\r\n\r\n.pg-config-section summary:hover {\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n}\r\n\r\n.pg-config-body {\r\n  display: grid;\r\n  gap: 10px;\r\n  padding: 4px 16px 14px;\r\n}\r\n\r\n/* Parameter grid */\r\n.pg-param-grid {\r\n  grid-template-columns: 1fr 1fr;\r\n  gap: 8px 10px;\r\n}\r\n\r\n.pg-param {\r\n  display: grid;\r\n  gap: 3px;\r\n}\r\n\r\n.pg-param span {\r\n  font-size: 10px;\r\n  font-weight: 680;\r\n  color: var(--muted);\r\n  letter-spacing: 0.01em;\r\n}\r\n\r\n.pg-param .control {\r\n  min-height: 32px;\r\n  padding: 0 10px;\r\n  font-size: 12px;\r\n  font-family: var(--mono);\r\n  border-radius: 6px;\r\n  transition: border-color 150ms ease, box-shadow 150ms ease;\r\n}\r\n\r\n.pg-param .control:focus-visible {\r\n  border-color: var(--accent);\r\n  box-shadow: 0 0 0 3px rgba(9, 9, 11, 0.08);\r\n}\r\n\r\n/* Model select */\r\n.pg-config-body .control {\r\n  min-height: 32px;\r\n  font-size: 12px;\r\n  border-radius: 6px;\r\n  transition: border-color 150ms ease, box-shadow 150ms ease;\r\n}\r\n\r\n.pg-config-body .control:focus-visible {\r\n  border-color: var(--accent);\r\n  box-shadow: 0 0 0 3px rgba(9, 9, 11, 0.08);\r\n}\r\n\r\n/* Segmented control */\r\n.pg-segment-row {\r\n  margin-bottom: 2px;\r\n}\r\n\r\n.pg-segment-row .segmented-control {\r\n  display: flex;\r\n  border-radius: 6px;\r\n  overflow: hidden;\r\n  border: 1px solid var(--line);\r\n}\r\n\r\n.pg-segment-row .segmented-button {\r\n  flex: 1;\r\n  min-height: 32px;\r\n  font-size: 11px;\r\n  font-weight: 640;\r\n  border: none;\r\n  border-right: 1px solid var(--line);\r\n  background: var(--surface);\r\n  color: var(--muted);\r\n  cursor: pointer;\r\n  transition: background 120ms ease, color 120ms ease;\r\n}\r\n\r\n.pg-segment-row .segmented-button:last-child {\r\n  border-right: none;\r\n}\r\n\r\n.pg-segment-row .segmented-button:hover {\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n}\r\n\r\n.pg-segment-row .segmented-button.is-active {\r\n  background: var(--text);\r\n  color: #fff;\r\n}\r\n\r\n/* Checkbox field */\r\n.pg-config-body .check-field {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n  min-height: 28px;\r\n  font-size: 11.5px;\r\n  font-weight: 580;\r\n  color: var(--text);\r\n  cursor: pointer;\r\n}\r\n\r\n.pg-config-body .check-field input[type=\"checkbox\"] {\r\n  width: 14px;\r\n  height: 14px;\r\n  accent-color: var(--text);\r\n  cursor: pointer;\r\n}\r\n\r\n/* System prompt textarea */\r\n.pg-system-prompt {\r\n  min-height: 56px;\r\n  max-height: 140px;\r\n  resize: vertical;\r\n  font-family: var(--sans);\r\n  font-size: 12px;\r\n  line-height: 1.5;\r\n  border-radius: 6px;\r\n  padding: 8px 10px;\r\n  transition: border-color 150ms ease, box-shadow 150ms ease;\r\n}\r\n\r\n.pg-system-prompt:focus-visible {\r\n  border-color: var(--accent);\r\n  box-shadow: 0 0 0 3px rgba(9, 9, 11, 0.08);\r\n}\r\n\r\n/* Footer */\r\n.pg-config-footer {\r\n  padding: 10px 16px 14px;\r\n  margin-top: auto;\r\n  border-top: 1px solid var(--line-soft);\r\n}\r\n\r\n.pg-config-footer .button {\r\n  width: 100%;\r\n  min-height: 32px;\r\n  font-size: 11.5px;\r\n  font-weight: 640;\r\n  border-radius: 6px;\r\n}\r\n\r\n/* ── Main chat area ── */\r\n.playground-main {\r\n  display: flex;\r\n  flex-direction: column;\r\n  min-width: 0;\r\n  min-height: 0;\r\n  background: var(--bg);\r\n}\r\n\r\n.pg-chat-wrap {\r\n  flex: 1;\r\n  display: flex;\r\n  flex-direction: column;\r\n  min-height: 0;\r\n  overflow: hidden;\r\n}\r\n\r\n.pg-chat {\r\n  flex: 1;\r\n  overflow-y: auto;\r\n  padding: 20px 24px;\r\n  min-height: 0;\r\n  scrollbar-width: thin;\r\n  scrollbar-color: var(--line-strong) transparent;\r\n}\r\n\r\n.pg-chat::-webkit-scrollbar {\r\n  width: 6px;\r\n}\r\n.pg-chat::-webkit-scrollbar-thumb {\r\n  background: var(--line-strong);\r\n  border-radius: 3px;\r\n}\r\n\r\n/* Empty state */\r\n.pg-empty {\r\n  display: flex;\r\n  flex-direction: column;\r\n  align-items: center;\r\n  justify-content: center;\r\n  gap: 10px;\r\n  height: 100%;\r\n  min-height: 200px;\r\n  color: var(--muted);\r\n}\r\n\r\n.pg-empty::before {\r\n  content: \"\";\r\n  display: block;\r\n  width: 32px;\r\n  height: 32px;\r\n  border: 1.5px solid var(--line-strong);\r\n  border-radius: 50%;\r\n  position: relative;\r\n}\r\n\r\n.pg-empty-text {\r\n  font-size: 13px;\r\n  font-weight: 580;\r\n}\r\n\r\n/* Message blocks */\r\n.pg-message {\r\n  margin-bottom: 16px;\r\n  max-width: 760px;\r\n  animation: pg-msg-in 300ms cubic-bezier(0.16, 1, 0.3, 1);\r\n}\r\n\r\n@keyframes pg-msg-in {\r\n  from { opacity: 0; transform: translateY(6px); }\r\n  to   { opacity: 1; transform: translateY(0); }\r\n}\r\n\r\n.pg-message:last-child {\r\n  margin-bottom: 8px;\r\n}\r\n\r\n.pg-message-head {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 7px;\r\n  margin-bottom: 5px;\r\n}\r\n\r\n.pg-message-role {\r\n  font-size: 10px;\r\n  font-weight: 760;\r\n  text-transform: uppercase;\r\n  letter-spacing: 0.06em;\r\n  color: var(--muted);\r\n  font-family: var(--mono);\r\n}\r\n\r\n.pg-message-content {\r\n  padding: 11px 15px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 10px;\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  font-size: 13px;\r\n  line-height: 1.65;\r\n  white-space: pre-wrap;\r\n  word-break: break-word;\r\n  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);\r\n  transition: box-shadow 200ms ease;\r\n}\r\n\r\n.pg-message-content:hover {\r\n  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);\r\n}\r\n\r\n.pg-role-assistant .pg-message-content {\r\n  border-color: color-mix(in srgb, var(--success) 20%, var(--line));\r\n  background: var(--success-soft);\r\n}\r\n\r\n.pg-role-assistant .pg-message-role {\r\n  color: var(--success);\r\n}\r\n\r\n.pg-role-user .pg-message-content {\r\n  border-color: color-mix(in srgb, var(--info) 16%, var(--line));\r\n  background: var(--info-soft);\r\n}\r\n\r\n.pg-role-user .pg-message-role {\r\n  color: color-mix(in srgb, var(--info) 80%, var(--text));\r\n}\r\n\r\n.pg-role-system .pg-message-content {\r\n  border-color: color-mix(in srgb, var(--compat) 18%, var(--line));\r\n  background: var(--compat-soft);\r\n}\r\n\r\n.pg-role-system .pg-message-role {\r\n  color: var(--compat);\r\n}\r\n\r\n.pg-message-error {\r\n  padding: 11px 15px;\r\n  border: 1px solid color-mix(in srgb, var(--danger) 24%, var(--line));\r\n  border-radius: 10px;\r\n  background: var(--danger-soft);\r\n  color: var(--danger);\r\n  font-size: 12.5px;\r\n  font-weight: 600;\r\n  line-height: 1.55;\r\n  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);\r\n}\r\n\r\n.pg-message-meta {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 5px;\r\n  margin-top: 6px;\r\n}\r\n\r\n.pg-message-meta .badge {\r\n  font-size: 10px;\r\n  font-weight: 620;\r\n  font-family: var(--mono);\r\n  min-height: 20px;\r\n  padding: 0 7px;\r\n  border-radius: 4px;\r\n  display: inline-flex;\r\n  align-items: center;\r\n}\r\n\r\n/* Streaming cursor */\r\n.pg-stream-cursor {\r\n  display: inline-block;\r\n  width: 7px;\r\n  height: 15px;\r\n  margin-left: 2px;\r\n  vertical-align: text-bottom;\r\n  background: var(--text);\r\n  border-radius: 1px;\r\n  animation: pg-blink 1s steps(2) infinite;\r\n}\r\n\r\n@keyframes pg-blink {\r\n  0%, 50% { opacity: 1; }\r\n  51%, 100% { opacity: 0; }\r\n}\r\n\r\n/* ── Trace strip ── */\r\n.pg-trace-strip {\r\n  flex-shrink: 0;\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  align-items: center;\r\n  gap: 0;\r\n  padding: 0 24px;\r\n  border-top: 1px solid var(--line-soft);\r\n  background: var(--surface-raised);\r\n  font-size: 11px;\r\n  font-family: var(--mono);\r\n}\r\n\r\n.pg-trace-strip .pg-trace-item {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 5px;\r\n  padding: 7px 12px 7px 0;\r\n  border-right: 1px solid var(--line-soft);\r\n  margin-right: 10px;\r\n}\r\n\r\n.pg-trace-strip .pg-trace-item:last-child {\r\n  border-right: none;\r\n}\r\n\r\n.pg-trace-strip .pg-trace-k {\r\n  color: var(--muted);\r\n  font-size: 9px;\r\n  text-transform: uppercase;\r\n  letter-spacing: 0.06em;\r\n  font-weight: 720;\r\n}\r\n\r\n.pg-trace-strip .pg-trace-v {\r\n  color: var(--text);\r\n  font-weight: 620;\r\n}\r\n\r\n/* ── Model search combobox ── */\r\n.pg-model-combo {\r\n  position: relative;\r\n}\r\n\r\n.pg-model-combo input {\r\n  width: 100%;\r\n}\r\n\r\n.pg-model-dropdown {\r\n  position: absolute;\r\n  top: calc(100% + 2px);\r\n  left: 0;\r\n  right: 0;\r\n  max-height: 260px;\r\n  overflow-y: auto;\r\n  background: var(--surface-raised, #fff);\r\n  border: 1px solid var(--line-soft, #ddd);\r\n  border-radius: 6px;\r\n  z-index: 100;\r\n  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);\r\n}\r\n\r\n.pg-model-option {\r\n  padding: 8px 12px;\r\n  font-size: 12px;\r\n  font-family: var(--mono, monospace);\r\n  cursor: pointer;\r\n  border-bottom: 1px solid var(--line-soft, #eee);\r\n  transition: background 0.12s;\r\n}\r\n\r\n.pg-model-option:last-child {\r\n  border-bottom: none;\r\n}\r\n\r\n.pg-model-option:hover {\r\n  background: var(--surface-soft, #f5f5f5);\r\n}\r\n\r\n.pg-model-option.selected {\r\n  background: var(--accent-soft, #e8f0fe);\r\n  font-weight: 600;\r\n}\r\n\r\n.pg-model-empty {\r\n  padding: 12px;\r\n  font-size: 12px;\r\n  color: var(--muted, #999);\r\n  text-align: center;\r\n}\r\n\r\n/* ── Input bar ── */\r\n.pg-input-bar {\r\n  flex-shrink: 0;\r\n  display: flex;\r\n  gap: 10px;\r\n  align-items: flex-end;\r\n  padding: 12px 20px 10px;\r\n  border-top: 1px solid var(--line);\r\n  background: var(--surface);\r\n  box-shadow: 0 -1px 0 rgba(0, 0, 0, 0.02);\r\n}\r\n\r\n.pg-input {\r\n  flex: 1;\r\n  min-height: 40px;\r\n  max-height: 140px;\r\n  resize: none;\r\n  font-family: var(--sans);\r\n  font-size: 13px;\r\n  line-height: 1.55;\r\n  padding: 9px 13px;\r\n  border-radius: 8px;\r\n  border: 1px solid var(--line);\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  transition: border-color 150ms ease, box-shadow 150ms ease;\r\n}\r\n\r\n.pg-input::placeholder {\r\n  color: var(--line-strong);\r\n}\r\n\r\n.pg-input:focus-visible {\r\n  border-color: var(--accent);\r\n  box-shadow: 0 0 0 3px rgba(9, 9, 11, 0.08);\r\n}\r\n\r\n.pg-send-btn,\r\n.pg-stop-btn {\r\n  min-height: 40px;\r\n  padding: 0 20px;\r\n  font-size: 12.5px;\r\n  font-weight: 680;\r\n  white-space: nowrap;\r\n  border-radius: 8px;\r\n  transition: background 150ms ease, border-color 150ms ease, transform 100ms ease, box-shadow 150ms ease;\r\n}\r\n\r\n.pg-send-btn {\r\n  border: 1px solid var(--text);\r\n  background: var(--text);\r\n  color: #fff;\r\n  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);\r\n}\r\n\r\n.pg-send-btn:hover {\r\n  background: var(--accent-strong);\r\n  border-color: var(--accent-strong);\r\n  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);\r\n}\r\n\r\n.pg-send-btn:active {\r\n  transform: scale(0.97);\r\n}\r\n\r\n.pg-send-btn:disabled {\r\n  opacity: 0.5;\r\n  cursor: not-allowed;\r\n  transform: none;\r\n}\r\n\r\n.pg-stop-btn {\r\n  border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--line));\r\n  background: var(--danger-soft);\r\n  color: var(--danger);\r\n}\r\n\r\n.pg-stop-btn:hover {\r\n  background: color-mix(in srgb, var(--danger) 12%, var(--danger-soft));\r\n  border-color: var(--danger);\r\n}\r\n\r\n.pg-stop-btn:active {\r\n  transform: scale(0.97);\r\n}\r\n\r\n/* ── Status bar ── */\r\n.pg-status-bar {\r\n  flex-shrink: 0;\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n  padding: 5px 20px 7px;\r\n  font-size: 10px;\r\n  font-weight: 560;\r\n  color: var(--muted);\r\n  background: var(--surface);\r\n  border-top: 1px solid var(--line-soft);\r\n  font-family: var(--mono);\r\n  letter-spacing: 0.02em;\r\n}\r\n\r\n.pg-status-bar::before {\r\n  content: \"\";\r\n  display: inline-block;\r\n  width: 6px;\r\n  height: 6px;\r\n  border-radius: 50%;\r\n  background: var(--line-strong);\r\n  flex-shrink: 0;\r\n}\r\n\r\n/* ── Responsive ── */\r\n@media (max-width: 760px) {\r\n  .playground-layout {\r\n    grid-template-columns: 1fr;\r\n    height: auto;\r\n  }\r\n\r\n  .playground-config {\r\n    border-right: none;\r\n    border-bottom: 1px solid var(--line);\r\n    max-height: 40dvh;\r\n  }\r\n\r\n  .playground-main {\r\n    min-height: 50dvh;\r\n  }\r\n\r\n  .pg-chat {\r\n    min-height: 200px;\r\n    padding: 14px 16px;\r\n  }\r\n\r\n  .pg-input-bar {\r\n    padding: 10px 14px 8px;\r\n  }\r\n\r\n  .pg-status-bar {\r\n    padding: 5px 14px 7px;\r\n  }\r\n}\r\n\r\n/* ─── Playground polish override ───────────────────────────────────────── */\r\n\r\n.playground-view {\r\n  height: calc(100dvh - 52px);\r\n  min-height: 560px;\r\n}\r\n\r\n.playground-layout {\r\n  grid-template-columns: minmax(260px, 310px) minmax(0, 1fr);\r\n  gap: 14px;\r\n  height: 100%;\r\n  min-height: 0;\r\n  padding: 0;\r\n  overflow: hidden;\r\n}\r\n\r\n.playground-config,\r\n.playground-main,\r\n.pg-compose-panel {\r\n  border: 1px solid color-mix(in srgb, var(--line-strong) 72%, var(--line));\r\n  background: #fff;\r\n  box-shadow: var(--shadow);\r\n}\r\n\r\n.playground-config {\r\n  min-height: 0;\r\n  border-radius: 10px;\r\n  border-right: 1px solid color-mix(in srgb, var(--line-strong) 72%, var(--line));\r\n  overflow-x: hidden;\r\n}\r\n\r\n.pg-config-head {\r\n  display: grid;\r\n  gap: 4px;\r\n  padding: 16px 16px 14px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n  background:\r\n    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(250, 250, 250, 0.78)),\r\n    var(--surface);\r\n}\r\n\r\n.pg-config-head h2,\r\n.pg-workbench-head h2 {\r\n  font-size: 15px;\r\n  font-weight: 760;\r\n  line-height: 1.2;\r\n}\r\n\r\n.pg-config-head p {\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  line-height: 1.45;\r\n}\r\n\r\n.pg-config-section {\r\n  border-bottom: 1px solid var(--line-soft);\r\n  background: transparent;\r\n}\r\n\r\n.pg-config-section summary {\r\n  min-height: 38px;\r\n  padding: 10px 16px;\r\n  color: color-mix(in srgb, var(--muted) 86%, var(--text));\r\n  font-size: 10.5px;\r\n  letter-spacing: 0.055em;\r\n}\r\n\r\n.pg-config-section[open] summary {\r\n  color: var(--text);\r\n}\r\n\r\n.pg-config-body {\r\n  gap: 11px;\r\n  padding: 0 16px 16px;\r\n}\r\n\r\n.pg-model-combo {\r\n  z-index: 20;\r\n}\r\n\r\n.pg-model-combo input,\r\n.pg-param .control,\r\n.pg-config-body .control {\r\n  min-height: 36px;\r\n  border-color: color-mix(in srgb, var(--line-strong) 70%, var(--line));\r\n  background: rgba(255, 255, 255, 0.92);\r\n  color: var(--text);\r\n}\r\n\r\n.pg-model-combo input {\r\n  padding-inline: 11px;\r\n  font-family: var(--mono);\r\n}\r\n\r\n.pg-param-grid {\r\n  display: grid;\r\n  grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  gap: 12px;\r\n}\r\n\r\n.pg-param span {\r\n  color: color-mix(in srgb, var(--muted) 90%, var(--text));\r\n  font-size: 10.5px;\r\n  font-weight: 740;\r\n}\r\n\r\n.pg-param .control {\r\n  width: 100%;\r\n}\r\n\r\n.pg-param-wide {\r\n  grid-column: 1 / -1;\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  min-height: 36px;\r\n  padding: 0 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: #fff;\r\n}\r\n\r\n.pg-param:has(#pgStream) {\r\n  align-content: end;\r\n}\r\n\r\n.pg-param #pgStream,\r\n.pg-param #pgIncludeHistory {\r\n  width: 18px;\r\n  height: 18px;\r\n  margin: 8px 0 5px;\r\n  accent-color: var(--text);\r\n}\r\n\r\n.pg-system-prompt {\r\n  min-height: 112px;\r\n  padding: 10px 11px;\r\n  resize: vertical;\r\n}\r\n\r\n.pg-format-selector {\r\n  display: grid;\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  gap: 4px;\r\n  padding: 4px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  background: var(--surface-soft);\r\n}\r\n\r\n.pg-format-btn {\r\n  min-width: 0;\r\n  min-height: 32px;\r\n  padding: 0 8px;\r\n  border: 0;\r\n  border-radius: 6px;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  font: 700 11px/1 var(--sans);\r\n  cursor: pointer;\r\n  transition: background 150ms ease, color 150ms ease, box-shadow 150ms ease, transform 120ms ease;\r\n}\r\n\r\n.pg-format-btn:hover {\r\n  background: rgba(255, 255, 255, 0.72);\r\n  color: var(--text);\r\n}\r\n\r\n.pg-format-btn:active {\r\n  transform: translateY(1px);\r\n}\r\n\r\n.pg-format-btn.is-active {\r\n  background: var(--surface);\r\n  color: var(--text);\r\n  box-shadow: 0 1px 4px rgba(9, 9, 11, 0.08);\r\n}\r\n\r\n.playground-main {\r\n  min-height: 0;\r\n  border-radius: 10px;\r\n  overflow: hidden;\r\n  background: #fff;\r\n}\r\n\r\n.pg-workbench-head {\r\n  flex-shrink: 0;\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  gap: 16px;\r\n  padding: 14px 18px;\r\n  border-bottom: 1px solid var(--line-soft);\r\n  background: rgba(255, 255, 255, 0.78);\r\n}\r\n\r\n.pg-status {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 7px;\r\n  min-height: 28px;\r\n  max-width: 50%;\r\n  overflow: hidden;\r\n  padding: 0 10px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 999px;\r\n  background: var(--surface);\r\n  color: var(--muted);\r\n  font: 680 11px/1 var(--mono);\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.pg-status::before {\r\n  width: 6px;\r\n  height: 6px;\r\n  border-radius: 999px;\r\n  background: var(--success);\r\n  content: \"\";\r\n}\r\n\r\n.pg-chat-wrap {\r\n  min-height: 0;\r\n  background: #fafafa;\r\n}\r\n\r\n.pg-chat-area {\r\n  flex: 1;\r\n  min-height: 0;\r\n  height: 100%;\r\n  overflow-y: auto;\r\n  padding: 26px 28px 30px;\r\n  scrollbar-width: thin;\r\n  scrollbar-color: var(--line-strong) transparent;\r\n}\r\n\r\n.pg-chat-area::-webkit-scrollbar {\r\n  width: 6px;\r\n}\r\n\r\n.pg-chat-area::-webkit-scrollbar-thumb {\r\n  border-radius: 999px;\r\n  background: var(--line-strong);\r\n}\r\n\r\n.pg-empty {\r\n  min-height: 100%;\r\n  gap: 12px;\r\n  color: var(--muted);\r\n}\r\n\r\n.pg-empty::before {\r\n  width: 38px;\r\n  height: 38px;\r\n  border: 1px solid color-mix(in srgb, var(--line-strong) 78%, var(--line));\r\n  background:\r\n    linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(244, 244, 245, 0.74));\r\n  box-shadow: inset 0 0 0 8px rgba(255, 255, 255, 0.45);\r\n}\r\n\r\n.pg-empty-text {\r\n  color: color-mix(in srgb, var(--muted) 88%, var(--text));\r\n  font-size: 13px;\r\n  font-weight: 660;\r\n}\r\n\r\n.pg-message {\r\n  max-width: min(780px, 92%);\r\n  margin-bottom: 18px;\r\n  animation: none;\r\n}\r\n\r\n.pg-role-assistant,\r\n.pg-role-system {\r\n  width: min(780px, 92%);\r\n}\r\n\r\n.pg-role-user {\r\n  width: fit-content;\r\n  max-width: min(520px, 74%);\r\n  margin-left: auto;\r\n}\r\n\r\n.pg-role-user .pg-message-head {\r\n  justify-content: flex-end;\r\n}\r\n\r\n.pg-message-role {\r\n  color: var(--muted);\r\n  font-size: 10px;\r\n  letter-spacing: 0.05em;\r\n}\r\n\r\n.pg-message-content,\r\n.pg-message-error {\r\n  border-radius: 8px;\r\n  font-size: 13px;\r\n  line-height: 1.68;\r\n  box-shadow: none;\r\n}\r\n\r\n.pg-message-content {\r\n  border-color: var(--line);\r\n  background: #fff;\r\n}\r\n\r\n.pg-role-user .pg-message-content {\r\n  border-color: color-mix(in srgb, var(--text) 16%, var(--line));\r\n  background: #f5f5f6;\r\n  color: var(--text);\r\n  padding: 10px 13px;\r\n}\r\n\r\n.pg-role-user .pg-message-role {\r\n  color: var(--text);\r\n}\r\n\r\n.pg-role-assistant .pg-message-content {\r\n  border-color: color-mix(in srgb, var(--success) 14%, var(--line));\r\n  background: #fff;\r\n}\r\n\r\n.pg-thinking {\r\n  margin: 0 0 8px;\r\n  border: 1px solid color-mix(in srgb, var(--compat) 18%, var(--line));\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--compat-soft) 58%, #fff);\r\n  color: var(--text);\r\n  overflow: hidden;\r\n}\r\n\r\n.pg-thinking summary {\r\n  min-height: 32px;\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n  padding: 0 11px;\r\n  color: color-mix(in srgb, var(--compat) 72%, var(--text));\r\n  cursor: pointer;\r\n  font: 700 11px/1 var(--mono);\r\n  list-style: none;\r\n}\r\n\r\n.pg-thinking summary::-webkit-details-marker {\r\n  display: none;\r\n}\r\n\r\n.pg-thinking summary::before {\r\n  width: 6px;\r\n  height: 6px;\r\n  border-radius: 999px;\r\n  background: currentColor;\r\n  opacity: 0.55;\r\n  content: \"\";\r\n}\r\n\r\n.pg-thinking-text {\r\n  max-height: 220px;\r\n  margin: 0;\r\n  padding: 10px 12px 12px;\r\n  overflow: auto;\r\n  border-top: 1px solid color-mix(in srgb, var(--compat) 12%, var(--line));\r\n  color: color-mix(in srgb, var(--muted) 82%, var(--text));\r\n  font: 12px/1.6 var(--mono);\r\n  white-space: pre-wrap;\r\n  word-break: break-word;\r\n}\r\n\r\n.pg-message-content:hover {\r\n  box-shadow: none;\r\n}\r\n\r\n.pg-stream-cursor {\r\n  display: inline-block;\r\n  width: 2px;\r\n  height: 1em;\r\n  margin-left: 3px;\r\n  vertical-align: -0.12em;\r\n  background: color-mix(in srgb, var(--text) 58%, transparent);\r\n  border-radius: 1px;\r\n  animation: none;\r\n}\r\n\r\n.pg-message-meta {\r\n  gap: 6px;\r\n  margin-top: 8px;\r\n}\r\n\r\n.pg-message-meta .badge {\r\n  min-height: 22px;\r\n  border-color: transparent;\r\n  border-radius: 6px;\r\n  background: rgba(255, 255, 255, 0.78);\r\n  color: var(--muted);\r\n}\r\n\r\n.pg-compose-panel {\r\n  flex-shrink: 0;\r\n  border-width: 1px 0 0;\r\n  border-radius: 0;\r\n  background: rgba(255, 255, 255, 0.9);\r\n  box-shadow: 0 -10px 24px rgba(9, 9, 11, 0.045);\r\n}\r\n\r\n.pg-trace-strip {\r\n  min-height: 0;\r\n  padding: 8px 18px 0;\r\n  border-top: 0;\r\n  background: transparent;\r\n}\r\n\r\n.pg-trace-strip[hidden] {\r\n  display: none !important;\r\n}\r\n\r\n.pg-trace-strip .pg-trace-item {\r\n  margin: 0 6px 8px 0;\r\n  padding: 5px 8px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  background: var(--surface);\r\n}\r\n\r\n.pg-input-bar {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  gap: 12px;\r\n  align-items: end;\r\n  padding: 12px 18px 16px;\r\n  border-top: 0;\r\n  background: transparent;\r\n  box-shadow: none;\r\n}\r\n\r\n.pg-input {\r\n  min-height: 48px;\r\n  max-height: 150px;\r\n  padding: 12px 13px;\r\n  border-color: color-mix(in srgb, var(--line-strong) 72%, var(--line));\r\n  border-radius: 9px;\r\n  background: #fff;\r\n}\r\n\r\n.pg-input::placeholder {\r\n  color: color-mix(in srgb, var(--muted) 55%, var(--line-strong));\r\n}\r\n\r\n.pg-input-actions {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n}\r\n\r\n.pg-btn {\r\n  min-height: 40px;\r\n  border-radius: 8px;\r\n}\r\n\r\n.pg-send-btn,\r\n.pg-stop-btn {\r\n  min-height: 40px;\r\n}\r\n\r\n.pg-model-dropdown {\r\n  top: calc(100% + 6px);\r\n  border-color: var(--line);\r\n  border-radius: 8px;\r\n  box-shadow: 0 16px 34px rgba(9, 9, 11, 0.14);\r\n}\r\n\r\n.pg-model-option {\r\n  padding: 9px 11px;\r\n}\r\n\r\n.playground-view {\r\n  --pg-scroll-thumb: color-mix(in srgb, var(--muted) 14%, transparent);\r\n  --pg-scroll-thumb-hover: color-mix(in srgb, var(--muted) 28%, transparent);\r\n  --pg-scroll-track: transparent;\r\n}\r\n\r\n.playground-config,\r\n.pg-chat-area,\r\n.pg-model-dropdown,\r\n.pg-thinking-text {\r\n  scrollbar-width: thin;\r\n  scrollbar-color: var(--pg-scroll-thumb) var(--pg-scroll-track);\r\n}\r\n\r\n.playground-config::-webkit-scrollbar,\r\n.pg-chat-area::-webkit-scrollbar,\r\n.pg-model-dropdown::-webkit-scrollbar,\r\n.pg-thinking-text::-webkit-scrollbar {\r\n  width: 3px;\r\n  height: 3px;\r\n}\r\n\r\n.playground-config::-webkit-scrollbar-track,\r\n.pg-chat-area::-webkit-scrollbar-track,\r\n.pg-model-dropdown::-webkit-scrollbar-track,\r\n.pg-thinking-text::-webkit-scrollbar-track {\r\n  background: var(--pg-scroll-track);\r\n}\r\n\r\n.playground-config::-webkit-scrollbar-thumb,\r\n.pg-chat-area::-webkit-scrollbar-thumb,\r\n.pg-model-dropdown::-webkit-scrollbar-thumb,\r\n.pg-thinking-text::-webkit-scrollbar-thumb {\r\n  border-radius: 999px;\r\n  background: var(--pg-scroll-thumb);\r\n}\r\n\r\n.playground-config::-webkit-scrollbar-thumb:hover,\r\n.pg-chat-area::-webkit-scrollbar-thumb:hover,\r\n.pg-model-dropdown::-webkit-scrollbar-thumb:hover,\r\n.pg-thinking-text::-webkit-scrollbar-thumb:hover {\r\n  background: var(--pg-scroll-thumb-hover);\r\n}\r\n\r\n.playground-config::-webkit-scrollbar-corner,\r\n.pg-chat-area::-webkit-scrollbar-corner,\r\n.pg-model-dropdown::-webkit-scrollbar-corner,\r\n.pg-thinking-text::-webkit-scrollbar-corner {\r\n  background: transparent;\r\n}\r\n\r\n/* ---- Playground Markdown rendering ---- */\r\n\r\n.pg-role-assistant .pg-message-content {\r\n  white-space: normal;\r\n}\r\n\r\n.pg-message-content .pg-md-p {\r\n  margin: 0 0 8px;\r\n}\r\n\r\n.pg-message-content .pg-md-p:last-child {\r\n  margin-bottom: 0;\r\n}\r\n\r\n.pg-message-content .pg-md-h1,\r\n.pg-message-content .pg-md-h2,\r\n.pg-message-content .pg-md-h3,\r\n.pg-message-content .pg-md-h4 {\r\n  margin: 12px 0 6px;\r\n  font-weight: 700;\r\n  line-height: 1.35;\r\n  color: var(--text);\r\n}\r\n\r\n.pg-message-content .pg-md-h1 { font-size: 17px; }\r\n.pg-message-content .pg-md-h2 { font-size: 15px; }\r\n.pg-message-content .pg-md-h3 { font-size: 14px; }\r\n.pg-message-content .pg-md-h4 { font-size: 13px; }\r\n\r\n.pg-message-content .pg-md-h1:first-child,\r\n.pg-message-content .pg-md-h2:first-child,\r\n.pg-message-content .pg-md-h3:first-child,\r\n.pg-message-content .pg-md-h4:first-child {\r\n  margin-top: 0;\r\n}\r\n\r\n.pg-message-content .pg-md-ul,\r\n.pg-message-content .pg-md-ol {\r\n  margin: 0 0 8px;\r\n  padding-left: 20px;\r\n}\r\n\r\n.pg-message-content .pg-md-ul:last-child,\r\n.pg-message-content .pg-md-ol:last-child {\r\n  margin-bottom: 0;\r\n}\r\n\r\n.pg-message-content .pg-md-ul { list-style: disc; }\r\n.pg-message-content .pg-md-ol { list-style: decimal; }\r\n\r\n.pg-message-content .pg-md-ul li,\r\n.pg-message-content .pg-md-ol li {\r\n  margin: 2px 0;\r\n}\r\n\r\n.pg-message-content .pg-md-code {\r\n  margin: 0 0 8px;\r\n  padding: 10px 12px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 6px;\r\n  background: color-mix(in srgb, var(--surface) 80%, #000 4%);\r\n  overflow-x: auto;\r\n  font: 12px/1.55 var(--mono);\r\n  white-space: pre;\r\n}\r\n\r\n.pg-message-content .pg-md-code:last-child {\r\n  margin-bottom: 0;\r\n}\r\n\r\n.pg-message-content .pg-md-code code {\r\n  font-family: inherit;\r\n  background: none;\r\n  padding: 0;\r\n  border: none;\r\n  color: var(--text);\r\n}\r\n\r\n.pg-message-content .pg-md-inline {\r\n  padding: 1px 5px;\r\n  border-radius: 3px;\r\n  background: color-mix(in srgb, var(--surface) 70%, #000 6%);\r\n  font: 12px/1.4 var(--mono);\r\n  color: color-mix(in srgb, var(--compat) 80%, var(--text));\r\n}\r\n\r\n.pg-message-content .pg-md-quote {\r\n  margin: 0 0 8px;\r\n  padding: 4px 12px;\r\n  border-left: 3px solid color-mix(in srgb, var(--compat) 40%, var(--line));\r\n  color: var(--muted);\r\n  font-style: italic;\r\n}\r\n\r\n.pg-message-content .pg-md-quote:last-child {\r\n  margin-bottom: 0;\r\n}\r\n\r\n.pg-message-content .pg-md-hr {\r\n  margin: 10px 0;\r\n  border: none;\r\n  border-top: 1px solid var(--line);\r\n}\r\n\r\n.pg-message-content .pg-md-link {\r\n  color: var(--info);\r\n  text-decoration: none;\r\n  border-bottom: 1px solid color-mix(in srgb, var(--info) 30%, transparent);\r\n}\r\n\r\n.pg-message-content .pg-md-link:hover {\r\n  text-decoration: underline;\r\n}\r\n\r\n.pg-message-content strong {\r\n  font-weight: 700;\r\n}\r\n\r\n.pg-message-content em {\r\n  font-style: italic;\r\n}\r\n\r\n.pg-message-content del {\r\n  text-decoration: line-through;\r\n  opacity: 0.7;\r\n}\r\n\r\n@media (max-width: 980px) {\r\n  .playground-view {\r\n    height: auto;\r\n    min-height: 0;\r\n  }\r\n\r\n  .playground-layout {\r\n    grid-template-columns: 1fr;\r\n    overflow: visible;\r\n  }\r\n\r\n  .playground-config {\r\n    max-height: none;\r\n  }\r\n\r\n  .playground-main {\r\n    min-height: 620px;\r\n  }\r\n}\r\n\r\n@media (max-width: 760px) {\r\n  .playground-layout {\r\n    gap: 10px;\r\n  }\r\n\r\n  .pg-config-head,\r\n  .pg-workbench-head {\r\n    padding: 13px 14px;\r\n  }\r\n\r\n  .pg-param-grid {\r\n    grid-template-columns: 1fr 1fr;\r\n  }\r\n\r\n  .pg-format-selector {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  .pg-status {\r\n    max-width: 44vw;\r\n  }\r\n\r\n  .pg-chat-area {\r\n    padding: 18px 14px 20px;\r\n  }\r\n\r\n  .pg-message {\r\n    max-width: 100%;\r\n  }\r\n\r\n  .pg-input-bar {\r\n    grid-template-columns: 1fr;\r\n    padding: 10px 12px 12px;\r\n  }\r\n\r\n    .pg-input-actions {\r\n    justify-content: flex-end;\r\n  }\r\n}\r\n\r\n/* ============================================================\r\n   UI/UX Optimization Components (minimalist-ui + ui-ux-pro-max)\r\n   ============================================================ */\r\n\r\n/* G1: Status Dot — semantic color indicator */\r\n.status-dot {\r\n  display: inline-block;\r\n  width: 8px;\r\n  height: 8px;\r\n  border-radius: 50%;\r\n  flex-shrink: 0;\r\n  transition: background 200ms ease;\r\n}\r\n.status-dot.ok { background: var(--success); }\r\n.status-dot.warn { background: var(--warning); }\r\n.status-dot.bad { background: var(--danger); }\r\n.status-dot.off { background: var(--line-strong); }\r\n\r\n/* G2: Help Tip — ? icon (uses existing JS .lp-tip floating tooltip via data-tip) */\r\n.help-tip {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  width: 16px;\r\n  height: 16px;\r\n  border-radius: 50%;\r\n  background: var(--surface-soft);\r\n  color: var(--muted);\r\n  font-size: 10px;\r\n  font-weight: 700;\r\n  cursor: help;\r\n  vertical-align: middle;\r\n  margin-left: 6px;\r\n  flex-shrink: 0;\r\n  transition: background 150ms ease, color 150ms ease;\r\n}\r\n.help-tip:hover {\r\n  background: var(--surface-strong);\r\n  color: var(--text);\r\n}\r\n\r\n/* G3: Toggle Switch — iOS-style checkbox replacement */\r\n.toggle-switch {\r\n  position: relative;\r\n  display: inline-block;\r\n  width: 36px;\r\n  height: 20px;\r\n  flex-shrink: 0;\r\n}\r\n.toggle-switch input {\r\n  opacity: 0;\r\n  width: 0;\r\n  height: 0;\r\n  position: absolute;\r\n}\r\n.toggle-switch .slider {\r\n  position: absolute;\r\n  inset: 0;\r\n  background: var(--line-strong);\r\n  border-radius: 999px;\r\n  transition: background 200ms ease;\r\n  cursor: pointer;\r\n}\r\n.toggle-switch .slider::before {\r\n  content: \"\";\r\n  position: absolute;\r\n  top: 2px;\r\n  left: 2px;\r\n  width: 16px;\r\n  height: 16px;\r\n  background: #fff;\r\n  border-radius: 50%;\r\n  transition: transform 200ms ease;\r\n  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);\r\n}\r\n.toggle-switch input:checked + .slider {\r\n  background: var(--success);\r\n}\r\n.toggle-switch input:checked + .slider::before {\r\n  transform: translateX(16px);\r\n}\r\n.toggle-switch input:focus-visible + .slider {\r\n  outline: 2px solid var(--accent);\r\n  outline-offset: 2px;\r\n}\r\n\r\n/* G4: Icon Button Group — segmented control for choices */\r\n.icon-btn-group {\r\n  display: inline-flex;\r\n  border: 1px solid var(--line);\r\n  border-radius: 7px;\r\n  overflow: hidden;\r\n}\r\n.icon-btn-group button {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 6px;\r\n  padding: 7px 12px;\r\n  border: none;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 560;\r\n  cursor: pointer;\r\n  transition: background 150ms ease, color 150ms ease;\r\n  white-space: nowrap;\r\n}\r\n.icon-btn-group button:hover {\r\n  background: var(--surface-soft);\r\n  color: var(--text);\r\n}\r\n.icon-btn-group button.is-active {\r\n  background: var(--text);\r\n  color: #fff;\r\n}\r\n.icon-btn-group button + button {\r\n  border-left: 1px solid var(--line);\r\n}\r\n.icon-btn-group button svg {\r\n  width: 14px;\r\n  height: 14px;\r\n  flex-shrink: 0;\r\n}\r\n/* Responsive: hide text labels on narrow screens, keep icons */\r\n@media (max-width: 640px) {\r\n  .icon-btn-group button span {\r\n    display: none;\r\n  }\r\n  .icon-btn-group button {\r\n    padding: 8px 10px;\r\n  }\r\n}\r\n/* Toggle switch in check-field: align with label text */\r\n.check-field .toggle-switch {\r\n  margin-right: 2px;\r\n}\r\n\r\n/* G5: Tab Nav — horizontal tab navigation */\r\n.config-tab-nav {\r\n  display: flex;\r\n  gap: 0;\r\n  border-bottom: 1px solid var(--line);\r\n  margin-bottom: 0;\r\n  overflow-x: auto;\r\n  scrollbar-width: none;\r\n}\r\n.config-tab-nav::-webkit-scrollbar {\r\n  display: none;\r\n}\r\n.config-tab-nav button {\r\n  padding: 10px 16px;\r\n  border: none;\r\n  background: transparent;\r\n  color: var(--muted);\r\n  font-size: 12px;\r\n  font-weight: 620;\r\n  cursor: pointer;\r\n  border-bottom: 2px solid transparent;\r\n  transition: color 150ms ease, border-color 150ms ease;\r\n  white-space: nowrap;\r\n}\r\n.config-tab-nav button:hover {\r\n  color: var(--text);\r\n}\r\n.config-tab-nav button.is-active {\r\n  color: var(--text);\r\n  border-bottom-color: var(--text);\r\n}\r\n\r\n/* G6: Collapsible Card — expandable container */\r\n.collapsible-card {\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  overflow: hidden;\r\n  transition: box-shadow 200ms ease;\r\n}\r\n.collapsible-card:hover {\r\n  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);\r\n}\r\n.collapsible-card-header {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n  padding: 12px 16px;\r\n  cursor: pointer;\r\n  user-select: none;\r\n  transition: background 150ms ease;\r\n}\r\n.collapsible-card-header:hover {\r\n  background: var(--surface-soft);\r\n}\r\n.collapsible-card-body {\r\n  max-height: 0;\r\n  overflow: hidden;\r\n  transition: max-height 250ms ease-out;\r\n}\r\n.collapsible-card.is-open .collapsible-card-body {\r\n  max-height: 5000px;\r\n}\r\n.collapsible-card .chevron {\r\n  transition: transform 200ms ease;\r\n  flex-shrink: 0;\r\n  color: var(--muted);\r\n}\r\n.collapsible-card.is-open .chevron {\r\n  transform: rotate(90deg);\r\n}\r\n\r\n/* Helper: compact label with help-tip */\r\n.label-with-tip {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 2px;\r\n}\r\n\r\n/* === Collapsible Card overrides for existing cards === */\r\n\r\n/* Config Provider Card as collapsible */\r\n.config-provider-card.collapsible-card {\r\n  display: block;\r\n  padding: 0;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  border-bottom: 1px solid var(--line);\r\n  margin-bottom: 8px;\r\n  overflow: hidden;\r\n  transition: box-shadow 200ms ease;\r\n}\r\n.config-provider-card.collapsible-card:hover {\r\n  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);\r\n}\r\n.config-provider-card .collapsible-card-header {\r\n  padding: 12px 14px;\r\n}\r\n.config-provider-body-inner {\r\n  display: grid;\r\n  gap: 12px;\r\n  padding: 14px;\r\n  border-top: 1px solid var(--line-soft);\r\n}\r\n\r\n/* Failure Policy Card as collapsible */\r\n.failure-policy-card.collapsible-card {\r\n  padding: 0;\r\n  border: 1px solid var(--line);\r\n  border-radius: 8px;\r\n  overflow: hidden;\r\n  margin-bottom: 8px;\r\n}\r\n.failure-policy-card .collapsible-card-header {\r\n  padding: 10px 14px;\r\n}\r\n.failure-policy-card .collapsible-card-body .failure-policy-edit-grid {\r\n  padding: 14px;\r\n  border-top: 1px solid var(--line-soft);\r\n}\r\n\r\n/* Policy page layout repair */\r\n#routingControlForm .routing-mode-grid {\r\n  grid-template-columns: minmax(0, 1fr) minmax(96px, 118px);\r\n  align-items: end;\r\n}\r\n\r\n.selection-mode-field {\r\n  display: grid;\r\n  gap: 7px;\r\n  padding: 9px 10px 10px;\r\n  border: 1px solid color-mix(in srgb, var(--line-strong) 72%, transparent);\r\n  border-radius: 9px;\r\n  background: color-mix(in srgb, var(--surface-raised) 72%, var(--surface));\r\n}\r\n\r\n.field-head {\r\n  display: grid;\r\n  gap: 3px;\r\n  min-width: 0;\r\n}\r\n\r\n.field-hint {\r\n  min-width: 0;\r\n  color: var(--muted);\r\n  font-size: 11px;\r\n  line-height: 1.3;\r\n}\r\n\r\n#routingControlForm #routeModeGroup {\r\n  display: grid;\r\n  grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  width: 100%;\r\n  gap: 0;\r\n  overflow: hidden;\r\n  border: 1px solid var(--line-strong);\r\n  border-radius: 8px;\r\n  background: var(--surface);\r\n}\r\n\r\n#routingControlForm #routeModeGroup button {\r\n  justify-content: center;\r\n  min-width: 0;\r\n  min-height: 36px;\r\n  padding-inline: 10px;\r\n  border: 0;\r\n  border-radius: 0;\r\n  background: transparent;\r\n}\r\n\r\n#routingControlForm #routeModeGroup button:nth-child(odd) {\r\n  border-right: 1px solid var(--line-soft);\r\n}\r\n\r\n#routingControlForm #routeModeGroup button:nth-child(n + 3) {\r\n  border-top: 1px solid var(--line-soft);\r\n}\r\n\r\n#routingControlForm #routeModeGroup button span {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n}\r\n\r\n#routingControlForm #routeModeGroup button:not(.is-active) {\r\n  background: transparent;\r\n}\r\n\r\n#routingControlForm #routeModeGroup button.is-active {\r\n  background: var(--text);\r\n  color: #fff;\r\n  box-shadow: none;\r\n}\r\n\r\n.policy-rule-head {\r\n  grid-template-columns: 8px 34px minmax(0, 1fr);\r\n  align-items: start;\r\n}\r\n\r\n.policy-rule-head > .status-dot {\r\n  margin-top: 11px;\r\n}\r\n\r\n.policy-rule-head h3,\r\n.policy-rule-head p {\r\n  overflow-wrap: anywhere;\r\n  word-break: normal;\r\n}\r\n\r\n.policy-rule-head .message-text {\r\n  white-space: normal;\r\n}\r\n\r\n.failure-policy-head h3 {\r\n  min-width: 0;\r\n  overflow-wrap: anywhere;\r\n}\r\n\r\n.failure-policy-card .failure-policy-head {\r\n  display: grid;\r\n  grid-template-columns: 8px minmax(0, 1fr) auto 16px;\r\n  gap: 8px 10px;\r\n  align-items: center;\r\n}\r\n\r\n.failure-policy-card .failure-policy-head > .status-dot {\r\n  margin-top: 0;\r\n}\r\n\r\n.failure-policy-card .failure-policy-head h3 {\r\n  overflow-wrap: normal;\r\n  word-break: normal;\r\n}\r\n\r\n.failure-policy-card .failure-policy-head .compact-control {\r\n  grid-column: 2 / -1;\r\n  width: 100%;\r\n  min-width: 0;\r\n}\r\n\r\n.failure-policy-card .failure-policy-head .badge {\r\n  margin-left: 0 !important;\r\n}\r\n\r\n.config-side-column,\r\n.config-side-column > *,\r\n.config-side-column .config-tab-panel,\r\n.config-side-column .panel,\r\n.config-side-column details,\r\n.config-side-column summary,\r\n.config-side-column .actions {\r\n  box-sizing: border-box;\r\n  max-width: 100%;\r\n  min-width: 0;\r\n}\r\n\r\n.config-side-column .config-tab-nav {\r\n  width: 100%;\r\n  max-width: 100%;\r\n}\r\n\r\n.config-side-column .config-tab-panel {\r\n  width: 100%;\r\n  overflow: hidden;\r\n}\r\n\r\n.config-side-column .panel-head,\r\n.config-side-column .config-advanced-details > summary {\r\n  min-width: 0;\r\n}\r\n\r\n.config-side-column .panel-head > div,\r\n.config-side-column .config-advanced-details > summary span,\r\n.config-side-column .config-advanced-details > summary small {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n}\r\n\r\n.config-side-column .config-advanced-details > .actions {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 8px;\r\n}\r\n\r\n.config-side-column .config-advanced-details > .actions .button {\r\n  min-width: 0;\r\n}\r\n\r\n@media (max-width: 1120px) {\r\n  #routingControlForm .routing-mode-grid {\r\n    grid-template-columns: 1fr;\r\n  }\r\n}\r\n\r\n/* ---- Policy page refinement: clearer hierarchy for routing vs retry ---- */\r\n#policyView > .panel {\r\n  border-color: #dfe5ec;\r\n  border-radius: 10px;\r\n  background: #fff;\r\n  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.045);\r\n}\r\n\r\n#policyView > .panel > .panel-head {\r\n  min-height: 46px;\r\n  padding: 11px 16px;\r\n  border-bottom-color: #e7ecf2;\r\n  background: #fbfcfd;\r\n}\r\n\r\n#policyView .policy-controls {\r\n  padding: 12px;\r\n}\r\n\r\n#policyView .policy-control-grid {\r\n  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.85fr);\r\n  gap: 12px;\r\n}\r\n\r\n#policyView .policy-control-card {\r\n  gap: 12px;\r\n  padding: 14px;\r\n  border-color: #e3e8ef;\r\n  border-radius: 10px;\r\n  background: #fff;\r\n  box-shadow: none;\r\n}\r\n\r\n#policyView #routingControlForm {\r\n  border-left: 3px solid #111827;\r\n}\r\n\r\n#policyView #retryControlForm {\r\n  background: #fbfcfd;\r\n}\r\n\r\n#policyView .policy-control-card-head {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  gap: 10px;\r\n  min-height: 26px;\r\n}\r\n\r\n#policyView .policy-control-card-head h3 {\r\n  margin: 0;\r\n  color: #111827;\r\n  font-size: 13px;\r\n  font-weight: 820;\r\n}\r\n\r\n#policyView .field {\r\n  gap: 6px;\r\n}\r\n\r\n#policyView .field > span,\r\n#policyView .label-with-tip {\r\n  color: #64748b;\r\n  font-size: 11px;\r\n  font-weight: 740;\r\n}\r\n\r\n#policyView .control {\r\n  min-height: 38px;\r\n  border-color: #dfe5ec;\r\n  border-radius: 8px;\r\n  background: #fff;\r\n}\r\n\r\n#policyView #routingControlForm .routing-mode-grid {\r\n  grid-template-columns: minmax(0, 1fr) 112px;\r\n  gap: 10px;\r\n  align-items: stretch;\r\n}\r\n\r\n#policyView .selection-mode-field {\r\n  gap: 8px;\r\n  padding: 10px;\r\n  border-color: #dfe5ec;\r\n  border-radius: 10px;\r\n  background: #fbfcfd;\r\n}\r\n\r\n#policyView #routingControlForm #routeModeGroup {\r\n  display: grid;\r\n  grid-template-columns: repeat(5, minmax(0, 1fr));\r\n  gap: 6px;\r\n  overflow: visible;\r\n  border: 0;\r\n  border-radius: 0;\r\n  background: transparent;\r\n}\r\n\r\n#policyView #routingControlForm #routeModeGroup button,\r\n#policyView #routingControlForm #routeModeGroup button:nth-child(odd),\r\n#policyView #routingControlForm #routeModeGroup button:nth-child(n + 3) {\r\n  min-height: 42px;\r\n  padding: 7px 8px;\r\n  border: 1px solid #dfe5ec;\r\n  border-radius: 8px;\r\n  background: #fff;\r\n  color: #475569;\r\n  font-size: 11.5px;\r\n  font-weight: 720;\r\n}\r\n\r\n#policyView #routingControlForm #routeModeGroup button .icon-svg {\r\n  width: 14px;\r\n  height: 14px;\r\n  color: #94a3b8;\r\n}\r\n\r\n#policyView #routingControlForm #routeModeGroup button:hover {\r\n  border-color: #cbd5e1;\r\n  background: #f8fafc;\r\n  color: #111827;\r\n}\r\n\r\n#policyView #routingControlForm #routeModeGroup button.is-active {\r\n  border-color: #111827;\r\n  background: #111827;\r\n  color: #fff;\r\n}\r\n\r\n#policyView #routingControlForm #routeModeGroup button.is-active .icon-svg {\r\n  color: currentColor;\r\n}\r\n\r\n#policyView .policy-advanced {\r\n  border: 1px solid #edf1f5;\r\n  border-radius: 9px;\r\n  background: #fbfcfd;\r\n}\r\n\r\n#policyView .policy-advanced summary {\r\n  padding: 9px 10px;\r\n  color: #64748b;\r\n  font-size: 11.5px;\r\n  font-weight: 720;\r\n}\r\n\r\n#policyView .policy-control-card > .button {\r\n  min-height: 38px;\r\n  border-radius: 8px;\r\n  background: #fff;\r\n}\r\n\r\n#policyView #routingControlForm > .button {\r\n  border-color: #111827;\r\n  background: #111827;\r\n  color: #fff;\r\n}\r\n\r\n#policyView .policy-grid {\r\n  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.55fr);\r\n  gap: 14px;\r\n  margin-top: 14px;\r\n}\r\n\r\n@media (max-width: 1180px) {\r\n  #policyView .policy-control-grid,\r\n  #policyView .policy-grid {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  #policyView #routingControlForm #routeModeGroup {\r\n    grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  }\r\n}\r\n\r\n@media (max-width: 760px) {\r\n  #policyView #routingControlForm .routing-mode-grid {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  #policyView #routingControlForm #routeModeGroup {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  }\r\n}\r\n\r\n/* ---- Provider drawer config: grouped controls instead of a flat form ---- */\r\n.provider-drawer-section .provider-edit-panel {\r\n  display: grid;\r\n  gap: 12px;\r\n}\r\n\r\n.provider-drawer-section .provider-inline-form,\r\n.provider-drawer-section .provider-config-block {\r\n  display: grid;\r\n  gap: 12px;\r\n  min-width: 0;\r\n}\r\n\r\n.provider-config-block {\r\n  padding: 12px;\r\n  border: 1px solid #e3e8ef;\r\n  border-radius: 12px;\r\n  background: #fbfcfd;\r\n}\r\n\r\n.provider-config-block-head {\r\n  display: grid;\r\n  grid-template-columns: 30px minmax(0, 1fr);\r\n  gap: 10px;\r\n  align-items: center;\r\n  min-width: 0;\r\n}\r\n\r\n.provider-config-block-head strong,\r\n.provider-config-block-head small {\r\n  display: block;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-config-block-head strong {\r\n  color: #111827;\r\n  font-size: 12.5px;\r\n  font-weight: 820;\r\n}\r\n\r\n.provider-config-block-head small {\r\n  margin-top: 2px;\r\n  color: #7b8491;\r\n  font-size: 11px;\r\n}\r\n\r\n.provider-config-block-icon {\r\n  display: inline-grid;\r\n  width: 30px;\r\n  height: 30px;\r\n  place-items: center;\r\n  border: 1px solid #dfe5ec;\r\n  border-radius: 8px;\r\n  background: #fff;\r\n  color: #64748b;\r\n}\r\n\r\n.provider-config-block-icon .icon-svg {\r\n  width: 15px;\r\n  height: 15px;\r\n}\r\n\r\n.provider-config-grid {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);\r\n  gap: 10px;\r\n}\r\n\r\n.provider-config-wide {\r\n  grid-column: 1 / -1;\r\n}\r\n\r\n.provider-config-runtime-row {\r\n  display: grid;\r\n  grid-template-columns: minmax(90px, 0.45fr) minmax(150px, 1fr);\r\n  gap: 10px;\r\n  align-items: end;\r\n}\r\n\r\n.provider-config-runtime-row .button {\r\n  grid-column: 1 / -1;\r\n}\r\n\r\n/* --- Skip-probe capsule toggles --- */\r\n.provider-skip-probe-row {\r\n  display: flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n  margin-top: 8px;\r\n  flex-wrap: wrap;\r\n}\r\n\r\n.capsule-toggle {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 6px;\r\n  cursor: pointer;\r\n  user-select: none;\r\n  padding: 4px 12px;\r\n  border-radius: 999px;\r\n  border: 1px solid #dfe5ec;\r\n  background: #f8fafc;\r\n  font-size: 12px;\r\n  font-weight: 500;\r\n  color: #64748b;\r\n  transition: all 0.15s ease;\r\n}\r\n\r\n.capsule-toggle:hover {\r\n  border-color: #cbd5e1;\r\n  background: #f1f5f9;\r\n}\r\n\r\n.capsule-toggle input[type=\"checkbox\"] {\r\n  appearance: none;\r\n  -webkit-appearance: none;\r\n  width: 14px;\r\n  height: 14px;\r\n  border-radius: 50%;\r\n  border: 2px solid #cbd5e1;\r\n  background: #fff;\r\n  margin: 0;\r\n  cursor: pointer;\r\n  transition: all 0.15s ease;\r\n  position: relative;\r\n  flex-shrink: 0;\r\n}\r\n\r\n.capsule-toggle input[type=\"checkbox\"]:checked {\r\n  border-color: #ef4444;\r\n  background: #ef4444;\r\n}\r\n\r\n.capsule-toggle input[type=\"checkbox\"]:checked::after {\r\n  content: \"\";\r\n  position: absolute;\r\n  top: 50%;\r\n  left: 50%;\r\n  transform: translate(-50%, -50%);\r\n  width: 5px;\r\n  height: 5px;\r\n  border-radius: 50%;\r\n  background: #fff;\r\n}\r\n\r\n.capsule-toggle:has(input:checked) {\r\n  border-color: #fca5a5;\r\n  background: #fef2f2;\r\n  color: #dc2626;\r\n}\r\n\r\n.capsule-toggle-label {\r\n  line-height: 1;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-enabled-check {\r\n  min-height: 38px;\r\n  align-self: end;\r\n  padding: 0 10px;\r\n  border: 1px solid #dfe5ec;\r\n  border-radius: 8px;\r\n  background: #fff;\r\n}\r\n\r\n.provider-config-block .field > span,\r\n.provider-config-block .key-proxy-field > span {\r\n  color: #64748b;\r\n  font-size: 11px;\r\n  font-weight: 740;\r\n}\r\n\r\n.provider-config-block .control {\r\n  min-height: 36px;\r\n  border-color: #dfe5ec;\r\n  border-radius: 8px;\r\n  background: #fff;\r\n}\r\n\r\n.provider-config-block .button.primary {\r\n  min-height: 38px;\r\n  border-color: #111827;\r\n  background: #111827;\r\n}\r\n\r\n.provider-config-keys .key-proxy-list {\r\n  display: grid;\r\n  gap: 8px;\r\n}\r\n\r\n.provider-config-keys .key-proxy-row {\r\n  display: grid;\r\n  grid-template-columns: minmax(120px, 0.55fr) minmax(0, 1fr) auto;\r\n  gap: 10px;\r\n  align-items: end;\r\n  padding: 10px;\r\n  border: 1px solid #e7ecf2;\r\n  border-radius: 10px;\r\n  background: #fff;\r\n}\r\n\r\n.provider-config-keys .key-proxy-id {\r\n  align-self: center;\r\n}\r\n\r\n.provider-config-keys .key-proxy-id strong,\r\n.provider-config-keys .key-proxy-id span {\r\n  display: block;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n}\r\n\r\n.provider-config-keys .key-proxy-id span {\r\n  margin-top: 2px;\r\n  color: #7b8491;\r\n  font-size: 11px;\r\n}\r\n\r\n.provider-config-keys .provider-inline-key-form {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr) auto;\r\n  gap: 8px;\r\n}\r\n\r\n.provider-formats-group .format-route-list {\r\n  display: grid;\r\n  gap: 8px;\r\n}\r\n\r\n.provider-formats-group .format-route {\r\n  min-height: 48px;\r\n  padding: 8px 9px 8px 11px;\r\n  border-color: #dfe5ec;\r\n  border-radius: 10px;\r\n  background: #fff;\r\n}\r\n\r\n.provider-formats-group .format-route.enabled {\r\n  border-color: color-mix(in srgb, var(--success) 22%, #dfe5ec);\r\n  background: color-mix(in srgb, var(--success-soft) 42%, #fff);\r\n}\r\n\r\n.provider-danger-zone {\r\n  border-radius: 12px;\r\n}\r\n\r\n@media (max-width: 760px) {\r\n  .provider-config-grid,\r\n  .provider-config-runtime-row,\r\n  .provider-config-keys .key-proxy-row,\r\n  .provider-config-keys .provider-inline-key-form {\r\n    grid-template-columns: 1fr;\r\n  }\r\n}\r\n\r\n/* ---- Policy rules and failure cards: compact, scannable rows ---- */\r\n#policyView .policy-control-grid {\r\n  align-items: start;\r\n}\r\n\r\n#policyView .policy-control-card {\r\n  align-self: start;\r\n}\r\n\r\n#policyView .policy-rule-card {\r\n  gap: 9px;\r\n  padding: 12px;\r\n  border-color: #e3e8ef;\r\n  border-radius: 10px;\r\n  box-shadow: none;\r\n}\r\n\r\n#policyView .policy-rule-head {\r\n  grid-template-columns: 8px 32px minmax(0, 1fr);\r\n  gap: 9px;\r\n}\r\n\r\n#policyView .policy-rule-head h3 {\r\n  font-size: 13px;\r\n}\r\n\r\n#policyView .policy-rule-head p {\r\n  display: -webkit-box;\r\n  max-width: 100%;\r\n  overflow: hidden;\r\n  color: #64748b;\r\n  -webkit-box-orient: vertical;\r\n  -webkit-line-clamp: 2;\r\n}\r\n\r\n#policyView .policy-decision-strip {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n}\r\n\r\n#policyView .policy-rule-meta {\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  gap: 8px;\r\n  padding-top: 0;\r\n}\r\n\r\n#policyView .policy-rule-meta span,\r\n#policyView .policy-rule-meta strong {\r\n  display: block;\r\n}\r\n\r\n#policyView .policy-rule-meta span {\r\n  color: #7b8491;\r\n  font-size: 10.5px;\r\n}\r\n\r\n#policyView .policy-rule-meta strong {\r\n  margin-top: 2px;\r\n  font-size: 11.5px;\r\n}\r\n\r\n#policyView .failure-policy-card.collapsible-card {\r\n  border-color: #e3e8ef;\r\n  border-radius: 10px;\r\n  background: #fff;\r\n  box-shadow: none;\r\n}\r\n\r\n#policyView .failure-policy-card .failure-policy-head {\r\n  grid-template-columns: 8px minmax(0, 1fr) auto 16px;\r\n  padding: 11px 12px;\r\n}\r\n\r\n#policyView .failure-policy-card .failure-policy-head h3 {\r\n  font-size: 13px;\r\n}\r\n\r\n#policyView .failure-policy-card .failure-policy-head .compact-control {\r\n  grid-column: 2 / -1;\r\n  min-height: 34px;\r\n}\r\n\r\n#policyView .failure-policy-card .collapsible-card-body .failure-policy-edit-grid {\r\n  grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  gap: 10px;\r\n  padding: 12px;\r\n  background: #fbfcfd;\r\n}\r\n\r\n/* ---- Config advanced tools: contained, icon-like action cluster ---- */\r\n.config-side-column .config-advanced-panel {\r\n  border-color: #dfe5ec;\r\n  border-radius: 10px;\r\n  background: #fff;\r\n}\r\n\r\n.config-side-column .config-advanced-details {\r\n  padding: 12px;\r\n}\r\n\r\n.config-side-column .config-advanced-details > summary {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  gap: 6px 10px;\r\n  align-items: center;\r\n  padding: 2px 0;\r\n}\r\n\r\n.config-side-column .config-advanced-details > summary::after {\r\n  display: grid;\r\n  width: 24px;\r\n  height: 24px;\r\n  place-items: center;\r\n  border: 1px solid #dfe5ec;\r\n  border-radius: 7px;\r\n  background: #fbfcfd;\r\n  color: #64748b;\r\n  content: \">\";\r\n  font: 760 13px/1 var(--mono);\r\n  transition: transform 160ms ease;\r\n}\r\n\r\n.config-side-column .config-advanced-details[open] > summary::after {\r\n  transform: rotate(90deg);\r\n}\r\n\r\n.config-side-column .config-advanced-details > summary span {\r\n  color: #111827;\r\n  font-size: 12.5px;\r\n  font-weight: 820;\r\n}\r\n\r\n.config-side-column .config-advanced-details > summary small {\r\n  grid-column: 1 / 2;\r\n  color: #7b8491;\r\n  font-size: 11px;\r\n  line-height: 1.35;\r\n  white-space: normal;\r\n}\r\n\r\n.config-side-column .config-advanced-details > .actions {\r\n  display: grid;\r\n  grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  gap: 8px;\r\n  margin-top: 12px;\r\n  padding-top: 12px;\r\n  border-top: 1px solid #edf1f5;\r\n}\r\n\r\n.config-side-column .config-advanced-details > .actions .button {\r\n  justify-content: center;\r\n  min-width: 0;\r\n  min-height: 34px;\r\n  border-radius: 8px;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.config-side-column .config-advanced-details > .actions .button.danger,\r\n.config-side-column .config-advanced-details > .actions .button.primary {\r\n  grid-column: 1 / -1;\r\n}\r\n\r\n\r\n\r\n/* ===== Onboarding Banner ===== */\r\n.onboarding-banner {\r\n  display: flex;\r\n  gap: 16px;\r\n  align-items: flex-start;\r\n  padding: 18px 20px;\r\n  margin-bottom: 16px;\r\n  border: 1px solid var(--line);\r\n  border-radius: 14px;\r\n  background: linear-gradient(135deg, var(--surface-soft, #f3f2ef), var(--surface, #fff));\r\n  box-shadow: 0 2px 10px rgba(34, 35, 32, 0.04);\r\n}\r\n.onboarding-banner-icon {\r\n  flex-shrink: 0;\r\n  display: grid;\r\n  place-items: center;\r\n  width: 44px;\r\n  height: 44px;\r\n  border-radius: 12px;\r\n  background: var(--accent-soft, #f2f1ed);\r\n  color: var(--accent, #222320);\r\n}\r\n.onboarding-banner-icon .icon-svg { width: 22px; height: 22px; }\r\n.onboarding-banner-content { flex: 1; min-width: 0; }\r\n.onboarding-banner-content h3 {\r\n  margin: 0 0 4px;\r\n  font: 760 15px var(--sans, system-ui);\r\n  color: var(--text, #222);\r\n}\r\n.onboarding-banner-content p {\r\n  margin: 0 0 10px;\r\n  font-size: 13px;\r\n  color: var(--muted, #6f706a);\r\n  line-height: 1.5;\r\n}\r\n.onboarding-presets {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n  align-items: center;\r\n  margin-bottom: 10px;\r\n}\r\n.onboarding-presets-label {\r\n  font-size: 11px;\r\n  color: var(--faint, #9a9a93);\r\n  text-transform: uppercase;\r\n  letter-spacing: 0.04em;\r\n}\r\n.onboarding-preset-chip {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  padding: 3px 10px;\r\n  border: 1px solid var(--line, #e8e6e1);\r\n  border-radius: 999px;\r\n  background: var(--surface, #fff);\r\n  font: 600 11px var(--mono, monospace);\r\n  color: var(--text, #222);\r\n}\r\n.onboarding-banner-actions {\r\n  display: flex;\r\n  gap: 8px;\r\n  flex-wrap: wrap;\r\n}\r\n\r\n/* ===== Provider Preset Chips (Add Provider modal) ===== */\r\n.provider-preset-section {\r\n  display: flex;\r\n  gap: 8px;\r\n  align-items: flex-start;\r\n  padding: 10px 0;\r\n  margin-bottom: 4px;\r\n  border-bottom: 1px solid var(--line-soft, #efede8);\r\n}\r\n.provider-preset-label {\r\n  flex-shrink: 0;\r\n  padding-top: 5px;\r\n  font: 600 11px var(--sans, system-ui);\r\n  color: var(--muted, #6f706a);\r\n  text-transform: uppercase;\r\n  letter-spacing: 0.04em;\r\n}\r\n.provider-preset-chips {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n}\r\n.provider-preset-chip {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  padding: 4px 12px;\r\n  border: 1px solid var(--line, #e8e6e1);\r\n  border-radius: 8px;\r\n  background: var(--surface, #fff);\r\n  font: 600 12px var(--sans, system-ui);\r\n  color: var(--text, #222);\r\n  cursor: pointer;\r\n  transition: border-color 120ms ease, background 120ms ease;\r\n}\r\n.provider-preset-chip:hover {\r\n  border-color: var(--accent, #222320);\r\n  background: var(--accent-soft, #f2f1ed);\r\n}\r\n.provider-preset-chip:active { transform: translateY(1px); }\r\n\r\n/* ===== Health Overview Widget ===== */\r\n.health-overview {\r\n  display: grid;\r\n  gap: 10px;\r\n  padding: 14px 18px 20px;\r\n}\r\n.health-overview-empty {\r\n  padding: 20px;\r\n  text-align: center;\r\n  color: var(--muted, #6f706a);\r\n  font-size: 13px;\r\n}\r\n.health-overview-loading {\r\n  padding: 20px;\r\n  text-align: center;\r\n  color: var(--muted, #6f706a);\r\n  font-size: 13px;\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  gap: 8px;\r\n}\r\n.health-overview-loading svg {\r\n  animation: refresh-spin 1.2s linear infinite;\r\n}\r\n.probe-list-more {\r\n  padding: 8px 12px;\r\n  text-align: center;\r\n  font-size: 12px;\r\n  color: var(--muted, #6f706a);\r\n  cursor: default;\r\n  border-top: 1px dashed var(--border, rgba(255,255,255,0.08));\r\n  margin-top: 4px;\r\n}\r\n.section-count-badge {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n  min-width: 20px;\r\n  height: 20px;\r\n  padding: 0 6px;\r\n  border-radius: 10px;\r\n  font-size: 11px;\r\n  font-weight: 600;\r\n  background: var(--accent-bg, rgba(99,102,241,0.15));\r\n  color: var(--accent, #6366f1);\r\n  margin-left: 6px;\r\n  vertical-align: middle;\r\n}\r\n.health-overview-header {\r\n  display: flex;\r\n  gap: 16px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  padding-bottom: 8px;\r\n  border-bottom: 1px solid var(--line-soft, #efede8);\r\n}\r\n.health-overview-score {\r\n  display: flex;\r\n  gap: 10px;\r\n  align-items: center;\r\n}\r\n.health-score-ring {\r\n  display: inline-flex;\r\n  flex-direction: column;\r\n  align-items: center;\r\n  justify-content: center;\r\n  width: 56px;\r\n  height: 56px;\r\n  border-radius: 50%;\r\n  border: 3px solid var(--line, #e8e6e1);\r\n  font-family: var(--mono, monospace);\r\n}\r\n.health-score-ring.excellent { border-color: var(--success, #346538); background: var(--success-soft, #edf3ec); }\r\n.health-score-ring.good { border-color: var(--success, #346538); background: var(--success-soft, #edf3ec); }\r\n.health-score-ring.fair { border-color: var(--warning, #956400); background: var(--warning-soft, #fbf3db); }\r\n.health-score-ring.poor { border-color: var(--danger, #9f2f2d); background: var(--danger-soft, #fdebec); }\r\n.health-score-ring.critical { border-color: var(--danger, #9f2f2d); background: var(--danger-soft, #fdebec); }\r\n.health-score-ring strong { font-size: 18px; color: var(--text, #222); line-height: 1; }\r\n.health-score-ring small { font-size: 9px; color: var(--muted, #6f706a); }\r\n.health-score-label {\r\n  font: 760 12px var(--sans, system-ui);\r\n  text-transform: capitalize;\r\n  color: var(--text, #222);\r\n}\r\n.health-overview-meta {\r\n  font: 600 11px var(--sans, system-ui);\r\n  color: var(--faint, #9a9a93);\r\n}\r\n.health-overview-meta .icon-svg { width: 14px; height: 14px; vertical-align: -2px; }\r\n.health-overview-list {\r\n  display: grid;\r\n  gap: 6px;\r\n}\r\n.health-provider-row {\r\n  display: grid;\r\n  grid-template-columns: minmax(60px, 120px) 1fr auto auto;\r\n  gap: 8px;\r\n  align-items: center;\r\n  padding: 6px 10px;\r\n  border-radius: 8px;\r\n  background: var(--surface-soft, #f3f2ef);\r\n}\r\n.health-provider-name {\r\n  font: 600 11px var(--mono, monospace);\r\n  color: var(--text, #222);\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n.health-provider-bar {\r\n  height: 6px;\r\n  border-radius: 999px;\r\n  background: var(--line, #e8e6e1);\r\n  overflow: hidden;\r\n}\r\n.health-provider-bar-fill {\r\n  height: 100%;\r\n  border-radius: 999px;\r\n  transition: width 300ms ease;\r\n}\r\n.health-provider-bar-fill.tone-ok { background: var(--success, #346538); }\r\n.health-provider-bar-fill.tone-warn { background: var(--warning, #956400); }\r\n.health-provider-bar-fill.tone-soft { background: var(--warning, #956400); opacity: 0.7; }\r\n.health-provider-bar-fill.tone-bad { background: var(--danger, #9f2f2d); }\r\n.health-provider-score {\r\n  font: 760 13px var(--mono, monospace);\r\n  color: var(--text, #222);\r\n  min-width: 28px;\r\n  text-align: right;\r\n}\r\n.health-provider-grade {\r\n  font: 600 10px var(--sans, system-ui);\r\n  text-transform: uppercase;\r\n  letter-spacing: 0.04em;\r\n  padding: 2px 8px;\r\n  border-radius: 999px;\r\n}\r\n.grade-excellent { background: var(--success-soft, #edf3ec); color: var(--success, #346538); }\r\n.grade-good { background: var(--success-soft, #edf3ec); color: var(--success, #346538); }\r\n.grade-fair { background: var(--warning-soft, #fbf3db); color: var(--warning, #956400); }\r\n.grade-poor { background: var(--danger-soft, #fdebec); color: var(--danger, #9f2f2d); }\r\n.grade-critical { background: var(--danger-soft, #fdebec); color: var(--danger, #9f2f2d); }\r\n\r\n@media (max-width: 768px) {\r\n  .health-provider-row {\r\n    grid-template-columns: minmax(50px, 80px) 1fr auto;\r\n  }\r\n  .health-provider-grade { display: none; }\r\n}\r\n\r\n/* ---- Playground workbench refinement ---- */\r\n.playground-view {\r\n  min-height: calc(100dvh - 52px);\r\n}\r\n\r\n.playground-layout {\r\n  grid-template-columns: 330px minmax(0, 1fr);\r\n  gap: 14px;\r\n  margin-top: 10px;\r\n  padding: 0;\r\n  overflow: hidden;\r\n}\r\n\r\n.playground-config,\r\n.playground-main {\r\n  overflow: hidden;\r\n  border: 1px solid #dfe5ec;\r\n  border-radius: 10px;\r\n  background: #fff;\r\n  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.045);\r\n}\r\n\r\n.playground-config {\r\n  border-right: 1px solid #dfe5ec;\r\n}\r\n\r\n.pg-config-head,\r\n.pg-workbench-head {\r\n  border-bottom-color: #e7ecf2;\r\n  background: #fbfcfd;\r\n}\r\n\r\n.pg-config-head {\r\n  padding: 15px 16px 13px;\r\n}\r\n\r\n.pg-config-head .eyebrow {\r\n  color: #64748b;\r\n}\r\n\r\n.pg-config-head h2,\r\n.pg-workbench-head h2 {\r\n  color: #111827;\r\n  font-size: 15px;\r\n  font-weight: 820;\r\n}\r\n\r\n.pg-config-head p {\r\n  max-width: 26rem;\r\n  color: #64748b;\r\n  font-size: 12px;\r\n}\r\n\r\n.pg-config-section {\r\n  border-bottom-color: #edf1f5;\r\n}\r\n\r\n.pg-config-section summary {\r\n  min-height: 42px;\r\n  padding: 0 16px;\r\n  color: #475569;\r\n  font-size: 12px;\r\n  font-weight: 760;\r\n  letter-spacing: 0;\r\n  text-transform: none;\r\n}\r\n\r\n.pg-config-section summary:hover {\r\n  background: #f8fafc;\r\n}\r\n\r\n.pg-config-body {\r\n  gap: 10px;\r\n  padding: 0 16px 14px;\r\n}\r\n\r\n.pg-param-grid {\r\n  grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  gap: 10px;\r\n}\r\n\r\n.pg-param.pg-param-wide {\r\n  grid-column: 1 / -1;\r\n}\r\n\r\n.pg-param span {\r\n  color: #64748b;\r\n  font-size: 11px;\r\n  font-weight: 720;\r\n}\r\n\r\n.pg-param .control,\r\n.pg-config-body .control {\r\n  min-height: 38px;\r\n  border-color: #dfe5ec;\r\n  border-radius: 8px;\r\n  background: #fff;\r\n  font-size: 12px;\r\n}\r\n\r\n.pg-config-body input[type=\"checkbox\"] {\r\n  width: 17px;\r\n  height: 17px;\r\n  accent-color: #111827;\r\n}\r\n\r\n.pg-format-selector {\r\n  display: grid;\r\n  grid-template-columns: repeat(3, minmax(0, 1fr));\r\n  gap: 6px;\r\n}\r\n\r\n.pg-format-btn {\r\n  min-height: 34px;\r\n  border: 1px solid #dfe5ec;\r\n  border-radius: 8px;\r\n  background: #fff;\r\n  color: #475569;\r\n  font-size: 11.5px;\r\n  font-weight: 720;\r\n}\r\n\r\n.pg-format-btn.is-active {\r\n  border-color: #111827;\r\n  background: #111827;\r\n  color: #fff;\r\n}\r\n\r\n.pg-workbench-head {\r\n  padding: 14px 18px;\r\n}\r\n\r\n.pg-chat-wrap {\r\n  background: #fbfcfd;\r\n}\r\n\r\n.pg-chat-area {\r\n  padding: 24px 26px 28px;\r\n}\r\n\r\n.pg-compose-panel {\r\n  border-top-color: #e7ecf2;\r\n  background: #fff;\r\n  box-shadow: none;\r\n}\r\n\r\n.pg-input-bar {\r\n  padding: 12px 16px 14px;\r\n}\r\n\r\n.pg-input {\r\n  min-height: 48px;\r\n  border-color: #dfe5ec;\r\n  border-radius: 10px;\r\n}\r\n\r\n.pg-input:focus-visible {\r\n  border-color: #111827;\r\n  box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.08);\r\n}\r\n\r\n.pg-send-btn {\r\n  border-color: #111827;\r\n  background: #111827;\r\n  color: #fff;\r\n}\r\n\r\n@media (max-width: 1180px) {\r\n  .playground-layout {\r\n    grid-template-columns: 310px minmax(0, 1fr);\r\n  }\r\n}\r\n\r\n/* ---- Hot-reload priority controls ---- */\r\n.provider-hot-reload-controls {\r\n  margin: 10px 0;\r\n  padding: 10px 12px;\r\n  background: var(--bg-elevated, #f6f7f9);\r\n  border-radius: 8px;\r\n  border: 1px solid var(--border-soft, #e2e5ea);\r\n}\r\n.hot-reload-row {\r\n  display: flex;\r\n  gap: 10px;\r\n  align-items: flex-end;\r\n}\r\n.hot-reload-field {\r\n  flex: 1;\r\n  margin: 0;\r\n}\r\n.hot-reload-input-row {\r\n  display: flex;\r\n  gap: 8px;\r\n  align-items: center;\r\n}\r\n.hot-reload-input-row input {\r\n  flex: 1;\r\n  min-width: 80px;\r\n}\r\n\r\n/* ---- Sidebar refinement: quiet rail, clear active state, compact runtime tools ---- */\r\n.sidebar {\r\n  border-right-color: color-mix(in srgb, var(--line-strong) 78%, #fff);\r\n  background: var(--surface);\r\n  box-shadow: 10px 0 30px rgba(15, 23, 42, 0.045);\r\n}\r\n\r\n.sidebar .brand {\r\n  margin: 0;\r\n  padding: 22px 18px 18px;\r\n  border: 0;\r\n  border-bottom: 1px solid color-mix(in srgb, var(--line-soft) 86%, transparent);\r\n  border-radius: 0;\r\n  background: transparent;\r\n  box-shadow: none;\r\n}\r\n\r\n.sidebar .brand::after {\r\n  display: none;\r\n}\r\n\r\n.sidebar .brand-mark {\r\n  width: 32px;\r\n  height: 32px;\r\n  border: 1px solid #111827;\r\n  border-radius: 8px;\r\n  background: #111827;\r\n  color: #fff;\r\n  box-shadow: 0 10px 20px rgba(17, 24, 39, 0.14);\r\n  font-size: 10.5px;\r\n  font-weight: 820;\r\n}\r\n\r\n.sidebar .brand-title {\r\n  font-size: 14.5px;\r\n  font-weight: 800;\r\n  line-height: 1.15;\r\n}\r\n\r\n.sidebar .brand-subtitle {\r\n  margin-top: 3px;\r\n  color: var(--muted);\r\n  font-size: 11.5px;\r\n}\r\n\r\n.sidebar .nav {\r\n  gap: 4px;\r\n  margin: 14px 10px 0;\r\n  padding: 0;\r\n}\r\n\r\n.sidebar .nav-item {\r\n  display: grid;\r\n  grid-template-columns: 18px minmax(0, 1fr);\r\n  gap: 10px;\r\n  align-items: center;\r\n  min-height: 39px;\r\n  padding: 8px 12px 8px 14px;\r\n  border: 0;\r\n  border-radius: 8px;\r\n  background: transparent;\r\n  color: color-mix(in srgb, var(--muted) 90%, var(--text));\r\n  font-size: 13px;\r\n  font-weight: 650;\r\n  box-shadow: none;\r\n}\r\n\r\n.sidebar .nav-item::after {\r\n  display: block;\r\n  width: 18px;\r\n  height: 18px;\r\n  background: currentColor;\r\n  content: \"\";\r\n  opacity: 0.66;\r\n  grid-column: 1;\r\n  grid-row: 1;\r\n  justify-self: center;\r\n  mask: var(--nav-icon) center / 16px 16px no-repeat;\r\n  -webkit-mask: var(--nav-icon) center / 16px 16px no-repeat;\r\n}\r\n\r\n.sidebar .nav-item[data-view=\"overview\"] {\r\n  --nav-icon: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 13h6V4H4z'/%3E%3Cpath d='M14 20h6V4h-6z'/%3E%3Cpath d='M4 20h6v-3H4z'/%3E%3C/svg%3E\");\r\n}\r\n\r\n.sidebar .nav-item[data-view=\"requests\"] {\r\n  --nav-icon: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 6h13'/%3E%3Cpath d='M8 12h13'/%3E%3Cpath d='M8 18h13'/%3E%3Cpath d='M3 6h.01'/%3E%3Cpath d='M3 12h.01'/%3E%3Cpath d='M3 18h.01'/%3E%3C/svg%3E\");\r\n}\r\n\r\n.sidebar .nav-item[data-view=\"providers\"] {\r\n  --nav-icon: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='4' width='16' height='6' rx='2'/%3E%3Crect x='4' y='14' width='16' height='6' rx='2'/%3E%3Cpath d='M8 7h.01'/%3E%3Cpath d='M8 17h.01'/%3E%3C/svg%3E\");\r\n}\r\n\r\n.sidebar .nav-item[data-view=\"policy\"] {\r\n  --nav-icon: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 7h10'/%3E%3Cpath d='M4 17h10'/%3E%3Cpath d='M18 5v4'/%3E%3Cpath d='M18 15v4'/%3E%3Ccircle cx='18' cy='7' r='2'/%3E%3Ccircle cx='18' cy='17' r='2'/%3E%3C/svg%3E\");\r\n}\r\n\r\n.sidebar .nav-item[data-view=\"config\"] {\r\n  --nav-icon: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v3'/%3E%3Cpath d='M12 18v3'/%3E%3Cpath d='M3 12h3'/%3E%3Cpath d='M18 12h3'/%3E%3Ccircle cx='12' cy='12' r='4'/%3E%3C/svg%3E\");\r\n}\r\n\r\n.sidebar .nav-item[data-view=\"playground\"] {\r\n  --nav-icon: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 8h10'/%3E%3Cpath d='M7 12h6'/%3E%3Cpath d='M5 20l3-4h9a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v6a3 3 0 0 0 3 3'/%3E%3C/svg%3E\");\r\n}\r\n\r\n.sidebar .nav-item:hover {\r\n  background: #f6f7f9;\r\n  color: var(--text);\r\n}\r\n\r\n.sidebar .nav-item.is-active {\r\n  background: #f3f5f8;\r\n  color: #111827;\r\n  font-weight: 780;\r\n  box-shadow: inset 0 0 0 1px rgba(17, 24, 39, 0.055);\r\n}\r\n\r\n.sidebar .nav-item.is-active::after {\r\n  opacity: 0.92;\r\n}\r\n\r\n.sidebar .nav-item.is-active::before {\r\n  display: block;\r\n  position: absolute;\r\n  top: 8px;\r\n  bottom: 8px;\r\n  left: 7px;\r\n  width: 3px;\r\n  border-radius: 999px;\r\n  background: #111827;\r\n  content: \"\";\r\n}\r\n\r\n/* ---- Requests page: denser log view with clearer status and route metadata ---- */\r\n#requestsView > .panel {\r\n  border-color: #dfe5ec;\r\n  border-radius: 10px;\r\n  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.045);\r\n}\r\n\r\n#requestsView > .panel .panel-head {\r\n  background: #fbfcfd;\r\n  border-bottom-color: #e7ecf2;\r\n}\r\n\r\n#requestsTable.table-wrap {\r\n  background: #fff;\r\n}\r\n\r\n#requestsTable .request-list-head {\r\n  padding: 10px 14px;\r\n  border-bottom-color: #e7ecf2;\r\n  background: #fbfcfd;\r\n}\r\n\r\n#requestsTable .request-page-vitals {\r\n  gap: 10px;\r\n  padding: 12px 14px;\r\n  border-bottom-color: #e7ecf2;\r\n  background: #fff;\r\n}\r\n\r\n#requestsTable .request-vital {\r\n  min-height: 58px;\r\n  padding: 9px 10px;\r\n  border-color: color-mix(in srgb, var(--vital-color) 16%, #e5e7eb);\r\n  border-radius: 9px;\r\n  background: #fbfcfd;\r\n}\r\n\r\n#requestsTable .request-vital::after {\r\n  height: 2px;\r\n}\r\n\r\n#requestsTable .request-vital .icon-svg {\r\n  width: 17px;\r\n  height: 17px;\r\n}\r\n\r\n#requestsTable .request-vital strong {\r\n  font-size: 15px;\r\n}\r\n\r\n#requestsTable .request-summary-list {\r\n  background: #fff;\r\n}\r\n\r\n#requestsTable .request-summary-row {\r\n  grid-template-columns: 26px 30px minmax(190px, 1.35fr) minmax(112px, 0.55fr) minmax(190px, 0.95fr) minmax(156px, 0.72fr) 30px;\r\n  gap: 11px;\r\n  min-height: 68px;\r\n  padding: 10px 14px;\r\n  border-bottom-color: #edf1f5;\r\n  background: #fff;\r\n}\r\n\r\n#requestsTable .request-summary-row:nth-child(even) {\r\n  background: #fbfcfd;\r\n}\r\n\r\n#requestsTable .request-summary-row:hover,\r\n#requestsTable .request-summary-row:focus-visible {\r\n  background: #f6f9fc;\r\n  box-shadow: inset 3px 0 0 var(--row-tone);\r\n}\r\n\r\n#requestsTable .request-summary-row.is-selected {\r\n  background: #f1f6ff;\r\n}\r\n\r\n.request-row-state {\r\n  display: grid;\r\n  width: 30px;\r\n  height: 30px;\r\n  place-items: center;\r\n  border: 1px solid color-mix(in srgb, var(--row-tone) 20%, #e5e7eb);\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--row-tone) 8%, #fff);\r\n  color: var(--row-tone);\r\n}\r\n\r\n.request-row-state .icon-svg {\r\n  width: 15px;\r\n  height: 15px;\r\n  stroke-width: 2.3;\r\n}\r\n\r\n#requestsTable .request-row-main strong {\r\n  font-size: 13px;\r\n  font-weight: 780;\r\n}\r\n\r\n#requestsTable .request-row-main small,\r\n#requestsTable .request-row-metrics small {\r\n  color: #7b8491;\r\n  font-size: 10.8px;\r\n}\r\n\r\n#requestsTable .badge,\r\n#requestsTable .request-provider-pill,\r\n#requestsTable .route-pill {\r\n  border-radius: 999px;\r\n}\r\n\r\n#requestsTable .badge {\r\n  min-height: 23px;\r\n  padding-inline: 9px;\r\n  text-transform: none;\r\n}\r\n\r\n#requestsTable .request-provider-pill,\r\n#requestsTable .route-pill {\r\n  min-height: 24px;\r\n  padding: 2px 8px;\r\n  background: #fff;\r\n}\r\n\r\n#requestsTable .request-provider-pill {\r\n  gap: 5px;\r\n  max-width: 128px;\r\n  border-color: #e5e7eb;\r\n  color: #334155;\r\n}\r\n\r\n#requestsTable .request-provider-pill .icon-svg {\r\n  width: 13px;\r\n  height: 13px;\r\n  flex: 0 0 auto;\r\n  color: #7b8491;\r\n}\r\n\r\n#requestsTable .request-row-metrics strong {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 7px;\r\n  color: #111827;\r\n  font-size: 13px;\r\n  font-weight: 760;\r\n}\r\n\r\n#requestsTable .request-row-metrics strong i {\r\n  display: block;\r\n  width: 1px;\r\n  height: 12px;\r\n  background: #d8dee6;\r\n}\r\n\r\n#requestsTable .request-row-open {\r\n  width: 30px;\r\n  height: 30px;\r\n  border-color: transparent;\r\n  background: transparent;\r\n}\r\n\r\n#requestsTable .request-summary-row:hover .request-row-open,\r\n#requestsTable .request-summary-row:focus-visible .request-row-open {\r\n  border-color: #dbe2ea;\r\n  background: #fff;\r\n  color: #111827;\r\n}\r\n\r\n#requestsTable .request-row-dot {\r\n  display: none;\r\n}\r\n\r\n@media (max-width: 1180px) {\r\n  #requestsTable .request-summary-row {\r\n    grid-template-columns: 26px 30px minmax(160px, 1.25fr) minmax(102px, 0.5fr) minmax(150px, 0.8fr) minmax(128px, 0.6fr) 30px;\r\n    gap: 9px;\r\n  }\r\n\r\n  #requestsTable .request-provider-pill {\r\n    max-width: 106px;\r\n  }\r\n}\r\n\r\n@media (max-width: 900px) {\r\n  #requestsTable .request-page-vitals {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  }\r\n\r\n  #requestsTable .request-summary-row {\r\n    grid-template-columns: 26px 30px minmax(0, 1fr) auto 30px;\r\n    grid-template-areas:\r\n      \"select state main status open\"\r\n      \"select state route metrics open\";\r\n    align-items: center;\r\n  }\r\n\r\n  #requestsTable .request-row-select {\r\n    grid-area: select;\r\n  }\r\n\r\n  #requestsTable .request-row-state {\r\n    grid-area: state;\r\n  }\r\n\r\n  #requestsTable .request-row-main {\r\n    grid-area: main;\r\n  }\r\n\r\n  #requestsTable .request-row-status {\r\n    grid-area: status;\r\n    justify-content: flex-end;\r\n  }\r\n\r\n  #requestsTable .request-row-route {\r\n    grid-area: route;\r\n  }\r\n\r\n  #requestsTable .request-row-metrics {\r\n    grid-area: metrics;\r\n    justify-items: end;\r\n  }\r\n\r\n  #requestsTable .request-row-open {\r\n    grid-area: open;\r\n  }\r\n\r\n  #requestsTable .request-provider-pill {\r\n    max-width: 150px;\r\n  }\r\n}\r\n\r\n.sidebar-actions {\r\n  display: flex;\r\n  justify-content: stretch;\r\n  align-items: center;\r\n  margin-top: auto;\r\n  padding: 12px 18px 6px;\r\n  border-top: 1px solid color-mix(in srgb, var(--line-soft) 86%, transparent);\r\n}\r\n\r\n.auto-refresh-toggle {\r\n  display: flex;\r\n  width: 100%;\r\n  min-width: 0;\r\n  min-height: 36px;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  gap: 12px;\r\n  padding: 3px 0;\r\n  border: 0;\r\n  border-radius: 999px;\r\n  background: transparent;\r\n  color: #7a7370;\r\n  cursor: pointer;\r\n  font: 720 11px/1.2 var(--sans);\r\n  box-shadow: none;\r\n  transition: border-color 160ms ease, background 160ms ease, color 160ms ease, box-shadow 160ms ease;\r\n}\r\n\r\n.auto-refresh-toggle-text {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.auto-refresh-switch {\r\n  position: relative;\r\n  display: block;\r\n  width: 38px;\r\n  height: 22px;\r\n  flex: 0 0 auto;\r\n  border-radius: 999px;\r\n  background: #111827;\r\n  box-shadow: inset 0 0 0 1px rgba(17, 24, 39, 0.08);\r\n  transition: background 180ms ease, box-shadow 180ms ease;\r\n}\r\n\r\n.auto-refresh-switch span {\r\n  position: absolute;\r\n  top: 3px;\r\n  right: 3px;\r\n  width: 16px;\r\n  height: 16px;\r\n  border-radius: 50%;\r\n  background: #fff;\r\n  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.24);\r\n  transition: transform 180ms ease, right 180ms ease;\r\n}\r\n\r\n.auto-refresh-toggle:hover {\r\n  color: #111827;\r\n}\r\n\r\n.auto-refresh-toggle.is-paused {\r\n  color: #8a817c;\r\n}\r\n\r\n.auto-refresh-toggle.is-paused .auto-refresh-switch {\r\n  background: #e5e7eb;\r\n  box-shadow: inset 0 0 0 1px rgba(107, 114, 128, 0.12);\r\n}\r\n\r\n.auto-refresh-toggle.is-paused .auto-refresh-switch span {\r\n  right: 19px;\r\n  box-shadow: 0 1px 4px rgba(75, 85, 99, 0.12);\r\n}\r\n\r\n.auto-refresh-toggle:active .auto-refresh-switch span {\r\n  transform: scale(0.94);\r\n}\r\n\r\n/* ---- Dialog and drawer polish: stronger hierarchy without copying another theme ---- */\r\n.confirm-backdrop,\r\n.form-modal-backdrop {\r\n  background: rgba(17, 24, 39, 0.48);\r\n  backdrop-filter: blur(5px) saturate(1.08);\r\n  -webkit-backdrop-filter: blur(5px) saturate(1.08);\r\n}\r\n\r\n.form-modal,\r\n.confirm-dialog {\r\n  border-color: rgba(17, 24, 39, 0.12);\r\n  border-radius: 16px;\r\n  background: #fff;\r\n  box-shadow: 0 28px 90px rgba(15, 23, 42, 0.24), 0 1px 0 rgba(255, 255, 255, 0.82) inset;\r\n}\r\n\r\n.form-modal-head {\r\n  padding: 22px 24px 16px;\r\n  border-bottom: 1px solid #edf1f5;\r\n  background: linear-gradient(180deg, #fff 0%, #fbfcfd 100%);\r\n  border-radius: 20%;\r\n}\r\n\r\n.form-modal-head h2,\r\n.confirm-dialog h2,\r\n.drawer-head h2 {\r\n  color: #111827;\r\n  font-weight: 820;\r\n  letter-spacing: 0;\r\n}\r\n\r\n.form-modal-head p,\r\n.confirm-dialog p,\r\n.drawer-head p {\r\n  color: #7b8491;\r\n}\r\n\r\n.form-modal-body {\r\n  gap: 16px;\r\n  padding: 20px 24px 22px;\r\n  background: #fff;\r\n  border-radius: 15%;\r\n}\r\n\r\n.form-modal .provider-create-form details,\r\n.model-map-form,\r\n.format-path-form,\r\n.confirm-head {\r\n  border: 1px solid #edf1f5;\r\n  border-radius: 13px;\r\n  background: #fbfcfd;\r\n}\r\n\r\n.form-modal .provider-create-form details,\r\n.model-map-form,\r\n.format-path-form {\r\n  padding: 14px;\r\n}\r\n\r\n.confirm-head {\r\n  padding: 14px;\r\n}\r\n\r\n.form-modal .form-actions {\r\n  margin: 0 -24px -22px;\r\n  padding: 14px 24px 18px;\r\n  border-top: 1px solid #edf1f5;\r\n  background: #fbfcfd;\r\n}\r\n\r\n.confirm-actions {\r\n  padding: 14px 18px 18px;\r\n  border: 1px solid #edf1f5;\r\n  background: #fbfcfd;\r\n}\r\n\r\n.form-modal #formModalClose,\r\n.drawer-head .icon-button {\r\n  width: 32px;\r\n  min-width: 32px;\r\n  height: 32px;\r\n  min-height: 32px;\r\n  border-color: transparent;\r\n  border-radius: 9px;\r\n  background: transparent;\r\n  color: #6b7280;\r\n  box-shadow: none;\r\n}\r\n\r\n.form-modal #formModalClose:hover,\r\n.drawer-head .icon-button:hover {\r\n  border-color: #e5e7eb;\r\n  background: #fff;\r\n  color: #111827;\r\n}\r\n\r\n.drawer {\r\n  border-left-color: rgba(17, 24, 39, 0.1);\r\n  background: #fff;\r\n  backdrop-filter: none;\r\n  -webkit-backdrop-filter: none;\r\n}\r\n\r\n.drawer.is-open {\r\n  box-shadow: -24px 0 80px rgba(15, 23, 42, 0.14);\r\n}\r\n\r\n.drawer-head {\r\n  padding: 20px 22px 16px;\r\n  border-bottom-color: #edf1f5;\r\n  background: #fbfcfd;\r\n}\r\n\r\n.drawer-body {\r\n  padding: 18px;\r\n  background: #fff;\r\n}\r\n\r\n.provider-drawer-body {\r\n  background: #fff;\r\n}\r\n\r\n.provider-drawer-tabs {\r\n  padding: 0 0 12px;\r\n  background: #fff;\r\n  backdrop-filter: none;\r\n  -webkit-backdrop-filter: none;\r\n}\r\n\r\n.provider-drawer-tab {\r\n  border-color: #e5e7eb;\r\n  border-radius: 999px;\r\n}\r\n\r\n.provider-drawer-tab.is-active {\r\n  border-color: #111827;\r\n  background: #111827;\r\n  color: #fff;\r\n  box-shadow: none;\r\n}\r\n\r\n.form-modal .provider-create-form {\r\n  grid-template-columns: minmax(0, 1fr);\r\n  gap: 14px;\r\n  padding: 0;\r\n}\r\n\r\n.form-modal .provider-create-form > .field,\r\n.form-modal .provider-create-form > .form-row-2,\r\n.form-modal .provider-create-form > details {\r\n  min-width: 0;\r\n}\r\n\r\n.form-modal .provider-create-form .provider-preset-section {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  gap: 10px 12px;\r\n  align-items: start;\r\n  margin: 0;\r\n  padding: 12px;\r\n  border: 1px solid #edf1f5;\r\n  border-radius: 12px;\r\n  background: #fbfcfd;\r\n}\r\n\r\n.form-modal .provider-create-form .provider-preset-label {\r\n  padding-top: 5px;\r\n  color: #7b8491;\r\n  font: 780 10.5px/1.2 var(--mono);\r\n  letter-spacing: 0;\r\n  text-transform: uppercase;\r\n  white-space: nowrap;\r\n}\r\n\r\n.form-modal .provider-create-form .provider-preset-chips {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 6px;\r\n  min-width: 0;\r\n}\r\n\r\n.form-modal .provider-create-form .provider-preset-chip {\r\n  min-height: 26px;\r\n  padding: 0 9px;\r\n  border-color: #e1e7ef;\r\n  border-radius: 999px;\r\n  background: #fff;\r\n  color: #334155;\r\n  font: 720 11px/1 var(--sans);\r\n}\r\n\r\n.form-modal .provider-create-form .provider-preset-chip:hover {\r\n  border-color: #111827;\r\n  background: #111827;\r\n  color: #fff;\r\n}\r\n\r\n.form-modal .provider-create-form > .field {\r\n  padding: 0;\r\n}\r\n\r\n.form-modal .provider-create-form .field > span {\r\n  color: #64748b;\r\n  font-size: 11px;\r\n  font-weight: 760;\r\n}\r\n\r\n.form-modal .provider-create-form .provider-main-fields,\r\n.form-modal .provider-create-form > .form-row-2 {\r\n  gap: 12px;\r\n}\r\n\r\n.form-modal .provider-create-form details {\r\n  margin: 0;\r\n  padding: 12px;\r\n  border: 1px solid #edf1f5;\r\n  border-radius: 12px;\r\n  background: #fbfcfd;\r\n}\r\n\r\n.form-modal .provider-create-form details summary {\r\n  padding: 0;\r\n  color: #475569;\r\n  font-size: 12px;\r\n  font-weight: 760;\r\n}\r\n\r\n.form-modal .provider-create-form details .form-field-inline {\r\n  margin-top: 12px !important;\r\n}\r\n\r\n.form-modal .provider-create-form .form-actions {\r\n  margin-top: 2px;\r\n}\r\n\r\n.sidebar-footer {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr) auto;\r\n  gap: 7px;\r\n  align-items: center;\r\n  padding: 4px 18px 18px;\r\n  color: var(--faint);\r\n  font-size: 11px;\r\n}\r\n\r\n.sidebar-footer #connectionText {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.sidebar-footer .dot {\r\n  width: 6px;\r\n  height: 6px;\r\n  flex: 0 0 auto;\r\n}\r\n\r\n.sidebar-footer .lang-toggle-link {\r\n  flex: 0 0 auto;\r\n  margin-left: auto;\r\n  padding: 2px 6px;\r\n  border: 1px solid #e5e7eb;\r\n  border-radius: 6px;\r\n  background: #fff;\r\n  color: #6b7280;\r\n  font: 680 10.5px/1.4 var(--mono);\r\n}\r\n\r\n.sidebar-footer .lang-toggle-link:hover {\r\n  border-color: #d1d5db;\r\n  background: #f9fafb;\r\n  color: #111827;\r\n}\r\n\r\n/* ---- Drawer config + overview failure trace: compact final pass ---- */\r\n.provider-drawer-section .provider-edit-panel {\r\n  padding: 10px;\r\n  border-color: #edf1f5;\r\n  background: #fff;\r\n}\r\n\r\n.provider-drawer-section .provider-inline-form,\r\n.provider-drawer-section .provider-config-grid,\r\n.provider-drawer-section .provider-config-runtime-row,\r\n.provider-drawer-section .provider-config-keys .key-proxy-row,\r\n.provider-drawer-section .provider-config-keys .provider-inline-key-form {\r\n  grid-template-columns: 1fr;\r\n}\r\n\r\n.provider-drawer-section .provider-config-block {\r\n  gap: 10px;\r\n  padding: 11px;\r\n  border-color: #edf1f5;\r\n  border-radius: 10px;\r\n  background: #fbfcfd;\r\n}\r\n\r\n.provider-drawer-section .provider-config-block-head {\r\n  grid-template-columns: 26px minmax(0, 1fr);\r\n  gap: 8px;\r\n}\r\n\r\n.provider-drawer-section .provider-config-block-icon {\r\n  width: 26px;\r\n  height: 26px;\r\n  border-radius: 7px;\r\n  color: #475569;\r\n}\r\n\r\n.provider-drawer-section .provider-config-block-icon .icon-svg {\r\n  width: 14px;\r\n  height: 14px;\r\n}\r\n\r\n.provider-drawer-section .provider-config-block-head strong {\r\n  font-size: 12px;\r\n  line-height: 1.15;\r\n}\r\n\r\n.provider-drawer-section .provider-config-block-head small {\r\n  margin-top: 1px;\r\n  color: #94a3b8;\r\n  font-size: 10.5px;\r\n  line-height: 1.15;\r\n}\r\n\r\n.provider-drawer-section .provider-config-block .field {\r\n  min-width: 0;\r\n  gap: 4px;\r\n}\r\n\r\n.provider-drawer-section .provider-config-block .field > span,\r\n.provider-drawer-section .provider-config-block .key-proxy-field > span {\r\n  overflow: hidden;\r\n  color: #64748b;\r\n  font-size: 10.5px;\r\n  line-height: 1.15;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-drawer-section .provider-config-block .control {\r\n  width: 100%;\r\n  min-width: 0;\r\n  min-height: 34px;\r\n  padding-inline: 10px;\r\n  font-size: 12px;\r\n}\r\n\r\n.provider-drawer-section .provider-config-block .control::placeholder {\r\n  color: #a6b0bd;\r\n}\r\n\r\n.provider-drawer-section .provider-enabled-check {\r\n  min-height: 34px;\r\n  padding: 0 10px;\r\n}\r\n\r\n.provider-drawer-section .provider-config-block .button {\r\n  min-width: 0;\r\n}\r\n\r\n.provider-drawer-section .provider-config-keys .key-proxy-row {\r\n  gap: 8px;\r\n  padding: 9px;\r\n  border-radius: 9px;\r\n}\r\n\r\n.provider-drawer-section .provider-config-keys .key-proxy-id {\r\n  display: grid;\r\n  grid-template-columns: auto minmax(0, 1fr);\r\n  gap: 7px;\r\n  align-items: center;\r\n}\r\n\r\n.provider-drawer-section .provider-config-keys .key-proxy-id span {\r\n  margin-top: 0;\r\n  white-space: nowrap;\r\n}\r\n\r\n.provider-drawer-section .provider-config-keys .compact-action,\r\n.provider-drawer-section .provider-inline-key-form .button {\r\n  justify-content: center;\r\n  width: 100%;\r\n}\r\n\r\n.provider-drawer-section .provider-formats-group .format-route {\r\n  min-height: 46px;\r\n  padding: 8px 9px 8px 11px;\r\n}\r\n\r\n.provider-drawer-section .provider-formats-group .format-route-edit {\r\n  width: 24px;\r\n  height: 24px;\r\n  margin-left: 0;\r\n  border-radius: 7px;\r\n}\r\n\r\n.provider-drawer-section .provider-formats-group .format-route-edit .icon-svg {\r\n  width: 13px;\r\n  height: 13px;\r\n}\r\n\r\n.provider-drawer-section .provider-formats-group .format-route-switch {\r\n  width: 36px;\r\n  height: 21px;\r\n}\r\n\r\n.provider-drawer-section .provider-formats-group .format-route-switch span {\r\n  width: 15px;\r\n  height: 15px;\r\n}\r\n\r\n.provider-drawer-section .provider-formats-group .format-route-switch.is-on span {\r\n  transform: translateX(15px);\r\n}\r\n\r\n#recentFailures .overview-summary-meta {\r\n  padding: 0 2px 8px;\r\n}\r\n\r\n#recentFailures .recent-failure-list {\r\n  gap: 7px;\r\n  padding: 0;\r\n}\r\n\r\n#recentFailures .recent-failure-row {\r\n  grid-template-columns: 30px minmax(0, 1.2fr) minmax(92px, auto) minmax(120px, .9fr);\r\n  gap: 9px;\r\n  min-height: 52px;\r\n  padding: 9px 10px;\r\n  border: 1px solid color-mix(in srgb, var(--row-tone) 18%, #e5e7eb);\r\n  border-radius: 11px;\r\n  background:\r\n    linear-gradient(90deg, color-mix(in srgb, var(--row-tone) 6%, transparent), transparent 45%),\r\n    #fff;\r\n  box-shadow: none;\r\n}\r\n\r\n#recentFailures .recent-failure-icon {\r\n  display: inline-grid;\r\n  width: 28px;\r\n  height: 28px;\r\n  place-items: center;\r\n  border: 1px solid color-mix(in srgb, var(--row-tone) 24%, #e5e7eb);\r\n  border-radius: 8px;\r\n  background: color-mix(in srgb, var(--row-tone) 8%, #fff);\r\n  color: var(--row-tone);\r\n}\r\n\r\n#recentFailures .recent-failure-icon .icon-svg,\r\n#recentFailures .recent-failure-main small .icon-svg,\r\n#recentFailures .recent-failure-latency .icon-svg {\r\n  width: 13px;\r\n  height: 13px;\r\n}\r\n\r\n#recentFailures .recent-failure-main {\r\n  gap: 3px;\r\n}\r\n\r\n#recentFailures .recent-failure-main strong {\r\n  font-size: 12px;\r\n  line-height: 1.2;\r\n}\r\n\r\n#recentFailures .recent-failure-main small {\r\n  display: inline-flex;\r\n  gap: 4px;\r\n  align-items: center;\r\n  font-size: 10.5px;\r\n  line-height: 1.1;\r\n}\r\n\r\n#recentFailures .recent-failure-metrics {\r\n  display: grid;\r\n  gap: 4px;\r\n  justify-items: end;\r\n  min-width: 0;\r\n}\r\n\r\n#recentFailures .recent-failure-status {\r\n  display: inline-flex;\r\n  justify-content: flex-end;\r\n  min-width: 0;\r\n}\r\n\r\n#recentFailures .recent-failure-latency {\r\n  display: inline-flex;\r\n  gap: 4px;\r\n  align-items: center;\r\n  color: #64748b;\r\n  font: 720 10.5px/1 var(--mono);\r\n  white-space: nowrap;\r\n}\r\n\r\n#recentFailures .recent-failure-reason {\r\n  min-width: 0;\r\n  padding: 5px 8px;\r\n  border: 1px solid #eef2f7;\r\n  border-radius: 999px;\r\n  background: #fbfcfd;\r\n  color: #64748b;\r\n  font-size: 11px;\r\n  line-height: 1.1;\r\n}\r\n\r\n#recentFailures .recent-failure-row:hover,\r\n#recentFailures .recent-failure-row:focus-visible {\r\n  border-color: color-mix(in srgb, var(--row-tone) 32%, #d1d5db);\r\n  background:\r\n    linear-gradient(90deg, color-mix(in srgb, var(--row-tone) 9%, transparent), transparent 54%),\r\n    #fff;\r\n  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06);\r\n}\r\n\r\n.usage-model-only .usage-bars {\r\n  gap: 7px;\r\n}\r\n\r\n.usage-model-only .usage-row {\r\n  padding: 9px 10px;\r\n  border-radius: 10px;\r\n  background: #fff;\r\n}\r\n\r\n.usage-model-only .usage-row-head {\r\n  gap: 8px;\r\n}\r\n\r\n.usage-model-only .usage-rank {\r\n  min-width: 26px;\r\n  border-radius: 999px;\r\n  background: #f8fafc;\r\n  color: #475569;\r\n}\r\n\r\n.usage-model-only .usage-track {\r\n  height: 5px;\r\n}\r\n\r\n@media (max-width: 980px) {\r\n  #recentFailures .recent-failure-row {\r\n    grid-template-columns: 30px minmax(0, 1fr) auto;\r\n  }\r\n\r\n  #recentFailures .recent-failure-reason {\r\n    grid-column: 2 / -1;\r\n    justify-self: stretch;\r\n  }\r\n}\r\n\r\n@media (max-width: 520px) {\r\n  #recentFailures .recent-failure-row {\r\n    grid-template-columns: 28px minmax(0, 1fr);\r\n  }\r\n\r\n  #recentFailures .recent-failure-metrics,\r\n  #recentFailures .recent-failure-reason {\r\n    grid-column: 2 / -1;\r\n    justify-self: stretch;\r\n  }\r\n\r\n  #recentFailures .recent-failure-metrics {\r\n    grid-template-columns: auto 1fr;\r\n    justify-items: start;\r\n  }\r\n}\r\n\r\n/* ---- Usage ranking + playground empty state polish ---- */\r\n.usage-section-title h3 {\r\n  display: inline-flex;\r\n  gap: 7px;\r\n  align-items: center;\r\n}\r\n\r\n.usage-section-title h3 .icon-svg {\r\n  width: 15px;\r\n  height: 15px;\r\n  color: #475569;\r\n}\r\n\r\n.usage-model-only .usage-bars {\r\n  gap: 6px;\r\n}\r\n\r\n.usage-model-only .usage-model-row {\r\n  display: grid;\r\n  grid-template-columns: 34px minmax(0, 1fr) minmax(126px, auto);\r\n  grid-template-areas:\r\n    \"rank head foot\"\r\n    \"rank track foot\";\r\n  gap: 7px 10px;\r\n  align-items: center;\r\n  min-height: 58px;\r\n  padding: 8px 10px;\r\n  border: 1px solid #edf1f5;\r\n  border-radius: 10px;\r\n  background: #fff;\r\n}\r\n\r\n.usage-model-only .usage-rank-tile {\r\n  grid-area: rank;\r\n  display: inline-grid;\r\n  width: 30px;\r\n  min-width: 30px;\r\n  height: 30px;\r\n  place-items: center;\r\n  padding: 0;\r\n  border: 1px solid #e5e7eb;\r\n  border-radius: 8px;\r\n  background: #f8fafc;\r\n  color: #475569;\r\n  font: 780 10.5px/1 var(--mono);\r\n}\r\n\r\n.usage-model-only .usage-row-head {\r\n  grid-area: head;\r\n  gap: 8px;\r\n}\r\n\r\n.usage-model-only .usage-row-head strong {\r\n  font-size: 12px;\r\n}\r\n\r\n.usage-model-only .usage-call-count {\r\n  display: inline-flex;\r\n  min-height: 20px;\r\n  align-items: center;\r\n  padding: 2px 7px;\r\n  border: 1px solid #edf1f5;\r\n  border-radius: 999px;\r\n  background: #fbfcfd;\r\n  color: #64748b;\r\n  font: 720 10.5px/1 var(--mono);\r\n}\r\n\r\n.usage-model-only .usage-track {\r\n  grid-area: track;\r\n  height: 5px;\r\n  background: #eef2f7;\r\n}\r\n\r\n.usage-model-only .usage-fill.calls {\r\n  background: #111827;\r\n}\r\n\r\n.usage-model-only .usage-model-foot {\r\n  grid-area: foot;\r\n  display: grid;\r\n  grid-template-columns: 1fr;\r\n  justify-items: end;\r\n  gap: 4px;\r\n}\r\n\r\n.usage-model-only .usage-model-foot span {\r\n  display: inline-flex;\r\n  gap: 4px;\r\n  align-items: center;\r\n  color: #64748b;\r\n  font: 680 10.5px/1 var(--mono);\r\n}\r\n\r\n.usage-model-only .usage-model-foot strong {\r\n  color: #111827;\r\n  font-size: 11.5px;\r\n}\r\n\r\n.usage-model-only .usage-model-foot .icon-svg {\r\n  width: 12px;\r\n  height: 12px;\r\n  color: #94a3b8;\r\n}\r\n\r\n.pg-empty::before {\r\n  display: none;\r\n}\r\n\r\n.pg-empty-icon {\r\n  display: inline-grid;\r\n  width: 42px;\r\n  height: 42px;\r\n  place-items: center;\r\n  border: 1px solid #dfe5ec;\r\n  border-radius: 13px;\r\n  background: #fbfcfd;\r\n  color: #475569;\r\n  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.84);\r\n}\r\n\r\n.pg-empty-icon .icon-svg {\r\n  width: 20px;\r\n  height: 20px;\r\n  stroke-width: 1.8;\r\n}\r\n\r\n@media (max-width: 760px) {\r\n  .usage-model-only .usage-model-row {\r\n    grid-template-columns: 32px minmax(0, 1fr);\r\n    grid-template-areas:\r\n      \"rank head\"\r\n      \"rank track\"\r\n      \"rank foot\";\r\n  }\r\n\r\n  .usage-model-only .usage-model-foot {\r\n    grid-template-columns: repeat(3, minmax(0, auto));\r\n    justify-items: start;\r\n    justify-content: start;\r\n  }\r\n}\r\n\r\n/* ---- Overview dashboard density pass ---- */\r\n#overviewView .overview-page-head {\r\n  margin-bottom: 12px;\r\n}\r\n\r\n#overviewView .overview-page-head h1 {\r\n  font-size: 20px;\r\n  line-height: 1.15;\r\n}\r\n\r\n#overviewView .overview-page-head p {\r\n  margin-top: 3px;\r\n  font-size: 12px;\r\n}\r\n\r\n#overviewView .time-range-control {\r\n  min-height: 36px;\r\n  padding: 3px;\r\n}\r\n\r\n#overviewView .time-range-control > div:first-child {\r\n  display: none;\r\n}\r\n\r\n#overviewView .segmented-button {\r\n  min-height: 28px;\r\n  padding: 0 10px;\r\n  font-size: 11px;\r\n}\r\n\r\n#overviewView .overview-visuals {\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 10px;\r\n  margin-bottom: 12px;\r\n}\r\n\r\n#overviewView .visual-card {\r\n  min-height: 82px;\r\n  padding: 12px 14px;\r\n  border-radius: 12px;\r\n  background: #fff;\r\n  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.055);\r\n}\r\n\r\n#overviewView .metric-header {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  gap: 8px;\r\n}\r\n\r\n#overviewView .visual-card .metric-label {\r\n  color: #64748b;\r\n  font-size: 11px;\r\n  font-weight: 720;\r\n  letter-spacing: 0;\r\n  text-transform: none;\r\n}\r\n\r\n#overviewView .visual-card .metric-val {\r\n  margin-top: 7px;\r\n  color: #111827;\r\n  font: 820 24px/1 var(--mono);\r\n}\r\n\r\n#overviewView .visual-card .metric-sub {\r\n  margin-top: 6px;\r\n  color: #7b8491;\r\n  font-size: 11px;\r\n}\r\n\r\n#overviewView .visual-card .metric-icon {\r\n  display: inline-grid;\r\n  width: 28px;\r\n  height: 28px;\r\n  place-items: center;\r\n  border: 1px solid #edf1f5;\r\n  border-radius: 9px;\r\n  background: #fbfcfd;\r\n  color: #94a3b8;\r\n}\r\n\r\n#overviewView .visual-card .metric-icon .icon-svg {\r\n  width: 14px;\r\n  height: 14px;\r\n}\r\n\r\n#overviewView .overview-grid {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1.55fr) minmax(330px, 0.85fr);\r\n  grid-template-rows: 520px 390px;\r\n  gap: 14px;\r\n  align-items: stretch;\r\n}\r\n\r\n#overviewView .overview-secondary-layout,\r\n#overviewView .overview-main-column,\r\n#overviewView .overview-side-column {\r\n  display: contents;\r\n}\r\n\r\n#overviewView .overview-traffic-panel {\r\n  grid-column: 1;\r\n  grid-row: 1;\r\n}\r\n\r\n#overviewView .overview-health-score-panel {\r\n  grid-column: 2;\r\n  grid-row: 1;\r\n}\r\n\r\n#overviewView .overview-failures-panel {\r\n  grid-column: 2;\r\n  grid-row: 2;\r\n}\r\n\r\n#overviewView .overview-usage-panel {\r\n  grid-column: 1;\r\n  grid-row: 2;\r\n}\r\n\r\n#overviewView .panel {\r\n  display: grid;\r\n  grid-template-rows: auto minmax(0, 1fr);\r\n  height: 100%;\r\n  margin-bottom: 0;\r\n  border-color: #e5e7eb;\r\n  border-radius: 14px;\r\n  background: #fff;\r\n  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);\r\n}\r\n\r\n#overviewView .panel-head {\r\n  min-height: 48px;\r\n  padding: 12px 16px 10px;\r\n  border-bottom: 1px solid #edf1f5;\r\n  background: #fbfcfd;\r\n}\r\n\r\n#overviewView .panel-head h2 {\r\n  color: #111827;\r\n  font-size: 14px;\r\n  font-weight: 780;\r\n}\r\n\r\n#overviewView .panel-head p {\r\n  display: none;\r\n}\r\n\r\n#overviewView .panel-head .tag,\r\n#overviewView .panel-head .badge {\r\n  min-height: 24px;\r\n  border-color: #e5e7eb;\r\n  border-radius: 999px;\r\n  background: #fff;\r\n  color: #64748b;\r\n  font: 700 10.5px/1 var(--mono);\r\n  text-transform: none;\r\n}\r\n\r\n#overviewView .overview-traffic-panel .chart {\r\n  min-height: 0;\r\n  padding: 12px 14px 14px;\r\n  background: #fff;\r\n}\r\n\r\n#overviewView .usage-trend-overview {\r\n  grid-template-columns: minmax(210px, 0.55fr) minmax(0, 1.45fr);\r\n  gap: 8px;\r\n  margin-bottom: 10px;\r\n}\r\n\r\n#overviewView .usage-trend-total,\r\n#overviewView .usage-trend-kpi {\r\n  border-color: #edf1f5;\r\n  border-radius: 10px;\r\n  box-shadow: none;\r\n}\r\n\r\n#overviewView .usage-trend-total {\r\n  min-height: 64px;\r\n  padding: 8px 10px;\r\n}\r\n\r\n#overviewView .usage-trend-total strong {\r\n  font-size: 22px;\r\n}\r\n\r\n#overviewView .usage-trend-total small,\r\n#overviewView .usage-trend-total-label,\r\n#overviewView .usage-trend-kpi span {\r\n  font-size: 10.5px;\r\n}\r\n\r\n#overviewView .usage-trend-kpis {\r\n  gap: 8px;\r\n}\r\n\r\n#overviewView .usage-trend-kpi {\r\n  min-height: 64px;\r\n  padding: 8px 10px;\r\n}\r\n\r\n#overviewView .usage-trend-kpi strong {\r\n  font-size: 15px;\r\n}\r\n\r\n#overviewView .traffic-chart-shell {\r\n  padding: 12px 12px 8px;\r\n  border-color: #edf1f5;\r\n  border-radius: 12px;\r\n  box-shadow: none;\r\n}\r\n\r\n#overviewView .traffic-chart-shell svg {\r\n  height: 250px;\r\n}\r\n\r\n#overviewView .health-overview {\r\n  gap: 8px;\r\n  padding: 12px;\r\n  max-height: none;\r\n  overflow: hidden;\r\n}\r\n\r\n#overviewView .health-overview-header {\r\n  padding-bottom: 8px;\r\n}\r\n\r\n#overviewView .health-score-ring {\r\n  width: 46px;\r\n  height: 46px;\r\n  border-width: 2px;\r\n}\r\n\r\n#overviewView .health-score-ring strong {\r\n  font-size: 15px;\r\n}\r\n\r\n#overviewView .health-provider-row {\r\n  grid-template-columns: minmax(92px, 1fr) 72px 30px 74px;\r\n  gap: 7px;\r\n  padding: 6px 8px;\r\n  border-radius: 8px;\r\n  background: #fbfcfd;\r\n}\r\n\r\n#overviewView .health-overview-more {\r\n  padding: 7px 8px 1px;\r\n  color: #94a3b8;\r\n  font: 700 10.5px/1 var(--mono);\r\n}\r\n\r\n#overviewView .health-provider-bar {\r\n  height: 5px;\r\n}\r\n\r\n#overviewView #recentFailures {\r\n  min-height: 0;\r\n  overflow: hidden;\r\n  padding: 10px;\r\n}\r\n\r\n#overviewView #recentFailures .recent-failure-row {\r\n  grid-template-columns: 26px minmax(0, 1fr) auto minmax(72px, auto);\r\n  gap: 7px;\r\n  min-height: 38px;\r\n  padding: 6px 8px;\r\n  border-radius: 9px;\r\n}\r\n\r\n#overviewView #recentFailures .recent-failure-reason {\r\n  grid-column: auto;\r\n  justify-self: stretch;\r\n  padding: 4px 7px;\r\n  font-size: 10.5px;\r\n}\r\n\r\n#overviewView #recentFailures .recent-failure-icon {\r\n  width: 24px;\r\n  height: 24px;\r\n  border-radius: 7px;\r\n}\r\n\r\n#overviewView #recentFailures .recent-failure-main {\r\n  gap: 1px;\r\n}\r\n\r\n#overviewView #recentFailures .recent-failure-main strong {\r\n  font-size: 11px;\r\n}\r\n\r\n#overviewView #recentFailures .recent-failure-main small,\r\n#overviewView #recentFailures .recent-failure-latency {\r\n  font-size: 10px;\r\n}\r\n\r\n#overviewView #recentFailures .recent-failure-metrics {\r\n  gap: 2px;\r\n}\r\n\r\n#overviewView .usage-chart {\r\n  min-height: 0;\r\n  overflow: hidden;\r\n  padding: 10px 12px 12px;\r\n}\r\n\r\n#overviewView .usage-summary {\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  gap: 8px;\r\n}\r\n\r\n#overviewView .usage-chart .mini-metric {\r\n  min-height: 58px;\r\n  padding: 9px 10px;\r\n  border-color: #edf1f5;\r\n  border-radius: 10px;\r\n  background: #fbfcfd;\r\n}\r\n\r\n#overviewView .usage-chart .mini-metric strong {\r\n  font-size: 16px;\r\n}\r\n\r\n#overviewView .usage-columns.usage-model-only {\r\n  margin-top: 2px;\r\n}\r\n\r\n#overviewView .overview-failures-panel .recent-failure-list {\r\n  gap: 6px;\r\n}\r\n\r\n@media (max-width: 1180px) {\r\n  #overviewView .overview-grid {\r\n    grid-template-columns: 1fr;\r\n  }\r\n\r\n  #overviewView .overview-secondary-layout,\r\n  #overviewView .overview-main-column,\r\n  #overviewView .overview-side-column {\r\n    display: grid;\r\n  }\r\n\r\n  #overviewView .overview-traffic-panel,\r\n  #overviewView .overview-health-score-panel,\r\n  #overviewView .overview-failures-panel,\r\n  #overviewView .overview-usage-panel {\r\n    grid-column: 1;\r\n    grid-row: auto;\r\n  }\r\n\r\n  #overviewView .overview-secondary-layout {\r\n    gap: 14px;\r\n  }\r\n}\r\n\r\n@media (max-width: 760px) {\r\n  #overviewView .overview-page-head {\r\n    align-items: stretch;\r\n  }\r\n\r\n  #overviewView .overview-visuals,\r\n  #overviewView .usage-summary {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n  }\r\n\r\n  #overviewView .overview-traffic-panel .chart {\r\n    min-height: 360px;\r\n    padding: 10px;\r\n  }\r\n\r\n  #overviewView .traffic-chart-shell svg {\r\n    height: 260px;\r\n  }\r\n}\r\n\r\n/* Requests page density pass: keep one 10-row page visible without page scroll. */\r\n#requestsView.view:not(.is-active) {\r\n  display: none;\r\n}\r\n\r\n#requestsView.view.is-active {\r\n  display: grid;\r\n  grid-template-rows: auto minmax(0, 1fr);\r\n  gap: 8px;\r\n  min-height: 0;\r\n}\r\n\r\n#requestsToolbar.request-filter-bar {\r\n  min-height: 44px;\r\n  margin: 0 0 8px;\r\n  padding: 8px 10px;\r\n  gap: 8px;\r\n  align-items: center;\r\n  border-radius: 12px;\r\n}\r\n\r\n#requestsToolbar .request-filter-primary {\r\n  align-items: center;\r\n  gap: 7px;\r\n}\r\n\r\n#requestsToolbar .request-status-chips {\r\n  gap: 4px;\r\n}\r\n\r\n#requestsToolbar .filter-chip,\r\n#requestsToolbar .compact-action,\r\n#requestsToolbar .advanced-filter-box > summary {\r\n  min-height: 30px;\r\n  padding: 0 9px;\r\n  border-radius: 8px;\r\n  font-size: 11px;\r\n  display: inline-flex;\r\n  align-items: center;\r\n  justify-content: center;\r\n}\r\n\r\n#requestsToolbar .filter-search-field {\r\n  min-width: 108px;\r\n}\r\n\r\n#requestsToolbar .control {\r\n  min-height: 30px;\r\n  padding: 0 9px;\r\n  border-radius: 8px;\r\n  font-size: 11px;\r\n}\r\n\r\n#requestsToolbar .request-bulk-actions {\r\n  align-items: center;\r\n  gap: 6px;\r\n}\r\n\r\n#requestsToolbar .selection-count {\r\n  min-height: 26px;\r\n  padding: 0 8px;\r\n  font-size: 10.5px;\r\n}\r\n\r\n#requestsToolbar .icon-action {\r\n  width: 30px;\r\n  height: 30px;\r\n  min-height: 30px;\r\n}\r\n\r\n#requestsView > .panel {\r\n  display: grid;\r\n  grid-template-rows: auto minmax(0, 1fr);\r\n  min-height: 0;\r\n  margin: 0;\r\n  overflow: hidden;\r\n}\r\n\r\n#requestsView > .panel .panel-head {\r\n  min-height: 34px;\r\n  padding: 8px 12px;\r\n}\r\n\r\n#requestsView > .panel .panel-head h2 {\r\n  font-size: 13px;\r\n}\r\n\r\n#requestsView > .panel .panel-head p {\r\n  display: none;\r\n}\r\n\r\n#requestsTable.table-wrap {\r\n  display: grid;\r\n  grid-template-rows: auto auto auto minmax(0, 1fr);\r\n  gap: 7px;\r\n  min-height: 0;\r\n  padding: 9px;\r\n  overflow: hidden;\r\n}\r\n\r\n#requestsTable .request-list-head {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr) auto;\r\n  align-items: center;\r\n  min-height: 30px;\r\n  padding: 5px 8px;\r\n  border-radius: 10px;\r\n}\r\n\r\n#requestsTable .request-page-summary {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 7px;\r\n  min-width: 0;\r\n  min-height: 26px;\r\n  font-size: 10.5px;\r\n  line-height: 1;\r\n}\r\n\r\n#requestsTable .request-page-summary strong {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  min-height: 22px;\r\n  font-size: 12px;\r\n  line-height: 1;\r\n}\r\n\r\n#requestsTable .request-page-summary > span {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  min-height: 22px;\r\n  line-height: 1;\r\n}\r\n\r\n#requestsTable .request-page-select {\r\n  min-height: 24px;\r\n  padding: 0 8px 0 2px;\r\n  gap: 4px;\r\n  align-items: center;\r\n  border-right-color: #dde4ec;\r\n  line-height: 1;\r\n}\r\n\r\n#requestsTable .request-page-select input {\r\n  width: 14px;\r\n  height: 14px;\r\n  flex: 0 0 auto;\r\n}\r\n\r\n#requestsTable .request-page-select span {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  min-height: 20px;\r\n}\r\n\r\n#requestsTable .request-pagination {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  gap: 5px;\r\n  min-height: 26px;\r\n}\r\n\r\n#requestsTable .request-pagination .icon-action {\r\n  width: 26px;\r\n  height: 26px;\r\n  min-height: 26px;\r\n  border-radius: 8px;\r\n}\r\n\r\n#requestsTable .request-page-indicator {\r\n  display: inline-flex;\r\n  align-items: center;\r\n  min-height: 26px;\r\n  padding: 0 8px;\r\n  border: 1px solid #edf1f5;\r\n  border-radius: 8px;\r\n  background: #fbfcfd;\r\n  font-size: 10.5px;\r\n  line-height: 1;\r\n}\r\n\r\n#requestsTable .request-page-vitals {\r\n  grid-template-columns: repeat(5, minmax(0, 1fr));\r\n  gap: 6px;\r\n}\r\n\r\n#requestsTable .request-vital {\r\n  min-height: 34px;\r\n  padding: 5px 8px;\r\n  gap: 6px;\r\n  border-radius: 9px;\r\n}\r\n\r\n#requestsTable .request-vital::after {\r\n  height: 2px;\r\n}\r\n\r\n#requestsTable .request-vital .icon-svg {\r\n  width: 13px;\r\n  height: 13px;\r\n}\r\n\r\n#requestsTable .request-vital strong {\r\n  font-size: 13px;\r\n}\r\n\r\n#requestsTable .request-vital small {\r\n  font-size: 9.5px;\r\n}\r\n\r\n#requestsTable .request-summary-list {\r\n  gap: 6px;\r\n  min-height: 0;\r\n  overflow: hidden;\r\n}\r\n\r\n#requestsTable .request-summary-row {\r\n  grid-template-columns: 20px 22px minmax(178px, 1.4fr) 70px minmax(160px, 0.95fr) minmax(118px, 0.72fr) 20px;\r\n  min-height: 50px;\r\n  padding: 7px 9px;\r\n  gap: 7px;\r\n  border-radius: 10px;\r\n  border-color: #e5e7eb;\r\n  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.035), 0 5px 12px rgba(15, 23, 42, 0.025);\r\n}\r\n\r\n#requestsTable .request-row-select input {\r\n  width: 13px;\r\n  height: 13px;\r\n}\r\n\r\n#requestsTable .request-row-state {\r\n  width: 20px;\r\n  height: 20px;\r\n  border-radius: 7px;\r\n}\r\n\r\n#requestsTable .request-row-state .icon-svg {\r\n  width: 12px;\r\n  height: 12px;\r\n}\r\n\r\n#requestsTable .request-row-main {\r\n  gap: 1px;\r\n}\r\n\r\n#requestsTable .request-row-main strong {\r\n  max-width: 100%;\r\n  font-size: 12.5px;\r\n}\r\n\r\n#requestsTable .request-row-main small {\r\n  gap: 4px;\r\n  font-size: 10.5px;\r\n  white-space: nowrap;\r\n}\r\n\r\n#requestsTable .request-row-status {\r\n  gap: 3px;\r\n}\r\n\r\n#requestsTable .request-row-status .badge {\r\n  min-height: 18px;\r\n  padding: 0 6px;\r\n  font-size: 10px;\r\n}\r\n\r\n#requestsTable .request-row-status small {\r\n  font-size: 10px;\r\n}\r\n\r\n#requestsTable .request-row-route {\r\n  gap: 4px;\r\n}\r\n\r\n#requestsTable .request-provider-pill,\r\n#requestsTable .route-pill {\r\n  min-height: 20px;\r\n  padding: 0 6px;\r\n  border-radius: 7px;\r\n  font-size: 10.3px;\r\n}\r\n\r\n#requestsTable .request-provider-pill .icon-svg {\r\n  width: 11px;\r\n  height: 11px;\r\n}\r\n\r\n#requestsTable .request-row-metrics {\r\n  gap: 2px;\r\n}\r\n\r\n#requestsTable .request-row-metrics strong {\r\n  font-size: 12px;\r\n}\r\n\r\n#requestsTable .request-row-metrics small {\r\n  font-size: 10px;\r\n}\r\n\r\n#requestsTable .request-row-open {\r\n  width: 20px;\r\n  height: 20px;\r\n  border-radius: 7px;\r\n}\r\n\r\n#requestsTable .request-row-open .icon-svg {\r\n  width: 12px;\r\n  height: 12px;\r\n}\r\n\r\n/* Providers page density redesign: 8 providers per page, no page scroll at desktop sizes. */\r\n#providersView.view:not(.is-active) {\r\n  display: none;\r\n}\r\n\r\n#providersView.view.is-active {\r\n  display: grid;\r\n  min-height: calc(100dvh - 24px);\r\n}\r\n\r\n#providersView .providers-panel {\r\n  display: grid;\r\n  grid-template-rows: auto minmax(0, 1fr) auto;\r\n  height: 100%;\r\n  min-height: 0;\r\n  overflow: hidden;\r\n  border-radius: 14px;\r\n}\r\n\r\n#providersView .providers-tools {\r\n  border-bottom: 1px solid #edf1f5;\r\n  background: #fff;\r\n}\r\n\r\n#providersView .providers-tools-head {\r\n  min-height: 46px;\r\n  padding: 10px 14px 6px;\r\n}\r\n\r\n#providersView .providers-tools-head h2 {\r\n  font-size: 14px;\r\n  line-height: 1.15;\r\n}\r\n\r\n#providersView .providers-tools-head p {\r\n  margin-top: 2px;\r\n  font-size: 11px;\r\n  line-height: 1.2;\r\n}\r\n\r\n#providersView .providers-tools-head .button {\r\n  min-height: 30px;\r\n  padding-inline: 12px;\r\n  border-radius: 8px;\r\n  font-size: 11px;\r\n}\r\n\r\n#providersView .provider-toolbar {\r\n  grid-template-columns: minmax(210px, 1.25fr) repeat(3, minmax(118px, 0.72fr)) auto;\r\n  gap: 7px;\r\n  align-items: end;\r\n  padding: 0 14px 10px;\r\n}\r\n\r\n#providersView .provider-toolbar .field {\r\n  gap: 4px;\r\n}\r\n\r\n#providersView .provider-toolbar .field > span {\r\n  font-size: 10px;\r\n}\r\n\r\n#providersView .provider-toolbar .control,\r\n#providersView .provider-toolbar #clearProviderFiltersButton {\r\n  min-height: 30px;\r\n  border-radius: 8px;\r\n  font-size: 11px;\r\n}\r\n\r\n#providersView .provider-table {\r\n  display: grid;\r\n  grid-template-rows: auto minmax(0, 1fr);\r\n  gap: 8px;\r\n  min-height: 0;\r\n  padding: 9px 10px 10px;\r\n  overflow: hidden;\r\n}\r\n\r\n#providersView .panel-pagination {\r\n  min-height: 30px;\r\n  margin: 0;\r\n  padding: 5px 8px;\r\n  border-radius: 9px;\r\n  font-size: 11px;\r\n}\r\n\r\n#providersView .panel-pagination-actions {\r\n  gap: 5px;\r\n}\r\n\r\n#providersView .panel-pagination .icon-action {\r\n  width: 26px;\r\n  height: 26px;\r\n  min-height: 26px;\r\n  border-radius: 8px;\r\n}\r\n\r\n#providersView .panel-pagination .request-page-indicator {\r\n  padding-inline: 7px;\r\n  font-size: 10.5px;\r\n}\r\n\r\n#providersView .provider-card-grid {\r\n  display: grid;\r\n  grid-template-columns: repeat(4, minmax(0, 1fr));\r\n  grid-template-rows: repeat(2, minmax(0, 1fr));\r\n  gap: 10px;\r\n  min-height: 0;\r\n  overflow: hidden;\r\n}\r\n\r\n#providersView .provider-runtime-card {\r\n  display: flex;\r\n  flex-direction: column;\r\n  gap: 7px;\r\n  justify-content: space-between;\r\n  min-height: 0;\r\n  height: 95%;\r\n  padding: 13px 12px 11px;\r\n  border-top-width: 2px;\r\n  border-radius: 12px;\r\n  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.045);\r\n}\r\n\r\n#providersView .provider-health-tile {\r\n  min-height: 0;\r\n}\r\n\r\n#providersView .provider-card-topline {\r\n  gap: 7px;\r\n  align-items: flex-start;\r\n}\r\n\r\n#providersView .provider-status-dot {\r\n  width: 8px;\r\n  height: 8px;\r\n  box-shadow: 0 0 0 3px color-mix(in srgb, var(--neutral) 8%, transparent);\r\n}\r\n\r\n#providersView .provider-title-block {\r\n  display: grid;\r\n  gap: 4px;\r\n  min-width: 0;\r\n}\r\n\r\n#providersView .provider-name {\r\n  overflow: hidden;\r\n  font-size: 15px;\r\n  font-weight: 840;\r\n  line-height: 1.12;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n#providersView .provider-meta {\r\n  display: flex;\r\n  gap: 4px;\r\n  min-width: 0;\r\n  overflow: hidden;\r\n}\r\n\r\n#providersView .format-chip,\r\n#providersView .priority-chip {\r\n  min-height: 18px;\r\n  padding: 1px 5px;\r\n  border-radius: 6px;\r\n  font-size: 9px;\r\n}\r\n\r\n#providersView .provider-card-settings-btn {\r\n  width: 22px;\r\n  height: 22px;\r\n  border-radius: 7px;\r\n}\r\n\r\n#providersView .provider-card-settings-btn .icon-svg {\r\n  width: 13px;\r\n  height: 13px;\r\n}\r\n\r\n#providersView .provider-card-state-row {\r\n  gap: 6px;\r\n  align-items: center;\r\n  padding: 0;\r\n}\r\n\r\n#providersView .provider-state-badge {\r\n  min-height: 20px;\r\n  padding: 0 7px;\r\n  font-size: 9.5px;\r\n}\r\n\r\n#providersView .provider-state-note {\r\n  font-size: 10px;\r\n}\r\n\r\n#providersView .provider-card-signal {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1.35fr) minmax(82px, 0.8fr);\r\n  grid-template-rows: repeat(2, minmax(0, 1fr));\r\n  gap: 6px;\r\n  min-height: 73px;\r\n}\r\n\r\n#providersView .provider-probe-summary {\r\n  display: grid;\r\n  grid-template-columns: 14px minmax(0, 1fr) auto;\r\n  align-items: center;\r\n  gap: 6px;\r\n  min-height: 26px;\r\n  padding: 0 8px;\r\n  border: 1px solid #e8edf2;\r\n  border-radius: 7px;\r\n  background:\r\n    linear-gradient(180deg, #ffffff, #f9fbfc);\r\n  color: #5f6f82;\r\n  font-size: 10.5px;\r\n  line-height: 1;\r\n  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);\r\n}\r\n\r\n#providersView .provider-probe-summary .icon-svg {\r\n  width: 13px;\r\n  height: 13px;\r\n  color: #8795a8;\r\n}\r\n\r\n#providersView .provider-probe-summary span,\r\n#providersView .provider-probe-summary small {\r\n  min-width: 0;\r\n  overflow: hidden;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n#providersView .provider-probe-summary span {\r\n  grid-column: 2;\r\n  color: #27364a;\r\n  font-weight: 720;\r\n}\r\n\r\n#providersView .provider-probe-summary small {\r\n  grid-column: 3;\r\n  color: #6c7888;\r\n  font-family: var(--mono);\r\n  font-size: 10px;\r\n  font-weight: 680;\r\n  text-align: right;\r\n}\r\n\r\n#providersView .provider-probe-summary.tone-ok .icon-svg,\r\n#providersView .provider-probe-summary.tone-ok span {\r\n  color: var(--success);\r\n}\r\n\r\n#providersView .provider-probe-summary.tone-ok {\r\n  border-color: color-mix(in srgb, var(--success) 20%, #e8edf2);\r\n  background:\r\n    linear-gradient(90deg, color-mix(in srgb, var(--success) 8%, #fff), #fff 54%);\r\n}\r\n\r\n#providersView .provider-probe-summary.tone-warn .icon-svg,\r\n#providersView .provider-probe-summary.tone-warn span {\r\n  color: var(--warning);\r\n}\r\n\r\n#providersView .provider-probe-summary.tone-warn {\r\n  border-color: color-mix(in srgb, var(--warning) 22%, #e8edf2);\r\n  background:\r\n    linear-gradient(90deg, color-mix(in srgb, var(--warning) 8%, #fff), #fff 54%);\r\n}\r\n\r\n#providersView .provider-probe-summary.tone-bad .icon-svg,\r\n#providersView .provider-probe-summary.tone-bad span {\r\n  color: var(--danger);\r\n}\r\n\r\n#providersView .provider-probe-summary.tone-bad {\r\n  border-color: color-mix(in srgb, var(--danger) 22%, #e8edf2);\r\n  background:\r\n    linear-gradient(90deg, color-mix(in srgb, var(--danger) 8%, #fff), #fff 54%);\r\n}\r\n\r\n#providersView .provider-probe-summary.empty {\r\n  color: #94a3b8;\r\n  background: #f9fbfc;\r\n}\r\n\r\n#providersView .provider-signal-item {\r\n  display: grid;\r\n  grid-template-columns: 14px minmax(0, 1fr);\r\n  grid-template-areas:\r\n    \"icon value\"\r\n    \"icon label\";\r\n  gap: 1px 5px;\r\n  align-items: center;\r\n  min-width: 0;\r\n  min-height: 0;\r\n  padding: 7px 8px;\r\n  border: 1px solid #edf1f5;\r\n  border-radius: 8px;\r\n  background: #fbfcfd;\r\n}\r\n\r\n#providersView .provider-signal-item:nth-child(1) {\r\n  grid-row: 1 / span 2;\r\n  grid-template-columns: 1fr;\r\n  grid-template-areas:\r\n    \"label\"\r\n    \"value\";\r\n  align-content: center;\r\n  justify-items: start;\r\n  min-height: 73px;\r\n  padding: 10px 11px;\r\n  border-color: color-mix(in srgb, var(--success) 18%, #edf1f5);\r\n  background: linear-gradient(180deg, rgba(20, 121, 92, 0.055), rgba(255, 255, 255, 0) 72%), #fbfcfd;\r\n}\r\n\r\n#providersView .provider-signal-item:nth-child(1).warn {\r\n  border-color: color-mix(in srgb, var(--warning) 18%, #edf1f5);\r\n  background: linear-gradient(180deg, rgba(209, 67, 31, 0.06), rgba(255, 255, 255, 0) 72%), #fbfcfd;\r\n}\r\n\r\n#providersView .provider-signal-item:nth-child(1).bad {\r\n  border-color: color-mix(in srgb, var(--danger) 20%, #edf1f5);\r\n  background: linear-gradient(180deg, rgba(178, 58, 72, 0.065), rgba(255, 255, 255, 0) 72%), #fbfcfd;\r\n}\r\n\r\n#providersView .provider-signal-item:nth-child(1).neutral {\r\n  border-color: #edf1f5;\r\n  background: #fbfcfd;\r\n}\r\n\r\n#providersView .provider-signal-item .icon-svg {\r\n  grid-area: icon;\r\n  width: 13px;\r\n  height: 13px;\r\n  color: #94a3b8;\r\n}\r\n\r\n#providersView .provider-signal-item:nth-child(1) .icon-svg {\r\n  display: none;\r\n}\r\n\r\n#providersView .provider-signal-item strong {\r\n  grid-area: value;\r\n  overflow: hidden;\r\n  color: #111827;\r\n  font: 780 11.5px/1 var(--mono);\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n#providersView .provider-signal-item:nth-child(1) strong {\r\n  font-size: 22px;\r\n  letter-spacing: -0.01em;\r\n}\r\n\r\n#providersView .provider-signal-item small {\r\n  grid-area: label;\r\n  overflow: hidden;\r\n  color: #7b8491;\r\n  font-size: 9px;\r\n  line-height: 1;\r\n  text-overflow: ellipsis;\r\n  white-space: nowrap;\r\n}\r\n\r\n#providersView .provider-signal-item:nth-child(1) small {\r\n  font-size: 10px;\r\n  font-weight: 760;\r\n  letter-spacing: 0.03em;\r\n  text-transform: uppercase;\r\n}\r\n\r\n#providersView .provider-signal-item.ok .icon-svg,\r\n#providersView .provider-signal-item.ok strong {\r\n  color: var(--success);\r\n}\r\n\r\n#providersView .provider-signal-item.warn .icon-svg,\r\n#providersView .provider-signal-item.warn strong {\r\n  color: var(--warning);\r\n}\r\n\r\n#providersView .provider-signal-item.bad .icon-svg,\r\n#providersView .provider-signal-item.bad strong {\r\n  color: var(--danger);\r\n}\r\n\r\n#providersView .provider-card-error {\r\n  min-height: 24px;\r\n  padding: 4px 7px;\r\n  border-radius: 7px;\r\n}\r\n\r\n#providersView .provider-card-error strong {\r\n  font-size: 10px;\r\n}\r\n\r\n#providersView .provider-card-footer {\r\n  gap: 6px;\r\n  justify-content: space-between;\r\n  margin-top: 0;\r\n  padding-top: 7px;\r\n  border-top: 1px solid #edf1f5;\r\n}\r\n\r\n#providersView .provider-card-stats {\r\n  display: flex;\r\n  gap: 4px;\r\n}\r\n\r\n#providersView .provider-stat {\r\n  min-height: 24px;\r\n  padding: 0 5px;\r\n  border-radius: 7px;\r\n  font-size: 10px;\r\n  white-space: nowrap;\r\n}\r\n\r\n#providersView .provider-stat .icon-svg {\r\n  width: 12px;\r\n  height: 12px;\r\n}\r\n\r\n#providersView .provider-stat strong {\r\n  font-size: 10.5px;\r\n  white-space: nowrap;\r\n}\r\n\r\n#providersView .provider-runtime-actions {\r\n  gap: 4px;\r\n}\r\n\r\n#providersView .provider-runtime-actions .button.icon-action {\r\n  width: 24px;\r\n  min-width: 24px;\r\n  height: 24px;\r\n  min-height: 24px;\r\n  border-radius: 7px;\r\n}\r\n\r\n#providersView .provider-runtime-actions .button.icon-action .icon-svg {\r\n  width: 12px;\r\n  height: 12px;\r\n}\r\n\r\n#providersView .provider-runtime-card.is-disabled {\r\n  border-color: #f1cfd5;\r\n  border-top-color: #d86a78;\r\n  background:\r\n    repeating-linear-gradient(135deg, rgba(178, 58, 72, 0.035) 0 8px, transparent 8px 16px),\r\n    #fff8f9;\r\n  opacity: 1;\r\n}\r\n\r\n#providersView .provider-runtime-card.is-disabled:hover,\r\n#providersView .provider-runtime-card.is-disabled:focus-visible {\r\n  border-color: #e6a3ac;\r\n  box-shadow: 0 8px 18px rgba(178, 58, 72, 0.055);\r\n}\r\n\r\n#providersView .provider-runtime-card.is-disabled .provider-name,\r\n#providersView .provider-runtime-card.is-disabled .provider-state-note,\r\n#providersView .provider-runtime-card.is-disabled .provider-call-axis {\r\n  color: #8f4d58;\r\n}\r\n\r\n#providersView .provider-runtime-card.is-disabled .provider-status-dot {\r\n  background: #b23a48;\r\n  box-shadow: 0 0 0 3px rgba(178, 58, 72, 0.13);\r\n}\r\n\r\n#providersView .provider-runtime-card.is-disabled .provider-state-badge {\r\n  background: #fde8eb;\r\n  color: #b23a48;\r\n}\r\n\r\n#providersView .provider-runtime-card.is-disabled .provider-signal-item,\r\n#providersView .provider-runtime-card.is-disabled .provider-stat {\r\n  border-color: #f4d7dc;\r\n  background: #fffafb;\r\n}\r\n\r\n#providersView .provider-runtime-card.is-disabled .provider-call-bars i {\r\n  background: #d86a78;\r\n  opacity: 0.62;\r\n}\r\n\r\n#providersView .provider-runtime-card.is-disabled .provider-call-bars rect:not(.is-empty-slot) {\r\n  fill: #d86a78;\r\n  opacity: 0.72;\r\n}\r\n\r\n#providersView .provider-sparkline {\r\n  display: grid;\r\n  grid-template-columns: minmax(0, 1fr);\r\n  gap: 3px;\r\n  min-height: 22px;\r\n  padding: 0 1px;\r\n  border: 0;\r\n  border-radius: 0;\r\n  background: transparent;\r\n  color: #64748b;\r\n}\r\n\r\n#providersView .provider-call-axis {\r\n  display: flex;\r\n  align-items: center;\r\n  justify-content: space-between;\r\n  min-width: 0;\r\n}\r\n\r\n#providersView .provider-call-bars {\r\n  display: block;\r\n  width: 100%;\r\n  height: 14px;\r\n  min-width: 0;\r\n}\r\n\r\n#providersView .provider-call-bars rect {\r\n  fill: #23a36b;\r\n  shape-rendering: geometricPrecision;\r\n}\r\n\r\n#providersView .provider-call-bars rect.is-empty-slot {\r\n  fill: #dce3eb;\r\n  opacity: 0.68;\r\n}\r\n\r\n#providersView .provider-call-bars rect.is-warn {\r\n  fill: #f97316;\r\n}\r\n\r\n#providersView .provider-call-bars rect.is-bad {\r\n  fill: #d84e5b;\r\n}\r\n\r\n#providersView .provider-call-axis {\r\n  color: #94a3b8;\r\n  font: 700 7.5px/1 var(--mono);\r\n  letter-spacing: 0.08em;\r\n}\r\n\r\n#providersView .provider-sparkline.is-empty {\r\n  color: #94a3b8;\r\n}\r\n\r\n#providersView .provider-sparkline.is-empty .provider-call-bars rect {\r\n  fill: #d9e0e8;\r\n  opacity: 0.65;\r\n}\r\n\r\n@media (max-width: 1180px) {\r\n  #providersView .provider-card-grid {\r\n    grid-template-columns: repeat(2, minmax(0, 1fr));\r\n    grid-template-rows: none;\r\n    overflow: visible;\r\n  }\r\n\r\n  #providersView .providers-panel,\r\n  #providersView .provider-table {\r\n    overflow: visible;\r\n  }\r\n}\r\n\r\n/* ---- Health Monitor panel ---- */\r\n.health-monitor-panel {\r\n  border-color: #dfe5ec;\r\n  border-radius: 10px;\r\n  background: #fff;\r\n}\r\n\r\n.health-monitor-form {\r\n  display: flex;\r\n  flex-direction: column;\r\n  gap: 16px;\r\n  padding: 4px 0;\r\n}\r\n\r\n.health-monitor-section {\r\n  border: 1px solid #e8edf3;\r\n  border-radius: 8px;\r\n  padding: 14px;\r\n  background: #fafbfc;\r\n}\r\n\r\n.health-monitor-section-head {\r\n  display: flex;\r\n  align-items: flex-start;\r\n  gap: 12px;\r\n  margin-bottom: 12px;\r\n}\r\n\r\n.health-monitor-section-head > div {\r\n  flex: 1;\r\n  min-width: 0;\r\n}\r\n\r\n.health-monitor-section-head strong {\r\n  display: block;\r\n  font-size: 13px;\r\n  font-weight: 600;\r\n  color: #1a2332;\r\n  margin-bottom: 2px;\r\n}\r\n\r\n.health-monitor-section-head small {\r\n  display: block;\r\n  font-size: 11px;\r\n  color: #6b7785;\r\n  line-height: 1.4;\r\n}\r\n\r\n.health-monitor-fields {\r\n  display: grid;\r\n  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));\r\n  gap: 10px;\r\n}\r\n\r\n.health-monitor-fields .field {\r\n  display: flex;\r\n  flex-direction: column;\r\n  gap: 4px;\r\n}\r\n\r\n.health-monitor-fields .field span {\r\n  font-size: 11px;\r\n  color: #6b7785;\r\n  font-weight: 500;\r\n}\r\n\r\n.health-monitor-fields .field input {\r\n  width: 100%;\r\n  padding: 6px 8px;\r\n  font-size: 12px;\r\n  border: 1px solid #d1d9e0;\r\n  border-radius: 6px;\r\n  background: #fff;\r\n}\r\n\r\n.health-monitor-fields .field input:focus {\r\n  border-color: var(--accent, #4a6cf7);\r\n  outline: none;\r\n  box-shadow: 0 0 0 2px rgba(74, 108, 247, 0.1);\r\n}\r\n\r\n/* Capsule switch */\r\n.capsule-switch {\r\n  position: relative;\r\n  display: inline-block;\r\n  flex-shrink: 0;\r\n  cursor: pointer;\r\n  margin-top: 2px;\r\n}\r\n\r\n.capsule-switch input[type=\"checkbox\"] {\r\n  opacity: 0;\r\n  width: 0;\r\n  height: 0;\r\n  position: absolute;\r\n}\r\n\r\n.capsule-switch-track {\r\n  display: block;\r\n  width: 36px;\r\n  height: 20px;\r\n  border-radius: 20px;\r\n  background: #c5cdd6;\r\n  transition: background 0.2s ease;\r\n  position: relative;\r\n}\r\n\r\n.capsule-switch-track::after {\r\n  content: \"\";\r\n  position: absolute;\r\n  top: 2px;\r\n  left: 2px;\r\n  width: 16px;\r\n  height: 16px;\r\n  border-radius: 50%;\r\n  background: #fff;\r\n  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);\r\n  transition: transform 0.2s ease;\r\n}\r\n\r\n.capsule-switch input:checked + .capsule-switch-track {\r\n  background: var(--accent, #4a6cf7);\r\n}\r\n\r\n.capsule-switch input:checked + .capsule-switch-track::after {\r\n  transform: translateX(16px);\r\n}\r\n\r\n.health-monitor-status {\r\n  font-size: 12px;\r\n  padding: 6px 0;\r\n  min-height: 20px;\r\n}\r\n\r\n.health-monitor-status.info { color: #4a6cf7; }\r\n.health-monitor-status.ok { color: #1a8754; }\r\n.health-monitor-status.bad { color: #d93026; }\r\n\r\n/* ---- Patrol probe visual distinction ---- */\r\n.provider-probe-summary.patrol-probe {\r\n  border-color: rgba(74, 108, 247, 0.25);\r\n  background: rgba(74, 108, 247, 0.04);\r\n}\r\n\r\n.probe-tier-badge.patrol-badge {\r\n  background: rgba(74, 108, 247, 0.12);\r\n  color: #4a6cf7;\r\n  border-color: rgba(74, 108, 247, 0.2);\r\n}\r\n\r\n/* ---- Health Monitor runtime status cards ---- */\r\n.health-monitor-runtime {\r\n  margin-top: 14px;\r\n}\r\n\r\n.hm-runtime-row {\r\n  display: grid;\r\n  grid-template-columns: 1fr 1fr;\r\n  gap: 12px;\r\n}\r\n\r\n@media (max-width: 700px) {\r\n  .hm-runtime-row {\r\n    grid-template-columns: 1fr;\r\n  }\r\n}\r\n\r\n.hm-runtime-card {\r\n  border: 1px solid #e0e5ec;\r\n  border-radius: 8px;\r\n  padding: 12px 14px;\r\n  background: #fff;\r\n  display: flex;\r\n  flex-direction: column;\r\n  gap: 10px;\r\n}\r\n\r\n.hm-runtime-card-head {\r\n  display: flex;\r\n  align-items: center;\r\n  gap: 8px;\r\n}\r\n\r\n.hm-runtime-card-head strong {\r\n  font-size: 12px;\r\n  font-weight: 600;\r\n  color: #1a2332;\r\n  flex: 1;\r\n}\r\n\r\n.hm-runtime-icon {\r\n  font-size: 16px;\r\n  line-height: 1;\r\n}\r\n\r\n.hm-runtime-status {\r\n  font-size: 11px;\r\n  font-weight: 600;\r\n  padding: 2px 8px;\r\n  border-radius: 10px;\r\n  background: #eef1f5;\r\n  color: #6b7785;\r\n  white-space: nowrap;\r\n}\r\n\r\n.hm-runtime-status.ok {\r\n  background: #e6f7ee;\r\n  color: #1a8754;\r\n}\r\n\r\n.hm-runtime-status.warn {\r\n  background: #fff4e6;\r\n  color: #b8730d;\r\n}\r\n\r\n.hm-runtime-status.bad {\r\n  background: #fde8e8;\r\n  color: #d93026;\r\n}\r\n\r\n.hm-runtime-status.off {\r\n  background: #f0f0f0;\r\n  color: #999;\r\n}\r\n\r\n.hm-runtime-status.running {\r\n  background: #e8f0fe;\r\n  color: #4a6cf7;\r\n  animation: hm-pulse 1.5s ease-in-out infinite;\r\n}\r\n\r\n@keyframes hm-pulse {\r\n  0%, 100% { opacity: 1; }\r\n  50% { opacity: 0.6; }\r\n}\r\n\r\n.hm-run-btn {\r\n  font-size: 11px !important;\r\n  padding: 3px 10px !important;\r\n  border-radius: 6px !important;\r\n  white-space: nowrap;\r\n}\r\n\r\n.hm-runtime-card-body {\r\n  display: flex;\r\n  flex-wrap: wrap;\r\n  gap: 10px 20px;\r\n}\r\n\r\n.hm-runtime-field {\r\n  display: flex;\r\n  flex-direction: column;\r\n  gap: 2px;\r\n}\r\n\r\n.hm-runtime-label {\r\n  font-size: 10px;\r\n  color: #94a3b8;\r\n  text-transform: uppercase;\r\n  letter-spacing: 0.04em;\r\n  font-weight: 600;\r\n}\r\n\r\n.hm-runtime-value {\n  font-size: 13px;\n  font-weight: 500;\n  color: #1a2332;\n  font-variant-numeric: tabular-nums;\n}\n\n/* Provider drawer ownership and inspector layout. */\n.provider-config-inspector-shell {\n  gap: 0;\n  padding-right: 0;\n}\n\n.provider-config-inspector {\n  display: grid;\n  min-width: 0;\n  border: 1px solid var(--line);\n  border-radius: 8px;\n  background: var(--surface);\n}\n\n.provider-inspector-content {\n  min-width: 0;\n}\n\n.provider-inspector-section {\n  padding: 16px;\n}\n\n.provider-inspector-section + .provider-inspector-section {\n  border-top: 1px solid var(--line);\n}\n\n.provider-inspector-head,\n.provider-tab-section-head {\n  display: flex;\n  align-items: flex-start;\n  justify-content: space-between;\n  gap: 16px;\n  margin-bottom: 14px;\n}\n\n.provider-inspector-head strong,\n.provider-tab-section-head strong {\n  display: block;\n  color: var(--text);\n  font-size: 12px;\n  font-weight: 760;\n  line-height: 1.25;\n}\n\n.provider-inspector-head small,\n.provider-tab-section-head small {\n  display: block;\n  margin-top: 3px;\n  color: var(--muted);\n  font-size: 10.5px;\n  line-height: 1.35;\n}\n\n.provider-inspector-code {\n  color: var(--faint);\n  font: 650 9.5px/1.4 var(--mono);\n  font-variant-numeric: tabular-nums;\n}\n\n.provider-inspector-grid {\n  display: grid;\n  grid-template-columns: 112px minmax(0, 1fr);\n  gap: 10px 14px;\n  align-items: center;\n}\n\n.provider-inspector-grid > label {\n  color: var(--muted);\n  font-size: 10.5px;\n  font-weight: 680;\n}\n\n.provider-inspector-grid > div,\n.provider-inspector-grid .proxy-control-row,\n.provider-inspector-grid .control {\n  min-width: 0;\n  width: 100%;\n}\n\n.provider-inspector-grid .control {\n  min-height: 36px;\n  border-color: #d8dee7;\n  border-radius: 6px;\n  background: var(--surface);\n  color: var(--text);\n  font-size: 11.5px;\n}\n\n.provider-inspector-grid .control:focus-visible {\n  border-color: var(--accent);\n  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);\n  outline: 0;\n}\n\n.provider-runtime-grid {\n  margin-bottom: 12px;\n}\n\n.provider-setting-row {\n  display: grid;\n  grid-template-columns: minmax(0, 1fr) auto;\n  gap: 18px;\n  align-items: center;\n  min-height: 54px;\n  cursor: pointer;\n}\n\n.provider-setting-row + .provider-setting-row {\n  border-top: 1px solid var(--line-soft);\n}\n\n.provider-setting-row > span:first-child {\n  min-width: 0;\n}\n\n.provider-setting-row strong,\n.provider-setting-row small {\n  display: block;\n}\n\n.provider-setting-row strong {\n  color: var(--text);\n  font-size: 11px;\n  font-weight: 700;\n}\n\n.provider-setting-row small {\n  margin-top: 2px;\n  color: var(--muted);\n  font-size: 10px;\n  line-height: 1.35;\n}\n\n.provider-setting-switch {\n  position: relative;\n  display: block;\n  width: 36px;\n  height: 22px;\n  flex: 0 0 auto;\n}\n\n.provider-setting-switch input {\n  position: absolute;\n  inset: 0;\n  z-index: 1;\n  width: 100%;\n  height: 100%;\n  margin: 0;\n  opacity: 0;\n  cursor: pointer;\n}\n\n.provider-setting-switch i {\n  position: absolute;\n  inset: 0;\n  border-radius: 11px;\n  background: #c8d0da;\n  transition: background-color 170ms ease;\n}\n\n.provider-setting-switch i::after {\n  position: absolute;\n  top: 3px;\n  left: 3px;\n  width: 16px;\n  height: 16px;\n  border-radius: 50%;\n  background: #fff;\n  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.24);\n  content: \"\";\n  transition: transform 170ms cubic-bezier(0.16, 1, 0.3, 1);\n}\n\n.provider-setting-switch input:checked + i {\n  background: var(--accent);\n}\n\n.provider-setting-switch input:checked + i::after {\n  transform: translateX(14px);\n}\n\n.provider-setting-switch input:focus-visible + i {\n  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);\n}\n\n.provider-inspector-actions {\n  position: sticky;\n  bottom: 0;\n  z-index: 3;\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  gap: 12px;\n  min-height: 58px;\n  padding: 10px 12px;\n  border-top: 1px solid #d5dce5;\n  border-radius: 0 0 8px 8px;\n  background: color-mix(in srgb, var(--surface) 96%, transparent);\n  backdrop-filter: blur(8px);\n  -webkit-backdrop-filter: blur(8px);\n}\n\n.provider-inspector-status {\n  color: var(--muted);\n  font-size: 9.5px;\n}\n\n.provider-inspector-actions > div {\n  display: flex;\n  gap: 8px;\n}\n\n.provider-inspector-actions .button {\n  min-height: 34px;\n  border-radius: 6px;\n  white-space: nowrap;\n}\n\n.provider-config-inspector-shell > .provider-danger-zone {\n  margin-top: 12px;\n  border-color: color-mix(in srgb, var(--danger) 22%, var(--line));\n  border-radius: 8px;\n  background: color-mix(in srgb, var(--danger) 3%, var(--surface));\n}\n\n.provider-tab-section {\n  min-width: 0;\n  padding: 14px;\n  border: 1px solid var(--line);\n  border-radius: 8px;\n  background: var(--surface);\n}\n\n.provider-key-configuration .key-proxy-list {\n  display: grid;\n  gap: 8px;\n}\n\n.provider-key-configuration .key-proxy-row {\n  grid-template-columns: 86px minmax(0, 1fr) minmax(0, 1fr) auto;\n  gap: 8px;\n  align-items: end;\n  padding: 10px;\n  border: 1px solid var(--line-soft);\n  border-radius: 7px;\n  background: #fbfcfd;\n}\n\n.provider-key-add-form {\n  display: grid;\n  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;\n  gap: 8px;\n  align-items: end;\n  margin-top: 10px;\n}\n\n.provider-key-add-form .field {\n  min-width: 0;\n}\n\n.provider-key-add-form .field > span {\n  color: var(--muted);\n  font-size: 10px;\n  font-weight: 650;\n}\n\n.provider-key-add-form .control,\n.provider-key-add-form .button {\n  min-height: 36px;\n}\n\n.provider-key-add-form .button {\n  white-space: nowrap;\n}\n\n.provider-formats-group .provider-format-edit-list {\n  gap: 7px;\n}\n\n@media (max-width: 640px) {\n  .provider-inspector-grid {\n    grid-template-columns: minmax(0, 1fr);\n    gap: 5px;\n  }\n\n  .provider-inspector-grid > label:not(:first-child) {\n    margin-top: 5px;\n  }\n\n  .provider-inspector-actions {\n    align-items: stretch;\n    flex-direction: column;\n  }\n\n  .provider-inspector-actions > div,\n  .provider-inspector-actions .button {\n    width: 100%;\n  }\n\n  .provider-key-configuration .key-proxy-row,\n  .provider-key-add-form {\n    grid-template-columns: minmax(0, 1fr);\n    align-items: stretch;\n  }\n}\n\n@media (prefers-reduced-motion: reduce) {\n  .provider-setting-switch i,\n  .provider-setting-switch i::after {\n    transition: none;\n  }\n}\n\n/* Final responsive ownership: late desktop density rules must not win on mobile. */\n@media (max-width: 760px) {\n  #providersView.view.is-active {\n    display: block;\n    min-height: 0;\n  }\n\n  #providersView .providers-panel,\n  #providersView .provider-table {\n    height: auto;\n    min-width: 0;\n    overflow: visible;\n  }\n\n  #providersView .providers-tools-head {\n    grid-template-columns: minmax(0, 1fr);\n    gap: 10px;\n    padding: 13px 12px 10px;\n  }\n\n  #providersView .providers-tools-head .button {\n    width: 100%;\n    min-height: 40px;\n  }\n\n  #providersView .provider-toolbar {\n    grid-template-columns: repeat(2, minmax(0, 1fr));\n    gap: 8px;\n    padding: 0 12px 12px;\n  }\n\n  #providersView .provider-toolbar .provider-search-field,\n  #providersView .provider-toolbar #clearProviderFiltersButton {\n    grid-column: 1 / -1;\n  }\n\n  #providersView .provider-toolbar .control,\n  #providersView .provider-toolbar #clearProviderFiltersButton {\n    min-width: 0;\n    min-height: 40px;\n  }\n\n  #providersView .provider-table {\n    display: block;\n    padding: 8px 10px 12px;\n  }\n\n  #providersView .provider-card-grid {\n    grid-template-columns: minmax(0, 1fr);\n    grid-template-rows: none;\n    width: 100%;\n    min-width: 0;\n    gap: 10px;\n    overflow: visible;\n  }\n\n  #providersView .provider-runtime-card {\n    width: 100%;\n    min-width: 0;\n    height: auto;\n  }\n\n  #providersView .panel-pagination {\n    flex-wrap: wrap;\n    gap: 8px;\n  }\n\n  .playground-view {\n    height: auto;\n    min-height: 0;\n    overflow: visible;\n  }\n\n  .playground-view .playground-layout {\n    display: flex;\n    width: 100%;\n    min-width: 0;\n    height: auto;\n    flex-direction: column;\n    gap: 10px;\n    overflow: visible;\n  }\n\n  .playground-view .playground-config,\n  .playground-view .playground-main {\n    width: 100%;\n    min-width: 0;\n    max-height: none;\n  }\n\n  .playground-view .playground-config {\n    border-right: 1px solid color-mix(in srgb, var(--line-strong) 72%, var(--line));\n  }\n\n  .playground-view .playground-main {\n    min-height: min(680px, 78dvh);\n  }\n\n  .playground-view .pg-chat-wrap,\n  .playground-view .pg-chat-area {\n    min-height: 300px;\n  }\n\n  .playground-view .pg-input-actions {\n    justify-content: stretch;\n  }\n\n  .playground-view .pg-input-actions .button {\n    flex: 1 1 0;\n    min-height: 44px;\n  }\n}\n\n@media (max-width: 420px) {\n  #providersView .provider-toolbar {\n    grid-template-columns: minmax(0, 1fr);\n  }\n\n  #providersView .provider-toolbar .provider-search-field,\n  #providersView .provider-toolbar #clearProviderFiltersButton {\n    grid-column: auto;\n  }\n\n  .playground-view .pg-param-grid {\n    grid-template-columns: minmax(0, 1fr);\n  }\n}\n\n/* Overview observability workspace. */\n#overviewView .overview-traffic-panel .chart {\n  padding: 0 14px 14px;\n}\n\n#overviewView .traffic-chart-shell {\n  position: relative;\n  overflow: hidden;\n  padding: 0;\n  border: 1px solid #dde3ea;\n  border-radius: 8px;\n  background: var(--surface);\n  box-shadow: none;\n}\n\n.traffic-workspace-header {\n  display: grid;\n  grid-template-columns: minmax(150px, 1.1fr) minmax(360px, 2fr) auto;\n  align-items: stretch;\n  border-bottom: 1px solid var(--line);\n}\n\n.traffic-workspace-title {\n  display: flex;\n  min-width: 0;\n  flex-direction: column;\n  justify-content: center;\n  padding: 12px 14px;\n}\n\n.traffic-workspace-title strong {\n  color: var(--text);\n  font-size: 12px;\n  font-weight: 780;\n}\n\n.traffic-workspace-title small {\n  overflow: hidden;\n  margin-top: 2px;\n  color: var(--muted);\n  font-size: 9.5px;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}\n\n.traffic-workspace-metrics {\n  display: grid;\n  min-width: 0;\n  grid-template-columns: repeat(4, minmax(76px, 1fr));\n}\n\n.traffic-workspace-metric {\n  display: grid;\n  align-content: center;\n  min-width: 0;\n  padding: 9px 10px;\n  border-left: 1px solid var(--line-soft);\n  font-variant-numeric: tabular-nums;\n}\n\n.traffic-workspace-metric span,\n.traffic-workspace-metric small {\n  overflow: hidden;\n  color: var(--muted);\n  font-size: 9px;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}\n\n.traffic-workspace-metric strong {\n  margin-top: 1px;\n  color: var(--text);\n  font: 760 15px/1.15 var(--mono);\n}\n\n.traffic-workspace-metric.is-success strong {\n  color: #0f7b57;\n}\n\n.traffic-workspace-metric.is-failure strong {\n  color: #c24152;\n}\n\n.traffic-workspace-header .traffic-mode-selectors {\n  align-self: center;\n  margin: 0 12px;\n  padding: 3px;\n  border: 1px solid #dce2e9;\n  border-radius: 6px;\n  background: #f4f6f8;\n}\n\n.traffic-workspace-header .traffic-mode-selectors .pill-toggle {\n  min-height: 28px;\n  padding: 0 9px;\n  border-radius: 4px;\n  font-size: 9.5px;\n  transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease;\n}\n\n.traffic-workspace-header .traffic-mode-selectors .pill-toggle:focus-visible {\n  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);\n  outline: 0;\n}\n\n.traffic-chart-header {\n  min-height: 38px;\n  padding: 8px 14px 5px;\n  border-bottom: 0;\n}\n\n.traffic-chart-header .traffic-trend-legend {\n  gap: 13px;\n}\n\n.traffic-trend-legend-item {\n  gap: 5px;\n  color: var(--muted);\n  font-size: 9.5px;\n  font-weight: 620;\n}\n\n.traffic-chart-unit {\n  color: var(--faint);\n  font: 9px/1.3 var(--mono);\n}\n\n#overviewView .traffic-chart-shell svg {\n  height: 286px;\n}\n\n.chart .traffic-grid-line,\n.chart .traffic-x-tick {\n  stroke: #e9edf2;\n  stroke-dasharray: none;\n}\n\n.chart .traffic-baseline {\n  stroke: #cbd3dd;\n  stroke-width: 1;\n}\n\n.traffic-axis-label {\n  fill: #7a8596;\n  font: 620 10px var(--mono);\n  paint-order: normal;\n  stroke: none;\n}\n\n.traffic-axis-title {\n  fill: #5c6778;\n  font: 700 10px var(--mono);\n}\n\n.traffic-axis-label-info {\n  fill: #9a6716;\n}\n\n.traffic-bar-success {\n  fill: #239d79;\n  opacity: .9;\n  transition: opacity 120ms ease;\n}\n\n.traffic-bar-fail {\n  fill: #d45565;\n  opacity: .94;\n  transition: opacity 120ms ease;\n}\n\n.traffic-latency-line,\n.traffic-cost-line {\n  stroke: #d58b12;\n  stroke-width: 1.8;\n  filter: none;\n}\n\n.traffic-latency-region {\n  fill: color-mix(in srgb, #d58b12 6%, transparent);\n}\n\n.traffic-token-area {\n  fill: color-mix(in srgb, var(--accent) 7%, transparent);\n}\n\n.traffic-total-line {\n  stroke: var(--accent);\n  stroke-width: 2;\n  filter: none;\n}\n\n.traffic-input-line {\n  stroke: #5f8ee4;\n}\n\n.traffic-output-line {\n  stroke: #239d79;\n}\n\n.traffic-total-dot {\n  fill: var(--accent);\n}\n\n.traffic-trend-dot {\n  stroke-width: 1.8;\n}\n\n.traffic-inspection-target {\n  cursor: crosshair;\n  pointer-events: all;\n}\n\n.traffic-inspection-target:focus-visible {\n  fill: color-mix(in srgb, var(--accent) 5%, transparent);\n  stroke: color-mix(in srgb, var(--accent) 68%, transparent);\n  stroke-width: 1.5;\n  outline: 0;\n}\n\n.traffic-inspection-guide {\n  opacity: 0;\n  stroke: #7b8798;\n  stroke-dasharray: 3 3;\n  stroke-width: 1;\n  pointer-events: none;\n  transition: opacity 120ms ease;\n}\n\n.traffic-inspection-guide.is-visible {\n  opacity: .72;\n}\n\n.traffic-inspection-tooltip {\n  position: absolute;\n  top: 104px;\n  left: clamp(88px, var(--traffic-inspect-x, 50%), calc(100% - 88px));\n  z-index: 4;\n  width: 164px;\n  padding: 9px 10px;\n  border: 1px solid #cfd7e1;\n  border-radius: 6px;\n  background: color-mix(in srgb, var(--surface) 97%, transparent);\n  box-shadow: 0 6px 14px rgba(27, 39, 58, .1);\n  color: var(--text);\n  pointer-events: none;\n  transform: translateX(-50%);\n}\n\n.traffic-inspection-tooltip[hidden] {\n  display: none;\n}\n\n.traffic-inspection-tooltip > strong {\n  display: block;\n  margin-bottom: 6px;\n  font: 700 9.5px/1.25 var(--mono);\n}\n\n.traffic-inspection-tooltip > div {\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  gap: 8px;\n  color: var(--muted);\n  font-size: 9px;\n}\n\n.traffic-inspection-tooltip > div + div {\n  margin-top: 3px;\n}\n\n.traffic-inspection-tooltip > div strong {\n  color: var(--text);\n  font: 680 9px/1.2 var(--mono);\n  font-variant-numeric: tabular-nums;\n}\n\n.traffic-workspace-empty {\n  display: grid;\n  min-height: 220px;\n  place-content: center;\n  gap: 4px;\n  padding: 24px;\n  text-align: center;\n}\n\n.traffic-workspace-empty strong {\n  font-size: 12px;\n}\n\n.traffic-workspace-empty span {\n  color: var(--muted);\n  font-size: 10.5px;\n}\n\n@media (max-width: 1080px) {\n  .traffic-workspace-header {\n    grid-template-columns: minmax(150px, 1fr) auto;\n  }\n\n  .traffic-workspace-metrics {\n    grid-column: 1 / -1;\n    grid-row: 2;\n    border-top: 1px solid var(--line-soft);\n  }\n\n  .traffic-workspace-metric:first-child {\n    border-left: 0;\n  }\n}\n\n@media (max-width: 640px) {\n  #overviewView .overview-traffic-panel .chart {\n    padding-inline: 8px;\n  }\n\n  .traffic-workspace-header {\n    grid-template-columns: minmax(0, 1fr) auto;\n  }\n\n  .traffic-workspace-title {\n    padding-inline: 10px;\n  }\n\n  .traffic-workspace-header .traffic-mode-selectors {\n    margin-inline: 8px;\n  }\n\n  .traffic-workspace-metrics {\n    grid-template-columns: repeat(2, minmax(0, 1fr));\n  }\n\n  .traffic-workspace-metric:nth-child(3) {\n    border-top: 1px solid var(--line-soft);\n    border-left: 0;\n  }\n\n  .traffic-workspace-metric:nth-child(4) {\n    border-top: 1px solid var(--line-soft);\n  }\n\n  .traffic-chart-header {\n    align-items: flex-start;\n    flex-direction: column;\n    gap: 6px;\n  }\n\n  #overviewView .traffic-chart-shell svg {\n    height: 240px;\n  }\n}\n\n/* Provider Models workspace: catalog first, advanced evidence on demand. */\n.provider-models-workspace {\n  gap: 10px;\n  padding-bottom: 12px;\n}\n\n.provider-model-status-strip {\n  display: grid;\n  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;\n  min-width: 0;\n  border: 1px solid var(--line);\n  border-radius: 8px;\n  background: var(--surface);\n}\n\n.provider-model-status-item {\n  display: grid;\n  min-width: 0;\n  gap: 2px;\n  padding: 10px 12px;\n  border-right: 1px solid var(--line-soft);\n}\n\n.provider-model-status-item > span,\n.provider-model-status-item > small {\n  min-width: 0;\n  overflow: hidden;\n  color: var(--muted);\n  font-size: 10px;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}\n\n.provider-model-status-item > span {\n  display: inline-flex;\n  align-items: center;\n  gap: 4px;\n}\n\n.provider-model-status-item > span .icon-svg,\n.provider-model-section-heading h3 .icon-svg,\n.provider-model-disclosure > summary strong .icon-svg {\n  width: 13px;\n  height: 13px;\n  flex: 0 0 auto;\n  color: var(--faint);\n}\n\n.provider-model-status-item > strong {\n  min-width: 0;\n  overflow: hidden;\n  color: var(--text);\n  font: 750 13px/1.25 var(--mono);\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}\n\n.provider-model-refresh-action {\n  align-self: center;\n  min-height: 34px;\n  margin: 8px 10px;\n  white-space: nowrap;\n}\n\n.provider-model-refresh-action .icon-svg,\n.provider-model-toolbar-action .icon-svg,\n.provider-model-draft-actions .icon-svg,\n.provider-model-inline-editor > summary .icon-svg {\n  width: 14px;\n  height: 14px;\n}\n\n.provider-model-catalog {\n  display: grid;\n  min-width: 0;\n  overflow: clip;\n  border: 1px solid var(--line);\n  border-radius: 8px;\n  background: var(--surface);\n}\n\n.provider-model-section-heading {\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  gap: 12px;\n  min-width: 0;\n  padding: 12px 14px 10px;\n  border-bottom: 1px solid var(--line-soft);\n}\n\n.provider-model-section-heading > div {\n  min-width: 0;\n}\n\n.provider-model-section-heading h3,\n.provider-model-section-heading p {\n  margin: 0;\n}\n\n.provider-model-section-heading h3 {\n  display: inline-flex;\n  align-items: center;\n  gap: 5px;\n  color: var(--text);\n  font-size: 13px;\n  font-weight: 760;\n}\n\n.provider-model-section-heading p {\n  margin-top: 3px;\n  color: var(--muted);\n  font-size: 10.5px;\n  line-height: 1.4;\n}\n\n.provider-model-section-count,\n.provider-model-disclosure-meta {\n  flex: 0 0 auto;\n  color: var(--muted);\n  font: 680 10px/1.2 var(--mono);\n  font-variant-numeric: tabular-nums;\n  white-space: nowrap;\n}\n\n.provider-model-catalog .provider-model-toolbar {\n  display: grid;\n  grid-template-columns: minmax(160px, 1fr) 116px auto auto;\n  gap: 6px;\n  padding: 10px 12px;\n  border-bottom: 1px solid var(--line-soft);\n}\n\n.provider-model-catalog .provider-model-search,\n.provider-model-catalog .provider-model-status-filter {\n  width: 100%;\n  min-width: 0;\n}\n\n.provider-model-toolbar-action {\n  min-width: 0;\n  white-space: nowrap;\n}\n\n.provider-drawer-models {\n  display: grid;\n  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));\n  align-content: start;\n  gap: 6px;\n  min-width: 0;\n  max-height: min(252px, calc(100dvh - 390px));\n  min-height: 44px;\n  padding: 6px;\n  overflow-y: auto;\n  overscroll-behavior: contain;\n  scrollbar-gutter: stable;\n  background: color-mix(in srgb, var(--surface-raised) 62%, var(--surface));\n}\n\n.provider-model-catalog.is-large-catalog {\n  overflow: hidden;\n}\n\n.provider-model-catalog.is-large-catalog .provider-drawer-models {\n  grid-template-columns: repeat(auto-fill, minmax(126px, 1fr));\n  gap: 5px;\n  max-height: min(292px, calc(100dvh - 390px));\n  min-height: 120px;\n  padding: 7px;\n}\n\n.provider-drawer-models .provider-model-chip {\n  width: 100%;\n  min-height: 29px;\n  padding: 3px 4px 3px 7px;\n  border: 1px solid var(--line-soft);\n  border-radius: 7px;\n  background: var(--surface);\n  box-shadow: none;\n  content-visibility: auto;\n  contain-intrinsic-size: 38px;\n}\n\n.provider-model-catalog.is-large-catalog .provider-model-chip {\n  min-height: 30px;\n  contain-intrinsic-size: 32px;\n}\n\n.provider-drawer-models .provider-model-chip:last-child {\n  border-bottom: 1px solid var(--line-soft);\n}\n\n.provider-drawer-models .provider-model-chip:hover {\n  border-color: var(--line-soft);\n  background: color-mix(in srgb, var(--info-soft) 32%, var(--surface));\n  box-shadow: none;\n  transform: none;\n}\n\n.provider-drawer-models .provider-model-chip.is-disabled {\n  background: color-mix(in srgb, var(--danger-soft) 26%, var(--surface));\n}\n\n.provider-drawer-models .provider-model-chip.is-manual-map {\n  background: color-mix(in srgb, var(--success-soft) 26%, var(--surface));\n}\n\n.provider-drawer-models .model-chip-toggle {\n  align-self: stretch;\n  justify-content: start;\n  gap: 1px;\n}\n\n.provider-drawer-models .model-chip-toggle b,\n.provider-drawer-models .model-chip-toggle small {\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}\n\n.provider-drawer-models .model-chip-toggle b {\n  font-size: 10px;\n  line-height: 1.1;\n}\n\n.provider-drawer-models .model-chip-toggle small {\n  font-size: 9px;\n  line-height: 1.1;\n}\n\n.provider-drawer-models .model-map-edit-button {\n  align-self: center;\n  width: 26px;\n  height: 26px;\n}\n\n.provider-model-overflow-note {\n  padding: 9px 12px;\n  border-top: 1px solid var(--line-soft);\n}\n\n.provider-model-draft-bar {\n  position: sticky;\n  bottom: 0;\n  z-index: 2;\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  gap: 12px;\n  padding: 9px 12px;\n  border-top: 1px solid color-mix(in srgb, var(--info) 30%, var(--line));\n  background: color-mix(in srgb, var(--info-soft) 70%, var(--surface));\n}\n\n.provider-model-draft-bar > div:first-child {\n  display: grid;\n  min-width: 0;\n  gap: 2px;\n}\n\n.provider-model-draft-bar strong {\n  color: var(--text);\n  font-size: 11px;\n}\n\n.provider-model-draft-bar small {\n  color: var(--muted);\n  font-size: 10px;\n}\n\n.provider-model-draft-actions {\n  display: flex;\n  flex: 0 0 auto;\n  gap: 6px;\n}\n\n.provider-model-disclosure {\n  min-width: 0;\n  overflow: clip;\n  border: 1px solid var(--line);\n  border-radius: 8px;\n  background: var(--surface);\n}\n\n.provider-model-disclosure > summary {\n  display: grid;\n  grid-template-columns: minmax(0, 1fr) auto 16px;\n  align-items: center;\n  gap: 12px;\n  min-height: 52px;\n  padding: 9px 13px;\n  color: var(--text);\n  cursor: pointer;\n  list-style: none;\n  user-select: none;\n}\n\n.provider-model-disclosure > summary::-webkit-details-marker,\n.provider-model-inline-editor > summary::-webkit-details-marker {\n  display: none;\n}\n\n.provider-model-disclosure > summary::after {\n  width: 7px;\n  height: 7px;\n  border-right: 1.5px solid var(--muted);\n  border-bottom: 1.5px solid var(--muted);\n  content: \"\";\n  transform: rotate(45deg) translateY(-2px);\n  transition: transform 160ms ease;\n}\n\n.provider-model-disclosure[open] > summary::after {\n  transform: rotate(225deg) translate(-2px, -1px);\n}\n\n.provider-model-disclosure > summary:hover {\n  background: color-mix(in srgb, var(--info-soft) 28%, var(--surface));\n}\n\n.provider-model-disclosure > summary:focus-visible,\n.provider-model-inline-editor > summary:focus-visible {\n  outline: 2px solid color-mix(in srgb, var(--info) 62%, transparent);\n  outline-offset: -2px;\n}\n\n.provider-model-disclosure > summary > span:first-child {\n  display: grid;\n  min-width: 0;\n  gap: 3px;\n}\n\n.provider-model-disclosure > summary > span:first-child > strong {\n  display: inline-flex;\n  align-items: center;\n  gap: 5px;\n}\n\n.provider-model-disclosure > summary strong {\n  font-size: 12px;\n  font-weight: 750;\n}\n\n.provider-model-disclosure > summary small {\n  overflow: hidden;\n  color: var(--muted);\n  font-size: 10.5px;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}\n\n.provider-model-disclosure-body {\n  display: grid;\n  gap: 9px;\n  padding: 10px 12px 12px;\n  border-top: 1px solid var(--line-soft);\n}\n\n.provider-model-disclosure .provider-route-card {\n  grid-template-columns: minmax(0, 1fr) auto;\n  border-color: var(--line-soft);\n  box-shadow: none;\n}\n\n.provider-model-key-error {\n  color: var(--danger) !important;\n}\n\n.provider-model-inline-editor {\n  min-width: 0;\n}\n\n.provider-model-inline-editor > summary {\n  display: inline-flex;\n  align-items: center;\n  gap: 6px;\n  min-height: 34px;\n  padding: 0 10px;\n  border: 1px solid var(--line);\n  border-radius: 6px;\n  background: var(--surface);\n  color: var(--text);\n  font-size: 11px;\n  font-weight: 700;\n  cursor: pointer;\n  list-style: none;\n}\n\n.provider-model-inline-editor[open] > summary {\n  margin-bottom: 9px;\n  border-color: color-mix(in srgb, var(--info) 35%, var(--line));\n  background: color-mix(in srgb, var(--info-soft) 45%, var(--surface));\n}\n\n.provider-model-inline-editor .provider-variant-form,\n.provider-model-static-fallback .config-static-models-form {\n  display: grid;\n  gap: 9px;\n  min-width: 0;\n  padding: 11px;\n  border: 1px solid var(--line-soft);\n  border-radius: 7px;\n  background: var(--surface-raised);\n}\n\n@media (max-width: 760px) {\n  .provider-model-status-strip {\n    grid-template-columns: repeat(3, minmax(0, 1fr));\n  }\n\n  .provider-model-refresh-action {\n    grid-column: 1 / -1;\n    justify-self: stretch;\n    justify-content: center;\n    margin-top: 0;\n  }\n\n  .provider-model-catalog .provider-model-toolbar {\n    grid-template-columns: minmax(0, 1fr) 112px;\n  }\n\n  .provider-model-toolbar-action {\n    min-height: 40px;\n  }\n}\n\n@media (max-width: 520px) {\n  .provider-model-status-strip {\n    grid-template-columns: repeat(2, minmax(0, 1fr));\n  }\n\n  .provider-model-status-item:nth-child(2) {\n    border-right: 0;\n  }\n\n  .provider-model-status-item:nth-child(3) {\n    grid-column: 1 / -1;\n    border-top: 1px solid var(--line-soft);\n    border-right: 0;\n  }\n\n  .provider-model-catalog .provider-model-toolbar {\n    grid-template-columns: 1fr;\n  }\n\n  .provider-model-catalog.is-large-catalog .provider-drawer-models {\n    grid-template-columns: 1fr;\n    max-height: min(420px, 52dvh);\n    padding: 8px;\n  }\n\n  .provider-model-toolbar-action,\n  .provider-model-refresh-action {\n    min-height: 44px;\n  }\n\n  .provider-model-disclosure > summary {\n    grid-template-columns: minmax(0, 1fr) 14px;\n    gap: 8px;\n    min-height: 58px;\n  }\n\n  .provider-model-disclosure-meta {\n    grid-column: 1;\n    grid-row: 2;\n  }\n\n  .provider-model-disclosure > summary::after {\n    grid-column: 2;\n    grid-row: 1 / 3;\n  }\n\n  .provider-model-draft-bar {\n    align-items: stretch;\n    flex-direction: column;\n  }\n\n  .provider-model-draft-actions > .button {\n    flex: 1 1 0;\n    min-height: 44px;\n  }\n}\n\n@media (prefers-reduced-motion: reduce) {\n  .traffic-workspace-header .traffic-mode-selectors .pill-toggle,\n  .traffic-bar-success,\n  .traffic-bar-fail,\n  .traffic-inspection-guide {\n    transition: none;\n  }\n\n  .provider-model-disclosure > summary::after,\n  .provider-overview-disclosure > summary::after {\n    transition: none;\n  }\n}\n\n/* Usage trend: full-width, airy trend canvas inspired by the supplied reference. */\n#overviewView .overview-traffic-panel .chart {\n  min-height: 0;\n  padding: 0 14px 14px;\n}\n\n#overviewView .traffic-chart-shell {\n  display: grid;\n  grid-template-rows: auto minmax(0, 1fr) auto;\n  overflow: hidden;\n  border-color: #e5e9ef;\n  border-radius: 10px;\n  background: var(--surface);\n}\n\n#overviewView .traffic-workspace-header {\n  display: grid;\n  grid-template-columns: minmax(0, 1fr) auto;\n  border-bottom: 1px solid var(--line-soft);\n}\n\n#overviewView .traffic-workspace-title {\n  padding: 15px 18px 13px;\n}\n\n#overviewView .traffic-workspace-title strong {\n  font-size: 14px;\n}\n\n#overviewView .traffic-workspace-title small {\n  margin-top: 3px;\n  font-size: 10.5px;\n}\n\n#overviewView .traffic-workspace-header .traffic-mode-selectors {\n  align-self: center;\n  margin: 0 16px;\n}\n\n#overviewView .traffic-workspace-metrics {\n  grid-column: 1 / -1;\n  grid-row: 2;\n  border-top: 1px solid var(--line-soft);\n}\n\n#overviewView .traffic-workspace-metric {\n  min-height: 64px;\n  padding: 10px 18px;\n}\n\n#overviewView .traffic-workspace-metric strong {\n  font-size: 17px;\n}\n\n#overviewView .traffic-chart-shell > svg {\n  grid-row: 2;\n  width: 100%;\n}\n\n#overviewView .traffic-chart-header {\n  grid-row: 3;\n  min-height: 44px;\n  padding: 10px 18px 12px;\n  border-top: 1px solid var(--line-soft);\n  border-bottom: 0;\n}\n\n#overviewView .traffic-trend-legend {\n  justify-content: center;\n  flex: 1 1 auto;\n}\n\n#overviewView .traffic-chart-unit {\n  margin-left: auto;\n}\n\n.traffic-success-area {\n  fill: url(#trafficRequestArea);\n}\n\n.traffic-success-line,\n.traffic-failure-line,\n.traffic-latency-line,\n.traffic-total-line,\n.traffic-input-line,\n.traffic-output-line,\n.traffic-cost-line {\n  fill: none;\n  stroke-linecap: round;\n  stroke-linejoin: round;\n}\n\n.traffic-success-line {\n  stroke: #1f9d78;\n  stroke-width: 2.4;\n}\n\n.traffic-failure-line {\n  stroke: #db5263;\n  stroke-width: 2;\n  stroke-dasharray: 5 5;\n}\n\n.traffic-latency-line {\n  stroke: #e49a24;\n  stroke-width: 2;\n}\n\n.traffic-success-dot {\n  fill: #1f9d78;\n}\n\n.traffic-failure-dot {\n  fill: #db5263;\n}\n\n.traffic-success-legend i {\n  background: #1f9d78;\n}\n\n.traffic-failure-legend i {\n  background: #db5263;\n}\n\n@media (max-width: 640px) {\n  #overviewView .traffic-workspace-header {\n    grid-template-columns: minmax(0, 1fr) auto;\n  }\n\n  #overviewView .traffic-workspace-title {\n    padding: 12px;\n  }\n\n  #overviewView .traffic-workspace-header .traffic-mode-selectors {\n    margin: 0 10px;\n  }\n\n  #overviewView .traffic-workspace-metrics {\n    grid-template-columns: repeat(2, minmax(0, 1fr));\n  }\n\n  #overviewView .traffic-workspace-metric {\n    min-height: 58px;\n    padding: 8px 11px;\n  }\n\n  #overviewView .traffic-workspace-metric:nth-child(3) {\n    border-left: 0;\n  }\n\n  #overviewView .traffic-chart-header {\n    align-items: center;\n    padding-inline: 12px;\n  }\n\n  #overviewView .traffic-chart-unit {\n    display: none;\n  }\n}\n\n@media (prefers-reduced-motion: reduce) {\n  .traffic-success-line,\n  .traffic-failure-line,\n  .traffic-latency-line {\n    transition: none;\n  }\n}\n/*$vite$:1*/";
 	document.head.appendChild(__vite_style__);
 	//#region \0rolldown/runtime.js
 	var __esmMin = (fn, res) => () => (fn && (res = fn(fn = 0)), res);
@@ -655,6 +655,10 @@
 				en: "More settings",
 				zh: "更多设置"
 			},
+			"action.test_proxy": {
+				en: "Test proxy",
+				zh: "测试代理"
+			},
 			"conn.connected": {
 				en: "Connected",
 				zh: "已连接"
@@ -782,6 +786,86 @@
 			"ov.token_usage": {
 				en: "token usage",
 				zh: "Token 用量"
+			},
+			"traffic.request_volume": {
+				en: "Request volume",
+				zh: "请求趋势"
+			},
+			"traffic.token_usage": {
+				en: "Token usage",
+				zh: "Token 趋势"
+			},
+			"traffic.requests": {
+				en: "Requests",
+				zh: "请求数"
+			},
+			"traffic.total": {
+				en: "total",
+				zh: "总计"
+			},
+			"traffic.success": {
+				en: "Success",
+				zh: "成功"
+			},
+			"traffic.failed": {
+				en: "Failed",
+				zh: "失败"
+			},
+			"traffic.avg_latency": {
+				en: "Avg latency",
+				zh: "平均延迟"
+			},
+			"traffic.first_byte": {
+				en: "first byte",
+				zh: "首字节"
+			},
+			"traffic.total_tokens": {
+				en: "Total tokens",
+				zh: "Token 总量"
+			},
+			"traffic.input": {
+				en: "Input",
+				zh: "输入"
+			},
+			"traffic.output": {
+				en: "Output",
+				zh: "输出"
+			},
+			"traffic.tokens": {
+				en: "tokens",
+				zh: "Token"
+			},
+			"traffic.estimated_cost": {
+				en: "Est. cost",
+				zh: "预估费用"
+			},
+			"traffic.window": {
+				en: "window",
+				zh: "当前时段"
+			},
+			"traffic.success_requests": {
+				en: "Success requests",
+				zh: "成功请求"
+			},
+			"traffic.failures": {
+				en: "Failures",
+				zh: "失败请求"
+			},
+			"traffic.requests_per_minute": {
+				en: "Requests / minute",
+				zh: "每分钟请求"
+			},
+			"traffic.tokens_per_minute": {
+				en: "Tokens / minute",
+				zh: "每分钟 Token"
+			},
+			"traffic.mode": {
+				en: "Traffic chart mode",
+				zh: "趋势图模式"
+			},
+			"traffic.chart_aria": {
+				en: "Gateway traffic visualization chart",
+				zh: "网关流量趋势图"
 			},
 			"ov.upstream_health": {
 				en: "Upstream Health status",
@@ -967,6 +1051,338 @@
 				en: "No request records",
 				zh: "暂无请求记录"
 			},
+			"req.routing_summary": {
+				en: "Routing summary",
+				zh: "路由摘要"
+			},
+			"req.summary_attempts": {
+				en: "Attempts",
+				zh: "尝试"
+			},
+			"req.summary_failed": {
+				en: "Failed",
+				zh: "失败"
+			},
+			"req.summary_final_provider": {
+				en: "Final provider",
+				zh: "最终提供商"
+			},
+			"req.summary_final_format": {
+				en: "Final format",
+				zh: "最终格式"
+			},
+			"req.summary_next_action": {
+				en: "Next action",
+				zh: "建议操作"
+			},
+			"req.route_path": {
+				en: "Routing path",
+				zh: "路由路径"
+			},
+			"req.route_path_desc": {
+				en: "How the client request became an upstream call.",
+				zh: "客户端请求如何转化为上游调用。"
+			},
+			"req.route_steps_events": {
+				en: "{steps} steps · {events} events",
+				zh: "{steps} 个步骤 · {events} 条事件"
+			},
+			"req.route_format_evaluation": {
+				en: "Format handling",
+				zh: "格式处理"
+			},
+			"req.route_candidate_filter": {
+				en: "Candidate screening",
+				zh: "候选筛选"
+			},
+			"req.route_selected": {
+				en: "Upstream selected",
+				zh: "选定上游"
+			},
+			"req.route_upstream_result": {
+				en: "Upstream response",
+				zh: "上游响应"
+			},
+			"req.route_no_candidate": {
+				en: "No eligible candidate",
+				zh: "没有可用候选"
+			},
+			"req.route_event": {
+				en: "Routing event",
+				zh: "路由事件"
+			},
+			"req.route_formats_available": {
+				en: "{count} formats available",
+				zh: "{count} 种格式可用"
+			},
+			"req.route_no_format": {
+				en: "No compatible format",
+				zh: "无兼容格式"
+			},
+			"req.route_no_conversion": {
+				en: "No conversion needed",
+				zh: "无需转换"
+			},
+			"req.route_no_special_limits": {
+				en: "No format restrictions",
+				zh: "无格式限制"
+			},
+			"req.route_proxy_conversion": {
+				en: "Proxy conversion",
+				zh: "代理转换"
+			},
+			"req.route_format_excluded": {
+				en: "{count} formats excluded",
+				zh: "排除 {count} 种格式"
+			},
+			"req.route_blocked_format": {
+				en: "{format} blocked by {fields}",
+				zh: "{format} 被字段 {fields} 阻止"
+			},
+			"req.route_parameter_mapped": {
+				en: "Mapped {source} to {target}",
+				zh: "将 {source} 映射为 {target}"
+			},
+			"req.route_hints_omitted": {
+				en: "Omitted optional hints: {fields}",
+				zh: "省略可选提示：{fields}"
+			},
+			"req.route_candidates_skipped": {
+				en: "{count} candidates skipped",
+				zh: "跳过 {count} 个候选"
+			},
+			"req.route_selected_status": {
+				en: "selected",
+				zh: "已选择"
+			},
+			"req.route_success": {
+				en: "success",
+				zh: "成功"
+			},
+			"req.route_failed_status": {
+				en: "failed",
+				zh: "失败"
+			},
+			"req.route_unavailable": {
+				en: "unavailable",
+				zh: "不可用"
+			},
+			"req.route_evaluated": {
+				en: "evaluated",
+				zh: "已评估"
+			},
+			"req.route_skipped_reasons": {
+				en: "{count} skip reasons",
+				zh: "{count} 类跳过原因"
+			},
+			"req.route_mapped_fields": {
+				en: "{count} parameters mapped",
+				zh: "映射 {count} 个参数"
+			},
+			"req.route_dropped_hints": {
+				en: "{count} hints omitted",
+				zh: "省略 {count} 个提示参数"
+			},
+			"req.route_failure_reason": {
+				en: "Reason: {reason}",
+				zh: "原因：{reason}"
+			},
+			"req.route_diagnostics": {
+				en: "Diagnostic events",
+				zh: "诊断事件"
+			},
+			"req.route_diagnostics_desc": {
+				en: "Raw routing evidence for troubleshooting.",
+				zh: "用于排查问题的原始路由证据。"
+			},
+			"req.route_event_count": {
+				en: "{count} events",
+				zh: "{count} 条"
+			},
+			"req.route_candidate": {
+				en: "Candidate",
+				zh: "候选"
+			},
+			"req.route_owner": {
+				en: "Owner",
+				zh: "归属"
+			},
+			"req.route_details": {
+				en: "Details",
+				zh: "详情"
+			},
+			"req.route_format": {
+				en: "Format",
+				zh: "格式"
+			},
+			"req.route_field": {
+				en: "field",
+				zh: "字段"
+			},
+			"req.route_fidelity": {
+				en: "fidelity",
+				zh: "保真度"
+			},
+			"req.route_profile": {
+				en: "profile",
+				zh: "兼容配置"
+			},
+			"req.route_recovery": {
+				en: "recovery",
+				zh: "恢复等待"
+			},
+			"req.route_action": {
+				en: "action",
+				zh: "状态操作"
+			},
+			"req.route_code_provider_cooldown": {
+				en: "provider cooldown",
+				zh: "提供商冷却"
+			},
+			"req.route_code_key_cooldown": {
+				en: "key cooldown",
+				zh: "密钥冷却"
+			},
+			"req.route_code_key_disabled": {
+				en: "key disabled",
+				zh: "密钥已禁用"
+			},
+			"req.route_code_model_unsupported": {
+				en: "model unavailable on key",
+				zh: "密钥不支持该模型"
+			},
+			"req.route_code_compatibility": {
+				en: "compatibility circuit",
+				zh: "兼容性熔断"
+			},
+			"req.route_code_duplicate": {
+				en: "already attempted",
+				zh: "候选已尝试"
+			},
+			"req.route_direct": {
+				en: "direct",
+				zh: "直连"
+			},
+			"req.route_recovered": {
+				en: "recovered",
+				zh: "已恢复"
+			},
+			"req.route_no_attempts": {
+				en: "no attempts",
+				zh: "未尝试上游"
+			},
+			"req.route_unknown": {
+				en: "unknown",
+				zh: "未知"
+			},
+			"req.diag_stage_format": {
+				en: "Format check",
+				zh: "格式检查"
+			},
+			"req.diag_stage_routing": {
+				en: "Routing decision",
+				zh: "路由决策"
+			},
+			"req.diag_stage_candidate": {
+				en: "Candidate screening",
+				zh: "候选筛选"
+			},
+			"req.diag_stage_upstream": {
+				en: "Upstream result",
+				zh: "上游结果"
+			},
+			"req.diag_status_allowed": {
+				en: "allowed",
+				zh: "允许"
+			},
+			"req.diag_status_blocked": {
+				en: "blocked",
+				zh: "阻止"
+			},
+			"req.diag_status_mapped": {
+				en: "mapped",
+				zh: "已映射"
+			},
+			"req.diag_status_omitted": {
+				en: "omitted",
+				zh: "已省略"
+			},
+			"req.diag_status_selected": {
+				en: "selected",
+				zh: "已选择"
+			},
+			"req.diag_status_skipped": {
+				en: "skipped",
+				zh: "已跳过"
+			},
+			"req.diag_status_observed": {
+				en: "observed",
+				zh: "已记录"
+			},
+			"req.diag_format_eligible": {
+				en: "{format} can be used upstream",
+				zh: "{format} 可作为上游格式"
+			},
+			"req.diag_format_blocked": {
+				en: "{format} cannot preserve {field}",
+				zh: "{format} 无法保留字段 {field}"
+			},
+			"req.diag_parameter_mapped": {
+				en: "Map {field} to {target}",
+				zh: "将 {field} 映射为 {target}"
+			},
+			"req.diag_hint_omitted": {
+				en: "Omit optional hint {field} for {format}",
+				zh: "转换为 {format} 时省略可选提示 {field}"
+			},
+			"req.diag_provider_selected": {
+				en: "Selected {provider} for this attempt",
+				zh: "本次尝试选择了 {provider}"
+			},
+			"req.diag_upstream_success": {
+				en: "{provider} returned a usable response",
+				zh: "{provider} 返回了可用响应"
+			},
+			"req.diag_upstream_success_desc": {
+				en: "The response was accepted after conversion or passthrough.",
+				zh: "响应经过转换或透传后被代理接受。"
+			},
+			"req.diag_upstream_failed": {
+				en: "{provider} attempt failed",
+				zh: "{provider} 调用失败"
+			},
+			"req.diag_no_candidate": {
+				en: "No provider, key, model, and format combination was eligible",
+				zh: "没有符合条件的提供商、密钥、模型与格式组合"
+			},
+			"req.diag_candidate_skipped": {
+				en: "Skipped {provider} candidate",
+				zh: "跳过 {provider} 候选"
+			},
+			"req.diag_fidelity_lossless": {
+				en: "The current request can use this format without semantic loss.",
+				zh: "当前请求可以使用此格式，且不会丢失语义。"
+			},
+			"req.diag_fidelity_mapped": {
+				en: "This format is available after explicit parameter mapping.",
+				zh: "通过明确的参数映射后可以使用此格式。"
+			},
+			"req.diag_fidelity_safe_drop": {
+				en: "This format is available after omitting optional hints.",
+				zh: "省略不影响核心语义的可选提示后可以使用此格式。"
+			},
+			"req.diag_fidelity_blocked": {
+				en: "This format would change request semantics and is excluded.",
+				zh: "此格式会改变请求语义，因此已被排除。"
+			},
+			"req.diag_internal_id": {
+				en: "Internal ID",
+				zh: "内部标识"
+			},
+			"req.diag_owner_value": {
+				en: "Owner: {owner}",
+				zh: "归属：{owner}"
+			},
 			"prov.title": {
 				en: "Providers",
 				zh: "提供商"
@@ -1067,6 +1483,154 @@
 				en: "Select a provider to view its models and state.",
 				zh: "选择一个提供商查看其模型和状态。"
 			},
+			"prov.drawer_sections": {
+				en: "Provider detail sections",
+				zh: "提供商详情栏目"
+			},
+			"prov.drawer_runtime_summary": {
+				en: "{state} / {usable}/{total} usable keys / {models} models",
+				zh: "{state} / {usable}/{total} 可用密钥 / {models} 模型"
+			},
+			"prov.tab_overview": {
+				en: "Overview",
+				zh: "概览"
+			},
+			"prov.tab_keys": {
+				en: "Keys",
+				zh: "密钥"
+			},
+			"prov.tab_models": {
+				en: "Models",
+				zh: "模型"
+			},
+			"prov.tab_routing": {
+				en: "Routing",
+				zh: "路由"
+			},
+			"prov.tab_config": {
+				en: "Config",
+				zh: "配置"
+			},
+			"prov.config_connection": {
+				en: "Connection",
+				zh: "连接"
+			},
+			"prov.config_connection_tip": {
+				en: "Upstream endpoint and request identity",
+				zh: "上游 endpoint 与请求身份"
+			},
+			"prov.config_runtime": {
+				en: "Runtime",
+				zh: "运行时"
+			},
+			"prov.config_runtime_tip": {
+				en: "Routing order and provider availability",
+				zh: "路由顺序与可用性"
+			},
+			"prov.provider_enabled": {
+				en: "Provider enabled",
+				zh: "启用提供商"
+			},
+			"prov.provider_enabled_tip": {
+				en: "Allow this provider to receive new requests",
+				zh: "允许该提供商接收新请求"
+			},
+			"prov.health_probes": {
+				en: "Health probes",
+				zh: "健康探测"
+			},
+			"prov.health_probes_tip": {
+				en: "Automated recovery checks",
+				zh: "自动恢复检查"
+			},
+			"prov.skip_idle_probes": {
+				en: "Skip idle probes",
+				zh: "跳过空闲探测"
+			},
+			"prov.skip_idle_probes_tip": {
+				en: "Do not check this provider after an idle period",
+				zh: "空闲后不主动检查该提供商"
+			},
+			"prov.skip_patrol_probes": {
+				en: "Skip patrol probes",
+				zh: "跳过巡检探测"
+			},
+			"prov.skip_patrol_probes_tip": {
+				en: "Exclude this provider from periodic patrol checks",
+				zh: "从定期巡检中排除该提供商"
+			},
+			"prov.config_runtime_save": {
+				en: "Changes save to runtime configuration",
+				zh: "更改会保存到运行时配置"
+			},
+			"prov.key_configuration": {
+				en: "Key configuration",
+				zh: "密钥配置"
+			},
+			"prov.key_configuration_tip": {
+				en: "Proxy and model mapping are stored per key",
+				zh: "代理与模型映射按密钥保存"
+			},
+			"prov.no_config_keys": {
+				en: "No config keys",
+				zh: "暂无配置密钥"
+			},
+			"prov.no_keys": {
+				en: "No keys",
+				zh: "暂无密钥"
+			},
+			"prov.no_keys_configured": {
+				en: "No keys configured",
+				zh: "未配置密钥"
+			},
+			"prov.no_formats": {
+				en: "no formats",
+				zh: "无格式"
+			},
+			"prov.delete_provider": {
+				en: "Delete provider",
+				zh: "删除提供商"
+			},
+			"prov.delete_provider_tip": {
+				en: "Remove this provider from config, route pools, model maps, and capability snapshots.",
+				zh: "从配置、路由池、模型映射和能力快照中移除此提供商。"
+			},
+			"prov.api_key": {
+				en: "API key",
+				zh: "API key"
+			},
+			"prov.api_key_ph": {
+				en: "Paste a new API key",
+				zh: "粘贴新的 API key"
+			},
+			"prov.add_key": {
+				en: "Add key",
+				zh: "添加密钥"
+			},
+			"prov.format_routes": {
+				en: "Format routes",
+				zh: "格式路由"
+			},
+			"prov.format_routes_tip": {
+				en: "Enable upstream formats and edit request paths",
+				zh: "启用上游格式并编辑请求路径"
+			},
+			"prov.models": {
+				en: "Models",
+				zh: "模型"
+			},
+			"prov.models_ph": {
+				en: "alias=raw, model=model",
+				zh: "alias=raw, model=model"
+			},
+			"prov.inherit": {
+				en: "inherit",
+				zh: "继承"
+			},
+			"prov.inherit_proxy_default": {
+				en: "Inherit proxy default",
+				zh: "继承默认代理"
+			},
 			"prov.clear_cooldown": {
 				en: "Clear cooldown",
 				zh: "清除冷却"
@@ -1090,6 +1654,454 @@
 			"prov.clear_key_state": {
 				en: "Clear key state",
 				zh: "清除密钥状态"
+			},
+			"prov.overview_readiness": {
+				en: "Route readiness",
+				zh: "路由就绪状态"
+			},
+			"prov.overview_priority": {
+				en: "Priority {priority}",
+				zh: "优先级 {priority}"
+			},
+			"prov.overview_endpoint": {
+				en: "Upstream endpoint",
+				zh: "上游地址"
+			},
+			"prov.overview_endpoint_missing": {
+				en: "No upstream endpoint configured",
+				zh: "尚未配置上游地址"
+			},
+			"prov.overview_config_state": {
+				en: "Configuration",
+				zh: "配置状态"
+			},
+			"prov.overview_runtime_state": {
+				en: "Runtime",
+				zh: "运行状态"
+			},
+			"prov.overview_route_state": {
+				en: "Routing",
+				zh: "路由状态"
+			},
+			"prov.overview_enabled": {
+				en: "Enabled",
+				zh: "已启用"
+			},
+			"prov.overview_disabled": {
+				en: "Disabled",
+				zh: "已禁用"
+			},
+			"prov.overview_available": {
+				en: "Eligible",
+				zh: "可参与"
+			},
+			"prov.overview_unavailable": {
+				en: "Ineligible",
+				zh: "不可参与"
+			},
+			"prov.overview_state_normal": {
+				en: "Ready",
+				zh: "路由就绪"
+			},
+			"prov.overview_state_degraded": {
+				en: "Needs attention",
+				zh: "需要关注"
+			},
+			"prov.overview_state_cooldown": {
+				en: "Cooling down",
+				zh: "冷却中"
+			},
+			"prov.overview_state_unavailable": {
+				en: "Unavailable",
+				zh: "当前不可用"
+			},
+			"prov.overview_state_disabled": {
+				en: "Disabled",
+				zh: "已停用"
+			},
+			"prov.overview_desc_normal": {
+				en: "Configuration, runtime, and usable keys are ready for routing.",
+				zh: "配置、运行状态和可用密钥均已就绪，可进入路由选择。"
+			},
+			"prov.overview_desc_degraded": {
+				en: "The provider can still route requests, but some keys or compatibility paths need attention.",
+				zh: "仍可能参与路由，但部分密钥或兼容路径需要关注。"
+			},
+			"prov.overview_desc_cooldown": {
+				en: "Temporarily excluded from routing. It becomes eligible again after cooldown.",
+				zh: "暂时不会进入路由候选；冷却结束后会重新参与选择。"
+			},
+			"prov.overview_desc_unavailable": {
+				en: "Not currently eligible for routing. Check enable state and usable keys.",
+				zh: "当前不会进入路由候选，请检查启用状态和可用密钥。"
+			},
+			"prov.overview_desc_disabled": {
+				en: "Disabled by configuration or runtime state and will not receive new requests.",
+				zh: "已被配置或运行状态停用，不会接收新请求。"
+			},
+			"prov.overview_key_coverage": {
+				en: "Key coverage",
+				zh: "密钥覆盖"
+			},
+			"prov.overview_models": {
+				en: "Models",
+				zh: "可用模型"
+			},
+			"prov.overview_recent_success": {
+				en: "Recent success",
+				zh: "近期成功率"
+			},
+			"prov.overview_avg_first_byte": {
+				en: "Avg first byte",
+				zh: "平均首字节"
+			},
+			"prov.overview_usable_keys": {
+				en: "{usable}/{total} usable",
+				zh: "{usable}/{total} 个可用"
+			},
+			"prov.overview_models_available": {
+				en: "available to this provider",
+				zh: "该提供商可用"
+			},
+			"prov.overview_recent_requests": {
+				en: "{count} recent requests",
+				zh: "最近 {count} 次请求"
+			},
+			"prov.overview_successful_calls": {
+				en: "successful calls",
+				zh: "成功请求"
+			},
+			"prov.overview_routing_exceptions": {
+				en: "Routing exceptions",
+				zh: "路由异常"
+			},
+			"prov.overview_routing_exceptions_tip": {
+				en: "Active model, key, and format compatibility circuits",
+				zh: "当前生效的模型、密钥与格式兼容性熔断"
+			},
+			"prov.overview_failures": {
+				en: "{count} failures",
+				zh: "失败 {count} 次"
+			},
+			"prov.overview_cooldown_remaining": {
+				en: "{time} cooldown remaining",
+				zh: "剩余冷却 {time}"
+			},
+			"prov.overview_recent_activity": {
+				en: "Recent activity",
+				zh: "近期调用"
+			},
+			"prov.overview_recent_activity_tip": {
+				en: "Latest provider attempts; open a row to trace the request",
+				zh: "最近的提供商调用；点击记录可追溯到请求详情"
+			},
+			"prov.overview_activity_loading": {
+				en: "Loading recent activity…",
+				zh: "正在加载近期调用…"
+			},
+			"prov.overview_activity_empty": {
+				en: "No recent calls for this provider",
+				zh: "该提供商暂无近期调用"
+			},
+			"prov.overview_health_probes": {
+				en: "Background health probes",
+				zh: "后台健康探测"
+			},
+			"prov.overview_health_probes_tip": {
+				en: "Recovery and patrol evidence; opens automatically when a probe fails",
+				zh: "恢复与巡检证据；存在失败探测时自动展开"
+			},
+			"prov.overview_probe_count": {
+				en: "{count} probes",
+				zh: "{count} 次探测"
+			},
+			"prov.overview_probe_empty": {
+				en: "No background health probes yet",
+				zh: "暂无后台健康探测"
+			},
+			"prov.overview_more_probes": {
+				en: "+ {count} more probes",
+				zh: "另有 {count} 次探测"
+			},
+			"prov.models.discovery": {
+				en: "Discovery",
+				zh: "发现"
+			},
+			"prov.models.pending": {
+				en: "refreshing",
+				zh: "刷新中"
+			},
+			"prov.models.ok": {
+				en: "ready",
+				zh: "就绪"
+			},
+			"prov.models.stale": {
+				en: "stale",
+				zh: "已过期"
+			},
+			"prov.models.error": {
+				en: "error",
+				zh: "错误"
+			},
+			"prov.models.not_fetched": {
+				en: "not fetched",
+				zh: "未获取"
+			},
+			"prov.models.unknown": {
+				en: "unknown",
+				zh: "未知"
+			},
+			"prov.models.no_snapshot": {
+				en: "No snapshot",
+				zh: "暂无快照"
+			},
+			"prov.models.models": {
+				en: "Models",
+				zh: "模型"
+			},
+			"prov.models.disabled_count": {
+				en: "{count} disabled",
+				zh: "{count} 个已禁用"
+			},
+			"prov.models.key_coverage": {
+				en: "Key coverage",
+				zh: "密钥覆盖"
+			},
+			"prov.models.need_attention": {
+				en: "{count} need attention",
+				zh: "{count} 个需关注"
+			},
+			"prov.models.catalogs_usable": {
+				en: "catalogs usable",
+				zh: "目录可用"
+			},
+			"prov.models.refresh": {
+				en: "Refresh models",
+				zh: "刷新模型"
+			},
+			"prov.models.discovering": {
+				en: "Discovering models in the background…",
+				zh: "正在后台发现模型…"
+			},
+			"prov.models.catalog": {
+				en: "Model catalog",
+				zh: "模型目录"
+			},
+			"prov.models.catalog_desc": {
+				en: "Search, map, and stage availability changes for this provider.",
+				zh: "搜索、映射并暂存此提供商的可用性变更。"
+			},
+			"prov.models.shown": {
+				en: "{count} shown",
+				zh: "显示 {count} 个"
+			},
+			"prov.models.search": {
+				en: "Search models",
+				zh: "搜索模型"
+			},
+			"prov.models.filter_status": {
+				en: "Filter model status",
+				zh: "筛选模型状态"
+			},
+			"prov.models.all": {
+				en: "All models",
+				zh: "全部模型"
+			},
+			"prov.models.enabled": {
+				en: "Enabled",
+				zh: "已启用"
+			},
+			"prov.models.disabled": {
+				en: "Disabled",
+				zh: "已禁用"
+			},
+			"prov.models.disable_shown": {
+				en: "Disable shown models",
+				zh: "禁用显示的模型"
+			},
+			"prov.models.enable_shown": {
+				en: "Enable shown models",
+				zh: "启用显示的模型"
+			},
+			"prov.models.stage_disable": {
+				en: "Stage disable",
+				zh: "暂存禁用"
+			},
+			"prov.models.stage_enable": {
+				en: "Stage enable",
+				zh: "暂存启用"
+			},
+			"prov.models.edit_mapping": {
+				en: "Edit model mapping",
+				zh: "编辑模型映射"
+			},
+			"prov.models.edit_mapping_for": {
+				en: "Edit mapping for {model}",
+				zh: "编辑 {model} 的映射"
+			},
+			"prov.models.pending_short": {
+				en: "pending",
+				zh: "待应用"
+			},
+			"prov.models.visible_count": {
+				en: "{count} visible provider models",
+				zh: "显示 {count} 个提供商模型"
+			},
+			"prov.models.no_match": {
+				en: "No models match the current search and status filter.",
+				zh: "没有模型符合当前搜索和状态筛选。"
+			},
+			"prov.models.more": {
+				en: "+ {count} more models…",
+				zh: "另外 {count} 个模型…"
+			},
+			"prov.models.staged_one": {
+				en: "1 staged change",
+				zh: "已暂存 1 项变更"
+			},
+			"prov.models.staged_many": {
+				en: "{count} staged changes",
+				zh: "已暂存 {count} 项变更"
+			},
+			"prov.models.review_apply": {
+				en: "Review and apply to update provider availability.",
+				zh: "检查并应用，以更新提供商可用性。"
+			},
+			"prov.models.reset": {
+				en: "Reset staged model changes",
+				zh: "撤销暂存的模型变更"
+			},
+			"prov.models.reset_label": {
+				en: "Reset",
+				zh: "撤销"
+			},
+			"prov.models.apply": {
+				en: "Apply model changes ({count})",
+				zh: "应用模型变更（{count}）"
+			},
+			"prov.models.apply_label": {
+				en: "Apply changes",
+				zh: "应用变更"
+			},
+			"prov.models.by_key": {
+				en: "Models by key",
+				zh: "按密钥查看模型"
+			},
+			"prov.models.by_key_desc": {
+				en: "Compare the catalogs returned for each configured key.",
+				zh: "比较每个已配置密钥返回的模型目录。"
+			},
+			"prov.models.usable": {
+				en: "{count} usable",
+				zh: "{count} 个可用"
+			},
+			"prov.models.usable_suffix": {
+				en: "usable",
+				zh: "个可用"
+			},
+			"prov.models.differ": {
+				en: "differ",
+				zh: "存在差异"
+			},
+			"prov.models.key_label": {
+				en: "key {index} · {id}",
+				zh: "密钥 {index} · {id}"
+			},
+			"prov.models.no_models": {
+				en: "No models",
+				zh: "暂无模型"
+			},
+			"prov.models.more_short": {
+				en: "+{count} more",
+				zh: "另有 {count} 个"
+			},
+			"prov.models.no_key_catalogs": {
+				en: "No per-key model catalogs yet.",
+				zh: "暂无按密钥划分的模型目录。"
+			},
+			"prov.models.canonical_aliases": {
+				en: "Canonical aliases",
+				zh: "规范模型别名"
+			},
+			"prov.models.canonical_aliases_desc": {
+				en: "Expose multiple upstream variants as one client-facing model.",
+				zh: "将多个上游变体映射为一个客户端模型。"
+			},
+			"prov.models.configured": {
+				en: "{count} configured",
+				zh: "已配置 {count} 个"
+			},
+			"prov.models.variants": {
+				en: "{count} variants",
+				zh: "{count} 个变体"
+			},
+			"prov.models.no_aliases": {
+				en: "No aliases configured. Add one when several raw models should share a client model name.",
+				zh: "尚未配置别名。当多个原始模型需要共用一个客户端模型名时，可在这里添加。"
+			},
+			"prov.models.add_alias": {
+				en: "Add alias",
+				zh: "添加别名"
+			},
+			"prov.models.canonical_model": {
+				en: "Canonical model",
+				zh: "规范模型"
+			},
+			"prov.models.raw_variants": {
+				en: "Raw variants",
+				zh: "原始变体"
+			},
+			"prov.models.raw_variants_help": {
+				en: "Comma-separated raw model IDs with optional priority. Empty clears the canonical variant list.",
+				zh: "用逗号分隔原始模型 ID，可选优先级。留空会清空该规范模型的变体列表。"
+			},
+			"prov.models.save_alias": {
+				en: "Save alias",
+				zh: "保存别名"
+			},
+			"prov.models.advanced_fallback": {
+				en: "Advanced fallback",
+				zh: "高级回退"
+			},
+			"prov.models.advanced_fallback_desc": {
+				en: "Static model IDs used only when /v1/models is unreachable.",
+				zh: "仅在无法访问 /v1/models 时使用的静态模型 ID。"
+			},
+			"prov.models.static_count": {
+				en: "{count} static",
+				zh: "{count} 个静态模型"
+			},
+			"prov.models.static": {
+				en: "static",
+				zh: "静态"
+			},
+			"prov.models.remove_model": {
+				en: "Remove {model}",
+				zh: "移除 {model}"
+			},
+			"prov.models.no_static": {
+				en: "No static fallback models configured.",
+				zh: "未配置静态回退模型。"
+			},
+			"prov.models.add_model_ids": {
+				en: "Add model IDs",
+				zh: "添加模型 ID"
+			},
+			"prov.models.add_model_ids_ph": {
+				en: "e.g. gpt-4o, claude-3-5-sonnet-20241022",
+				zh: "例如 gpt-4o、claude-3-5-sonnet-20241022"
+			},
+			"prov.models.add_model_ids_help": {
+				en: "Comma-separated. New entries are appended and de-duplicated.",
+				zh: "用逗号分隔，新条目会追加并自动去重。"
+			},
+			"prov.models.add_models": {
+				en: "Add models",
+				zh: "添加模型"
+			},
+			"prov.models.clear": {
+				en: "Clear",
+				zh: "清空"
 			},
 			"pm.keys": {
 				en: "Keys",
@@ -1539,6 +2551,10 @@
 				en: "Proxy",
 				zh: "代理"
 			},
+			"cfg.tab_health": {
+				en: "Health",
+				zh: "健康检查"
+			},
 			"cfg.tab_advanced": {
 				en: "Advanced",
 				zh: "高级"
@@ -1626,6 +2642,26 @@
 			"cfg.save_global_proxy": {
 				en: "Save global proxy",
 				zh: "保存全局代理"
+			},
+			"cfg.save_health": {
+				en: "Save health",
+				zh: "保存健康检查"
+			},
+			"cfg.run_now": {
+				en: "Run now",
+				zh: "立即运行"
+			},
+			"cfg.running": {
+				en: "Running...",
+				zh: "运行中..."
+			},
+			"cfg.triggering_patrol": {
+				en: "Triggering patrol round...",
+				zh: "正在触发巡检..."
+			},
+			"cfg.patrol_triggered": {
+				en: "Patrol round triggered. Check results in a moment.",
+				zh: "巡检已触发，稍后查看结果。"
 			},
 			"cfg.advanced_tools": {
 				en: "Advanced overlay tools",
@@ -1719,6 +2755,10 @@
 				en: "Save",
 				zh: "保存"
 			},
+			"form.reset": {
+				en: "Reset",
+				zh: "重置"
+			},
 			"form.cancel": {
 				en: "Cancel",
 				zh: "取消"
@@ -1726,6 +2766,10 @@
 			"form.save_provider": {
 				en: "Save provider",
 				zh: "保存提供商"
+			},
+			"form.save_configuration": {
+				en: "Save configuration",
+				zh: "保存配置"
 			},
 			"confirm.title_default": {
 				en: "Confirm action",
@@ -1851,6 +2895,10 @@
 				en: "Running action...",
 				zh: "正在执行操作..."
 			},
+			"notice.action_already_running": {
+				en: "This action is already running.",
+				zh: "该操作正在执行。"
+			},
 			"notice.action_done": {
 				en: "Action completed.",
 				zh: "操作已完成。"
@@ -1858,6 +2906,26 @@
 			"notice.action_failed": {
 				en: "Action failed: {error}",
 				zh: "操作失败：{error}"
+			},
+			"notice.proxy_empty": {
+				en: "Proxy is empty; this field will use direct or inherited routing.",
+				zh: "代理为空；该字段将使用直连或继承代理。"
+			},
+			"notice.proxy_connected": {
+				en: "Proxy connected in {latency}.",
+				zh: "代理已连接，用时 {latency}。"
+			},
+			"notice.proxy_failed": {
+				en: "Proxy test failed: {detail}",
+				zh: "代理测试失败：{detail}"
+			},
+			"notice.health_monitor_saved": {
+				en: "Health monitor settings saved.",
+				zh: "健康检查设置已保存。"
+			},
+			"notice.health_monitor_failed": {
+				en: "Health monitor save failed: {error}",
+				zh: "健康检查保存失败：{error}"
 			},
 			"notice.key_deleted": {
 				en: "Key {index} deleted from {provider}.",
@@ -2383,12 +3451,415 @@
 		init_state();
 		conditionalGetCache = /* @__PURE__ */ new Map();
 	}));
+	//#endregion
+	//#region src/provider-activity-window.mjs
+	function recentProviderActivityEvents(events) {
+		return (Array.isArray(events) ? events : []).slice(-40);
+	}
+	var init_provider_activity_window = __esmMin((() => {}));
+	//#endregion
+	//#region src/optimistic-config.mjs
+	function cloneConfig(config) {
+		return structuredClone(config && typeof config === "object" ? config : {});
+	}
+	function appendPendingKey(config, provider, metadata = {}) {
+		const providerConfig = config?.providers?.[provider];
+		if (!providerConfig) return;
+		const keys = Array.isArray(providerConfig.keys) ? providerConfig.keys : [];
+		const pending = {
+			index: keys.reduce((highest, entry, index) => {
+				const configured = Number(entry && typeof entry === "object" ? entry.index : index);
+				return Number.isFinite(configured) ? Math.max(highest, configured + 1) : highest;
+			}, keys.length),
+			key_id: "pending",
+			masked: "pending",
+			pending: true
+		};
+		if (metadata.proxy) pending.proxy = metadata.proxy;
+		if (metadata.models && typeof metadata.models === "object") pending.models = cloneConfig(metadata.models);
+		providerConfig.keys = [...keys, pending];
+	}
+	function appendPendingProvider(config, payload = {}) {
+		const name = String(payload.name || "").trim();
+		if (!name) return;
+		if (!config.providers || typeof config.providers !== "object") config.providers = {};
+		const provider = cloneConfig(payload);
+		delete provider.name;
+		const submittedKeys = Array.isArray(provider.keys) ? provider.keys : [];
+		provider.keys = [];
+		provider.pending = true;
+		config.providers[name] = provider;
+		for (const entry of submittedKeys) appendPendingKey(config, name, entry && typeof entry === "object" ? {
+			proxy: entry.proxy,
+			models: entry.models
+		} : {});
+	}
+	var OptimisticConfigStore;
+	var init_optimistic_config = __esmMin((() => {
+		OptimisticConfigStore = class {
+			#confirmed;
+			#pending = [];
+			#settled = [];
+			#nextId = 1;
+			constructor(config = {}) {
+				this.#confirmed = cloneConfig(config);
+			}
+			confirmedConfig() {
+				return cloneConfig(this.#confirmed);
+			}
+			config() {
+				const effective = cloneConfig(this.#confirmed);
+				for (const mutation of this.#settled) mutation.apply(effective);
+				for (const mutation of this.#pending) mutation.apply(effective);
+				return effective;
+			}
+			acceptConfirmed(config) {
+				this.#confirmed = cloneConfig(config);
+				if (!this.#pending.length) this.#settled = [];
+				return this.config();
+			}
+			confirm(id, config) {
+				const completed = this.#pending.find((mutation) => mutation.id === id);
+				if (!completed) return null;
+				this.#pending = this.#pending.filter((mutation) => mutation.id !== id);
+				this.#settled.push(completed);
+				this.#confirmed = cloneConfig(config);
+				return this.config();
+			}
+			reject(id) {
+				this.#pending = this.#pending.filter((mutation) => mutation.id !== id);
+				return this.config();
+			}
+			clear() {
+				this.#confirmed = {};
+				this.#pending = [];
+				this.#settled = [];
+			}
+			begin(resourceKey, apply) {
+				const normalizedResourceKey = String(resourceKey || "");
+				if (this.#pending.some((mutation) => mutation.resourceKey === normalizedResourceKey)) return null;
+				const mutation = {
+					id: this.#nextId++,
+					resourceKey: normalizedResourceKey,
+					apply
+				};
+				this.#pending.push(mutation);
+				return {
+					id: mutation.id,
+					resourceKey: mutation.resourceKey,
+					config: this.config()
+				};
+			}
+		};
+	}));
+	//#endregion
+	//#region src/mutation-ui.mjs
+	function liveElementLocator(initialElement, locateCurrent = () => null) {
+		return () => {
+			if (initialElement?.isConnected) return initialElement;
+			return locateCurrent?.() || null;
+		};
+	}
+	function createMutationBusySetter() {
+		const controlState = /* @__PURE__ */ new WeakMap();
+		return (root, busy) => {
+			if (!root) return;
+			if (busy) {
+				root.setAttribute("aria-busy", "true");
+				root.classList.add("is-busy");
+			} else {
+				root.removeAttribute("aria-busy");
+				root.classList.remove("is-busy");
+			}
+			const controls = new Set(root.querySelectorAll?.("button, input, select, textarea") || []);
+			if (root.matches?.("button, input, select, textarea")) controls.add(root);
+			controls.forEach((control) => {
+				if (busy) {
+					if (!controlState.has(control)) controlState.set(control, Boolean(control.disabled));
+					control.disabled = true;
+				} else if (controlState.has(control)) {
+					control.disabled = controlState.get(control);
+					controlState.delete(control);
+				}
+			});
+		};
+	}
+	var MutationBusyTracker;
+	var init_mutation_ui = __esmMin((() => {
+		MutationBusyTracker = class {
+			#locators = /* @__PURE__ */ new Set();
+			#setBusy;
+			constructor(setBusy) {
+				this.#setBusy = setBusy;
+			}
+			start(locator) {
+				if (typeof locator !== "function") return () => {};
+				this.#locators.add(locator);
+				this.#setBusy?.(locator(), true);
+				let active = true;
+				return () => {
+					if (!active) return;
+					active = false;
+					this.#locators.delete(locator);
+					this.#setBusy?.(locator(), false);
+				};
+			}
+			refresh() {
+				for (const locator of this.#locators) this.#setBusy?.(locator(), true);
+			}
+		};
+	}));
+	//#endregion
+	//#region src/traffic-mode.mjs
+	function bindTrafficModeControls(root, { getMode, setMode }) {
+		if (!root || typeof getMode !== "function" || typeof setMode !== "function") return;
+		root.querySelectorAll("button[data-traffic-mode]").forEach((button) => {
+			if (button.dataset.bounddatatrafficmode) return;
+			button.dataset.bounddatatrafficmode = "1";
+			button.addEventListener("click", () => {
+				const mode = button.dataset.trafficMode;
+				if (!mode || getMode() === mode) return;
+				setMode(mode);
+			});
+		});
+	}
+	var init_traffic_mode = __esmMin((() => {}));
+	//#endregion
+	//#region src/operation-guard.mjs
+	var InFlightActionRegistry, ConfigRefreshCoordinator;
+	var init_operation_guard = __esmMin((() => {
+		InFlightActionRegistry = class {
+			#keys = /* @__PURE__ */ new Set();
+			begin(key) {
+				const normalized = String(key || "").trim();
+				if (!normalized) return () => {};
+				if (this.#keys.has(normalized)) return null;
+				this.#keys.add(normalized);
+				let active = true;
+				return () => {
+					if (!active) return;
+					active = false;
+					this.#keys.delete(normalized);
+				};
+			}
+			has(key) {
+				return this.#keys.has(String(key || "").trim());
+			}
+			clear() {
+				this.#keys.clear();
+			}
+		};
+		ConfigRefreshCoordinator = class {
+			#interactionVersion = 0;
+			#mutationDepth = 0;
+			markInteraction() {
+				this.#interactionVersion += 1;
+				return this.#interactionVersion;
+			}
+			snapshot() {
+				return {
+					interactionVersion: this.#interactionVersion,
+					mutationDepth: this.#mutationDepth
+				};
+			}
+			beginMutation() {
+				this.#mutationDepth += 1;
+				const interactionVersion = this.markInteraction();
+				let active = true;
+				return {
+					interactionVersion,
+					finish: () => {
+						if (!active) return;
+						active = false;
+						this.#mutationDepth = Math.max(0, this.#mutationDepth - 1);
+						this.markInteraction();
+					}
+				};
+			}
+			shouldDefer(snapshot, hasProtectedInput = false) {
+				if (hasProtectedInput) return true;
+				if (this.#mutationDepth > 0) return true;
+				if (!snapshot) return false;
+				return Number(snapshot.interactionVersion) !== this.#interactionVersion;
+			}
+			get mutationDepth() {
+				return this.#mutationDepth;
+			}
+		};
+	}));
+	//#endregion
+	//#region src/routing-trace-view.mjs
+	function normalizedEvent(event) {
+		return event && typeof event === "object" ? event : {};
+	}
+	function groupKind(event) {
+		if (event.stage === "format_compatibility") return "format_evaluation";
+		if (event.stage === "routing" && CANDIDATE_FILTER_CODES.has(event.code)) return "candidate_filter";
+		return "event";
+	}
+	function summarizeGroup(group) {
+		const events = group.events;
+		group.eventCount = events.length;
+		group.codes = [...new Set(events.map((event) => event.code).filter(Boolean))];
+		group.formats = [...new Set(events.map((event) => event.target_format || event.upstream_format).filter(Boolean))];
+		group.providers = [...new Set(events.map((event) => event.provider).filter(Boolean))];
+		if (group.kind === "format_evaluation") {
+			group.eligibleFormats = [...new Set(events.filter((event) => event.code === "format_eligible").map((event) => event.target_format).filter(Boolean))];
+			group.blockedFormats = [...new Set(events.filter((event) => event.code === "format_blocked_by_parameter").map((event) => event.target_format).filter(Boolean))];
+			group.mappedCount = events.filter((event) => event.code === "format_parameter_mapped").length;
+			group.droppedCount = events.filter((event) => event.code === "format_hint_dropped").length;
+		}
+		return group;
+	}
+	/**
+	* Merge only adjacent diagnostic events. The original order remains intact,
+	* while repetitive format checks and candidate rejections become one visual step.
+	*/
+	function groupRoutingTrace(rawTrace) {
+		const trace = Array.isArray(rawTrace) ? rawTrace.map(normalizedEvent) : [];
+		const groups = [];
+		trace.forEach((event, rawIndex) => {
+			const kind = groupKind(event);
+			const previous = groups[groups.length - 1];
+			if (kind !== "event" && previous?.kind === kind) {
+				previous.events.push(event);
+				previous.rawIndexes.push(rawIndex);
+				return;
+			}
+			groups.push({
+				kind,
+				stage: event.stage || "routing",
+				code: event.code || "unknown",
+				event,
+				events: [event],
+				rawIndexes: [rawIndex]
+			});
+		});
+		return groups.map(summarizeGroup);
+	}
+	function routingTraceTone(step) {
+		if (!step || typeof step !== "object") return "neutral";
+		if (step.kind === "format_evaluation") {
+			if (step.eligibleFormats?.length) return step.blockedFormats?.length || step.droppedCount ? "warn" : "ok";
+			return step.blockedFormats?.length ? "bad" : "neutral";
+		}
+		if (step.kind === "candidate_filter") return "warn";
+		const code = String(step.code || "");
+		if (code === "selected" || code === "attempt_succeeded") return "ok";
+		if (code === "attempt_failed" || code === "no_candidate" || code === "format_blocked_by_parameter") return "bad";
+		if (CANDIDATE_FILTER_CODES.has(code) || code === "format_hint_dropped") return "warn";
+		return "neutral";
+	}
+	function routingTraceIdentity(event) {
+		const item = normalizedEvent(event);
+		return [
+			item.provider,
+			item.key_masked || item.key_id,
+			item.provider_model || item.canonical_model,
+			item.target_format || item.upstream_format
+		].filter(Boolean);
+	}
+	function summarizeFormatTraceStep(step, { clientFormat = "", finalFormat = "" } = {}) {
+		const events = Array.isArray(step?.events) ? step.events : [];
+		const sourceFormat = String(clientFormat || "");
+		const hasFinalFormat = Boolean(finalFormat);
+		const targetFormat = String(finalFormat || sourceFormat || "");
+		const blockedByFormat = /* @__PURE__ */ new Map();
+		events.forEach((event) => {
+			if (event.code !== "format_blocked_by_parameter" || !event.target_format) return;
+			if (!blockedByFormat.has(event.target_format)) blockedByFormat.set(event.target_format, /* @__PURE__ */ new Set());
+			if (event.field) blockedByFormat.get(event.target_format).add(String(event.field));
+		});
+		const blocked = [...blockedByFormat.entries()].map(([format, fields]) => ({
+			format,
+			fields: [...fields]
+		}));
+		const selectedEvents = events.filter((event) => !targetFormat || event.target_format === targetFormat);
+		const transformations = selectedEvents.filter((event) => event.code === "format_parameter_mapped").map((event) => ({
+			field: event.field || "",
+			target: event.target || "",
+			action: event.action || ""
+		}));
+		const droppedHints = selectedEvents.filter((event) => event.code === "format_hint_dropped").map((event) => ({
+			field: event.field || "",
+			action: event.action || ""
+		}));
+		const converted = Boolean(sourceFormat && targetFormat && sourceFormat !== targetFormat);
+		return {
+			mode: converted ? "converted" : blocked.length ? "blocked" : hasFinalFormat && sourceFormat ? "native" : "unrestricted",
+			sourceFormat,
+			targetFormat,
+			path: [sourceFormat, converted ? targetFormat : ""].filter(Boolean),
+			blocked,
+			transformations,
+			droppedHints
+		};
+	}
+	var CANDIDATE_FILTER_CODES;
+	var init_routing_trace_view = __esmMin((() => {
+		CANDIDATE_FILTER_CODES = new Set([
+			"compatibility_circuit",
+			"duplicate_candidate",
+			"key_cooldown",
+			"key_disabled",
+			"model_unsupported_by_key",
+			"provider_cooldown"
+		]);
+	}));
+	//#endregion
+	//#region src/model-capability-order.mjs
+	function finiteNumber(value, fallback = 0) {
+		const number = Number(value);
+		return Number.isFinite(number) ? number : fallback;
+	}
+	function providerTimestampMs(snapshot) {
+		const providers = snapshot?.providers;
+		if (!providers || typeof providers !== "object") return 0;
+		let latest = 0;
+		Object.values(providers).forEach((entry) => {
+			latest = Math.max(latest, finiteNumber(entry?.fetched_at) * 1e3);
+		});
+		return latest;
+	}
+	function modelCapabilitySnapshotMarker(snapshot) {
+		if (!snapshot || typeof snapshot !== "object") return {
+			timestamp: 0,
+			version: -1
+		};
+		return {
+			timestamp: finiteNumber(snapshot.models_epoch_ms) || providerTimestampMs(snapshot),
+			version: finiteNumber(snapshot.models_version, -1)
+		};
+	}
+	/**
+	* Prevent a slower, older capabilities response from replacing a snapshot
+	* that the UI already accepted. Process epoch wins across server restarts; the
+	* process-local version counter breaks same-millisecond ties.
+	*/
+	function shouldAcceptModelCapabilitySnapshot(current, incoming) {
+		if (!incoming || typeof incoming !== "object") return false;
+		if (!current || typeof current !== "object") return true;
+		const previous = modelCapabilitySnapshotMarker(current);
+		const next = modelCapabilitySnapshotMarker(incoming);
+		if (next.timestamp > previous.timestamp) return true;
+		if (next.timestamp < previous.timestamp) return false;
+		if (next.version >= 0 && previous.version >= 0) return next.version >= previous.version;
+		return true;
+	}
+	var init_model_capability_order = __esmMin((() => {}));
 	(/* @__PURE__ */ __commonJSMin((() => {
 		init_morphdom_esm();
 		init_state();
 		init_constants();
 		init_api();
 		init_i18n();
+		init_provider_activity_window();
+		init_optimistic_config();
+		init_mutation_ui();
+		init_traffic_mode();
+		init_operation_guard();
+		init_routing_trace_view();
+		init_model_capability_order();
 		var el = (id) => document.getElementById(id);
 		var qsa = (selector) => Array.from(document.querySelectorAll(selector));
 		window.__perf = {
@@ -2435,6 +3906,164 @@
 		var _refreshWantedArgs = null;
 		var _backgroundRefreshTimer = null;
 		var _backgroundRefreshArgs = null;
+		var pendingRuntimeMutations = /* @__PURE__ */ new Set();
+		var optimisticConfigStore = new OptimisticConfigStore();
+		var setMutationBusy = createMutationBusySetter();
+		var mutationBusyTracker = new MutationBusyTracker(setMutationBusy);
+		var configRefreshCoordinator = new ConfigRefreshCoordinator();
+		var uiActionRegistry = new InFlightActionRegistry();
+		var STATIC_CONFIG_DOMAINS = new Set([
+			"routing",
+			"config",
+			"overlay"
+		]);
+		function acceptConfirmedConfig(config) {
+			const effective = optimisticConfigStore.acceptConfirmed(config || {});
+			state.data.config = effective;
+			return effective;
+		}
+		function applyStatusPayload(status) {
+			const existingModels = state.data.status?.models;
+			state.data.status = status && typeof status === "object" ? status : {};
+			if (existingModels && !state.data.status.models) state.data.status.models = existingModels;
+			return state.data.status;
+		}
+		function acceptModelCapabilities(capabilities) {
+			const current = state.data.status?.models;
+			if (!shouldAcceptModelCapabilitySnapshot(current, capabilities)) return false;
+			state.data.status = {
+				...state.data.status || {},
+				models: capabilities
+			};
+			if (capabilities.models_version !== void 0) _lastModelsVersion = capabilities.models_version;
+			state.data.modelsVersion = Number(state.data.modelsVersion || 0) + 1;
+			return true;
+		}
+		function publishEffectiveConfig(config, { drawer = true } = {}) {
+			state.data.config = config || {};
+			state.data.version = Number(state.data.version || 0) + 1;
+			state.forceConfigRender = true;
+			state.forceModelRoutesRender = true;
+			state.forceProvidersRender = true;
+			state.forceModelCapsRender = true;
+			state.forcePolicyRender = true;
+			state.forceFailurePoliciesRender = true;
+			renderAll();
+			if (drawer && state.providerDrawerName) renderProviderDrawer({ force: true });
+		}
+		function beginOptimisticConfigMutation(resourceKey, apply, options = {}) {
+			const mutation = optimisticConfigStore.begin(resourceKey, apply);
+			if (!mutation) {
+				setNotice("This setting is already being saved. Wait for the current request to finish.", "warn");
+				return null;
+			}
+			publishEffectiveConfig(mutation.config, options);
+			return mutation;
+		}
+		function confirmOptimisticConfigMutation(mutation, serverConfig, options = {}) {
+			if (!mutation || serverConfig === void 0) return false;
+			const effective = optimisticConfigStore.confirm(mutation.id, serverConfig);
+			if (effective === null) return false;
+			if (options.render === false) state.data.config = effective;
+			else publishEffectiveConfig(effective, options);
+			return true;
+		}
+		function rejectOptimisticConfigMutation(mutation, options = {}) {
+			if (!mutation) return;
+			publishEffectiveConfig(optimisticConfigStore.reject(mutation.id), options);
+		}
+		function captureFormState(form) {
+			const values = [];
+			Array.from(form?.elements || []).forEach((control) => {
+				if (!control.name) return;
+				values.push({
+					name: control.name,
+					type: control.type || "",
+					value: control.value,
+					checked: Boolean(control.checked)
+				});
+			});
+			return {
+				values,
+				active: document.activeElement && form?.contains(document.activeElement) ? document.activeElement.name || "" : ""
+			};
+		}
+		function restoreFormState(form, snapshot) {
+			if (!form || !snapshot) return;
+			for (const saved of snapshot.values || []) {
+				const control = Array.from(form.elements || []).find((entry) => entry.name === saved.name);
+				if (!control) continue;
+				if (saved.type === "checkbox" || saved.type === "radio") control.checked = saved.checked;
+				else control.value = saved.value;
+			}
+			(Array.from(form.elements || []).find((entry) => entry.name === snapshot.active) || form.querySelector("button[type='submit']"))?.focus?.();
+		}
+		function formLocator(form) {
+			if (!form) return () => null;
+			if (form.id) return () => document.getElementById(form.id);
+			const provider = form.dataset?.provider || "";
+			const keyIndex = form.dataset?.keyIndex || "";
+			const className = Array.from(form.classList || [])[0] || "";
+			return () => {
+				if (form.isConnected) return form;
+				if (!className) return null;
+				return Array.from(document.querySelectorAll(`.${CSS.escape(className)}`)).find((candidate) => (!provider || candidate.dataset?.provider === provider) && (!keyIndex || candidate.dataset?.keyIndex === keyIndex)) || null;
+			};
+		}
+		function hasProtectedConfigInteraction() {
+			if (configRefreshCoordinator.mutationDepth > 0) return true;
+			return _trackedFormSelectors.some((selector) => shouldPreserveContainer(selector));
+		}
+		async function runExclusiveUiAction(key, operation, { duplicateNotice = "" } = {}) {
+			const finish = uiActionRegistry.begin(key);
+			if (!finish) {
+				if (duplicateNotice) setNotice(duplicateNotice, "info", {
+					key: `busy:${key}`,
+					duration: 1800
+				});
+				return false;
+			}
+			try {
+				return await operation();
+			} finally {
+				finish();
+			}
+		}
+		async function runOptimisticConfigAction(root, operation, optimistic, callbacks = {}) {
+			const mutationScope = configRefreshCoordinator.beginMutation();
+			const locateRoot = callbacks.locateRoot || (() => root?.isConnected ? root : null);
+			const mutation = beginOptimisticConfigMutation(optimistic.resourceKey, optimistic.apply, { drawer: callbacks.drawer !== false });
+			if (!mutation) {
+				mutationScope.finish();
+				return false;
+			}
+			const finishBusy = mutationBusyTracker.start(locateRoot);
+			try {
+				const result = await operation();
+				if (result?.config !== void 0) {
+					if (!confirmOptimisticConfigMutation(mutation, result.config, { render: false })) return false;
+				} else rejectOptimisticConfigMutation(mutation, { drawer: callbacks.drawer !== false });
+				applyMutationResult(result, {
+					drawer: callbacks.drawer !== false,
+					skipConfig: result?.config !== void 0
+				});
+				callbacks.onSuccess?.(result);
+				scheduleBackgroundRefresh({
+					quiet: true,
+					preserveNotice: true,
+					staticData: true
+				});
+				return true;
+			} catch (err) {
+				rejectOptimisticConfigMutation(mutation, { drawer: callbacks.drawer !== false });
+				if (callbacks.onError) callbacks.onError(err);
+				else setNotice(t("notice.config_update_failed", { error: err.message }), "bad");
+				return false;
+			} finally {
+				mutationScope.finish();
+				finishBusy();
+			}
+		}
 		function mergeRefreshArgs(previous, next) {
 			if (!previous) return { ...next || {} };
 			next = next || {};
@@ -2466,11 +4095,12 @@
 				Promise.resolve(task).catch(() => {});
 			}, delayMs);
 		}
-		function applyMutationResult(result, { render = true, drawer = false } = {}) {
+		function applyMutationResult(result, { render = true, drawer = false, skipConfig = false } = {}) {
+			if (!state.adminKey) return false;
 			if (!result || typeof result !== "object") return false;
 			let changed = false;
 			if (result.config !== void 0) {
-				state.data.config = result.config;
+				if (!skipConfig) acceptConfirmedConfig(result.config);
 				changed = true;
 			}
 			if (result.routing !== void 0) {
@@ -2478,8 +4108,11 @@
 				changed = true;
 			}
 			if (result.status !== void 0) {
-				state.data.status = result.status;
+				applyStatusPayload(result.status);
 				changed = true;
+			}
+			if (result.models !== void 0) {
+				if (acceptModelCapabilities(result.models)) changed = true;
 			}
 			if (result.router !== void 0) {
 				state.data.status = {
@@ -2517,6 +4150,7 @@
 			const __t0 = performance.now();
 			if (!target.innerHTML.trim()) {
 				target.innerHTML = htmlString;
+				scheduleTooltipReconcile();
 				window.__perfMark && window.__perfMark("updateDOM.innerHTML[" + (target.id || target.className || "?") + "]", performance.now() - __t0);
 				return;
 			}
@@ -2524,6 +4158,7 @@
 			wrapper.innerHTML = htmlString;
 			const __t1 = performance.now();
 			morphdom(target, wrapper, { childrenOnly: true });
+			scheduleTooltipReconcile();
 			const __t2 = performance.now();
 			window.__perfMark && window.__perfMark("updateDOM.build[" + (target.id || target.className || "?") + "]", __t1 - __t0);
 			window.__perfMark && window.__perfMark("updateDOM.morphdom[" + (target.id || target.className || "?") + "]", __t2 - __t1);
@@ -2685,7 +4320,7 @@
 		function proxyLabel(value, fallback = "direct") {
 			return proxyText(value) || fallback;
 		}
-		function proxyTestButton(title = "Test proxy") {
+		function proxyTestButton(title = t("action.test_proxy")) {
 			return `<button class="button secondary icon-action proxy-test-button" type="button" data-proxy-test title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}">${iconSvg("activity")}</button>`;
 		}
 		function proxyControlInput(name, value = "", placeholder = "http://host:port · socks5://host:port · host:port", attrs = "") {
@@ -2802,6 +4437,7 @@
 			if (target.type === "search" || target.type === "button" || target.type === "submit") return;
 			for (const sel of _trackedFormSelectors) if (target.closest(sel)) {
 				_dirtyContainers.add(sel);
+				configRefreshCoordinator.markInteraction();
 				return;
 			}
 		}
@@ -2809,15 +4445,18 @@
 			const form = e.target;
 			if (!form) return;
 			for (const sel of _trackedFormSelectors) if (form.closest(sel)) {
-				_dirtyContainers.delete(sel);
+				_dirtyContainers.add(sel);
+				configRefreshCoordinator.markInteraction();
 				return;
 			}
 		}
 		function clearDirty(selector) {
 			_dirtyContainers.delete(selector);
+			configRefreshCoordinator.markInteraction();
 		}
 		function clearAllDirty() {
 			_dirtyContainers.clear();
+			configRefreshCoordinator.markInteraction();
 		}
 		function isContainerDirty(selector) {
 			return _dirtyContainers.has(selector);
@@ -2973,6 +4612,9 @@
 			try {
 				localStorage.removeItem("proxyConsoleAdminKey");
 			} catch (_err) {}
+			optimisticConfigStore.clear();
+			uiActionRegistry.clear();
+			state.data.config = null;
 		}
 		async function validateAdminKey(key) {
 			state.adminKey = String(key || "").trim();
@@ -3383,17 +5025,16 @@
 							path: "/v1/messages"
 						}
 					};
-					try {
-						applyMutationResult(await apiPost("/-/admin/providers", payload));
+					await runConfigMutation(form, async () => {
+						const result = await apiPost("/-/admin/providers", payload);
 						closeFormModal();
 						setNotice(t("notice.provider_added", { name: payload.name }), "ok");
-						scheduleBackgroundRefresh({
-							quiet: true,
-							staticData: true
-						});
-					} catch (err) {
-						setNotice(t("notice.add_provider_failed", { error: err.message }));
-					}
+						return result;
+					}, {
+						resourceKey: `provider:${payload.name}`,
+						apply: (config) => appendPendingProvider(config, payload),
+						drawer: false
+					});
 				});
 			}
 			const cancel = document.getElementById("addProviderModalCancel");
@@ -3475,45 +5116,48 @@
 				return false;
 			}
 			_staticRefreshInFlight = true;
+			const refreshSnapshot = configRefreshCoordinator.snapshot();
+			const protectedAtStart = hasProtectedConfigInteraction();
 			try {
 				const entries = [
-					["status", apiGet("/-/admin/status")],
-					["models", apiGet("/-/admin/models/capabilities", { cache: true })],
-					["routing", apiGet("/-/admin/routing", { cache: true })],
-					["config", apiGet("/-/admin/config", { cache: true })],
-					["overlay", apiGet("/-/admin/config/overlay", { cache: true })],
-					["audit", apiGet("/-/admin/audit?limit=12", { cache: true })]
+					["status", () => apiGet("/-/admin/status")],
+					["models", () => apiGet("/-/admin/models/capabilities", { cache: true })],
+					["routing", () => apiGet("/-/admin/routing", { cache: true })],
+					["config", () => apiGet("/-/admin/config", { cache: true })],
+					["overlay", () => apiGet("/-/admin/config/overlay", { cache: true })],
+					["audit", () => apiGet("/-/admin/audit?limit=12", { cache: true })]
 				];
-				const selectedEntries = domains ? entries.filter(([name]) => domains.includes(name)) : entries;
-				const settled = await Promise.allSettled(selectedEntries.map(([, promise]) => promise));
+				const selectedEntries = (domains ? entries.filter(([name]) => domains.includes(name)) : entries).filter(([name]) => !(protectedAtStart && STATIC_CONFIG_DOMAINS.has(name)));
+				if (!selectedEntries.length) {
+					setConnection(true, `Updated ${(/* @__PURE__ */ new Date()).toLocaleTimeString()}`);
+					return false;
+				}
+				const settled = await Promise.allSettled(selectedEntries.map(([, load]) => load()));
 				const result = {};
 				settled.forEach((entry, index) => {
 					if (entry.status === "fulfilled") result[selectedEntries[index][0]] = entry.value;
 				});
-				if (result.status !== void 0) state.data.status = result.status;
-				if (result.models !== void 0) {
-					state.data.status = {
-						...state.data.status || {},
-						models: result.models
-					};
-					state.data.modelsVersion = Number(state.data.modelsVersion || 0) + 1;
-				}
-				if (result.routing !== void 0) state.data.routing = result.routing;
-				if (result.config !== void 0) state.data.config = result.config;
-				if (result.overlay !== void 0) state.data.overlay = result.overlay;
+				const allowConfigApply = !configRefreshCoordinator.shouldDefer(refreshSnapshot, hasProtectedConfigInteraction());
+				if (result.status !== void 0) applyStatusPayload(result.status);
+				if (result.models !== void 0) acceptModelCapabilities(result.models);
+				if (allowConfigApply && result.routing !== void 0) state.data.routing = result.routing;
+				if (allowConfigApply && result.config !== void 0) acceptConfirmedConfig(result.config);
+				if (allowConfigApply && result.overlay !== void 0) state.data.overlay = result.overlay;
 				if (result.audit !== void 0) state.data.audit = result.audit;
 				state.data.version = Number(state.data.version || 0) + 1;
-				state.forceConfigRender = true;
-				state.forcePolicyRender = true;
-				state.forceFailurePoliciesRender = true;
-				state.forceModelRoutesRender = true;
-				state.forceProvidersRender = true;
-				state.forceModelCapsRender = true;
-				if ([
+				if (allowConfigApply) {
+					state.forceConfigRender = true;
+					state.forcePolicyRender = true;
+					state.forceFailurePoliciesRender = true;
+					state.forceModelRoutesRender = true;
+					state.forceProvidersRender = true;
+					state.forceModelCapsRender = true;
+				}
+				if (allowConfigApply && !hasProtectedConfigInteraction() && ([
 					"providers",
 					"policy",
 					"config"
-				].includes(state.view) || state.providerDrawerName) {
+				].includes(state.view) || state.providerDrawerName)) {
 					renderAll();
 					if (state.providerDrawerName) renderProviderDrawer({ force: true });
 				}
@@ -3706,14 +5350,11 @@
 					}
 					if (result.healthScores !== void 0) state.data.healthScores = result.healthScores;
 					if (result.timeseries !== void 0) state.data.timeseries = result.timeseries;
-					if (result.status !== void 0) state.data.status = result.status;
-					if (result.models !== void 0) state.data.status = {
-						...state.data.status || {},
-						models: result.models
-					};
+					if (result.status !== void 0) applyStatusPayload(result.status);
+					if (result.models !== void 0) acceptModelCapabilities(result.models);
 					if (result.requests !== void 0) state.data.requests = result.requests;
 					if (result.routing !== void 0) state.data.routing = result.routing;
-					if (result.config !== void 0) state.data.config = result.config;
+					if (result.config !== void 0) acceptConfirmedConfig(result.config);
 					if (result.overlay !== void 0) state.data.overlay = result.overlay;
 					if (result.audit !== void 0) state.data.audit = result.audit;
 					const statusVersion = result.status?.models_version;
@@ -3722,12 +5363,7 @@
 						const isFirstSync = _lastModelsVersion === null;
 						_lastModelsVersion = metricsVersion;
 						if (!isFirstSync && !result.models) try {
-							const caps = await apiGet("/-/admin/models/capabilities");
-							state.data.status = {
-								...state.data.status || {},
-								models: caps
-							};
-							state.data.version = Number(state.data.version || 0) + 1;
+							if (acceptModelCapabilities(await apiGet("/-/admin/models/capabilities"))) state.data.version = Number(state.data.version || 0) + 1;
 						} catch (_e) {}
 					}
 					state.data.version = Number(state.data.version || 0) + 1;
@@ -3783,12 +5419,7 @@
 		async function refreshCapabilitiesOnly() {
 			if (!state.adminKey || document.hidden) return false;
 			try {
-				const caps = await apiGet("/-/admin/models/capabilities");
-				state.data.status = {
-					...state.data.status || {},
-					models: caps
-				};
-				state.data.modelsVersion = Number(state.data.modelsVersion || 0) + 1;
+				acceptModelCapabilities(await apiGet("/-/admin/models/capabilities"));
 				if (state.view === "providers") {
 					state.forceModelCapsRender = true;
 					renderModelCapabilities();
@@ -3901,6 +5532,7 @@
 			bindViewTargetButtons();
 			bindConfigTabs();
 			bindProxyTestButtons();
+			mutationBusyTracker.refresh();
 			window.__perfMark && window.__perfMark("renderAll.total", performance.now() - __t0);
 		}
 		function bindViewTargetButtons() {
@@ -3945,28 +5577,30 @@
 					const proxy = String(input?.value || "").trim();
 					if (!proxy) {
 						button.classList.remove("is-ok", "is-bad", "is-testing");
-						setNotice("Proxy is empty; this field will use direct or inherited routing.", "info");
+						setNotice(t("notice.proxy_empty"), "info");
 						return;
 					}
-					button.disabled = true;
-					button.classList.remove("is-ok", "is-bad");
-					button.classList.add("is-testing");
-					updateDOM(button, refreshSpinner());
-					try {
-						const result = (await apiPost("/-/admin/proxy/test", { proxy })).result || {};
-						button.classList.toggle("is-ok", Boolean(result.ok));
-						button.classList.toggle("is-bad", !result.ok);
-						updateDOM(button, iconSvg(result.ok ? "check" : "alert"));
-						if (result.ok) setNotice(`Proxy connected in ${fmtCompactMs(result.elapsed_ms || 0)}.`, "ok");
-						else setNotice(`Proxy test failed: ${result.error || `HTTP ${result.status || "-"}`}`);
-					} catch (err) {
-						button.classList.add("is-bad");
-						updateDOM(button, iconSvg("alert"));
-						setNotice(`Proxy test failed: ${err.message}`);
-					} finally {
-						button.classList.remove("is-testing");
-						button.disabled = false;
-					}
+					await runExclusiveUiAction(`proxy-test:${proxy}`, async () => {
+						button.disabled = true;
+						button.classList.remove("is-ok", "is-bad");
+						button.classList.add("is-testing");
+						updateDOM(button, refreshSpinner());
+						try {
+							const result = (await apiPost("/-/admin/proxy/test", { proxy })).result || {};
+							button.classList.toggle("is-ok", Boolean(result.ok));
+							button.classList.toggle("is-bad", !result.ok);
+							updateDOM(button, iconSvg(result.ok ? "check" : "alert"));
+							if (result.ok) setNotice(t("notice.proxy_connected", { latency: fmtCompactMs(result.elapsed_ms || 0) }), "ok");
+							else setNotice(t("notice.proxy_failed", { detail: result.error || `HTTP ${result.status || "-"}` }));
+						} catch (err) {
+							button.classList.add("is-bad");
+							updateDOM(button, iconSvg("alert"));
+							setNotice(t("notice.proxy_failed", { detail: err.message }));
+						} finally {
+							button.classList.remove("is-testing");
+							button.disabled = false;
+						}
+					}, { duplicateNotice: t("notice.action_already_running") });
 				});
 			});
 		}
@@ -4146,7 +5780,12 @@
 			}
 			if (!chartBuckets.length) {
 				if (chartWindow) chartWindow.textContent = `${currentTimeRange().label} / no samples`;
-				target.innerHTML = `<div class="empty">No time-series data</div>`;
+				target.innerHTML = `
+        <div class="traffic-chart-shell traffic-workspace-empty">
+          <strong>No traffic in this window</strong>
+          <span>Choose a wider time range or wait for the next completed request.</span>
+        </div>
+      `;
 				return;
 			}
 			const totals = chartBuckets.reduce((memo, bucket) => {
@@ -4177,26 +5816,13 @@
 			const fallbackUsage = currentUsageTotal(state.data.metrics?.counters || {});
 			const displayUsage = windowUsage.total_tokens > 0 ? windowUsage : fallbackUsage;
 			const successRate = totals.requests ? Math.min(1, totals.success / totals.requests) : 1;
+			const latencySamples = chartBuckets.filter((bucket) => Number(bucket.requests || 0) > 0 && Number(bucket.first_byte_ms_avg || 0) > 0);
+			const latencyRequests = latencySamples.reduce((sum, bucket) => sum + Number(bucket.requests || 0), 0);
+			const avgLatency = latencyRequests ? latencySamples.reduce((sum, bucket) => sum + Number(bucket.first_byte_ms_avg || 0) * Number(bucket.requests || 0), 0) / latencyRequests : 0;
 			const firstTs = Number(chartBuckets[0]?.start || chartBuckets[0]?.ts || 0);
 			const lastTs = Number(chartBuckets[chartBuckets.length - 1]?.end || chartBuckets[chartBuckets.length - 1]?.ts || firstTs);
 			if (chartWindow) chartWindow.textContent = useRecentSamples ? `${currentTimeRange().label} / recent requests` : `${currentTimeRange().label} / ${sourceLabel}`;
-			target.innerHTML = `
-      <div class="usage-trend-overview">
-        <div class="usage-trend-total">
-          <span class="usage-trend-total-icon">${iconSvg("activity")}</span>
-          <span class="usage-trend-total-label">Consumed tokens</span>
-          <strong>${escapeHtml(fmtTokenCount(displayUsage.total_tokens))}</strong>
-          <small>${escapeHtml(fmtInt(displayUsage.total_tokens))} ${t("ov.total_in_window")}</small>
-        </div>
-        <div class="usage-trend-kpis">
-          ${usageTrendKpi(t("kpi.input"), fmtTokenCount(displayUsage.input_tokens), "usage-input")}
-          ${usageTrendKpi(t("kpi.output"), fmtTokenCount(displayUsage.output_tokens), "usage-output")}
-          ${usageTrendKpi(t("metric.requests"), fmtInt(totals.requests), "usage-request")}
-          ${usageTrendKpi(t("kpi.failures"), fmtInt(totals.failed), "usage-failure")}
-          ${usageTrendKpi(t("kpi.success"), fmtPct(successRate), "usage-success")}
-        </div>
-      </div>
-      ${renderTrafficComboChart({
+			target.innerHTML = renderTrafficComboChart({
 				buckets: chartBuckets,
 				firstTs,
 				lastTs,
@@ -4207,34 +5833,83 @@
 					right: 72,
 					bottom: 48,
 					left: 72
+				},
+				sourceLabel: useRecentSamples ? "recent requests" : sourceLabel,
+				windowLabel: currentTimeRange().label,
+				summary: {
+					requests: totals.requests,
+					success: totals.success,
+					failed: totals.failed,
+					successRate,
+					avgLatency,
+					input: displayUsage.input_tokens,
+					output: displayUsage.output_tokens,
+					totalTokens: displayUsage.total_tokens,
+					costUsd: displayUsage.cost_usd
 				}
-			})}
-    `;
-			target.querySelectorAll("[data-traffic-mode]").forEach((btn) => {
-				if (btn.dataset.bounddatatrafficmode) return;
-				btn.dataset.bounddatatrafficmode = "1";
-				btn.addEventListener("click", () => {
-					const mode = btn.dataset.trafficMode;
-					if (state.trafficChartMode === mode) return;
+			});
+			bindTrafficModeControls(target, {
+				getMode: () => state.trafficChartMode,
+				setMode: (mode) => {
 					state.trafficChartMode = mode;
 					renderTrafficChart();
+				}
+			});
+			bindTrafficChartInspection(target);
+		}
+		function bindTrafficChartInspection(target) {
+			const shell = target?.querySelector(".traffic-chart-shell");
+			const tooltip = shell?.querySelector("[data-traffic-tooltip]");
+			const guide = shell?.querySelector("[data-traffic-guide]");
+			if (!shell || !tooltip || !guide) return;
+			const time = tooltip.querySelector("[data-traffic-tooltip-time]");
+			const rows = Array.from(tooltip.querySelectorAll("[data-traffic-tooltip-row]"));
+			const hide = () => {
+				tooltip.hidden = true;
+				guide.classList.remove("is-visible");
+			};
+			const show = (bucket) => {
+				if (!bucket) return;
+				const x = Number(bucket.dataset.trafficBucketX || 0);
+				shell.style.setProperty("--traffic-inspect-x", `${Math.max(0, Math.min(100, x))}%`);
+				guide.setAttribute("x1", bucket.dataset.trafficBucketSvgX || "0");
+				guide.setAttribute("x2", bucket.dataset.trafficBucketSvgX || "0");
+				guide.classList.add("is-visible");
+				if (time) time.textContent = bucket.dataset.trafficBucketTime || "-";
+				const values = shell.dataset.trafficMode === "tokens" ? [
+					["Total tokens", bucket.dataset.trafficBucketTokens || "0"],
+					["Input", bucket.dataset.trafficBucketInput || "0"],
+					["Output", bucket.dataset.trafficBucketOutput || "0"],
+					["Est. cost", bucket.dataset.trafficBucketCost || "$0"]
+				] : [
+					["Requests", bucket.dataset.trafficBucketRequests || "0"],
+					["Successful", bucket.dataset.trafficBucketSuccess || "0"],
+					["Failed", bucket.dataset.trafficBucketFailed || "0"],
+					["Avg latency", bucket.dataset.trafficBucketLatency || "-"]
+				];
+				rows.forEach((row, index) => {
+					const [label, value] = values[index] || ["", ""];
+					const labelNode = row.querySelector("span");
+					const valueNode = row.querySelector("strong");
+					if (labelNode) labelNode.textContent = label;
+					if (valueNode) valueNode.textContent = value;
+				});
+				tooltip.hidden = false;
+			};
+			shell.querySelectorAll("[data-traffic-bucket]").forEach((bucket) => {
+				bucket.addEventListener("pointerenter", () => show(bucket));
+				bucket.addEventListener("focus", () => show(bucket));
+				bucket.addEventListener("keydown", (event) => {
+					if (event.key === "Escape") {
+						hide();
+						bucket.blur();
+					}
 				});
 			});
-		}
-		function usageTrendKpi(label, value, tone) {
-			return `
-      <div class="usage-trend-kpi ${escapeHtml(tone)}">
-        <span class="usage-trend-icon">${iconSvg({
-				"usage-input": "arrow-left",
-				"usage-output": "arrow-right",
-				"usage-request": "activity",
-				"usage-failure": "alert",
-				"usage-success": "check"
-			}[tone] || "activity")}</span>
-        <span>${escapeHtml(label)}</span>
-        <strong>${escapeHtml(value)}</strong>
-      </div>
-    `;
+			shell.addEventListener("pointerleave", hide);
+			shell.addEventListener("focusout", (event) => {
+				if (!shell.contains(event.relatedTarget)) hide();
+			});
 		}
 		function niceChartMax(value) {
 			const raw = Math.max(1, Number(value || 1));
@@ -4277,6 +5952,61 @@
 			const plotW = width - pad.left - pad.right;
 			const plotH = height - pad.top - pad.bottom;
 			const buckets = Array.isArray(options.buckets) ? options.buckets : [];
+			const summary = options.summary || {};
+			const requestMode = state.trafficChartMode === "requests";
+			const workspaceTitle = requestMode ? t("traffic.request_volume") : t("traffic.token_usage");
+			const workspaceSubtitle = `${options.windowLabel || currentTimeRange().label} / ${options.sourceLabel || "history"}`;
+			const workspaceMetrics = requestMode ? [
+				{
+					label: t("traffic.requests"),
+					value: fmtInt(summary.requests),
+					hint: t("traffic.total"),
+					tone: ""
+				},
+				{
+					label: t("traffic.success"),
+					value: fmtInt(summary.success),
+					hint: fmtPct(summary.successRate),
+					tone: "is-success"
+				},
+				{
+					label: t("traffic.failed"),
+					value: fmtInt(summary.failed),
+					hint: fmtPct(1 - Number(summary.successRate || 0)),
+					tone: "is-failure"
+				},
+				{
+					label: t("traffic.avg_latency"),
+					value: fmtMs(summary.avgLatency),
+					hint: t("traffic.first_byte"),
+					tone: ""
+				}
+			] : [
+				{
+					label: t("traffic.total_tokens"),
+					value: fmtTokenCount(summary.totalTokens),
+					hint: fmtInt(summary.totalTokens),
+					tone: ""
+				},
+				{
+					label: t("traffic.input"),
+					value: fmtTokenCount(summary.input),
+					hint: t("traffic.tokens"),
+					tone: ""
+				},
+				{
+					label: t("traffic.output"),
+					value: fmtTokenCount(summary.output),
+					hint: t("traffic.tokens"),
+					tone: "is-success"
+				},
+				{
+					label: t("traffic.estimated_cost"),
+					value: fmtCost(summary.costUsd),
+					hint: t("traffic.window"),
+					tone: ""
+				}
+			];
 			const xFor = (bucket, index, total) => {
 				const ts = Number(bucket.ts || 0);
 				if (lastTs > firstTs && ts) return pad.left + (ts - firstTs) / (lastTs - firstTs) * plotW;
@@ -4286,6 +6016,33 @@
 				...bucket,
 				x: xFor(bucket, index, buckets.length)
 			}));
+			const inspectableBuckets = enriched.filter((bucket) => requestMode ? Number(bucket.requests || 0) > 0 || Number(bucket.first_byte_ms_avg || 0) > 0 : Number(bucket.total_tokens || 0) > 0 || Number(bucket.input || 0) > 0 || Number(bucket.output || 0) > 0 || Number(bucket.cost_usd || 0) > 0);
+			const inspectionSlot = buckets.length ? plotW / buckets.length : plotW;
+			const inspectionWidth = Math.max(3, inspectionSlot);
+			const inspectionTargets = inspectableBuckets.map((bucket) => {
+				const time = fmtDate(bucket.start || bucket.ts);
+				const requestLabel = `${time}, ${fmtInt(bucket.requests)} requests, ${fmtInt(bucket.success)} successful, ${fmtInt(bucket.failed)} failed, ${fmtMs(bucket.first_byte_ms_avg)} average latency`;
+				const tokenLabel = `${time}, ${fmtInt(bucket.total_tokens)} total tokens, ${fmtInt(bucket.input)} input, ${fmtInt(bucket.output)} output, ${fmtCost(bucket.cost_usd)} estimated cost`;
+				return `
+        <rect class="traffic-inspection-target"
+          x="${svgNum(bucket.x - inspectionWidth / 2)}" y="${svgNum(pad.top)}"
+          width="${svgNum(inspectionWidth)}" height="${svgNum(plotH)}"
+          fill="transparent" tabindex="0" role="button"
+          aria-label="${escapeHtml(requestMode ? requestLabel : tokenLabel)}"
+          data-traffic-bucket
+          data-traffic-bucket-x="${svgNum(bucket.x / width * 100)}"
+          data-traffic-bucket-svg-x="${svgNum(bucket.x)}"
+          data-traffic-bucket-time="${escapeHtml(time)}"
+          data-traffic-bucket-requests="${escapeHtml(fmtInt(bucket.requests))}"
+          data-traffic-bucket-success="${escapeHtml(fmtInt(bucket.success))}"
+          data-traffic-bucket-failed="${escapeHtml(fmtInt(bucket.failed))}"
+          data-traffic-bucket-latency="${escapeHtml(bucket.first_byte_ms_avg ? fmtMs(bucket.first_byte_ms_avg) : "-")}"
+          data-traffic-bucket-tokens="${escapeHtml(fmtInt(bucket.total_tokens))}"
+          data-traffic-bucket-input="${escapeHtml(fmtInt(bucket.input))}"
+          data-traffic-bucket-output="${escapeHtml(fmtInt(bucket.output))}"
+          data-traffic-bucket-cost="${escapeHtml(fmtCost(bucket.cost_usd))}"></rect>
+      `;
+			}).join("");
 			const safeMax = (values, fallback = 1) => Math.max(fallback, ...values.map((value) => Number(value || 0)));
 			const barBaseline = height - pad.bottom;
 			let svgContent = "";
@@ -4312,25 +6069,30 @@
 				const rightLabels = latencyLabels.map((label) => `
         <text class="traffic-axis-label traffic-axis-label-info" x="${width - pad.right + 14}" y="${yLatency(label) + 4}">${escapeHtml(fmtMs(label))}</text>
       `).join("");
-				const count = enriched.length;
-				const slot = count > 0 ? plotW / count : plotW;
-				const barW = Math.max(2, Math.min(26, slot * .5));
-				const bars = enriched.map((bucket) => {
-					const requests = Number(bucket.requests || 0);
-					const failed = Math.min(requests, Number(bucket.failed || 0));
-					const success = Math.max(0, requests - failed);
-					const x = bucket.x - barW / 2;
-					if (requests === 0) return "";
-					const successTop = yBar(success);
-					const totalTop = yBar(requests);
-					const successHeight = barBaseline - successTop;
-					const failedHeight = successTop - totalTop;
-					return (success > 0 ? `<rect class="traffic-bar-success" x="${svgNum(x)}" y="${svgNum(successTop)}" width="${svgNum(barW)}" height="${svgNum(successHeight)}" rx="1.5">
-              <title>${escapeHtml(`${fmtDate(bucket.start || bucket.ts)} Success: ${fmtInt(success)}`)}</title>
-             </rect>` : "") + (failed > 0 ? `<rect class="traffic-bar-fail" x="${svgNum(x)}" y="${svgNum(totalTop)}" width="${svgNum(barW)}" height="${svgNum(failedHeight)}" rx="1.5">
-              <title>${escapeHtml(`${fmtDate(bucket.start || bucket.ts)} Failures: ${fmtInt(failed)}`)}</title>
-             </rect>` : "");
-				}).join("");
+				const successPoints = enriched.map((bucket) => ({
+					x: bucket.x,
+					y: yBar(Math.max(0, Number(bucket.requests || 0) - Number(bucket.failed || 0))),
+					value: Math.max(0, Number(bucket.requests || 0) - Number(bucket.failed || 0)),
+					start: bucket.start,
+					ts: bucket.ts
+				}));
+				const failurePoints = enriched.map((bucket) => ({
+					x: bucket.x,
+					y: yBar(Math.min(Number(bucket.requests || 0), Number(bucket.failed || 0))),
+					value: Math.min(Number(bucket.requests || 0), Number(bucket.failed || 0)),
+					start: bucket.start,
+					ts: bucket.ts
+				}));
+				const successPath = smoothSvgPath(successPoints, pad.top, barBaseline);
+				const failurePath = smoothSvgPath(failurePoints, pad.top, barBaseline);
+				const successAreaPath = successPath && successPoints.length > 1 ? `${successPath} L ${svgNum(successPoints[successPoints.length - 1].x)} ${svgNum(barBaseline)} L ${svgNum(successPoints[0].x)} ${svgNum(barBaseline)} Z` : "";
+				const requestTrends = `
+        ${successAreaPath ? `<path class="traffic-success-area" d="${successAreaPath}"></path>` : ""}
+        ${successPath ? `<path class="traffic-success-line" d="${successPath}"></path>` : ""}
+        ${failurePath ? `<path class="traffic-failure-line" d="${failurePath}"></path>` : ""}
+        ${successPoints.length <= 64 ? successPoints.filter((point) => point.value > 0).map((point) => `<circle class="traffic-trend-dot traffic-success-dot" cx="${svgNum(point.x)}" cy="${svgNum(point.y)}" r="2.6"></circle>`).join("") : ""}
+        ${failurePoints.length <= 64 ? failurePoints.filter((point) => point.value > 0).map((point) => `<circle class="traffic-trend-dot traffic-failure-dot" cx="${svgNum(point.x)}" cy="${svgNum(point.y)}" r="2.6"></circle>`).join("") : ""}
+      `;
 				const latencyPoints = enriched.filter((bucket) => bucket.requests > 0 && bucket.first_byte_ms_avg > 0).map((bucket) => ({
 					x: bucket.x,
 					y: yLatency(bucket.first_byte_ms_avg),
@@ -4343,7 +6105,7 @@
 				svgContent = `
         ${gridAndLabels}
         ${rightLabels}
-        ${bars}
+        ${requestTrends}
         ${latencyAreaPath ? `<path class="traffic-latency-region" d="${latencyAreaPath}"></path>` : ""}
         ${latencyPath ? `<path class="traffic-latency-line" d="${latencyPath}"></path>` : ""}
         ${latencyPoints.length <= 64 ? latencyPoints.map((point) => `
@@ -4356,16 +6118,16 @@
       `;
 				legendItems = [
 					{
-						dotClass: "traffic-bar-success-legend",
-						label: "Success requests"
+						dotClass: "traffic-success-legend",
+						label: t("traffic.success_requests")
 					},
 					{
-						dotClass: "traffic-bar-fail-legend",
-						label: "Failures"
+						dotClass: "traffic-failure-legend",
+						label: t("traffic.failures")
 					},
 					{
 						dotClass: "traffic-latency-legend",
-						label: "Avg Latency"
+						label: t("traffic.avg_latency")
 					}
 				];
 			} else {
@@ -4453,19 +6215,19 @@
 				legendItems = [
 					{
 						dotClass: "traffic-total-dot",
-						label: "Total tokens"
+						label: t("traffic.total_tokens")
 					},
 					{
 						dotClass: "traffic-input-dot",
-						label: "Input"
+						label: t("traffic.input")
 					},
 					{
 						dotClass: "traffic-output-dot",
-						label: "Output"
+						label: t("traffic.output")
 					},
 					{
 						dotClass: "traffic-cost-legend",
-						label: "Est. Cost"
+						label: t("traffic.estimated_cost")
 					}
 				];
 			}
@@ -4491,20 +6253,37 @@
 			const xTicksHtml = xTicks.map((point) => `
       <text class="traffic-axis-label" x="${svgNum(point.x)}" y="${height - 18}" text-anchor="middle">${escapeHtml(shortDate(point.start || point.ts))}</text>
     `).join("");
-			return `
-      <div class="traffic-chart-shell">
-        <div class="traffic-chart-header">
-          <div class="traffic-trend-legend">${legendItems.map((item) => `
+			const legend = legendItems.map((item) => `
       <span class="traffic-trend-legend-item ${item.dotClass}">
         <i></i>${escapeHtml(item.label)}
       </span>
-    `).join("")}</div>
-          <div class="traffic-mode-selectors">
-            <button type="button" class="button pill-toggle ${state.trafficChartMode === "requests" ? "is-active" : ""}" data-traffic-mode="requests">Requests & Latency</button>
-            <button type="button" class="button pill-toggle ${state.trafficChartMode === "tokens" ? "is-active" : ""}" data-traffic-mode="tokens">Usage</button>
+    `).join("");
+			return `
+      <div class="traffic-chart-shell" data-traffic-current-mode="${escapeHtml(state.trafficChartMode)}">
+        <div class="traffic-workspace-header">
+          <div class="traffic-workspace-title">
+            <strong>${escapeHtml(workspaceTitle)}</strong>
+            <small>${escapeHtml(workspaceSubtitle)}</small>
+          </div>
+          <div class="traffic-workspace-metrics">
+            ${workspaceMetrics.map((metric) => `
+              <div class="traffic-workspace-metric ${metric.tone}">
+                <span>${escapeHtml(metric.label)}</span>
+                <strong>${escapeHtml(metric.value)}</strong>
+                <small>${escapeHtml(metric.hint)}</small>
+              </div>
+            `).join("")}
+          </div>
+          <div class="traffic-mode-selectors" role="group" aria-label="${escapeHtml(t("traffic.mode"))}">
+            <button type="button" class="button pill-toggle ${state.trafficChartMode === "requests" ? "is-active" : ""}" data-traffic-mode="requests" aria-pressed="${state.trafficChartMode === "requests" ? "true" : "false"}">${escapeHtml(t("traffic.requests"))}</button>
+            <button type="button" class="button pill-toggle ${state.trafficChartMode === "tokens" ? "is-active" : ""}" data-traffic-mode="tokens" aria-pressed="${state.trafficChartMode === "tokens" ? "true" : "false"}">${escapeHtml(t("traffic.tokens"))}</button>
           </div>
         </div>
-        <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Gateway traffic visualization chart">
+        <div class="traffic-chart-header">
+          <div class="traffic-trend-legend">${legend}</div>
+          <span class="traffic-chart-unit">${escapeHtml(t(state.trafficChartMode === "requests" ? "traffic.requests_per_minute" : "traffic.tokens_per_minute"))}</span>
+        </div>
+        <svg viewBox="0 0 ${width} ${height}" role="group" aria-label="${escapeHtml(t("traffic.chart_aria"))}">
           <defs>
             <linearGradient id="trafficTokenArea" x1="0" x2="0" y1="0" y2="1">
               <stop offset="0%" stop-color="#a855f7" stop-opacity="0.22"></stop>
@@ -4515,12 +6294,24 @@
               <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.16"></stop>
               <stop offset="100%" stop-color="#f59e0b" stop-opacity="0"></stop>
             </linearGradient>
+            <linearGradient id="trafficRequestArea" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stop-color="#239d79" stop-opacity="0.18"></stop>
+              <stop offset="100%" stop-color="#239d79" stop-opacity="0"></stop>
+            </linearGradient>
           </defs>
-          <rect class="traffic-plot-bg" x="${pad.left}" y="${pad.top}" width="${plotW}" height="${plotH}" rx="0"></rect>
-          ${svgContent}
-          <line class="axis traffic-baseline" x1="${pad.left}" y1="${barBaseline}" x2="${width - pad.right}" y2="${barBaseline}"></line>
-          ${xTicksHtml}
+          <g aria-hidden="true">
+            <rect class="traffic-plot-bg" x="${pad.left}" y="${pad.top}" width="${plotW}" height="${plotH}" rx="0"></rect>
+            ${svgContent}
+            <line class="traffic-inspection-guide" data-traffic-guide x1="0" y1="${pad.top}" x2="0" y2="${barBaseline}"></line>
+            <line class="axis traffic-baseline" x1="${pad.left}" y1="${barBaseline}" x2="${width - pad.right}" y2="${barBaseline}"></line>
+            ${xTicksHtml}
+          </g>
+          ${inspectionTargets}
         </svg>
+        <div class="traffic-inspection-tooltip" data-traffic-tooltip aria-live="polite" hidden>
+          <strong data-traffic-tooltip-time>-</strong>
+          ${Array.from({ length: 4 }, () => `<div data-traffic-tooltip-row><span></span><strong></strong></div>`).join("")}
+        </div>
       </div>
     `;
 		}
@@ -5222,7 +7013,7 @@
 			bindProviderCards(target);
 		}
 		function providerNames(runtimeProviders, configProviders) {
-			return Array.from(new Set([...Object.keys(runtimeProviders || {}), ...Object.keys(configProviders || {})])).sort();
+			return Array.from(new Set([...Object.keys(runtimeProviders || {}), ...Object.keys(configProviders || {})])).filter((name) => !configProviders?.[name]?.pending_delete).sort();
 		}
 		function providerViewModel(name) {
 			const __t0 = performance.now();
@@ -5241,6 +7032,7 @@
 			const routeModels = providerRouteModels(name);
 			const __t3 = performance.now();
 			const activity = providerActivity(name);
+			const compatibilityCircuits = (state.data.status?.router?.compatibility_circuits?.entries || []).filter((entry) => entry.provider === name);
 			const runtimeState = providerRuntimeState(runtime, keyStats, config);
 			const __t4 = performance.now();
 			window.__perfMark && window.__perfMark("viewModel.modelItems[" + name + "]", __t2 - __t1);
@@ -5250,7 +7042,7 @@
 				name,
 				runtime,
 				config,
-				priority: Number(config.priority || 0),
+				priority: Number(runtime.priority ?? config.priority ?? 0),
 				capability,
 				formats,
 				keys,
@@ -5260,6 +7052,7 @@
 				modelItems,
 				routeModels,
 				activity,
+				compatibilityCircuits,
 				runtimeState
 			};
 		}
@@ -5277,7 +7070,7 @@
 				name,
 				runtime,
 				config,
-				priority: Number(config.priority || 0),
+				priority: Number(runtime.priority ?? config.priority ?? 0),
 				capability,
 				formats,
 				keyStats,
@@ -5309,23 +7102,29 @@
 		function mergedProviderKeys(runtimeKeys, configKeys) {
 			if (!runtimeKeys.length) return configKeys;
 			const configByIndex = new Map((configKeys || []).map((key) => [Number(key.index), key]));
-			return runtimeKeys.map((key) => {
+			const runtimeIndexes = new Set(runtimeKeys.map((key) => Number(key.index)));
+			const merged = runtimeKeys.map((key) => {
 				const cfg = configByIndex.get(Number(key.index)) || {};
+				if (cfg.pending_delete) return null;
 				return {
 					...cfg,
 					...key,
 					masked: key.masked || cfg.masked || "",
 					proxy: key.proxy || cfg.proxy || ""
 				};
-			});
+			}).filter(Boolean);
+			for (const key of configKeys || []) if (!key?.pending_delete && !runtimeIndexes.has(Number(key.index))) merged.push(key);
+			return merged;
 		}
 		function providerKeyStats(runtimeKeys, configKeys) {
+			const configByIndex = new Map((configKeys || []).map((key, index) => [Number(key?.index ?? index), key]));
+			const visibleRuntime = runtimeKeys.filter((key, index) => !configByIndex.get(Number(key?.index ?? index))?.pending_delete);
 			return {
-				total: runtimeKeys.length || configKeys.length || 0,
-				usable: runtimeKeys.filter((key) => key.available && key.runtime_enabled).length,
-				runtimeEnabled: runtimeKeys.filter((key) => key.runtime_enabled).length,
-				cooldown: runtimeKeys.filter((key) => Number(key.cooldown_remaining_s || key.disabled_remaining_s || 0) > 0).length,
-				fails: runtimeKeys.reduce((sum, key) => sum + Number(key.fails || 0), 0)
+				total: mergedProviderKeys(runtimeKeys, configKeys).length,
+				usable: visibleRuntime.filter((key) => key.available && key.runtime_enabled).length,
+				runtimeEnabled: visibleRuntime.filter((key) => key.runtime_enabled).length,
+				cooldown: visibleRuntime.filter((key) => Number(key.cooldown_remaining_s || key.disabled_remaining_s || 0) > 0).length,
+				fails: visibleRuntime.reduce((sum, key) => sum + Number(key.fails || 0), 0)
 			};
 		}
 		function providerModelItems(name, capability) {
@@ -5624,7 +7423,7 @@
     `;
 		}
 		function providerSparklineStats(activity) {
-			const events = (Array.isArray(activity?.events) ? activity.events : []).slice(-36);
+			const events = recentProviderActivityEvents(activity?.events);
 			const latencies = events.map((event) => Math.max(0, Number(event.latencyMs) || 0));
 			const avg = latencies.length ? Math.round(latencies.reduce((sum, value) => sum + value, 0) / latencies.length) : null;
 			const failed = events.filter((event) => event.ok === false || event.status === "failed").length;
@@ -5735,6 +7534,33 @@
 			resetProviderActivityEventsCache("");
 			clearDirty("#providerDrawer");
 		}
+		function providerDrawerTabMeta(tab) {
+			return {
+				overview: {
+					label: t("prov.tab_overview"),
+					icon: "activity"
+				},
+				keys: {
+					label: t("prov.tab_keys"),
+					icon: "key"
+				},
+				models: {
+					label: t("prov.tab_models"),
+					icon: "boxes"
+				},
+				routing: {
+					label: t("prov.tab_routing"),
+					icon: "radar"
+				},
+				config: {
+					label: t("prov.tab_config"),
+					icon: "settings"
+				}
+			}[tab] || {
+				label: capitalize(tab),
+				icon: "dot"
+			};
+		}
 		function renderProviderDrawer({ force = false } = {}) {
 			const drawer = el("providerDrawer");
 			const body = el("providerDrawerBody");
@@ -5751,19 +7577,30 @@
 			];
 			if (!tabs.includes(state.providerDrawerTab)) state.providerDrawerTab = "overview";
 			el("providerDrawerTitle").textContent = name;
-			el("providerDrawerSubtitle").textContent = `${view.runtimeState.label} / ${view.keyStats.usable}/${view.keyStats.total} usable keys / ${fmtInt(view.modelItems.length)} models`;
+			el("providerDrawerSubtitle").textContent = t("prov.drawer_runtime_summary", {
+				state: view.runtimeState.label,
+				usable: view.keyStats.usable,
+				total: view.keyStats.total,
+				models: fmtInt(view.modelItems.length)
+			});
 			updateDOM(body, `
-      <div class="provider-drawer-tabs" role="tablist" aria-label="Provider detail sections">
-        ${tabs.map((tab) => `
-          <button class="provider-drawer-tab ${state.providerDrawerTab === tab ? "is-active" : ""}" type="button" data-provider-drawer-tab="${escapeHtml(tab)}">
-            ${escapeHtml(capitalize(tab))}
+      <div class="provider-drawer-tabs" role="tablist" aria-label="${escapeHtml(t("prov.drawer_sections"))}">
+        ${tabs.map((tab) => {
+				const meta = providerDrawerTabMeta(tab);
+				const active = state.providerDrawerTab === tab;
+				return `
+          <button class="provider-drawer-tab ${active ? "is-active" : ""}" type="button" role="tab" aria-selected="${active ? "true" : "false"}" title="${escapeHtml(meta.label)}" aria-label="${escapeHtml(meta.label)}" data-provider-drawer-tab="${escapeHtml(tab)}">
+            <span class="provider-drawer-tab-icon">${iconSvg(meta.icon)}</span>
+            <span class="provider-drawer-tab-label">${escapeHtml(meta.label)}</span>
           </button>
-        `).join("")}
+        `;
+			}).join("")}
       </div>
       ${providerDrawerPanel(view)}
     `);
 			bindProviderDrawerEvents(body);
 			if (state.providerDrawerTab === "overview") loadProviderActivityEvents(name);
+			mutationBusyTracker.refresh();
 		}
 		var _tabSwitchRaf = 0;
 		function renderProviderDrawerTabSwitch() {
@@ -5788,17 +7625,23 @@
 			if (!tabs.includes(state.providerDrawerTab)) state.providerDrawerTab = "overview";
 			const view = providerViewModel(name);
 			updateDOM(body, `
-      <div class="provider-drawer-tabs" role="tablist" aria-label="Provider detail sections">
-        ${tabs.map((tab) => `
-          <button class="provider-drawer-tab ${state.providerDrawerTab === tab ? "is-active" : ""}" type="button" data-provider-drawer-tab="${escapeHtml(tab)}">
-            ${escapeHtml(capitalize(tab))}
+      <div class="provider-drawer-tabs" role="tablist" aria-label="${escapeHtml(t("prov.drawer_sections"))}">
+        ${tabs.map((tab) => {
+				const meta = providerDrawerTabMeta(tab);
+				const active = state.providerDrawerTab === tab;
+				return `
+          <button class="provider-drawer-tab ${active ? "is-active" : ""}" type="button" role="tab" aria-selected="${active ? "true" : "false"}" title="${escapeHtml(meta.label)}" aria-label="${escapeHtml(meta.label)}" data-provider-drawer-tab="${escapeHtml(tab)}">
+            <span class="provider-drawer-tab-icon">${iconSvg(meta.icon)}</span>
+            <span class="provider-drawer-tab-label">${escapeHtml(meta.label)}</span>
           </button>
-        `).join("")}
+        `;
+			}).join("")}
       </div>
       ${providerDrawerPanel(view)}
     `);
 			bindProviderDrawerEvents(body);
 			if (state.providerDrawerTab === "overview") loadProviderActivityEvents(name);
+			mutationBusyTracker.refresh();
 		}
 		function bindProviderDrawerEvents(root) {
 			root.querySelectorAll("[data-provider-drawer-tab]").forEach((button) => {
@@ -5846,6 +7689,11 @@
 						setNotice(t("notice.static_models_saved", { provider }), "ok");
 						form.elements.static_models.value = "";
 						return result;
+					}, {
+						resourceKey: `provider:${provider}`,
+						apply: (config) => {
+							if (config.providers?.[provider]) config.providers[provider].static_models = [...models];
+						}
 					});
 				});
 			});
@@ -5854,21 +7702,16 @@
 				button.dataset.bounddataclearstaticmodels = "1";
 				button.addEventListener("click", async () => {
 					const provider = button.dataset.clearStaticModels || "";
-					button.disabled = true;
-					try {
-						applyMutationResult(await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { static_models: [] }), { drawer: true });
-						setNotice(t("notice.static_models_cleared", { provider }), "ok");
-						scheduleBackgroundRefresh({
-							quiet: true,
-							preserveNotice: true,
-							staticData: true
-						});
-						renderProviderDrawer({ force: true });
-					} catch (err) {
-						setNotice(t("notice.failed", { error: err.message }));
-					} finally {
-						button.disabled = false;
-					}
+					await runOptimisticConfigAction(button, () => apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { static_models: [] }), {
+						resourceKey: `provider:${provider}`,
+						apply: (config) => {
+							if (config.providers?.[provider]) config.providers[provider].static_models = [];
+						}
+					}, {
+						locateRoot: () => root.querySelector(`[data-clear-static-models="${CSS.escape(provider)}"]`),
+						onSuccess: () => setNotice(t("notice.static_models_cleared", { provider }), "ok"),
+						onError: (err) => setNotice(t("notice.failed", { error: err.message }))
+					});
 				});
 			});
 			root.querySelectorAll("[data-delete-static-model]").forEach((button) => {
@@ -5879,24 +7722,19 @@
 					const model = button.dataset.deleteStaticModel || "";
 					const existing = state.data.config?.providers?.[provider]?.static_models || [];
 					const models = (Array.isArray(existing) ? existing : []).filter((item) => String(item || "") !== model);
-					button.disabled = true;
-					try {
-						applyMutationResult(await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { static_models: models }), { drawer: true });
-						setNotice(t("notice.static_model_removed", {
+					await runOptimisticConfigAction(button, () => apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { static_models: models }), {
+						resourceKey: `provider:${provider}`,
+						apply: (config) => {
+							if (config.providers?.[provider]) config.providers[provider].static_models = [...models];
+						}
+					}, {
+						locateRoot: () => root.querySelector(`[data-delete-static-provider="${CSS.escape(provider)}"][data-delete-static-model="${CSS.escape(model)}"]`),
+						onSuccess: () => setNotice(t("notice.static_model_removed", {
 							model,
 							provider
-						}), "ok");
-						scheduleBackgroundRefresh({
-							quiet: true,
-							preserveNotice: true,
-							staticData: true
-						});
-						renderProviderDrawer({ force: true });
-					} catch (err) {
-						setNotice(t("notice.failed", { error: err.message }));
-					} finally {
-						button.disabled = false;
-					}
+						}), "ok"),
+						onError: (err) => setNotice(t("notice.failed", { error: err.message }))
+					});
 				});
 			});
 		}
@@ -5907,40 +7745,149 @@
 			if (state.providerDrawerTab === "config") return providerDrawerConfig(view);
 			return providerDrawerOverview(view);
 		}
+		function providerOverviewStateLabel(stateId) {
+			const key = {
+				normal: "prov.overview_state_normal",
+				degraded: "prov.overview_state_degraded",
+				cooldown: "prov.overview_state_cooldown",
+				unavailable: "prov.overview_state_unavailable",
+				disabled: "prov.overview_state_disabled"
+			}[String(stateId || "")];
+			return t(key || "prov.overview_state_unavailable");
+		}
+		function providerOverviewStateDescription(stateId) {
+			const key = {
+				normal: "prov.overview_desc_normal",
+				degraded: "prov.overview_desc_degraded",
+				cooldown: "prov.overview_desc_cooldown",
+				unavailable: "prov.overview_desc_unavailable",
+				disabled: "prov.overview_desc_disabled"
+			}[String(stateId || "")];
+			return t(key || "prov.overview_desc_unavailable");
+		}
+		function providerOverviewStateFact(icon, label, value, tone) {
+			return `
+      <div class="provider-overview-state-fact tone-${escapeHtml(tone || "neutral")}" role="listitem">
+        <span class="provider-overview-state-icon">${iconSvg(icon)}</span>
+        <span><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong></span>
+      </div>
+    `;
+		}
+		function providerOverviewMetric(icon, label, value, hint, tone = "neutral") {
+			return `
+      <article class="provider-overview-kpi tone-${escapeHtml(tone)}">
+        <span class="provider-overview-kpi-icon">${iconSvg(icon)}</span>
+        <div><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong><span>${escapeHtml(hint)}</span></div>
+      </article>
+    `;
+		}
 		function providerDrawerOverview(view) {
 			const recent = (Array.isArray(view.activity.events) ? view.activity.events : []).slice(-10).reverse();
 			const probeEvents = Array.isArray(view.activity.probeEvents) ? view.activity.probeEvents : [];
 			const recentProbes = probeEvents.slice(0, 20);
 			const probeOverflow = Math.max(0, probeEvents.length - 20);
+			const compatibilityCircuits = Array.isArray(view.compatibilityCircuits) ? view.compatibilityCircuits : [];
+			const configOn = view.config.enabled !== false && view.runtime.config_enabled !== false;
+			const runtimeOn = view.runtime.runtime_enabled !== false;
+			const routeEligible = ["normal", "degraded"].includes(view.runtimeState.id);
+			const cooldownRemaining = Number(view.runtime.cooldown_remaining_s || 0);
+			const hasFailedProbe = recentProbes.some((probe) => probeTone(probe) === "bad");
+			const endpoint = String(view.config.base_url || "").trim();
+			const successRate = view.activity.successRate;
+			const successTone = successRate === null ? "neutral" : successRate >= .9 ? "ok" : successRate >= .5 ? "warn" : "bad";
+			const stateTone = view.runtimeState.badge || "neutral";
 			return `
-      <section class="provider-drawer-section">
-        <div class="provider-detail-hero ${view.runtimeState.tone}">
-          <div>
-            <span class="provider-status-dot ${view.runtimeState.badge}"></span>
-            <strong>${escapeHtml(view.runtimeState.label)}</strong>
-            <p>${escapeHtml(view.config.base_url || "No base_url configured")}</p>
+      <section class="provider-drawer-section provider-overview-workspace">
+        <section class="provider-overview-readiness ${view.runtimeState.tone}" aria-label="${escapeHtml(t("prov.overview_readiness"))}">
+          <div class="provider-overview-readiness-head">
+            <span class="provider-overview-readiness-icon tone-${escapeHtml(stateTone)}">${iconSvg(routeEligible ? "check" : view.runtimeState.id === "cooldown" ? "clock" : "alert")}</span>
+            <div>
+              <span>${escapeHtml(t("prov.overview_readiness"))}</span>
+              <h3>${escapeHtml(providerOverviewStateLabel(view.runtimeState.id))}</h3>
+              <p>${escapeHtml(providerOverviewStateDescription(view.runtimeState.id))}</p>
+            </div>
+            <span class="provider-overview-priority">${escapeHtml(t("prov.overview_priority", { priority: fmtInt(view.priority) }))}</span>
           </div>
-          <div class="runtime-state-strip">
-            ${providerStateChips(view)}
+          <div class="provider-overview-endpoint">
+            <span>${iconSvg("server")} ${escapeHtml(t("prov.overview_endpoint"))}</span>
+            <code translate="no" title="${escapeHtml(endpoint || t("prov.overview_endpoint_missing"))}">${escapeHtml(endpoint || t("prov.overview_endpoint_missing"))}</code>
           </div>
+          <div class="provider-overview-state-facts" role="list">
+            ${providerOverviewStateFact("settings", t("prov.overview_config_state"), t(configOn ? "prov.overview_enabled" : "prov.overview_disabled"), configOn ? "ok" : "bad")}
+            ${providerOverviewStateFact("activity", t("prov.overview_runtime_state"), t(runtimeOn ? "prov.overview_enabled" : "prov.overview_disabled"), runtimeOn ? "ok" : "bad")}
+            ${providerOverviewStateFact("radar", t("prov.overview_route_state"), t(routeEligible ? "prov.overview_available" : "prov.overview_unavailable"), routeEligible ? "ok" : view.runtimeState.id === "cooldown" ? "warn" : "bad")}
+          </div>
+          ${cooldownRemaining > 0 ? `
+            <div class="provider-overview-cooldown" role="status">
+              ${iconSvg("clock")}
+              <span>${escapeHtml(t("prov.overview_cooldown_remaining", { time: fmtNextProbe(cooldownRemaining) }))}</span>
+            </div>
+          ` : ""}
+        </section>
+
+        <div class="provider-overview-kpis">
+          ${providerOverviewMetric("key", t("prov.overview_key_coverage"), `${fmtInt(view.keyStats.usable)}/${fmtInt(view.keyStats.total)}`, t("prov.overview_usable_keys", {
+				usable: fmtInt(view.keyStats.usable),
+				total: fmtInt(view.keyStats.total)
+			}), view.keyStats.usable > 0 ? view.keyStats.usable === view.keyStats.total ? "ok" : "warn" : "bad")}
+          ${providerOverviewMetric("boxes", t("prov.overview_models"), fmtInt(view.modelItems.length), t("prov.overview_models_available"), view.modelItems.length ? "info" : "neutral")}
+          ${providerOverviewMetric("activity", t("prov.overview_recent_success"), successRate === null ? "—" : fmtPct(successRate), t("prov.overview_recent_requests", { count: fmtInt(view.activity.total) }), successTone)}
+          ${providerOverviewMetric("clock", t("prov.overview_avg_first_byte"), view.activity.avgLatency ? fmtMs(view.activity.avgLatency) : "—", t("prov.overview_successful_calls"), view.activity.avgLatency ? "info" : "neutral")}
         </div>
-        <div class="provider-detail-metrics">
-          ${miniMetric("Keys", `${fmtInt(view.keyStats.usable)}/${fmtInt(view.keyStats.total)}`, "usable")}
-          ${miniMetric("Priority", fmtInt(view.priority), "higher first")}
-          ${miniMetric("Success", view.activity.successRate === null ? "-" : fmtPct(view.activity.successRate), `${fmtInt(view.activity.total)} recent`)}
-          ${miniMetric("Avg first byte", view.activity.avgLatency ? fmtMs(view.activity.avgLatency) : "-", "successful calls")}
-          ${miniMetric("Last first byte", view.activity.latestLatency ? fmtMs(view.activity.latestLatency) : "-", "latest success")}
-        </div>
-        <h3 class="drawer-section-title">Recent provider activity</h3>
-        <div class="provider-activity-list" data-provider-activity-list="${escapeHtml(view.name)}">
-          ${recent.length ? recent.map(providerActivityRow).join("") : `<div class="empty pad-slim">Loading recent activity…</div>`}
-        </div>
-        <h3 class="drawer-section-title">Background health probes ${probeEvents.length ? `<span class="section-count-badge">${fmtInt(probeEvents.length)}</span>` : ""}</h3>
-        ${renderIdleStateBar()}
-        <div class="provider-probe-list" data-provider-probe-list="${escapeHtml(view.name)}">
-          ${recentProbes.length ? recentProbes.map(providerProbeRow).join("") : `<div class="empty pad-slim">No background health probes yet</div>`}
-          ${probeOverflow ? `<div class="probe-list-more" data-probe-list-more="${escapeHtml(view.name)}">+ ${fmtInt(probeOverflow)} more probes</div>` : ""}
-        </div>
+
+        ${compatibilityCircuits.length ? `
+          <section class="provider-overview-section provider-overview-attention">
+            <div class="provider-overview-section-head">
+              <span class="provider-overview-section-icon">${iconSvg("alert")}</span>
+              <div><h3>${escapeHtml(t("prov.overview_routing_exceptions"))}</h3><p>${escapeHtml(t("prov.overview_routing_exceptions_tip"))}</p></div>
+              <span class="section-count-badge">${fmtInt(compatibilityCircuits.length)}</span>
+            </div>
+            <div class="provider-route-list">
+              ${compatibilityCircuits.map((entry) => `
+                <article class="provider-route-card">
+                  <div>
+                    <strong class="mono" translate="no">${escapeHtml(entry.canonical_model || "-")} → ${escapeHtml(entry.provider_model || "-")}</strong>
+                    <small translate="no">${escapeHtml([
+				entry.key_id && `key ${entry.key_id}`,
+				entry.upstream_format,
+				entry.compatibility_profile
+			].filter(Boolean).join(" · "))}</small>
+                  </div>
+                  <span class="provider-overview-exception-state">
+                    <strong>${escapeHtml(t("prov.overview_failures", { count: fmtInt(entry.fails) }))}</strong>
+                    <small>${escapeHtml(t("prov.overview_cooldown_remaining", { time: fmtNextProbe(Number(entry.cooldown_remaining_s || 0)) || "0s" }))}</small>
+                  </span>
+                </article>
+              `).join("")}
+            </div>
+          </section>
+        ` : ""}
+
+        <section class="provider-overview-section">
+          <div class="provider-overview-section-head">
+            <span class="provider-overview-section-icon">${iconSvg("activity")}</span>
+            <div><h3>${escapeHtml(t("prov.overview_recent_activity"))}</h3><p>${escapeHtml(t("prov.overview_recent_activity_tip"))}</p></div>
+            ${view.activity.total ? `<span class="section-count-badge">${fmtInt(view.activity.total)}</span>` : ""}
+          </div>
+          <div class="provider-activity-list" data-provider-activity-list="${escapeHtml(view.name)}">
+            ${recent.length ? recent.map(providerActivityRow).join("") : `<div class="empty pad-slim">${escapeHtml(t("prov.overview_activity_loading"))}</div>`}
+          </div>
+        </section>
+
+        <details class="provider-overview-disclosure" data-provider-probes-disclosure="${escapeHtml(view.name)}" ${hasFailedProbe ? "open" : ""}>
+          <summary>
+            <span class="provider-overview-section-icon">${iconSvg("radar")}</span>
+            <span><strong>${escapeHtml(t("prov.overview_health_probes"))}</strong><small>${escapeHtml(t("prov.overview_health_probes_tip"))}</small></span>
+            <span class="provider-overview-disclosure-count" data-provider-probe-count>${escapeHtml(t("prov.overview_probe_count", { count: fmtInt(probeEvents.length) }))}</span>
+          </summary>
+          <div class="provider-overview-disclosure-body">
+            ${renderIdleStateBar()}
+            <div class="provider-probe-list" data-provider-probe-list="${escapeHtml(view.name)}">
+              ${recentProbes.length ? recentProbes.map(providerProbeRow).join("") : `<div class="empty pad-slim">${escapeHtml(t("prov.overview_probe_empty"))}</div>`}
+              ${probeOverflow ? `<div class="probe-list-more" data-probe-list-more="${escapeHtml(view.name)}">${escapeHtml(t("prov.overview_more_probes", { count: fmtInt(probeOverflow) }))}</div>` : ""}
+            </div>
+          </div>
+        </details>
       </section>
     `;
 		}
@@ -5969,7 +7916,7 @@
 				const list = Array.from(lists).find((el) => el.getAttribute("data-provider-activity-list") === name);
 				if (list) {
 					const recent = (Array.isArray(activity?.events) ? activity.events : []).slice(-10).reverse();
-					list.innerHTML = recent.length ? recent.map(providerActivityRow).join("") : `<div class="empty pad-slim">No recent calls for this provider</div>`;
+					list.innerHTML = recent.length ? recent.map(providerActivityRow).join("") : `<div class="empty pad-slim">${escapeHtml(t("prov.overview_activity_empty"))}</div>`;
 				}
 				const probeLists = document.querySelectorAll("[data-provider-probe-list]");
 				const probeList = Array.from(probeLists).find((el) => el.getAttribute("data-provider-probe-list") === name);
@@ -5977,7 +7924,14 @@
 					const probes = Array.isArray(activity?.probeEvents) ? activity.probeEvents : [];
 					const visibleProbes = probes.slice(0, 20);
 					const overflow = Math.max(0, probes.length - 20);
-					probeList.innerHTML = visibleProbes.length ? visibleProbes.map(providerProbeRow).join("") + (overflow ? `<div class="probe-list-more" data-probe-list-more="${escapeHtml(name)}">+ ${fmtInt(overflow)} more probes</div>` : "") : `<div class="empty pad-slim">No background health probes yet</div>`;
+					probeList.innerHTML = visibleProbes.length ? visibleProbes.map(providerProbeRow).join("") + (overflow ? `<div class="probe-list-more" data-probe-list-more="${escapeHtml(name)}">${escapeHtml(t("prov.overview_more_probes", { count: fmtInt(overflow) }))}</div>` : "") : `<div class="empty pad-slim">${escapeHtml(t("prov.overview_probe_empty"))}</div>`;
+					const disclosures = document.querySelectorAll("[data-provider-probes-disclosure]");
+					const disclosure = Array.from(disclosures).find((el) => el.getAttribute("data-provider-probes-disclosure") === name);
+					if (disclosure) {
+						const count = disclosure.querySelector("[data-provider-probe-count]");
+						if (count) count.textContent = t("prov.overview_probe_count", { count: fmtInt(probes.length) });
+						if (visibleProbes.some((probe) => probeTone(probe) === "bad")) disclosure.open = true;
+					}
 				}
 			} catch (_err) {} finally {
 				_providerActivityEventsState.loading = false;
@@ -6000,18 +7954,35 @@
           ${miniMetric("Fails", fmtInt(view.keyStats.fails), "runtime")}
         </div>
         <div class="provider-key-list drawer-key-list" id="${escapeHtml(keyListId)}">
-          ${view.keys.length ? view.keys.map((key) => keyCard(view.name, key, view.keyStats.total)).join("") : `<div class="empty pad-slim">No keys configured</div>`}
+          ${view.keys.length ? view.keys.map((key) => keyCard(view.name, key, view.keyStats.total)).join("") : `<div class="empty pad-slim">${escapeHtml(t("prov.no_keys_configured"))}</div>`}
         </div>
+        ${providerKeyConfiguration(view.name, view.configKeys)}
       </section>
     `;
 		}
+		function providerModelStatusLabel(status) {
+			return t({
+				pending: "prov.models.pending",
+				ok: "prov.models.ok",
+				stale: "prov.models.stale",
+				error: "prov.models.error",
+				not_fetched: "prov.models.not_fetched"
+			}[String(status || "").toLowerCase()] || "prov.models.unknown");
+		}
 		function providerDrawerModels(view) {
 			const capability = view.capability || {};
+			const keyCapabilities = Array.isArray(capability.keys) ? capability.keys : [];
+			const configuredVariants = state.data.config?.models?.provider_model_variants?.[view.name] || {};
 			const modelItems = view.modelItems;
 			const visibleItems = filteredProviderModelItems(modelItems);
+			const largeCatalog = visibleItems.length > 24;
 			const disabledCount = modelItems.filter((item) => item.disabled).length;
 			const modelFilters = state.providerModelFilters || {};
 			const draftCount = providerModelDraftCount(view.name);
+			const usableKeyCatalogs = keyCapabilities.filter((entry) => entry.status === "ok" || entry.status === "stale").length;
+			const keyIssueCount = keyCapabilities.filter((entry) => entry.error || !["ok", "stale"].includes(entry.status)).length;
+			const keyCatalogsDiffer = new Set(keyCapabilities.filter((entry) => entry.status === "ok" || entry.status === "stale").map((entry) => [...entry.models || []].map(String).sort().join("\n"))).size > 1;
+			const openKeyDiscovery = keyIssueCount > 0 || keyCatalogsDiffer;
 			const staticModels = [];
 			const seenStatic = /* @__PURE__ */ new Set();
 			(Array.isArray(view.config.static_models) ? view.config.static_models : []).forEach((model) => {
@@ -6021,107 +7992,193 @@
 				staticModels.push(value);
 			});
 			return `
-      <section class="provider-drawer-section">
-        <div class="provider-detail-metrics">
-          ${miniMetric("Capability", capability.status === "pending" ? "refreshing" : capability.status || "not fetched", "models endpoint")}
-          ${miniMetric("Models", fmtInt(modelItems.length), "canonical/raw")}
-          ${miniMetric("Disabled", fmtInt(disabledCount), "provider")}
-          ${miniMetric("Fetched", capability.fetched_at ? fmtDate(capability.fetched_at) : "-", "snapshot")}
-          ${miniMetric("Routes", fmtInt(view.routeModels.length), "configured")}
+      <section class="provider-drawer-section provider-models-workspace">
+        <div class="provider-model-status-strip">
+          <div class="provider-model-status-item">
+            <span>${iconSvg("radar")} ${escapeHtml(t("prov.models.discovery"))}</span>
+            <strong>${escapeHtml(providerModelStatusLabel(capability.status))}</strong>
+            <small>${escapeHtml(capability.fetched_at ? fmtDate(capability.fetched_at) : t("prov.models.no_snapshot"))}</small>
+          </div>
+          <div class="provider-model-status-item">
+            <span>${iconSvg("boxes")} ${escapeHtml(t("prov.models.models"))}</span>
+            <strong>${escapeHtml(fmtInt(modelItems.length))}</strong>
+            <small>${escapeHtml(t("prov.models.disabled_count", { count: fmtInt(disabledCount) }))}</small>
+          </div>
+          <div class="provider-model-status-item">
+            <span>${iconSvg("key")} ${escapeHtml(t("prov.models.key_coverage"))}</span>
+            <strong>${escapeHtml(`${fmtInt(usableKeyCatalogs)}/${fmtInt(keyCapabilities.length)}`)}</strong>
+            <small>${escapeHtml(keyIssueCount ? t("prov.models.need_attention", { count: fmtInt(keyIssueCount) }) : t("prov.models.catalogs_usable"))}</small>
+          </div>
+          <button class="button secondary compact-action provider-model-refresh-action" type="button"
+            data-provider-models-refresh="${escapeHtml(view.name)}">
+            ${iconSvg("rotate")}<span>${escapeHtml(t("prov.models.refresh"))}</span>
+          </button>
         </div>
-        ${capability.status === "pending" ? `<div class="model-capability-refreshing">${refreshSpinner()} Discovering models in the background…</div>` : ""}
+        ${capability.status === "pending" ? `<div class="model-capability-refreshing">${refreshSpinner()} ${escapeHtml(t("prov.models.discovering"))}</div>` : ""}
         ${capability.error ? `<div class="model-capability-error">${messageMarkup(capability.error)}</div>` : ""}
-        <div class="provider-model-toolbar">
-          <input class="control provider-model-search" type="search"
-            data-provider-model-search="${escapeHtml(view.name)}"
-            placeholder="Search models"
-            value="${escapeHtml(modelFilters.search || "")}" />
-          <select class="control provider-model-status-filter" data-provider-model-status-filter="${escapeHtml(view.name)}">
-            <option value="" ${!modelFilters.status ? "selected" : ""}>All</option>
-            <option value="enabled" ${modelFilters.status === "enabled" ? "selected" : ""}>Enabled</option>
-            <option value="disabled" ${modelFilters.status === "disabled" ? "selected" : ""}>Disabled</option>
-          </select>
-          <button class="button small secondary" type="button"
-            data-provider-model-bulk="${escapeHtml(view.name)}"
-            data-provider-model-bulk-action="disable"
-            title="Stage disable visible models"
-            aria-label="Stage disable visible models"
-            ${visibleItems.length ? "" : "disabled"}>${iconSvg("eye-off")}</button>
-          <button class="button small secondary" type="button"
-            data-provider-model-bulk="${escapeHtml(view.name)}"
-            data-provider-model-bulk-action="enable"
-            title="Stage enable visible models"
-            aria-label="Stage enable visible models"
-            ${visibleItems.length ? "" : "disabled"}>${iconSvg("eye")}</button>
-          <button class="button small icon-action" type="button"
-            data-provider-model-apply="${escapeHtml(view.name)}"
-            title="Apply model changes${draftCount ? ` (${draftCount})` : ""}"
-            aria-label="Apply model changes"
-            ${draftCount ? "" : "disabled"}>${iconSvg("save")}</button>
-          <button class="button small secondary icon-action" type="button"
-            data-provider-model-reset="${escapeHtml(view.name)}"
-            title="Reset staged model changes"
-            aria-label="Reset staged model changes"
-            ${draftCount ? "" : "disabled"}>${iconSvg("undo")}</button>
-        </div>
-        <div class="model-chip-list provider-drawer-models">
-          ${visibleItems.length ? visibleItems.slice(0, 100).map((item) => `
-            <span class="model-map-chip provider-model-chip ${item.disabled ? "is-disabled" : ""} ${item.pending ? "is-pending" : ""} ${item.manual ? "is-manual-map" : ""}">
-              <button class="model-chip-toggle" type="button"
-                data-provider-model-disable-provider="${escapeHtml(view.name)}"
-                data-provider-model-disable-model="${escapeHtml(item.label)}"
-                data-provider-model-disable-next="${item.disabled ? "false" : "true"}"
-                title="${escapeHtml(`${item.disabled ? "Stage enable" : "Stage disable"} ${item.title}`)}"
-                aria-label="${escapeHtml(`${item.disabled ? "Stage enable" : "Stage disable"} ${item.label}`)}">
-                <b>${escapeHtml(item.label)}</b>
-                ${item.raw && item.raw !== item.label ? `<small>${escapeHtml(item.raw)}</small>` : ""}
-                ${item.pending ? `<small class="model-pending-note">pending</small>` : ""}
-              </button>
-              <button class="model-map-edit-button" type="button"
-                data-provider-model-map-edit-provider="${escapeHtml(view.name)}"
-                data-provider-model-map-edit-model="${escapeHtml(item.label)}"
-                data-provider-model-map-edit-raw="${escapeHtml(item.raw || item.label)}"
-                data-provider-model-map-edit-manual="${item.manual ? "1" : "0"}"
-                title="Edit model mapping"
-                aria-label="${escapeHtml(`Edit mapping for ${item.label}`)}">${iconSvg("pencil")}</button>
-            </span>
-          `).join("") + (visibleItems.length > 100 ? `<span class="muted" style="padding: 4px 8px;">+ ${visibleItems.length - 100} more models...</span>` : "") : `<span class="muted">No matching models</span>`}
-        </div>
-        <div class="provider-models-actions">
-          <button class="button secondary icon-action" type="button"
-            data-provider-models-refresh="${escapeHtml(view.name)}"
-            title="Refresh models"
-            aria-label="Refresh models">${iconSvg("rotate")}</button>
-        </div>
-        <h3 class="drawer-section-title">Static models (fallback when /v1/models unreachable)</h3>
-        <form class="config-static-models-form" data-provider="${escapeHtml(view.name)}">
-          ${staticModels.length ? `
-            <div class="model-chip-list static-model-chip-list">
-              ${staticModels.slice(0, 100).map((model) => `
-                <span class="model-map-chip static-model-chip">
-                  <b>${escapeHtml(model)}</b><small>static</small>
-                  <button class="static-model-delete" type="button"
-                    title="Remove ${escapeHtml(model)}"
-                    aria-label="Remove ${escapeHtml(model)}"
-                    data-delete-static-provider="${escapeHtml(view.name)}"
-                    data-delete-static-model="${escapeHtml(model)}">x</button>
-                </span>
-              `).join("") + (staticModels.length > 100 ? `<span class="muted" style="padding: 4px 8px;">+ ${staticModels.length - 100} more...</span>` : "")}
+        <section class="provider-model-catalog ${largeCatalog ? "is-large-catalog" : ""}" aria-labelledby="provider-model-catalog-title">
+          <div class="provider-model-section-heading">
+            <div>
+              <h3 id="provider-model-catalog-title">${iconSvg("boxes")} ${escapeHtml(t("prov.models.catalog"))}</h3>
+              <p>${escapeHtml(t("prov.models.catalog_desc"))}</p>
             </div>
-          ` : `<span class="muted">No static models configured</span>`}
-          <div class="form-row">
-            <label for="static-models-${escapeHtml(view.name)}">Add model IDs</label>
-            <input id="static-models-${escapeHtml(view.name)}" name="static_models" type="text"
-              placeholder="e.g. gpt-4o, claude-3-5-sonnet-20241022"
-              value=""
-              style="font-family:monospace;width:100%">
-            <small class="muted">Comma-separated. New entries are appended and de-duplicated.</small>
+            <span class="provider-model-section-count">${escapeHtml(t("prov.models.shown", { count: fmtInt(visibleItems.length) }))}</span>
           </div>
-          <div class="form-actions">
-            <button class="button small" type="submit">Add models</button>
-            ${staticModels.length ? `<button class="button small secondary" type="button" data-clear-static-models="${escapeHtml(view.name)}">Clear</button>` : ""}
+          <div class="provider-model-toolbar">
+            <input class="control provider-model-search" type="search"
+              data-provider-model-search="${escapeHtml(view.name)}"
+              placeholder="${escapeHtml(t("prov.models.search"))}"
+              aria-label="${escapeHtml(t("prov.models.search"))}"
+              value="${escapeHtml(modelFilters.search || "")}" />
+            <select class="control provider-model-status-filter" data-provider-model-status-filter="${escapeHtml(view.name)}" aria-label="${escapeHtml(t("prov.models.filter_status"))}">
+              <option value="" ${!modelFilters.status ? "selected" : ""}>${escapeHtml(t("prov.models.all"))}</option>
+              <option value="enabled" ${modelFilters.status === "enabled" ? "selected" : ""}>${escapeHtml(t("prov.models.enabled"))}</option>
+              <option value="disabled" ${modelFilters.status === "disabled" ? "selected" : ""}>${escapeHtml(t("prov.models.disabled"))}</option>
+            </select>
+            <button class="button small secondary icon-action provider-model-toolbar-action" type="button"
+              data-provider-model-bulk="${escapeHtml(view.name)}"
+              data-provider-model-bulk-action="disable"
+              title="${escapeHtml(t("prov.models.disable_shown"))}"
+              aria-label="${escapeHtml(t("prov.models.disable_shown"))}"
+              ${visibleItems.length ? "" : "disabled"}>${iconSvg("eye-off")}</button>
+            <button class="button small secondary icon-action provider-model-toolbar-action" type="button"
+              data-provider-model-bulk="${escapeHtml(view.name)}"
+              data-provider-model-bulk-action="enable"
+              title="${escapeHtml(t("prov.models.enable_shown"))}"
+              aria-label="${escapeHtml(t("prov.models.enable_shown"))}"
+              ${visibleItems.length ? "" : "disabled"}>${iconSvg("eye")}</button>
           </div>
-        </form>
+          <div class="model-chip-list provider-drawer-models" role="list" ${largeCatalog ? `aria-label="${escapeHtml(t("prov.models.visible_count", { count: fmtInt(visibleItems.length) }))}"` : ""}>
+            ${visibleItems.length ? visibleItems.slice(0, 100).map((item) => `
+              <span class="model-map-chip provider-model-chip ${item.disabled ? "is-disabled" : ""} ${item.pending ? "is-pending" : ""} ${item.manual ? "is-manual-map" : ""}" role="listitem">
+                <button class="model-chip-toggle" type="button"
+                  data-provider-model-disable-provider="${escapeHtml(view.name)}"
+                  data-provider-model-disable-model="${escapeHtml(item.label)}"
+                  data-provider-model-disable-next="${item.disabled ? "false" : "true"}"
+                  title="${escapeHtml(`${item.disabled ? t("prov.models.stage_enable") : t("prov.models.stage_disable")} ${item.title}`)}"
+                  aria-label="${escapeHtml(`${item.disabled ? t("prov.models.stage_enable") : t("prov.models.stage_disable")} ${item.label}`)}">
+                  <b>${escapeHtml(item.label)}</b>
+                  ${item.raw && item.raw !== item.label ? `<small>${escapeHtml(item.raw)}</small>` : ""}
+                  ${item.pending ? `<small class="model-pending-note">${escapeHtml(t("prov.models.pending_short"))}</small>` : ""}
+                </button>
+                <button class="model-map-edit-button" type="button"
+                  data-provider-model-map-edit-provider="${escapeHtml(view.name)}"
+                  data-provider-model-map-edit-model="${escapeHtml(item.label)}"
+                  data-provider-model-map-edit-raw="${escapeHtml(item.raw || item.label)}"
+                  data-provider-model-map-edit-manual="${item.manual ? "1" : "0"}"
+                  title="${escapeHtml(t("prov.models.edit_mapping"))}"
+                  aria-label="${escapeHtml(t("prov.models.edit_mapping_for", { model: item.label }))}">${iconSvg("pencil")}</button>
+              </span>
+            `).join("") + (visibleItems.length > 100 ? `<span class="muted provider-model-overflow-note" role="listitem">${escapeHtml(t("prov.models.more", { count: fmtInt(visibleItems.length - 100) }))}</span>` : "") : `<div class="empty pad-slim" role="listitem">${escapeHtml(t("prov.models.no_match"))}</div>`}
+          </div>
+          ${draftCount ? `
+            <div class="provider-model-draft-bar" role="status">
+              <div><strong>${escapeHtml(draftCount === 1 ? t("prov.models.staged_one") : t("prov.models.staged_many", { count: fmtInt(draftCount) }))}</strong><small>${escapeHtml(t("prov.models.review_apply"))}</small></div>
+              <div class="provider-model-draft-actions">
+                <button class="button small secondary" type="button"
+                  data-provider-model-reset="${escapeHtml(view.name)}"
+                  title="${escapeHtml(t("prov.models.reset"))}">${iconSvg("undo")}<span>${escapeHtml(t("prov.models.reset_label"))}</span></button>
+                <button class="button small" type="button"
+                  data-provider-model-apply="${escapeHtml(view.name)}"
+                  title="${escapeHtml(t("prov.models.apply", { count: fmtInt(draftCount) }))}">${iconSvg("save")}<span>${escapeHtml(t("prov.models.apply_label"))}</span></button>
+              </div>
+            </div>
+          ` : ""}
+        </section>
+
+        <details class="provider-model-disclosure provider-model-key-discovery" ${openKeyDiscovery ? "open" : ""}>
+          <summary>
+            <span><strong>${iconSvg("key")} ${escapeHtml(t("prov.models.by_key"))}</strong><small>${escapeHtml(t("prov.models.by_key_desc"))}</small></span>
+            <span class="provider-model-disclosure-meta">${escapeHtml(`${fmtInt(usableKeyCatalogs)}/${fmtInt(keyCapabilities.length)} ${t("prov.models.usable_suffix")}`)}${keyCatalogsDiffer ? ` · ${escapeHtml(t("prov.models.differ"))}` : ""}</span>
+          </summary>
+          <div class="provider-model-disclosure-body provider-route-list">
+            ${keyCapabilities.length ? keyCapabilities.map((entry) => `
+              <article class="provider-route-card provider-model-key-card">
+                <div>
+                  <strong class="mono">${escapeHtml(t("prov.models.key_label", {
+				index: entry.key_index ?? "-",
+				id: entry.key_id || "-"
+			}))}</strong>
+                  <small>${escapeHtml((entry.models || []).slice(0, 12).join(", ") || t("prov.models.no_models"))}${(entry.models || []).length > 12 ? ` · ${escapeHtml(t("prov.models.more_short", { count: fmtInt(entry.models.length - 12) }))}` : ""}</small>
+                  ${entry.error ? `<small class="provider-model-key-error">${messageMarkup(entry.error)}</small>` : ""}
+                </div>
+                ${badge(providerModelStatusLabel(entry.status), entry.status === "ok" ? "ok" : entry.status === "stale" ? "warn" : "bad")}
+              </article>
+            `).join("") : `<div class="empty pad-slim">${escapeHtml(t("prov.models.no_key_catalogs"))}</div>`}
+          </div>
+        </details>
+
+        <details class="provider-model-disclosure provider-model-aliases">
+          <summary>
+            <span><strong>${iconSvg("layers")} ${escapeHtml(t("prov.models.canonical_aliases"))}</strong><small>${escapeHtml(t("prov.models.canonical_aliases_desc"))}</small></span>
+            <span class="provider-model-disclosure-meta">${escapeHtml(t("prov.models.configured", { count: fmtInt(Object.keys(configuredVariants).length) }))}</span>
+          </summary>
+          <div class="provider-model-disclosure-body">
+            <div class="provider-route-list">
+              ${Object.keys(configuredVariants).length ? Object.entries(configuredVariants).map(([canonical, variants]) => `
+                <article class="provider-route-card provider-model-alias-card">
+                  <div>
+                    <strong class="mono">${escapeHtml(canonical)}</strong>
+                    <small>${escapeHtml((variants || []).map((entry) => `${entry.model}:${entry.priority ?? 0}`).join(", "))}</small>
+                  </div>
+                    ${badge(t("prov.models.variants", { count: fmtInt((variants || []).length) }), "info")}
+                </article>
+              `).join("") : `<div class="empty pad-slim">${escapeHtml(t("prov.models.no_aliases"))}</div>`}
+            </div>
+            <details class="provider-model-inline-editor">
+              <summary>${iconSvg("plus")}<span>${escapeHtml(t("prov.models.add_alias"))}</span></summary>
+              <form class="provider-variant-form" data-provider="${escapeHtml(view.name)}">
+                <div class="form-row">
+                  <label>${escapeHtml(t("prov.models.canonical_model"))}</label>
+                  <input class="control" name="canonical_model" placeholder="grok-4.3" required />
+                </div>
+                <div class="form-row">
+                  <label>${escapeHtml(t("prov.models.raw_variants"))}</label>
+                  <input class="control" name="variants" placeholder="grok-4.3-high:100, grok-4.3-low:10" />
+                  <small class="muted">${escapeHtml(t("prov.models.raw_variants_help"))}</small>
+                </div>
+                <button class="button small" type="submit">${escapeHtml(t("prov.models.save_alias"))}</button>
+              </form>
+            </details>
+          </div>
+        </details>
+
+        <details class="provider-model-disclosure provider-model-static-fallback">
+          <summary>
+            <span><strong>${iconSvg("shield")} ${escapeHtml(t("prov.models.advanced_fallback"))}</strong><small>${escapeHtml(t("prov.models.advanced_fallback_desc"))}</small></span>
+            <span class="provider-model-disclosure-meta">${escapeHtml(t("prov.models.static_count", { count: fmtInt(staticModels.length) }))}</span>
+          </summary>
+          <div class="provider-model-disclosure-body">
+            <form class="config-static-models-form" data-provider="${escapeHtml(view.name)}">
+              ${staticModels.length ? `
+                <div class="model-chip-list static-model-chip-list">
+                  ${staticModels.slice(0, 100).map((model) => `
+                    <span class="model-map-chip static-model-chip">
+                      <b>${escapeHtml(model)}</b><small>${escapeHtml(t("prov.models.static"))}</small>
+                      <button class="static-model-delete" type="button"
+                        title="${escapeHtml(t("prov.models.remove_model", { model }))}"
+                        aria-label="${escapeHtml(t("prov.models.remove_model", { model }))}"
+                        data-delete-static-provider="${escapeHtml(view.name)}"
+                        data-delete-static-model="${escapeHtml(model)}">${iconSvg("x")}</button>
+                    </span>
+                  `).join("") + (staticModels.length > 100 ? `<span class="muted provider-model-overflow-note">${escapeHtml(t("prov.models.more", { count: fmtInt(staticModels.length - 100) }))}</span>` : "")}
+                </div>
+              ` : `<div class="empty pad-slim">${escapeHtml(t("prov.models.no_static"))}</div>`}
+              <div class="form-row">
+                <label for="static-models-${escapeHtml(view.name)}">${escapeHtml(t("prov.models.add_model_ids"))}</label>
+                <input id="static-models-${escapeHtml(view.name)}" name="static_models" type="text"
+                  placeholder="${escapeHtml(t("prov.models.add_model_ids_ph"))}"
+                  value=""
+                  style="font-family:monospace;width:100%">
+                <small class="muted">${escapeHtml(t("prov.models.add_model_ids_help"))}</small>
+              </div>
+              <div class="form-actions">
+                <button class="button small" type="submit">${escapeHtml(t("prov.models.add_models"))}</button>
+                ${staticModels.length ? `<button class="button small secondary" type="button" data-clear-static-models="${escapeHtml(view.name)}">${escapeHtml(t("prov.models.clear"))}</button>` : ""}
+              </div>
+            </form>
+          </div>
+        </details>
       </section>
     `;
 		}
@@ -6151,6 +8208,7 @@
             </label>
           </div>
         </div>
+        ${providerFormatConfiguration(view.name, view.formats)}
         <div class="provider-route-list">
           ${routeRows.length ? routeRows.slice(0, 50).map((row) => `
             <article class="provider-route-card">
@@ -6167,14 +8225,14 @@
 		}
 		function providerDrawerConfig(view) {
 			return `
-      <section class="provider-drawer-section">
-        ${providerEditPanel(view.name, view.config, view.configKeys, view.formats, { includeFormats: true })}
+      <section class="provider-drawer-section provider-config-inspector-shell">
+        ${providerConfigInspector(view.name, view.config)}
         <div class="provider-danger-zone">
           <div>
-            <strong>Delete provider</strong>
-            <p>Remove this provider from config, route pools, model maps, and capability snapshots.</p>
+            <strong>${escapeHtml(t("prov.delete_provider"))}</strong>
+            <p>${escapeHtml(t("prov.delete_provider_tip"))}</p>
           </div>
-          <button class="button danger icon-action" type="button" data-provider-delete="${escapeHtml(view.name)}" title="Delete provider" aria-label="Delete provider">${iconSvg("trash")}</button>
+          <button class="button danger icon-action" type="button" data-provider-delete="${escapeHtml(view.name)}" title="${escapeHtml(t("prov.delete_provider"))}" aria-label="${escapeHtml(t("prov.delete_provider"))}">${iconSvg("trash")}</button>
         </div>
       </section>
     `;
@@ -6192,7 +8250,12 @@
 			}).filter((row) => row.providers.some((item) => item.name === name)).sort((a, b) => a.model.localeCompare(b.model));
 		}
 		function providerActivityRow(event) {
-			const statusText = event.reason || event.status || "-";
+			const rawStatus = String(event.reason || event.status || "-");
+			const statusText = rawStatus.toLowerCase() === "success" ? t("req.success") : [
+				"failed",
+				"failure",
+				"error"
+			].includes(rawStatus.toLowerCase()) ? t("req.failed") : rawStatus;
 			return `
       <button class="provider-activity-row ${escapeHtml(event.tone)}" type="button" ${event.requestId ? `data-request-id="${escapeHtml(event.requestId)}"` : ""}>
         <span class="provider-status-dot ${escapeHtml(event.tone)}"></span>
@@ -6202,16 +8265,6 @@
         <em>${event.latencyMs ? escapeHtml(fmtMs(event.latencyMs)) : "-"}</em>
       </button>
     `;
-		}
-		function providerStateChips(view) {
-			const runtimeOn = view.runtime.runtime_enabled !== false;
-			const configOn = view.config.enabled !== false && view.runtime.config_enabled !== false;
-			return [
-				badge(configOn ? "config on" : "config off", configOn ? "ok" : "bad"),
-				badge(runtimeOn ? "runtime on" : "runtime off", runtimeOn ? "ok" : "bad"),
-				badge(view.runtime.available ? "available" : "not available", view.runtime.available ? "ok" : "warn"),
-				badge(`${fmtInt(view.runtime.cooldown_remaining_s)}s cooldown`, Number(view.runtime.cooldown_remaining_s || 0) > 0 ? "warn" : "neutral")
-			].join(" ");
 		}
 		function capitalize(value) {
 			const text = String(value || "");
@@ -6311,101 +8364,94 @@
 			(Array.isArray(models) ? models : []).slice().sort((a, b) => String(a).localeCompare(String(b))).forEach((model) => push(model, model));
 			return items;
 		}
-		function providerEditPanel(name, provider, keys, formats, options = {}) {
-			const includeFormats = options.includeFormats !== false;
+		function providerConfigInspector(name, provider) {
 			return `
-      <div class="provider-edit-panel">
-        <form class="config-provider-form provider-inline-form" data-provider="${escapeHtml(name)}">
-          <div class="provider-config-block provider-config-connection">
-            <div class="provider-config-block-head">
-              <span class="provider-config-block-icon">${iconSvg("server")}</span>
-              <div>
-                <strong>Connection</strong>
-                <small>Endpoint and identity</small>
-              </div>
+      <form class="config-provider-form provider-config-inspector" data-provider="${escapeHtml(name)}">
+        <div class="provider-inspector-content">
+          <section class="provider-inspector-section">
+            <div class="provider-inspector-head">
+              <div><strong>${escapeHtml(t("prov.config_connection"))}</strong><small>${escapeHtml(t("prov.config_connection_tip"))}</small></div>
+              <span class="provider-inspector-code">HTTP</span>
             </div>
-            <div class="provider-config-grid">
-              <label class="field provider-config-wide">
-                <span>Base URL</span>
-                <input class="control" name="base_url" value="${escapeHtml(provider.base_url || "")}" placeholder="https://api.example.com" required />
-              </label>
-              <label class="field">
-                <span>Proxy</span>
-                ${proxyControlInput("proxy", provider.proxy || "", "direct / http://host:port / socks5://host:port")}
-              </label>
-              <label class="field">
-                <span>User-Agent</span>
-                <input class="control" name="user_agent" value="${escapeHtml(provider.user_agent || "")}" placeholder="inherit" />
-              </label>
+            <div class="provider-inspector-grid">
+              <label for="provider-base-url-${escapeHtml(name)}">${escapeHtml(t("form.base_url"))}</label>
+              <input id="provider-base-url-${escapeHtml(name)}" class="control mono" name="base_url" type="url" autocomplete="off" spellcheck="false" value="${escapeHtml(provider.base_url || "")}" placeholder="https://api.example.com" required />
+              <label for="provider-proxy-${escapeHtml(name)}">${escapeHtml(t("form.proxy"))}</label>
+              <div>${proxyControlInput("proxy", provider.proxy || "", "direct / http://host:port / socks5://host:port", `id="provider-proxy-${escapeHtml(name)}" autocomplete="off" spellcheck="false"`)}</div>
+              <label for="provider-user-agent-${escapeHtml(name)}">${escapeHtml(t("form.user_agent"))}</label>
+              <input id="provider-user-agent-${escapeHtml(name)}" class="control mono" name="user_agent" autocomplete="off" spellcheck="false" value="${escapeHtml(provider.user_agent || "")}" placeholder="${escapeHtml(t("prov.inherit_proxy_default"))}" />
             </div>
-          </div>
-          <div class="provider-config-block provider-config-runtime">
-            <div class="provider-config-block-head">
-              <span class="provider-config-block-icon">${iconSvg("gauge")}</span>
-              <div>
-                <strong>Runtime</strong>
-                <small>Priority and availability</small>
-              </div>
+          </section>
+          <section class="provider-inspector-section">
+            <div class="provider-inspector-head">
+              <div><strong>${escapeHtml(t("prov.config_runtime"))}</strong><small>${escapeHtml(t("prov.config_runtime_tip"))}</small></div>
+              <span class="provider-inspector-code">LIVE</span>
             </div>
-            <div class="provider-config-runtime-row">
-              <label class="field">
-                <span>Priority</span>
-                <input class="control" name="priority" type="number" min="-1000" max="1000" step="1" value="${escapeHtml(provider.priority ?? 0)}" />
-              </label>
-              <label class="check-field provider-enabled-check">
-                <input type="checkbox" name="enabled" ${provider.enabled === false ? "" : "checked"} />
-                <span>Enabled</span>
-              </label>
-              <button class="button primary" type="submit">Save config</button>
+            <div class="provider-inspector-grid provider-runtime-grid">
+              <label for="provider-priority-${escapeHtml(name)}">${escapeHtml(t("form.priority"))}</label>
+              <input id="provider-priority-${escapeHtml(name)}" class="control mono" name="priority" type="number" inputmode="numeric" min="-1000" max="1000" step="1" value="${escapeHtml(provider.priority ?? 0)}" />
             </div>
-            <div class="provider-skip-probe-row">
-              <label class="capsule-toggle" title="Skip idle health check for this provider">
-                <input type="checkbox" name="skip_idle_probe" ${provider.skip_idle_probe ? "checked" : ""} data-skip-idle-toggle="${escapeHtml(name)}" />
-                <span class="capsule-toggle-label">Skip Idle</span>
-              </label>
-              <label class="capsule-toggle" title="Skip patrol health check for this provider">
-                <input type="checkbox" name="skip_patrol_probe" ${provider.skip_patrol_probe ? "checked" : ""} data-skip-patrol-toggle="${escapeHtml(name)}" />
-                <span class="capsule-toggle-label">Skip Patrol</span>
-              </label>
+            <label class="provider-setting-row">
+              <span><strong>${escapeHtml(t("prov.provider_enabled"))}</strong><small>${escapeHtml(t("prov.provider_enabled_tip"))}</small></span>
+              <span class="provider-setting-switch"><input type="checkbox" name="enabled" ${provider.enabled === false ? "" : "checked"} /><i></i></span>
+            </label>
+          </section>
+          <section class="provider-inspector-section">
+            <div class="provider-inspector-head">
+              <div><strong>${escapeHtml(t("prov.health_probes"))}</strong><small>${escapeHtml(t("prov.health_probes_tip"))}</small></div>
             </div>
-          </div>
-        </form>
-        <div class="provider-config-block provider-config-keys">
-          <div class="provider-config-block-head">
-            <span class="provider-config-block-icon">${iconSvg("key")}</span>
-            <div>
-              <strong>Keys</strong>
-              <small>Masked keys and proxy</small>
-            </div>
-          </div>
-          <div class="key-proxy-list">
-            ${keys.length ? keys.map((key) => keyProxyRow(name, key)).join("") : `<span class="muted">No config keys</span>`}
-          </div>
-          <form class="config-key-form provider-inline-key-form" data-provider="${escapeHtml(name)}">
-            <input class="control" name="key" type="password" autocomplete="off" placeholder="new key" required />
-            ${proxyControlInput("proxy", "", "http://host:port / socks5://host:port")}
-            <button class="button secondary" type="submit">Add key</button>
-          </form>
+            <label class="provider-setting-row">
+              <span><strong>${escapeHtml(t("prov.skip_idle_probes"))}</strong><small>${escapeHtml(t("prov.skip_idle_probes_tip"))}</small></span>
+              <span class="provider-setting-switch"><input type="checkbox" name="skip_idle_probe" ${provider.skip_idle_probe ? "checked" : ""} data-skip-idle-toggle="${escapeHtml(name)}" /><i></i></span>
+            </label>
+            <label class="provider-setting-row">
+              <span><strong>${escapeHtml(t("prov.skip_patrol_probes"))}</strong><small>${escapeHtml(t("prov.skip_patrol_probes_tip"))}</small></span>
+              <span class="provider-setting-switch"><input type="checkbox" name="skip_patrol_probe" ${provider.skip_patrol_probe ? "checked" : ""} data-skip-patrol-toggle="${escapeHtml(name)}" /><i></i></span>
+            </label>
+          </section>
         </div>
-        ${includeFormats ? `
-          <div class="provider-formats-group provider-config-block">
-            <div class="provider-config-block-head">
-              <span class="provider-config-block-icon">${iconSvg("layers")}</span>
-              <div>
-                <strong>Formats</strong>
-                <small>Toggle routes or edit paths</small>
-              </div>
-            </div>
-            <div class="format-route-list provider-format-edit-list">
-              ${formatRouteItems(formats, name)}
-            </div>
+        <div class="provider-inspector-actions">
+          <span class="provider-inspector-status">${escapeHtml(t("prov.config_runtime_save"))}</span>
+          <div>
+            <button class="button secondary" type="reset">${escapeHtml(t("form.reset"))}</button>
+            <button class="button primary" type="submit">${escapeHtml(t("form.save_configuration"))}</button>
           </div>
-        ` : ""}
-      </div>
+        </div>
+      </form>
+    `;
+		}
+		function providerKeyConfiguration(name, keys) {
+			return `
+      <section class="provider-tab-section provider-key-configuration">
+        <div class="provider-tab-section-head">
+          <div><strong>${escapeHtml(t("prov.key_configuration"))}</strong><small>${escapeHtml(t("prov.key_configuration_tip"))}</small></div>
+        </div>
+        <div class="key-proxy-list">
+          ${keys.length ? keys.map((key) => keyProxyRow(name, key)).join("") : `<span class="muted">${escapeHtml(t("prov.no_config_keys"))}</span>`}
+        </div>
+        <form class="config-key-form provider-key-add-form" data-provider="${escapeHtml(name)}">
+          <label class="field"><span>${escapeHtml(t("prov.api_key"))}</span><input class="control" name="key" type="password" autocomplete="off" spellcheck="false" placeholder="${escapeHtml(t("prov.api_key_ph"))}" required /></label>
+          <label class="field"><span>${escapeHtml(t("form.proxy"))}</span>${proxyControlInput("proxy", "", "http://host:port / socks5://host:port")}</label>
+          <button class="button secondary" type="submit">${escapeHtml(t("prov.add_key"))}</button>
+        </form>
+      </section>
+    `;
+		}
+		function providerFormatConfiguration(name, formats) {
+			return `
+      <section class="provider-tab-section provider-formats-group">
+        <div class="provider-tab-section-head">
+          <div><strong>${escapeHtml(t("prov.format_routes"))}</strong><small>${escapeHtml(t("prov.format_routes_tip"))}</small></div>
+        </div>
+        <div class="format-route-list provider-format-edit-list">
+          ${formatRouteItems(formats, name)}
+        </div>
+      </section>
     `;
 		}
 		function keyProxyRow(provider, key) {
 			const proxy = proxyText(key.proxy);
+			const models = keyModelsText(key.models);
 			return `
       <form class="key-proxy-row" data-provider="${escapeHtml(provider)}" data-key-index="${escapeHtml(key.index)}">
         <div class="key-proxy-id">
@@ -6413,10 +8459,14 @@
           <span title="${escapeHtml(key.key_id || "")}">${escapeHtml(key.masked || key.key_id || "-")}</span>
         </div>
         <label class="field key-proxy-field">
-          <span>Proxy</span>
-          ${proxyControlInput("proxy", proxy, "inherit")}
+          <span>${escapeHtml(t("form.proxy"))}</span>
+          ${proxyControlInput("proxy", proxy, t("prov.inherit"))}
         </label>
-        <button class="button secondary compact-action" type="submit">Save</button>
+        <label class="field key-proxy-field">
+          <span>${escapeHtml(t("prov.models"))}</span>
+          <input class="control" name="models" value="${escapeHtml(models)}" placeholder="${escapeHtml(t("prov.models_ph"))}" />
+        </label>
+        <button class="button secondary compact-action" type="submit">${escapeHtml(t("form.save"))}</button>
       </form>
     `;
 		}
@@ -6424,6 +8474,7 @@
 			const stats = keyStats || providerKeyStats(Array.isArray(p.keys) ? p.keys : [], []);
 			const enabled = p.enabled !== false && p.config_enabled !== false && p.runtime_enabled !== false && config.enabled !== false;
 			const providerCooldown = Number(p.cooldown_remaining_s || 0);
+			const compatibilityCircuits = Number(p.compatibility_circuit_count || 0);
 			const hardFailure = Boolean(p.has_hard_failure);
 			if (!enabled) return {
 				id: "disabled",
@@ -6454,6 +8505,12 @@
 			if (hardFailure) return {
 				id: "degraded",
 				label: "degraded",
+				tone: "is-degraded",
+				badge: "warn"
+			};
+			if (compatibilityCircuits > 0) return {
+				id: "degraded",
+				label: "compatibility degraded",
 				tone: "is-degraded",
 				badge: "warn"
 			};
@@ -6672,6 +8729,7 @@
 				"eye-off": `<path d="M3 3l18 18"></path><path d="M10.6 10.6A3 3 0 0 0 13.4 13.4"></path><path d="M7.4 7.4C4.3 9 2.5 12 2.5 12s3.5 6 9.5 6c1.5 0 2.8-.4 4-1"></path><path d="M10 6.2A10.6 10.6 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-2.6 3.2"></path>`,
 				save: `<path d="M5 3h12l2 2v16H5z"></path><path d="M8 3v6h8V3"></path><path d="M8 21v-7h8v7"></path>`,
 				undo: `<path d="M9 7H4v5"></path><path d="M4 12a8 8 0 1 0 2.3-5.7L4 7"></path>`,
+				plus: `<path d="M12 5v14"></path><path d="M5 12h14"></path>`,
 				settings: `<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle>`,
 				dot: `<circle cx="12" cy="12" r="2"></circle>`,
 				bolt: `<path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"></path>`,
@@ -6690,23 +8748,25 @@
 				button.dataset.bounddataactionpath = "1";
 				button.addEventListener("click", async () => {
 					const path = `/-/admin${button.dataset.actionPath}`;
-					button.disabled = true;
-					try {
-						setNotice(t("notice.action_running") || "Action is running...", "info", {
-							key: "action:manual",
-							sticky: true
-						});
-						applyMutationResult(await apiPost(path), { drawer: true });
-						setNotice(t("notice.action_done") || "Action completed.", "ok", { key: "action:manual" });
-						scheduleBackgroundRefresh({
-							quiet: true,
-							staticData: true
-						});
-					} catch (err) {
-						setNotice(t("notice.action_failed", { error: err.message }), "bad", { key: "action:manual" });
-					} finally {
-						button.disabled = false;
-					}
+					await runExclusiveUiAction(`action:${path}`, async () => {
+						button.disabled = true;
+						try {
+							setNotice(t("notice.action_running") || "Action is running...", "info", {
+								key: "action:manual",
+								sticky: true
+							});
+							applyMutationResult(await apiPost(path), { drawer: true });
+							setNotice(t("notice.action_done") || "Action completed.", "ok", { key: "action:manual" });
+							scheduleBackgroundRefresh({
+								quiet: true,
+								staticData: true
+							});
+						} catch (err) {
+							setNotice(t("notice.action_failed", { error: err.message }), "bad", { key: "action:manual" });
+						} finally {
+							button.disabled = false;
+						}
+					}, { duplicateNotice: t("notice.action_already_running") });
 				});
 			});
 		}
@@ -6802,23 +8862,22 @@
 						}) + lastKeyText,
 						acceptLabel: t("confirm.delete")
 					})) return;
-					button.disabled = true;
-					try {
-						applyMutationResult(await apiPost(`/-/admin/providers/${encodeURIComponent(provider)}/keys/${encodeURIComponent(keyIndex)}/delete`, { confirm: "delete_key" }), { drawer: true });
-						setNotice(t("notice.key_deleted", {
+					await runOptimisticConfigAction(button, () => apiPost(`/-/admin/providers/${encodeURIComponent(provider)}/keys/${encodeURIComponent(keyIndex)}/delete`, { confirm: "delete_key" }), {
+						resourceKey: `provider-key-list:${provider}`,
+						apply: (config) => {
+							const keys = config.providers?.[provider]?.keys;
+							if (!Array.isArray(keys)) return;
+							const key = keys.find((entry, index) => String(entry?.index ?? index) === String(keyIndex));
+							if (key && typeof key === "object") key.pending_delete = true;
+						}
+					}, {
+						locateRoot: () => root.querySelector(`[data-key-delete-provider="${CSS.escape(provider)}"][data-key-delete-index="${CSS.escape(String(keyIndex))}"]`),
+						onSuccess: () => setNotice(t("notice.key_deleted", {
 							index: keyIndex,
 							provider
-						}), "ok");
-						scheduleBackgroundRefresh({
-							quiet: true,
-							preserveNotice: true,
-							staticData: true
-						});
-					} catch (err) {
-						setNotice(t("notice.delete_key_failed", { error: err.message }));
-					} finally {
-						button.disabled = false;
-					}
+						}), "ok"),
+						onError: (err) => setNotice(t("notice.delete_key_failed", { error: err.message }))
+					});
 				});
 			});
 		}
@@ -6917,42 +8976,45 @@
 				});
 			});
 		}
-		async function updateProviderModelDisabled(provider, models, successMessage) {
+		async function updateProviderModelDisabled(provider, models, successMessage, root = null) {
 			if (!provider || !models || !Object.keys(models).length) return;
-			try {
-				applyMutationResult(await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/models/disabled`, { models }), { drawer: true });
-				if (state.providerModelDrafts) delete state.providerModelDrafts[provider];
-				setNotice(successMessage || t("notice.model_settings_saved", { provider }), "ok");
-				scheduleBackgroundRefresh({
-					quiet: true,
-					preserveNotice: true,
-					staticData: true
-				});
-				renderProviderDrawer({ force: true });
-			} catch (err) {
-				setNotice(t("notice.model_setting_failed", { error: err.message }), "bad");
-			}
+			const locateRoot = liveElementLocator(root, () => qsa("[data-provider-model-apply]").find((button) => button.dataset.providerModelApply === provider) || null);
+			return runOptimisticConfigAction(root, () => apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/models/disabled`, { models }), {
+				resourceKey: `provider-model-disabled:${provider}`,
+				apply: (config) => {
+					const disabled = (config.models ||= {}).provider_model_disabled ||= {};
+					const providerDisabled = disabled[provider] ||= {};
+					Object.entries(models).forEach(([model, value]) => {
+						if (value) providerDisabled[model] = true;
+						else delete providerDisabled[model];
+					});
+				}
+			}, {
+				locateRoot,
+				onSuccess: () => {
+					if (state.providerModelDrafts) delete state.providerModelDrafts[provider];
+					setNotice(successMessage || t("notice.model_settings_saved", { provider }), "ok");
+				},
+				onError: (err) => setNotice(t("notice.model_setting_failed", { error: err.message }), "bad")
+			});
 		}
 		async function updateProviderModelMapping(provider, oldModel, rawModel, nextModel) {
 			if (!provider || !oldModel || !rawModel) return false;
-			try {
-				applyMutationResult(await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/models/map`, {
-					old_model: oldModel,
-					model: nextModel,
-					raw_model: rawModel
-				}), { drawer: true });
-				setNotice(nextModel ? t("notice.model_mapping_saved", { provider }) : t("notice.model_mapping_reset", { provider }), "ok");
-				scheduleBackgroundRefresh({
-					quiet: true,
-					preserveNotice: true,
-					staticData: true
-				});
-				renderProviderDrawer({ force: true });
-				return true;
-			} catch (err) {
-				setNotice(t("notice.model_mapping_failed", { error: err.message }), "bad");
-				return false;
-			}
+			return runOptimisticConfigAction(null, () => apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/models/map`, {
+				old_model: oldModel,
+				model: nextModel,
+				raw_model: rawModel
+			}), {
+				resourceKey: `provider-model-map:${provider}:${oldModel}`,
+				apply: (config) => {
+					const providerMap = ((config.models ||= {}).provider_model_map ||= {})[provider] ||= {};
+					if (oldModel !== nextModel) delete providerMap[oldModel];
+					if (nextModel) providerMap[nextModel] = rawModel;
+				}
+			}, {
+				onSuccess: () => setNotice(nextModel ? t("notice.model_mapping_saved", { provider }) : t("notice.model_mapping_reset", { provider }), "ok"),
+				onError: (err) => setNotice(t("notice.model_mapping_failed", { error: err.message }), "bad")
+			});
 		}
 		function openProviderModelMappingModal({ provider, oldModel, rawModel, isManual }) {
 			if (!provider || !oldModel || !rawModel) return;
@@ -7058,6 +9120,12 @@
 						format: fmt
 					}), "ok");
 					return resp;
+				}, {
+					resourceKey: `provider-format:${provider}:${fmt}`,
+					apply: (config) => {
+						const formatConfig = config.providers?.[provider]?.formats?.[fmt];
+						if (formatConfig) formatConfig.path = normalized;
+					}
 				})) closeFormModal();
 				else if (submit) submit.disabled = false;
 			});
@@ -7117,9 +9185,8 @@
 					const provider = applyButton.dataset.providerModelApply || "";
 					const draft = providerModelDraft(provider);
 					if (!Object.keys(draft).length) return;
-					applyButton.disabled = true;
-					await updateProviderModelDisabled(provider, draft, `Applied ${Object.keys(draft).length} model changes for ${provider}.`);
-					applyButton.disabled = false;
+					await updateProviderModelDisabled(provider, draft, `Applied ${Object.keys(draft).length} model changes for ${provider}.`, applyButton);
+					renderProviderDrawer({ force: true });
 					return;
 				}
 				const resetButton = event.target.closest("[data-provider-model-reset]");
@@ -7153,7 +9220,7 @@
 			if (!target) return;
 			const active = document.activeElement;
 			if (!state.forceFailurePoliciesRender && active && active.closest("#failurePoliciesTable")) return;
-			const policies = policy.failure_policies || {};
+			const policies = state.data.config?.retry?.failure_policies || policy.failure_policies || {};
 			const rows = Object.entries(policies).sort();
 			target.innerHTML = rows.length ? `
       <div class="failure-policy-list">
@@ -7328,6 +9395,12 @@
 						const result = await apiPatch("/-/admin/routing", payload);
 						setNotice(t("notice.routing_updated"), "ok");
 						return result;
+					}, {
+						resourceKey: "routing",
+						apply: (config) => {
+							Object.assign(config.routing ||= {}, payload, { default_provider_pool: String(payload.default_provider_pool || "").split(",").map((item) => item.trim()).filter(Boolean) });
+						},
+						drawer: false
 					});
 				});
 			}
@@ -7352,6 +9425,12 @@
 					const result = await apiPatch("/-/admin/retry", payload);
 					setNotice(t("notice.retry_updated"), "ok");
 					return result;
+				}, {
+					resourceKey: "retry",
+					apply: (config) => {
+						Object.assign(config.retry ||= {}, structuredClone(payload));
+					},
+					drawer: false
 				});
 			});
 		}
@@ -7385,39 +9464,24 @@
 						const result = await apiPatch("/-/admin/retry/failure-policies", payload);
 						setNotice(t("notice.failure_policy_updated", { type: payload.error_type }), "ok");
 						return result;
+					}, {
+						resourceKey: `failure-policy:${payload.error_type}`,
+						apply: (config) => {
+							const policies = (config.retry ||= {}).failure_policies ||= {};
+							policies[payload.error_type] = {
+								cooldown_scope: payload.cooldown_scope,
+								cooldown_s: payload.cooldown_s,
+								provider_cooldown_s: payload.provider_cooldown_s,
+								disables_key: payload.disables_key
+							};
+						},
+						drawer: false
 					});
 				});
 			});
 		}
-		async function runPolicyMutation(form, operation) {
-			const buttons = Array.from(form.querySelectorAll("button"));
-			buttons.forEach((button) => {
-				button.disabled = true;
-			});
-			try {
-				setNotice(t("notice.saving"), "info", {
-					key: "mutation:policy",
-					sticky: true
-				});
-				if (!applyMutationResult(await operation())) {
-					state.forcePolicyRender = true;
-					state.forceFailurePoliciesRender = true;
-					renderAll();
-				}
-				if (document.activeElement && typeof document.activeElement.blur === "function") document.activeElement.blur();
-				setNotice(t("notice.saved"), "ok", { key: "mutation:policy" });
-				scheduleBackgroundRefresh({
-					quiet: true,
-					preserveNotice: true,
-					staticData: true
-				});
-			} catch (err) {
-				setNotice(t("notice.policy_failed", { error: err.message }), "bad", { key: "mutation:policy" });
-			} finally {
-				buttons.forEach((button) => {
-					button.disabled = false;
-				});
-			}
+		async function runPolicyMutation(form, operation, optimistic = null) {
+			return runConfigMutation(form, operation, optimistic);
 		}
 		function renderPolicyRule(rule, index) {
 			const decision = policyDecision(rule);
@@ -7527,7 +9591,7 @@
 			const target = el("configSummary");
 			if (!target) return;
 			const providers = config.providers || {};
-			const names = Object.keys(providers).sort();
+			const names = Object.keys(providers).filter((name) => !providers[name]?.pending_delete).sort();
 			const providerCount = names.length;
 			const keyCount = names.reduce((sum, name) => sum + (Array.isArray(providers[name]?.keys) ? providers[name].keys.length : 0), 0);
 			const enabledProviders = names.filter((name) => providers[name]?.enabled !== false).length;
@@ -7704,6 +9768,9 @@
 				return null;
 			}).filter((item) => item && item.name);
 		}
+		function parseRouteProvidersInput(value) {
+			return routeProviderItems(String(value || "").split(",").map((item) => item.trim()).filter(Boolean));
+		}
 		function routeProvidersText(providers) {
 			return routeProviderItems(providers).map((item) => `${item.name}:${item.weight || 1}${item.priority !== null && item.priority !== void 0 ? `:${item.priority}` : ""}`).join(", ");
 		}
@@ -7801,7 +9868,7 @@
 			const keys = Array.isArray(provider.keys) ? provider.keys : [];
 			const enabled = enabledFormats(formats);
 			const firstKey = keys[0];
-			const keyText = firstKey ? `key ${firstKey.index} / ${firstKey.masked || firstKey.key_id || "-"}` : "No keys";
+			const keyText = firstKey ? `key ${firstKey.index} / ${firstKey.masked || firstKey.key_id || "-"}` : t("prov.no_keys");
 			const moreKeys = keys.length > 1 ? ` +${keys.length - 1}` : "";
 			const priority = Number(provider.priority || 0);
 			return `
@@ -7872,30 +9939,24 @@
 						message: t("confirm.delete_provider.msg", { provider }),
 						acceptLabel: t("confirm.delete")
 					})) return;
-					button.disabled = true;
-					try {
-						const result = await apiPost(`/-/admin/providers/${encodeURIComponent(provider)}/delete`, { confirm: "delete_provider" });
-						state.openProviderDetails.delete(provider);
-						state.openProviderEditors.delete(provider);
-						if (state.providerDrawerName === provider) closeProviderDrawer();
-						if (state.data.config?.providers) delete state.data.config.providers[provider];
-						if (state.data.status?.router?.providers) delete state.data.status.router.providers[provider];
-						applyMutationResult(result);
-						state.forceConfigRender = true;
-						state.forceProvidersRender = true;
-						state.data.version = Number(state.data.version || 0) + 1;
-						renderAll();
-						setNotice(t("notice.provider_deleted", { provider }), "ok");
-						scheduleBackgroundRefresh({
-							quiet: true,
-							preserveNotice: true,
-							staticData: true
-						});
-					} catch (err) {
-						setNotice(t("notice.delete_provider_failed", { error: err.message }));
-					} finally {
-						button.disabled = false;
-					}
+					await runOptimisticConfigAction(button, () => apiPost(`/-/admin/providers/${encodeURIComponent(provider)}/delete`, { confirm: "delete_provider" }), {
+						resourceKey: `provider:${provider}`,
+						apply: (config) => {
+							if (config.providers?.[provider]) config.providers[provider].pending_delete = true;
+						}
+					}, {
+						locateRoot: () => root.querySelector(`[data-provider-delete="${CSS.escape(provider)}"]`),
+						onSuccess: () => {
+							state.openProviderDetails.delete(provider);
+							state.openProviderEditors.delete(provider);
+							if (state.providerDrawerName === provider) closeProviderDrawer();
+							if (state.data.status?.router?.providers) delete state.data.status.router.providers[provider];
+							state.forceProvidersRender = true;
+							renderAll();
+							setNotice(t("notice.provider_deleted", { provider }), "ok");
+						},
+						onError: (err) => setNotice(t("notice.delete_provider_failed", { error: err.message }))
+					});
 				});
 			});
 			root.querySelectorAll("[data-hot-priority-apply]").forEach((button) => {
@@ -7907,19 +9968,45 @@
 					const input = root.querySelector(`[data-hot-priority="${CSS.escape(provider)}"]`);
 					if (!input) return;
 					const priority = Number(input.value || 0);
-					button.disabled = true;
+					const resourceKey = `provider-priority:${provider}`;
+					if (pendingRuntimeMutations.has(resourceKey)) return;
+					pendingRuntimeMutations.add(resourceKey);
+					const runtime = state.data.status?.router?.providers?.[provider];
+					const previousPriority = runtime?.priority;
+					const previousOverride = runtime?.priority_override_active;
+					if (runtime) {
+						runtime.priority = priority;
+						runtime.priority_override_active = true;
+					}
+					state.forceProvidersRender = true;
+					renderAll();
+					renderProviderDrawer({ force: true });
+					const currentButton = () => root.querySelector(`[data-hot-priority-apply="${CSS.escape(provider)}"]`);
+					setMutationBusy(currentButton(), true);
 					try {
 						applyMutationResult(await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/priority`, { priority }), { drawer: true });
 						setNotice(`Priority for ${provider} hot-updated to ${priority}.`, "ok");
 						scheduleBackgroundRefresh({
 							quiet: true,
-							preserveNotice: true,
-							staticData: true
+							preserveNotice: true
 						});
 					} catch (err) {
+						if (runtime) {
+							runtime.priority = previousPriority;
+							runtime.priority_override_active = previousOverride;
+						}
+						state.forceProvidersRender = true;
+						renderAll();
+						renderProviderDrawer({ force: true });
+						const restoredInput = root.querySelector(`[data-hot-priority="${CSS.escape(provider)}"]`);
+						if (restoredInput) {
+							restoredInput.value = String(priority);
+							restoredInput.focus();
+						}
 						setNotice(`Hot-reload priority failed: ${err.message}`);
 					} finally {
-						button.disabled = false;
+						pendingRuntimeMutations.delete(resourceKey);
+						setMutationBusy(currentButton(), false);
 					}
 				});
 			});
@@ -7942,6 +10029,11 @@
 						const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, payload);
 						setNotice(t("notice.provider_updated", { provider }), "ok");
 						return result;
+					}, {
+						resourceKey: `provider:${provider}`,
+						apply: (config) => {
+							if (config.providers?.[provider]) Object.assign(config.providers[provider], payload);
+						}
 					});
 				});
 			});
@@ -7953,18 +10045,17 @@
 					if (!provider) return;
 					const field = toggle.dataset.skipIdleToggle ? "skip_idle_probe" : "skip_patrol_probe";
 					const value = Boolean(toggle.checked);
-					try {
-						applyMutationResult(await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { [field]: value }), { drawer: true });
-						setNotice(`${field === "skip_idle_probe" ? "Idle" : "Patrol"} probe ${value ? "skipped" : "enabled"} for ${provider}.`, "ok");
-						scheduleBackgroundRefresh({
-							quiet: true,
-							preserveNotice: true,
-							staticData: true
-						});
-					} catch (err) {
-						setNotice(`Failed to update ${field}: ${err.message}`);
-						toggle.checked = !value;
-					}
+					const selector = toggle.dataset.skipIdleToggle ? "data-skip-idle-toggle" : "data-skip-patrol-toggle";
+					await runOptimisticConfigAction(toggle, () => apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { [field]: value }), {
+						resourceKey: `provider:${provider}`,
+						apply: (config) => {
+							if (config.providers?.[provider]) config.providers[provider][field] = value;
+						}
+					}, {
+						locateRoot: () => root.querySelector(`[${selector}="${CSS.escape(provider)}"]`),
+						onSuccess: () => setNotice(`${field === "skip_idle_probe" ? "Idle" : "Patrol"} probe ${value ? "skipped" : "enabled"} for ${provider}.`, "ok"),
+						onError: (err) => setNotice(`Failed to update ${field}: ${err.message}`)
+					});
 				});
 			});
 			root.querySelectorAll(".config-key-form").forEach((form) => {
@@ -7982,6 +10073,9 @@
 						form.reset();
 						setNotice(t("notice.key_added", { provider }), "ok");
 						return result;
+					}, {
+						resourceKey: `provider-key-list:${provider}`,
+						apply: (config) => appendPendingKey(config, provider, payload)
 					});
 				});
 			});
@@ -7993,13 +10087,53 @@
 					const provider = form.dataset.provider || "";
 					const keyIndex = String(form.dataset.keyIndex || "").trim();
 					const proxy = String(form.elements.proxy.value || "").trim();
+					const models = parseKeyModelsText(form.elements.models?.value || "");
 					await runConfigMutation(form, async () => {
-						const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/keys/${encodeURIComponent(keyIndex)}`, { proxy });
+						const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/keys/${encodeURIComponent(keyIndex)}`, {
+							proxy,
+							models
+						});
 						setNotice(t("notice.key_proxy_updated", {
 							index: keyIndex,
 							provider
 						}), "ok");
 						return result;
+					}, {
+						resourceKey: `key:${provider}:${keyIndex}`,
+						apply: (config) => {
+							const keys = config.providers?.[provider]?.keys;
+							if (!Array.isArray(keys)) return;
+							const key = keys.find((entry, index) => String(entry?.index ?? index) === keyIndex);
+							if (key && typeof key === "object") Object.assign(key, {
+								proxy,
+								models
+							});
+						}
+					});
+				});
+			});
+			root.querySelectorAll(".provider-variant-form").forEach((form) => {
+				if (form.dataset.boundprovidervariantform) return;
+				form.dataset.boundprovidervariantform = "1";
+				form.addEventListener("submit", async (event) => {
+					event.preventDefault();
+					const provider = form.dataset.provider || "";
+					const canonicalModel = String(form.elements.canonical_model?.value || "").trim();
+					const variants = parseModelVariants(form.elements.variants?.value || "");
+					if (!provider || !canonicalModel) return;
+					await runConfigMutation(form, async () => {
+						const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/models/${encodeURIComponent(canonicalModel)}/variants`, { variants });
+						setNotice(`Model variants updated for ${provider} / ${canonicalModel}.`, "ok");
+						return result;
+					}, {
+						resourceKey: `model-variants:${provider}:${canonicalModel}`,
+						apply: (config) => {
+							const modelsConfig = config.models ||= {};
+							const providerVariants = modelsConfig.provider_model_variants ||= {};
+							const variantsByModel = providerVariants[provider] ||= {};
+							if (variants.length) variantsByModel[canonicalModel] = structuredClone(variants);
+							else delete variantsByModel[canonicalModel];
+						}
 					});
 				});
 			});
@@ -8019,6 +10153,12 @@
 							state: nextEnabled ? t("notice.enabled") : t("notice.disabled")
 						}), "ok");
 						return resp;
+					}, {
+						resourceKey: `provider-format:${provider}:${fmt}`,
+						apply: (config) => {
+							const formatConfig = config.providers?.[provider]?.formats?.[fmt];
+							if (formatConfig) formatConfig.enabled = nextEnabled;
+						}
 					});
 				};
 				const editPath = () => {
@@ -8049,19 +10189,27 @@
 				});
 			});
 		}
-		async function runFormatMutation(card, operation) {
-			if (card) {
-				card.setAttribute("aria-busy", "true");
-				card.classList.add("is-busy");
-			}
+		async function runFormatMutation(card, operation, optimistic = null) {
+			const provider = card?.dataset?.formatProvider || "";
+			const fmt = card?.dataset?.format || "";
+			const locateCard = liveElementLocator(card, () => qsa(".format-route.is-interactive").find((candidate) => candidate.dataset.formatProvider === provider && candidate.dataset.format === fmt) || null);
+			const mutation = optimistic ? beginOptimisticConfigMutation(optimistic.resourceKey, optimistic.apply) : null;
+			if (optimistic && !mutation) return false;
+			const finishBusy = mutationBusyTracker.start(locateCard);
 			try {
 				setNotice(t("notice.saving"), "info", {
 					key: "mutation:format",
 					sticky: true
 				});
 				const result = await operation();
+				if (mutation && result?.config !== void 0) {
+					if (!confirmOptimisticConfigMutation(mutation, result.config, { render: false })) return false;
+				} else if (mutation) rejectOptimisticConfigMutation(mutation);
 				clearAllDirty();
-				if (!applyMutationResult(result, { drawer: true })) {
+				if (!applyMutationResult(result, {
+					drawer: true,
+					skipConfig: Boolean(mutation && result?.config !== void 0)
+				})) {
 					state.data.version = Number(state.data.version || 0) + 1;
 					state.forceConfigRender = true;
 					state.forceProvidersRender = true;
@@ -8077,28 +10225,34 @@
 				});
 				return true;
 			} catch (err) {
+				if (mutation) rejectOptimisticConfigMutation(mutation);
 				setNotice(t("notice.format_update_failed", { error: err.message }), "bad", { key: "mutation:format" });
 				return false;
 			} finally {
-				if (card) {
-					card.removeAttribute("aria-busy");
-					card.classList.remove("is-busy");
-				}
+				finishBusy();
 			}
 		}
-		async function runConfigMutation(form, operation) {
-			const buttons = Array.from(form.querySelectorAll("button"));
-			buttons.forEach((button) => {
-				button.disabled = true;
-			});
+		async function runConfigMutation(form, operation, optimistic = null) {
+			const mutationScope = configRefreshCoordinator.beginMutation();
+			const locateForm = formLocator(form);
+			const formSnapshot = captureFormState(form);
+			const mutation = optimistic ? beginOptimisticConfigMutation(optimistic.resourceKey, optimistic.apply, { drawer: optimistic.drawer !== false }) : null;
+			if (optimistic && !mutation) {
+				mutationScope.finish();
+				return false;
+			}
+			const finishBusy = mutationBusyTracker.start(locateForm);
 			try {
 				setNotice(t("notice.saving"), "info", {
 					key: "mutation:config",
 					sticky: true
 				});
 				const result = await operation();
+				if (mutation && result?.config !== void 0) {
+					if (!confirmOptimisticConfigMutation(mutation, result.config, { render: false })) return false;
+				} else if (mutation) rejectOptimisticConfigMutation(mutation, { drawer: optimistic?.drawer !== false });
 				clearAllDirty();
-				if (!applyMutationResult(result)) {
+				if (!applyMutationResult(result, { skipConfig: Boolean(mutation && result?.config !== void 0) })) {
 					state.forceConfigRender = true;
 					state.forceModelRoutesRender = true;
 					renderAll();
@@ -8110,12 +10264,17 @@
 					preserveNotice: true,
 					staticData: true
 				});
+				return true;
 			} catch (err) {
+				if (mutation) {
+					rejectOptimisticConfigMutation(mutation, { drawer: optimistic?.drawer !== false });
+					restoreFormState(locateForm(), formSnapshot);
+				}
 				setNotice(t("notice.config_update_failed", { error: err.message }), "bad", { key: "mutation:config" });
+				return false;
 			} finally {
-				buttons.forEach((button) => {
-					button.disabled = false;
-				});
+				mutationScope.finish();
+				finishBusy();
 			}
 		}
 		async function openRequestDetail(requestId) {
@@ -8152,6 +10311,10 @@
 			el("drawerSubtitle").textContent = `${detail.request_id || "-"} / ${detail.state || "unknown"}`;
 			updateDOM(el("drawerBody"), `
       ${renderRoutingSummary(summary)}
+      ${renderRoutingTrace(detail.routing_trace, {
+				clientFormat: detail.client_format || "",
+				finalFormat: summary.final_upstream_format || ""
+			})}
       <div class="kv-grid drawer-kv">
         <span>Status</span><span>${detail.status_code ? statusBadge(detail.status, detail.status_code) : messageMarkup(detail.state || "-")}</span>
         <span>Client Model</span><span class="mono">${escapeHtml(detail.model || "-")}</span>
@@ -8204,6 +10367,14 @@
 		}
 		function renderAttemptDiagnostics(attempt) {
 			const rows = [];
+			if (attempt.failure_owner) rows.push(`<span>Failure owner</span><span>${messageMarkup(attempt.failure_owner)}</span>`);
+			if (attempt.state_action && typeof attempt.state_action === "object") {
+				const action = attempt.state_action;
+				const parts = [action.action, action.scope].filter(Boolean);
+				if (Number(action.cooldown_s || 0) > 0) parts.push(`${fmtInt(action.cooldown_s)}s`);
+				if (Number(action.provider_cooldown_s || 0) > 0) parts.push(`provider ${fmtInt(action.provider_cooldown_s)}s`);
+				rows.push(`<span>State action</span><span>${messageMarkup(parts.join(" · ") || "observed")}</span>`);
+			}
 			if (attempt.diagnostic_stage) rows.push(`<span>Stage</span><span>${messageMarkup(attempt.diagnostic_stage)}</span>`);
 			if (attempt.upstream_error_summary) rows.push(`<span>Upstream Error</span><span>${messageMarkup(attempt.upstream_error_summary)}</span>`);
 			if (attempt.upstream_error_type) rows.push(`<span>Upstream Type</span><span>${messageMarkup(attempt.upstream_error_type)}</span>`);
@@ -8211,25 +10382,289 @@
 			if (attempt.upstream_error_param) rows.push(`<span>Upstream Param</span><span>${messageMarkup(attempt.upstream_error_param)}</span>`);
 			return rows.join("");
 		}
+		function keyModelsText(models) {
+			if (Array.isArray(models)) return models.join(", ");
+			if (!models || typeof models !== "object") return "";
+			return Object.entries(models).map(([canonical, raw]) => `${canonical}=${raw}`).join(", ");
+		}
+		function parseKeyModelsText(value) {
+			const result = {};
+			String(value || "").split(/[\n,;]+/).map((item) => item.trim()).filter(Boolean).forEach((item) => {
+				const separator = item.indexOf("=");
+				const canonical = (separator >= 0 ? item.slice(0, separator) : item).trim();
+				const raw = (separator >= 0 ? item.slice(separator + 1) : item).trim();
+				if (canonical && raw) result[canonical] = raw;
+			});
+			return result;
+		}
+		function parseModelVariants(value) {
+			return String(value || "").split(/[\n,;]+/).map((item) => item.trim()).filter(Boolean).map((item) => {
+				const match = item.match(/^(.*?):(-?\d+)$/);
+				return match ? {
+					model: match[1].trim(),
+					priority: Number(match[2])
+				} : {
+					model: item,
+					priority: 0
+				};
+			}).filter((entry) => entry.model);
+		}
+		function renderRoutingTrace(rawTrace, context = {}) {
+			const trace = Array.isArray(rawTrace) ? rawTrace : [];
+			if (!trace.length) return "";
+			const steps = groupRoutingTrace(trace);
+			return `
+      <section class="routing-path-shell" aria-labelledby="routing-path-title">
+        <header class="routing-path-header">
+          <div>
+            <h3 id="routing-path-title">${iconSvg("radar")}<span>${escapeHtml(t("req.route_path"))}</span></h3>
+            <p>${escapeHtml(t("req.route_path_desc"))}</p>
+          </div>
+          <span class="routing-path-count">${escapeHtml(t("req.route_steps_events", {
+				steps: fmtInt(steps.length),
+				events: fmtInt(trace.length)
+			}))}</span>
+        </header>
+        <ol class="routing-path" aria-label="${escapeHtml(t("req.route_path"))}">
+          ${steps.map((step, index) => renderRoutingTraceStep(step, index, context)).join("")}
+        </ol>
+        <details class="routing-diagnostics">
+          <summary>
+            <span class="routing-diagnostics-title">${iconSvg("info")}<span><strong>${escapeHtml(t("req.route_diagnostics"))}</strong><small>${escapeHtml(t("req.route_diagnostics_desc"))}</small></span></span>
+            <span class="routing-diagnostics-count">${escapeHtml(t("req.route_event_count", { count: fmtInt(trace.length) }))}</span>
+          </summary>
+          <ol class="routing-diagnostic-list">
+            ${trace.map(renderRoutingDiagnosticEvent).join("")}
+          </ol>
+        </details>
+      </section>
+    `;
+		}
+		function routingTraceCodeLabel(code) {
+			const key = {
+				provider_cooldown: "req.route_code_provider_cooldown",
+				key_cooldown: "req.route_code_key_cooldown",
+				key_disabled: "req.route_code_key_disabled",
+				model_unsupported_by_key: "req.route_code_model_unsupported",
+				compatibility_circuit: "req.route_code_compatibility",
+				duplicate_candidate: "req.route_code_duplicate"
+			}[String(code || "")];
+			return key ? t(key) : String(code || "unknown");
+		}
+		function routingTraceStepLabel(step) {
+			if (step.kind === "format_evaluation") return t("req.route_format_evaluation");
+			if (step.kind === "candidate_filter") return t("req.route_candidate_filter");
+			if (step.code === "selected") return t("req.route_selected");
+			if (step.code === "attempt_succeeded" || step.code === "attempt_failed") return t("req.route_upstream_result");
+			if (step.code === "no_candidate") return t("req.route_no_candidate");
+			return step.stage && step.stage !== "routing" ? step.stage : t("req.route_event");
+		}
+		function routingTraceStepStatus(step, context = {}) {
+			if (step.kind === "format_evaluation") {
+				const summary = summarizeFormatTraceStep(step, context);
+				if (summary.mode === "converted") return t("req.route_proxy_conversion");
+				if (summary.mode === "blocked") return t("req.route_format_excluded", { count: fmtInt(summary.blocked.length) });
+				if (summary.mode === "native") return t("req.route_no_conversion");
+				return t("req.route_no_special_limits");
+			}
+			if (step.kind === "candidate_filter") return t("req.route_candidates_skipped", { count: fmtInt(step.eventCount) });
+			if (step.code === "selected") return t("req.route_selected_status");
+			if (step.code === "attempt_succeeded") return t("req.route_success");
+			if (step.code === "attempt_failed") return t("req.route_failed_status");
+			if (step.code === "no_candidate") return t("req.route_unavailable");
+			return routingTraceCodeLabel(step.code);
+		}
+		function routingTraceStepIcon(step) {
+			if (step.kind === "format_evaluation") return "layers";
+			if (step.kind === "candidate_filter") return "filter";
+			if (step.code === "selected") return "radar";
+			if (step.code === "attempt_succeeded") return "check";
+			if (step.code === "attempt_failed" || step.code === "no_candidate") return "alert";
+			return "dot";
+		}
+		function renderRoutingFormatPath(source, target) {
+			const formats = [source, target].filter(Boolean);
+			if (!formats.length) return escapeHtml("-");
+			if (formats.length === 1 || source === target) return chipList([formats[0]]);
+			return `<span class="routing-format-path">${chip(source)}${iconSvg("arrow-right")}${chip(target)}</span>`;
+		}
+		function renderRoutingTraceStep(step, index, context = {}) {
+			const tone = routingTraceTone(step);
+			const event = step.event || {};
+			const identity = routingTraceIdentity(event);
+			let evidence = identity.length ? chipList(identity) : escapeHtml("-");
+			const notes = [];
+			if (step.kind === "format_evaluation") {
+				const summary = summarizeFormatTraceStep(step, context);
+				evidence = renderRoutingFormatPath(summary.sourceFormat, summary.mode === "converted" ? summary.targetFormat : "");
+				summary.transformations.forEach((item) => {
+					notes.push(t("req.route_parameter_mapped", {
+						source: item.field || "-",
+						target: item.target || "-"
+					}));
+				});
+				if (summary.droppedHints.length) notes.push(t("req.route_hints_omitted", { fields: summary.droppedHints.map((item) => item.field).filter(Boolean).join(", ") || "-" }));
+				summary.blocked.forEach(({ format, fields }) => {
+					notes.push(t("req.route_blocked_format", {
+						format,
+						fields: fields.join(", ") || "-"
+					}));
+				});
+			} else if (step.kind === "candidate_filter") {
+				evidence = step.providers.length ? chipList(step.providers) : escapeHtml("-");
+				const reasons = step.codes.map(routingTraceCodeLabel);
+				if (reasons.length) notes.push(reasons.join(" · "));
+			} else if (step.code === "attempt_failed" && (event.reason || event.error_type)) notes.push(t("req.route_failure_reason", { reason: event.reason || event.error_type }));
+			return `
+      <li class="routing-path-step tone-${escapeHtml(tone)}">
+        <span class="routing-path-marker" aria-hidden="true">${iconSvg(routingTraceStepIcon(step))}</span>
+        <div class="routing-path-step-body">
+          <div class="routing-path-step-head">
+            <strong><span class="routing-path-step-index">${fmtInt(index + 1)}</span>${escapeHtml(routingTraceStepLabel(step))}</strong>
+            <span class="routing-path-status">${escapeHtml(routingTraceStepStatus(step, context))}</span>
+          </div>
+          <div class="routing-path-evidence">${evidence}</div>
+          ${notes.length ? `<p>${messageMarkup(notes.join(" · "))}</p>` : ""}
+        </div>
+      </li>
+    `;
+		}
+		function routingDiagnosticDetails(event) {
+			const details = [];
+			if (event.field) details.push(`${t("req.route_field")}: ${event.field}`);
+			if (event.fidelity) details.push(`${t("req.route_fidelity")}: ${event.fidelity}`);
+			if (event.compatibility_profile) details.push(`${t("req.route_profile")}: ${event.compatibility_profile}`);
+			if (Number(event.cooldown_remaining_s || 0) > 0) details.push(`${t("req.route_recovery")}: ${fmtInt(event.cooldown_remaining_s)}s`);
+			const action = event.state_action && typeof event.state_action === "object" ? event.state_action : null;
+			if (action?.action) details.push(`${t("req.route_action")}: ${action.action}${action.scope ? ` (${action.scope})` : ""}${Number(action.cooldown_s || 0) > 0 ? ` ${fmtInt(action.cooldown_s)}s` : ""}`);
+			return details;
+		}
+		function routingFormatDisplayName(format) {
+			return {
+				anthropic_messages: "Anthropic Messages",
+				chat_completions: "Chat Completions",
+				responses: "Responses"
+			}[String(format || "")] || String(format || "-");
+		}
+		function routingDiagnosticStageLabel(event) {
+			if (event.stage === "format_compatibility") return t("req.diag_stage_format");
+			if (event.stage === "upstream_result") return t("req.diag_stage_upstream");
+			if (["selected", "no_candidate"].includes(event.code)) return t("req.diag_stage_routing");
+			if (event.stage === "routing") return t("req.diag_stage_candidate");
+			return String(event.stage || t("req.diag_stage_routing"));
+		}
+		function routingDiagnosticStatus(event) {
+			const key = {
+				format_eligible: "req.diag_status_allowed",
+				format_blocked_by_parameter: "req.diag_status_blocked",
+				format_parameter_mapped: "req.diag_status_mapped",
+				format_hint_dropped: "req.diag_status_omitted",
+				selected: "req.diag_status_selected",
+				attempt_succeeded: "req.route_success",
+				attempt_failed: "req.route_failed_status",
+				no_candidate: "req.route_unavailable",
+				provider_cooldown: "req.diag_status_skipped",
+				key_cooldown: "req.diag_status_skipped",
+				key_disabled: "req.diag_status_skipped",
+				model_unsupported_by_key: "req.diag_status_skipped",
+				compatibility_circuit: "req.diag_status_skipped",
+				duplicate_candidate: "req.diag_status_skipped"
+			}[String(event.code || "")];
+			return key ? t(key) : t("req.diag_status_observed");
+		}
+		function routingDiagnosticHeadline(event) {
+			const format = routingFormatDisplayName(event.target_format || event.upstream_format);
+			const provider = String(event.provider || "-");
+			if (event.code === "format_eligible") return t("req.diag_format_eligible", { format });
+			if (event.code === "format_blocked_by_parameter") return t("req.diag_format_blocked", {
+				format,
+				field: event.field || "-"
+			});
+			if (event.code === "format_parameter_mapped") return t("req.diag_parameter_mapped", {
+				field: event.field || "-",
+				target: event.target || "-"
+			});
+			if (event.code === "format_hint_dropped") return t("req.diag_hint_omitted", {
+				field: event.field || "-",
+				format
+			});
+			if (event.code === "selected") return t("req.diag_provider_selected", { provider });
+			if (event.code === "attempt_succeeded") return t("req.diag_upstream_success", { provider });
+			if (event.code === "attempt_failed") return t("req.diag_upstream_failed", { provider });
+			if (event.code === "no_candidate") return t("req.diag_no_candidate");
+			if (event.stage === "routing") return t("req.diag_candidate_skipped", { provider });
+			return routingTraceCodeLabel(event.code);
+		}
+		function routingDiagnosticDescription(event) {
+			const fidelityKey = {
+				lossless: "req.diag_fidelity_lossless",
+				mapped: "req.diag_fidelity_mapped",
+				safe_drop: "req.diag_fidelity_safe_drop",
+				blocked: "req.diag_fidelity_blocked"
+			}[String(event.fidelity || "")];
+			if (fidelityKey) return t(fidelityKey);
+			if (event.code === "attempt_succeeded") return t("req.diag_upstream_success_desc");
+			if (event.code === "attempt_failed" && (event.reason || event.error_type)) return t("req.route_failure_reason", { reason: event.reason || event.error_type });
+			if (event.stage === "routing" && !["selected", "no_candidate"].includes(event.code)) return routingTraceCodeLabel(event.code);
+			return "";
+		}
+		function routingDiagnosticIcon(event) {
+			if (event.code === "attempt_succeeded") return "check";
+			if ([
+				"attempt_failed",
+				"no_candidate",
+				"format_blocked_by_parameter"
+			].includes(event.code)) return "alert";
+			if (event.code === "selected") return "radar";
+			if (event.stage === "format_compatibility") return "layers";
+			if (event.stage === "routing") return "filter";
+			return "dot";
+		}
+		function renderRoutingDiagnosticEvent(event, index) {
+			const identity = routingTraceIdentity(event);
+			const details = routingDiagnosticDetails(event);
+			const tone = routingTraceTone({
+				kind: "event",
+				code: event.code,
+				event
+			});
+			const description = routingDiagnosticDescription(event);
+			return `
+      <li class="routing-diagnostic-event tone-${escapeHtml(tone)}">
+        <span class="routing-diagnostic-marker" aria-hidden="true">${iconSvg(routingDiagnosticIcon(event))}</span>
+        <div class="routing-diagnostic-content">
+          <div class="routing-diagnostic-head">
+            <div><strong>${escapeHtml(routingDiagnosticHeadline(event))}</strong><small>${escapeHtml(`${fmtInt(index + 1)} · ${routingDiagnosticStageLabel(event)}`)}</small></div>
+            <span class="routing-diagnostic-status">${escapeHtml(routingDiagnosticStatus(event))}</span>
+          </div>
+          ${identity.length && event.stage !== "format_compatibility" ? `<div class="routing-diagnostic-identity">${chipList(identity)}</div>` : ""}
+          ${description ? `<p>${messageMarkup(description)}</p>` : ""}
+          ${event.owner ? `<p class="routing-diagnostic-owner">${escapeHtml(t("req.diag_owner_value", { owner: event.owner }))}</p>` : ""}
+          ${details.length && !event.fidelity ? `<p class="routing-diagnostic-meta">${messageMarkup(details.join(" · "))}</p>` : ""}
+          <small class="routing-diagnostic-internal"><span>${escapeHtml(t("req.diag_internal_id"))}</span><code>${escapeHtml(event.stage || "routing")}</code><i>/</i><code>${escapeHtml(event.code || "unknown")}</code></small>
+        </div>
+      </li>
+    `;
+		}
 		function renderRoutingSummary(summary) {
 			if (!summary || typeof summary !== "object" || !summary.headline) return "";
 			return `
       <section class="routing-summary-card tone-${escapeHtml(routeOutcomeTone(summary.outcome))}">
         <div class="routing-summary-head">
           <div>
-            <h3>Routing Summary</h3>
+            <h3>${escapeHtml(t("req.routing_summary"))}</h3>
             <p>${messageMarkup(summary.headline)}</p>
           </div>
           ${badge(routeOutcomeLabel(summary.outcome), routeOutcomeTone(summary.outcome))}
         </div>
         <div class="routing-summary-grid">
-          <span>Attempts</span><strong>${fmtInt(summary.attempts)}</strong>
-          <span>Failed</span><strong>${fmtInt(summary.failed_attempts)}</strong>
-          <span>Final Provider</span><strong>${escapeHtml(summary.final_provider || "-")}</strong>
-          <span>Final Format</span><strong>${chipList([summary.final_upstream_format || "-"])}</strong>
+          <span>${escapeHtml(t("req.summary_attempts"))}</span><strong>${fmtInt(summary.attempts)}</strong>
+          <span>${escapeHtml(t("req.summary_failed"))}</span><strong>${fmtInt(summary.failed_attempts)}</strong>
+          <span>${escapeHtml(t("req.summary_final_provider"))}</span><strong>${escapeHtml(summary.final_provider || "-")}</strong>
+          <span>${escapeHtml(t("req.summary_final_format"))}</span><strong>${chipList([summary.final_upstream_format || "-"])}</strong>
         </div>
         <div class="routing-next-action">
-          <span>Next action</span>
+          <span>${escapeHtml(t("req.summary_next_action"))}</span>
           <strong>${messageMarkup(summary.next_action || "-")}</strong>
         </div>
       </section>
@@ -8246,11 +10681,11 @@
     `;
 		}
 		function routeOutcomeLabel(outcome) {
-			if (outcome === "direct_success") return "direct";
-			if (outcome === "recovered") return "recovered";
-			if (outcome === "failed") return "failed";
-			if (outcome === "no_attempts") return "no attempts";
-			return outcome || "unknown";
+			if (outcome === "direct_success") return t("req.route_direct");
+			if (outcome === "recovered") return t("req.route_recovered");
+			if (outcome === "failed") return t("req.route_failed_status");
+			if (outcome === "no_attempts") return t("req.route_no_attempts");
+			return outcome || t("req.route_unknown");
 		}
 		function routeOutcomeTone(outcome) {
 			if (outcome === "direct_success") return "ok";
@@ -8366,6 +10801,7 @@
 		}
 		function installEvents() {
 			document.addEventListener("input", _markContainerDirty, true);
+			document.addEventListener("change", _markContainerDirty, true);
 			document.addEventListener("submit", _clearContainerDirtyOnSubmit, true);
 			window.addEventListener("hashchange", () => {
 				const hashView = String(window.location.hash || "").replace(/^#/, "");
@@ -8588,10 +11024,17 @@
 			el("globalProxyForm").addEventListener("submit", async (event) => {
 				event.preventDefault();
 				const form = event.currentTarget;
+				const proxy = String(form.elements.proxy.value || "").trim();
 				await runConfigMutation(form, async () => {
-					const result = await apiPatch("/-/admin/proxy", { proxy: String(form.elements.proxy.value || "").trim() });
+					const result = await apiPatch("/-/admin/proxy", { proxy });
 					setNotice(t("notice.global_proxy_updated"), "ok");
 					return result;
+				}, {
+					resourceKey: "global-proxy",
+					apply: (config) => {
+						config.proxy = proxy;
+					},
+					drawer: false
 				});
 			});
 			function loadHealthMonitorForm() {
@@ -8697,7 +11140,7 @@
 					else nextEl.textContent = "—";
 					if (runBtn) {
 						runBtn.disabled = patrolState.running || !patrolState.enabled;
-						runBtn.textContent = patrolState.running ? "Running..." : "Run now";
+						runBtn.textContent = patrolState.running ? t("cfg.running") : t("cfg.run_now");
 					}
 				}
 			}
@@ -8705,15 +11148,15 @@
 				const btn = el("hmPatrolRunBtn");
 				const status = el("healthMonitorStatus");
 				btn.disabled = true;
-				btn.textContent = "Running...";
+				btn.textContent = t("cfg.running");
 				if (status) {
-					status.textContent = "Triggering patrol round...";
+					status.textContent = t("cfg.triggering_patrol");
 					status.className = "health-monitor-status info";
 				}
 				try {
 					const result = await apiPost("/-/admin/health/patrol/trigger", {});
 					if (status) {
-						status.textContent = "Patrol round triggered. Check results in a moment.";
+						status.textContent = t("cfg.patrol_triggered");
 						status.className = "health-monitor-status ok";
 					}
 					if (result.patrol_state) {
@@ -8727,12 +11170,12 @@
 					}), 5e3);
 				} catch (err) {
 					if (status) {
-						status.textContent = `Error: ${err.message}`;
+						status.textContent = t("pg.error", { error: err.message });
 						status.className = "health-monitor-status bad";
 					}
 				} finally {
 					btn.disabled = false;
-					btn.textContent = "Run now";
+					btn.textContent = t("cfg.run_now");
 					setTimeout(() => {
 						if (status) {
 							status.textContent = "";
@@ -8744,35 +11187,33 @@
 			el("saveHealthMonitorBtn").addEventListener("click", async () => {
 				const btn = el("saveHealthMonitorBtn");
 				const status = el("healthMonitorStatus");
-				btn.disabled = true;
-				status.textContent = "Saving...";
+				status.textContent = t("notice.saving");
 				status.className = "health-monitor-status info";
-				try {
-					const result = await apiPost("/-/admin/config/health-monitor", collectHealthMonitorPatch());
-					if (result.config) {
-						state.data.config = result.config;
-						loadHealthMonitorForm();
+				const patch = collectHealthMonitorPatch();
+				await runOptimisticConfigAction(btn, () => apiPost("/-/admin/config/health-monitor", patch), {
+					resourceKey: "health-monitor",
+					apply: (config) => {
+						Object.assign(config.health_monitor ||= {}, structuredClone(patch));
 					}
-					status.textContent = "Saved successfully.";
-					status.className = "health-monitor-status ok";
-					setNotice("Health monitor settings saved.", "ok");
-					scheduleBackgroundRefresh({
-						quiet: true,
-						preserveNotice: true,
-						staticData: true,
-						staticDomains: ["config", "audit"]
-					});
-				} catch (err) {
-					status.textContent = `Error: ${err.message}`;
-					status.className = "health-monitor-status bad";
-					setNotice(`Health monitor save failed: ${err.message}`);
-				} finally {
-					btn.disabled = false;
-					setTimeout(() => {
-						status.textContent = "";
-						status.className = "health-monitor-status";
-					}, 3e3);
-				}
+				}, {
+					drawer: false,
+					locateRoot: () => el("saveHealthMonitorBtn"),
+					onSuccess: () => {
+						loadHealthMonitorForm();
+						status.textContent = t("notice.saved");
+						status.className = "health-monitor-status ok";
+						setNotice(t("notice.health_monitor_saved"), "ok");
+					},
+					onError: (err) => {
+						status.textContent = t("pg.error", { error: err.message });
+						status.className = "health-monitor-status bad";
+						setNotice(t("notice.health_monitor_failed", { error: err.message }));
+					}
+				});
+				setTimeout(() => {
+					status.textContent = "";
+					status.className = "health-monitor-status";
+				}, 3e3);
 			});
 			el("exportOverlayButton").addEventListener("click", async () => {
 				try {
@@ -8865,17 +11306,16 @@
 						path: "/v1/messages"
 					}
 				};
-				try {
-					applyMutationResult(await apiPost("/-/admin/providers", payload));
+				await runConfigMutation(formEl, async () => {
+					const result = await apiPost("/-/admin/providers", payload);
 					if (formEl && typeof formEl.reset === "function") formEl.reset();
 					setNotice(t("notice.provider_added", { name: payload.name }), "ok");
-					scheduleBackgroundRefresh({
-						quiet: true,
-						staticData: true
-					});
-				} catch (err) {
-					setNotice(t("notice.add_provider_failed", { error: err.message }));
-				}
+					return result;
+				}, {
+					resourceKey: `provider:${payload.name}`,
+					apply: (config) => appendPendingProvider(config, payload),
+					drawer: false
+				});
 			});
 			el("modelRouteForm").addEventListener("submit", async (event) => {
 				event.preventDefault();
@@ -8889,6 +11329,16 @@
 					const result = await apiPatch("/-/admin/models/routes", payload);
 					setNotice(t("notice.model_route_saved", { model: payload.model }), "ok");
 					return result;
+				}, {
+					resourceKey: `model-route:${payload.model}`,
+					apply: (config) => {
+						const routes = (config.models ||= {}).routes ||= {};
+						routes[payload.model] = {
+							providers: parseRouteProvidersInput(payload.providers),
+							provider_select: payload.provider_select
+						};
+					},
+					drawer: false
 				});
 			});
 			el("clearModelRouteFormButton").addEventListener("click", () => {
@@ -8917,31 +11367,36 @@
 						weight: item.weight || 1,
 						...item.name === provider ? priority === null ? {} : { priority } : item.priority === null || item.priority === void 0 ? {} : { priority: item.priority }
 					}));
-					priorityButton.disabled = true;
-					try {
-						const result = await apiPatch("/-/admin/models/routes", {
-							model,
-							providers,
-							provider_select: "priority_failover"
-						});
-						clearAllDirty();
-						applyMutationResult(result);
-						setNotice(priority === null ? `${provider} now inherits its global priority for ${model}.` : `${provider} model priority for ${model} updated to ${priority}.`, "ok");
-						scheduleBackgroundRefresh({
-							quiet: true,
-							preserveNotice: true,
-							staticData: true,
-							staticDomains: [
-								"routing",
-								"config",
-								"audit"
-							]
-						});
-					} catch (err) {
-						setNotice(`Model priority update failed: ${err.message}`);
-					} finally {
-						priorityButton.disabled = false;
-					}
+					const requestPayload = {
+						model,
+						providers,
+						provider_select: "priority_failover"
+					};
+					await runOptimisticConfigAction(priorityButton, () => apiPatch("/-/admin/models/routes", requestPayload), {
+						resourceKey: `model-route:${model}`,
+						apply: (config) => {
+							const routes = (config.models ||= {}).routes ||= {};
+							routes[model] = {
+								providers: structuredClone(providers),
+								provider_select: "priority_failover"
+							};
+						}
+					}, {
+						drawer: false,
+						locateRoot: () => el("modelRoutes")?.querySelector(`[data-model-route-priority-apply][data-model="${CSS.escape(model)}"][data-provider="${CSS.escape(provider)}"]`),
+						onSuccess: () => {
+							clearAllDirty();
+							setNotice(priority === null ? `${provider} now inherits its global priority for ${model}.` : `${provider} model priority for ${model} updated to ${priority}.`, "ok");
+						},
+						onError: (err) => {
+							const restored = el("modelRoutes")?.querySelector(`[data-model-route-priority-apply][data-model="${CSS.escape(model)}"][data-provider="${CSS.escape(provider)}"]`)?.closest(".model-route-provider-priority")?.querySelector("[data-model-route-priority]");
+							if (restored) {
+								restored.value = rawPriority;
+								restored.focus();
+							}
+							setNotice(`Model priority update failed: ${err.message}`);
+						}
+					});
 					return;
 				}
 				if (editButton) {
@@ -8966,30 +11421,17 @@
 						message: t("confirm.delete_route.msg", { model }),
 						acceptLabel: t("confirm.delete")
 					})) return;
-					deleteButton.disabled = true;
-					try {
-						const result = await apiPost("/-/admin/models/routes/delete", { model });
-						if (state.data.config?.model_routes) delete state.data.config.model_routes[model];
-						applyMutationResult(result);
-						state.forceModelRoutesRender = true;
-						state.data.version = Number(state.data.version || 0) + 1;
-						renderAll();
-						setNotice(t("notice.model_route_deleted", { model }), "ok");
-						scheduleBackgroundRefresh({
-							quiet: true,
-							preserveNotice: true,
-							staticData: true,
-							staticDomains: [
-								"routing",
-								"config",
-								"audit"
-							]
-						});
-					} catch (err) {
-						setNotice(t("notice.delete_route_failed", { error: err.message }));
-					} finally {
-						deleteButton.disabled = false;
-					}
+					await runOptimisticConfigAction(deleteButton, () => apiPost("/-/admin/models/routes/delete", { model }), {
+						resourceKey: `model-route:${model}`,
+						apply: (config) => {
+							delete config.models?.routes?.[model];
+						}
+					}, {
+						drawer: false,
+						locateRoot: () => el("modelRoutes")?.querySelector(`[data-model-route-delete="${CSS.escape(model)}"]`),
+						onSuccess: () => setNotice(t("notice.model_route_deleted", { model }), "ok"),
+						onError: (err) => setNotice(t("notice.delete_route_failed", { error: err.message }))
+					});
 				}
 			});
 			el("closeDrawerButton").addEventListener("click", closeDrawer);
@@ -9207,14 +11649,35 @@
 		}
 		var _tipEl = null;
 		var _tipHideTimer = null;
+		var _tooltipReconcileCallback = null;
+		function scheduleTooltipReconcile() {
+			if (_tooltipReconcileCallback) _tooltipReconcileCallback();
+		}
 		function installTooltip() {
 			if (_tipEl) return;
 			_tipEl = document.createElement("div");
 			_tipEl.className = "lp-tip";
+			_tipEl.id = "lpGlobalTooltip";
 			_tipEl.setAttribute("role", "tooltip");
 			_tipEl.setAttribute("aria-hidden", "true");
 			document.body.appendChild(_tipEl);
 			let _currentTipTarget = null;
+			let _lastPointer = null;
+			let _reconcileRaf = 0;
+			const setDescribedBy = (target, enabled) => {
+				if (!target?.getAttribute) return;
+				const ids = new Set(String(target.getAttribute("aria-describedby") || "").split(/\s+/).filter(Boolean));
+				if (enabled) ids.add(_tipEl.id);
+				else ids.delete(_tipEl.id);
+				if (ids.size) target.setAttribute("aria-describedby", [...ids].join(" "));
+				else target.removeAttribute("aria-describedby");
+			};
+			const setCurrentTarget = (target) => {
+				if (_currentTipTarget === target) return;
+				setDescribedBy(_currentTipTarget, false);
+				_currentTipTarget = target;
+				setDescribedBy(_currentTipTarget, true);
+			};
 			const suppressNative = (target) => {
 				if (target.dataset.tipTitleSuppressed === "1") return;
 				const title = target.getAttribute("title");
@@ -9233,7 +11696,7 @@
 					return;
 				}
 				window.clearTimeout(_tipHideTimer);
-				_currentTipTarget = target;
+				setCurrentTarget(target);
 				_tipEl.textContent = trimmed;
 				_tipEl.setAttribute("aria-hidden", "false");
 				positionTip(target);
@@ -9243,17 +11706,21 @@
 				window.clearTimeout(_tipHideTimer);
 				_tipEl.classList.remove("is-visible");
 				_tipEl.setAttribute("aria-hidden", "true");
-				_currentTipTarget = null;
+				setCurrentTarget(null);
 			};
 			const hide = () => {
 				window.clearTimeout(_tipHideTimer);
 				_tipHideTimer = window.setTimeout(() => {
 					_tipEl.classList.remove("is-visible");
 					_tipEl.setAttribute("aria-hidden", "true");
-					_currentTipTarget = null;
+					setCurrentTarget(null);
 				}, 80);
 			};
 			const positionTip = (target) => {
+				if (!target?.isConnected) {
+					hideNow();
+					return;
+				}
 				const rect = target.getBoundingClientRect();
 				_tipEl.style.left = "0px";
 				_tipEl.style.top = "0px";
@@ -9274,13 +11741,42 @@
 				_tipEl.style.top = `${Math.round(top)}px`;
 				_tipEl.classList.toggle("is-below", placeBelow);
 			};
-			const selector = "[data-tip], [title]";
+			const selector = "[data-tip], [title], [data-original-title]";
 			const targetFromEvent = (event) => {
 				const node = event.target;
 				if (!node || !node.closest) return null;
 				return node.closest(selector);
 			};
+			const targetAtPointer = () => {
+				if (_lastPointer) {
+					const node = document.elementFromPoint(_lastPointer.x, _lastPointer.y);
+					if (node?.closest) return node.closest(selector);
+				}
+				const active = document.activeElement;
+				return active?.closest ? active.closest(selector) : null;
+			};
+			const reconcile = () => {
+				_reconcileRaf = 0;
+				const nextTarget = targetAtPointer();
+				if (nextTarget) if (!_currentTipTarget || !_currentTipTarget.isConnected || nextTarget !== _currentTipTarget || !_tipEl.classList.contains("is-visible")) show(nextTarget);
+				else positionTip(nextTarget);
+				else if (_currentTipTarget && (!_currentTipTarget.isConnected || !_lastPointer)) hideNow();
+			};
+			_tooltipReconcileCallback = () => {
+				if (_reconcileRaf) return;
+				_reconcileRaf = window.requestAnimationFrame(reconcile);
+			};
+			document.addEventListener("pointermove", (event) => {
+				_lastPointer = {
+					x: event.clientX,
+					y: event.clientY
+				};
+			}, { passive: true });
 			document.addEventListener("mouseover", (event) => {
+				_lastPointer = {
+					x: event.clientX,
+					y: event.clientY
+				};
 				const target = targetFromEvent(event);
 				if (target) show(target);
 				else if (_currentTipTarget) hide();
@@ -9291,14 +11787,13 @@
 				if (_currentTipTarget && next === _currentTipTarget) return;
 				hide();
 			});
-			document.addEventListener("mouseleave", hideNow);
-			window.addEventListener("blur", hideNow);
-			window.addEventListener("scroll", () => {
-				if (_currentTipTarget) positionTip(_currentTipTarget);
-			}, { passive: true });
-			window.addEventListener("resize", () => {
-				if (_currentTipTarget) positionTip(_currentTipTarget);
+			document.addEventListener("mouseleave", () => {
+				_lastPointer = null;
+				hideNow();
 			});
+			window.addEventListener("blur", hideNow);
+			window.addEventListener("scroll", scheduleTooltipReconcile, { passive: true });
+			window.addEventListener("resize", scheduleTooltipReconcile);
 			document.addEventListener("focusin", (event) => {
 				const target = targetFromEvent(event);
 				if (target) show(target);
@@ -9341,6 +11836,7 @@
 				el("viewTitle").textContent = meta.title;
 				el("viewSubtitle").textContent = meta.subtitle;
 				renderTimeRangeControl();
+				if (state.providerDrawerName) renderProviderDrawer({ force: true });
 			});
 			updateLangToggleLabel();
 		}

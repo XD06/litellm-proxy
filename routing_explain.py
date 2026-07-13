@@ -19,6 +19,7 @@ def enrich_request(item: Dict[str, Any]) -> Dict[str, Any]:
 
 def summarize_request(item: Dict[str, Any]) -> Dict[str, Any]:
     attempts = list(item.get("attempts") or [])
+    routing_trace = list(item.get("routing_trace") or [])
     status_code = int(item.get("status_code") or 0)
     failed_attempts = [a for a in attempts if str(a.get("outcome") or "") != "success"]
     success_attempt = next((a for a in attempts if str(a.get("outcome") or "") == "success"), None)
@@ -27,9 +28,22 @@ def summarize_request(item: Dict[str, Any]) -> Dict[str, Any]:
     formats = _unique(a.get("upstream_format") for a in attempts)
 
     if not attempts:
-        headline = "No upstream attempt was recorded."
+        blockers = [
+            event for event in routing_trace
+            if str(event.get("code") or "") == "format_blocked_by_parameter"
+        ]
+        if blockers:
+            labels = _unique(
+                f"{event.get('target_format')}: {event.get('field')}"
+                for event in blockers
+                if event.get("target_format") and event.get("field")
+            )
+            headline = "No eligible upstream candidate. Format blockers: " + ", ".join(labels) + "."
+            next_action = "Use a compatible upstream format or remove the listed stateful request fields."
+        else:
+            headline = "No upstream attempt was recorded."
+            next_action = "Check routing filters, model support, provider enable state, key availability, and active circuits."
         outcome = "no_attempts"
-        next_action = "Check routing filters, model support, provider enable state, and key availability."
     elif success_attempt:
         provider = success_attempt.get("provider") or "unknown"
         fmt = success_attempt.get("upstream_format") or "unknown"
@@ -50,6 +64,10 @@ def summarize_request(item: Dict[str, Any]) -> Dict[str, Any]:
         else:
             next_action = "No provider/key candidate was available for this request."
 
+    terminal_trace = next(
+        (event for event in reversed(routing_trace) if event.get("code") in ("no_candidate", "attempt_failed", "attempt_succeeded")),
+        {},
+    )
     return {
         "outcome": outcome,
         "headline": headline,
@@ -61,6 +79,7 @@ def summarize_request(item: Dict[str, Any]) -> Dict[str, Any]:
         "final_upstream_format": final_attempt.get("upstream_format") or "",
         "status_code": status_code,
         "next_action": next_action,
+        "owner": terminal_trace.get("owner") or (final_attempt.get("failure_owner") if final_attempt else "") or "",
     }
 
 

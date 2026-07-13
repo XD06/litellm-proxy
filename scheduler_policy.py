@@ -299,7 +299,8 @@ def is_quota_or_balance_error(error_body: str) -> bool:
     text = str(error_body or "").lower().replace("-", "_")
     markers = (
         "insufficient balance", "insufficient quota", "insufficient_user_quota",
-        "credit balance", "billing", "quota exceeded", "余额不足",
+        "insufficient credit", "credit balance", "billing", "billing_error",
+        "quota exceeded", "out of credit", "no credit", "余额不足",
         "额度不足", "用户额度", "预扣费额度失败",
     )
     return any(marker in text for marker in markers)
@@ -317,9 +318,13 @@ def classify_http_error(
     retryable_cfg = set(retry_cfg.get("retryable_status") or [])
     status = int(status_code or 0)
 
+    # Providers frequently use non-standard HTTP statuses for account billing
+    # failures (for example 422 for "Insufficient credits"). Explicit error
+    # semantics are more authoritative than the transport status.
+    if is_quota_or_balance_error(error_body):
+        return _decision(config, "quota_or_balance", True, "quota_or_balance")
+
     if status in key_fatal:
-        if is_quota_or_balance_error(error_body):
-            return _decision(config, "quota_or_balance", True, "quota_or_balance")
         return _decision(config, "key_invalid", False, "key_fatal_status", stop_attempts=False)
     if status == 429:
         return _decision(config, "rate_limited", True, "rate_limited")

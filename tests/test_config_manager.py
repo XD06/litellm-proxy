@@ -334,6 +334,44 @@ class ConfigManagerTests(unittest.TestCase):
         self.assertEqual(len(overlay["providers"]["alpha"]["keys"]), 1)
         self.assertNotIn("alpha-second-secret", json.dumps(mgr.overlay_snapshot()))
 
+    def test_key_model_map_survives_proxy_update_and_is_exposed_without_secret(self):
+        _config_path, overlay_path = self.temp_paths()
+        base = base_config()
+        base["providers"]["alpha"]["keys"] = [
+            {"key": "alpha-secret-key", "models": {"grok-4.3": "grok-4.3-high"}}
+        ]
+        mgr = config_manager.RuntimeConfigManager(base, overlay_path=overlay_path)
+
+        cfg = mgr.update_key("alpha", 0, {"proxy": "http://127.0.0.1:8500"})
+        self.assertEqual(cfg["providers"]["alpha"]["keys"][0]["models"], {"grok-4.3": "grok-4.3-high"})
+
+        cfg = mgr.update_key("alpha", 0, {"models": {"grok-4.3": "grok-4.3-low"}})
+        self.assertEqual(cfg["providers"]["alpha"]["keys"][0]["models"], {"grok-4.3": "grok-4.3-low"})
+        snapshot = mgr.snapshot()
+        self.assertEqual(snapshot["providers"]["alpha"]["keys"][0]["models"], {"grok-4.3": "grok-4.3-low"})
+        self.assertNotIn("alpha-secret-key", json.dumps(snapshot))
+
+    def test_provider_model_variants_are_priority_normalized(self):
+        _config_path, overlay_path = self.temp_paths()
+        mgr = config_manager.RuntimeConfigManager(base_config(), overlay_path=overlay_path)
+
+        cfg = mgr.update_provider_model_variants(
+            "alpha",
+            model="grok-4.3",
+            variants=[
+                {"model": "grok-4.3-low", "priority": 10},
+                {"model": "grok-4.3-high", "priority": 100},
+            ],
+        )
+
+        self.assertEqual(
+            cfg["models"]["provider_model_variants"]["alpha"]["grok-4.3"],
+            [
+                {"model": "grok-4.3-high", "priority": 100},
+                {"model": "grok-4.3-low", "priority": 10},
+            ],
+        )
+
     def test_delete_key_accepts_display_index_from_sparse_key_entries(self):
         _config_path, overlay_path = self.temp_paths()
         cfg = base_config()
@@ -584,6 +622,12 @@ class ConfigManagerTests(unittest.TestCase):
                 "canonical_map": {"shared-model": "beta-model"},
             }
         }
+        cfg["models"]["provider_key_model_capabilities"] = {
+            "beta": {"fingerprint": {"status": "ok", "models": ["beta-model"]}}
+        }
+        cfg["models"]["provider_model_variants"] = {
+            "beta": {"shared-model": [{"model": "beta-model", "priority": 10}]}
+        }
         mgr = config_manager.RuntimeConfigManager(cfg, overlay_path=overlay_path)
 
         deleted = mgr.delete_provider("beta")
@@ -598,6 +642,8 @@ class ConfigManagerTests(unittest.TestCase):
         self.assertNotIn("beta", deleted["models"]["provider_model_map"])
         self.assertNotIn("beta", deleted["models"]["provider_model_capabilities"])
         self.assertNotIn("beta", deleted["models"]["provider_model_disabled"])
+        self.assertNotIn("beta", deleted["models"]["provider_key_model_capabilities"])
+        self.assertNotIn("beta", deleted["models"]["provider_model_variants"])
 
         with open(overlay_path, "r", encoding="utf-8") as f:
             overlay = json.load(f)
@@ -606,6 +652,8 @@ class ConfigManagerTests(unittest.TestCase):
         self.assertIsNone(overlay["models"]["provider_model_map"]["beta"])
         self.assertIsNone(overlay["models"]["provider_model_capabilities"]["beta"])
         self.assertIsNone(overlay["models"]["provider_model_disabled"]["beta"])
+        self.assertIsNone(overlay["models"]["provider_key_model_capabilities"]["beta"])
+        self.assertIsNone(overlay["models"]["provider_model_variants"]["beta"])
 
     def test_delete_overlay_only_provider_removes_overlay_entry(self):
         _config_path, overlay_path = self.temp_paths()
@@ -644,6 +692,39 @@ class ConfigManagerTests(unittest.TestCase):
         self.assertNotIn("routes", overlay.get("models") or {})
         self.assertNotIn("provider_model_map", overlay.get("models") or {})
         self.assertNotIn("provider_model_capabilities", overlay.get("models") or {})
+
+    def test_compact_overlay_removes_legacy_capability_snapshots(self):
+        _config_path, overlay_path = self.temp_paths()
+        cfg = base_config()
+        cfg["models"]["provider_model_capabilities"] = {
+            "alpha": {"status": "ok", "fetched_at": 10, "models": ["base-model"]}
+        }
+        with open(overlay_path, "w", encoding="utf-8") as f:
+            json.dump(
+                {
+                    "models": {
+                        "provider_model_capabilities": {
+                            "alpha": None,
+                            "legacy": {"status": "ok", "fetched_at": 1, "models": ["old-model"]},
+                        },
+                        "provider_key_model_capabilities": {
+                            "legacy": {"old-key": {"status": "ok", "models": ["old-model"]}}
+                        },
+                        "models_union_snapshot": {"status": "ok", "model_ids": ["old-model"]},
+                    }
+                },
+                f,
+            )
+        mgr = config_manager.RuntimeConfigManager(cfg, overlay_path=overlay_path)
+
+        mgr.compact_overlay()
+
+        with open(overlay_path, "r", encoding="utf-8") as f:
+            overlay = json.load(f)
+        models = overlay.get("models") or {}
+        self.assertEqual(models.get("provider_model_capabilities"), {"alpha": None})
+        self.assertNotIn("provider_key_model_capabilities", models)
+        self.assertNotIn("models_union_snapshot", models)
 
     def test_rejects_invalid_provider_updates(self):
         _config_path, overlay_path = self.temp_paths()

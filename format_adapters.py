@@ -5,8 +5,9 @@ from __future__ import annotations
 from typing import Any, Callable, Dict, Optional
 
 from parameter_compatibility import (
-    OutputTokenLimit, apply_output_token_limit, apply_stop_sequences,
-    extract_output_token_limit, extract_stop_sequences,
+    OutputTokenLimit, ParameterCompatibilityError, apply_output_token_limit,
+    apply_stop_sequences, extract_output_token_limit, extract_stop_sequences,
+    format_compatibility_plan,
 )
 from protocol_adapters import (
     anthropic_message_to_openai_chat_response,
@@ -28,6 +29,23 @@ def _identity_model(name: str) -> str:
     return name
 
 
+def _anthropic_reasoning_effort(thinking: Any) -> Optional[str]:
+    if not isinstance(thinking, dict) or str(thinking.get("type") or "enabled") == "disabled":
+        return None
+    explicit = str(thinking.get("effort") or "").strip().lower()
+    if explicit in ("low", "medium", "high"):
+        return explicit
+    try:
+        budget = int(thinking.get("budget_tokens") or 0)
+    except (TypeError, ValueError):
+        budget = 0
+    if budget and budget <= 2048:
+        return "low"
+    if budget and budget > 8192:
+        return "high"
+    return "medium"
+
+
 def convert_request(
     from_format: str,
     to_format: str,
@@ -36,8 +54,20 @@ def convert_request(
     resolve_model: Callable[[str], str],
     output_token_field: Optional[str] = None,
     anthropic_default_max_tokens: Optional[int] = None,
+    semantic_conversion_mode: str = "safe",
 ) -> Dict[str, Any]:
     """Convert a request while preserving its output-token limit semantics."""
+    compatibility_plan = format_compatibility_plan(
+        request,
+        client_format=from_format,
+        target_format=to_format,
+        mode=semantic_conversion_mode,
+    )
+    if not compatibility_plan.allowed:
+        fields = ", ".join(compatibility_plan.blockers)
+        raise ParameterCompatibilityError(
+            f"cannot preserve {from_format} field(s) for {to_format}: {fields}"
+        )
     token_limit = extract_output_token_limit(request, client_format=from_format)
     stop_sequences = extract_stop_sequences(request, client_format=from_format)
     if from_format == to_format and not token_limit.present and not stop_sequences.present:
@@ -71,7 +101,15 @@ def convert_request(
     converted = apply_output_token_limit(
         converted, token_limit, target_format=to_format, configured_field=output_token_field,
     )
-    return apply_stop_sequences(converted, stop_sequences, target_format=to_format)
+    converted = apply_stop_sequences(converted, stop_sequences, target_format=to_format)
+
+    if from_format == ANTHROPIC and to_format != ANTHROPIC and request.get("thinking") is not None:
+        effort = _anthropic_reasoning_effort(request.get("thinking"))
+        if effort and to_format == CHAT:
+            converted["reasoning_effort"] = effort
+        elif effort and to_format == RESPONSES:
+            converted["reasoning"] = {"effort": effort}
+    return converted
 
 
 def convert_response(

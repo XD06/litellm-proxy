@@ -3,6 +3,13 @@ import { state } from "./state.js";
 import { timeRanges, REQUEST_PAGE_SIZE, PROVIDERS_PAGE_SIZE, CONFIG_PROVIDERS_PAGE_SIZE, MODEL_ROUTES_PAGE_SIZE, PROVIDER_MODEL_MAP_PAGE_SIZE, AUDIT_PAGE_SIZE, OVERVIEW_PROVIDER_LIMIT, OVERVIEW_FAILURE_LIMIT, USAGE_MODEL_LIMIT, views } from "./constants.js";
 import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessage } from "./api.js";
 import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.js";
+import { PROVIDER_CALL_BAR_SLOTS, recentProviderActivityEvents } from "./provider-activity-window.mjs";
+import { OptimisticConfigStore, appendPendingKey, appendPendingProvider } from "./optimistic-config.mjs";
+import { createMutationBusySetter, liveElementLocator, MutationBusyTracker } from "./mutation-ui.mjs";
+import { bindTrafficModeControls } from "./traffic-mode.mjs";
+import { ConfigRefreshCoordinator, InFlightActionRegistry } from "./operation-guard.mjs";
+import { groupRoutingTrace, routingTraceIdentity, routingTraceTone, summarizeFormatTraceStep } from "./routing-trace-view.mjs";
+import { shouldAcceptModelCapabilitySnapshot } from "./model-capability-order.mjs";
 
 
   const el = (id) => document.getElementById(id);
@@ -59,6 +66,178 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
   let _refreshWantedArgs = null;
   let _backgroundRefreshTimer = null;
   let _backgroundRefreshArgs = null;
+  const pendingRuntimeMutations = new Set();
+  const optimisticConfigStore = new OptimisticConfigStore();
+  const setMutationBusy = createMutationBusySetter();
+  const mutationBusyTracker = new MutationBusyTracker(setMutationBusy);
+  const configRefreshCoordinator = new ConfigRefreshCoordinator();
+  const uiActionRegistry = new InFlightActionRegistry();
+  const STATIC_CONFIG_DOMAINS = new Set(["routing", "config", "overlay"]);
+
+  function acceptConfirmedConfig(config) {
+    const effective = optimisticConfigStore.acceptConfirmed(config || {});
+    state.data.config = effective;
+    return effective;
+  }
+
+  function applyStatusPayload(status) {
+    const existingModels = state.data.status?.models;
+    state.data.status = status && typeof status === "object" ? status : {};
+    if (existingModels && !state.data.status.models) state.data.status.models = existingModels;
+    return state.data.status;
+  }
+
+  function acceptModelCapabilities(capabilities) {
+    const current = state.data.status?.models;
+    if (!shouldAcceptModelCapabilitySnapshot(current, capabilities)) return false;
+    state.data.status = { ...(state.data.status || {}), models: capabilities };
+    if (capabilities.models_version !== undefined) {
+      _lastModelsVersion = capabilities.models_version;
+    }
+    state.data.modelsVersion = Number(state.data.modelsVersion || 0) + 1;
+    return true;
+  }
+
+  function publishEffectiveConfig(config, { drawer = true } = {}) {
+    state.data.config = config || {};
+    state.data.version = Number(state.data.version || 0) + 1;
+    state.forceConfigRender = true;
+    state.forceModelRoutesRender = true;
+    state.forceProvidersRender = true;
+    state.forceModelCapsRender = true;
+    state.forcePolicyRender = true;
+    state.forceFailurePoliciesRender = true;
+    renderAll();
+    if (drawer && state.providerDrawerName) renderProviderDrawer({ force: true });
+  }
+
+  function beginOptimisticConfigMutation(resourceKey, apply, options = {}) {
+    const mutation = optimisticConfigStore.begin(resourceKey, apply);
+    if (!mutation) {
+      setNotice("This setting is already being saved. Wait for the current request to finish.", "warn");
+      return null;
+    }
+    publishEffectiveConfig(mutation.config, options);
+    return mutation;
+  }
+
+  function confirmOptimisticConfigMutation(mutation, serverConfig, options = {}) {
+    if (!mutation || serverConfig === undefined) return false;
+    const effective = optimisticConfigStore.confirm(mutation.id, serverConfig);
+    if (effective === null) return false;
+    if (options.render === false) state.data.config = effective;
+    else publishEffectiveConfig(effective, options);
+    return true;
+  }
+
+  function rejectOptimisticConfigMutation(mutation, options = {}) {
+    if (!mutation) return;
+    publishEffectiveConfig(optimisticConfigStore.reject(mutation.id), options);
+  }
+
+  function captureFormState(form) {
+    const values = [];
+    Array.from(form?.elements || []).forEach((control) => {
+      if (!control.name) return;
+      values.push({
+        name: control.name,
+        type: control.type || "",
+        value: control.value,
+        checked: Boolean(control.checked),
+      });
+    });
+    const active = document.activeElement && form?.contains(document.activeElement)
+      ? document.activeElement.name || ""
+      : "";
+    return { values, active };
+  }
+
+  function restoreFormState(form, snapshot) {
+    if (!form || !snapshot) return;
+    for (const saved of snapshot.values || []) {
+      const control = Array.from(form.elements || []).find((entry) => entry.name === saved.name);
+      if (!control) continue;
+      if (saved.type === "checkbox" || saved.type === "radio") control.checked = saved.checked;
+      else control.value = saved.value;
+    }
+    const focusTarget = Array.from(form.elements || []).find((entry) => entry.name === snapshot.active)
+      || form.querySelector("button[type='submit']");
+    focusTarget?.focus?.();
+  }
+
+  function formLocator(form) {
+    if (!form) return () => null;
+    if (form.id) return () => document.getElementById(form.id);
+    const provider = form.dataset?.provider || "";
+    const keyIndex = form.dataset?.keyIndex || "";
+    const className = Array.from(form.classList || [])[0] || "";
+    return () => {
+      if (form.isConnected) return form;
+      if (!className) return null;
+      return Array.from(document.querySelectorAll(`.${CSS.escape(className)}`)).find((candidate) => (
+        (!provider || candidate.dataset?.provider === provider)
+        && (!keyIndex || candidate.dataset?.keyIndex === keyIndex)
+      )) || null;
+    };
+  }
+
+  function hasProtectedConfigInteraction() {
+    if (configRefreshCoordinator.mutationDepth > 0) return true;
+    return _trackedFormSelectors.some((selector) => shouldPreserveContainer(selector));
+  }
+
+  async function runExclusiveUiAction(key, operation, { duplicateNotice = "" } = {}) {
+    const finish = uiActionRegistry.begin(key);
+    if (!finish) {
+      if (duplicateNotice) {
+        setNotice(duplicateNotice, "info", { key: `busy:${key}`, duration: 1800 });
+      }
+      return false;
+    }
+    try {
+      return await operation();
+    } finally {
+      finish();
+    }
+  }
+
+  async function runOptimisticConfigAction(root, operation, optimistic, callbacks = {}) {
+    const mutationScope = configRefreshCoordinator.beginMutation();
+    const locateRoot = callbacks.locateRoot || (() => root?.isConnected ? root : null);
+    const mutation = beginOptimisticConfigMutation(
+      optimistic.resourceKey,
+      optimistic.apply,
+      { drawer: callbacks.drawer !== false },
+    );
+    if (!mutation) {
+      mutationScope.finish();
+      return false;
+    }
+    const finishBusy = mutationBusyTracker.start(locateRoot);
+    try {
+      const result = await operation();
+      if (result?.config !== undefined) {
+        if (!confirmOptimisticConfigMutation(mutation, result.config, { render: false })) return false;
+      } else {
+        rejectOptimisticConfigMutation(mutation, { drawer: callbacks.drawer !== false });
+      }
+      applyMutationResult(result, {
+        drawer: callbacks.drawer !== false,
+        skipConfig: result?.config !== undefined,
+      });
+      callbacks.onSuccess?.(result);
+      scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
+      return true;
+    } catch (err) {
+      rejectOptimisticConfigMutation(mutation, { drawer: callbacks.drawer !== false });
+      if (callbacks.onError) callbacks.onError(err);
+      else setNotice(t("notice.config_update_failed", { error: err.message }), "bad");
+      return false;
+    } finally {
+      mutationScope.finish();
+      finishBusy();
+    }
+  }
 
   function mergeRefreshArgs(previous, next) {
     if (!previous) return { ...(next || {}) };
@@ -92,11 +271,12 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     }, delayMs);
   }
 
-  function applyMutationResult(result, { render = true, drawer = false } = {}) {
+  function applyMutationResult(result, { render = true, drawer = false, skipConfig = false } = {}) {
+    if (!state.adminKey) return false;
     if (!result || typeof result !== "object") return false;
     let changed = false;
     if (result.config !== undefined) {
-      state.data.config = result.config;
+      if (!skipConfig) acceptConfirmedConfig(result.config);
       changed = true;
     }
     if (result.routing !== undefined) {
@@ -104,8 +284,11 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       changed = true;
     }
     if (result.status !== undefined) {
-      state.data.status = result.status;
+      applyStatusPayload(result.status);
       changed = true;
+    }
+    if (result.models !== undefined) {
+      if (acceptModelCapabilities(result.models)) changed = true;
     }
     if (result.router !== undefined) {
       state.data.status = { ...(state.data.status || {}), router: result.router };
@@ -140,6 +323,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const __t0 = performance.now();
     if (!target.innerHTML.trim()) {
       target.innerHTML = htmlString;
+      scheduleTooltipReconcile();
       window.__perfMark && window.__perfMark("updateDOM.innerHTML[" + (target.id || target.className || "?") + "]", performance.now() - __t0);
       return;
     }
@@ -147,6 +331,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     wrapper.innerHTML = htmlString;
     const __t1 = performance.now();
     morphdom(target, wrapper, { childrenOnly: true });
+    scheduleTooltipReconcile();
     const __t2 = performance.now();
     window.__perfMark && window.__perfMark("updateDOM.build[" + (target.id || target.className || "?") + "]", __t1 - __t0);
     window.__perfMark && window.__perfMark("updateDOM.morphdom[" + (target.id || target.className || "?") + "]", __t2 - __t1);
@@ -268,7 +453,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     return text || fallback;
   }
 
-  function proxyTestButton(title = "Test proxy") {
+  function proxyTestButton(title = t("action.test_proxy")) {
     return `<button class="button secondary icon-action proxy-test-button" type="button" data-proxy-test title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}">${iconSvg("activity")}</button>`;
   }
 
@@ -413,6 +598,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     for (const sel of _trackedFormSelectors) {
       if (target.closest(sel)) {
         _dirtyContainers.add(sel);
+        configRefreshCoordinator.markInteraction();
         return;
       }
     }
@@ -423,7 +609,8 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     if (!form) return;
     for (const sel of _trackedFormSelectors) {
       if (form.closest(sel)) {
-        _dirtyContainers.delete(sel);
+        _dirtyContainers.add(sel);
+        configRefreshCoordinator.markInteraction();
         return;
       }
     }
@@ -431,10 +618,12 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
 
   function clearDirty(selector) {
     _dirtyContainers.delete(selector);
+    configRefreshCoordinator.markInteraction();
   }
 
   function clearAllDirty() {
     _dirtyContainers.clear();
+    configRefreshCoordinator.markInteraction();
   }
 
   function isContainerDirty(selector) {
@@ -632,6 +821,9 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     } catch (_err) {
       // Ignore storage failures; the in-memory key is still cleared.
     }
+    optimisticConfigStore.clear();
+    uiActionRegistry.clear();
+    state.data.config = null;
   }
 
   async function validateAdminKey(key) {
@@ -1040,15 +1232,16 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
             anthropic_messages: { enabled: format === "anthropic_messages", path: "/v1/messages" },
           };
         }
-        try {
+        await runConfigMutation(form, async () => {
           const result = await apiPost("/-/admin/providers", payload);
-          applyMutationResult(result);
           closeFormModal();
           setNotice(t("notice.provider_added", { name: payload.name }), "ok");
-          scheduleBackgroundRefresh({ quiet: true, staticData: true });
-        } catch (err) {
-          setNotice(t("notice.add_provider_failed", { error: err.message }));
-        }
+          return result;
+        }, {
+          resourceKey: `provider:${payload.name}`,
+          apply: (config) => appendPendingProvider(config, payload),
+          drawer: false,
+        });
       });
     }
     const cancel = document.getElementById("addProviderModalCancel");
@@ -1160,38 +1353,51 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       return false;
     }
     _staticRefreshInFlight = true;
+    const refreshSnapshot = configRefreshCoordinator.snapshot();
+    const protectedAtStart = hasProtectedConfigInteraction();
     try {
       const entries = [
-        ["status", apiGet("/-/admin/status")],
-        ["models", apiGet("/-/admin/models/capabilities", { cache: true })],
-        ["routing", apiGet("/-/admin/routing", { cache: true })],
-        ["config", apiGet("/-/admin/config", { cache: true })],
-        ["overlay", apiGet("/-/admin/config/overlay", { cache: true })],
-        ["audit", apiGet("/-/admin/audit?limit=12", { cache: true })],
+        ["status", () => apiGet("/-/admin/status")],
+        ["models", () => apiGet("/-/admin/models/capabilities", { cache: true })],
+        ["routing", () => apiGet("/-/admin/routing", { cache: true })],
+        ["config", () => apiGet("/-/admin/config", { cache: true })],
+        ["overlay", () => apiGet("/-/admin/config/overlay", { cache: true })],
+        ["audit", () => apiGet("/-/admin/audit?limit=12", { cache: true })],
       ];
-      const selectedEntries = domains ? entries.filter(([name]) => domains.includes(name)) : entries;
-      const settled = await Promise.allSettled(selectedEntries.map(([, promise]) => promise));
+      const selectedEntries = (domains ? entries.filter(([name]) => domains.includes(name)) : entries)
+        .filter(([name]) => !(protectedAtStart && STATIC_CONFIG_DOMAINS.has(name)));
+      if (!selectedEntries.length) {
+        setConnection(true, `Updated ${new Date().toLocaleTimeString()}`);
+        return false;
+      }
+      const settled = await Promise.allSettled(selectedEntries.map(([, load]) => load()));
       const result = {};
       settled.forEach((entry, index) => {
         if (entry.status === "fulfilled") result[selectedEntries[index][0]] = entry.value;
       });
-      if (result.status !== undefined) state.data.status = result.status;
+      const allowConfigApply = !configRefreshCoordinator.shouldDefer(
+        refreshSnapshot,
+        hasProtectedConfigInteraction(),
+      );
+      if (result.status !== undefined) applyStatusPayload(result.status);
       if (result.models !== undefined) {
-        state.data.status = { ...(state.data.status || {}), models: result.models };
-        state.data.modelsVersion = Number(state.data.modelsVersion || 0) + 1;
+        acceptModelCapabilities(result.models);
       }
-      if (result.routing !== undefined) state.data.routing = result.routing;
-      if (result.config !== undefined) state.data.config = result.config;
-      if (result.overlay !== undefined) state.data.overlay = result.overlay;
+      if (allowConfigApply && result.routing !== undefined) state.data.routing = result.routing;
+      if (allowConfigApply && result.config !== undefined) acceptConfirmedConfig(result.config);
+      if (allowConfigApply && result.overlay !== undefined) state.data.overlay = result.overlay;
       if (result.audit !== undefined) state.data.audit = result.audit;
       state.data.version = Number(state.data.version || 0) + 1;
-      state.forceConfigRender = true;
-      state.forcePolicyRender = true;
-      state.forceFailurePoliciesRender = true;
-      state.forceModelRoutesRender = true;
-      state.forceProvidersRender = true;
-      state.forceModelCapsRender = true;
-      if (["providers", "policy", "config"].includes(state.view) || state.providerDrawerName) {
+      if (allowConfigApply) {
+        state.forceConfigRender = true;
+        state.forcePolicyRender = true;
+        state.forceFailurePoliciesRender = true;
+        state.forceModelRoutesRender = true;
+        state.forceProvidersRender = true;
+        state.forceModelCapsRender = true;
+      }
+      const canRenderConfigViews = allowConfigApply && !hasProtectedConfigInteraction();
+      if (canRenderConfigViews && (["providers", "policy", "config"].includes(state.view) || state.providerDrawerName)) {
         renderAll();
         if (state.providerDrawerName) renderProviderDrawer({ force: true });
       }
@@ -1410,13 +1616,13 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       }
       if (result.healthScores !== undefined) state.data.healthScores = result.healthScores;
       if (result.timeseries !== undefined) state.data.timeseries = result.timeseries;
-      if (result.status !== undefined) state.data.status = result.status;
+      if (result.status !== undefined) applyStatusPayload(result.status);
       if (result.models !== undefined) {
-        state.data.status = { ...(state.data.status || {}), models: result.models };
+        acceptModelCapabilities(result.models);
       }
       if (result.requests !== undefined) state.data.requests = result.requests;
       if (result.routing !== undefined) state.data.routing = result.routing;
-      if (result.config !== undefined) state.data.config = result.config;
+      if (result.config !== undefined) acceptConfirmedConfig(result.config);
       if (result.overlay !== undefined) state.data.overlay = result.overlay;
       if (result.audit !== undefined) state.data.audit = result.audit;
 
@@ -1439,8 +1645,9 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         if (!isFirstSync && !result.models) {
           try {
             const caps = await apiGet("/-/admin/models/capabilities");
-            state.data.status = { ...(state.data.status || {}), models: caps };
-            state.data.version = Number(state.data.version || 0) + 1;
+            if (acceptModelCapabilities(caps)) {
+              state.data.version = Number(state.data.version || 0) + 1;
+            }
           } catch (_e) { /* best-effort; next poll will retry */ }
         }
       }
@@ -1544,8 +1751,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     if (!state.adminKey || document.hidden) return false;
     try {
       const caps = await apiGet("/-/admin/models/capabilities");
-      state.data.status = { ...(state.data.status || {}), models: caps };
-      state.data.modelsVersion = Number(state.data.modelsVersion || 0) + 1;
+      acceptModelCapabilities(caps);
       if (state.view === "providers") {
         state.forceModelCapsRender = true;
         renderModelCapabilities();
@@ -1582,8 +1788,8 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         apiGet("/-/admin/status"),
         apiGet("/-/admin/config"),
       ]);
-      state.data.status = status;
-      state.data.config = config;
+      applyStatusPayload(status);
+      acceptConfirmedConfig(config);
       state.data.version = Number(state.data.version || 0) + 1;
       state.forceConfigRender = true;
       state.forceProvidersRender = true;
@@ -1699,6 +1905,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     bindViewTargetButtons();
     bindConfigTabs();
     bindProxyTestButtons();
+    mutationBusyTracker.refresh();
     window.__perfMark && window.__perfMark("renderAll.total", performance.now() - __t0);
   }
 
@@ -1749,32 +1956,34 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         const proxy = String(input?.value || "").trim();
         if (!proxy) {
           button.classList.remove("is-ok", "is-bad", "is-testing");
-          setNotice("Proxy is empty; this field will use direct or inherited routing.", "info");
+          setNotice(t("notice.proxy_empty"), "info");
           return;
         }
-        button.disabled = true;
-        button.classList.remove("is-ok", "is-bad");
-        button.classList.add("is-testing");
-        updateDOM(button, refreshSpinner());
-        try {
-          const resp = await apiPost("/-/admin/proxy/test", { proxy });
-          const result = resp.result || {};
-          button.classList.toggle("is-ok", Boolean(result.ok));
-          button.classList.toggle("is-bad", !result.ok);
-          updateDOM(button, iconSvg(result.ok ? "check" : "alert"));
-          if (result.ok) {
-            setNotice(`Proxy connected in ${fmtCompactMs(result.elapsed_ms || 0)}.`, "ok");
-          } else {
-            setNotice(`Proxy test failed: ${result.error || `HTTP ${result.status || "-"}`}`);
+        await runExclusiveUiAction(`proxy-test:${proxy}`, async () => {
+          button.disabled = true;
+          button.classList.remove("is-ok", "is-bad");
+          button.classList.add("is-testing");
+          updateDOM(button, refreshSpinner());
+          try {
+            const resp = await apiPost("/-/admin/proxy/test", { proxy });
+            const result = resp.result || {};
+            button.classList.toggle("is-ok", Boolean(result.ok));
+            button.classList.toggle("is-bad", !result.ok);
+            updateDOM(button, iconSvg(result.ok ? "check" : "alert"));
+            if (result.ok) {
+              setNotice(t("notice.proxy_connected", { latency: fmtCompactMs(result.elapsed_ms || 0) }), "ok");
+            } else {
+              setNotice(t("notice.proxy_failed", { detail: result.error || `HTTP ${result.status || "-"}` }));
+            }
+          } catch (err) {
+            button.classList.add("is-bad");
+            updateDOM(button, iconSvg("alert"));
+            setNotice(t("notice.proxy_failed", { detail: err.message }));
+          } finally {
+            button.classList.remove("is-testing");
+            button.disabled = false;
           }
-        } catch (err) {
-          button.classList.add("is-bad");
-          updateDOM(button, iconSvg("alert"));
-          setNotice(`Proxy test failed: ${err.message}`);
-        } finally {
-          button.classList.remove("is-testing");
-          button.disabled = false;
-        }
+        }, { duplicateNotice: t("notice.action_already_running") });
       });
     });
   }
@@ -2011,7 +2220,12 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
 
     if (!chartBuckets.length) {
       if (chartWindow) chartWindow.textContent = `${currentTimeRange().label} / no samples`;
-      target.innerHTML = `<div class="empty">No time-series data</div>`;
+      target.innerHTML = `
+        <div class="traffic-chart-shell traffic-workspace-empty">
+          <strong>No traffic in this window</strong>
+          <span>Choose a wider time range or wait for the next completed request.</span>
+        </div>
+      `;
       return;
     }
 
@@ -2035,6 +2249,11 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const fallbackUsage = currentUsageTotal(state.data.metrics?.counters || {});
     const displayUsage = windowUsage.total_tokens > 0 ? windowUsage : fallbackUsage;
     const successRate = totals.requests ? Math.min(1, totals.success / totals.requests) : 1;
+    const latencySamples = chartBuckets.filter((bucket) => Number(bucket.requests || 0) > 0 && Number(bucket.first_byte_ms_avg || 0) > 0);
+    const latencyRequests = latencySamples.reduce((sum, bucket) => sum + Number(bucket.requests || 0), 0);
+    const avgLatency = latencyRequests
+      ? latencySamples.reduce((sum, bucket) => sum + Number(bucket.first_byte_ms_avg || 0) * Number(bucket.requests || 0), 0) / latencyRequests
+      : 0;
     const firstTs = Number(chartBuckets[0]?.start || chartBuckets[0]?.ts || 0);
     const lastTs = Number(chartBuckets[chartBuckets.length - 1]?.end || chartBuckets[chartBuckets.length - 1]?.ts || firstTs);
     if (chartWindow) {
@@ -2043,60 +2262,95 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         : `${currentTimeRange().label} / ${sourceLabel}`;
     }
 
-    target.innerHTML = `
-      <div class="usage-trend-overview">
-        <div class="usage-trend-total">
-          <span class="usage-trend-total-icon">${iconSvg("activity")}</span>
-          <span class="usage-trend-total-label">Consumed tokens</span>
-          <strong>${escapeHtml(fmtTokenCount(displayUsage.total_tokens))}</strong>
-          <small>${escapeHtml(fmtInt(displayUsage.total_tokens))} ${t("ov.total_in_window")}</small>
-        </div>
-        <div class="usage-trend-kpis">
-          ${usageTrendKpi(t("kpi.input"), fmtTokenCount(displayUsage.input_tokens), "usage-input")}
-          ${usageTrendKpi(t("kpi.output"), fmtTokenCount(displayUsage.output_tokens), "usage-output")}
-          ${usageTrendKpi(t("metric.requests"), fmtInt(totals.requests), "usage-request")}
-          ${usageTrendKpi(t("kpi.failures"), fmtInt(totals.failed), "usage-failure")}
-          ${usageTrendKpi(t("kpi.success"), fmtPct(successRate), "usage-success")}
-        </div>
-      </div>
-      ${renderTrafficComboChart({
-        buckets: chartBuckets,
-        firstTs,
-        lastTs,
-        width: 1120,
-        height: 360,
-        pad: { top: 32, right: 72, bottom: 48, left: 72 },
-      })}
-    `;
+    target.innerHTML = renderTrafficComboChart({
+      buckets: chartBuckets,
+      firstTs,
+      lastTs,
+      width: 1120,
+      height: 360,
+      pad: { top: 32, right: 72, bottom: 48, left: 72 },
+      sourceLabel: useRecentSamples ? "recent requests" : sourceLabel,
+      windowLabel: currentTimeRange().label,
+      summary: {
+        requests: totals.requests,
+        success: totals.success,
+        failed: totals.failed,
+        successRate,
+        avgLatency,
+        input: displayUsage.input_tokens,
+        output: displayUsage.output_tokens,
+        totalTokens: displayUsage.total_tokens,
+        costUsd: displayUsage.cost_usd,
+      },
+    });
 
-    // Bind event listeners for mode toggling
-    target.querySelectorAll("[data-traffic-mode]").forEach((btn) => {
-      if (btn.dataset.bounddatatrafficmode) return;
-      btn.dataset.bounddatatrafficmode = "1";
-      btn.addEventListener("click", () => {
-        const mode = btn.dataset.trafficMode;
-        if (state.trafficChartMode === mode) return;
+    bindTrafficModeControls(target, {
+      getMode: () => state.trafficChartMode,
+      setMode: (mode) => {
         state.trafficChartMode = mode;
         renderTrafficChart();
-      });
+      },
     });
+    bindTrafficChartInspection(target);
   }
 
-  function usageTrendKpi(label, value, tone) {
-    const iconByTone = {
-      "usage-input": "arrow-left",
-      "usage-output": "arrow-right",
-      "usage-request": "activity",
-      "usage-failure": "alert",
-      "usage-success": "check",
+  function bindTrafficChartInspection(target) {
+    const shell = target?.querySelector(".traffic-chart-shell");
+    const tooltip = shell?.querySelector("[data-traffic-tooltip]");
+    const guide = shell?.querySelector("[data-traffic-guide]");
+    if (!shell || !tooltip || !guide) return;
+    const time = tooltip.querySelector("[data-traffic-tooltip-time]");
+    const rows = Array.from(tooltip.querySelectorAll("[data-traffic-tooltip-row]"));
+
+    const hide = () => {
+      tooltip.hidden = true;
+      guide.classList.remove("is-visible");
     };
-    return `
-      <div class="usage-trend-kpi ${escapeHtml(tone)}">
-        <span class="usage-trend-icon">${iconSvg(iconByTone[tone] || "activity")}</span>
-        <span>${escapeHtml(label)}</span>
-        <strong>${escapeHtml(value)}</strong>
-      </div>
-    `;
+    const show = (bucket) => {
+      if (!bucket) return;
+      const x = Number(bucket.dataset.trafficBucketX || 0);
+      shell.style.setProperty("--traffic-inspect-x", `${Math.max(0, Math.min(100, x))}%`);
+      guide.setAttribute("x1", bucket.dataset.trafficBucketSvgX || "0");
+      guide.setAttribute("x2", bucket.dataset.trafficBucketSvgX || "0");
+      guide.classList.add("is-visible");
+      if (time) time.textContent = bucket.dataset.trafficBucketTime || "-";
+      const values = shell.dataset.trafficMode === "tokens"
+        ? [
+            ["Total tokens", bucket.dataset.trafficBucketTokens || "0"],
+            ["Input", bucket.dataset.trafficBucketInput || "0"],
+            ["Output", bucket.dataset.trafficBucketOutput || "0"],
+            ["Est. cost", bucket.dataset.trafficBucketCost || "$0"],
+          ]
+        : [
+            ["Requests", bucket.dataset.trafficBucketRequests || "0"],
+            ["Successful", bucket.dataset.trafficBucketSuccess || "0"],
+            ["Failed", bucket.dataset.trafficBucketFailed || "0"],
+            ["Avg latency", bucket.dataset.trafficBucketLatency || "-"],
+          ];
+      rows.forEach((row, index) => {
+        const [label, value] = values[index] || ["", ""];
+        const labelNode = row.querySelector("span");
+        const valueNode = row.querySelector("strong");
+        if (labelNode) labelNode.textContent = label;
+        if (valueNode) valueNode.textContent = value;
+      });
+      tooltip.hidden = false;
+    };
+
+    shell.querySelectorAll("[data-traffic-bucket]").forEach((bucket) => {
+      bucket.addEventListener("pointerenter", () => show(bucket));
+      bucket.addEventListener("focus", () => show(bucket));
+      bucket.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          hide();
+          bucket.blur();
+        }
+      });
+    });
+    shell.addEventListener("pointerleave", hide);
+    shell.addEventListener("focusout", (event) => {
+      if (!shell.contains(event.relatedTarget)) hide();
+    });
   }
 
   function niceChartMax(value) {
@@ -2139,6 +2393,23 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const plotW = width - pad.left - pad.right;
     const plotH = height - pad.top - pad.bottom;
     const buckets = Array.isArray(options.buckets) ? options.buckets : [];
+    const summary = options.summary || {};
+    const requestMode = state.trafficChartMode === "requests";
+    const workspaceTitle = requestMode ? t("traffic.request_volume") : t("traffic.token_usage");
+    const workspaceSubtitle = `${options.windowLabel || currentTimeRange().label} / ${options.sourceLabel || "history"}`;
+    const workspaceMetrics = requestMode
+      ? [
+          { label: t("traffic.requests"), value: fmtInt(summary.requests), hint: t("traffic.total"), tone: "" },
+          { label: t("traffic.success"), value: fmtInt(summary.success), hint: fmtPct(summary.successRate), tone: "is-success" },
+          { label: t("traffic.failed"), value: fmtInt(summary.failed), hint: fmtPct(1 - Number(summary.successRate || 0)), tone: "is-failure" },
+          { label: t("traffic.avg_latency"), value: fmtMs(summary.avgLatency), hint: t("traffic.first_byte"), tone: "" },
+        ]
+      : [
+          { label: t("traffic.total_tokens"), value: fmtTokenCount(summary.totalTokens), hint: fmtInt(summary.totalTokens), tone: "" },
+          { label: t("traffic.input"), value: fmtTokenCount(summary.input), hint: t("traffic.tokens"), tone: "" },
+          { label: t("traffic.output"), value: fmtTokenCount(summary.output), hint: t("traffic.tokens"), tone: "is-success" },
+          { label: t("traffic.estimated_cost"), value: fmtCost(summary.costUsd), hint: t("traffic.window"), tone: "" },
+        ];
 
     const xFor = (bucket, index, total) => {
       const ts = Number(bucket.ts || 0);
@@ -2150,6 +2421,40 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       ...bucket,
       x: xFor(bucket, index, buckets.length),
     }));
+    const inspectableBuckets = enriched.filter((bucket) => (
+      requestMode
+        ? Number(bucket.requests || 0) > 0 || Number(bucket.first_byte_ms_avg || 0) > 0
+        : Number(bucket.total_tokens || 0) > 0
+          || Number(bucket.input || 0) > 0
+          || Number(bucket.output || 0) > 0
+          || Number(bucket.cost_usd || 0) > 0
+    ));
+    const inspectionSlot = buckets.length ? plotW / buckets.length : plotW;
+    const inspectionWidth = Math.max(3, inspectionSlot);
+    const inspectionTargets = inspectableBuckets.map((bucket) => {
+      const time = fmtDate(bucket.start || bucket.ts);
+      const requestLabel = `${time}, ${fmtInt(bucket.requests)} requests, ${fmtInt(bucket.success)} successful, ${fmtInt(bucket.failed)} failed, ${fmtMs(bucket.first_byte_ms_avg)} average latency`;
+      const tokenLabel = `${time}, ${fmtInt(bucket.total_tokens)} total tokens, ${fmtInt(bucket.input)} input, ${fmtInt(bucket.output)} output, ${fmtCost(bucket.cost_usd)} estimated cost`;
+      return `
+        <rect class="traffic-inspection-target"
+          x="${svgNum(bucket.x - inspectionWidth / 2)}" y="${svgNum(pad.top)}"
+          width="${svgNum(inspectionWidth)}" height="${svgNum(plotH)}"
+          fill="transparent" tabindex="0" role="button"
+          aria-label="${escapeHtml(requestMode ? requestLabel : tokenLabel)}"
+          data-traffic-bucket
+          data-traffic-bucket-x="${svgNum((bucket.x / width) * 100)}"
+          data-traffic-bucket-svg-x="${svgNum(bucket.x)}"
+          data-traffic-bucket-time="${escapeHtml(time)}"
+          data-traffic-bucket-requests="${escapeHtml(fmtInt(bucket.requests))}"
+          data-traffic-bucket-success="${escapeHtml(fmtInt(bucket.success))}"
+          data-traffic-bucket-failed="${escapeHtml(fmtInt(bucket.failed))}"
+          data-traffic-bucket-latency="${escapeHtml(bucket.first_byte_ms_avg ? fmtMs(bucket.first_byte_ms_avg) : "-")}"
+          data-traffic-bucket-tokens="${escapeHtml(fmtInt(bucket.total_tokens))}"
+          data-traffic-bucket-input="${escapeHtml(fmtInt(bucket.input))}"
+          data-traffic-bucket-output="${escapeHtml(fmtInt(bucket.output))}"
+          data-traffic-bucket-cost="${escapeHtml(fmtCost(bucket.cost_usd))}"></rect>
+      `;
+    }).join("");
 
     const safeMax = (values, fallback = 1) => Math.max(fallback, ...values.map((value) => Number(value || 0)));
     const barBaseline = height - pad.bottom;
@@ -2178,38 +2483,34 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         <text class="traffic-axis-label traffic-axis-label-info" x="${width - pad.right + 14}" y="${yLatency(label) + 4}">${escapeHtml(fmtMs(label))}</text>
       `).join("");
 
-      // Draw stacked request bars
-      const count = enriched.length;
-      const slot = count > 0 ? plotW / count : plotW;
-      const barW = Math.max(2, Math.min(26, slot * 0.5));
-      const bars = enriched.map((bucket) => {
-        const requests = Number(bucket.requests || 0);
-        const failed = Math.min(requests, Number(bucket.failed || 0));
-        const success = Math.max(0, requests - failed);
-        const cx = bucket.x;
-        const x = cx - barW / 2;
-        if (requests === 0) return "";
-
-        const successTop = yBar(success);
-        const totalTop = yBar(requests);
-
-        const successHeight = barBaseline - successTop;
-        const failedHeight = successTop - totalTop;
-
-        const successRect = success > 0
-          ? `<rect class="traffic-bar-success" x="${svgNum(x)}" y="${svgNum(successTop)}" width="${svgNum(barW)}" height="${svgNum(successHeight)}" rx="1.5">
-              <title>${escapeHtml(`${fmtDate(bucket.start || bucket.ts)} Success: ${fmtInt(success)}`)}</title>
-             </rect>`
-          : "";
-
-        const failedRect = failed > 0
-          ? `<rect class="traffic-bar-fail" x="${svgNum(x)}" y="${svgNum(totalTop)}" width="${svgNum(barW)}" height="${svgNum(failedHeight)}" rx="1.5">
-              <title>${escapeHtml(`${fmtDate(bucket.start || bucket.ts)} Failures: ${fmtInt(failed)}`)}</title>
-             </rect>`
-          : "";
-
-        return successRect + failedRect;
-      }).join("");
+      // Trend lines stay legible across sparse multi-day windows where bars
+      // otherwise collapse into isolated pixels.
+      const successPoints = enriched.map((bucket) => ({
+        x: bucket.x,
+        y: yBar(Math.max(0, Number(bucket.requests || 0) - Number(bucket.failed || 0))),
+        value: Math.max(0, Number(bucket.requests || 0) - Number(bucket.failed || 0)),
+        start: bucket.start,
+        ts: bucket.ts,
+      }));
+      const failurePoints = enriched.map((bucket) => ({
+        x: bucket.x,
+        y: yBar(Math.min(Number(bucket.requests || 0), Number(bucket.failed || 0))),
+        value: Math.min(Number(bucket.requests || 0), Number(bucket.failed || 0)),
+        start: bucket.start,
+        ts: bucket.ts,
+      }));
+      const successPath = smoothSvgPath(successPoints, pad.top, barBaseline);
+      const failurePath = smoothSvgPath(failurePoints, pad.top, barBaseline);
+      const successAreaPath = successPath && successPoints.length > 1
+        ? `${successPath} L ${svgNum(successPoints[successPoints.length - 1].x)} ${svgNum(barBaseline)} L ${svgNum(successPoints[0].x)} ${svgNum(barBaseline)} Z`
+        : "";
+      const requestTrends = `
+        ${successAreaPath ? `<path class="traffic-success-area" d="${successAreaPath}"></path>` : ""}
+        ${successPath ? `<path class="traffic-success-line" d="${successPath}"></path>` : ""}
+        ${failurePath ? `<path class="traffic-failure-line" d="${failurePath}"></path>` : ""}
+        ${successPoints.length <= 64 ? successPoints.filter((point) => point.value > 0).map((point) => `<circle class="traffic-trend-dot traffic-success-dot" cx="${svgNum(point.x)}" cy="${svgNum(point.y)}" r="2.6"></circle>`).join("") : ""}
+        ${failurePoints.length <= 64 ? failurePoints.filter((point) => point.value > 0).map((point) => `<circle class="traffic-trend-dot traffic-failure-dot" cx="${svgNum(point.x)}" cy="${svgNum(point.y)}" r="2.6"></circle>`).join("") : ""}
+      `;
 
       // Draw latency line & area
       const latencyPoints = enriched
@@ -2243,7 +2544,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       svgContent = `
         ${gridAndLabels}
         ${rightLabels}
-        ${bars}
+        ${requestTrends}
         ${latencyArea}
         ${latencyLine}
         ${latencyDots}
@@ -2252,9 +2553,9 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       `;
 
       legendItems = [
-        { dotClass: "traffic-bar-success-legend", label: "Success requests" },
-        { dotClass: "traffic-bar-fail-legend", label: "Failures" },
-        { dotClass: "traffic-latency-legend", label: "Avg Latency" },
+        { dotClass: "traffic-success-legend", label: t("traffic.success_requests") },
+        { dotClass: "traffic-failure-legend", label: t("traffic.failures") },
+        { dotClass: "traffic-latency-legend", label: t("traffic.avg_latency") },
       ];
     } else {
       // Tokens & Usage mode
@@ -2363,10 +2664,10 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       `;
 
       legendItems = [
-        { dotClass: "traffic-total-dot", label: "Total tokens" },
-        { dotClass: "traffic-input-dot", label: "Input" },
-        { dotClass: "traffic-output-dot", label: "Output" },
-        { dotClass: "traffic-cost-legend", label: "Est. Cost" },
+        { dotClass: "traffic-total-dot", label: t("traffic.total_tokens") },
+        { dotClass: "traffic-input-dot", label: t("traffic.input") },
+        { dotClass: "traffic-output-dot", label: t("traffic.output") },
+        { dotClass: "traffic-cost-legend", label: t("traffic.estimated_cost") },
       ];
     }
 
@@ -2397,15 +2698,31 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     `).join("");
 
     return `
-      <div class="traffic-chart-shell">
-        <div class="traffic-chart-header">
-          <div class="traffic-trend-legend">${legend}</div>
-          <div class="traffic-mode-selectors">
-            <button type="button" class="button pill-toggle ${state.trafficChartMode === "requests" ? "is-active" : ""}" data-traffic-mode="requests">Requests & Latency</button>
-            <button type="button" class="button pill-toggle ${state.trafficChartMode === "tokens" ? "is-active" : ""}" data-traffic-mode="tokens">Usage</button>
+      <div class="traffic-chart-shell" data-traffic-current-mode="${escapeHtml(state.trafficChartMode)}">
+        <div class="traffic-workspace-header">
+          <div class="traffic-workspace-title">
+            <strong>${escapeHtml(workspaceTitle)}</strong>
+            <small>${escapeHtml(workspaceSubtitle)}</small>
+          </div>
+          <div class="traffic-workspace-metrics">
+            ${workspaceMetrics.map((metric) => `
+              <div class="traffic-workspace-metric ${metric.tone}">
+                <span>${escapeHtml(metric.label)}</span>
+                <strong>${escapeHtml(metric.value)}</strong>
+                <small>${escapeHtml(metric.hint)}</small>
+              </div>
+            `).join("")}
+          </div>
+          <div class="traffic-mode-selectors" role="group" aria-label="${escapeHtml(t("traffic.mode"))}">
+            <button type="button" class="button pill-toggle ${state.trafficChartMode === "requests" ? "is-active" : ""}" data-traffic-mode="requests" aria-pressed="${state.trafficChartMode === "requests" ? "true" : "false"}">${escapeHtml(t("traffic.requests"))}</button>
+            <button type="button" class="button pill-toggle ${state.trafficChartMode === "tokens" ? "is-active" : ""}" data-traffic-mode="tokens" aria-pressed="${state.trafficChartMode === "tokens" ? "true" : "false"}">${escapeHtml(t("traffic.tokens"))}</button>
           </div>
         </div>
-        <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Gateway traffic visualization chart">
+        <div class="traffic-chart-header">
+          <div class="traffic-trend-legend">${legend}</div>
+          <span class="traffic-chart-unit">${escapeHtml(t(state.trafficChartMode === "requests" ? "traffic.requests_per_minute" : "traffic.tokens_per_minute"))}</span>
+        </div>
+        <svg viewBox="0 0 ${width} ${height}" role="group" aria-label="${escapeHtml(t("traffic.chart_aria"))}">
           <defs>
             <linearGradient id="trafficTokenArea" x1="0" x2="0" y1="0" y2="1">
               <stop offset="0%" stop-color="#a855f7" stop-opacity="0.22"></stop>
@@ -2416,12 +2733,24 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
               <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.16"></stop>
               <stop offset="100%" stop-color="#f59e0b" stop-opacity="0"></stop>
             </linearGradient>
+            <linearGradient id="trafficRequestArea" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stop-color="#239d79" stop-opacity="0.18"></stop>
+              <stop offset="100%" stop-color="#239d79" stop-opacity="0"></stop>
+            </linearGradient>
           </defs>
-          <rect class="traffic-plot-bg" x="${pad.left}" y="${pad.top}" width="${plotW}" height="${plotH}" rx="0"></rect>
-          ${svgContent}
-          <line class="axis traffic-baseline" x1="${pad.left}" y1="${barBaseline}" x2="${width - pad.right}" y2="${barBaseline}"></line>
-          ${xTicksHtml}
+          <g aria-hidden="true">
+            <rect class="traffic-plot-bg" x="${pad.left}" y="${pad.top}" width="${plotW}" height="${plotH}" rx="0"></rect>
+            ${svgContent}
+            <line class="traffic-inspection-guide" data-traffic-guide x1="0" y1="${pad.top}" x2="0" y2="${barBaseline}"></line>
+            <line class="axis traffic-baseline" x1="${pad.left}" y1="${barBaseline}" x2="${width - pad.right}" y2="${barBaseline}"></line>
+            ${xTicksHtml}
+          </g>
+          ${inspectionTargets}
         </svg>
+        <div class="traffic-inspection-tooltip" data-traffic-tooltip aria-live="polite" hidden>
+          <strong data-traffic-tooltip-time>-</strong>
+          ${Array.from({ length: 4 }, () => `<div data-traffic-tooltip-row><span></span><strong></strong></div>`).join("")}
+        </div>
       </div>
     `;
   }
@@ -3200,7 +3529,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     return Array.from(new Set([
       ...Object.keys(runtimeProviders || {}),
       ...Object.keys(configProviders || {}),
-    ])).sort();
+    ])).filter((name) => !configProviders?.[name]?.pending_delete).sort();
   }
 
   function providerViewModel(name) {
@@ -3220,6 +3549,8 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const routeModels = providerRouteModels(name);
     const __t3 = performance.now();
     const activity = providerActivity(name);
+    const compatibilityCircuits = (state.data.status?.router?.compatibility_circuits?.entries || [])
+      .filter((entry) => entry.provider === name);
     const runtimeState = providerRuntimeState(runtime, keyStats, config);
     const __t4 = performance.now();
     window.__perfMark && window.__perfMark("viewModel.modelItems[" + name + "]", __t2 - __t1);
@@ -3229,7 +3560,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       name,
       runtime,
       config,
-      priority: Number(config.priority || 0),
+      priority: Number(runtime.priority ?? config.priority ?? 0),
       capability,
       formats,
       keys,
@@ -3239,6 +3570,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       modelItems,
       routeModels,
       activity,
+      compatibilityCircuits,
       runtimeState,
     };
   }
@@ -3269,7 +3601,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       name,
       runtime,
       config,
-      priority: Number(config.priority || 0),
+      priority: Number(runtime.priority ?? config.priority ?? 0),
       capability,
       formats,
       keyStats,
@@ -3308,23 +3640,31 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
   function mergedProviderKeys(runtimeKeys, configKeys) {
     if (!runtimeKeys.length) return configKeys;
     const configByIndex = new Map((configKeys || []).map((key) => [Number(key.index), key]));
-    return runtimeKeys.map((key) => {
+    const runtimeIndexes = new Set(runtimeKeys.map((key) => Number(key.index)));
+    const merged = runtimeKeys.map((key) => {
       const cfg = configByIndex.get(Number(key.index)) || {};
+      if (cfg.pending_delete) return null;
       return {
         ...cfg,
         ...key,
         masked: key.masked || cfg.masked || "",
         proxy: key.proxy || cfg.proxy || "",
       };
-    });
+    }).filter(Boolean);
+    for (const key of configKeys || []) {
+      if (!key?.pending_delete && !runtimeIndexes.has(Number(key.index))) merged.push(key);
+    }
+    return merged;
   }
 
   function providerKeyStats(runtimeKeys, configKeys) {
-    const total = runtimeKeys.length || configKeys.length || 0;
-    const usable = runtimeKeys.filter((key) => key.available && key.runtime_enabled).length;
-    const runtimeEnabled = runtimeKeys.filter((key) => key.runtime_enabled).length;
-    const cooldown = runtimeKeys.filter((key) => Number(key.cooldown_remaining_s || key.disabled_remaining_s || 0) > 0).length;
-    const fails = runtimeKeys.reduce((sum, key) => sum + Number(key.fails || 0), 0);
+    const configByIndex = new Map((configKeys || []).map((key, index) => [Number(key?.index ?? index), key]));
+    const visibleRuntime = runtimeKeys.filter((key, index) => !configByIndex.get(Number(key?.index ?? index))?.pending_delete);
+    const total = mergedProviderKeys(runtimeKeys, configKeys).length;
+    const usable = visibleRuntime.filter((key) => key.available && key.runtime_enabled).length;
+    const runtimeEnabled = visibleRuntime.filter((key) => key.runtime_enabled).length;
+    const cooldown = visibleRuntime.filter((key) => Number(key.cooldown_remaining_s || key.disabled_remaining_s || 0) > 0).length;
+    const fails = visibleRuntime.reduce((sum, key) => sum + Number(key.fails || 0), 0);
     return { total, usable, runtimeEnabled, cooldown, fails };
   }
 
@@ -3671,7 +4011,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
   }
 
   function providerSparklineStats(activity) {
-    const events = (Array.isArray(activity?.events) ? activity.events : []).slice(-36);
+    const events = recentProviderActivityEvents(activity?.events);
     const latencies = events.map((event) => Math.max(0, Number(event.latencyMs) || 0));
     const avg = latencies.length ? Math.round(latencies.reduce((sum, value) => sum + value, 0) / latencies.length) : null;
     const failed = events.filter((event) => event.ok === false || event.status === "failed").length;
@@ -3681,7 +4021,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
   function providerSparkline(activity, providerName) {
     const stats = providerSparklineStats(activity);
     const events = stats.events;
-    const slotCount = 40;
+    const slotCount = PROVIDER_CALL_BAR_SLOTS;
     const barW = 3.4;
     const gap = 6;
     const svgPad = 0.5;
@@ -3945,6 +4285,17 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     clearDirty("#providerDrawer");
   }
 
+  function providerDrawerTabMeta(tab) {
+    const meta = {
+      overview: { label: t("prov.tab_overview"), icon: "activity" },
+      keys: { label: t("prov.tab_keys"), icon: "key" },
+      models: { label: t("prov.tab_models"), icon: "boxes" },
+      routing: { label: t("prov.tab_routing"), icon: "radar" },
+      config: { label: t("prov.tab_config"), icon: "settings" },
+    };
+    return meta[tab] || { label: capitalize(tab), icon: "dot" };
+  }
+
   function renderProviderDrawer({ force = false } = {}) {
     const drawer = el("providerDrawer");
     const body = el("providerDrawerBody");
@@ -3958,14 +4309,24 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const tabs = ["overview", "keys", "models", "routing", "config"];
     if (!tabs.includes(state.providerDrawerTab)) state.providerDrawerTab = "overview";
     el("providerDrawerTitle").textContent = name;
-    el("providerDrawerSubtitle").textContent = `${view.runtimeState.label} / ${view.keyStats.usable}/${view.keyStats.total} usable keys / ${fmtInt(view.modelItems.length)} models`;
+    el("providerDrawerSubtitle").textContent = t("prov.drawer_runtime_summary", {
+      state: view.runtimeState.label,
+      usable: view.keyStats.usable,
+      total: view.keyStats.total,
+      models: fmtInt(view.modelItems.length),
+    });
     updateDOM(body, `
-      <div class="provider-drawer-tabs" role="tablist" aria-label="Provider detail sections">
-        ${tabs.map((tab) => `
-          <button class="provider-drawer-tab ${state.providerDrawerTab === tab ? "is-active" : ""}" type="button" data-provider-drawer-tab="${escapeHtml(tab)}">
-            ${escapeHtml(capitalize(tab))}
+      <div class="provider-drawer-tabs" role="tablist" aria-label="${escapeHtml(t("prov.drawer_sections"))}">
+        ${tabs.map((tab) => {
+          const meta = providerDrawerTabMeta(tab);
+          const active = state.providerDrawerTab === tab;
+          return `
+          <button class="provider-drawer-tab ${active ? "is-active" : ""}" type="button" role="tab" aria-selected="${active ? "true" : "false"}" title="${escapeHtml(meta.label)}" aria-label="${escapeHtml(meta.label)}" data-provider-drawer-tab="${escapeHtml(tab)}">
+            <span class="provider-drawer-tab-icon">${iconSvg(meta.icon)}</span>
+            <span class="provider-drawer-tab-label">${escapeHtml(meta.label)}</span>
           </button>
-        `).join("")}
+        `;
+        }).join("")}
       </div>
       ${providerDrawerPanel(view)}
     `);
@@ -3976,6 +4337,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     if (state.providerDrawerTab === "overview") {
       loadProviderActivityEvents(name);
     }
+    mutationBusyTracker.refresh();
   }
 
   // Switching tabs only changes which panel is visible; it does not need a full
@@ -4012,12 +4374,17 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     if (!tabs.includes(state.providerDrawerTab)) state.providerDrawerTab = "overview";
     const view = providerViewModel(name);
     updateDOM(body, `
-      <div class="provider-drawer-tabs" role="tablist" aria-label="Provider detail sections">
-        ${tabs.map((tab) => `
-          <button class="provider-drawer-tab ${state.providerDrawerTab === tab ? "is-active" : ""}" type="button" data-provider-drawer-tab="${escapeHtml(tab)}">
-            ${escapeHtml(capitalize(tab))}
+      <div class="provider-drawer-tabs" role="tablist" aria-label="${escapeHtml(t("prov.drawer_sections"))}">
+        ${tabs.map((tab) => {
+          const meta = providerDrawerTabMeta(tab);
+          const active = state.providerDrawerTab === tab;
+          return `
+          <button class="provider-drawer-tab ${active ? "is-active" : ""}" type="button" role="tab" aria-selected="${active ? "true" : "false"}" title="${escapeHtml(meta.label)}" aria-label="${escapeHtml(meta.label)}" data-provider-drawer-tab="${escapeHtml(tab)}">
+            <span class="provider-drawer-tab-icon">${iconSvg(meta.icon)}</span>
+            <span class="provider-drawer-tab-label">${escapeHtml(meta.label)}</span>
           </button>
-        `).join("")}
+        `;
+        }).join("")}
       </div>
       ${providerDrawerPanel(view)}
     `);
@@ -4025,6 +4392,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     if (state.providerDrawerTab === "overview") {
       loadProviderActivityEvents(name);
     }
+    mutationBusyTracker.refresh();
   }
 
   function bindProviderDrawerEvents(root) {
@@ -4076,6 +4444,11 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           setNotice(t("notice.static_models_saved", { provider }), "ok");
           form.elements.static_models.value = "";
           return result;
+        }, {
+          resourceKey: `provider:${provider}`,
+          apply: (config) => {
+            if (config.providers?.[provider]) config.providers[provider].static_models = [...models];
+          },
         });
       });
     });
@@ -4084,18 +4457,21 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       button.dataset.bounddataclearstaticmodels = "1";
       button.addEventListener("click", async () => {
         const provider = button.dataset.clearStaticModels || "";
-        button.disabled = true;
-        try {
-          const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { static_models: [] });
-          applyMutationResult(result, { drawer: true });
-          setNotice(t("notice.static_models_cleared", { provider }), "ok");
-          scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
-          renderProviderDrawer({ force: true });
-        } catch (err) {
-          setNotice(t("notice.failed", { error: err.message }));
-        } finally {
-          button.disabled = false;
-        }
+        await runOptimisticConfigAction(
+          button,
+          () => apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { static_models: [] }),
+          {
+            resourceKey: `provider:${provider}`,
+            apply: (config) => {
+              if (config.providers?.[provider]) config.providers[provider].static_models = [];
+            },
+          },
+          {
+            locateRoot: () => root.querySelector(`[data-clear-static-models="${CSS.escape(provider)}"]`),
+            onSuccess: () => setNotice(t("notice.static_models_cleared", { provider }), "ok"),
+            onError: (err) => setNotice(t("notice.failed", { error: err.message })),
+          },
+        );
       });
     });
     root.querySelectorAll("[data-delete-static-model]").forEach((button) => {
@@ -4106,18 +4482,23 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         const model = button.dataset.deleteStaticModel || "";
         const existing = state.data.config?.providers?.[provider]?.static_models || [];
         const models = (Array.isArray(existing) ? existing : []).filter((item) => String(item || "") !== model);
-        button.disabled = true;
-        try {
-          const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { static_models: models });
-          applyMutationResult(result, { drawer: true });
-          setNotice(t("notice.static_model_removed", { model, provider }), "ok");
-          scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
-          renderProviderDrawer({ force: true });
-        } catch (err) {
-          setNotice(t("notice.failed", { error: err.message }));
-        } finally {
-          button.disabled = false;
-        }
+        await runOptimisticConfigAction(
+          button,
+          () => apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { static_models: models }),
+          {
+            resourceKey: `provider:${provider}`,
+            apply: (config) => {
+              if (config.providers?.[provider]) config.providers[provider].static_models = [...models];
+            },
+          },
+          {
+            locateRoot: () => root.querySelector(
+              `[data-delete-static-provider="${CSS.escape(provider)}"][data-delete-static-model="${CSS.escape(model)}"]`,
+            ),
+            onSuccess: () => setNotice(t("notice.static_model_removed", { model, provider }), "ok"),
+            onError: (err) => setNotice(t("notice.failed", { error: err.message })),
+          },
+        );
       });
     });
   }
@@ -4130,6 +4511,46 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     return providerDrawerOverview(view);
   }
 
+  function providerOverviewStateLabel(stateId) {
+    const key = {
+      normal: "prov.overview_state_normal",
+      degraded: "prov.overview_state_degraded",
+      cooldown: "prov.overview_state_cooldown",
+      unavailable: "prov.overview_state_unavailable",
+      disabled: "prov.overview_state_disabled",
+    }[String(stateId || "")];
+    return t(key || "prov.overview_state_unavailable");
+  }
+
+  function providerOverviewStateDescription(stateId) {
+    const key = {
+      normal: "prov.overview_desc_normal",
+      degraded: "prov.overview_desc_degraded",
+      cooldown: "prov.overview_desc_cooldown",
+      unavailable: "prov.overview_desc_unavailable",
+      disabled: "prov.overview_desc_disabled",
+    }[String(stateId || "")];
+    return t(key || "prov.overview_desc_unavailable");
+  }
+
+  function providerOverviewStateFact(icon, label, value, tone) {
+    return `
+      <div class="provider-overview-state-fact tone-${escapeHtml(tone || "neutral")}" role="listitem">
+        <span class="provider-overview-state-icon">${iconSvg(icon)}</span>
+        <span><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong></span>
+      </div>
+    `;
+  }
+
+  function providerOverviewMetric(icon, label, value, hint, tone = "neutral") {
+    return `
+      <article class="provider-overview-kpi tone-${escapeHtml(tone)}">
+        <span class="provider-overview-kpi-icon">${iconSvg(icon)}</span>
+        <div><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong><span>${escapeHtml(hint)}</span></div>
+      </article>
+    `;
+  }
+
   function providerDrawerOverview(view) {
     // Recent activity events are loaded on demand per provider (see
     // loadProviderActivityEvents) so the 5s poll does not carry every
@@ -4139,35 +4560,101 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const probeEvents = Array.isArray(view.activity.probeEvents) ? view.activity.probeEvents : [];
     const recentProbes = probeEvents.slice(0, 20);
     const probeOverflow = Math.max(0, probeEvents.length - 20);
+    const compatibilityCircuits = Array.isArray(view.compatibilityCircuits) ? view.compatibilityCircuits : [];
+    const configOn = view.config.enabled !== false && view.runtime.config_enabled !== false;
+    const runtimeOn = view.runtime.runtime_enabled !== false;
+    const routeEligible = ["normal", "degraded"].includes(view.runtimeState.id);
+    const cooldownRemaining = Number(view.runtime.cooldown_remaining_s || 0);
+    const hasFailedProbe = recentProbes.some((probe) => probeTone(probe) === "bad");
+    const endpoint = String(view.config.base_url || "").trim();
+    const successRate = view.activity.successRate;
+    const successTone = successRate === null ? "neutral" : successRate >= 0.9 ? "ok" : successRate >= 0.5 ? "warn" : "bad";
+    const stateTone = view.runtimeState.badge || "neutral";
     return `
-      <section class="provider-drawer-section">
-        <div class="provider-detail-hero ${view.runtimeState.tone}">
-          <div>
-            <span class="provider-status-dot ${view.runtimeState.badge}"></span>
-            <strong>${escapeHtml(view.runtimeState.label)}</strong>
-            <p>${escapeHtml(view.config.base_url || "No base_url configured")}</p>
+      <section class="provider-drawer-section provider-overview-workspace">
+        <section class="provider-overview-readiness ${view.runtimeState.tone}" aria-label="${escapeHtml(t("prov.overview_readiness"))}">
+          <div class="provider-overview-readiness-head">
+            <span class="provider-overview-readiness-icon tone-${escapeHtml(stateTone)}">${iconSvg(routeEligible ? "check" : view.runtimeState.id === "cooldown" ? "clock" : "alert")}</span>
+            <div>
+              <span>${escapeHtml(t("prov.overview_readiness"))}</span>
+              <h3>${escapeHtml(providerOverviewStateLabel(view.runtimeState.id))}</h3>
+              <p>${escapeHtml(providerOverviewStateDescription(view.runtimeState.id))}</p>
+            </div>
+            <span class="provider-overview-priority">${escapeHtml(t("prov.overview_priority", { priority: fmtInt(view.priority) }))}</span>
           </div>
-          <div class="runtime-state-strip">
-            ${providerStateChips(view)}
+          <div class="provider-overview-endpoint">
+            <span>${iconSvg("server")} ${escapeHtml(t("prov.overview_endpoint"))}</span>
+            <code translate="no" title="${escapeHtml(endpoint || t("prov.overview_endpoint_missing"))}">${escapeHtml(endpoint || t("prov.overview_endpoint_missing"))}</code>
           </div>
+          <div class="provider-overview-state-facts" role="list">
+            ${providerOverviewStateFact("settings", t("prov.overview_config_state"), t(configOn ? "prov.overview_enabled" : "prov.overview_disabled"), configOn ? "ok" : "bad")}
+            ${providerOverviewStateFact("activity", t("prov.overview_runtime_state"), t(runtimeOn ? "prov.overview_enabled" : "prov.overview_disabled"), runtimeOn ? "ok" : "bad")}
+            ${providerOverviewStateFact("radar", t("prov.overview_route_state"), t(routeEligible ? "prov.overview_available" : "prov.overview_unavailable"), routeEligible ? "ok" : view.runtimeState.id === "cooldown" ? "warn" : "bad")}
+          </div>
+          ${cooldownRemaining > 0 ? `
+            <div class="provider-overview-cooldown" role="status">
+              ${iconSvg("clock")}
+              <span>${escapeHtml(t("prov.overview_cooldown_remaining", { time: fmtNextProbe(cooldownRemaining) }))}</span>
+            </div>
+          ` : ""}
+        </section>
+
+        <div class="provider-overview-kpis">
+          ${providerOverviewMetric("key", t("prov.overview_key_coverage"), `${fmtInt(view.keyStats.usable)}/${fmtInt(view.keyStats.total)}`, t("prov.overview_usable_keys", { usable: fmtInt(view.keyStats.usable), total: fmtInt(view.keyStats.total) }), view.keyStats.usable > 0 ? view.keyStats.usable === view.keyStats.total ? "ok" : "warn" : "bad")}
+          ${providerOverviewMetric("boxes", t("prov.overview_models"), fmtInt(view.modelItems.length), t("prov.overview_models_available"), view.modelItems.length ? "info" : "neutral")}
+          ${providerOverviewMetric("activity", t("prov.overview_recent_success"), successRate === null ? "—" : fmtPct(successRate), t("prov.overview_recent_requests", { count: fmtInt(view.activity.total) }), successTone)}
+          ${providerOverviewMetric("clock", t("prov.overview_avg_first_byte"), view.activity.avgLatency ? fmtMs(view.activity.avgLatency) : "—", t("prov.overview_successful_calls"), view.activity.avgLatency ? "info" : "neutral")}
         </div>
-        <div class="provider-detail-metrics">
-          ${miniMetric("Keys", `${fmtInt(view.keyStats.usable)}/${fmtInt(view.keyStats.total)}`, "usable")}
-          ${miniMetric("Priority", fmtInt(view.priority), "higher first")}
-          ${miniMetric("Success", view.activity.successRate === null ? "-" : fmtPct(view.activity.successRate), `${fmtInt(view.activity.total)} recent`)}
-          ${miniMetric("Avg first byte", view.activity.avgLatency ? fmtMs(view.activity.avgLatency) : "-", "successful calls")}
-          ${miniMetric("Last first byte", view.activity.latestLatency ? fmtMs(view.activity.latestLatency) : "-", "latest success")}
-        </div>
-        <h3 class="drawer-section-title">Recent provider activity</h3>
-        <div class="provider-activity-list" data-provider-activity-list="${escapeHtml(view.name)}">
-          ${recent.length ? recent.map(providerActivityRow).join("") : `<div class="empty pad-slim">Loading recent activity…</div>`}
-        </div>
-        <h3 class="drawer-section-title">Background health probes ${probeEvents.length ? `<span class="section-count-badge">${fmtInt(probeEvents.length)}</span>` : ""}</h3>
-        ${renderIdleStateBar()}
-        <div class="provider-probe-list" data-provider-probe-list="${escapeHtml(view.name)}">
-          ${recentProbes.length ? recentProbes.map(providerProbeRow).join("") : `<div class="empty pad-slim">No background health probes yet</div>`}
-          ${probeOverflow ? `<div class="probe-list-more" data-probe-list-more="${escapeHtml(view.name)}">+ ${fmtInt(probeOverflow)} more probes</div>` : ""}
-        </div>
+
+        ${compatibilityCircuits.length ? `
+          <section class="provider-overview-section provider-overview-attention">
+            <div class="provider-overview-section-head">
+              <span class="provider-overview-section-icon">${iconSvg("alert")}</span>
+              <div><h3>${escapeHtml(t("prov.overview_routing_exceptions"))}</h3><p>${escapeHtml(t("prov.overview_routing_exceptions_tip"))}</p></div>
+              <span class="section-count-badge">${fmtInt(compatibilityCircuits.length)}</span>
+            </div>
+            <div class="provider-route-list">
+              ${compatibilityCircuits.map((entry) => `
+                <article class="provider-route-card">
+                  <div>
+                    <strong class="mono" translate="no">${escapeHtml(entry.canonical_model || "-")} → ${escapeHtml(entry.provider_model || "-")}</strong>
+                    <small translate="no">${escapeHtml([entry.key_id && `key ${entry.key_id}`, entry.upstream_format, entry.compatibility_profile].filter(Boolean).join(" · "))}</small>
+                  </div>
+                  <span class="provider-overview-exception-state">
+                    <strong>${escapeHtml(t("prov.overview_failures", { count: fmtInt(entry.fails) }))}</strong>
+                    <small>${escapeHtml(t("prov.overview_cooldown_remaining", { time: fmtNextProbe(Number(entry.cooldown_remaining_s || 0)) || "0s" }))}</small>
+                  </span>
+                </article>
+              `).join("")}
+            </div>
+          </section>
+        ` : ""}
+
+        <section class="provider-overview-section">
+          <div class="provider-overview-section-head">
+            <span class="provider-overview-section-icon">${iconSvg("activity")}</span>
+            <div><h3>${escapeHtml(t("prov.overview_recent_activity"))}</h3><p>${escapeHtml(t("prov.overview_recent_activity_tip"))}</p></div>
+            ${view.activity.total ? `<span class="section-count-badge">${fmtInt(view.activity.total)}</span>` : ""}
+          </div>
+          <div class="provider-activity-list" data-provider-activity-list="${escapeHtml(view.name)}">
+            ${recent.length ? recent.map(providerActivityRow).join("") : `<div class="empty pad-slim">${escapeHtml(t("prov.overview_activity_loading"))}</div>`}
+          </div>
+        </section>
+
+        <details class="provider-overview-disclosure" data-provider-probes-disclosure="${escapeHtml(view.name)}" ${hasFailedProbe ? "open" : ""}>
+          <summary>
+            <span class="provider-overview-section-icon">${iconSvg("radar")}</span>
+            <span><strong>${escapeHtml(t("prov.overview_health_probes"))}</strong><small>${escapeHtml(t("prov.overview_health_probes_tip"))}</small></span>
+            <span class="provider-overview-disclosure-count" data-provider-probe-count>${escapeHtml(t("prov.overview_probe_count", { count: fmtInt(probeEvents.length) }))}</span>
+          </summary>
+          <div class="provider-overview-disclosure-body">
+            ${renderIdleStateBar()}
+            <div class="provider-probe-list" data-provider-probe-list="${escapeHtml(view.name)}">
+              ${recentProbes.length ? recentProbes.map(providerProbeRow).join("") : `<div class="empty pad-slim">${escapeHtml(t("prov.overview_probe_empty"))}</div>`}
+              ${probeOverflow ? `<div class="probe-list-more" data-probe-list-more="${escapeHtml(view.name)}">${escapeHtml(t("prov.overview_more_probes", { count: fmtInt(probeOverflow) }))}</div>` : ""}
+            </div>
+          </div>
+        </details>
       </section>
     `;
   }
@@ -4208,7 +4695,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         const recent = events.slice(-10).reverse();
         list.innerHTML = recent.length
           ? recent.map(providerActivityRow).join("")
-          : `<div class="empty pad-slim">No recent calls for this provider</div>`;
+          : `<div class="empty pad-slim">${escapeHtml(t("prov.overview_activity_empty"))}</div>`;
       }
       const probeLists = document.querySelectorAll("[data-provider-probe-list]");
       const probeList = Array.from(probeLists).find((el) => el.getAttribute("data-provider-probe-list") === name);
@@ -4217,8 +4704,15 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         const visibleProbes = probes.slice(0, 20);
         const overflow = Math.max(0, probes.length - 20);
         probeList.innerHTML = visibleProbes.length
-          ? visibleProbes.map(providerProbeRow).join("") + (overflow ? `<div class="probe-list-more" data-probe-list-more="${escapeHtml(name)}">+ ${fmtInt(overflow)} more probes</div>` : "")
-          : `<div class="empty pad-slim">No background health probes yet</div>`;
+          ? visibleProbes.map(providerProbeRow).join("") + (overflow ? `<div class="probe-list-more" data-probe-list-more="${escapeHtml(name)}">${escapeHtml(t("prov.overview_more_probes", { count: fmtInt(overflow) }))}</div>` : "")
+          : `<div class="empty pad-slim">${escapeHtml(t("prov.overview_probe_empty"))}</div>`;
+        const disclosures = document.querySelectorAll("[data-provider-probes-disclosure]");
+        const disclosure = Array.from(disclosures).find((el) => el.getAttribute("data-provider-probes-disclosure") === name);
+        if (disclosure) {
+          const count = disclosure.querySelector("[data-provider-probe-count]");
+          if (count) count.textContent = t("prov.overview_probe_count", { count: fmtInt(probes.length) });
+          if (visibleProbes.some((probe) => probeTone(probe) === "bad")) disclosure.open = true;
+        }
       }
     } catch (_err) {
       // Best-effort enrichment; leave the placeholder in place on failure.
@@ -4247,19 +4741,41 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           ${miniMetric("Fails", fmtInt(view.keyStats.fails), "runtime")}
         </div>
         <div class="provider-key-list drawer-key-list" id="${escapeHtml(keyListId)}">
-          ${view.keys.length ? view.keys.map((key) => keyCard(view.name, key, view.keyStats.total)).join("") : `<div class="empty pad-slim">No keys configured</div>`}
+          ${view.keys.length ? view.keys.map((key) => keyCard(view.name, key, view.keyStats.total)).join("") : `<div class="empty pad-slim">${escapeHtml(t("prov.no_keys_configured"))}</div>`}
         </div>
+        ${providerKeyConfiguration(view.name, view.configKeys)}
       </section>
     `;
   }
 
+  function providerModelStatusLabel(status) {
+    const key = {
+      pending: "prov.models.pending",
+      ok: "prov.models.ok",
+      stale: "prov.models.stale",
+      error: "prov.models.error",
+      not_fetched: "prov.models.not_fetched",
+    }[String(status || "").toLowerCase()] || "prov.models.unknown";
+    return t(key);
+  }
+
   function providerDrawerModels(view) {
     const capability = view.capability || {};
+    const keyCapabilities = Array.isArray(capability.keys) ? capability.keys : [];
+    const configuredVariants = state.data.config?.models?.provider_model_variants?.[view.name] || {};
     const modelItems = view.modelItems;
     const visibleItems = filteredProviderModelItems(modelItems);
+    const largeCatalog = visibleItems.length > 24;
     const disabledCount = modelItems.filter((item) => item.disabled).length;
     const modelFilters = state.providerModelFilters || {};
     const draftCount = providerModelDraftCount(view.name);
+    const usableKeyCatalogs = keyCapabilities.filter((entry) => entry.status === "ok" || entry.status === "stale").length;
+    const keyIssueCount = keyCapabilities.filter((entry) => entry.error || !["ok", "stale"].includes(entry.status)).length;
+    const keyCatalogSignatures = new Set(keyCapabilities
+      .filter((entry) => entry.status === "ok" || entry.status === "stale")
+      .map((entry) => [...(entry.models || [])].map(String).sort().join("\n")));
+    const keyCatalogsDiffer = keyCatalogSignatures.size > 1;
+    const openKeyDiscovery = keyIssueCount > 0 || keyCatalogsDiffer;
     const staticModels = [];
     const seenStatic = new Set();
     (Array.isArray(view.config.static_models) ? view.config.static_models : []).forEach((model) => {
@@ -4269,107 +4785,190 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       staticModels.push(value);
     });
     return `
-      <section class="provider-drawer-section">
-        <div class="provider-detail-metrics">
-          ${miniMetric("Capability", capability.status === "pending" ? "refreshing" : (capability.status || "not fetched"), "models endpoint")}
-          ${miniMetric("Models", fmtInt(modelItems.length), "canonical/raw")}
-          ${miniMetric("Disabled", fmtInt(disabledCount), "provider")}
-          ${miniMetric("Fetched", capability.fetched_at ? fmtDate(capability.fetched_at) : "-", "snapshot")}
-          ${miniMetric("Routes", fmtInt(view.routeModels.length), "configured")}
+      <section class="provider-drawer-section provider-models-workspace">
+        <div class="provider-model-status-strip">
+          <div class="provider-model-status-item">
+            <span>${iconSvg("radar")} ${escapeHtml(t("prov.models.discovery"))}</span>
+            <strong>${escapeHtml(providerModelStatusLabel(capability.status))}</strong>
+            <small>${escapeHtml(capability.fetched_at ? fmtDate(capability.fetched_at) : t("prov.models.no_snapshot"))}</small>
+          </div>
+          <div class="provider-model-status-item">
+            <span>${iconSvg("boxes")} ${escapeHtml(t("prov.models.models"))}</span>
+            <strong>${escapeHtml(fmtInt(modelItems.length))}</strong>
+            <small>${escapeHtml(t("prov.models.disabled_count", { count: fmtInt(disabledCount) }))}</small>
+          </div>
+          <div class="provider-model-status-item">
+            <span>${iconSvg("key")} ${escapeHtml(t("prov.models.key_coverage"))}</span>
+            <strong>${escapeHtml(`${fmtInt(usableKeyCatalogs)}/${fmtInt(keyCapabilities.length)}`)}</strong>
+            <small>${escapeHtml(keyIssueCount ? t("prov.models.need_attention", { count: fmtInt(keyIssueCount) }) : t("prov.models.catalogs_usable"))}</small>
+          </div>
+          <button class="button secondary compact-action provider-model-refresh-action" type="button"
+            data-provider-models-refresh="${escapeHtml(view.name)}">
+            ${iconSvg("rotate")}<span>${escapeHtml(t("prov.models.refresh"))}</span>
+          </button>
         </div>
-        ${capability.status === "pending" ? `<div class="model-capability-refreshing">${refreshSpinner()} Discovering models in the background…</div>` : ""}
+        ${capability.status === "pending" ? `<div class="model-capability-refreshing">${refreshSpinner()} ${escapeHtml(t("prov.models.discovering"))}</div>` : ""}
         ${capability.error ? `<div class="model-capability-error">${messageMarkup(capability.error)}</div>` : ""}
-        <div class="provider-model-toolbar">
-          <input class="control provider-model-search" type="search"
-            data-provider-model-search="${escapeHtml(view.name)}"
-            placeholder="Search models"
-            value="${escapeHtml(modelFilters.search || "")}" />
-          <select class="control provider-model-status-filter" data-provider-model-status-filter="${escapeHtml(view.name)}">
-            <option value="" ${!modelFilters.status ? "selected" : ""}>All</option>
-            <option value="enabled" ${modelFilters.status === "enabled" ? "selected" : ""}>Enabled</option>
-            <option value="disabled" ${modelFilters.status === "disabled" ? "selected" : ""}>Disabled</option>
-          </select>
-          <button class="button small secondary" type="button"
-            data-provider-model-bulk="${escapeHtml(view.name)}"
-            data-provider-model-bulk-action="disable"
-            title="Stage disable visible models"
-            aria-label="Stage disable visible models"
-            ${visibleItems.length ? "" : "disabled"}>${iconSvg("eye-off")}</button>
-          <button class="button small secondary" type="button"
-            data-provider-model-bulk="${escapeHtml(view.name)}"
-            data-provider-model-bulk-action="enable"
-            title="Stage enable visible models"
-            aria-label="Stage enable visible models"
-            ${visibleItems.length ? "" : "disabled"}>${iconSvg("eye")}</button>
-          <button class="button small icon-action" type="button"
-            data-provider-model-apply="${escapeHtml(view.name)}"
-            title="Apply model changes${draftCount ? ` (${draftCount})` : ""}"
-            aria-label="Apply model changes"
-            ${draftCount ? "" : "disabled"}>${iconSvg("save")}</button>
-          <button class="button small secondary icon-action" type="button"
-            data-provider-model-reset="${escapeHtml(view.name)}"
-            title="Reset staged model changes"
-            aria-label="Reset staged model changes"
-            ${draftCount ? "" : "disabled"}>${iconSvg("undo")}</button>
-        </div>
-        <div class="model-chip-list provider-drawer-models">
-          ${visibleItems.length ? visibleItems.slice(0, 100).map((item) => `
-            <span class="model-map-chip provider-model-chip ${item.disabled ? "is-disabled" : ""} ${item.pending ? "is-pending" : ""} ${item.manual ? "is-manual-map" : ""}">
-              <button class="model-chip-toggle" type="button"
-                data-provider-model-disable-provider="${escapeHtml(view.name)}"
-                data-provider-model-disable-model="${escapeHtml(item.label)}"
-                data-provider-model-disable-next="${item.disabled ? "false" : "true"}"
-                title="${escapeHtml(`${item.disabled ? "Stage enable" : "Stage disable"} ${item.title}`)}"
-                aria-label="${escapeHtml(`${item.disabled ? "Stage enable" : "Stage disable"} ${item.label}`)}">
-                <b>${escapeHtml(item.label)}</b>
-                ${item.raw && item.raw !== item.label ? `<small>${escapeHtml(item.raw)}</small>` : ""}
-                ${item.pending ? `<small class="model-pending-note">pending</small>` : ""}
-              </button>
-              <button class="model-map-edit-button" type="button"
-                data-provider-model-map-edit-provider="${escapeHtml(view.name)}"
-                data-provider-model-map-edit-model="${escapeHtml(item.label)}"
-                data-provider-model-map-edit-raw="${escapeHtml(item.raw || item.label)}"
-                data-provider-model-map-edit-manual="${item.manual ? "1" : "0"}"
-                title="Edit model mapping"
-                aria-label="${escapeHtml(`Edit mapping for ${item.label}`)}">${iconSvg("pencil")}</button>
-            </span>
-          `).join("") + (visibleItems.length > 100 ? `<span class="muted" style="padding: 4px 8px;">+ ${visibleItems.length - 100} more models...</span>` : "") : `<span class="muted">No matching models</span>`}
-        </div>
-        <div class="provider-models-actions">
-          <button class="button secondary icon-action" type="button"
-            data-provider-models-refresh="${escapeHtml(view.name)}"
-            title="Refresh models"
-            aria-label="Refresh models">${iconSvg("rotate")}</button>
-        </div>
-        <h3 class="drawer-section-title">Static models (fallback when /v1/models unreachable)</h3>
-        <form class="config-static-models-form" data-provider="${escapeHtml(view.name)}">
-          ${staticModels.length ? `
-            <div class="model-chip-list static-model-chip-list">
-              ${staticModels.slice(0, 100).map((model) => `
-                <span class="model-map-chip static-model-chip">
-                  <b>${escapeHtml(model)}</b><small>static</small>
-                  <button class="static-model-delete" type="button"
-                    title="Remove ${escapeHtml(model)}"
-                    aria-label="Remove ${escapeHtml(model)}"
-                    data-delete-static-provider="${escapeHtml(view.name)}"
-                    data-delete-static-model="${escapeHtml(model)}">x</button>
-                </span>
-              `).join("") + (staticModels.length > 100 ? `<span class="muted" style="padding: 4px 8px;">+ ${staticModels.length - 100} more...</span>` : "")}
+        <section class="provider-model-catalog ${largeCatalog ? "is-large-catalog" : ""}" aria-labelledby="provider-model-catalog-title">
+          <div class="provider-model-section-heading">
+            <div>
+              <h3 id="provider-model-catalog-title">${iconSvg("boxes")} ${escapeHtml(t("prov.models.catalog"))}</h3>
+              <p>${escapeHtml(t("prov.models.catalog_desc"))}</p>
             </div>
-          ` : `<span class="muted">No static models configured</span>`}
-          <div class="form-row">
-            <label for="static-models-${escapeHtml(view.name)}">Add model IDs</label>
-            <input id="static-models-${escapeHtml(view.name)}" name="static_models" type="text"
-              placeholder="e.g. gpt-4o, claude-3-5-sonnet-20241022"
-              value=""
-              style="font-family:monospace;width:100%">
-            <small class="muted">Comma-separated. New entries are appended and de-duplicated.</small>
+            <span class="provider-model-section-count">${escapeHtml(t("prov.models.shown", { count: fmtInt(visibleItems.length) }))}</span>
           </div>
-          <div class="form-actions">
-            <button class="button small" type="submit">Add models</button>
-            ${staticModels.length ? `<button class="button small secondary" type="button" data-clear-static-models="${escapeHtml(view.name)}">Clear</button>` : ""}
+          <div class="provider-model-toolbar">
+            <input class="control provider-model-search" type="search"
+              data-provider-model-search="${escapeHtml(view.name)}"
+              placeholder="${escapeHtml(t("prov.models.search"))}"
+              aria-label="${escapeHtml(t("prov.models.search"))}"
+              value="${escapeHtml(modelFilters.search || "")}" />
+            <select class="control provider-model-status-filter" data-provider-model-status-filter="${escapeHtml(view.name)}" aria-label="${escapeHtml(t("prov.models.filter_status"))}">
+              <option value="" ${!modelFilters.status ? "selected" : ""}>${escapeHtml(t("prov.models.all"))}</option>
+              <option value="enabled" ${modelFilters.status === "enabled" ? "selected" : ""}>${escapeHtml(t("prov.models.enabled"))}</option>
+              <option value="disabled" ${modelFilters.status === "disabled" ? "selected" : ""}>${escapeHtml(t("prov.models.disabled"))}</option>
+            </select>
+            <button class="button small secondary icon-action provider-model-toolbar-action" type="button"
+              data-provider-model-bulk="${escapeHtml(view.name)}"
+              data-provider-model-bulk-action="disable"
+              title="${escapeHtml(t("prov.models.disable_shown"))}"
+              aria-label="${escapeHtml(t("prov.models.disable_shown"))}"
+              ${visibleItems.length ? "" : "disabled"}>${iconSvg("eye-off")}</button>
+            <button class="button small secondary icon-action provider-model-toolbar-action" type="button"
+              data-provider-model-bulk="${escapeHtml(view.name)}"
+              data-provider-model-bulk-action="enable"
+              title="${escapeHtml(t("prov.models.enable_shown"))}"
+              aria-label="${escapeHtml(t("prov.models.enable_shown"))}"
+              ${visibleItems.length ? "" : "disabled"}>${iconSvg("eye")}</button>
           </div>
-        </form>
+          <div class="model-chip-list provider-drawer-models" role="list" ${largeCatalog ? `aria-label="${escapeHtml(t("prov.models.visible_count", { count: fmtInt(visibleItems.length) }))}"` : ""}>
+            ${visibleItems.length ? visibleItems.slice(0, 100).map((item) => `
+              <span class="model-map-chip provider-model-chip ${item.disabled ? "is-disabled" : ""} ${item.pending ? "is-pending" : ""} ${item.manual ? "is-manual-map" : ""}" role="listitem">
+                <button class="model-chip-toggle" type="button"
+                  data-provider-model-disable-provider="${escapeHtml(view.name)}"
+                  data-provider-model-disable-model="${escapeHtml(item.label)}"
+                  data-provider-model-disable-next="${item.disabled ? "false" : "true"}"
+                  title="${escapeHtml(`${item.disabled ? t("prov.models.stage_enable") : t("prov.models.stage_disable")} ${item.title}`)}"
+                  aria-label="${escapeHtml(`${item.disabled ? t("prov.models.stage_enable") : t("prov.models.stage_disable")} ${item.label}`)}">
+                  <b>${escapeHtml(item.label)}</b>
+                  ${item.raw && item.raw !== item.label ? `<small>${escapeHtml(item.raw)}</small>` : ""}
+                  ${item.pending ? `<small class="model-pending-note">${escapeHtml(t("prov.models.pending_short"))}</small>` : ""}
+                </button>
+                <button class="model-map-edit-button" type="button"
+                  data-provider-model-map-edit-provider="${escapeHtml(view.name)}"
+                  data-provider-model-map-edit-model="${escapeHtml(item.label)}"
+                  data-provider-model-map-edit-raw="${escapeHtml(item.raw || item.label)}"
+                  data-provider-model-map-edit-manual="${item.manual ? "1" : "0"}"
+                  title="${escapeHtml(t("prov.models.edit_mapping"))}"
+                  aria-label="${escapeHtml(t("prov.models.edit_mapping_for", { model: item.label }))}">${iconSvg("pencil")}</button>
+              </span>
+            `).join("") + (visibleItems.length > 100 ? `<span class="muted provider-model-overflow-note" role="listitem">${escapeHtml(t("prov.models.more", { count: fmtInt(visibleItems.length - 100) }))}</span>` : "") : `<div class="empty pad-slim" role="listitem">${escapeHtml(t("prov.models.no_match"))}</div>`}
+          </div>
+          ${draftCount ? `
+            <div class="provider-model-draft-bar" role="status">
+              <div><strong>${escapeHtml(draftCount === 1 ? t("prov.models.staged_one") : t("prov.models.staged_many", { count: fmtInt(draftCount) }))}</strong><small>${escapeHtml(t("prov.models.review_apply"))}</small></div>
+              <div class="provider-model-draft-actions">
+                <button class="button small secondary" type="button"
+                  data-provider-model-reset="${escapeHtml(view.name)}"
+                  title="${escapeHtml(t("prov.models.reset"))}">${iconSvg("undo")}<span>${escapeHtml(t("prov.models.reset_label"))}</span></button>
+                <button class="button small" type="button"
+                  data-provider-model-apply="${escapeHtml(view.name)}"
+                  title="${escapeHtml(t("prov.models.apply", { count: fmtInt(draftCount) }))}">${iconSvg("save")}<span>${escapeHtml(t("prov.models.apply_label"))}</span></button>
+              </div>
+            </div>
+          ` : ""}
+        </section>
+
+        <details class="provider-model-disclosure provider-model-key-discovery" ${openKeyDiscovery ? "open" : ""}>
+          <summary>
+            <span><strong>${iconSvg("key")} ${escapeHtml(t("prov.models.by_key"))}</strong><small>${escapeHtml(t("prov.models.by_key_desc"))}</small></span>
+            <span class="provider-model-disclosure-meta">${escapeHtml(`${fmtInt(usableKeyCatalogs)}/${fmtInt(keyCapabilities.length)} ${t("prov.models.usable_suffix")}`)}${keyCatalogsDiffer ? ` · ${escapeHtml(t("prov.models.differ"))}` : ""}</span>
+          </summary>
+          <div class="provider-model-disclosure-body provider-route-list">
+            ${keyCapabilities.length ? keyCapabilities.map((entry) => `
+              <article class="provider-route-card provider-model-key-card">
+                <div>
+                  <strong class="mono">${escapeHtml(t("prov.models.key_label", { index: entry.key_index ?? "-", id: entry.key_id || "-" }))}</strong>
+                  <small>${escapeHtml((entry.models || []).slice(0, 12).join(", ") || t("prov.models.no_models"))}${(entry.models || []).length > 12 ? ` · ${escapeHtml(t("prov.models.more_short", { count: fmtInt(entry.models.length - 12) }))}` : ""}</small>
+                  ${entry.error ? `<small class="provider-model-key-error">${messageMarkup(entry.error)}</small>` : ""}
+                </div>
+                ${badge(providerModelStatusLabel(entry.status), entry.status === "ok" ? "ok" : (entry.status === "stale" ? "warn" : "bad"))}
+              </article>
+            `).join("") : `<div class="empty pad-slim">${escapeHtml(t("prov.models.no_key_catalogs"))}</div>`}
+          </div>
+        </details>
+
+        <details class="provider-model-disclosure provider-model-aliases">
+          <summary>
+            <span><strong>${iconSvg("layers")} ${escapeHtml(t("prov.models.canonical_aliases"))}</strong><small>${escapeHtml(t("prov.models.canonical_aliases_desc"))}</small></span>
+            <span class="provider-model-disclosure-meta">${escapeHtml(t("prov.models.configured", { count: fmtInt(Object.keys(configuredVariants).length) }))}</span>
+          </summary>
+          <div class="provider-model-disclosure-body">
+            <div class="provider-route-list">
+              ${Object.keys(configuredVariants).length ? Object.entries(configuredVariants).map(([canonical, variants]) => `
+                <article class="provider-route-card provider-model-alias-card">
+                  <div>
+                    <strong class="mono">${escapeHtml(canonical)}</strong>
+                    <small>${escapeHtml((variants || []).map((entry) => `${entry.model}:${entry.priority ?? 0}`).join(", "))}</small>
+                  </div>
+                    ${badge(t("prov.models.variants", { count: fmtInt((variants || []).length) }), "info")}
+                </article>
+              `).join("") : `<div class="empty pad-slim">${escapeHtml(t("prov.models.no_aliases"))}</div>`}
+            </div>
+            <details class="provider-model-inline-editor">
+              <summary>${iconSvg("plus")}<span>${escapeHtml(t("prov.models.add_alias"))}</span></summary>
+              <form class="provider-variant-form" data-provider="${escapeHtml(view.name)}">
+                <div class="form-row">
+                  <label>${escapeHtml(t("prov.models.canonical_model"))}</label>
+                  <input class="control" name="canonical_model" placeholder="grok-4.3" required />
+                </div>
+                <div class="form-row">
+                  <label>${escapeHtml(t("prov.models.raw_variants"))}</label>
+                  <input class="control" name="variants" placeholder="grok-4.3-high:100, grok-4.3-low:10" />
+                  <small class="muted">${escapeHtml(t("prov.models.raw_variants_help"))}</small>
+                </div>
+                <button class="button small" type="submit">${escapeHtml(t("prov.models.save_alias"))}</button>
+              </form>
+            </details>
+          </div>
+        </details>
+
+        <details class="provider-model-disclosure provider-model-static-fallback">
+          <summary>
+            <span><strong>${iconSvg("shield")} ${escapeHtml(t("prov.models.advanced_fallback"))}</strong><small>${escapeHtml(t("prov.models.advanced_fallback_desc"))}</small></span>
+            <span class="provider-model-disclosure-meta">${escapeHtml(t("prov.models.static_count", { count: fmtInt(staticModels.length) }))}</span>
+          </summary>
+          <div class="provider-model-disclosure-body">
+            <form class="config-static-models-form" data-provider="${escapeHtml(view.name)}">
+              ${staticModels.length ? `
+                <div class="model-chip-list static-model-chip-list">
+                  ${staticModels.slice(0, 100).map((model) => `
+                    <span class="model-map-chip static-model-chip">
+                      <b>${escapeHtml(model)}</b><small>${escapeHtml(t("prov.models.static"))}</small>
+                      <button class="static-model-delete" type="button"
+                        title="${escapeHtml(t("prov.models.remove_model", { model }))}"
+                        aria-label="${escapeHtml(t("prov.models.remove_model", { model }))}"
+                        data-delete-static-provider="${escapeHtml(view.name)}"
+                        data-delete-static-model="${escapeHtml(model)}">${iconSvg("x")}</button>
+                    </span>
+                  `).join("") + (staticModels.length > 100 ? `<span class="muted provider-model-overflow-note">${escapeHtml(t("prov.models.more", { count: fmtInt(staticModels.length - 100) }))}</span>` : "")}
+                </div>
+              ` : `<div class="empty pad-slim">${escapeHtml(t("prov.models.no_static"))}</div>`}
+              <div class="form-row">
+                <label for="static-models-${escapeHtml(view.name)}">${escapeHtml(t("prov.models.add_model_ids"))}</label>
+                <input id="static-models-${escapeHtml(view.name)}" name="static_models" type="text"
+                  placeholder="${escapeHtml(t("prov.models.add_model_ids_ph"))}"
+                  value=""
+                  style="font-family:monospace;width:100%">
+                <small class="muted">${escapeHtml(t("prov.models.add_model_ids_help"))}</small>
+              </div>
+              <div class="form-actions">
+                <button class="button small" type="submit">${escapeHtml(t("prov.models.add_models"))}</button>
+                ${staticModels.length ? `<button class="button small secondary" type="button" data-clear-static-models="${escapeHtml(view.name)}">${escapeHtml(t("prov.models.clear"))}</button>` : ""}
+              </div>
+            </form>
+          </div>
+        </details>
       </section>
     `;
   }
@@ -4400,6 +4999,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
             </label>
           </div>
         </div>
+        ${providerFormatConfiguration(view.name, view.formats)}
         <div class="provider-route-list">
           ${routeRows.length ? routeRows.slice(0, 50).map((row) => `
             <article class="provider-route-card">
@@ -4417,14 +5017,14 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
 
   function providerDrawerConfig(view) {
     return `
-      <section class="provider-drawer-section">
-        ${providerEditPanel(view.name, view.config, view.configKeys, view.formats, { includeFormats: true })}
+      <section class="provider-drawer-section provider-config-inspector-shell">
+        ${providerConfigInspector(view.name, view.config)}
         <div class="provider-danger-zone">
           <div>
-            <strong>Delete provider</strong>
-            <p>Remove this provider from config, route pools, model maps, and capability snapshots.</p>
+            <strong>${escapeHtml(t("prov.delete_provider"))}</strong>
+            <p>${escapeHtml(t("prov.delete_provider_tip"))}</p>
           </div>
-          <button class="button danger icon-action" type="button" data-provider-delete="${escapeHtml(view.name)}" title="Delete provider" aria-label="Delete provider">${iconSvg("trash")}</button>
+          <button class="button danger icon-action" type="button" data-provider-delete="${escapeHtml(view.name)}" title="${escapeHtml(t("prov.delete_provider"))}" aria-label="${escapeHtml(t("prov.delete_provider"))}">${iconSvg("trash")}</button>
         </div>
       </section>
     `;
@@ -4447,7 +5047,12 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
   }
 
   function providerActivityRow(event) {
-    const statusText = event.reason || event.status || "-";
+    const rawStatus = String(event.reason || event.status || "-");
+    const statusText = rawStatus.toLowerCase() === "success"
+      ? t("req.success")
+      : ["failed", "failure", "error"].includes(rawStatus.toLowerCase())
+        ? t("req.failed")
+        : rawStatus;
     return `
       <button class="provider-activity-row ${escapeHtml(event.tone)}" type="button" ${event.requestId ? `data-request-id="${escapeHtml(event.requestId)}"` : ""}>
         <span class="provider-status-dot ${escapeHtml(event.tone)}"></span>
@@ -4457,17 +5062,6 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         <em>${event.latencyMs ? escapeHtml(fmtMs(event.latencyMs)) : "-"}</em>
       </button>
     `;
-  }
-
-  function providerStateChips(view) {
-    const runtimeOn = view.runtime.runtime_enabled !== false;
-    const configOn = view.config.enabled !== false && view.runtime.config_enabled !== false;
-    return [
-      badge(configOn ? "config on" : "config off", configOn ? "ok" : "bad"),
-      badge(runtimeOn ? "runtime on" : "runtime off", runtimeOn ? "ok" : "bad"),
-      badge(view.runtime.available ? "available" : "not available", view.runtime.available ? "ok" : "warn"),
-      badge(`${fmtInt(view.runtime.cooldown_remaining_s)}s cooldown`, Number(view.runtime.cooldown_remaining_s || 0) > 0 ? "warn" : "neutral"),
-    ].join(" ");
   }
 
   function capitalize(value) {
@@ -4623,102 +5217,97 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     });
   }
 
-  function providerEditPanel(name, provider, keys, formats, options = {}) {
-    const includeFormats = options.includeFormats !== false;
+  function providerConfigInspector(name, provider) {
     return `
-      <div class="provider-edit-panel">
-        <form class="config-provider-form provider-inline-form" data-provider="${escapeHtml(name)}">
-          <div class="provider-config-block provider-config-connection">
-            <div class="provider-config-block-head">
-              <span class="provider-config-block-icon">${iconSvg("server")}</span>
-              <div>
-                <strong>Connection</strong>
-                <small>Endpoint and identity</small>
-              </div>
+      <form class="config-provider-form provider-config-inspector" data-provider="${escapeHtml(name)}">
+        <div class="provider-inspector-content">
+          <section class="provider-inspector-section">
+            <div class="provider-inspector-head">
+              <div><strong>${escapeHtml(t("prov.config_connection"))}</strong><small>${escapeHtml(t("prov.config_connection_tip"))}</small></div>
+              <span class="provider-inspector-code">HTTP</span>
             </div>
-            <div class="provider-config-grid">
-              <label class="field provider-config-wide">
-                <span>Base URL</span>
-                <input class="control" name="base_url" value="${escapeHtml(provider.base_url || "")}" placeholder="https://api.example.com" required />
-              </label>
-              <label class="field">
-                <span>Proxy</span>
-                ${proxyControlInput("proxy", provider.proxy || "", "direct / http://host:port / socks5://host:port")}
-              </label>
-              <label class="field">
-                <span>User-Agent</span>
-                <input class="control" name="user_agent" value="${escapeHtml(provider.user_agent || "")}" placeholder="inherit" />
-              </label>
+            <div class="provider-inspector-grid">
+              <label for="provider-base-url-${escapeHtml(name)}">${escapeHtml(t("form.base_url"))}</label>
+              <input id="provider-base-url-${escapeHtml(name)}" class="control mono" name="base_url" type="url" autocomplete="off" spellcheck="false" value="${escapeHtml(provider.base_url || "")}" placeholder="https://api.example.com" required />
+              <label for="provider-proxy-${escapeHtml(name)}">${escapeHtml(t("form.proxy"))}</label>
+              <div>${proxyControlInput("proxy", provider.proxy || "", "direct / http://host:port / socks5://host:port", `id="provider-proxy-${escapeHtml(name)}" autocomplete="off" spellcheck="false"`)}</div>
+              <label for="provider-user-agent-${escapeHtml(name)}">${escapeHtml(t("form.user_agent"))}</label>
+              <input id="provider-user-agent-${escapeHtml(name)}" class="control mono" name="user_agent" autocomplete="off" spellcheck="false" value="${escapeHtml(provider.user_agent || "")}" placeholder="${escapeHtml(t("prov.inherit_proxy_default"))}" />
             </div>
-          </div>
-          <div class="provider-config-block provider-config-runtime">
-            <div class="provider-config-block-head">
-              <span class="provider-config-block-icon">${iconSvg("gauge")}</span>
-              <div>
-                <strong>Runtime</strong>
-                <small>Priority and availability</small>
-              </div>
+          </section>
+          <section class="provider-inspector-section">
+            <div class="provider-inspector-head">
+              <div><strong>${escapeHtml(t("prov.config_runtime"))}</strong><small>${escapeHtml(t("prov.config_runtime_tip"))}</small></div>
+              <span class="provider-inspector-code">LIVE</span>
             </div>
-            <div class="provider-config-runtime-row">
-              <label class="field">
-                <span>Priority</span>
-                <input class="control" name="priority" type="number" min="-1000" max="1000" step="1" value="${escapeHtml(provider.priority ?? 0)}" />
-              </label>
-              <label class="check-field provider-enabled-check">
-                <input type="checkbox" name="enabled" ${provider.enabled === false ? "" : "checked"} />
-                <span>Enabled</span>
-              </label>
-              <button class="button primary" type="submit">Save config</button>
+            <div class="provider-inspector-grid provider-runtime-grid">
+              <label for="provider-priority-${escapeHtml(name)}">${escapeHtml(t("form.priority"))}</label>
+              <input id="provider-priority-${escapeHtml(name)}" class="control mono" name="priority" type="number" inputmode="numeric" min="-1000" max="1000" step="1" value="${escapeHtml(provider.priority ?? 0)}" />
             </div>
-            <div class="provider-skip-probe-row">
-              <label class="capsule-toggle" title="Skip idle health check for this provider">
-                <input type="checkbox" name="skip_idle_probe" ${provider.skip_idle_probe ? "checked" : ""} data-skip-idle-toggle="${escapeHtml(name)}" />
-                <span class="capsule-toggle-label">Skip Idle</span>
-              </label>
-              <label class="capsule-toggle" title="Skip patrol health check for this provider">
-                <input type="checkbox" name="skip_patrol_probe" ${provider.skip_patrol_probe ? "checked" : ""} data-skip-patrol-toggle="${escapeHtml(name)}" />
-                <span class="capsule-toggle-label">Skip Patrol</span>
-              </label>
+            <label class="provider-setting-row">
+              <span><strong>${escapeHtml(t("prov.provider_enabled"))}</strong><small>${escapeHtml(t("prov.provider_enabled_tip"))}</small></span>
+              <span class="provider-setting-switch"><input type="checkbox" name="enabled" ${provider.enabled === false ? "" : "checked"} /><i></i></span>
+            </label>
+          </section>
+          <section class="provider-inspector-section">
+            <div class="provider-inspector-head">
+              <div><strong>${escapeHtml(t("prov.health_probes"))}</strong><small>${escapeHtml(t("prov.health_probes_tip"))}</small></div>
             </div>
-          </div>
-        </form>
-        <div class="provider-config-block provider-config-keys">
-          <div class="provider-config-block-head">
-            <span class="provider-config-block-icon">${iconSvg("key")}</span>
-            <div>
-              <strong>Keys</strong>
-              <small>Masked keys and proxy</small>
-            </div>
-          </div>
-          <div class="key-proxy-list">
-            ${keys.length ? keys.map((key) => keyProxyRow(name, key)).join("") : `<span class="muted">No config keys</span>`}
-          </div>
-          <form class="config-key-form provider-inline-key-form" data-provider="${escapeHtml(name)}">
-            <input class="control" name="key" type="password" autocomplete="off" placeholder="new key" required />
-            ${proxyControlInput("proxy", "", "http://host:port / socks5://host:port")}
-            <button class="button secondary" type="submit">Add key</button>
-          </form>
+            <label class="provider-setting-row">
+              <span><strong>${escapeHtml(t("prov.skip_idle_probes"))}</strong><small>${escapeHtml(t("prov.skip_idle_probes_tip"))}</small></span>
+              <span class="provider-setting-switch"><input type="checkbox" name="skip_idle_probe" ${provider.skip_idle_probe ? "checked" : ""} data-skip-idle-toggle="${escapeHtml(name)}" /><i></i></span>
+            </label>
+            <label class="provider-setting-row">
+              <span><strong>${escapeHtml(t("prov.skip_patrol_probes"))}</strong><small>${escapeHtml(t("prov.skip_patrol_probes_tip"))}</small></span>
+              <span class="provider-setting-switch"><input type="checkbox" name="skip_patrol_probe" ${provider.skip_patrol_probe ? "checked" : ""} data-skip-patrol-toggle="${escapeHtml(name)}" /><i></i></span>
+            </label>
+          </section>
         </div>
-        ${includeFormats ? `
-          <div class="provider-formats-group provider-config-block">
-            <div class="provider-config-block-head">
-              <span class="provider-config-block-icon">${iconSvg("layers")}</span>
-              <div>
-                <strong>Formats</strong>
-                <small>Toggle routes or edit paths</small>
-              </div>
-            </div>
-            <div class="format-route-list provider-format-edit-list">
-              ${formatRouteItems(formats, name)}
-            </div>
+        <div class="provider-inspector-actions">
+          <span class="provider-inspector-status">${escapeHtml(t("prov.config_runtime_save"))}</span>
+          <div>
+            <button class="button secondary" type="reset">${escapeHtml(t("form.reset"))}</button>
+            <button class="button primary" type="submit">${escapeHtml(t("form.save_configuration"))}</button>
           </div>
-        ` : ""}
-      </div>
+        </div>
+      </form>
+    `;
+  }
+
+  function providerKeyConfiguration(name, keys) {
+    return `
+      <section class="provider-tab-section provider-key-configuration">
+        <div class="provider-tab-section-head">
+          <div><strong>${escapeHtml(t("prov.key_configuration"))}</strong><small>${escapeHtml(t("prov.key_configuration_tip"))}</small></div>
+        </div>
+        <div class="key-proxy-list">
+          ${keys.length ? keys.map((key) => keyProxyRow(name, key)).join("") : `<span class="muted">${escapeHtml(t("prov.no_config_keys"))}</span>`}
+        </div>
+        <form class="config-key-form provider-key-add-form" data-provider="${escapeHtml(name)}">
+          <label class="field"><span>${escapeHtml(t("prov.api_key"))}</span><input class="control" name="key" type="password" autocomplete="off" spellcheck="false" placeholder="${escapeHtml(t("prov.api_key_ph"))}" required /></label>
+          <label class="field"><span>${escapeHtml(t("form.proxy"))}</span>${proxyControlInput("proxy", "", "http://host:port / socks5://host:port")}</label>
+          <button class="button secondary" type="submit">${escapeHtml(t("prov.add_key"))}</button>
+        </form>
+      </section>
+    `;
+  }
+
+  function providerFormatConfiguration(name, formats) {
+    return `
+      <section class="provider-tab-section provider-formats-group">
+        <div class="provider-tab-section-head">
+          <div><strong>${escapeHtml(t("prov.format_routes"))}</strong><small>${escapeHtml(t("prov.format_routes_tip"))}</small></div>
+        </div>
+        <div class="format-route-list provider-format-edit-list">
+          ${formatRouteItems(formats, name)}
+        </div>
+      </section>
     `;
   }
 
   function keyProxyRow(provider, key) {
     const proxy = proxyText(key.proxy);
+    const models = keyModelsText(key.models);
     return `
       <form class="key-proxy-row" data-provider="${escapeHtml(provider)}" data-key-index="${escapeHtml(key.index)}">
         <div class="key-proxy-id">
@@ -4726,10 +5315,14 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           <span title="${escapeHtml(key.key_id || "")}">${escapeHtml(key.masked || key.key_id || "-")}</span>
         </div>
         <label class="field key-proxy-field">
-          <span>Proxy</span>
-          ${proxyControlInput("proxy", proxy, "inherit")}
+          <span>${escapeHtml(t("form.proxy"))}</span>
+          ${proxyControlInput("proxy", proxy, t("prov.inherit"))}
         </label>
-        <button class="button secondary compact-action" type="submit">Save</button>
+        <label class="field key-proxy-field">
+          <span>${escapeHtml(t("prov.models"))}</span>
+          <input class="control" name="models" value="${escapeHtml(models)}" placeholder="${escapeHtml(t("prov.models_ph"))}" />
+        </label>
+        <button class="button secondary compact-action" type="submit">${escapeHtml(t("form.save"))}</button>
       </form>
     `;
   }
@@ -4738,6 +5331,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const stats = keyStats || providerKeyStats(Array.isArray(p.keys) ? p.keys : [], []);
     const enabled = p.enabled !== false && p.config_enabled !== false && p.runtime_enabled !== false && config.enabled !== false;
     const providerCooldown = Number(p.cooldown_remaining_s || 0);
+    const compatibilityCircuits = Number(p.compatibility_circuit_count || 0);
     const hardFailure = Boolean(p.has_hard_failure);
     if (!enabled) return { id: "disabled", label: "disabled", tone: "is-disabled", badge: "bad" };
     if (providerCooldown > 0) return { id: "cooldown", label: "cooldown", tone: "is-cooldown", badge: "warn" };
@@ -4747,6 +5341,9 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     }
     if (hardFailure) {
       return { id: "degraded", label: "degraded", tone: "is-degraded", badge: "warn" };
+    }
+    if (compatibilityCircuits > 0) {
+      return { id: "degraded", label: "compatibility degraded", tone: "is-degraded", badge: "warn" };
     }
     if (p.available) {
       if (stats.total > 0 && stats.usable < stats.total) {
@@ -4991,6 +5588,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       "eye-off": `<path d="M3 3l18 18"></path><path d="M10.6 10.6A3 3 0 0 0 13.4 13.4"></path><path d="M7.4 7.4C4.3 9 2.5 12 2.5 12s3.5 6 9.5 6c1.5 0 2.8-.4 4-1"></path><path d="M10 6.2A10.6 10.6 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-2.6 3.2"></path>`,
       save: `<path d="M5 3h12l2 2v16H5z"></path><path d="M8 3v6h8V3"></path><path d="M8 21v-7h8v7"></path>`,
       undo: `<path d="M9 7H4v5"></path><path d="M4 12a8 8 0 1 0 2.3-5.7L4 7"></path>`,
+      plus: `<path d="M12 5v14"></path><path d="M5 12h14"></path>`,
       settings: `<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle>`,
       dot: `<circle cx="12" cy="12" r="2"></circle>`,
       bolt: `<path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"></path>`,
@@ -5011,18 +5609,20 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       button.dataset.bounddataactionpath = "1";
       button.addEventListener("click", async () => {
         const path = `/-/admin${button.dataset.actionPath}`;
-        button.disabled = true;
-        try {
-          setNotice(t("notice.action_running") || "Action is running...", "info", { key: "action:manual", sticky: true });
-          const result = await apiPost(path);
-          applyMutationResult(result, { drawer: true });
-          setNotice(t("notice.action_done") || "Action completed.", "ok", { key: "action:manual" });
-          scheduleBackgroundRefresh({ quiet: true, staticData: true });
-        } catch (err) {
-          setNotice(t("notice.action_failed", { error: err.message }), "bad", { key: "action:manual" });
-        } finally {
-          button.disabled = false;
-        }
+        await runExclusiveUiAction(`action:${path}`, async () => {
+          button.disabled = true;
+          try {
+            setNotice(t("notice.action_running") || "Action is running...", "info", { key: "action:manual", sticky: true });
+            const result = await apiPost(path);
+            applyMutationResult(result, { drawer: true });
+            setNotice(t("notice.action_done") || "Action completed.", "ok", { key: "action:manual" });
+            scheduleBackgroundRefresh({ quiet: true, staticData: true });
+          } catch (err) {
+            setNotice(t("notice.action_failed", { error: err.message }), "bad", { key: "action:manual" });
+          } finally {
+            button.disabled = false;
+          }
+        }, { duplicateNotice: t("notice.action_already_running") });
       });
     });
   }
@@ -5121,17 +5721,26 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           acceptLabel: t("confirm.delete"),
         });
         if (!confirmed) return;
-        button.disabled = true;
-        try {
-          const result = await apiPost(`/-/admin/providers/${encodeURIComponent(provider)}/keys/${encodeURIComponent(keyIndex)}/delete`, { confirm: "delete_key" });
-          applyMutationResult(result, { drawer: true });
-          setNotice(t("notice.key_deleted", { index: keyIndex, provider }), "ok");
-          scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
-        } catch (err) {
-          setNotice(t("notice.delete_key_failed", { error: err.message }));
-        } finally {
-          button.disabled = false;
-        }
+        await runOptimisticConfigAction(
+          button,
+          () => apiPost(`/-/admin/providers/${encodeURIComponent(provider)}/keys/${encodeURIComponent(keyIndex)}/delete`, { confirm: "delete_key" }),
+          {
+            resourceKey: `provider-key-list:${provider}`,
+            apply: (config) => {
+              const keys = config.providers?.[provider]?.keys;
+              if (!Array.isArray(keys)) return;
+              const key = keys.find((entry, index) => String(entry?.index ?? index) === String(keyIndex));
+              if (key && typeof key === "object") key.pending_delete = true;
+            },
+          },
+          {
+            locateRoot: () => root.querySelector(
+              `[data-key-delete-provider="${CSS.escape(provider)}"][data-key-delete-index="${CSS.escape(String(keyIndex))}"]`,
+            ),
+            onSuccess: () => setNotice(t("notice.key_deleted", { index: keyIndex, provider }), "ok"),
+            onError: (err) => setNotice(t("notice.delete_key_failed", { error: err.message })),
+          },
+        );
       });
     });
   }
@@ -5212,37 +5821,58 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     });
   }
 
-  async function updateProviderModelDisabled(provider, models, successMessage) {
+  async function updateProviderModelDisabled(provider, models, successMessage, root = null) {
     if (!provider || !models || !Object.keys(models).length) return;
-    try {
-      const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/models/disabled`, { models });
-      applyMutationResult(result, { drawer: true });
-      if (state.providerModelDrafts) delete state.providerModelDrafts[provider];
-      setNotice(successMessage || t("notice.model_settings_saved", { provider }), "ok");
-      scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
-      renderProviderDrawer({ force: true });
-    } catch (err) {
-      setNotice(t("notice.model_setting_failed", { error: err.message }), "bad");
-    }
+    const locateRoot = liveElementLocator(root, () => (
+      qsa("[data-provider-model-apply]").find((button) => button.dataset.providerModelApply === provider) || null
+    ));
+    return runOptimisticConfigAction(
+      root,
+      () => apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/models/disabled`, { models }),
+      {
+        resourceKey: `provider-model-disabled:${provider}`,
+        apply: (config) => {
+          const disabled = (((config.models ||= {}).provider_model_disabled ||= {}));
+          const providerDisabled = (disabled[provider] ||= {});
+          Object.entries(models).forEach(([model, value]) => {
+            if (value) providerDisabled[model] = true;
+            else delete providerDisabled[model];
+          });
+        },
+      },
+      {
+        locateRoot,
+        onSuccess: () => {
+          if (state.providerModelDrafts) delete state.providerModelDrafts[provider];
+          setNotice(successMessage || t("notice.model_settings_saved", { provider }), "ok");
+        },
+        onError: (err) => setNotice(t("notice.model_setting_failed", { error: err.message }), "bad"),
+      },
+    );
   }
 
   async function updateProviderModelMapping(provider, oldModel, rawModel, nextModel) {
     if (!provider || !oldModel || !rawModel) return false;
-    try {
-      const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/models/map`, {
+    return runOptimisticConfigAction(
+      null,
+      () => apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/models/map`, {
         old_model: oldModel,
         model: nextModel,
         raw_model: rawModel,
-      });
-      applyMutationResult(result, { drawer: true });
-      setNotice(nextModel ? t("notice.model_mapping_saved", { provider }) : t("notice.model_mapping_reset", { provider }), "ok");
-      scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
-      renderProviderDrawer({ force: true });
-      return true;
-    } catch (err) {
-      setNotice(t("notice.model_mapping_failed", { error: err.message }), "bad");
-      return false;
-    }
+      }),
+      {
+        resourceKey: `provider-model-map:${provider}:${oldModel}`,
+        apply: (config) => {
+          const providerMap = ((((config.models ||= {}).provider_model_map ||= {})[provider] ||= {}));
+          if (oldModel !== nextModel) delete providerMap[oldModel];
+          if (nextModel) providerMap[nextModel] = rawModel;
+        },
+      },
+      {
+        onSuccess: () => setNotice(nextModel ? t("notice.model_mapping_saved", { provider }) : t("notice.model_mapping_reset", { provider }), "ok"),
+        onError: (err) => setNotice(t("notice.model_mapping_failed", { error: err.message }), "bad"),
+      },
+    );
   }
 
   function openProviderModelMappingModal({ provider, oldModel, rawModel, isManual }) {
@@ -5344,11 +5974,17 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       }
       const submit = form.querySelector('button[type="submit"]');
       if (submit) submit.disabled = true;
-      const saved = await runFormatMutation(ownerCard, async () => {
-          const resp = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/formats/${encodeURIComponent(fmt)}`, { path: normalized });
-          setNotice(t("notice.format_updated", { provider, format: fmt }), "ok");
-          return resp;
-      });
+       const saved = await runFormatMutation(ownerCard, async () => {
+           const resp = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/formats/${encodeURIComponent(fmt)}`, { path: normalized });
+           setNotice(t("notice.format_updated", { provider, format: fmt }), "ok");
+           return resp;
+       }, {
+         resourceKey: `provider-format:${provider}:${fmt}`,
+         apply: (config) => {
+           const formatConfig = config.providers?.[provider]?.formats?.[fmt];
+           if (formatConfig) formatConfig.path = normalized;
+         },
+       });
       if (saved) {
         closeFormModal();
       } else {
@@ -5417,13 +6053,13 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         const provider = applyButton.dataset.providerModelApply || "";
         const draft = providerModelDraft(provider);
         if (!Object.keys(draft).length) return;
-        applyButton.disabled = true;
         await updateProviderModelDisabled(
           provider,
           draft,
           `Applied ${Object.keys(draft).length} model changes for ${provider}.`,
+          applyButton,
         );
-        applyButton.disabled = false;
+        renderProviderDrawer({ force: true });
         return;
       }
 
@@ -5462,7 +6098,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const active = document.activeElement;
     if (!state.forceFailurePoliciesRender && active && active.closest("#failurePoliciesTable")) return;
 
-    const policies = policy.failure_policies || {};
+    const policies = state.data.config?.retry?.failure_policies || policy.failure_policies || {};
     const rows = Object.entries(policies).sort();
     target.innerHTML = rows.length ? `
       <div class="failure-policy-list">
@@ -5614,6 +6250,14 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           const result = await apiPatch("/-/admin/routing", payload);
           setNotice(t("notice.routing_updated"), "ok");
           return result;
+        }, {
+          resourceKey: "routing",
+          apply: (config) => {
+            Object.assign((config.routing ||= {}), payload, {
+              default_provider_pool: String(payload.default_provider_pool || "").split(",").map((item) => item.trim()).filter(Boolean),
+            });
+          },
+          drawer: false,
         });
       });
     }
@@ -5640,6 +6284,10 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           const result = await apiPatch("/-/admin/retry", payload);
           setNotice(t("notice.retry_updated"), "ok");
           return result;
+        }, {
+          resourceKey: "retry",
+          apply: (config) => { Object.assign((config.retry ||= {}), structuredClone(payload)); },
+          drawer: false,
         });
       });
     }
@@ -5678,37 +6326,25 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           const result = await apiPatch("/-/admin/retry/failure-policies", payload);
           setNotice(t("notice.failure_policy_updated", { type: payload.error_type }), "ok");
           return result;
+        }, {
+          resourceKey: `failure-policy:${payload.error_type}`,
+          apply: (config) => {
+            const policies = ((config.retry ||= {}).failure_policies ||= {});
+            policies[payload.error_type] = {
+              cooldown_scope: payload.cooldown_scope,
+              cooldown_s: payload.cooldown_s,
+              provider_cooldown_s: payload.provider_cooldown_s,
+              disables_key: payload.disables_key,
+            };
+          },
+          drawer: false,
         });
       });
     });
   }
 
-  async function runPolicyMutation(form, operation) {
-    const buttons = Array.from(form.querySelectorAll("button"));
-    buttons.forEach((button) => {
-      button.disabled = true;
-    });
-    try {
-      setNotice(t("notice.saving"), "info", { key: "mutation:policy", sticky: true });
-      const result = await operation();
-      const applied = applyMutationResult(result);
-      if (!applied) {
-        state.forcePolicyRender = true;
-        state.forceFailurePoliciesRender = true;
-        renderAll();
-      }
-      if (document.activeElement && typeof document.activeElement.blur === "function") {
-        document.activeElement.blur();
-      }
-      setNotice(t("notice.saved"), "ok", { key: "mutation:policy" });
-      scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
-    } catch (err) {
-      setNotice(t("notice.policy_failed", { error: err.message }), "bad", { key: "mutation:policy" });
-    } finally {
-      buttons.forEach((button) => {
-        button.disabled = false;
-      });
-    }
+  async function runPolicyMutation(form, operation, optimistic = null) {
+    return runConfigMutation(form, operation, optimistic);
   }
 
   function renderPolicyRule(rule, index) {
@@ -5832,7 +6468,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const target = el("configSummary");
     if (!target) return;
     const providers = config.providers || {};
-    const names = Object.keys(providers).sort();
+    const names = Object.keys(providers).filter((name) => !providers[name]?.pending_delete).sort();
     const providerCount = names.length;
     const keyCount = names.reduce((sum, name) => sum + (Array.isArray(providers[name]?.keys) ? providers[name].keys.length : 0), 0);
     const enabledProviders = names.filter((name) => providers[name]?.enabled !== false).length;
@@ -6019,6 +6655,10 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       .filter((item) => item && item.name);
   }
 
+  function parseRouteProvidersInput(value) {
+    return routeProviderItems(String(value || "").split(",").map((item) => item.trim()).filter(Boolean));
+  }
+
   function routeProvidersText(providers) {
     return routeProviderItems(providers)
       .map((item) => `${item.name}:${item.weight || 1}${item.priority !== null && item.priority !== undefined ? `:${item.priority}` : ""}`)
@@ -6128,7 +6768,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     const keys = Array.isArray(provider.keys) ? provider.keys : [];
     const enabled = enabledFormats(formats);
     const firstKey = keys[0];
-    const keyText = firstKey ? `key ${firstKey.index} / ${firstKey.masked || firstKey.key_id || "-"}` : "No keys";
+    const keyText = firstKey ? `key ${firstKey.index} / ${firstKey.masked || firstKey.key_id || "-"}` : t("prov.no_keys");
     const moreKeys = keys.length > 1 ? ` +${keys.length - 1}` : "";
     const priority = Number(provider.priority || 0);
     return `
@@ -6167,7 +6807,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           <span class="status-dot ${dotTone}"></span>
           <div style="flex:1;min-width:0">
             <div class="provider-name">${escapeHtml(name)}</div>
-            <div class="provider-meta">${keys.length} key${keys.length !== 1 ? "s" : ""} / ${enabledFmtList.length ? enabledFmtList.map(shortFormatName).join(", ") : "no formats"}</div>
+            <div class="provider-meta">${fmtInt(keys.length)} ${escapeHtml(t("prov.keys"))} / ${enabledFmtList.length ? enabledFmtList.map(shortFormatName).join(", ") : escapeHtml(t("prov.no_formats"))}</div>
           </div>
           <svg class="chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"></path></svg>
         </div>
@@ -6184,7 +6824,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
               </label>
               <label class="field">
                 <span class="label-with-tip">${t("form.user_agent")}<span class="help-tip" data-tip="${escapeHtml(t("form.ua_tip"))}">?</span></span>
-                <input class="control" name="user_agent" value="${escapeHtml(provider.user_agent || "")}" placeholder="inherit client User-Agent" />
+                <input class="control" name="user_agent" value="${escapeHtml(provider.user_agent || "")}" placeholder="${escapeHtml(t("prov.inherit_proxy_default"))}" />
               </label>
               <label class="field">
                 <span class="label-with-tip">${t("form.priority")}<span class="help-tip" data-tip="${escapeHtml(t("form.priority_tip"))}">?</span></span>
@@ -6195,28 +6835,28 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
                 <span class="label-with-tip">${t("form.enabled")}<span class="help-tip" data-tip="${escapeHtml(t("form.enabled_tip"))}">?</span></span>
               </label>
               <div class="provider-skip-probe-row">
-                <label class="capsule-toggle" title="Skip idle health check for this provider">
+                <label class="capsule-toggle" title="${escapeHtml(t("prov.skip_idle_probes_tip"))}">
                   <input type="checkbox" name="skip_idle_probe" ${provider.skip_idle_probe ? "checked" : ""} data-skip-idle-toggle="${escapeHtml(name)}" />
-                  <span class="capsule-toggle-label">Skip Idle</span>
+                  <span class="capsule-toggle-label">${escapeHtml(t("prov.skip_idle_probes"))}</span>
                 </label>
-                <label class="capsule-toggle" title="Skip patrol health check for this provider">
+                <label class="capsule-toggle" title="${escapeHtml(t("prov.skip_patrol_probes_tip"))}">
                   <input type="checkbox" name="skip_patrol_probe" ${provider.skip_patrol_probe ? "checked" : ""} data-skip-patrol-toggle="${escapeHtml(name)}" />
-                  <span class="capsule-toggle-label">Skip Patrol</span>
+                  <span class="capsule-toggle-label">${escapeHtml(t("prov.skip_patrol_probes"))}</span>
                 </label>
               </div>
               <button class="button secondary" type="submit">${t("form.save_provider")}</button>
-              <button class="button danger icon-action" type="button" data-provider-delete="${escapeHtml(name)}" title="Delete provider" aria-label="Delete provider">${iconSvg("trash")}</button>
+              <button class="button danger icon-action" type="button" data-provider-delete="${escapeHtml(name)}" title="${escapeHtml(t("confirm.delete_provider.title"))}" aria-label="${escapeHtml(t("confirm.delete_provider.title"))}">${iconSvg("trash")}</button>
             </form>
 
             <div class="masked-key-list">
               ${keys.length ? keys.map((key) => `
                 <span class="tag" title="${escapeHtml(key.key_id || "")}">key ${escapeHtml(key.index)} / ${escapeHtml(key.masked || key.key_id || "-")}</span>
-              `).join("") : `<span class="muted">No keys</span>`}
+              `).join("") : `<span class="muted">${escapeHtml(t("prov.no_keys"))}</span>`}
             </div>
 
             <form class="config-key-form" data-provider="${escapeHtml(name)}">
-              <input class="control" name="key" type="password" autocomplete="off" placeholder="new api key" required />
-              <button class="button secondary" type="submit">Add key</button>
+              <input class="control" name="key" type="password" autocomplete="off" placeholder="${escapeHtml(t("prov.api_key_ph"))}" required />
+              <button class="button secondary" type="submit">${escapeHtml(t("prov.add_key"))}</button>
             </form>
 
             <div class="format-route-list">
@@ -6295,26 +6935,29 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           acceptLabel: t("confirm.delete"),
         });
         if (!confirmed) return;
-        button.disabled = true;
-        try {
-          const result = await apiPost(`/-/admin/providers/${encodeURIComponent(provider)}/delete`, { confirm: "delete_provider" });
-          state.openProviderDetails.delete(provider);
-          state.openProviderEditors.delete(provider);
-          if (state.providerDrawerName === provider) closeProviderDrawer();
-          if (state.data.config?.providers) delete state.data.config.providers[provider];
-          if (state.data.status?.router?.providers) delete state.data.status.router.providers[provider];
-          applyMutationResult(result);
-          state.forceConfigRender = true;
-          state.forceProvidersRender = true;
-          state.data.version = Number(state.data.version || 0) + 1;
-          renderAll();
-          setNotice(t("notice.provider_deleted", { provider }), "ok");
-          scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
-        } catch (err) {
-          setNotice(t("notice.delete_provider_failed", { error: err.message }));
-        } finally {
-          button.disabled = false;
-        }
+        await runOptimisticConfigAction(
+          button,
+          () => apiPost(`/-/admin/providers/${encodeURIComponent(provider)}/delete`, { confirm: "delete_provider" }),
+          {
+            resourceKey: `provider:${provider}`,
+            apply: (config) => {
+              if (config.providers?.[provider]) config.providers[provider].pending_delete = true;
+            },
+          },
+          {
+            locateRoot: () => root.querySelector(`[data-provider-delete="${CSS.escape(provider)}"]`),
+            onSuccess: () => {
+              state.openProviderDetails.delete(provider);
+              state.openProviderEditors.delete(provider);
+              if (state.providerDrawerName === provider) closeProviderDrawer();
+              if (state.data.status?.router?.providers) delete state.data.status.router.providers[provider];
+              state.forceProvidersRender = true;
+              renderAll();
+              setNotice(t("notice.provider_deleted", { provider }), "ok");
+            },
+            onError: (err) => setNotice(t("notice.delete_provider_failed", { error: err.message })),
+          },
+        );
       });
     });
 
@@ -6327,16 +6970,43 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         const input = root.querySelector(`[data-hot-priority="${CSS.escape(provider)}"]`);
         if (!input) return;
         const priority = Number(input.value || 0);
-        button.disabled = true;
+        const resourceKey = `provider-priority:${provider}`;
+        if (pendingRuntimeMutations.has(resourceKey)) return;
+        pendingRuntimeMutations.add(resourceKey);
+        const runtime = state.data.status?.router?.providers?.[provider];
+        const previousPriority = runtime?.priority;
+        const previousOverride = runtime?.priority_override_active;
+        if (runtime) {
+          runtime.priority = priority;
+          runtime.priority_override_active = true;
+        }
+        state.forceProvidersRender = true;
+        renderAll();
+        renderProviderDrawer({ force: true });
+        const currentButton = () => root.querySelector(`[data-hot-priority-apply="${CSS.escape(provider)}"]`);
+        setMutationBusy(currentButton(), true);
         try {
           const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/priority`, { priority });
           applyMutationResult(result, { drawer: true });
           setNotice(`Priority for ${provider} hot-updated to ${priority}.`, "ok");
-          scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
+          scheduleBackgroundRefresh({ quiet: true, preserveNotice: true });
         } catch (err) {
+          if (runtime) {
+            runtime.priority = previousPriority;
+            runtime.priority_override_active = previousOverride;
+          }
+          state.forceProvidersRender = true;
+          renderAll();
+          renderProviderDrawer({ force: true });
+          const restoredInput = root.querySelector(`[data-hot-priority="${CSS.escape(provider)}"]`);
+          if (restoredInput) {
+            restoredInput.value = String(priority);
+            restoredInput.focus();
+          }
           setNotice(`Hot-reload priority failed: ${err.message}`);
         } finally {
-          button.disabled = false;
+          pendingRuntimeMutations.delete(resourceKey);
+          setMutationBusy(currentButton(), false);
         }
       });
     });
@@ -6364,6 +7034,11 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, payload);
           setNotice(t("notice.provider_updated", { provider }), "ok");
           return result;
+        }, {
+          resourceKey: `provider:${provider}`,
+          apply: (config) => {
+            if (config.providers?.[provider]) Object.assign(config.providers[provider], payload);
+          },
         });
       });
     });
@@ -6377,16 +7052,22 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         if (!provider) return;
         const field = toggle.dataset.skipIdleToggle ? "skip_idle_probe" : "skip_patrol_probe";
         const value = Boolean(toggle.checked);
-        try {
-          const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { [field]: value });
-          applyMutationResult(result, { drawer: true });
-          setNotice(`${field === "skip_idle_probe" ? "Idle" : "Patrol"} probe ${value ? "skipped" : "enabled"} for ${provider}.`, "ok");
-          scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
-        } catch (err) {
-          setNotice(`Failed to update ${field}: ${err.message}`);
-          // Revert toggle on failure
-          toggle.checked = !value;
-        }
+        const selector = toggle.dataset.skipIdleToggle ? "data-skip-idle-toggle" : "data-skip-patrol-toggle";
+        await runOptimisticConfigAction(
+          toggle,
+          () => apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { [field]: value }),
+          {
+            resourceKey: `provider:${provider}`,
+            apply: (config) => {
+              if (config.providers?.[provider]) config.providers[provider][field] = value;
+            },
+          },
+          {
+            locateRoot: () => root.querySelector(`[${selector}="${CSS.escape(provider)}"]`),
+            onSuccess: () => setNotice(`${field === "skip_idle_probe" ? "Idle" : "Patrol"} probe ${value ? "skipped" : "enabled"} for ${provider}.`, "ok"),
+            onError: (err) => setNotice(`Failed to update ${field}: ${err.message}`),
+          },
+        );
       });
     });
 
@@ -6405,6 +7086,9 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           form.reset();
           setNotice(t("notice.key_added", { provider }), "ok");
           return result;
+        }, {
+          resourceKey: `provider-key-list:${provider}`,
+          apply: (config) => appendPendingKey(config, provider, payload),
         });
       });
     });
@@ -6417,10 +7101,48 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         const provider = form.dataset.provider || "";
         const keyIndex = String(form.dataset.keyIndex || "").trim();
         const proxy = String(form.elements.proxy.value || "").trim();
+        const models = parseKeyModelsText(form.elements.models?.value || "");
         await runConfigMutation(form, async () => {
-          const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/keys/${encodeURIComponent(keyIndex)}`, { proxy });
+          const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/keys/${encodeURIComponent(keyIndex)}`, { proxy, models });
           setNotice(t("notice.key_proxy_updated", { index: keyIndex, provider }), "ok");
           return result;
+        }, {
+          resourceKey: `key:${provider}:${keyIndex}`,
+          apply: (config) => {
+            const keys = config.providers?.[provider]?.keys;
+            if (!Array.isArray(keys)) return;
+            const key = keys.find((entry, index) => String(entry?.index ?? index) === keyIndex);
+            if (key && typeof key === "object") Object.assign(key, { proxy, models });
+          },
+        });
+      });
+    });
+
+    root.querySelectorAll(".provider-variant-form").forEach((form) => {
+      if (form.dataset.boundprovidervariantform) return;
+      form.dataset.boundprovidervariantform = "1";
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const provider = form.dataset.provider || "";
+        const canonicalModel = String(form.elements.canonical_model?.value || "").trim();
+        const variants = parseModelVariants(form.elements.variants?.value || "");
+        if (!provider || !canonicalModel) return;
+        await runConfigMutation(form, async () => {
+          const result = await apiPatch(
+            `/-/admin/providers/${encodeURIComponent(provider)}/models/${encodeURIComponent(canonicalModel)}/variants`,
+            { variants },
+          );
+          setNotice(`Model variants updated for ${provider} / ${canonicalModel}.`, "ok");
+          return result;
+        }, {
+          resourceKey: `model-variants:${provider}:${canonicalModel}`,
+          apply: (config) => {
+            const modelsConfig = config.models ||= {};
+            const providerVariants = (modelsConfig.provider_model_variants ||= {});
+            const variantsByModel = (providerVariants[provider] ||= {});
+            if (variants.length) variantsByModel[canonicalModel] = structuredClone(variants);
+            else delete variantsByModel[canonicalModel];
+          },
         });
       });
     });
@@ -6438,6 +7160,12 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           const resp = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/formats/${encodeURIComponent(fmt)}`, { enabled: nextEnabled });
           setNotice(t("notice.format_toggled", { provider, format: fmt, state: nextEnabled ? t("notice.enabled") : t("notice.disabled") }), "ok");
           return resp;
+        }, {
+          resourceKey: `provider-format:${provider}:${fmt}`,
+          apply: (config) => {
+            const formatConfig = config.providers?.[provider]?.formats?.[fmt];
+            if (formatConfig) formatConfig.enabled = nextEnabled;
+          },
         });
       };
 
@@ -6473,17 +7201,33 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     });
   }
 
-  async function runFormatMutation(card, operation) {
-    if (card) {
-      card.setAttribute("aria-busy", "true");
-      card.classList.add("is-busy");
-    }
+  async function runFormatMutation(card, operation, optimistic = null) {
+    const provider = card?.dataset?.formatProvider || "";
+    const fmt = card?.dataset?.format || "";
+    const locateCard = liveElementLocator(card, () => (
+      qsa(".format-route.is-interactive").find((candidate) => (
+        candidate.dataset.formatProvider === provider && candidate.dataset.format === fmt
+      )) || null
+    ));
+    const mutation = optimistic
+      ? beginOptimisticConfigMutation(optimistic.resourceKey, optimistic.apply)
+      : null;
+    if (optimistic && !mutation) return false;
+    const finishBusy = mutationBusyTracker.start(locateCard);
     try {
       setNotice(t("notice.saving"), "info", { key: "mutation:format", sticky: true });
       const result = await operation();
+      if (mutation && result?.config !== undefined) {
+        if (!confirmOptimisticConfigMutation(mutation, result.config, { render: false })) return false;
+      } else if (mutation) {
+        rejectOptimisticConfigMutation(mutation);
+      }
       // Clear dirty state — the mutation has been saved to the server.
       clearAllDirty();
-      const applied = applyMutationResult(result, { drawer: true });
+      const applied = applyMutationResult(result, {
+        drawer: true,
+        skipConfig: Boolean(mutation && result?.config !== undefined),
+      });
       if (!applied) {
         state.data.version = Number(state.data.version || 0) + 1;
         state.forceConfigRender = true;
@@ -6496,28 +7240,40 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
       return true;
     } catch (err) {
+      if (mutation) rejectOptimisticConfigMutation(mutation);
       setNotice(t("notice.format_update_failed", { error: err.message }), "bad", { key: "mutation:format" });
       return false;
     } finally {
-      if (card) {
-        card.removeAttribute("aria-busy");
-        card.classList.remove("is-busy");
-      }
+      finishBusy();
     }
   }
 
-  async function runConfigMutation(form, operation) {
-    const buttons = Array.from(form.querySelectorAll("button"));
-    buttons.forEach((button) => {
-      button.disabled = true;
-    });
+  async function runConfigMutation(form, operation, optimistic = null) {
+    const mutationScope = configRefreshCoordinator.beginMutation();
+    const locateForm = formLocator(form);
+    const formSnapshot = captureFormState(form);
+    const mutation = optimistic
+      ? beginOptimisticConfigMutation(optimistic.resourceKey, optimistic.apply, { drawer: optimistic.drawer !== false })
+      : null;
+    if (optimistic && !mutation) {
+      mutationScope.finish();
+      return false;
+    }
+    const finishBusy = mutationBusyTracker.start(locateForm);
     try {
       setNotice(t("notice.saving"), "info", { key: "mutation:config", sticky: true });
       const result = await operation();
+      if (mutation && result?.config !== undefined) {
+        if (!confirmOptimisticConfigMutation(mutation, result.config, { render: false })) return false;
+      } else if (mutation) {
+        rejectOptimisticConfigMutation(mutation, { drawer: optimistic?.drawer !== false });
+      }
       // Clear dirty state for all tracked containers — the mutation has been
       // saved to the server and the forced re-render below will show new values.
       clearAllDirty();
-      const applied = applyMutationResult(result);
+      const applied = applyMutationResult(result, {
+        skipConfig: Boolean(mutation && result?.config !== undefined),
+      });
       if (!applied) {
         state.forceConfigRender = true;
         state.forceModelRoutesRender = true;
@@ -6528,12 +7284,17 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       }
       setNotice(t("notice.saved"), "ok", { key: "mutation:config" });
       scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
+      return true;
     } catch (err) {
+      if (mutation) {
+        rejectOptimisticConfigMutation(mutation, { drawer: optimistic?.drawer !== false });
+        restoreFormState(locateForm(), formSnapshot);
+      }
       setNotice(t("notice.config_update_failed", { error: err.message }), "bad", { key: "mutation:config" });
+      return false;
     } finally {
-      buttons.forEach((button) => {
-        button.disabled = false;
-      });
+      mutationScope.finish();
+      finishBusy();
     }
   }
 
@@ -6588,6 +7349,10 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     el("drawerSubtitle").textContent = `${detail.request_id || "-"} / ${detail.state || "unknown"}`;
     updateDOM(el("drawerBody"), `
       ${renderRoutingSummary(summary)}
+      ${renderRoutingTrace(detail.routing_trace, {
+        clientFormat: detail.client_format || "",
+        finalFormat: summary.final_upstream_format || "",
+      })}
       <div class="kv-grid drawer-kv">
         <span>Status</span><span>${detail.status_code ? statusBadge(detail.status, detail.status_code) : messageMarkup(detail.state || "-")}</span>
         <span>Client Model</span><span class="mono">${escapeHtml(detail.model || "-")}</span>
@@ -6641,6 +7406,16 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
 
   function renderAttemptDiagnostics(attempt) {
     const rows = [];
+    if (attempt.failure_owner) {
+      rows.push(`<span>Failure owner</span><span>${messageMarkup(attempt.failure_owner)}</span>`);
+    }
+    if (attempt.state_action && typeof attempt.state_action === "object") {
+      const action = attempt.state_action;
+      const parts = [action.action, action.scope].filter(Boolean);
+      if (Number(action.cooldown_s || 0) > 0) parts.push(`${fmtInt(action.cooldown_s)}s`);
+      if (Number(action.provider_cooldown_s || 0) > 0) parts.push(`provider ${fmtInt(action.provider_cooldown_s)}s`);
+      rows.push(`<span>State action</span><span>${messageMarkup(parts.join(" · ") || "observed")}</span>`);
+    }
     if (attempt.diagnostic_stage) {
       rows.push(`<span>Stage</span><span>${messageMarkup(attempt.diagnostic_stage)}</span>`);
     }
@@ -6657,6 +7432,271 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       rows.push(`<span>Upstream Param</span><span>${messageMarkup(attempt.upstream_error_param)}</span>`);
     }
     return rows.join("");
+  }
+
+  function keyModelsText(models) {
+    if (Array.isArray(models)) return models.join(", ");
+    if (!models || typeof models !== "object") return "";
+    return Object.entries(models).map(([canonical, raw]) => `${canonical}=${raw}`).join(", ");
+  }
+
+  function parseKeyModelsText(value) {
+    const result = {};
+    String(value || "").split(/[\n,;]+/).map((item) => item.trim()).filter(Boolean).forEach((item) => {
+      const separator = item.indexOf("=");
+      const canonical = (separator >= 0 ? item.slice(0, separator) : item).trim();
+      const raw = (separator >= 0 ? item.slice(separator + 1) : item).trim();
+      if (canonical && raw) result[canonical] = raw;
+    });
+    return result;
+  }
+
+  function parseModelVariants(value) {
+    return String(value || "").split(/[\n,;]+/).map((item) => item.trim()).filter(Boolean).map((item) => {
+      const match = item.match(/^(.*?):(-?\d+)$/);
+      return match
+        ? { model: match[1].trim(), priority: Number(match[2]) }
+        : { model: item, priority: 0 };
+    }).filter((entry) => entry.model);
+  }
+
+  function renderRoutingTrace(rawTrace, context = {}) {
+    const trace = Array.isArray(rawTrace) ? rawTrace : [];
+    if (!trace.length) return "";
+    const steps = groupRoutingTrace(trace);
+    return `
+      <section class="routing-path-shell" aria-labelledby="routing-path-title">
+        <header class="routing-path-header">
+          <div>
+            <h3 id="routing-path-title">${iconSvg("radar")}<span>${escapeHtml(t("req.route_path"))}</span></h3>
+            <p>${escapeHtml(t("req.route_path_desc"))}</p>
+          </div>
+          <span class="routing-path-count">${escapeHtml(t("req.route_steps_events", { steps: fmtInt(steps.length), events: fmtInt(trace.length) }))}</span>
+        </header>
+        <ol class="routing-path" aria-label="${escapeHtml(t("req.route_path"))}">
+          ${steps.map((step, index) => renderRoutingTraceStep(step, index, context)).join("")}
+        </ol>
+        <details class="routing-diagnostics">
+          <summary>
+            <span class="routing-diagnostics-title">${iconSvg("info")}<span><strong>${escapeHtml(t("req.route_diagnostics"))}</strong><small>${escapeHtml(t("req.route_diagnostics_desc"))}</small></span></span>
+            <span class="routing-diagnostics-count">${escapeHtml(t("req.route_event_count", { count: fmtInt(trace.length) }))}</span>
+          </summary>
+          <ol class="routing-diagnostic-list">
+            ${trace.map(renderRoutingDiagnosticEvent).join("")}
+          </ol>
+        </details>
+      </section>
+    `;
+  }
+
+  function routingTraceCodeLabel(code) {
+    const key = {
+      provider_cooldown: "req.route_code_provider_cooldown",
+      key_cooldown: "req.route_code_key_cooldown",
+      key_disabled: "req.route_code_key_disabled",
+      model_unsupported_by_key: "req.route_code_model_unsupported",
+      compatibility_circuit: "req.route_code_compatibility",
+      duplicate_candidate: "req.route_code_duplicate",
+    }[String(code || "")];
+    return key ? t(key) : String(code || "unknown");
+  }
+
+  function routingTraceStepLabel(step) {
+    if (step.kind === "format_evaluation") return t("req.route_format_evaluation");
+    if (step.kind === "candidate_filter") return t("req.route_candidate_filter");
+    if (step.code === "selected") return t("req.route_selected");
+    if (step.code === "attempt_succeeded" || step.code === "attempt_failed") return t("req.route_upstream_result");
+    if (step.code === "no_candidate") return t("req.route_no_candidate");
+    return step.stage && step.stage !== "routing" ? step.stage : t("req.route_event");
+  }
+
+  function routingTraceStepStatus(step, context = {}) {
+    if (step.kind === "format_evaluation") {
+      const summary = summarizeFormatTraceStep(step, context);
+      if (summary.mode === "converted") return t("req.route_proxy_conversion");
+      if (summary.mode === "blocked") return t("req.route_format_excluded", { count: fmtInt(summary.blocked.length) });
+      if (summary.mode === "native") return t("req.route_no_conversion");
+      return t("req.route_no_special_limits");
+    }
+    if (step.kind === "candidate_filter") return t("req.route_candidates_skipped", { count: fmtInt(step.eventCount) });
+    if (step.code === "selected") return t("req.route_selected_status");
+    if (step.code === "attempt_succeeded") return t("req.route_success");
+    if (step.code === "attempt_failed") return t("req.route_failed_status");
+    if (step.code === "no_candidate") return t("req.route_unavailable");
+    return routingTraceCodeLabel(step.code);
+  }
+
+  function routingTraceStepIcon(step) {
+    if (step.kind === "format_evaluation") return "layers";
+    if (step.kind === "candidate_filter") return "filter";
+    if (step.code === "selected") return "radar";
+    if (step.code === "attempt_succeeded") return "check";
+    if (step.code === "attempt_failed" || step.code === "no_candidate") return "alert";
+    return "dot";
+  }
+
+  function renderRoutingFormatPath(source, target) {
+    const formats = [source, target].filter(Boolean);
+    if (!formats.length) return escapeHtml("-");
+    if (formats.length === 1 || source === target) return chipList([formats[0]]);
+    return `<span class="routing-format-path">${chip(source)}${iconSvg("arrow-right")}${chip(target)}</span>`;
+  }
+
+  function renderRoutingTraceStep(step, index, context = {}) {
+    const tone = routingTraceTone(step);
+    const event = step.event || {};
+    const identity = routingTraceIdentity(event);
+    let evidence = identity.length ? chipList(identity) : escapeHtml("-");
+    const notes = [];
+    if (step.kind === "format_evaluation") {
+      const summary = summarizeFormatTraceStep(step, context);
+      evidence = renderRoutingFormatPath(summary.sourceFormat, summary.mode === "converted" ? summary.targetFormat : "");
+      summary.transformations.forEach((item) => {
+        notes.push(t("req.route_parameter_mapped", { source: item.field || "-", target: item.target || "-" }));
+      });
+      if (summary.droppedHints.length) {
+        notes.push(t("req.route_hints_omitted", { fields: summary.droppedHints.map((item) => item.field).filter(Boolean).join(", ") || "-" }));
+      }
+      summary.blocked.forEach(({ format, fields }) => {
+        notes.push(t("req.route_blocked_format", {
+          format,
+          fields: fields.join(", ") || "-",
+        }));
+      });
+    } else if (step.kind === "candidate_filter") {
+      evidence = step.providers.length ? chipList(step.providers) : escapeHtml("-");
+      const reasons = step.codes.map(routingTraceCodeLabel);
+      if (reasons.length) notes.push(reasons.join(" · "));
+    } else if (step.code === "attempt_failed" && (event.reason || event.error_type)) {
+      notes.push(t("req.route_failure_reason", { reason: event.reason || event.error_type }));
+    }
+    return `
+      <li class="routing-path-step tone-${escapeHtml(tone)}">
+        <span class="routing-path-marker" aria-hidden="true">${iconSvg(routingTraceStepIcon(step))}</span>
+        <div class="routing-path-step-body">
+          <div class="routing-path-step-head">
+            <strong><span class="routing-path-step-index">${fmtInt(index + 1)}</span>${escapeHtml(routingTraceStepLabel(step))}</strong>
+            <span class="routing-path-status">${escapeHtml(routingTraceStepStatus(step, context))}</span>
+          </div>
+          <div class="routing-path-evidence">${evidence}</div>
+          ${notes.length ? `<p>${messageMarkup(notes.join(" · "))}</p>` : ""}
+        </div>
+      </li>
+    `;
+  }
+
+  function routingDiagnosticDetails(event) {
+    const details = [];
+    if (event.field) details.push(`${t("req.route_field")}: ${event.field}`);
+    if (event.fidelity) details.push(`${t("req.route_fidelity")}: ${event.fidelity}`);
+    if (event.compatibility_profile) details.push(`${t("req.route_profile")}: ${event.compatibility_profile}`);
+    if (Number(event.cooldown_remaining_s || 0) > 0) details.push(`${t("req.route_recovery")}: ${fmtInt(event.cooldown_remaining_s)}s`);
+    const action = event.state_action && typeof event.state_action === "object" ? event.state_action : null;
+    if (action?.action) {
+      details.push(`${t("req.route_action")}: ${action.action}${action.scope ? ` (${action.scope})` : ""}${Number(action.cooldown_s || 0) > 0 ? ` ${fmtInt(action.cooldown_s)}s` : ""}`);
+    }
+    return details;
+  }
+
+  function routingFormatDisplayName(format) {
+    return {
+      anthropic_messages: "Anthropic Messages",
+      chat_completions: "Chat Completions",
+      responses: "Responses",
+    }[String(format || "")] || String(format || "-");
+  }
+
+  function routingDiagnosticStageLabel(event) {
+    if (event.stage === "format_compatibility") return t("req.diag_stage_format");
+    if (event.stage === "upstream_result") return t("req.diag_stage_upstream");
+    if (["selected", "no_candidate"].includes(event.code)) return t("req.diag_stage_routing");
+    if (event.stage === "routing") return t("req.diag_stage_candidate");
+    return String(event.stage || t("req.diag_stage_routing"));
+  }
+
+  function routingDiagnosticStatus(event) {
+    const key = {
+      format_eligible: "req.diag_status_allowed",
+      format_blocked_by_parameter: "req.diag_status_blocked",
+      format_parameter_mapped: "req.diag_status_mapped",
+      format_hint_dropped: "req.diag_status_omitted",
+      selected: "req.diag_status_selected",
+      attempt_succeeded: "req.route_success",
+      attempt_failed: "req.route_failed_status",
+      no_candidate: "req.route_unavailable",
+      provider_cooldown: "req.diag_status_skipped",
+      key_cooldown: "req.diag_status_skipped",
+      key_disabled: "req.diag_status_skipped",
+      model_unsupported_by_key: "req.diag_status_skipped",
+      compatibility_circuit: "req.diag_status_skipped",
+      duplicate_candidate: "req.diag_status_skipped",
+    }[String(event.code || "")];
+    return key ? t(key) : t("req.diag_status_observed");
+  }
+
+  function routingDiagnosticHeadline(event) {
+    const format = routingFormatDisplayName(event.target_format || event.upstream_format);
+    const provider = String(event.provider || "-");
+    if (event.code === "format_eligible") return t("req.diag_format_eligible", { format });
+    if (event.code === "format_blocked_by_parameter") return t("req.diag_format_blocked", { format, field: event.field || "-" });
+    if (event.code === "format_parameter_mapped") return t("req.diag_parameter_mapped", { field: event.field || "-", target: event.target || "-" });
+    if (event.code === "format_hint_dropped") return t("req.diag_hint_omitted", { field: event.field || "-", format });
+    if (event.code === "selected") return t("req.diag_provider_selected", { provider });
+    if (event.code === "attempt_succeeded") return t("req.diag_upstream_success", { provider });
+    if (event.code === "attempt_failed") return t("req.diag_upstream_failed", { provider });
+    if (event.code === "no_candidate") return t("req.diag_no_candidate");
+    if (event.stage === "routing") return t("req.diag_candidate_skipped", { provider });
+    return routingTraceCodeLabel(event.code);
+  }
+
+  function routingDiagnosticDescription(event) {
+    const fidelityKey = {
+      lossless: "req.diag_fidelity_lossless",
+      mapped: "req.diag_fidelity_mapped",
+      safe_drop: "req.diag_fidelity_safe_drop",
+      blocked: "req.diag_fidelity_blocked",
+    }[String(event.fidelity || "")];
+    if (fidelityKey) return t(fidelityKey);
+    if (event.code === "attempt_succeeded") return t("req.diag_upstream_success_desc");
+    if (event.code === "attempt_failed" && (event.reason || event.error_type)) {
+      return t("req.route_failure_reason", { reason: event.reason || event.error_type });
+    }
+    if (event.stage === "routing" && !["selected", "no_candidate"].includes(event.code)) {
+      return routingTraceCodeLabel(event.code);
+    }
+    return "";
+  }
+
+  function routingDiagnosticIcon(event) {
+    if (event.code === "attempt_succeeded") return "check";
+    if (["attempt_failed", "no_candidate", "format_blocked_by_parameter"].includes(event.code)) return "alert";
+    if (event.code === "selected") return "radar";
+    if (event.stage === "format_compatibility") return "layers";
+    if (event.stage === "routing") return "filter";
+    return "dot";
+  }
+
+  function renderRoutingDiagnosticEvent(event, index) {
+    const identity = routingTraceIdentity(event);
+    const details = routingDiagnosticDetails(event);
+    const tone = routingTraceTone({ kind: "event", code: event.code, event });
+    const description = routingDiagnosticDescription(event);
+    return `
+      <li class="routing-diagnostic-event tone-${escapeHtml(tone)}">
+        <span class="routing-diagnostic-marker" aria-hidden="true">${iconSvg(routingDiagnosticIcon(event))}</span>
+        <div class="routing-diagnostic-content">
+          <div class="routing-diagnostic-head">
+            <div><strong>${escapeHtml(routingDiagnosticHeadline(event))}</strong><small>${escapeHtml(`${fmtInt(index + 1)} · ${routingDiagnosticStageLabel(event)}`)}</small></div>
+            <span class="routing-diagnostic-status">${escapeHtml(routingDiagnosticStatus(event))}</span>
+          </div>
+          ${identity.length && event.stage !== "format_compatibility" ? `<div class="routing-diagnostic-identity">${chipList(identity)}</div>` : ""}
+          ${description ? `<p>${messageMarkup(description)}</p>` : ""}
+          ${event.owner ? `<p class="routing-diagnostic-owner">${escapeHtml(t("req.diag_owner_value", { owner: event.owner }))}</p>` : ""}
+          ${details.length && !event.fidelity ? `<p class="routing-diagnostic-meta">${messageMarkup(details.join(" · "))}</p>` : ""}
+          <small class="routing-diagnostic-internal"><span>${escapeHtml(t("req.diag_internal_id"))}</span><code>${escapeHtml(event.stage || "routing")}</code><i>/</i><code>${escapeHtml(event.code || "unknown")}</code></small>
+        </div>
+      </li>
+    `;
   }
 
   function routingSummaryInline(summary) {
@@ -6677,19 +7717,19 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       <section class="routing-summary-card tone-${escapeHtml(routeOutcomeTone(summary.outcome))}">
         <div class="routing-summary-head">
           <div>
-            <h3>Routing Summary</h3>
+            <h3>${escapeHtml(t("req.routing_summary"))}</h3>
             <p>${messageMarkup(summary.headline)}</p>
           </div>
           ${badge(routeOutcomeLabel(summary.outcome), routeOutcomeTone(summary.outcome))}
         </div>
         <div class="routing-summary-grid">
-          <span>Attempts</span><strong>${fmtInt(summary.attempts)}</strong>
-          <span>Failed</span><strong>${fmtInt(summary.failed_attempts)}</strong>
-          <span>Final Provider</span><strong>${escapeHtml(summary.final_provider || "-")}</strong>
-          <span>Final Format</span><strong>${chipList([summary.final_upstream_format || "-"])}</strong>
+          <span>${escapeHtml(t("req.summary_attempts"))}</span><strong>${fmtInt(summary.attempts)}</strong>
+          <span>${escapeHtml(t("req.summary_failed"))}</span><strong>${fmtInt(summary.failed_attempts)}</strong>
+          <span>${escapeHtml(t("req.summary_final_provider"))}</span><strong>${escapeHtml(summary.final_provider || "-")}</strong>
+          <span>${escapeHtml(t("req.summary_final_format"))}</span><strong>${chipList([summary.final_upstream_format || "-"])}</strong>
         </div>
         <div class="routing-next-action">
-          <span>Next action</span>
+          <span>${escapeHtml(t("req.summary_next_action"))}</span>
           <strong>${messageMarkup(summary.next_action || "-")}</strong>
         </div>
       </section>
@@ -6708,11 +7748,11 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
   }
 
   function routeOutcomeLabel(outcome) {
-    if (outcome === "direct_success") return "direct";
-    if (outcome === "recovered") return "recovered";
-    if (outcome === "failed") return "failed";
-    if (outcome === "no_attempts") return "no attempts";
-    return outcome || "unknown";
+    if (outcome === "direct_success") return t("req.route_direct");
+    if (outcome === "recovered") return t("req.route_recovered");
+    if (outcome === "failed") return t("req.route_failed_status");
+    if (outcome === "no_attempts") return t("req.route_no_attempts");
+    return outcome || t("req.route_unknown");
   }
 
   function routeOutcomeTone(outcome) {
@@ -6862,10 +7902,11 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
   }
 
   function installEvents() {
-    // Dirty form tracking: mark containers dirty when the user types into
-    // form inputs, and clear on form submit. This prevents the 5s auto-refresh
-    // from wiping unsaved input after the user moves focus away from a field.
+    // Dirty form tracking: mark containers dirty when the user edits a form.
+    // Submit keeps the container protected until the mutation succeeds, so a
+    // slow background refresh cannot replay stale config over in-progress input.
     document.addEventListener("input", _markContainerDirty, true);
+    document.addEventListener("change", _markContainerDirty, true);
     document.addEventListener("submit", _clearContainerDirtyOnSubmit, true);
 
     window.addEventListener("hashchange", () => {
@@ -7089,10 +8130,15 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     el("globalProxyForm").addEventListener("submit", async (event) => {
       event.preventDefault();
       const form = event.currentTarget;
+      const proxy = String(form.elements.proxy.value || "").trim();
       await runConfigMutation(form, async () => {
-        const result = await apiPatch("/-/admin/proxy", { proxy: String(form.elements.proxy.value || "").trim() });
+        const result = await apiPatch("/-/admin/proxy", { proxy });
         setNotice(t("notice.global_proxy_updated"), "ok");
         return result;
+      }, {
+        resourceKey: "global-proxy",
+        apply: (config) => { config.proxy = proxy; },
+        drawer: false,
       });
     });
 
@@ -7244,7 +8290,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
 
         if (runBtn) {
           runBtn.disabled = patrolState.running || !patrolState.enabled;
-          runBtn.textContent = patrolState.running ? "Running..." : "Run now";
+          runBtn.textContent = patrolState.running ? t("cfg.running") : t("cfg.run_now");
         }
       }
     }
@@ -7255,15 +8301,15 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         const btn = el("hmPatrolRunBtn");
         const status = el("healthMonitorStatus");
         btn.disabled = true;
-        btn.textContent = "Running...";
+        btn.textContent = t("cfg.running");
         if (status) {
-          status.textContent = "Triggering patrol round...";
+          status.textContent = t("cfg.triggering_patrol");
           status.className = "health-monitor-status info";
         }
         try {
           const result = await apiPost("/-/admin/health/patrol/trigger", {});
           if (status) {
-            status.textContent = "Patrol round triggered. Check results in a moment.";
+            status.textContent = t("cfg.patrol_triggered");
             status.className = "health-monitor-status ok";
           }
           // Update state from the response
@@ -7276,12 +8322,12 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           setTimeout(() => scheduleBackgroundRefresh({ quiet: true, staticData: true }), 5000);
         } catch (err) {
           if (status) {
-            status.textContent = `Error: ${err.message}`;
+            status.textContent = t("pg.error", { error: err.message });
             status.className = "health-monitor-status bad";
           }
         } finally {
           btn.disabled = false;
-          btn.textContent = "Run now";
+          btn.textContent = t("cfg.run_now");
           setTimeout(() => { if (status) { status.textContent = ""; status.className = "health-monitor-status"; } }, 5000);
         }
       });
@@ -7290,33 +8336,33 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     el("saveHealthMonitorBtn").addEventListener("click", async () => {
       const btn = el("saveHealthMonitorBtn");
       const status = el("healthMonitorStatus");
-      btn.disabled = true;
-      status.textContent = "Saving...";
+      status.textContent = t("notice.saving");
       status.className = "health-monitor-status info";
-      try {
-        const patch = collectHealthMonitorPatch();
-        const result = await apiPost("/-/admin/config/health-monitor", patch);
-        if (result.config) {
-          state.data.config = result.config;
-          loadHealthMonitorForm();
-        }
-        status.textContent = "Saved successfully.";
-        status.className = "health-monitor-status ok";
-        setNotice("Health monitor settings saved.", "ok");
-        scheduleBackgroundRefresh({
-          quiet: true,
-          preserveNotice: true,
-          staticData: true,
-          staticDomains: ["config", "audit"],
-        });
-      } catch (err) {
-        status.textContent = `Error: ${err.message}`;
-        status.className = "health-monitor-status bad";
-        setNotice(`Health monitor save failed: ${err.message}`);
-      } finally {
-        btn.disabled = false;
-        setTimeout(() => { status.textContent = ""; status.className = "health-monitor-status"; }, 3000);
-      }
+      const patch = collectHealthMonitorPatch();
+      await runOptimisticConfigAction(
+        btn,
+        () => apiPost("/-/admin/config/health-monitor", patch),
+        {
+          resourceKey: "health-monitor",
+          apply: (config) => { Object.assign((config.health_monitor ||= {}), structuredClone(patch)); },
+        },
+        {
+          drawer: false,
+          locateRoot: () => el("saveHealthMonitorBtn"),
+          onSuccess: () => {
+            loadHealthMonitorForm();
+            status.textContent = t("notice.saved");
+            status.className = "health-monitor-status ok";
+            setNotice(t("notice.health_monitor_saved"), "ok");
+          },
+          onError: (err) => {
+            status.textContent = t("pg.error", { error: err.message });
+            status.className = "health-monitor-status bad";
+            setNotice(t("notice.health_monitor_failed", { error: err.message }));
+          },
+        },
+      );
+      setTimeout(() => { status.textContent = ""; status.className = "health-monitor-status"; }, 3000);
     });
 
     el("exportOverlayButton").addEventListener("click", async () => {
@@ -7402,15 +8448,16 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           anthropic_messages: { enabled: format === "anthropic_messages", path: "/v1/messages" },
         };
       }
-      try {
+      await runConfigMutation(formEl, async () => {
         const result = await apiPost("/-/admin/providers", payload);
-        applyMutationResult(result);
         if (formEl && typeof formEl.reset === "function") formEl.reset();
         setNotice(t("notice.provider_added", { name: payload.name }), "ok");
-        scheduleBackgroundRefresh({ quiet: true, staticData: true });
-      } catch (err) {
-        setNotice(t("notice.add_provider_failed", { error: err.message }));
-      }
+        return result;
+      }, {
+        resourceKey: `provider:${payload.name}`,
+        apply: (config) => appendPendingProvider(config, payload),
+        drawer: false,
+      });
     });
 
     el("modelRouteForm").addEventListener("submit", async (event) => {
@@ -7425,6 +8472,16 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         const result = await apiPatch("/-/admin/models/routes", payload);
         setNotice(t("notice.model_route_saved", { model: payload.model }), "ok");
         return result;
+      }, {
+        resourceKey: `model-route:${payload.model}`,
+        apply: (config) => {
+          const routes = ((config.models ||= {}).routes ||= {});
+          routes[payload.model] = {
+            providers: parseRouteProvidersInput(payload.providers),
+            provider_select: payload.provider_select,
+          };
+        },
+        drawer: false,
       });
     });
 
@@ -7457,32 +8514,47 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
             ? (priority === null ? {} : { priority })
             : (item.priority === null || item.priority === undefined ? {} : { priority: item.priority })),
         }));
-        priorityButton.disabled = true;
-        try {
-          const result = await apiPatch("/-/admin/models/routes", {
-            model,
-            providers,
-            provider_select: "priority_failover",
-          });
-          clearAllDirty();
-          applyMutationResult(result);
-          setNotice(
-            priority === null
-              ? `${provider} now inherits its global priority for ${model}.`
-              : `${provider} model priority for ${model} updated to ${priority}.`,
-            "ok",
-          );
-          scheduleBackgroundRefresh({
-            quiet: true,
-            preserveNotice: true,
-            staticData: true,
-            staticDomains: ["routing", "config", "audit"],
-          });
-        } catch (err) {
-          setNotice(`Model priority update failed: ${err.message}`);
-        } finally {
-          priorityButton.disabled = false;
-        }
+        const requestPayload = {
+          model,
+          providers,
+          provider_select: "priority_failover",
+        };
+        await runOptimisticConfigAction(
+          priorityButton,
+          () => apiPatch("/-/admin/models/routes", requestPayload),
+          {
+            resourceKey: `model-route:${model}`,
+            apply: (config) => {
+              const routes = ((config.models ||= {}).routes ||= {});
+              routes[model] = { providers: structuredClone(providers), provider_select: "priority_failover" };
+            },
+          },
+          {
+            drawer: false,
+            locateRoot: () => el("modelRoutes")?.querySelector(
+              `[data-model-route-priority-apply][data-model="${CSS.escape(model)}"][data-provider="${CSS.escape(provider)}"]`,
+            ),
+            onSuccess: () => {
+              clearAllDirty();
+              setNotice(
+                priority === null
+                  ? `${provider} now inherits its global priority for ${model}.`
+                  : `${provider} model priority for ${model} updated to ${priority}.`,
+                "ok",
+              );
+            },
+            onError: (err) => {
+              const restored = el("modelRoutes")?.querySelector(
+                `[data-model-route-priority-apply][data-model="${CSS.escape(model)}"][data-provider="${CSS.escape(provider)}"]`,
+              )?.closest(".model-route-provider-priority")?.querySelector("[data-model-route-priority]");
+              if (restored) {
+                restored.value = rawPriority;
+                restored.focus();
+              }
+              setNotice(`Model priority update failed: ${err.message}`);
+            },
+          },
+        );
         return;
       }
       if (editButton) {
@@ -7508,26 +8580,20 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
           acceptLabel: t("confirm.delete"),
         });
         if (!confirmed) return;
-        deleteButton.disabled = true;
-        try {
-          const result = await apiPost("/-/admin/models/routes/delete", { model });
-          if (state.data.config?.model_routes) delete state.data.config.model_routes[model];
-          applyMutationResult(result);
-          state.forceModelRoutesRender = true;
-          state.data.version = Number(state.data.version || 0) + 1;
-          renderAll();
-          setNotice(t("notice.model_route_deleted", { model }), "ok");
-          scheduleBackgroundRefresh({
-            quiet: true,
-            preserveNotice: true,
-            staticData: true,
-            staticDomains: ["routing", "config", "audit"],
-          });
-        } catch (err) {
-          setNotice(t("notice.delete_route_failed", { error: err.message }));
-        } finally {
-          deleteButton.disabled = false;
-        }
+        await runOptimisticConfigAction(
+          deleteButton,
+          () => apiPost("/-/admin/models/routes/delete", { model }),
+          {
+            resourceKey: `model-route:${model}`,
+            apply: (config) => { delete config.models?.routes?.[model]; },
+          },
+          {
+            drawer: false,
+            locateRoot: () => el("modelRoutes")?.querySelector(`[data-model-route-delete="${CSS.escape(model)}"]`),
+            onSuccess: () => setNotice(t("notice.model_route_deleted", { model }), "ok"),
+            onError: (err) => setNotice(t("notice.delete_route_failed", { error: err.message })),
+          },
+        );
       }
     });
 
@@ -7770,11 +8836,17 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
   // delegated listener pair, single shared element.
   let _tipEl = null;
   let _tipHideTimer = null;
+  let _tooltipReconcileCallback = null;
+
+  function scheduleTooltipReconcile() {
+    if (_tooltipReconcileCallback) _tooltipReconcileCallback();
+  }
 
   function installTooltip() {
     if (_tipEl) return;
     _tipEl = document.createElement("div");
     _tipEl.className = "lp-tip";
+    _tipEl.id = "lpGlobalTooltip";
     _tipEl.setAttribute("role", "tooltip");
     _tipEl.setAttribute("aria-hidden", "true");
     document.body.appendChild(_tipEl);
@@ -7783,6 +8855,24 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
     // only when it actually changes. This fixes the "stays open after mouse
     // leaves" bug caused by mouseout firing on child elements.
     let _currentTipTarget = null;
+    let _lastPointer = null;
+    let _reconcileRaf = 0;
+
+    const setDescribedBy = (target, enabled) => {
+      if (!target?.getAttribute) return;
+      const ids = new Set(String(target.getAttribute("aria-describedby") || "").split(/\s+/).filter(Boolean));
+      if (enabled) ids.add(_tipEl.id);
+      else ids.delete(_tipEl.id);
+      if (ids.size) target.setAttribute("aria-describedby", [...ids].join(" "));
+      else target.removeAttribute("aria-describedby");
+    };
+
+    const setCurrentTarget = (target) => {
+      if (_currentTipTarget === target) return;
+      setDescribedBy(_currentTipTarget, false);
+      _currentTipTarget = target;
+      setDescribedBy(_currentTipTarget, true);
+    };
 
     // Suppress the browser's native tooltip by stashing the title into a data
     // attribute on first hover and keeping it suppressed. We do NOT restore on
@@ -7809,7 +8899,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
         return;
       }
       window.clearTimeout(_tipHideTimer);
-      _currentTipTarget = target;
+      setCurrentTarget(target);
       _tipEl.textContent = trimmed;
       _tipEl.setAttribute("aria-hidden", "false");
       // Measure BEFORE making it visible so the transform: scale() transition
@@ -7821,17 +8911,21 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       window.clearTimeout(_tipHideTimer);
       _tipEl.classList.remove("is-visible");
       _tipEl.setAttribute("aria-hidden", "true");
-      _currentTipTarget = null;
+      setCurrentTarget(null);
     };
     const hide = () => {
       window.clearTimeout(_tipHideTimer);
       _tipHideTimer = window.setTimeout(() => {
         _tipEl.classList.remove("is-visible");
         _tipEl.setAttribute("aria-hidden", "true");
-        _currentTipTarget = null;
+        setCurrentTarget(null);
       }, 80);
     };
     const positionTip = (target) => {
+      if (!target?.isConnected) {
+        hideNow();
+        return;
+      }
       const rect = target.getBoundingClientRect();
       // Temporarily place off-screen to measure natural size without the
       // transition transform skewing the bounding rect.
@@ -7856,7 +8950,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       _tipEl.classList.toggle("is-below", placeBelow);
     };
 
-    const selector = "[data-tip], [title]";
+    const selector = "[data-tip], [title], [data-original-title]";
 
     // mouseover/mouseout fire when crossing element boundaries (including
     // children), so we compare the resolved tooltip target before/after to
@@ -7869,7 +8963,40 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       return node.closest(selector);
     };
 
+    const targetAtPointer = () => {
+      if (_lastPointer) {
+        const node = document.elementFromPoint(_lastPointer.x, _lastPointer.y);
+        if (node?.closest) return node.closest(selector);
+      }
+      const active = document.activeElement;
+      return active?.closest ? active.closest(selector) : null;
+    };
+
+    const reconcile = () => {
+      _reconcileRaf = 0;
+      const nextTarget = targetAtPointer();
+      if (nextTarget) {
+        if (!_currentTipTarget || !_currentTipTarget.isConnected || nextTarget !== _currentTipTarget || !_tipEl.classList.contains("is-visible")) {
+          show(nextTarget);
+        } else {
+          positionTip(nextTarget);
+        }
+      } else if (_currentTipTarget && (!_currentTipTarget.isConnected || !_lastPointer)) {
+        hideNow();
+      }
+    };
+
+    _tooltipReconcileCallback = () => {
+      if (_reconcileRaf) return;
+      _reconcileRaf = window.requestAnimationFrame(reconcile);
+    };
+
+    document.addEventListener("pointermove", (event) => {
+      _lastPointer = { x: event.clientX, y: event.clientY };
+    }, { passive: true });
+
     document.addEventListener("mouseover", (event) => {
+      _lastPointer = { x: event.clientX, y: event.clientY };
       const target = targetFromEvent(event);
       if (target) {
         show(target);
@@ -7886,15 +9013,14 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       hide();
     });
     // Safety net: if the pointer leaves the window entirely, hide immediately.
-    document.addEventListener("mouseleave", hideNow);
+    document.addEventListener("mouseleave", () => {
+      _lastPointer = null;
+      hideNow();
+    });
     window.addEventListener("blur", hideNow);
     // Reposition on scroll/resize so the tooltip stays anchored correctly.
-    window.addEventListener("scroll", () => {
-      if (_currentTipTarget) positionTip(_currentTipTarget);
-    }, { passive: true });
-    window.addEventListener("resize", () => {
-      if (_currentTipTarget) positionTip(_currentTipTarget);
-    });
+    window.addEventListener("scroll", scheduleTooltipReconcile, { passive: true });
+    window.addEventListener("resize", scheduleTooltipReconcile);
 
     document.addEventListener("focusin", (event) => {
       const target = targetFromEvent(event);
@@ -7945,6 +9071,7 @@ import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.j
       el("viewSubtitle").textContent = meta.subtitle;
       // Re-render time range label
       renderTimeRangeControl();
+      if (state.providerDrawerName) renderProviderDrawer({ force: true });
     });
     updateLangToggleLabel();
   }

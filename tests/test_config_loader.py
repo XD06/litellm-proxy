@@ -76,7 +76,11 @@ class ConfigLoaderTests(unittest.TestCase):
                         "proxy": "http://127.0.0.1:8000",
                         "keys": [
                             "alpha-key-1",
-                            {"key": "alpha-key-2", "proxy": "http://127.0.0.1:9000"},
+                            {
+                                "key": "alpha-key-2",
+                                "proxy": "http://127.0.0.1:9000",
+                                "models": {"grok-4.3": "grok-4.3-high"},
+                            },
                         ],
                     }
                 },
@@ -93,6 +97,7 @@ class ConfigLoaderTests(unittest.TestCase):
             {
                 "key": "alpha-key-2",
                 "proxy": {"http": "http://127.0.0.1:9000", "https": "http://127.0.0.1:9000"},
+                "models": {"grok-4.3": "grok-4.3-high"},
             },
         )
 

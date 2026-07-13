@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import sse2json
 from observability import ProxyObservability
+from proxy_utils import key_fingerprint
 from router import UpstreamRouter, _KeyState, _ProviderState
 
 
@@ -202,10 +203,80 @@ class KeyFingerprintPersistenceTests(unittest.TestCase):
 
 
 class RuntimeStatePersistenceTests(unittest.TestCase):
+    def test_apply_runtime_config_does_not_replace_newer_discovery_with_stale_overlay_snapshot(self):
+        """A config save must not resurrect capabilities persisted by an older overlay.
+
+        Discovery state is persisted in router_state.json. Legacy runtime overlays
+        can still contain provider_model_capabilities; rebuilding config from that
+        overlay must retain the newer live snapshot instead of replacing it.
+        """
+        provider = {"base_url": "https://a.test", "keys": ["k1"]}
+        live_cfg = {
+            "providers": {"alpha": provider},
+            "models": {
+                "provider_model_capabilities": {
+                    "alpha": {
+                        "status": "ok",
+                        "fetched_at": 200,
+                        "models": ["new-model"],
+                        "canonical_map": {"new-model": "new-model"},
+                    }
+                }
+            },
+            "routing": {},
+        }
+        rebuilt_from_overlay = {
+            "providers": {"alpha": provider},
+            "models": {
+                "provider_model_capabilities": {
+                    "alpha": {
+                        "status": "ok",
+                        "fetched_at": 100,
+                        "models": ["old-model"],
+                        "canonical_map": {"old-model": "old-model"},
+                    }
+                }
+            },
+            "routing": {},
+        }
+        originals = {
+            "CONFIG": sse2json.CONFIG,
+            "ROUTER": sse2json.ROUTER,
+            "UPSTREAM_CLIENT": sse2json.UPSTREAM_CLIENT,
+            "OBSERVABILITY": sse2json.OBSERVABILITY,
+            "AUDIT": sse2json.AUDIT,
+            "RUNTIME": sse2json.RUNTIME,
+            "MODEL_DISCOVERY_QUEUE": sse2json.MODEL_DISCOVERY_QUEUE,
+        }
+        try:
+            sse2json.CONFIG = live_cfg
+            sse2json.ROUTER = UpstreamRouter(live_cfg)
+            sse2json.MODEL_DISCOVERY_QUEUE = None
+            with patch.object(sse2json, "_save_router_state"):
+                sse2json._apply_runtime_config(rebuilt_from_overlay)
+
+            capability = sse2json.CONFIG["models"]["provider_model_capabilities"]["alpha"]
+            self.assertEqual(capability["fetched_at"], 200)
+            self.assertEqual(capability["models"], ["new-model"])
+        finally:
+            for name, value in originals.items():
+                setattr(sse2json, name, value)
+
     def test_apply_runtime_config_persists_migrated_router_state(self):
         old_cfg = {
             "providers": {"alpha": {"base_url": "https://a.test", "keys": ["k1"]}},
-            "models": {},
+            "models": {
+                "provider_key_model_capabilities": {
+                    "alpha": {
+                        key_fingerprint("k1"): {
+                            "status": "ok",
+                            "key_index": 0,
+                            "models": ["alpha-model"],
+                            "canonical_map": {"alpha-model": "alpha-model"},
+                        }
+                    }
+                }
+            },
             "routing": {},
         }
         old_router = UpstreamRouter(old_cfg)
@@ -239,6 +310,8 @@ class RuntimeStatePersistenceTests(unittest.TestCase):
             save_router_state.assert_called_once_with()
             self.assertEqual(sse2json.ROUTER._keys_state[("alpha", 0)].fails, 3)
             self.assertIn(("beta", 0), sse2json.ROUTER._keys_state)
+            retained = sse2json.CONFIG["models"]["provider_key_model_capabilities"]["alpha"]
+            self.assertEqual(retained[key_fingerprint("k1")]["models"], ["alpha-model"])
         finally:
             for name, value in originals.items():
                 setattr(sse2json, name, value)
@@ -255,7 +328,18 @@ class RuntimeStatePersistenceTests(unittest.TestCase):
                         "canonical_map": {"canonical-alpha": "raw-alpha-model"},
                         "formats": ["chat_completions"],
                     }
-                }
+                },
+                "provider_key_model_capabilities": {
+                    "alpha": {
+                        key_fingerprint("k1"): {
+                            "status": "ok",
+                            "key_index": 0,
+                            "fetched_at": 123,
+                            "models": ["raw-alpha-model"],
+                            "canonical_map": {"canonical-alpha": "raw-alpha-model"},
+                        }
+                    }
+                },
             },
         }
         router = UpstreamRouter(cfg)
@@ -281,6 +365,8 @@ class RuntimeStatePersistenceTests(unittest.TestCase):
 
             caps = restored_cfg["models"]["provider_model_capabilities"]["alpha"]
             self.assertEqual(caps["canonical_map"]["canonical-alpha"], "raw-alpha-model")
+            key_caps = restored_cfg["models"]["provider_key_model_capabilities"]["alpha"]
+            self.assertEqual(key_caps[key_fingerprint("k1")]["models"], ["raw-alpha-model"])
             self.assertIn("canonical-alpha", sse2json.model_registry.union_model_ids())
             self.assertEqual(
                 restored_cfg["models"]["models_union_snapshot"]["payload"]["data"][0]["id"],

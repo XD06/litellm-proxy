@@ -748,8 +748,9 @@ class ResponsesProxyTests(unittest.TestCase):
                 {"model": "client-model", "input": "hello", "stream": True},
             )
 
-        self.assertEqual(status, 501)
-        self.assertIn("requires a native Responses, Chat Completions, or Anthropic Messages upstream", body["error"]["message"])
+        self.assertEqual(status, 503)
+        self.assertEqual(body["error"]["code"], "no_eligible_candidate")
+        self.assertEqual(body["error"]["owner"], "proxy_routing")
         self.assertEqual(fake_router.iter_calls[0]["allowed_upstream_formats"], ["responses", "chat_completions", "anthropic_messages"])
 
 

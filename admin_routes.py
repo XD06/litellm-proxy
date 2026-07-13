@@ -1033,6 +1033,32 @@ class AdminRoutesMixin:
                 self._audit_admin_event("model_route_updated", target=model, detail=body or {})
                 return self._resp_json({"action": "model_route_updated", "model": model, "config": CONFIG_MANAGER.snapshot()})
 
+            if len(parts) == 5 and parts[0] == "providers" and parts[2] == "models" and parts[4] == "variants":
+                provider = parts[1]
+                model = parts[3]
+                variants = (body or {}).get("variants")
+                CONFIG_MANAGER.update_provider_model_variants(
+                    provider,
+                    model=model,
+                    variants=variants,
+                )
+                model_registry.clear_cache()
+                _apply_runtime_config(CONFIG_MANAGER.config)
+                self._audit_admin_event(
+                    "provider_model_variants_updated",
+                    target=f"{provider}/models/{model}",
+                    detail={"model": model, "variant_count": len(variants or [])},
+                )
+                return self._resp_json(
+                    {
+                        "action": "provider_model_variants_updated",
+                        "provider": provider,
+                        "model": model,
+                        "variants": variants or [],
+                        "config": CONFIG_MANAGER.snapshot(),
+                    }
+                )
+
             if len(parts) == 4 and parts[0] == "providers" and parts[2] == "models" and parts[3] == "disabled":
                 provider = parts[1]
                 models = (body or {}).get("models") or {}
@@ -1108,7 +1134,13 @@ class AdminRoutesMixin:
                 priority = int((body or {}).get("priority", 0))
                 ROUTER.update_provider_priority(provider, priority)
                 self._audit_admin_event("provider_priority_hot_updated", target=f"{provider}/priority", detail={"priority": priority})
-                return self._resp_json({"action": "provider_priority_updated", "provider": provider, "priority": priority, "hot_reload": True})
+                return self._resp_json({
+                    "action": "provider_priority_updated",
+                    "provider": provider,
+                    "priority": priority,
+                    "hot_reload": True,
+                    "router": ROUTER.snapshot(),
+                })
 
             if len(parts) == 3 and parts[0] == "providers" and parts[2] == "weight":
                 provider = parts[1]

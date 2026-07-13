@@ -398,12 +398,52 @@ class AnthropicProxyTests(unittest.TestCase):
         self.assertEqual(request["usage"], {"input_tokens": 7, "output_tokens": 11, "total_tokens": 18})
         self.assertEqual(request["attempts"][0]["usage"], {"input_tokens": 7, "output_tokens": 11, "total_tokens": 18})
 
-    def test_native_only_parameters_disable_cross_format_fallback(self):
+    def test_safe_thinking_parameter_allows_cross_format_fallback(self):
         fake_router = FakeRouter([])
         with patch.object(sse2json, "ROUTER", fake_router), patch.object(sse2json, "DISABLE_MAP", True):
             with self.assertRaises(HTTPError):
                 self.run_server_post("/anthropic/v1/messages", {"model": "client-model", "messages": [{"role": "user", "content": "hi"}], "max_tokens": 20, "thinking": {"type": "enabled", "budget_tokens": 8}})
-        self.assertEqual(fake_router.iter_calls[0]["allowed_upstream_formats"], ['anthropic_messages'])
+        self.assertEqual(
+            fake_router.iter_calls[0]["allowed_upstream_formats"],
+            ["anthropic_messages", "chat_completions", "responses"],
+        )
+
+    def test_strict_semantic_conversion_keeps_thinking_native_only(self):
+        fake_router = FakeRouter([])
+        obs = sse2json.ProxyObservability({"observability": {"history": {"enabled": False}}})
+        strict_config = dict(sse2json.CONFIG)
+        strict_config["routing"] = {
+            **(sse2json.CONFIG.get("routing") or {}),
+            "semantic_conversion": "strict",
+        }
+        with patch.object(sse2json, "CONFIG", strict_config), patch.object(
+            sse2json, "ROUTER", fake_router
+        ), patch.object(sse2json, "OBSERVABILITY", obs), patch.object(sse2json, "DISABLE_MAP", True):
+            with self.assertRaises(HTTPError):
+                self.run_server_post(
+                    "/anthropic/v1/messages",
+                    {
+                        "model": "client-model",
+                        "messages": [{"role": "user", "content": "hi"}],
+                        "max_tokens": 20,
+                        "thinking": {"type": "enabled", "budget_tokens": 8},
+                    },
+                )
+
+        self.assertEqual(
+            fake_router.iter_calls[0]["allowed_upstream_formats"],
+            ["anthropic_messages"],
+        )
+        events = obs.snapshot()["recent_requests"][0]["routing_trace"]
+        self.assertTrue(
+            any(
+                event["code"] == "format_blocked_by_parameter"
+                and event["target_format"] == "chat_completions"
+                and event["field"] == "thinking"
+                for event in events
+            )
+        )
+        self.assertEqual(events[-1]["code"], "no_candidate")
 
     def test_anthropic_streaming_requires_supported_stream_upstream(self):
         fake_router = FakeRouter([])
@@ -423,8 +463,9 @@ class AnthropicProxyTests(unittest.TestCase):
             )
 
         body = json.loads(raw_body)
-        self.assertEqual(status, 501)
-        self.assertIn("requires a native Anthropic Messages, Chat Completions, or Responses upstream", body["error"]["message"])
+        self.assertEqual(status, 503)
+        self.assertEqual(body["error"]["code"], "no_eligible_candidate")
+        self.assertEqual(body["error"]["owner"], "proxy_routing")
         self.assertEqual(fake_router.iter_calls[0]["allowed_upstream_formats"], ["anthropic_messages", "chat_completions", "responses"])
 
     def test_anthropic_streaming_allows_responses_fallback(self):

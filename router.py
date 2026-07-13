@@ -43,6 +43,7 @@ class Attempt:
     proxy_url: Optional[str] = None
     canonical_model: str = ""
     compatibility_profile: str = "plain"
+    key_fingerprint: str = ""
 
 
 @dataclass(frozen=True)
@@ -98,6 +99,15 @@ def _hash_key_short(key: str) -> str:
     return hashlib.sha256(key.encode("utf-8")).hexdigest()[:10]
 
 
+def _record_trace(trace: Any, code: str, *, stage: str = "routing", owner: str = "", **details: Any) -> None:
+    if trace is None:
+        return
+    record = getattr(trace, "record", None)
+    if not callable(record):
+        return
+    record(code, stage=stage, owner=owner, **details)
+
+
 def parse_retry_after_seconds(v: Optional[str]) -> Optional[int]:
     """解析 Retry-After（秒数字符串 或 HTTP-date）。解析失败返回 None。"""
     if not v:
@@ -137,7 +147,7 @@ class UpstreamRouter:
         self._rr_model: Dict[str, int] = {}
         self._providers_state: Dict[str, _ProviderState] = {}
         self._keys_state: Dict[Tuple[str, int], _KeyState] = {}
-        self._compatibility_state: Dict[Tuple[str, str, str, str], _CompatibilityState] = {}
+        self._compatibility_state: Dict[Tuple[str, str, str, str, str, str], _CompatibilityState] = {}
         self._attempt_static_cache: Dict[Tuple[str, str], Tuple[str, Dict[str, str], set, Tuple[str, ...], str, str]] = {}
         # Cache for provider model support results to avoid repeated checks
         self._provider_support_cache: Dict[Tuple[str, str], bool] = {}
@@ -166,6 +176,7 @@ class UpstreamRouter:
         client_format: str = "chat_completions",
         allowed_upstream_formats: Optional[List[str]] = None,
         compatibility_profile: str = "plain",
+        routing_trace: Any = None,
     ) -> Generator[Attempt, None, None]:
         """按 provider_select 选择 provider+key。
 
@@ -177,12 +188,29 @@ class UpstreamRouter:
         client_format: 客户端需要的目标格式，用于优先选择同格式上游。
         allowed_upstream_formats: 当前调用链已经支持的上游格式集合。"""
         max_attempts = int(self.cfg.get("routing", {}).get("max_attempts", 6))
-        provider_order = self._select_provider_attempts(
+        provider_formats = self._select_provider_attempts(
             canonical_model,
             request_id=request_id,
             client_format=client_format,
             allowed_upstream_formats=allowed_upstream_formats,
         )
+        provider_order = []
+        index = 0
+        while index < len(provider_formats):
+            provider, upstream_format = provider_formats[index]
+            slot_count = 1
+            while (
+                index + slot_count < len(provider_formats)
+                and provider_formats[index + slot_count] == (provider, upstream_format)
+            ):
+                slot_count += 1
+            for provider_model in model_registry.resolve_provider_model_candidates(
+                self.cfg, provider, canonical_model
+            ):
+                provider_order.extend(
+                    [(provider, upstream_format, provider_model)] * slot_count
+                )
+            index += slot_count
 
         attempt_no = 0
         prov_count = len(provider_order)
@@ -205,18 +233,15 @@ class UpstreamRouter:
             if current_prov_idx >= prov_count:
                 current_prov_idx = 0
 
-            provider, upstream_format = provider_order[current_prov_idx]
+            provider, upstream_format, provider_model = provider_order[current_prov_idx]
             scan_no += 1
-            if not self._compatibility_available(
-                provider, canonical_model, upstream_format, compatibility_profile
-            ):
-                current_prov_idx += 1
-                continue
-             
             sel = self._select_key(
                 provider,
                 upstream_format=upstream_format,
+                provider_model=provider_model,
+                canonical_model=canonical_model,
                 seen_candidates=seen_candidates,
+                routing_trace=routing_trace,
             )
             if sel is None:
                 # If the provider still has an available key, every available
@@ -229,8 +254,42 @@ class UpstreamRouter:
                 continue
 
             key_index, key = sel
-            candidate_id = (provider, key_index, upstream_format)
+            candidate_id = (provider, key_index, provider_model, upstream_format)
             if candidate_id in seen_candidates:
+                _record_trace(
+                    routing_trace,
+                    "duplicate_candidate",
+                    provider=provider,
+                    key_index=key_index,
+                    key_id=_hash_key_short(key),
+                    canonical_model=canonical_model,
+                    provider_model=provider_model,
+                    upstream_format=upstream_format,
+                )
+                current_prov_idx += 1
+                continue
+
+            if not self._compatibility_available(
+                provider,
+                key,
+                canonical_model,
+                provider_model,
+                upstream_format,
+                compatibility_profile,
+            ):
+                seen_candidates.add(candidate_id)
+                _record_trace(
+                    routing_trace,
+                    "compatibility_circuit",
+                    provider=provider,
+                    key_index=key_index,
+                    key_id=_hash_key_short(key),
+                    key_masked=_mask_key(key),
+                    canonical_model=canonical_model,
+                    provider_model=provider_model,
+                    upstream_format=upstream_format,
+                    compatibility_profile=compatibility_profile,
+                )
                 current_prov_idx += 1
                 continue
 
@@ -243,6 +302,19 @@ class UpstreamRouter:
                 key_index=key_index,
                 upstream_format=upstream_format,
                 client_headers=client_headers,
+                provider_model=provider_model,
+            )
+            _record_trace(
+                routing_trace,
+                "selected",
+                provider=provider,
+                key_index=key_index,
+                key_id=_hash_key_short(key),
+                key_masked=_mask_key(key),
+                canonical_model=canonical_model,
+                provider_model=provider_model,
+                upstream_format=upstream_format,
+                attempt_no=attempt_no,
             )
              
             yield Attempt(
@@ -258,6 +330,7 @@ class UpstreamRouter:
                 proxy_url=proxy_url,
                 canonical_model=canonical_model,
                 compatibility_profile=str(compatibility_profile or "plain"),
+                key_fingerprint=_key_fingerprint(key),
             )
             current_prov_idx += 1
 
@@ -285,7 +358,7 @@ class UpstreamRouter:
         error_type: str,
         http_status: Optional[int] = None,
         retry_after_s: Optional[int] = None,
-    ) -> None:
+    ) -> Dict[str, Any]:
         """
         error_type: key_invalid | rate_limited | server_error | network_error | client_error | provider_compat | empty_visible_output | unknown
         """
@@ -295,11 +368,23 @@ class UpstreamRouter:
                 key = self._compatibility_key(attempt)
                 state = self._compatibility_state.setdefault(key, _CompatibilityState())
                 state.fails += 1
+                cooldown_s = self._compatibility_ladder_seconds(state.fails)
                 state.cooldown_until = max(
                     state.cooldown_until,
-                    now + self._compatibility_ladder_seconds(state.fails),
+                    now + cooldown_s,
                 )
-            return
+            return {
+                "scope": "compatibility",
+                "action": "circuit_open",
+                "cooldown_s": cooldown_s,
+                "provider": attempt.provider,
+                "key_id": _hash_key_short(attempt.key),
+                "canonical_model": attempt.canonical_model or attempt.provider_model,
+                "provider_model": attempt.provider_model,
+                "upstream_format": attempt.upstream_format,
+                "compatibility_profile": attempt.compatibility_profile,
+                "failure_count": state.fails,
+            }
 
         failure_policy = scheduler_policy.failure_policy_for_error_type(
             self.cfg,
@@ -339,20 +424,40 @@ class UpstreamRouter:
             if provider_cooldown_s > 0 and http_status not in (400, 401, 403):
                 ps = self._providers_state.setdefault(attempt.provider, _ProviderState())
                 ps.cooldown_until = max(ps.cooldown_until, now + provider_cooldown_s)
+        return {
+            "scope": cooldown_scope,
+            "action": "disabled" if disable_key else ("cooldown" if cooldown_s > 0 else "observed"),
+            "cooldown_s": max(0, cooldown_s),
+            "provider_cooldown_s": max(0, provider_cooldown_s),
+            "provider": attempt.provider,
+            "key_id": _hash_key_short(attempt.key),
+            "key_index": attempt.key_index,
+            "disables_key": disable_key,
+            "failure_count": ks.fails,
+        }
 
-    def _compatibility_key(self, attempt: Attempt) -> Tuple[str, str, str, str]:
+    def _compatibility_key(self, attempt: Attempt) -> Tuple[str, str, str, str, str, str]:
         return (
             str(attempt.provider),
+            str(attempt.key_fingerprint or _key_fingerprint(attempt.key)),
             str(attempt.canonical_model or attempt.provider_model or ""),
+            str(attempt.provider_model or ""),
             str(attempt.upstream_format or "chat_completions"),
             str(attempt.compatibility_profile or "plain"),
         )
 
     def _compatibility_available(
-        self, provider: str, canonical_model: str, upstream_format: str, profile: str
+        self,
+        provider: str,
+        key: str,
+        canonical_model: str,
+        provider_model: str,
+        upstream_format: str,
+        profile: str,
     ) -> bool:
         key = (
-            str(provider), str(canonical_model or ""),
+            str(provider), str(_key_fingerprint(key)), str(canonical_model or ""),
+            str(provider_model or ""),
             str(upstream_format or "chat_completions"), str(profile or "plain"),
         )
         now = time.time()
@@ -586,17 +691,38 @@ class UpstreamRouter:
                     "available_key_count": available_key_count,
                     "keys": keys,
                     "formats": self._provider_formats(provider),
+                    "priority": self._provider_priority(provider),
+                    "configured_priority": int((pcfg or {}).get("priority", 0) or 0),
+                    "priority_override_active": provider in self._runtime_priorities,
                 }
-            active_compatibility = [
-                state.cooldown_until - now
-                for state in self._compatibility_state.values()
-                if state.cooldown_until > now
-            ]
+            compatibility_entries = []
+            for key, state in self._compatibility_state.items():
+                if state.cooldown_until <= now or len(key) != 6:
+                    continue
+                provider, key_hint, canonical_model, provider_model, upstream_format, profile = key
+                compatibility_entries.append(
+                    {
+                        "provider": provider,
+                        "key_id": str(key_hint)[:10],
+                        "canonical_model": canonical_model,
+                        "provider_model": provider_model,
+                        "upstream_format": upstream_format,
+                        "compatibility_profile": profile,
+                        "fails": int(state.fails),
+                        "cooldown_remaining_s": max(0, int(state.cooldown_until - now)),
+                    }
+                )
+            for provider, item in providers.items():
+                item["compatibility_circuit_count"] = sum(
+                    1 for entry in compatibility_entries if entry["provider"] == provider
+                )
+            active_compatibility = [entry["cooldown_remaining_s"] for entry in compatibility_entries]
         return {
             "providers": providers,
             "compatibility_circuits": {
                 "active": len(active_compatibility),
                 "nearest_recovery_s": int(min(active_compatibility)) if active_compatibility else 0,
+                "entries": compatibility_entries,
             },
         }
 
@@ -664,8 +790,27 @@ class UpstreamRouter:
                         self._keys_state[(p, new_idx)] = ks
                         break
             for key, state in old_compatibility.items():
-                if key[0] in providers_cfg:
-                    self._compatibility_state[key] = state
+                if len(key) != 6:
+                    continue
+                provider, key_hint, canonical_model, provider_model, upstream_format, _profile = key
+                if provider not in providers_cfg:
+                    continue
+                current_key_hints = {
+                    _key_fingerprint(key_value(entry))
+                    for entry in ((providers_cfg.get(provider) or {}).get("keys") or [])
+                    if key_value(entry)
+                }
+                if key_hint not in current_key_hints:
+                    continue
+                current_models = model_registry.resolve_provider_model_candidates(
+                    self.cfg, provider, canonical_model
+                )
+                if provider_model not in current_models:
+                    continue
+                format_entry = self._provider_formats(provider).get(upstream_format) or {}
+                if not isinstance(format_entry, dict) or not format_entry.get("enabled", False):
+                    continue
+                self._compatibility_state[key] = state
             self._rr_model.update(old_rr)
             # Preserve runtime overrides and health scores across config reloads.
             self._runtime_priorities.update(old_runtime_priorities)
@@ -775,8 +920,25 @@ class UpstreamRouter:
                 ks.runtime_enabled = bool(entry.get("runtime_enabled", True))
 
             for composite_key, entry in (state.get("compatibility") or {}).items():
-                parts = composite_key.split("\x00", 3)
-                if len(parts) != 4 or parts[0] not in providers_cfg:
+                parts = composite_key.split("\x00")
+                # Four-part entries predate key/raw-model circuit identity.
+                # They cannot be migrated safely after a mapping or key change.
+                if len(parts) != 6 or parts[0] not in providers_cfg:
+                    continue
+                provider, key_hint, canonical_model, provider_model, upstream_format, _profile = parts
+                current_key_hints = {
+                    _key_fingerprint(key_value(key_entry))
+                    for key_entry in ((providers_cfg.get(provider) or {}).get("keys") or [])
+                    if key_value(key_entry)
+                }
+                if key_hint not in current_key_hints:
+                    continue
+                if provider_model not in model_registry.resolve_provider_model_candidates(
+                    self.cfg, provider, canonical_model
+                ):
+                    continue
+                format_entry = self._provider_formats(provider).get(upstream_format) or {}
+                if not isinstance(format_entry, dict) or not format_entry.get("enabled", False):
                     continue
                 remaining = max(0.0, float(entry.get("cooldown_remaining_s") or 0) - age)
                 compat = self._compatibility_state.setdefault(tuple(parts), _CompatibilityState())
@@ -1162,7 +1324,10 @@ class UpstreamRouter:
         provider: str,
         *,
         upstream_format: str = "chat_completions",
+        provider_model: str = "",
+        canonical_model: str = "",
         seen_candidates: Optional[set] = None,
+        routing_trace: Any = None,
     ) -> Optional[Tuple[int, str]]:
         now = time.time()
         providers_cfg = self.cfg.get("providers") or {}
@@ -1174,16 +1339,51 @@ class UpstreamRouter:
         with self._lock:
             ps = self._providers_state.setdefault(provider, _ProviderState())
             if not ps.available(now):
+                _record_trace(
+                    routing_trace,
+                    "provider_cooldown",
+                    provider=provider,
+                    cooldown_remaining_s=max(0, int(ps.cooldown_until - now)),
+                )
                 return None
 
             for i in range(len(keys)):
-                if seen_candidates is not None and (provider, i, upstream_format) in seen_candidates:
+                raw_key = key_value(keys[i])
+                safe_key = {
+                    "provider": provider,
+                    "key_index": i,
+                    "key_id": _hash_key_short(raw_key),
+                    "key_masked": _mask_key(raw_key),
+                    "canonical_model": canonical_model,
+                    "provider_model": provider_model,
+                    "upstream_format": upstream_format,
+                }
+                if seen_candidates is not None and (provider, i, provider_model, upstream_format) in seen_candidates:
+                    _record_trace(routing_trace, "duplicate_candidate", **safe_key)
+                    continue
+                if model_registry.key_supports_provider_model(
+                    self.cfg, provider, i, canonical_model, provider_model
+                ) is False:
+                    _record_trace(
+                        routing_trace,
+                        "model_unsupported_by_key",
+                        owner="proxy_routing",
+                        **safe_key,
+                    )
                     continue
                 ks = self._keys_state.setdefault((provider, i), _KeyState())
                 if ks.available(now):
-                    selected = key_value(keys[i])
+                    selected = raw_key
                     if selected:
                         return i, selected
+                else:
+                    code = "key_disabled" if not ks.runtime_enabled or ks.disabled_until > now else "key_cooldown"
+                    _record_trace(
+                        routing_trace,
+                        code,
+                        cooldown_remaining_s=max(0, int(max(ks.cooldown_until, ks.disabled_until) - now)),
+                        **safe_key,
+                    )
         return None
 
     def _provider_has_available_key(self, provider: str) -> bool:
@@ -1282,6 +1482,7 @@ class UpstreamRouter:
         key_index: Optional[int] = None,
         upstream_format: str = "chat_completions",
         client_headers: Optional[Dict[str, str]] = None,
+        provider_model: Optional[str] = None,
     ) -> Tuple[str, Dict[str, str], str, Optional[str]]:
         """返回 (url, headers, provider_model, proxy_url)。
         proxy 优先级：key.proxy > provider.proxy > 全局 proxy > None（直连）。
@@ -1323,5 +1524,7 @@ class UpstreamRouter:
             key_entry = keys[key_index]
         proxy_url = resolve_proxy_url(key_proxy(key_entry), pcfg.get("proxy"), self.cfg.get("proxy"))
 
-        provider_model = model_registry.resolve_provider_model(self.cfg, provider, canonical_model)
-        return url, headers, provider_model, proxy_url
+        resolved_provider_model = provider_model or model_registry.resolve_provider_model(
+            self.cfg, provider, canonical_model
+        )
+        return url, headers, resolved_provider_model, proxy_url

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+import hashlib
 import re
 from typing import Any, Dict, List, Optional
 
@@ -134,6 +135,13 @@ def key_value(entry: Any) -> str:
     return str(entry or "").strip()
 
 
+def key_fingerprint(entry: Any) -> str:
+    raw_key = key_value(entry)
+    if not raw_key:
+        return ""
+    return hashlib.sha256(raw_key.encode("utf-8")).hexdigest()[:16]
+
+
 def key_proxy(entry: Any) -> Dict[str, str]:
     if isinstance(entry, dict):
         return normalize_proxy_config(entry.get("proxy"))
@@ -155,6 +163,17 @@ def normalize_key_entry(entry: Any) -> Any:
         proxy = normalize_proxy_config(entry.get("proxy"))
         if proxy:
             out["proxy"] = proxy
+        models = entry.get("models") if "models" in entry else entry.get("model_map")
+        if isinstance(models, dict):
+            out["models"] = {
+                str(canonical).strip(): str(raw_model).strip()
+                for canonical, raw_model in models.items()
+                if str(canonical or "").strip() and str(raw_model or "").strip()
+            }
+        elif isinstance(models, list):
+            out["models"] = [
+                str(model).strip() for model in models if str(model or "").strip()
+            ]
         return out
     raw_key = key_value(entry)
     return raw_key if raw_key else None
