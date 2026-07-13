@@ -227,6 +227,7 @@ class UpstreamRouter:
         scan_no = 0
         max_scans = max_attempts * max(1, prov_count) * 2
         seen_candidates = set()
+        stalled_scans = 0
 
         while attempt_no < max_attempts and scan_no < max_scans:
             # 如果当前 provider 索引超出范围，重新开始一轮
@@ -251,9 +252,13 @@ class UpstreamRouter:
                     # provider 无可用 key → 冷却 provider，切换到下一个
                     self._cooldown_provider(provider, reason="no_key")
                 current_prov_idx += 1
+                stalled_scans += 1
+                if stalled_scans >= prov_count:
+                    break
                 continue
 
             key_index, key = sel
+            stalled_scans = 0
             candidate_id = (provider, key_index, provider_model, upstream_format)
             if candidate_id in seen_candidates:
                 _record_trace(
@@ -1358,12 +1363,14 @@ class UpstreamRouter:
                     "provider_model": provider_model,
                     "upstream_format": upstream_format,
                 }
-                if seen_candidates is not None and (provider, i, provider_model, upstream_format) in seen_candidates:
-                    _record_trace(routing_trace, "duplicate_candidate", **safe_key)
+                candidate_id = (provider, i, provider_model, upstream_format)
+                if seen_candidates is not None and candidate_id in seen_candidates:
                     continue
                 if model_registry.key_supports_provider_model(
                     self.cfg, provider, i, canonical_model, provider_model
                 ) is False:
+                    if seen_candidates is not None:
+                        seen_candidates.add(candidate_id)
                     _record_trace(
                         routing_trace,
                         "model_unsupported_by_key",

@@ -14536,15 +14536,54 @@ body {
   width: 28px;
   height: 28px;
   place-items: center;
-  border: 1px solid #edf1f5;
+  border: 1px solid #dbe4ee;
   border-radius: 9px;
-  background: #fbfcfd;
-  color: #94a3b8;
+  background: #f1f5f9;
+  color: #475569;
 }
 
 #overviewView .visual-card .metric-icon .icon-svg {
-  width: 14px;
-  height: 14px;
+  width: 15px;
+  height: 15px;
+  stroke-width: 1.9;
+}
+
+#overviewView .visual-card.accent-compat::before {
+  background: #7c3aed;
+}
+
+#overviewView .visual-card .metric-icon.tone-compat {
+  border-color: #ddd1ff;
+  background: #f3efff;
+  color: #6d28d9;
+}
+
+#overviewView .visual-card .metric-icon.tone-success {
+  border-color: #ccebd6;
+  background: #edf9f1;
+  color: #15803d;
+}
+
+#overviewView .visual-card .metric-icon.tone-info {
+  border-color: #d8e6ff;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+#overviewView .visual-card .metric-icon.tone-warning {
+  border-color: #f5dfae;
+  background: #fff8e8;
+  color: #b45309;
+}
+
+#overviewView .visual-card .metric-icon.tone-danger {
+  border-color: #f3d1d1;
+  background: #fff1f1;
+  color: #c62828;
+}
+
+.metric-dot.compat {
+  background: #7c3aed;
 }
 
 #overviewView .overview-grid {

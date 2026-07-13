@@ -1,6 +1,7 @@
 import unittest
 
 import model_registry
+from proxy_utils import key_fingerprint
 
 
 class FakeRouter:
@@ -89,6 +90,37 @@ class ModelRegistryTests(unittest.TestCase):
 
     def tearDown(self):
         model_registry.clear_cache()
+
+    def test_empty_key_model_filter_is_unrestricted_and_uses_discovery(self):
+        cfg = registry_config("union")
+        cfg["providers"]["alpha"]["keys"] = [
+            {
+                "key": "alpha-key",
+                "proxy": "http://127.0.0.1:9000",
+                "models": {},
+            }
+        ]
+
+        self.assertIsNone(
+            model_registry.key_supports_provider_model(
+                cfg, "alpha", 0, "agnes-2.0-flash", "agnes-2.0-flash"
+            )
+        )
+
+        cfg["models"]["provider_key_model_capabilities"] = {
+            "alpha": {
+                key_fingerprint("alpha-key"): {
+                    "status": "ok",
+                    "models": ["agnes-2.0-flash"],
+                    "canonical_map": {"agnes-2.0-flash": "agnes-2.0-flash"},
+                }
+            }
+        }
+        self.assertTrue(
+            model_registry.key_supports_provider_model(
+                cfg, "alpha", 0, "agnes-2.0-flash", "agnes-2.0-flash"
+            )
+        )
 
     def test_union_fetch_records_capabilities_without_mutating_provider_model_map(self):
         cfg = registry_config("union")

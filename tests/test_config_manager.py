@@ -351,6 +351,19 @@ class ConfigManagerTests(unittest.TestCase):
         self.assertEqual(snapshot["providers"]["alpha"]["keys"][0]["models"], {"grok-4.3": "grok-4.3-low"})
         self.assertNotIn("alpha-secret-key", json.dumps(snapshot))
 
+    def test_empty_key_model_filter_is_not_persisted_with_proxy(self):
+        _config_path, overlay_path = self.temp_paths()
+        mgr = config_manager.RuntimeConfigManager(base_config(), overlay_path=overlay_path)
+
+        cfg = mgr.update_key(
+            "alpha",
+            0,
+            {"proxy": "http://127.0.0.1:8500", "models": {}},
+        )
+
+        self.assertEqual(cfg["providers"]["alpha"]["keys"][0]["key"], "alpha-secret-key")
+        self.assertNotIn("models", cfg["providers"]["alpha"]["keys"][0])
+
     def test_provider_model_variants_are_priority_normalized(self):
         _config_path, overlay_path = self.temp_paths()
         mgr = config_manager.RuntimeConfigManager(base_config(), overlay_path=overlay_path)

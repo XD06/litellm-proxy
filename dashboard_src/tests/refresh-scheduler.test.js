@@ -7,6 +7,20 @@ const source = fs.readFileSync(path.join(__dirname, '..', 'src', 'app.js'), 'utf
 assert.match(source, /async function refreshRuntimeData\(/, 'runtime refresh domain must exist');
 assert.match(source, /async function refreshStaticAdminData\(/, 'static admin refresh domain must exist');
 assert.match(source, /async function refreshCapabilitiesOnly\(/, 'capability-only refresh must exist');
+const capabilityRefreshBody = source.slice(
+  source.indexOf('async function refreshCapabilitiesOnly('),
+  source.indexOf('function _maybeScheduleCapabilityFollowUp', source.indexOf('async function refreshCapabilitiesOnly(')),
+);
+assert.doesNotMatch(
+  capabilityRefreshBody,
+  /renderProviderDrawer\(\{ force: true \}\)/,
+  'background capability refresh must not overwrite focused or dirty provider forms',
+);
+assert.match(
+  capabilityRefreshBody,
+  /renderProviderDrawer\(\)/,
+  'background capability refresh must use the drawer dirty-input guard',
+);
 assert.doesNotMatch(
   source,
   /_capabilityFollowUpTimer = setTimeout[\s\S]{0,250}refreshAll\(/,

@@ -864,7 +864,7 @@ def key_supports_provider_model(
     entry = keys[key_index]
     if isinstance(entry, dict):
         models = entry.get("models") if "models" in entry else entry.get("model_map")
-        if isinstance(models, dict):
+        if isinstance(models, dict) and models:
             canonical = str(canonical_model or "")
             expected = models.get(canonical)
             if expected is None:
@@ -872,7 +872,7 @@ def key_supports_provider_model(
             if expected is None:
                 return False
             return str(expected or "").strip() == str(provider_model or "").strip()
-        if isinstance(models, list):
+        if isinstance(models, list) and models:
             known = {str(model or "").strip() for model in models}
             return str(provider_model or "").strip() in known
     fingerprint = key_fingerprint(entry)

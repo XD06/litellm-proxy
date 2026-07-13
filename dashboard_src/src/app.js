@@ -10,6 +10,7 @@ import { bindTrafficModeControls } from "./traffic-mode.mjs";
 import { ConfigRefreshCoordinator, InFlightActionRegistry } from "./operation-guard.mjs";
 import { groupRoutingTrace, routingTraceIdentity, routingTraceTone, summarizeFormatTraceStep } from "./routing-trace-view.mjs";
 import { shouldAcceptModelCapabilitySnapshot } from "./model-capability-order.mjs";
+import { keyModelsPatchValue } from "./key-models.mjs";
 
 
   const el = (id) => document.getElementById(id);
@@ -1755,7 +1756,7 @@ import { shouldAcceptModelCapabilitySnapshot } from "./model-capability-order.mj
       if (state.view === "providers") {
         state.forceModelCapsRender = true;
         renderModelCapabilities();
-        renderProviderDrawer({ force: true });
+        renderProviderDrawer();
       }
       _maybeScheduleCapabilityFollowUp();
       return true;
@@ -2054,8 +2055,6 @@ import { shouldAcceptModelCapabilitySnapshot } from "./model-capability-order.mj
     const usage = currentUsageTotal(counters);
     const displaySuccess = traffic.requests > 0 ? Math.min(traffic.success, traffic.requests) : traffic.success;
     const successRate = traffic.requests > 0 ? Math.min(1, traffic.success / traffic.requests) : 1;
-    const requestFailureRate = traffic.requests > 0 ? traffic.failed / traffic.requests : 0;
-    const failureRate = traffic.attempts > 0 ? traffic.failedAttempts / traffic.attempts : 0;
     const providerCount = providers.length;
     const providerAvailable = providers.filter((p) => p.available && p.enabled).length;
     let keyTotal = 0;
@@ -2078,37 +2077,45 @@ import { shouldAcceptModelCapabilitySnapshot } from "./model-capability-order.mj
     const providerPct = providerCount ? providerAvailable / providerCount : 0;
     const keyPct = keyTotal ? keyUsable / keyTotal : 0;
     const healthTone =
-      providerPct >= 0.9 && keyPct >= 0.9 && failureRate < 0.05
+      providerPct >= 0.9 && keyPct >= 0.9
         ? "ok"
-        : providerPct >= 0.5 && keyPct >= 0.5 && failureRate < 0.2
+        : providerPct >= 0.5 && keyPct >= 0.5
         ? "warn"
         : providerPct > 0 && keyPct > 0
         ? "soft"
         : "bad";
-    const rangeLabel = currentTimeRange().label || state.timeRange;
     target.innerHTML = `
-      ${overviewMetricCard(t("metric.requests"), fmtInt(traffic.requests), `${fmtInt(counters.requests_in_flight || 0)} ${t("metric.in_flight")}`, requestFailureRate >= 0.1 ? "danger" : requestFailureRate > 0 ? "warning" : "info", "activity")}
+      ${overviewMetricCard(
+        t("traffic.total_tokens"),
+        fmtTokenCount(usage.total_tokens),
+        `${fmtTokenCount(usage.input_tokens)} ${t("traffic.input")} · ${fmtTokenCount(usage.output_tokens)} ${t("traffic.output")}`,
+        "compat",
+        "boxes",
+        `${fmtInt(usage.total_tokens)} ${t("traffic.tokens")}`,
+        `${fmtInt(usage.input_tokens)} ${t("traffic.input")} · ${fmtInt(usage.output_tokens)} ${t("traffic.output")}`,
+      )}
       ${overviewMetricCard(t("kpi.success_rate"), fmtPct(successRate), `${fmtInt(displaySuccess)} ${t("metric.success")}`, successRate >= 0.98 ? "success" : successRate >= 0.95 ? "info" : successRate >= 0.85 ? "warning" : "danger", "check")}
       ${overviewMetricCard(t("kpi.first_byte"), latestLatency === null ? "-" : fmtMs(latestLatency), avgLatency === null ? t("kpi.no_samples") : `avg ${fmtMs(avgLatency)} / max ${fmtMs(maxLatency)}`, toneForLatency(avgLatency || latestLatency || 0), "clock")}
       ${overviewMetricCard(t("kpi.active_keys"), `${fmtInt(keyUsable)}/${fmtInt(keyTotal)}`, `${fmtInt(providerAvailable)}/${fmtInt(providerCount)} ${t("metric.providers")}`, healthTone === "bad" ? "danger" : healthTone === "soft" ? "warning" : healthTone === "warn" ? "info" : "success", "key")}
     `;
   }
 
-  function overviewMetricCard(label, value, hint, tone, icon) {
+  function overviewMetricCard(label, value, hint, tone, icon, valueTitle = "", hintTitle = "") {
+    const safeTone = ["compat", "success", "warning", "danger", "info"].includes(tone) ? tone : "info";
     return `
-      <article class="visual-card accent-${escapeHtml(tone || "info")}">
+      <article class="visual-card accent-${escapeHtml(safeTone)}">
         <div class="metric-header">
           <span class="metric-label">${escapeHtml(label)}</span>
-          <span class="metric-icon">${iconSvg(icon || "activity")}</span>
+          <span class="metric-icon tone-${escapeHtml(safeTone)}">${iconSvg(icon || "activity")}</span>
         </div>
-        <strong class="metric-val">${escapeHtml(value)}</strong>
-        <small class="metric-sub">${metricDot(tone)}${escapeHtml(hint)}</small>
+        <strong class="metric-val"${valueTitle ? ` title="${escapeHtml(valueTitle)}"` : ""}>${escapeHtml(value)}</strong>
+        <small class="metric-sub"${hintTitle ? ` title="${escapeHtml(hintTitle)}"` : ""}>${metricDot(safeTone)}${escapeHtml(hint)}</small>
       </article>
     `;
   }
 
   function metricDot(tone) {
-    const safeTone = tone === "danger" ? "danger" : tone === "warning" ? "warning" : tone === "success" ? "success" : "info";
+    const safeTone = ["compat", "danger", "warning", "success"].includes(tone) ? tone : "info";
     return `<span class="metric-dot ${safeTone}"></span>`;
   }
 
@@ -2992,14 +2999,14 @@ import { shouldAcceptModelCapabilitySnapshot } from "./model-capability-order.mj
     if (!target) return;
     const hs = state.data.healthScores;
     if (!hs || !hs.providers) {
-      target.innerHTML = `<div class="health-overview-loading">${iconSvg("rotate")}<span>Loading health scores…</span></div>`;
+      target.innerHTML = `<div class="health-overview-loading">${iconSvg("rotate")}<span>${escapeHtml(t("health.loading"))}</span></div>`;
       return;
     }
     const overall = hs.overall || 0;
     const providers = hs.providers;
     const names = Object.keys(providers);
     if (!names.length) {
-      target.innerHTML = `<div class="health-overview-empty">No provider health data</div>`;
+      target.innerHTML = `<div class="health-overview-empty">${escapeHtml(t("health.no_data"))}</div>`;
       return;
     }
     // Sort by score ascending (worst first) so problem providers are visible.
@@ -3015,17 +3022,17 @@ import { shouldAcceptModelCapabilitySnapshot } from "./model-capability-order.mj
             <strong>${fmtInt(overall)}</strong>
             <small>/ 100</small>
           </span>
-          <span class="health-score-label">${escapeHtml(overallGrade)}</span>
+          <span class="health-score-label">${escapeHtml(t("health.grade." + overallGrade))}</span>
         </div>
         <div class="health-overview-meta">
-          <span>${iconSvg("server")} ${fmtInt(names.length)} ${names.length !== 1 ? "providers" : "provider"}</span>
+          <span>${iconSvg("server")} ${escapeHtml(t("health.providers_count", { count: fmtInt(names.length) }))}</span>
         </div>
       </div>
       <div class="health-overview-list">
         ${visibleNames.map((name) => {
           const p = providers[name];
           const tone = p.score >= 75 ? "ok" : p.score >= 50 ? "warn" : p.score >= 25 ? "soft" : "bad";
-          const gradeLabel = p.grade || "unknown";
+          const gradeLabel = String(p.grade || "unknown").toLowerCase();
           return `
             <div class="health-provider-row tone-${escapeHtml(tone)}" data-provider-card="${escapeHtml(name)}">
               <span class="health-provider-name mono">${escapeHtml(name)}</span>
@@ -3033,11 +3040,11 @@ import { shouldAcceptModelCapabilitySnapshot } from "./model-capability-order.mj
                 <div class="health-provider-bar-fill tone-${escapeHtml(tone)}" style="width:${Math.max(2, Math.min(100, p.score))}%"></div>
               </div>
               <span class="health-provider-score">${fmtInt(p.score)}</span>
-              <span class="health-provider-grade grade-${escapeHtml(gradeLabel)}">${escapeHtml(gradeLabel)}</span>
+              <span class="health-provider-grade grade-${escapeHtml(gradeLabel)}">${escapeHtml(t("health.grade." + gradeLabel))}</span>
             </div>
           `;
         }).join("")}
-        ${hiddenCount ? `<div class="health-overview-more">+ ${fmtInt(hiddenCount)} more providers</div>` : ""}
+        ${hiddenCount ? `<div class="health-overview-more">${escapeHtml(t("health.more_providers", { count: fmtInt(hiddenCount) }))}</div>` : ""}
       </div>
     `;
   }
@@ -7101,7 +7108,7 @@ import { shouldAcceptModelCapabilitySnapshot } from "./model-capability-order.mj
         const provider = form.dataset.provider || "";
         const keyIndex = String(form.dataset.keyIndex || "").trim();
         const proxy = String(form.elements.proxy.value || "").trim();
-        const models = parseKeyModelsText(form.elements.models?.value || "");
+        const models = keyModelsPatchValue(form.elements.models?.value || "");
         await runConfigMutation(form, async () => {
           const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/keys/${encodeURIComponent(keyIndex)}`, { proxy, models });
           setNotice(t("notice.key_proxy_updated", { index: keyIndex, provider }), "ok");
@@ -7112,7 +7119,11 @@ import { shouldAcceptModelCapabilitySnapshot } from "./model-capability-order.mj
             const keys = config.providers?.[provider]?.keys;
             if (!Array.isArray(keys)) return;
             const key = keys.find((entry, index) => String(entry?.index ?? index) === keyIndex);
-            if (key && typeof key === "object") Object.assign(key, { proxy, models });
+            if (key && typeof key === "object") {
+              key.proxy = proxy;
+              if (models) key.models = models;
+              else delete key.models;
+            }
           },
         });
       });
@@ -7438,17 +7449,6 @@ import { shouldAcceptModelCapabilitySnapshot } from "./model-capability-order.mj
     if (Array.isArray(models)) return models.join(", ");
     if (!models || typeof models !== "object") return "";
     return Object.entries(models).map(([canonical, raw]) => `${canonical}=${raw}`).join(", ");
-  }
-
-  function parseKeyModelsText(value) {
-    const result = {};
-    String(value || "").split(/[\n,;]+/).map((item) => item.trim()).filter(Boolean).forEach((item) => {
-      const separator = item.indexOf("=");
-      const canonical = (separator >= 0 ? item.slice(0, separator) : item).trim();
-      const raw = (separator >= 0 ? item.slice(separator + 1) : item).trim();
-      if (canonical && raw) result[canonical] = raw;
-    });
-    return result;
   }
 
   function parseModelVariants(value) {

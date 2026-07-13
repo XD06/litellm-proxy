@@ -244,12 +244,12 @@ class RuntimeConfigManager:
             key_patch: Dict[str, Any] = {"key": raw_key}
             if proxy:
                 key_patch["proxy"] = proxy
-            if isinstance(models, dict):
+            if isinstance(models, dict) and models:
                 key_patch["models"] = {
                     self._validate_model_id(canonical): self._validate_model_id(raw_model)
                     for canonical, raw_model in models.items()
                 }
-            elif isinstance(models, list):
+            elif isinstance(models, list) and models:
                 key_patch["models"] = [self._validate_model_id(model) for model in models]
             normalized_key = normalize_key_entry(key_patch)
             keys[key_index] = (

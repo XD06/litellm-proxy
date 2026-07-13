@@ -353,6 +353,56 @@ class RouterTests(unittest.TestCase):
         self.assertTrue(any(event["code"] == "selected" and event["key_index"] == 1 for event in events))
         self.assertNotIn("alpha-target-key", str(events))
 
+    def test_key_proxy_with_empty_model_filter_remains_routable(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha"]
+        cfg["providers"]["alpha"]["keys"] = [
+            {
+                "key": "alpha-key",
+                "proxy": "http://127.0.0.1:9000",
+                "models": {},
+            }
+        ]
+        cfg["providers"]["beta"]["enabled"] = False
+
+        attempts = list(
+            UpstreamRouter(cfg).iter_attempts(
+                "agnes-2.0-flash", False, "req-key-proxy-empty-models"
+            )
+        )
+
+        self.assertEqual(len(attempts), 1)
+        self.assertEqual(attempts[0].provider, "alpha")
+        self.assertEqual(attempts[0].provider_model, "agnes-2.0-flash")
+        self.assertEqual(attempts[0].proxy_url, "http://127.0.0.1:9000")
+
+    def test_rejected_key_candidate_is_traced_only_once(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha"]
+        cfg["routing"]["max_attempts"] = 6
+        cfg["providers"]["alpha"]["keys"] = [
+            {"key": "alpha-key", "models": {"other-model": "other-model"}}
+        ]
+        cfg["providers"]["beta"]["enabled"] = False
+        trace = RoutingTrace()
+
+        attempts = list(
+            UpstreamRouter(cfg).iter_attempts(
+                "agnes-2.0-flash",
+                False,
+                "req-rejected-key-once",
+                routing_trace=trace,
+            )
+        )
+
+        self.assertEqual(attempts, [])
+        rejected = [
+            event
+            for event in trace.snapshot()
+            if event["code"] == "model_unsupported_by_key"
+        ]
+        self.assertEqual(len(rejected), 1)
+
     def test_iter_attempts_does_not_repeat_same_provider_key_format_in_one_request(self):
         cfg = base_config()
         cfg["routing"]["default_provider_pool"] = ["alpha", "beta"]

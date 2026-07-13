@@ -108,6 +108,18 @@ const dict = {
   "ov.upstream_health_desc": { en: "Providers that need attention.", zh: "需要关注的提供商。" },
   "ov.no_providers": { en: "No providers", zh: "暂无提供商" },
   "ov.total_in_window": { en: "total in the selected window", zh: "所选时段内总计" },
+  "health.title": { en: "Failover Health", zh: "故障转移健康度" },
+  "health.subtitle": { en: "Provider health scores based on success rate, latency, and key availability.", zh: "基于成功率、延迟与密钥可用性的提供商健康评分。" },
+  "health.loading": { en: "Loading health scores…", zh: "正在加载健康评分…" },
+  "health.no_data": { en: "No provider health data", zh: "暂无提供商健康数据" },
+  "health.providers_count": { en: "{count} providers", zh: "{count} 个提供商" },
+  "health.more_providers": { en: "+ {count} more providers", zh: "+ 另有 {count} 个提供商" },
+  "health.grade.excellent": { en: "Excellent", zh: "优秀" },
+  "health.grade.good": { en: "Good", zh: "良好" },
+  "health.grade.fair": { en: "Fair", zh: "一般" },
+  "health.grade.poor": { en: "Poor", zh: "较差" },
+  "health.grade.critical": { en: "Critical", zh: "严重" },
+  "health.grade.unknown": { en: "Unknown", zh: "未知" },
 
   // ---- Overview metrics ----
   "metric.requests": { en: "Requests", zh: "请求" },
