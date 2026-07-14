@@ -88,6 +88,11 @@ assert.ok(catalogIndex >= 0, "Models must expose the model catalog as the primar
 assert.ok(discoveryIndex > catalogIndex, "per-key discovery must follow the primary model catalog");
 assert.match(modelsPanel, /<details class="provider-model-disclosure/, "advanced model tasks must use progressive disclosure");
 assert.match(modelsPanel, /t\("prov\.models\.canonical_aliases"\)/, "canonical variants must be presented as aliases");
+assert.match(modelsPanel, /data-provider-variant-model/, "alias editor must offer discovered models as selectable variants");
+assert.match(modelsPanel, /data-provider-variant-search/, "large discovered catalogs must be searchable inside the alias editor");
+assert.match(modelsPanel, /data-provider-variant-edit/, "configured aliases must be editable without retyping model ids");
+assert.match(modelsPanel, /data-provider-variant-delete/, "configured aliases must have an explicit delete action");
+assert.match(modelsPanel, /provider-variant-custom-input/, "alias editor must retain an advanced custom-id fallback");
 assert.match(modelsPanel, /t\("prov\.models\.advanced_fallback"\)/, "static models must be presented as advanced fallback configuration");
 assert.match(modelsPanel, /const largeCatalog = visibleItems\.length > 24/, "large model catalogs must switch to dense mode");
 assert.match(modelsPanel, /provider-model-catalog \$\{largeCatalog \? "is-large-catalog" : ""\}/, "large model catalogs must expose a layout hook");

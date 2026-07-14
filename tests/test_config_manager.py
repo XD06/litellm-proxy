@@ -51,6 +51,18 @@ class ConfigManagerTests(unittest.TestCase):
             json.dump(base_config(), f)
         return config_path, overlay_path
 
+    def test_snapshot_revision_increases_after_committed_mutation(self):
+        _config_path, overlay_path = self.temp_paths()
+        manager = config_manager.RuntimeConfigManager(base_config(), overlay_path=overlay_path)
+
+        before = manager.snapshot()["revision"]
+        epoch = manager.snapshot()["revision_epoch_ms"]
+        manager.update_provider("alpha", {"skip_idle_probe": True})
+        after = manager.snapshot()["revision"]
+
+        self.assertGreater(after, before)
+        self.assertEqual(manager.snapshot()["revision_epoch_ms"], epoch)
+
     def test_load_config_applies_runtime_overlay_before_env(self):
         config_path, overlay_path = self.temp_paths()
         with open(overlay_path, "w", encoding="utf-8") as f:
@@ -383,6 +395,82 @@ class ConfigManagerTests(unittest.TestCase):
                 {"model": "grok-4.3-high", "priority": 100},
                 {"model": "grok-4.3-low", "priority": 10},
             ],
+        )
+
+    def test_deleting_base_provider_model_variants_persists_tombstone(self):
+        _config_path, overlay_path = self.temp_paths()
+        cfg = base_config()
+        cfg["models"]["provider_model_variants"] = {
+            "alpha": {
+                "grok-4.3": [
+                    {"model": "grok-4.3-high", "priority": 100},
+                    {"model": "grok-4.3-low", "priority": 10},
+                ]
+            }
+        }
+        mgr = config_manager.RuntimeConfigManager(cfg, overlay_path=overlay_path)
+
+        updated = mgr.update_provider_model_variants("alpha", model="grok-4.3", variants=[])
+
+        self.assertNotIn(
+            "grok-4.3",
+            (updated["models"].get("provider_model_variants") or {}).get("alpha", {}),
+        )
+        with open(overlay_path, "r", encoding="utf-8") as f:
+            overlay = json.load(f)
+        self.assertIsNone(
+            overlay["models"]["provider_model_variants"]["alpha"]["grok-4.3"]
+        )
+        reloaded = config_manager.RuntimeConfigManager(cfg, overlay_path=overlay_path)
+        self.assertNotIn(
+            "grok-4.3",
+            (reloaded.config["models"].get("provider_model_variants") or {}).get("alpha", {}),
+        )
+
+    def test_enabling_base_disabled_model_persists_tombstone(self):
+        _config_path, overlay_path = self.temp_paths()
+        cfg = base_config()
+        cfg["models"]["provider_model_disabled"] = {"alpha": {"legacy-model": True}}
+        mgr = config_manager.RuntimeConfigManager(cfg, overlay_path=overlay_path)
+
+        updated = mgr.update_provider_model_disabled("alpha", "legacy-model", False)
+
+        self.assertNotIn(
+            "legacy-model",
+            (updated["models"].get("provider_model_disabled") or {}).get("alpha", {}),
+        )
+        with open(overlay_path, "r", encoding="utf-8") as f:
+            overlay = json.load(f)
+        self.assertIsNone(
+            overlay["models"]["provider_model_disabled"]["alpha"]["legacy-model"]
+        )
+        reloaded = config_manager.RuntimeConfigManager(cfg, overlay_path=overlay_path)
+        self.assertNotIn(
+            "legacy-model",
+            (reloaded.config["models"].get("provider_model_disabled") or {}).get("alpha", {}),
+        )
+
+    def test_bulk_enabling_base_disabled_models_persists_tombstones(self):
+        _config_path, overlay_path = self.temp_paths()
+        cfg = base_config()
+        cfg["models"]["provider_model_disabled"] = {
+            "alpha": {"legacy-a": True, "legacy-b": True}
+        }
+        mgr = config_manager.RuntimeConfigManager(cfg, overlay_path=overlay_path)
+
+        updated = mgr.update_provider_models_disabled(
+            "alpha",
+            {"legacy-a": False, "legacy-b": False},
+        )
+
+        self.assertEqual(
+            (updated["models"].get("provider_model_disabled") or {}).get("alpha", {}),
+            {},
+        )
+        reloaded = config_manager.RuntimeConfigManager(cfg, overlay_path=overlay_path)
+        self.assertEqual(
+            (reloaded.config["models"].get("provider_model_disabled") or {}).get("alpha", {}),
+            {},
         )
 
     def test_delete_key_accepts_display_index_from_sparse_key_entries(self):

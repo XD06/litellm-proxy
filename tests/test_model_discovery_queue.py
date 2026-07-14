@@ -11,10 +11,13 @@ class _FakeStore:
         self.lock = threading.Lock()
         self.snapshots = {}   # provider -> {"status": "ok"|"error"}
         self.fetched = []     # ordered list of providers fetched
+        self.started = []     # ordered list of providers whose fetch began
         self.fetch_slow = {}  # provider -> seconds to sleep inside fetch
 
     def fetch(self, provider):
         # Simulate per-provider latency if requested.
+        with self.lock:
+            self.started.append(provider)
         delay = self.fetch_slow.get(provider, 0)
         if delay:
             time.sleep(delay)
@@ -25,12 +28,14 @@ class _FakeStore:
         with self.lock:
             return self.snapshots.get(provider)
 
-    def set_status(self, provider, status):
+    def set_status(self, provider, status, *, fetched_at=None):
         with self.lock:
             self.snapshots[provider] = {"status": status}
+            if fetched_at is not None:
+                self.snapshots[provider]["fetched_at"] = fetched_at
 
 
-def _make_queue(store, providers, *, ok_ttl_s=1, retry_interval_s=1, inter_fetch_pause_s=0):
+def _make_queue(store, providers, *, ok_ttl_s=1, retry_interval_s=1, inter_fetch_pause_s=0, worker_count=2):
     return ModelDiscoveryQueue(
         fetch_provider_fn=store.fetch,
         get_snapshot_fn=store.get_snapshot,
@@ -39,6 +44,7 @@ def _make_queue(store, providers, *, ok_ttl_s=1, retry_interval_s=1, inter_fetch
         ok_ttl_s=ok_ttl_s,
         retry_interval_s=retry_interval_s,
         inter_fetch_pause_s=inter_fetch_pause_s,
+        worker_count=worker_count,
     )
 
 
@@ -155,8 +161,53 @@ class ModelDiscoveryQueueTests(unittest.TestCase):
         q = _make_queue(store, providers, ok_ttl_s=60, retry_interval_s=60)
         status = q.snapshot_status()
         self.assertIn("running", status)
+        self.assertIn("active_providers", status)
+        self.assertIn("recent_results", status)
         self.assertIn("queued", status)
+        self.assertIn("scheduled", status)
         self.assertEqual(status["ok_ttl_s"], 60)
+
+    def test_fresh_cached_provider_is_scheduled_but_not_reported_as_queued(self):
+        store = _FakeStore()
+        store.set_status("alpha", "ok", fetched_at=time.time())
+        q = _make_queue(store, ["alpha"], ok_ttl_s=60, retry_interval_s=60)
+
+        q.enqueue_all(force=False)
+        status = q.snapshot_status()
+
+        self.assertEqual(status["queued"], 0)
+        self.assertEqual(status["queued_providers"], [])
+        self.assertEqual(status["scheduled"], 1)
+        self.assertEqual(status["scheduled_providers"], ["alpha"])
+
+    def test_slow_provider_does_not_block_forced_refresh_of_another_provider(self):
+        store = _FakeStore()
+        store.fetch_slow["alpha"] = 0.6
+        store.set_status("alpha", "ok")
+        store.set_status("beta", "ok")
+        q = _make_queue(store, ["alpha"], ok_ttl_s=60, retry_interval_s=60, worker_count=2)
+        q.start()
+
+        deadline = time.time() + 2
+        while time.time() < deadline:
+            with store.lock:
+                if "alpha" in store.started:
+                    break
+            time.sleep(0.01)
+
+        q.enqueue("beta", force=True)
+        deadline = time.time() + 0.4
+        while time.time() < deadline:
+            with store.lock:
+                if "beta" in store.fetched:
+                    break
+            time.sleep(0.01)
+
+        status = q.snapshot_status()
+        q.stop()
+        with store.lock:
+            self.assertIn("beta", store.fetched)
+        self.assertIn("alpha", status["active_providers"])
 
 
 if __name__ == "__main__":

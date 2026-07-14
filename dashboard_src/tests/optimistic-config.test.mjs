@@ -102,6 +102,64 @@ assert.doesNotMatch(JSON.stringify(optimisticKeyConfig), /raw-super-secret/);
 assert.deepEqual(optimisticKeyConfig.providers.alpha.keys[0].models, { alias: "raw-model" });
 assert.equal(optimisticKeyConfig.providers.alpha.keys[0].pending, true);
 
+const revisionedKeys = new OptimisticConfigStore({ revision: 0, providers: { alpha: { keys: [] } } });
+const revisionedKeyMutation = revisionedKeys.begin("provider-key-list:alpha", (config) => {
+  appendPendingKey(config, "alpha", {});
+});
+const confirmedKeyConfig = revisionedKeys.confirm(revisionedKeyMutation.id, {
+  revision: 1,
+  providers: { alpha: { keys: [{ index: 0, masked: "real-key" }] } },
+});
+assert.deepEqual(
+  confirmedKeyConfig.providers.alpha.keys.map((entry) => entry.masked),
+  ["real-key"],
+  "an authoritative revision must replace the pending key instead of replaying it",
+);
+
+const revisionOrdering = new OptimisticConfigStore({
+  revision: 0,
+  providers: { alpha: { priority: 10 }, beta: { priority: 20 } },
+});
+const revisionAlpha = revisionOrdering.begin("provider:alpha", (config) => {
+  config.providers.alpha.priority = 100;
+});
+const revisionBeta = revisionOrdering.begin("provider:beta", (config) => {
+  config.providers.beta.priority = 200;
+});
+revisionOrdering.confirm(revisionBeta.id, {
+  revision: 2,
+  providers: { alpha: { priority: 100 }, beta: { priority: 200 } },
+});
+const ignoredOlderRevision = revisionOrdering.confirm(revisionAlpha.id, {
+  revision: 1,
+  providers: { alpha: { priority: 100 }, beta: { priority: 20 } },
+});
+assert.equal(ignoredOlderRevision.providers.beta.priority, 200, "older config revisions cannot roll state back");
+
+const restartedRevision = new OptimisticConfigStore({
+  revision_epoch_ms: 1000,
+  revision: 9,
+  providers: { alpha: { priority: 90 } },
+});
+assert.equal(
+  restartedRevision.acceptConfirmed({
+    revision_epoch_ms: 2000,
+    revision: 1,
+    providers: { alpha: { priority: 10 } },
+  }).providers.alpha.priority,
+  10,
+  "a newer backend process epoch must be accepted even when its revision counter restarted",
+);
+assert.equal(
+  restartedRevision.acceptConfirmed({
+    revision_epoch_ms: 1000,
+    revision: 99,
+    providers: { alpha: { priority: 99 } },
+  }).providers.alpha.priority,
+  10,
+  "a delayed response from an older backend process must be ignored",
+);
+
 const providers = new OptimisticConfigStore({ providers: {} });
 providers.begin("provider:new-provider", (config) => {
   appendPendingProvider(config, {

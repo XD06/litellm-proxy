@@ -46,6 +46,8 @@ def default_overlay_path() -> str:
 class RuntimeConfigManager:
     def __init__(self, base_config: Dict[str, Any], *, overlay_path: Optional[str] = None):
         self.overlay_path = overlay_path or default_overlay_path()
+        self._revision = 0
+        self._revision_epoch_ms = int(time.time() * 1000)
         self.base_config = copy.deepcopy(base_config or {})
         self.overlay = self._read_overlay()
         self.config = self._normalized_merged()
@@ -72,6 +74,7 @@ class RuntimeConfigManager:
             self._write_overlay(overlay)
             self.overlay = overlay
             self.config = self._normalized_merged()
+            self._revision += 1
 
     def snapshot(self) -> Dict[str, Any]:
         return self._config_view(self.config)
@@ -114,10 +117,13 @@ class RuntimeConfigManager:
                         os.fsync(f.fileno())
             self.overlay = {}
             self.config = self._normalized_merged()
+            self._revision += 1
             return {"backup_path": backup_path, "config": self.config}
 
     def _config_view(self, cfg: Dict[str, Any], *, has_overlay: Optional[bool] = None) -> Dict[str, Any]:
         return {
+            "revision": self._revision,
+            "revision_epoch_ms": self._revision_epoch_ms,
             "overlay_path": self.overlay_path,
             "has_overlay": bool(self.overlay) if has_overlay is None else bool(has_overlay),
             "server": self._server_view(cfg.get("server") or {}),
@@ -439,16 +445,22 @@ class RuntimeConfigManager:
             if not isinstance(models, dict):
                 models = {}
                 overlay["models"] = models
-            disabled_map = copy.deepcopy((self.config.get("models") or {}).get("provider_model_disabled") or {})
+            disabled_map = copy.deepcopy(models.get("provider_model_disabled") or {})
             if not isinstance(disabled_map, dict):
                 disabled_map = {}
             provider_map = copy.deepcopy(disabled_map.get(provider) or {})
             if not isinstance(provider_map, dict):
                 provider_map = {}
+            base_disabled = (self.base_config.get("models") or {}).get("provider_model_disabled") or {}
+            base_provider_map = base_disabled.get(provider) if isinstance(base_disabled, dict) else {}
+            base_provider_map = base_provider_map if isinstance(base_provider_map, dict) else {}
             if disabled:
                 provider_map[model_id] = True
             else:
-                provider_map.pop(model_id, None)
+                if model_id in base_provider_map:
+                    provider_map[model_id] = None
+                else:
+                    provider_map.pop(model_id, None)
             if provider_map:
                 disabled_map[provider] = provider_map
             else:
@@ -465,18 +477,24 @@ class RuntimeConfigManager:
             if not isinstance(models, dict):
                 models = {}
                 overlay["models"] = models
-            disabled_map = copy.deepcopy((self.config.get("models") or {}).get("provider_model_disabled") or {})
+            disabled_map = copy.deepcopy(models.get("provider_model_disabled") or {})
             if not isinstance(disabled_map, dict):
                 disabled_map = {}
             provider_map = copy.deepcopy(disabled_map.get(provider) or {})
             if not isinstance(provider_map, dict):
                 provider_map = {}
+            base_disabled = (self.base_config.get("models") or {}).get("provider_model_disabled") or {}
+            base_provider_map = base_disabled.get(provider) if isinstance(base_disabled, dict) else {}
+            base_provider_map = base_provider_map if isinstance(base_provider_map, dict) else {}
             for model, disabled in model_states.items():
                 model_id = self._validate_model_id(model)
                 if disabled:
                     provider_map[model_id] = True
                 else:
-                    provider_map.pop(model_id, None)
+                    if model_id in base_provider_map:
+                        provider_map[model_id] = None
+                    else:
+                        provider_map.pop(model_id, None)
             if provider_map:
                 disabled_map[provider] = provider_map
             else:
@@ -580,14 +598,22 @@ class RuntimeConfigManager:
 
         with self._locked_overlay() as overlay:
             models = overlay.setdefault("models", {})
-            variants_map = copy.deepcopy(
-                (self.config.get("models") or {}).get("provider_model_variants") or {}
-            )
+            variants_map = copy.deepcopy(models.get("provider_model_variants") or {})
+            if not isinstance(variants_map, dict):
+                variants_map = {}
             provider_map = copy.deepcopy(variants_map.get(provider) or {})
+            if not isinstance(provider_map, dict):
+                provider_map = {}
+            base_variants = (self.base_config.get("models") or {}).get("provider_model_variants") or {}
+            base_provider_map = base_variants.get(provider) if isinstance(base_variants, dict) else {}
+            base_provider_map = base_provider_map if isinstance(base_provider_map, dict) else {}
             if clean_variants:
                 provider_map[canonical_model] = clean_variants
             else:
-                provider_map.pop(canonical_model, None)
+                if canonical_model in base_provider_map:
+                    provider_map[canonical_model] = None
+                else:
+                    provider_map.pop(canonical_model, None)
             if provider_map:
                 variants_map[provider] = provider_map
             else:
@@ -639,6 +665,7 @@ class RuntimeConfigManager:
             self.base_config = copy.deepcopy(base_config or {})
             self.overlay = self._read_overlay()
             self.config = self._normalized_merged()
+            self._revision += 1
             return self.config
 
     def _overlay_provider_base(self, provider: str) -> Dict[str, Any]:
@@ -1055,8 +1082,13 @@ class RuntimeConfigManager:
                 if isinstance(entries, dict):
                     for provider in [name for name, value in entries.items() if value is None]:
                         entries.pop(provider, None)
-                    # Also remove individual None tombstones inside each provider's map
-                    if field == "provider_model_map":
+                    # Remove individual tombstones after they have masked the
+                    # corresponding base-config entry during the deep merge.
+                    if field in (
+                        "provider_model_map",
+                        "provider_model_disabled",
+                        "provider_model_variants",
+                    ):
                         for prov_name, prov_map in entries.items():
                             if isinstance(prov_map, dict):
                                 for key in [k for k, v in prov_map.items() if v is None]:
@@ -1074,6 +1106,7 @@ class RuntimeConfigManager:
             self._write_overlay(overlay)
             self.overlay = overlay
             self.config = self._normalized_merged()
+            self._revision += 1
             return self.config
 
     def compact_overlay(self) -> Dict[str, Any]:
@@ -1124,6 +1157,24 @@ class RuntimeConfigManager:
                         entries.pop(provider, None)
                 for provider in [name for name, value in entries.items() if value is None and name not in base_entries]:
                     entries.pop(provider, None)
+                if field in (
+                    "provider_model_map",
+                    "provider_model_disabled",
+                    "provider_model_variants",
+                ):
+                    for provider, provider_map in list(entries.items()):
+                        if not isinstance(provider_map, dict):
+                            continue
+                        base_provider_map = base_entries.get(provider) if isinstance(base_entries, dict) else {}
+                        base_provider_map = base_provider_map if isinstance(base_provider_map, dict) else {}
+                        for key in [
+                            name
+                            for name, value in provider_map.items()
+                            if value is None and name not in base_provider_map
+                        ]:
+                            provider_map.pop(key, None)
+                        if not provider_map and provider not in base_entries:
+                            entries.pop(provider, None)
                 if not entries:
                     models.pop(field, None)
 

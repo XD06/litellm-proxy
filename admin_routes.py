@@ -1042,7 +1042,6 @@ class AdminRoutesMixin:
                     model=model,
                     variants=variants,
                 )
-                model_registry.clear_cache()
                 _apply_runtime_config(CONFIG_MANAGER.config)
                 self._audit_admin_event(
                     "provider_model_variants_updated",
@@ -1063,7 +1062,6 @@ class AdminRoutesMixin:
                 provider = parts[1]
                 models = (body or {}).get("models") or {}
                 CONFIG_MANAGER.update_provider_models_disabled(provider, models)
-                model_registry.clear_cache()
                 _apply_runtime_config(CONFIG_MANAGER.config)
                 self._audit_admin_event("provider_models_disabled_updated", target=f"{provider}/models", detail={"models": models})
                 return self._resp_json({"action": "provider_models_disabled_updated", "provider": provider, "config": CONFIG_MANAGER.snapshot()})
@@ -1073,7 +1071,6 @@ class AdminRoutesMixin:
                 model = parts[3]
                 disabled = bool((body or {}).get("disabled"))
                 CONFIG_MANAGER.update_provider_model_disabled(provider, model, disabled)
-                model_registry.clear_cache()
                 _apply_runtime_config(CONFIG_MANAGER.config)
                 self._audit_admin_event(
                     "provider_model_disabled_updated",
@@ -1101,8 +1098,6 @@ class AdminRoutesMixin:
                     raw_model=raw_model,
                     old_model=old_model,
                 )
-                model_registry.clear_cache()
-                model_registry.rebuild_models_union_snapshot(CONFIG_MANAGER.config, ROUTER)
                 _apply_runtime_config(CONFIG_MANAGER.config)
                 self._audit_admin_event(
                     "provider_model_mapping_updated",
@@ -1153,9 +1148,14 @@ class AdminRoutesMixin:
 
             if len(parts) == 2 and parts[0] == "providers":
                 provider = parts[1]
+                before_discovery = sse._provider_model_refresh_signature(CONFIG, provider)
                 CONFIG_MANAGER.update_provider(provider, body or {})
                 _apply_runtime_config(CONFIG_MANAGER.config)
-                _refresh_models_after_config_change(provider, force=True)
+                after_discovery = sse._provider_model_refresh_signature(sse.CONFIG, provider)
+                _refresh_models_after_config_change(
+                    provider,
+                    force=before_discovery != after_discovery,
+                )
                 self._audit_admin_event("provider_updated", target=provider, detail=body or {})
                 return self._resp_json({"action": "provider_updated", "provider": provider, "config": CONFIG_MANAGER.snapshot()})
 
@@ -1165,9 +1165,14 @@ class AdminRoutesMixin:
                     key_index = int(parts[3])
                 except Exception:
                     return self._resp_json({"error": {"message": f"invalid key index: {parts[3]}"}}, 400)
+                before_discovery = sse._provider_model_refresh_signature(CONFIG, provider)
                 CONFIG_MANAGER.update_key(provider, key_index, body or {})
                 _apply_runtime_config(CONFIG_MANAGER.config)
-                _refresh_models_after_config_change(provider, force=True)
+                after_discovery = sse._provider_model_refresh_signature(sse.CONFIG, provider)
+                _refresh_models_after_config_change(
+                    provider,
+                    force=before_discovery != after_discovery,
+                )
                 self._audit_admin_event("key_updated", target=f"{provider}/keys/{key_index}", detail=body or {})
                 return self._resp_json(
                     {

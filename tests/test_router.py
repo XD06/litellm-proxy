@@ -246,6 +246,105 @@ class RouterTests(unittest.TestCase):
             ["grok-4.3-high", "grok-4.3-console", "grok-4.3-low"],
         )
 
+    def test_provider_model_variants_remain_routable_with_strict_discovery(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha"]
+        cfg["routing"]["provider_select"] = "priority_failover"
+        cfg["providers"]["beta"]["enabled"] = False
+        cfg["models"]["provider_model_capabilities"] = {
+            "alpha": {
+                "status": "ok",
+                "models": ["grok-4.3-high", "grok-4.3-low"],
+                "canonical_map": {
+                    "grok-4.3-high": "grok-4.3-high",
+                    "grok-4.3-low": "grok-4.3-low",
+                },
+            }
+        }
+        cfg["models"]["provider_model_variants"] = {
+            "alpha": {
+                "grok-4.3": [
+                    {"model": "grok-4.3-low", "priority": 10},
+                    {"model": "grok-4.3-high", "priority": 100},
+                ]
+            }
+        }
+
+        attempts = list(UpstreamRouter(cfg).iter_attempts("grok-4.3", False, "req-strict-variants"))
+
+        self.assertEqual(
+            [attempt.provider_model for attempt in attempts],
+            ["grok-4.3-high", "grok-4.3-low"],
+        )
+
+    def test_static_model_remains_routable_with_strict_key_discovery(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha"]
+        cfg["providers"]["alpha"]["static_models"] = ["manual-static-model"]
+        cfg["providers"]["beta"]["enabled"] = False
+        cfg["models"]["provider_model_capabilities"] = {
+            "alpha": {
+                "status": "ok",
+                "models": ["discovered-model"],
+                "canonical_map": {"discovered-model": "discovered-model"},
+            }
+        }
+        cfg["models"]["provider_key_model_capabilities"] = {
+            "alpha": {
+                key_fingerprint("alpha-key"): {
+                    "status": "ok",
+                    "models": ["discovered-model"],
+                    "canonical_map": {"discovered-model": "discovered-model"},
+                }
+            }
+        }
+
+        attempts = list(
+            UpstreamRouter(cfg).iter_attempts("manual-static-model", False, "req-static-model")
+        )
+
+        self.assertEqual(len(attempts), 1)
+        self.assertEqual(attempts[0].provider_model, "manual-static-model")
+
+    def test_static_model_overrides_key_model_filter_and_preserves_key_proxy(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha"]
+        cfg["providers"]["alpha"]["static_models"] = ["grok-4.2"]
+        cfg["providers"]["alpha"]["keys"] = [
+            {
+                "key": "alpha-key",
+                "proxy": "http://127.0.0.1:9000",
+                "models": {"other-model": "other-model"},
+            }
+        ]
+        cfg["providers"]["beta"]["enabled"] = False
+
+        attempts = list(
+            UpstreamRouter(cfg).iter_attempts("grok-4.2", False, "req-static-key-filter")
+        )
+
+        self.assertEqual(len(attempts), 1)
+        self.assertEqual(attempts[0].provider, "alpha")
+        self.assertEqual(attempts[0].key_index, 0)
+        self.assertEqual(attempts[0].provider_model, "grok-4.2")
+        self.assertEqual(attempts[0].proxy_url, "http://127.0.0.1:9000")
+
+    def test_static_model_provider_is_considered_with_explicit_route(self):
+        cfg = base_config()
+        cfg["providers"]["alpha"]["static_models"] = ["grok-4.2"]
+        cfg["models"]["routes"] = {
+            "grok-4.2": {
+                "providers": [{"name": "beta", "priority": 1}],
+                "provider_select": "priority_failover",
+            }
+        }
+
+        attempts = list(
+            UpstreamRouter(cfg).iter_attempts("grok-4.2", False, "req-static-explicit-route")
+        )
+
+        self.assertIn("alpha", [attempt.provider for attempt in attempts])
+
     def test_model_variant_priority_precedes_key_order(self):
         cfg = base_config()
         cfg["routing"]["provider_select"] = "priority_failover"

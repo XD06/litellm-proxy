@@ -34,7 +34,7 @@ from parameter_compatibility import (
     request_compatibility_profile,
     upstream_format_eligibility,
 )
-from proxy_utils import key_fingerprint, key_value, mask_proxy_url
+from proxy_utils import key_fingerprint, key_proxy, key_value, mask_proxy_url
 from request_routes import classify_get, classify_post
 from router import UpstreamRouter, parse_retry_after_seconds
 from routing_trace import RoutingTrace
@@ -1769,7 +1769,7 @@ def _refresh_model_mapping_globals() -> None:
     MODEL_MAP = (CONFIG.get("models") or {}).get("client_model_map") or {}
 
 
-def _apply_runtime_config(new_config: dict) -> None:
+def _apply_runtime_config(new_config: dict, *, persist_state: bool = True) -> None:
     global CONFIG, ROUTER, UPSTREAM_CLIENT, OBSERVABILITY, AUDIT, RUNTIME
     old_router = ROUTER
     old_obs = OBSERVABILITY
@@ -1811,10 +1811,10 @@ def _apply_runtime_config(new_config: dict) -> None:
             if retained:
                 key_caps[prov] = retained
     model_registry.clear_cache()
-    model_registry.rebuild_models_union_snapshot(new_config)
     new_router = UpstreamRouter(new_config)
     if old_router is not None:
         new_router.migrate_state_from(old_router)
+    model_registry.rebuild_models_union_snapshot(new_config, new_router)
     new_upstream_client = OpenAIUpstreamClient(new_config)
     new_observability = ProxyObservability(new_config)
     if old_obs is not None:
@@ -1839,7 +1839,8 @@ def _apply_runtime_config(new_config: dict) -> None:
     # queue's per-provider TTL/retry cadence prevents a reload storm.
     if MODEL_DISCOVERY_QUEUE is not None:
         MODEL_DISCOVERY_QUEUE.enqueue_all(force=False)
-    _save_router_state()
+    if persist_state:
+        _save_router_state()
 
     # Deferred cleanup of the old upstream client. We must NOT close it
     # synchronously because in-flight requests may still be using the old
@@ -1982,7 +1983,13 @@ def _provider_model_refresh_signature(config: dict, provider: str) -> str:
     payload = {
         "base_url": pcfg.get("base_url") or "",
         "models_path": pcfg.get("models_path") or "/v1/models",
-        "keys": [key_value(entry) for entry in (pcfg.get("keys") or [])],
+        "keys": [
+            {
+                "value": key_value(entry),
+                "proxy": key_proxy(entry),
+            }
+            for entry in (pcfg.get("keys") or [])
+        ],
         "proxy": pcfg.get("proxy") or {},
         "headers": pcfg.get("headers") or {},
         "user_agent": pcfg.get("user_agent") or "",
@@ -2431,6 +2438,13 @@ def _refresh_models_after_config_change(provider: Optional[str] = None, *, force
     Client /v1/models is served from saved capabilities/config; discovery I/O is
     limited to startup, manual refresh, and provider-level changes.
     """
+    if not force:
+        # The caller already published the new config through
+        # _apply_runtime_config(), which clears derived caches and rebuilds the
+        # local union snapshot. No upstream discovery or second rebuild is
+        # needed for routing-only/static metadata changes.
+        return
+
     models_source = str((CONFIG.get("models") or {}).get("models_source", "first_healthy_provider"))
     if models_source not in ("union", "first_healthy_provider"):
         model_registry.clear_cache(provider)
@@ -2449,11 +2463,6 @@ def _refresh_models_after_config_change(provider: Optional[str] = None, *, force
 
     pcfg = ((CONFIG.get("providers") or {}).get(provider) or {})
     if not pcfg.get("enabled", True):
-        model_registry.clear_cache(provider)
-        model_registry.rebuild_models_union_snapshot(CONFIG, ROUTER)
-        return
-
-    if not force:
         model_registry.clear_cache(provider)
         model_registry.rebuild_models_union_snapshot(CONFIG, ROUTER)
         return
@@ -2736,7 +2745,18 @@ def _discovery_status() -> dict:
     """Expose the background discovery-queue state so the dashboard can show
     which providers are queued / cooling down, and the TTL/retry cadence."""
     if MODEL_DISCOVERY_QUEUE is None:
-        return {"running": False, "queued": 0, "queued_providers": [], "cooldowns": []}
+        return {
+            "running": False,
+            "queued": 0,
+            "queued_providers": [],
+            "scheduled": 0,
+            "scheduled_providers": [],
+            "active": 0,
+            "active_providers": [],
+            "recent_results": [],
+            "cooldowns": [],
+            "worker_count": 0,
+        }
     return MODEL_DISCOVERY_QUEUE.snapshot_status()
 
 
@@ -5373,6 +5393,15 @@ class _ThreadPoolHTTPServer(ThreadingMixIn, HTTPServer):
         super().server_close()
 
 
+def _model_summary_network_prefetch_enabled(config: Optional[dict] = None) -> bool:
+    cfg = config if config is not None else CONFIG
+    try:
+        pricing = ((cfg.get("observability") or {}).get("pricing") or {})
+        return bool(pricing.get("prefetch_model_summaries", False))
+    except Exception:
+        return False
+
+
 def _prefetch_model_summaries():
     try:
         models = set()
@@ -5453,7 +5482,8 @@ def _prefetch_model_summaries():
         if not models:
             return
             
-        print(f"[proxy] Background prefetching Model Summaries for {len(models)} models...", flush=True)
+        network_prefetch = _model_summary_network_prefetch_enabled(CONFIG)
+        print(f"[proxy] Warming local Model Summary index for {len(models)} models...", flush=True)
         def do_prefetch():
             import time
             from artificial_analysis_api import aa
@@ -5470,6 +5500,14 @@ def _prefetch_model_summaries():
                 print(f"[proxy] Resolve cache warmed for {len(models)} models.", flush=True)
             except Exception:
                 pass
+            # Pricing enrichment is optional and already fetched on demand by
+            # the admin model-summary endpoint.  A startup-wide network sweep
+            # can issue hundreds of requests and previously kept doing so even
+            # after the remote site returned 403.  Keep startup local-only by
+            # default; deployments that explicitly want eager enrichment can
+            # opt in through observability.pricing.prefetch_model_summaries.
+            if not network_prefetch:
+                return
             # Wait a few seconds for the proxy to start serving, then start fetching
             time.sleep(5)
             # Optional proxy for fetching from artificialanalysis.ai (faster
@@ -5490,7 +5528,7 @@ def _prefetch_model_summaries():
                         time.sleep(1.5)
                 except Exception as e:
                     print(f"[proxy] Failed to prefetch summary for {m}: {e}", flush=True)
-            print("[proxy] Background prefetching of Model Summaries complete.", flush=True)
+            print("[proxy] Background network prefetch of Model Summaries complete.", flush=True)
             
         import threading
         t = threading.Thread(target=do_prefetch, daemon=True)
@@ -5543,10 +5581,11 @@ def main():
     # This is necessary because the module-level CONFIG / ROUTER / etc. were
     # created during import, before CLI args were parsed.
     CONFIG_MANAGER.reload(load_base_config(apply_env=False))
-    _apply_runtime_config(CONFIG_MANAGER.config)
+    _apply_runtime_config(CONFIG_MANAGER.config, persist_state=False)
 
     # Restore runtime state before model prefetch.
     _load_router_state()
+    model_registry.rebuild_models_union_snapshot(CONFIG, ROUTER)
     _prefetch_model_summaries()
     # Start autosave before serving requests.
     _start_state_autosave()

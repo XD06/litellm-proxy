@@ -651,7 +651,18 @@ class AdminApiTests(unittest.TestCase):
         cfg = {
             "server": {"admin_key": "admin-secret"},
             "routing": {"default_provider_pool": ["alpha"], "provider_select": "priority_failover"},
-            "models": {},
+            "models": {
+                "provider_model_capabilities": {
+                    "alpha": {
+                        "status": "ok",
+                        "models": ["grok-4.3-low", "grok-4.3-high"],
+                        "canonical_map": {
+                            "grok-4.3-low": "grok-4.3-low",
+                            "grok-4.3-high": "grok-4.3-high",
+                        },
+                    }
+                }
+            },
             "providers": {"alpha": {"base_url": "https://alpha.example", "keys": ["raw-alpha-key"], "enabled": True}},
         }
         manager = config_manager.RuntimeConfigManager(cfg, overlay_path=self.temp_overlay_path())
@@ -668,13 +679,84 @@ class AdminApiTests(unittest.TestCase):
                 },
                 headers=headers,
             )
+            attempts = list(
+                sse2json.ROUTER.iter_attempts("grok-4.3", False, "req-admin-variants")
+            )
+            delete_status, _delete_body = self.patch_json(
+                "/-/admin/providers/alpha/models/grok-4.3/variants",
+                {"variants": []},
+                headers=headers,
+            )
+            attempts_after_delete = list(
+                sse2json.ROUTER.iter_attempts("grok-4.3", False, "req-admin-variants-deleted")
+            )
 
         self.assertEqual(status, 200)
         self.assertEqual(body["action"], "provider_model_variants_updated")
         self.assertEqual(
-            manager.config["models"]["provider_model_variants"]["alpha"]["grok-4.3"][0]["model"],
-            "grok-4.3-high",
+            [attempt.provider_model for attempt in attempts],
+            ["grok-4.3-high", "grok-4.3-low"],
         )
+        self.assertEqual(delete_status, 200)
+        self.assertNotIn(
+            "grok-4.3",
+            (manager.config["models"].get("provider_model_variants") or {}).get("alpha", {}),
+        )
+        self.assertEqual(attempts_after_delete, [])
+
+    def test_admin_static_model_update_is_immediately_advertised_and_routable(self):
+        cfg = {
+            "server": {"admin_key": "admin-secret"},
+            "routing": {"default_provider_pool": ["alpha"], "provider_select": "priority_failover"},
+            "models": {
+                "models_source": "union",
+                "provider_model_capabilities": {
+                    "alpha": {
+                        "status": "ok",
+                        "models": ["discovered-model"],
+                        "canonical_map": {"discovered-model": "discovered-model"},
+                    }
+                },
+            },
+            "providers": {
+                "alpha": {
+                    "base_url": "https://alpha.example",
+                    "keys": [
+                        {
+                            "key": "raw-alpha-key",
+                            "proxy": "http://127.0.0.1:9000",
+                            "models": {"other-model": "other-model"},
+                        }
+                    ],
+                    "enabled": True,
+                }
+            },
+        }
+        manager = config_manager.RuntimeConfigManager(cfg, overlay_path=self.temp_overlay_path())
+        headers = {"Content-Type": "application/json", "X-Admin-Key": "admin-secret"}
+
+        with self.runtime_config(manager):
+            status, _body = self.patch_json(
+                "/-/admin/providers/alpha",
+                {"static_models": ["manual-static-model"]},
+                headers=headers,
+            )
+            models_status, models_body = self.get_json("/v1/models")
+            attempts = list(
+                sse2json.ROUTER.iter_attempts(
+                    "manual-static-model",
+                    False,
+                    "req-admin-static-model",
+                )
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(models_status, 200)
+        self.assertIn("manual-static-model", [item["id"] for item in models_body["data"]])
+        self.assertEqual(len(attempts), 1)
+        self.assertEqual(attempts[0].provider, "alpha")
+        self.assertEqual(attempts[0].provider_model, "manual-static-model")
+        self.assertEqual(attempts[0].proxy_url, "http://127.0.0.1:9000")
 
     def test_hot_priority_response_returns_authoritative_router_snapshot(self):
         cfg = {
@@ -1310,6 +1392,70 @@ class AdminApiTests(unittest.TestCase):
         self.assertEqual(body["action"], "format_updated")
         self.assertEqual(refresh_calls, [("beta", False)])
         self.assertEqual(manager.config["providers"]["beta"]["formats"]["chat_completions"]["path"], "/v1/chat")
+
+    def test_admin_provider_non_discovery_patch_does_not_force_model_discovery(self):
+        cfg = {
+            "server": {"admin_key": "admin-secret"},
+            "models": {"models_source": "union", "provider_model_capabilities": {}},
+            "providers": {
+                "beta": {
+                    "base_url": "https://beta.example",
+                    "keys": ["beta-secret-key"],
+                    "skip_idle_probe": False,
+                }
+            },
+        }
+        manager = config_manager.RuntimeConfigManager(cfg, overlay_path=self.temp_overlay_path())
+        headers = {"Content-Type": "application/json", "X-Admin-Key": "admin-secret"}
+        refresh_calls = []
+
+        def fake_refresh(provider=None, *, force=False):
+            refresh_calls.append((provider, force))
+
+        with self.runtime_config(manager), patch.object(sse2json, "_refresh_models_after_config_change", fake_refresh):
+            status, body = self.patch_json(
+                "/-/admin/providers/beta",
+                {"skip_idle_probe": True, "static_models": ["manual-model"]},
+                headers=headers,
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(body["action"], "provider_updated")
+        self.assertEqual(refresh_calls, [("beta", False)])
+
+    def test_admin_key_model_map_patch_does_not_force_discovery_but_proxy_does(self):
+        cfg = {
+            "server": {"admin_key": "admin-secret"},
+            "models": {"models_source": "union", "provider_model_capabilities": {}},
+            "providers": {
+                "beta": {
+                    "base_url": "https://beta.example",
+                    "keys": ["beta-secret-key"],
+                }
+            },
+        }
+        manager = config_manager.RuntimeConfigManager(cfg, overlay_path=self.temp_overlay_path())
+        headers = {"Content-Type": "application/json", "X-Admin-Key": "admin-secret"}
+        refresh_calls = []
+
+        def fake_refresh(provider=None, *, force=False):
+            refresh_calls.append((provider, force))
+
+        with self.runtime_config(manager), patch.object(sse2json, "_refresh_models_after_config_change", fake_refresh):
+            models_status, _ = self.patch_json(
+                "/-/admin/providers/beta/keys/0",
+                {"models": {"client-model": "raw-model"}},
+                headers=headers,
+            )
+            proxy_status, _ = self.patch_json(
+                "/-/admin/providers/beta/keys/0",
+                {"proxy": "http://127.0.0.1:9000", "models": {"client-model": "raw-model"}},
+                headers=headers,
+            )
+
+        self.assertEqual(models_status, 200)
+        self.assertEqual(proxy_status, 200)
+        self.assertEqual(refresh_calls, [("beta", False), ("beta", True)])
 
     def test_admin_delete_key_accepts_sparse_display_index(self):
         cfg = {

@@ -48,6 +48,21 @@ assert.match(
 );
 assert.match(
   source,
+  /const cacheKey = `\$\{name\}\\n\$\{version\}\\n\$\{modelsVersion\}`/,
+  'model capability memoization must invalidate on capability-only refreshes',
+);
+assert.match(
+  source,
+  /if \(root && !\(active\.closest && active\.closest\(root\)\)\) return false/,
+  'focused inputs must only protect the container they belong to',
+);
+assert.match(
+  source,
+  /data-refresh-safe-control/,
+  'read-only model search and filter controls must allow background capability rendering',
+);
+assert.match(
+  source,
   /\["routerSnapshot", apiGet\("\/-\/admin\/router\/snapshot"\)\]/,
   'runtime core must poll the lightweight router snapshot',
 );

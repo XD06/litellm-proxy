@@ -520,6 +520,32 @@ class ModelRegistryTests(unittest.TestCase):
 
         self.assertEqual([m["id"] for m in result["data"]], ["manual-alpha", "mapped-beta", "routed-model"])
 
+    def test_models_from_capabilities_includes_provider_variant_aliases(self):
+        cfg = registry_config("union")
+        cfg["models"]["provider_model_capabilities"] = {
+            "alpha": {
+                "status": "ok",
+                "fetched_at": 123,
+                "models": ["grok-4.3-high", "grok-4.3-low"],
+                "canonical_map": {
+                    "grok-4.3-high": "grok-4.3-high",
+                    "grok-4.3-low": "grok-4.3-low",
+                },
+            }
+        }
+        cfg["models"]["provider_model_variants"] = {
+            "alpha": {
+                "grok-4.3": [
+                    {"model": "grok-4.3-high", "priority": 100},
+                    {"model": "grok-4.3-low", "priority": 10},
+                ]
+            }
+        }
+
+        result = model_registry.models_from_capabilities(cfg, FakeRouter())
+
+        self.assertIn("grok-4.3", [m["id"] for m in result["data"]])
+
     def test_models_fetch_uses_key_proxy_before_provider_and_global_proxy(self):
         cfg = registry_config("union")
         cfg["proxy"] = "http://127.0.0.1:7000"

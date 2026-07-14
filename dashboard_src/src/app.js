@@ -11,6 +11,13 @@ import { ConfigRefreshCoordinator, InFlightActionRegistry } from "./operation-gu
 import { groupRoutingTrace, routingTraceIdentity, routingTraceTone, summarizeFormatTraceStep } from "./routing-trace-view.mjs";
 import { shouldAcceptModelCapabilitySnapshot } from "./model-capability-order.mjs";
 import { keyModelsPatchValue } from "./key-models.mjs";
+import {
+  clearLiveFormField,
+  mergeStaticModelIds,
+  normalizeStaticModelIds,
+  normalizeVariantEntries,
+  resetLiveForm,
+} from "./provider-model-config.mjs";
 
 
   const el = (id) => document.getElementById(id);
@@ -564,6 +571,8 @@ import { keyModelsPatchValue } from "./key-models.mjs";
     // does NOT count, allowing data updates to render normally.
     const active = document.activeElement;
     if (!active) return false;
+    if (root && !(active.closest && active.closest(root))) return false;
+    if (active.matches?.("[data-refresh-safe-control]")) return false;
     const tag = (active.tagName || "").toLowerCase();
     if (tag === "input" || tag === "textarea" || tag === "select") return true;
     // contentEditable elements also count as in-progress input.
@@ -596,6 +605,7 @@ import { keyModelsPatchValue } from "./key-models.mjs";
     // Skip search/filter/checkbox inputs — they control local view state,
     // not server-side configuration.
     if (target.type === "search" || target.type === "button" || target.type === "submit") return;
+    if (target.matches?.("[data-refresh-safe-control]")) return;
     for (const sel of _trackedFormSelectors) {
       if (target.closest(sel)) {
         _dirtyContainers.add(sel);
@@ -1233,9 +1243,8 @@ import { keyModelsPatchValue } from "./key-models.mjs";
             anthropic_messages: { enabled: format === "anthropic_messages", path: "/v1/messages" },
           };
         }
-        await runConfigMutation(form, async () => {
+        const saved = await runConfigMutation(form, async () => {
           const result = await apiPost("/-/admin/providers", payload);
-          closeFormModal();
           setNotice(t("notice.provider_added", { name: payload.name }), "ok");
           return result;
         }, {
@@ -1243,6 +1252,7 @@ import { keyModelsPatchValue } from "./key-models.mjs";
           apply: (config) => appendPendingProvider(config, payload),
           drawer: false,
         });
+        if (saved) closeFormModal();
       });
     }
     const cancel = document.getElementById("addProviderModalCancel");
@@ -4435,21 +4445,13 @@ import { keyModelsPatchValue } from "./key-models.mjs";
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         const provider = form.dataset.provider || "";
-        const raw = String(form.elements.static_models.value || "").trim();
-        const additions = raw ? raw.split(",").map((s) => s.trim()).filter(Boolean) : [];
+        const input = form.elements.namedItem("static_models");
+        const raw = String(input?.value || "").trim();
         const existing = state.data.config?.providers?.[provider]?.static_models || [];
-        const seen = new Set();
-        const models = [];
-        [...(Array.isArray(existing) ? existing : []), ...additions].forEach((model) => {
-          const value = String(model || "").trim();
-          if (!value || seen.has(value)) return;
-          seen.add(value);
-          models.push(value);
-        });
-        await runConfigMutation(form, async () => {
+        const models = mergeStaticModelIds(existing, raw);
+        const saved = await runConfigMutation(form, async () => {
           const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { static_models: models });
           setNotice(t("notice.static_models_saved", { provider }), "ok");
-          form.elements.static_models.value = "";
           return result;
         }, {
           resourceKey: `provider:${provider}`,
@@ -4457,6 +4459,13 @@ import { keyModelsPatchValue } from "./key-models.mjs";
             if (config.providers?.[provider]) config.providers[provider].static_models = [...models];
           },
         });
+        if (saved) {
+          clearLiveFormField(
+            root,
+            `.config-static-models-form[data-provider="${CSS.escape(provider)}"]`,
+            "static_models",
+          );
+        }
       });
     });
     root.querySelectorAll("[data-clear-static-models]").forEach((button) => {
@@ -4488,7 +4497,7 @@ import { keyModelsPatchValue } from "./key-models.mjs";
         const provider = button.dataset.deleteStaticProvider || "";
         const model = button.dataset.deleteStaticModel || "";
         const existing = state.data.config?.providers?.[provider]?.static_models || [];
-        const models = (Array.isArray(existing) ? existing : []).filter((item) => String(item || "") !== model);
+        const models = normalizeStaticModelIds(existing).filter((item) => item !== model);
         await runOptimisticConfigAction(
           button,
           () => apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { static_models: models }),
@@ -4783,13 +4792,17 @@ import { keyModelsPatchValue } from "./key-models.mjs";
       .map((entry) => [...(entry.models || [])].map(String).sort().join("\n")));
     const keyCatalogsDiffer = keyCatalogSignatures.size > 1;
     const openKeyDiscovery = keyIssueCount > 0 || keyCatalogsDiffer;
-    const staticModels = [];
-    const seenStatic = new Set();
-    (Array.isArray(view.config.static_models) ? view.config.static_models : []).forEach((model) => {
-      const value = String(model || "").trim();
-      if (!value || seenStatic.has(value)) return;
-      seenStatic.add(value);
-      staticModels.push(value);
+    const staticModels = normalizeStaticModelIds(view.config.static_models);
+    const variantChoices = [];
+    const seenVariantChoices = new Set();
+    modelCapabilityItems(
+      Array.isArray(capability.models) ? capability.models : [],
+      capability.canonical_map || {},
+    ).forEach((item) => {
+      const rawModel = String(item.raw || item.label || "").trim();
+      if (!rawModel || seenVariantChoices.has(rawModel)) return;
+      seenVariantChoices.add(rawModel);
+      variantChoices.push({ label: String(item.label || rawModel), rawModel });
     });
     return `
       <section class="provider-drawer-section provider-models-workspace">
@@ -4826,11 +4839,12 @@ import { keyModelsPatchValue } from "./key-models.mjs";
           </div>
           <div class="provider-model-toolbar">
             <input class="control provider-model-search" type="search"
+              data-refresh-safe-control
               data-provider-model-search="${escapeHtml(view.name)}"
               placeholder="${escapeHtml(t("prov.models.search"))}"
               aria-label="${escapeHtml(t("prov.models.search"))}"
               value="${escapeHtml(modelFilters.search || "")}" />
-            <select class="control provider-model-status-filter" data-provider-model-status-filter="${escapeHtml(view.name)}" aria-label="${escapeHtml(t("prov.models.filter_status"))}">
+            <select class="control provider-model-status-filter" data-refresh-safe-control data-provider-model-status-filter="${escapeHtml(view.name)}" aria-label="${escapeHtml(t("prov.models.filter_status"))}">
               <option value="" ${!modelFilters.status ? "selected" : ""}>${escapeHtml(t("prov.models.all"))}</option>
               <option value="enabled" ${modelFilters.status === "enabled" ? "selected" : ""}>${escapeHtml(t("prov.models.enabled"))}</option>
               <option value="disabled" ${modelFilters.status === "disabled" ? "selected" : ""}>${escapeHtml(t("prov.models.disabled"))}</option>
@@ -4912,15 +4926,27 @@ import { keyModelsPatchValue } from "./key-models.mjs";
           </summary>
           <div class="provider-model-disclosure-body">
             <div class="provider-route-list">
-              ${Object.keys(configuredVariants).length ? Object.entries(configuredVariants).map(([canonical, variants]) => `
+              ${Object.keys(configuredVariants).length ? Object.entries(configuredVariants).map(([canonical, rawVariants]) => {
+                const variants = normalizeVariantEntries(rawVariants);
+                return `
                 <article class="provider-route-card provider-model-alias-card">
                   <div>
                     <strong class="mono">${escapeHtml(canonical)}</strong>
                     <small>${escapeHtml((variants || []).map((entry) => `${entry.model}:${entry.priority ?? 0}`).join(", "))}</small>
                   </div>
-                    ${badge(t("prov.models.variants", { count: fmtInt((variants || []).length) }), "info")}
+                  ${badge(t("prov.models.variants", { count: fmtInt((variants || []).length) }), "info")}
+                  <button class="button small secondary icon-action" type="button"
+                    data-provider-variant-edit="${escapeHtml(canonical)}"
+                    data-provider-variant-provider="${escapeHtml(view.name)}"
+                    title="${escapeHtml(t("prov.models.edit_alias"))}"
+                    aria-label="${escapeHtml(t("prov.models.edit_alias_for", { model: canonical }))}">${iconSvg("pencil")}</button>
+                  <button class="button small danger icon-action" type="button"
+                    data-provider-variant-delete="${escapeHtml(canonical)}"
+                    data-provider-variant-provider="${escapeHtml(view.name)}"
+                    title="${escapeHtml(t("prov.models.delete_alias"))}"
+                    aria-label="${escapeHtml(t("prov.models.delete_alias_for", { model: canonical }))}">${iconSvg("trash")}</button>
                 </article>
-              `).join("") : `<div class="empty pad-slim">${escapeHtml(t("prov.models.no_aliases"))}</div>`}
+              `; }).join("") : `<div class="empty pad-slim">${escapeHtml(t("prov.models.no_aliases"))}</div>`}
             </div>
             <details class="provider-model-inline-editor">
               <summary>${iconSvg("plus")}<span>${escapeHtml(t("prov.models.add_alias"))}</span></summary>
@@ -4929,12 +4955,39 @@ import { keyModelsPatchValue } from "./key-models.mjs";
                   <label>${escapeHtml(t("prov.models.canonical_model"))}</label>
                   <input class="control" name="canonical_model" placeholder="grok-4.3" required />
                 </div>
-                <div class="form-row">
-                  <label>${escapeHtml(t("prov.models.raw_variants"))}</label>
-                  <input class="control" name="variants" placeholder="grok-4.3-high:100, grok-4.3-low:10" />
-                  <small class="muted">${escapeHtml(t("prov.models.raw_variants_help"))}</small>
+                <div class="provider-variant-picker-shell">
+                  <div class="provider-variant-picker-head">
+                    <label>${escapeHtml(t("prov.models.choose_variants"))}</label>
+                    <input class="control" type="search" data-refresh-safe-control data-provider-variant-search
+                      placeholder="${escapeHtml(t("prov.models.search_variants"))}"
+                      aria-label="${escapeHtml(t("prov.models.search_variants"))}" />
+                  </div>
+                  <div class="provider-variant-picker" role="group" aria-label="${escapeHtml(t("prov.models.choose_variants"))}">
+                    ${variantChoices.length ? variantChoices.map((item) => `
+                      <div class="provider-variant-option" data-provider-variant-option data-search-text="${escapeHtml(`${item.label} ${item.rawModel}`.toLowerCase())}">
+                        <label>
+                          <input type="checkbox" data-provider-variant-model value="${escapeHtml(item.rawModel)}" />
+                          <span><b>${escapeHtml(item.label)}</b>${item.rawModel !== item.label ? `<small>${escapeHtml(item.rawModel)}</small>` : ""}</span>
+                        </label>
+                        <input class="control provider-variant-priority" type="number" min="-1000" max="1000" value="0"
+                          data-provider-variant-priority disabled
+                          aria-label="${escapeHtml(t("prov.models.priority_for", { model: item.rawModel }))}" />
+                      </div>
+                    `).join("") : `<div class="empty pad-slim">${escapeHtml(t("prov.models.no_discovered_variants"))}</div>`}
+                  </div>
                 </div>
-                <button class="button small" type="submit">${escapeHtml(t("prov.models.save_alias"))}</button>
+                <details class="provider-variant-custom-input">
+                  <summary>${escapeHtml(t("prov.models.custom_variants"))}</summary>
+                  <div class="form-row">
+                    <label>${escapeHtml(t("prov.models.raw_variants"))}</label>
+                    <input class="control" name="variants" placeholder="custom-model:50" />
+                    <small class="muted">${escapeHtml(t("prov.models.raw_variants_help"))}</small>
+                  </div>
+                </details>
+                <div class="form-actions">
+                  <button class="button small secondary" type="reset">${escapeHtml(t("form.reset"))}</button>
+                  <button class="button small" type="submit">${escapeHtml(t("prov.models.save_alias"))}</button>
+                </div>
               </form>
             </details>
           </div>
@@ -5156,7 +5209,8 @@ import { keyModelsPatchValue } from "./key-models.mjs";
   const _modelCapabilityItemsCache = new Map();
   function modelCapabilityItemsMemo(name, models, canonicalMap) {
     const version = Number(state.data?.version || 0);
-    const cacheKey = `${name}\n${version}`;
+    const modelsVersion = Number(state.data?.modelsVersion || 0);
+    const cacheKey = `${name}\n${version}\n${modelsVersion}`;
     const cached = _modelCapabilityItemsCache.get(cacheKey);
     if (cached) return cached;
     const items = modelCapabilityItems(models, canonicalMap);
@@ -7088,15 +7142,20 @@ import { keyModelsPatchValue } from "./key-models.mjs";
         const proxy = String(form.elements.proxy?.value || "").trim();
         const payload = { key };
         if (proxy) payload.proxy = proxy;
-        await runConfigMutation(form, async () => {
+        const saved = await runConfigMutation(form, async () => {
           const result = await apiPost(`/-/admin/providers/${encodeURIComponent(provider)}/keys`, payload);
-          form.reset();
           setNotice(t("notice.key_added", { provider }), "ok");
           return result;
         }, {
           resourceKey: `provider-key-list:${provider}`,
           apply: (config) => appendPendingKey(config, provider, payload),
         });
+        if (saved) {
+          resetLiveForm(
+            root,
+            `.config-key-form[data-provider="${CSS.escape(provider)}"]`,
+          );
+        }
       });
     });
 
@@ -7129,16 +7188,127 @@ import { keyModelsPatchValue } from "./key-models.mjs";
       });
     });
 
+    root.querySelectorAll("[data-provider-variant-edit]").forEach((button) => {
+      if (button.dataset.boundprovidervariantedit) return;
+      button.dataset.boundprovidervariantedit = "1";
+      button.addEventListener("click", () => {
+        const provider = button.dataset.providerVariantProvider || "";
+        const canonicalModel = button.dataset.providerVariantEdit || "";
+        const form = Array.from(root.querySelectorAll(".provider-variant-form"))
+          .find((candidate) => candidate.dataset.provider === provider);
+        if (!form || !canonicalModel) return;
+        const configured = normalizeVariantEntries(
+          state.data.config?.models?.provider_model_variants?.[provider]?.[canonicalModel] || [],
+        );
+        const byModel = new Map(configured.map((entry) => [entry.model, entry.priority]));
+        const knownModels = new Set();
+        form.querySelectorAll("[data-provider-variant-model]").forEach((checkbox) => {
+          const model = String(checkbox.value || "");
+          const selected = byModel.has(model);
+          knownModels.add(model);
+          checkbox.checked = selected;
+          const priority = checkbox.closest("[data-provider-variant-option]")?.querySelector("[data-provider-variant-priority]");
+          if (priority) {
+            priority.disabled = !selected;
+            priority.value = String(selected ? byModel.get(model) : 0);
+          }
+        });
+        const custom = configured
+          .filter((entry) => !knownModels.has(entry.model))
+          .map((entry) => `${entry.model}:${entry.priority ?? 0}`)
+          .join(", ");
+        const canonicalInput = form.elements.namedItem("canonical_model");
+        const variantsInput = form.elements.namedItem("variants");
+        if (!canonicalInput || !variantsInput) return;
+        canonicalInput.value = canonicalModel;
+        canonicalInput.readOnly = true;
+        variantsInput.value = custom;
+        form.dataset.editingCanonical = canonicalModel;
+        const editor = form.closest(".provider-model-inline-editor");
+        if (editor) editor.open = true;
+        form.scrollIntoView?.({ block: "nearest" });
+      });
+    });
+
+    root.querySelectorAll("[data-provider-variant-delete]").forEach((button) => {
+      if (button.dataset.boundprovidervariantdelete) return;
+      button.dataset.boundprovidervariantdelete = "1";
+      button.addEventListener("click", async () => {
+        const provider = button.dataset.providerVariantProvider || "";
+        const canonicalModel = button.dataset.providerVariantDelete || "";
+        if (!provider || !canonicalModel) return;
+        const confirmed = await openConfirmDialog({
+          title: t("confirm.delete_alias.title"),
+          message: t("confirm.delete_alias.msg", { model: canonicalModel, provider }),
+          acceptLabel: t("confirm.delete"),
+        });
+        if (!confirmed) return;
+        await runOptimisticConfigAction(
+          button,
+          () => apiPatch(
+            `/-/admin/providers/${encodeURIComponent(provider)}/models/${encodeURIComponent(canonicalModel)}/variants`,
+            { variants: [] },
+          ),
+          {
+            resourceKey: `model-variants:${provider}:${canonicalModel}`,
+            apply: (config) => {
+              const providerVariants = config.models?.provider_model_variants?.[provider];
+              if (!providerVariants) return;
+              delete providerVariants[canonicalModel];
+              if (!Object.keys(providerVariants).length) delete config.models.provider_model_variants[provider];
+            },
+          },
+          {
+            locateRoot: () => root.querySelector(
+              `[data-provider-variant-delete="${CSS.escape(canonicalModel)}"][data-provider-variant-provider="${CSS.escape(provider)}"]`,
+            ),
+            onSuccess: () => setNotice(t("notice.model_alias_deleted", { model: canonicalModel, provider }), "ok"),
+            onError: (err) => setNotice(t("notice.failed", { error: err.message }), "bad"),
+          },
+        );
+      });
+    });
+
     root.querySelectorAll(".provider-variant-form").forEach((form) => {
       if (form.dataset.boundprovidervariantform) return;
       form.dataset.boundprovidervariantform = "1";
+      const search = form.querySelector("[data-provider-variant-search]");
+      search?.addEventListener("input", () => {
+        const query = String(search.value || "").trim().toLowerCase();
+        form.querySelectorAll("[data-provider-variant-option]").forEach((option) => {
+          option.hidden = Boolean(query && !String(option.dataset.searchText || "").includes(query));
+        });
+      });
+      form.querySelectorAll("[data-provider-variant-model]").forEach((checkbox) => {
+        checkbox.addEventListener("change", () => {
+          const priority = checkbox.closest("[data-provider-variant-option]")?.querySelector("[data-provider-variant-priority]");
+          if (priority) priority.disabled = !checkbox.checked;
+        });
+      });
+      form.addEventListener("reset", () => {
+        window.setTimeout(() => {
+          form.elements.canonical_model.readOnly = false;
+          delete form.dataset.editingCanonical;
+          form.querySelectorAll("[data-provider-variant-option]").forEach((option) => { option.hidden = false; });
+          form.querySelectorAll("[data-provider-variant-priority]").forEach((priority) => { priority.disabled = true; });
+        }, 0);
+      });
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         const provider = form.dataset.provider || "";
         const canonicalModel = String(form.elements.canonical_model?.value || "").trim();
-        const variants = parseModelVariants(form.elements.variants?.value || "");
+        const variantsByModel = new Map();
+        form.querySelectorAll("[data-provider-variant-model]:checked").forEach((checkbox) => {
+          const model = String(checkbox.value || "").trim();
+          const priority = Number(checkbox.closest("[data-provider-variant-option]")?.querySelector("[data-provider-variant-priority]")?.value || 0);
+          if (model) variantsByModel.set(model, { model, priority: Number.isFinite(priority) ? priority : 0 });
+        });
+        parseModelVariants(form.elements.variants?.value || "").forEach((entry) => {
+          if (!variantsByModel.has(entry.model)) variantsByModel.set(entry.model, entry);
+        });
+        const variants = Array.from(variantsByModel.values());
         if (!provider || !canonicalModel) return;
-        await runConfigMutation(form, async () => {
+        const saved = await runConfigMutation(form, async () => {
           const result = await apiPatch(
             `/-/admin/providers/${encodeURIComponent(provider)}/models/${encodeURIComponent(canonicalModel)}/variants`,
             { variants },
@@ -7155,6 +7325,11 @@ import { keyModelsPatchValue } from "./key-models.mjs";
             else delete variantsByModel[canonicalModel];
           },
         });
+        if (saved) {
+          const liveForm = Array.from(root.querySelectorAll(".provider-variant-form"))
+            .find((candidate) => candidate.dataset.provider === provider);
+          liveForm?.reset();
+        }
       });
     });
 
@@ -8448,9 +8623,8 @@ import { keyModelsPatchValue } from "./key-models.mjs";
           anthropic_messages: { enabled: format === "anthropic_messages", path: "/v1/messages" },
         };
       }
-      await runConfigMutation(formEl, async () => {
+      const saved = await runConfigMutation(formEl, async () => {
         const result = await apiPost("/-/admin/providers", payload);
-        if (formEl && typeof formEl.reset === "function") formEl.reset();
         setNotice(t("notice.provider_added", { name: payload.name }), "ok");
         return result;
       }, {
@@ -8458,6 +8632,7 @@ import { keyModelsPatchValue } from "./key-models.mjs";
         apply: (config) => appendPendingProvider(config, payload),
         drawer: false,
       });
+      if (saved) el("addProviderForm")?.reset();
     });
 
     el("modelRouteForm").addEventListener("submit", async (event) => {

@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 import time
@@ -66,6 +67,66 @@ class RouterStateMigrationTests(unittest.TestCase):
         new = UpstreamRouter(_cfg(self.providers))
         new.migrate_state_from(None)
         self.assertIn("alpha", new._providers_state)
+
+    def test_startup_apply_can_preserve_state_file_until_restore(self):
+        state_path = tempfile.mktemp(suffix=".json")
+        persisted = {
+            "saved_at": time.time(),
+            "router": {},
+            "model_capabilities": {
+                "alpha": {
+                    "status": "ok",
+                    "fetched_at": 123,
+                    "models": ["cached-model"],
+                    "canonical_map": {"cached-model": "cached-model"},
+                    "formats": ["chat_completions"],
+                }
+            },
+        }
+        with open(state_path, "w", encoding="utf-8") as handle:
+            json.dump(persisted, handle)
+
+        config = {
+            "server": {},
+            "routing": {"default_provider_pool": ["alpha"]},
+            "models": {},
+            "providers": {
+                "alpha": {
+                    "base_url": "https://alpha.test",
+                    "keys": ["alpha-key"],
+                    "enabled": True,
+                }
+            },
+        }
+        originals = {
+            "CONFIG": sse2json.CONFIG,
+            "ROUTER": sse2json.ROUTER,
+            "UPSTREAM_CLIENT": sse2json.UPSTREAM_CLIENT,
+            "OBSERVABILITY": sse2json.OBSERVABILITY,
+            "AUDIT": sse2json.AUDIT,
+            "RUNTIME": sse2json.RUNTIME,
+            "MODEL_DISCOVERY_QUEUE": sse2json.MODEL_DISCOVERY_QUEUE,
+            "_ROUTER_STATE_FILE": sse2json._ROUTER_STATE_FILE,
+        }
+        try:
+            sse2json.CONFIG = {}
+            sse2json.MODEL_DISCOVERY_QUEUE = None
+            sse2json._ROUTER_STATE_FILE = state_path
+
+            sse2json._apply_runtime_config(config, persist_state=False)
+
+            with open(state_path, "r", encoding="utf-8") as handle:
+                before_restore = json.load(handle)
+            self.assertIn("alpha", before_restore["model_capabilities"])
+
+            sse2json._load_router_state()
+            restored = sse2json.CONFIG["models"]["provider_model_capabilities"]["alpha"]
+            self.assertEqual(restored["canonical_map"], {"cached-model": "cached-model"})
+        finally:
+            for name, value in originals.items():
+                setattr(sse2json, name, value)
+            if os.path.exists(state_path):
+                os.unlink(state_path)
 
     # ------------------------------------------------------------------
     # Multi-key state migration: state must follow the *key value*, not the

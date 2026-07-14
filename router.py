@@ -1086,18 +1086,12 @@ class UpstreamRouter:
                         )
                     )
                     route_provider_names.add(name)
-            capabilities = ((self.cfg.get("models") or {}).get("provider_model_capabilities") or {})
             for name, pcfg in providers_cfg.items():
                 if name in route_provider_names:
                     continue
                 if not (pcfg or {}).get("enabled", True):
                     continue
-                cap = capabilities.get(name)
-                canonical_map = (cap or {}).get("canonical_map") if isinstance(cap, dict) else {}
-                lower_model = str(canonical_model or "").lower()
-                if isinstance(cap, dict) and cap.get("status") == "ok" and (
-                    canonical_model in (canonical_map or {}) or lower_model in (canonical_map or {})
-                ):
+                if model_registry.provider_has_declared_model(self.cfg, str(name), canonical_model):
                     provider_items.append(
                         _ProviderItem(name=str(name), weight=1, priority=self._provider_priority(str(name)))
                     )

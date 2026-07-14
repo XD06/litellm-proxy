@@ -259,7 +259,13 @@ def provider_config_signature(config: Dict[str, Any], provider: str) -> str:
     payload = {
         "base_url": pcfg.get("base_url") or "",
         "models_path": pcfg.get("models_path") or "/v1/models",
-        "keys": [key_value(entry) for entry in (pcfg.get("keys") or [])],
+        "keys": [
+            {
+                "value": key_value(entry),
+                "proxy": key_proxy(entry),
+            }
+            for entry in (pcfg.get("keys") or [])
+        ],
         "proxy": pcfg.get("proxy") or {},
         "headers": pcfg.get("headers") or {},
         "user_agent": pcfg.get("user_agent") or "",
@@ -528,6 +534,24 @@ def _configured_model_ids(config: Dict[str, Any], provider: Optional[str] = None
                 str(mid)
                 for mid in manual_map.keys()
                 if str(mid or "").strip() and not provider_model_disabled(config, str(pname or ""), str(mid))
+            )
+
+        variants = (models_cfg.get("provider_model_variants") or {}).get(str(pname or "")) or {}
+        if isinstance(variants, dict):
+            out.extend(
+                str(mid)
+                for mid, entries in variants.items()
+                if str(mid or "").strip()
+                and isinstance(entries, list)
+                and any(
+                    str(
+                        entry.get("model") or entry.get("raw_model") or ""
+                        if isinstance(entry, dict)
+                        else entry or ""
+                    ).strip()
+                    for entry in entries
+                )
+                and not provider_model_disabled(config, str(pname or ""), str(mid))
             )
 
     routes = models_cfg.get("routes") or {}
@@ -862,6 +886,26 @@ def key_supports_provider_model(
     if key_index < 0 or key_index >= len(keys):
         return False
     entry = keys[key_index]
+
+    # ``static_models`` is an administrator assertion that discovery or a
+    # key-specific catalog is incomplete.  It must therefore be checked before
+    # an explicit key ``models`` filter; otherwise every key is rejected before
+    # the static fallback can be attempted, producing a misleading no-candidate
+    # result for the exact case static models are intended to cover.
+    pcfg = ((config.get("providers") or {}).get(provider) or {})
+    static_models = set()
+    for item in pcfg.get("static_models") or []:
+        if isinstance(item, str):
+            model_id = item.strip()
+        elif isinstance(item, dict):
+            model_id = str(item.get("id") or "").strip()
+        else:
+            model_id = ""
+        if model_id:
+            static_models.add(model_id)
+    if canonical_model in static_models or provider_model in static_models:
+        return True
+
     if isinstance(entry, dict):
         models = entry.get("models") if "models" in entry else entry.get("model_map")
         if isinstance(models, dict) and models:
@@ -875,6 +919,7 @@ def key_supports_provider_model(
         if isinstance(models, list) and models:
             known = {str(model or "").strip() for model in models}
             return str(provider_model or "").strip() in known
+
     fingerprint = key_fingerprint(entry)
     provider_caps = (
         ((config.get("models") or {}).get("provider_key_model_capabilities") or {}).get(provider) or {}
@@ -891,6 +936,62 @@ def key_supports_provider_model(
             str(model or "").strip() for model in capability.get("models") or []
         }
     return None
+
+
+def provider_has_declared_model(
+    config: Dict[str, Any], provider: str, canonical_model: str
+) -> bool:
+    """Return whether configuration or a healthy snapshot explicitly declares a model.
+
+    Unlike :func:`provider_supports_model`, this never falls back to
+    ``assume_supports_unknown_models``.  It is used when augmenting an explicit
+    model route so only providers with concrete evidence (manual map, variant,
+    static model, or discovered canonical map) are added.
+    """
+    model = str(canonical_model or "").strip()
+    if not model:
+        return False
+    models_cfg = config.get("models") or {}
+    caps = (models_cfg.get("provider_model_capabilities") or {}).get(provider)
+    canonical_map = caps.get("canonical_map") if isinstance(caps, dict) else {}
+    if provider_model_id_disabled(config, provider, model, canonical_map):
+        return False
+
+    manual_map = (models_cfg.get("provider_model_map") or {}).get(provider) or {}
+    if isinstance(manual_map, dict) and (model in manual_map or model.lower() in manual_map):
+        return True
+
+    variants = (models_cfg.get("provider_model_variants") or {}).get(provider) or {}
+    raw_variants = variants.get(model) if isinstance(variants, dict) else None
+    if raw_variants is None and isinstance(variants, dict):
+        raw_variants = variants.get(model.lower())
+    if isinstance(raw_variants, list) and any(
+        str(
+            entry.get("model") or entry.get("raw_model") or ""
+            if isinstance(entry, dict)
+            else entry or ""
+        ).strip()
+        for entry in raw_variants
+    ):
+        return True
+
+    pcfg = ((config.get("providers") or {}).get(provider) or {})
+    for item in pcfg.get("static_models") or []:
+        if isinstance(item, str):
+            model_id = item.strip()
+        elif isinstance(item, dict):
+            model_id = str(item.get("id") or "").strip()
+        else:
+            model_id = ""
+        if model_id and model_id in (model, model.lower()):
+            return True
+
+    if isinstance(caps, dict) and caps.get("status") == "ok":
+        canonical_map = canonical_map or {}
+        if provider_model_auto_hidden_by_manual_map(config, provider, model, canonical_map):
+            return False
+        return model in canonical_map or model.lower() in canonical_map
+    return False
 
 
 def find_providers_for_model(
@@ -1002,6 +1103,31 @@ def provider_supports_model(
     if canonical_model in manual_map:
         return True
 
+    variants = (models_cfg.get("provider_model_variants") or {}).get(provider) or {}
+    raw_variants = variants.get(canonical_model) if isinstance(variants, dict) else None
+    if raw_variants is None and isinstance(variants, dict):
+        raw_variants = variants.get(str(canonical_model).lower())
+    if isinstance(raw_variants, list) and any(
+        str(
+            entry.get("model") or entry.get("raw_model") or ""
+            if isinstance(entry, dict)
+            else entry or ""
+        ).strip()
+        for entry in raw_variants
+    ):
+        return True
+
+    pcfg = ((config.get("providers") or {}).get(provider) or {})
+    for item in pcfg.get("static_models") or []:
+        if isinstance(item, str):
+            model_id = item.strip()
+        elif isinstance(item, dict):
+            model_id = str(item.get("id") or "").strip()
+        else:
+            model_id = ""
+        if model_id and model_id in (canonical_model, str(canonical_model).lower()):
+            return True
+
     if isinstance(caps, dict) and caps.get("status") == "ok":
         canonical_map = canonical_map or {}
         lower_model = str(canonical_model).lower()
@@ -1009,7 +1135,6 @@ def provider_supports_model(
             return False
         return canonical_model in canonical_map or lower_model in canonical_map
 
-    pcfg = ((config.get("providers") or {}).get(provider) or {})
     if "assume_supports_unknown_models" in pcfg:
         return bool(pcfg.get("assume_supports_unknown_models"))
     if manual_filter_active:

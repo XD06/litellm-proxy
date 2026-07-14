@@ -17180,6 +17180,10 @@ body {
   box-shadow: none;
 }
 
+.provider-model-disclosure .provider-model-alias-card {
+  grid-template-columns: minmax(0, 1fr) auto 30px;
+}
+
 .provider-model-key-error {
   color: var(--danger) !important;
 }
@@ -17219,6 +17223,105 @@ body {
   border: 1px solid var(--line-soft);
   border-radius: 7px;
   background: var(--surface-raised);
+}
+
+.provider-variant-picker-shell {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.provider-variant-picker-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 0.8fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.provider-variant-picker-head > label {
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 720;
+}
+
+.provider-variant-picker {
+  display: grid;
+  min-height: 46px;
+  max-height: 224px;
+  overflow-y: auto;
+  border: 1px solid var(--line-soft);
+  border-radius: 7px;
+  background: var(--surface);
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.provider-variant-option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 82px;
+  gap: 8px;
+  align-items: center;
+  min-height: 42px;
+  padding: 5px 7px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.provider-variant-option:last-child {
+  border-bottom: 0;
+}
+
+.provider-variant-option[hidden] {
+  display: none;
+}
+
+.provider-variant-option > label {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+}
+
+.provider-variant-option > label > span {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.provider-variant-option b,
+.provider-variant-option small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.provider-variant-option b {
+  font: 700 11px/1.2 var(--mono);
+}
+
+.provider-variant-option small {
+  color: var(--muted);
+  font: 600 9.5px/1.2 var(--mono);
+}
+
+.provider-variant-priority {
+  width: 82px;
+  min-height: 30px;
+  text-align: right;
+}
+
+.provider-variant-custom-input {
+  min-width: 0;
+}
+
+.provider-variant-custom-input > summary {
+  color: var(--muted);
+  font-size: 10.5px;
+  cursor: pointer;
+}
+
+.provider-variant-custom-input[open] > summary {
+  margin-bottom: 7px;
 }
 
 @media (max-width: 760px) {
@@ -17296,6 +17399,16 @@ body {
   .provider-model-draft-actions > .button {
     flex: 1 1 0;
     min-height: 44px;
+  }
+
+  .provider-variant-picker-head,
+  .provider-variant-option {
+    grid-template-columns: 1fr;
+  }
+
+  .provider-variant-priority {
+    width: 100%;
+    text-align: left;
   }
 }
 

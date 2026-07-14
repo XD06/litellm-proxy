@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build": "vite build",
-    "test": "node tests/playground-stream.test.js && node tests/refresh-scheduler.test.js && node tests/model-route-priority.test.js && node tests/provider-activity-window.test.mjs && node tests/optimistic-config.test.mjs && node tests/mutation-ui.test.mjs && node tests/operation-guard.test.mjs && node tests/key-models.test.mjs && node tests/provider-drawer-layout.test.js && node tests/responsive-workspaces.test.js && node tests/traffic-workspace.test.js && node tests/traffic-mode.test.mjs && node tests/routing-trace-view.test.mjs && node tests/request-routing-path.test.js && node tests/model-capability-order.test.mjs && node tests/tooltip-refresh.test.js"
+    "test": "node tests/playground-stream.test.js && node tests/refresh-scheduler.test.js && node tests/model-route-priority.test.js && node tests/provider-activity-window.test.mjs && node tests/optimistic-config.test.mjs && node tests/mutation-ui.test.mjs && node tests/operation-guard.test.mjs && node tests/key-models.test.mjs && node tests/provider-model-config.test.mjs && node tests/provider-drawer-layout.test.js && node tests/responsive-workspaces.test.js && node tests/traffic-workspace.test.js && node tests/traffic-mode.test.mjs && node tests/routing-trace-view.test.mjs && node tests/request-routing-path.test.js && node tests/model-capability-order.test.mjs && node tests/tooltip-refresh.test.js"
   },
   "keywords": [],
   "author": "",
