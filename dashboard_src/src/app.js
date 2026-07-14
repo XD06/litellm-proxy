@@ -11,6 +11,7 @@ import { ConfigRefreshCoordinator, InFlightActionRegistry } from "./operation-gu
 import { groupRoutingTrace, routingTraceIdentity, routingTraceTone, summarizeFormatTraceStep } from "./routing-trace-view.mjs";
 import { shouldAcceptModelCapabilitySnapshot } from "./model-capability-order.mjs";
 import { keyModelsPatchValue } from "./key-models.mjs";
+import { mergedProviderKeys } from "./provider-key-view.mjs";
 import {
   clearLiveFormField,
   mergeStaticModelIds,
@@ -3556,7 +3557,7 @@ import {
     const capability = state.data.status?.models?.providers?.[name] || {};
     const formats = config.formats || runtime.formats || {};
     const runtimeKeys = Array.isArray(runtime.keys) ? runtime.keys : [];
-    const configKeys = Array.isArray(config.keys) ? config.keys : [];
+    const configKeys = Array.isArray(config.keys) ? config.keys : null;
     const keys = mergedProviderKeys(runtimeKeys, configKeys);
     const keyStats = providerKeyStats(runtimeKeys, configKeys);
     const formatNames = enabledFormats(formats);
@@ -3581,7 +3582,7 @@ import {
       capability,
       formats,
       keys,
-      configKeys,
+      configKeys: configKeys || [],
       keyStats,
       formatNames,
       modelItems,
@@ -3604,7 +3605,7 @@ import {
     const config = state.data.config?.providers?.[name] || {};
     const formats = config.formats || runtime.formats || {};
     const runtimeKeys = Array.isArray(runtime.keys) ? runtime.keys : [];
-    const configKeys = Array.isArray(config.keys) ? config.keys : [];
+    const configKeys = Array.isArray(config.keys) ? config.keys : null;
     const keyStats = providerKeyStats(runtimeKeys, configKeys);
     const formatNames = enabledFormats(formats);
     const activity = providerActivity(name);
@@ -3654,34 +3655,13 @@ import {
     return haystack.includes(search);
   }
 
-  function mergedProviderKeys(runtimeKeys, configKeys) {
-    if (!runtimeKeys.length) return configKeys;
-    const configByIndex = new Map((configKeys || []).map((key) => [Number(key.index), key]));
-    const runtimeIndexes = new Set(runtimeKeys.map((key) => Number(key.index)));
-    const merged = runtimeKeys.map((key) => {
-      const cfg = configByIndex.get(Number(key.index)) || {};
-      if (cfg.pending_delete) return null;
-      return {
-        ...cfg,
-        ...key,
-        masked: key.masked || cfg.masked || "",
-        proxy: key.proxy || cfg.proxy || "",
-      };
-    }).filter(Boolean);
-    for (const key of configKeys || []) {
-      if (!key?.pending_delete && !runtimeIndexes.has(Number(key.index))) merged.push(key);
-    }
-    return merged;
-  }
-
   function providerKeyStats(runtimeKeys, configKeys) {
-    const configByIndex = new Map((configKeys || []).map((key, index) => [Number(key?.index ?? index), key]));
-    const visibleRuntime = runtimeKeys.filter((key, index) => !configByIndex.get(Number(key?.index ?? index))?.pending_delete);
-    const total = mergedProviderKeys(runtimeKeys, configKeys).length;
-    const usable = visibleRuntime.filter((key) => key.available && key.runtime_enabled).length;
-    const runtimeEnabled = visibleRuntime.filter((key) => key.runtime_enabled).length;
-    const cooldown = visibleRuntime.filter((key) => Number(key.cooldown_remaining_s || key.disabled_remaining_s || 0) > 0).length;
-    const fails = visibleRuntime.reduce((sum, key) => sum + Number(key.fails || 0), 0);
+    const visibleKeys = mergedProviderKeys(runtimeKeys, configKeys);
+    const total = visibleKeys.length;
+    const usable = visibleKeys.filter((key) => key.available && key.runtime_enabled).length;
+    const runtimeEnabled = visibleKeys.filter((key) => key.runtime_enabled).length;
+    const cooldown = visibleKeys.filter((key) => Number(key.cooldown_remaining_s || key.disabled_remaining_s || 0) > 0).length;
+    const fails = visibleKeys.reduce((sum, key) => sum + Number(key.fails || 0), 0);
     return { total, usable, runtimeEnabled, cooldown, fails };
   }
 

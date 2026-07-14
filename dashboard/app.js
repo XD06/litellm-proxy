@@ -3997,6 +3997,53 @@
 	}
 	var init_key_models = __esmMin((() => {}));
 	//#endregion
+	//#region src/provider-key-view.mjs
+	function mergedProviderKeys(runtimeKeys, configKeys) {
+		const runtime = Array.isArray(runtimeKeys) ? runtimeKeys : [];
+		if (!Array.isArray(configKeys)) return runtime.map((key) => ({ ...key }));
+		const availableRuntime = runtime.map((key, position) => ({
+			key,
+			position
+		}));
+		const consumedRuntime = /* @__PURE__ */ new Set();
+		const stableIdentity = (key) => {
+			const value = String(key?.key_id || "").trim();
+			if (!value || value === "pending") return "";
+			return value;
+		};
+		const stableMasked = (key) => {
+			const value = String(key?.masked || "").trim();
+			if (!value || value === "pending") return "";
+			return value;
+		};
+		const findRuntime = (configured, configPosition) => {
+			const configuredId = stableIdentity(configured);
+			const configuredMasked = stableMasked(configured);
+			let match = configuredId ? availableRuntime.find((entry) => !consumedRuntime.has(entry.position) && stableIdentity(entry.key) === configuredId) : null;
+			if (!match && configuredMasked) match = availableRuntime.find((entry) => !consumedRuntime.has(entry.position) && stableMasked(entry.key) === configuredMasked);
+			if (!match && !configuredId && !configuredMasked && !configured?.pending) {
+				const configuredIndex = Number(configured?.index ?? configPosition);
+				match = availableRuntime.find((entry) => !consumedRuntime.has(entry.position) && Number(entry.key?.index ?? entry.position) === configuredIndex);
+			}
+			if (match) consumedRuntime.add(match.position);
+			return match?.key || null;
+		};
+		return configKeys.flatMap((configured, configPosition) => {
+			if (!configured || configured.pending_delete) return [];
+			const runtimeMatch = findRuntime(configured, configPosition);
+			if (!runtimeMatch) return [{ ...configured }];
+			return [{
+				...runtimeMatch,
+				...configured,
+				index: Number(configured.index ?? configPosition),
+				key_id: configured.key_id ?? runtimeMatch.key_id ?? "",
+				masked: configured.masked ?? runtimeMatch.masked ?? "",
+				proxy: configured.proxy ?? runtimeMatch.proxy ?? ""
+			}];
+		});
+	}
+	var init_provider_key_view = __esmMin((() => {}));
+	//#endregion
 	//#region src/provider-model-config.mjs
 	function modelId(value) {
 		if (value && typeof value === "object") return String(value.id || value.model || value.raw_model || "").trim();
@@ -4060,6 +4107,7 @@
 		init_routing_trace_view();
 		init_model_capability_order();
 		init_key_models();
+		init_provider_key_view();
 		init_provider_model_config();
 		var el = (id) => document.getElementById(id);
 		var qsa = (selector) => Array.from(document.querySelectorAll(selector));
@@ -7234,7 +7282,7 @@
 			const capability = state.data.status?.models?.providers?.[name] || {};
 			const formats = config.formats || runtime.formats || {};
 			const runtimeKeys = Array.isArray(runtime.keys) ? runtime.keys : [];
-			const configKeys = Array.isArray(config.keys) ? config.keys : [];
+			const configKeys = Array.isArray(config.keys) ? config.keys : null;
 			const keys = mergedProviderKeys(runtimeKeys, configKeys);
 			const keyStats = providerKeyStats(runtimeKeys, configKeys);
 			const formatNames = enabledFormats(formats);
@@ -7258,7 +7306,7 @@
 				capability,
 				formats,
 				keys,
-				configKeys,
+				configKeys: configKeys || [],
 				keyStats,
 				formatNames,
 				modelItems,
@@ -7272,7 +7320,7 @@
 			const runtime = state.data.status?.router?.providers?.[name] || {};
 			const config = state.data.config?.providers?.[name] || {};
 			const formats = config.formats || runtime.formats || {};
-			const keyStats = providerKeyStats(Array.isArray(runtime.keys) ? runtime.keys : [], Array.isArray(config.keys) ? config.keys : []);
+			const keyStats = providerKeyStats(Array.isArray(runtime.keys) ? runtime.keys : [], Array.isArray(config.keys) ? config.keys : null);
 			const formatNames = enabledFormats(formats);
 			const activity = providerActivity(name);
 			const runtimeState = providerRuntimeState(runtime, keyStats, config);
@@ -7311,32 +7359,14 @@
 				view.activity.lastError?.reason
 			].join(" ").toLowerCase().includes(search);
 		}
-		function mergedProviderKeys(runtimeKeys, configKeys) {
-			if (!runtimeKeys.length) return configKeys;
-			const configByIndex = new Map((configKeys || []).map((key) => [Number(key.index), key]));
-			const runtimeIndexes = new Set(runtimeKeys.map((key) => Number(key.index)));
-			const merged = runtimeKeys.map((key) => {
-				const cfg = configByIndex.get(Number(key.index)) || {};
-				if (cfg.pending_delete) return null;
-				return {
-					...cfg,
-					...key,
-					masked: key.masked || cfg.masked || "",
-					proxy: key.proxy || cfg.proxy || ""
-				};
-			}).filter(Boolean);
-			for (const key of configKeys || []) if (!key?.pending_delete && !runtimeIndexes.has(Number(key.index))) merged.push(key);
-			return merged;
-		}
 		function providerKeyStats(runtimeKeys, configKeys) {
-			const configByIndex = new Map((configKeys || []).map((key, index) => [Number(key?.index ?? index), key]));
-			const visibleRuntime = runtimeKeys.filter((key, index) => !configByIndex.get(Number(key?.index ?? index))?.pending_delete);
+			const visibleKeys = mergedProviderKeys(runtimeKeys, configKeys);
 			return {
-				total: mergedProviderKeys(runtimeKeys, configKeys).length,
-				usable: visibleRuntime.filter((key) => key.available && key.runtime_enabled).length,
-				runtimeEnabled: visibleRuntime.filter((key) => key.runtime_enabled).length,
-				cooldown: visibleRuntime.filter((key) => Number(key.cooldown_remaining_s || key.disabled_remaining_s || 0) > 0).length,
-				fails: visibleRuntime.reduce((sum, key) => sum + Number(key.fails || 0), 0)
+				total: visibleKeys.length,
+				usable: visibleKeys.filter((key) => key.available && key.runtime_enabled).length,
+				runtimeEnabled: visibleKeys.filter((key) => key.runtime_enabled).length,
+				cooldown: visibleKeys.filter((key) => Number(key.cooldown_remaining_s || key.disabled_remaining_s || 0) > 0).length,
+				fails: visibleKeys.reduce((sum, key) => sum + Number(key.fails || 0), 0)
 			};
 		}
 		function providerModelItems(name, capability) {
