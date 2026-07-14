@@ -58,5 +58,9 @@ assert.match(healthRenderer, /t\("health\.grade\." \+ overallGrade\)/, "overall 
 assert.match(healthRenderer, /t\("health\.providers_count"/, "provider count must be translated");
 assert.match(healthRenderer, /t\("health\.more_providers"/, "hidden provider count must be translated");
 assert.match(translations, /"health\.grade\.excellent"\s*:\s*\{\s*en:\s*"Excellent",\s*zh:\s*"优秀"/, "excellent grade needs Chinese and English copy");
+assert.match(translations, /"traffic\.requests_per_minute"\s*:\s*\{\s*en:\s*"Unit: requests\/min",\s*zh:\s*"单位：请求\/分钟"/, "request chart unit must be explicit");
+assert.match(styles, /\.traffic-success-legend i,[\s\S]{0,120}width:\s*18px/, "request legends must use visible line swatches");
+assert.match(styles, /\.traffic-failure-legend i\s*\{[\s\S]{0,120}border-top:\s*2px dashed/, "failure legend must mirror the dashed chart line");
+assert.match(styles, /\.traffic-latency-legend i\s*\{[\s\S]{0,120}border-top:\s*2px solid/, "latency legend must mirror the solid chart line");
 
 console.log("traffic workspace tests passed");

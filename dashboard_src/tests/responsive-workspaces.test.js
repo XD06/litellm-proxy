@@ -10,4 +10,12 @@ assert.match(ownership, /#providersView \.provider-toolbar\s*\{[\s\S]*grid-templ
 assert.match(ownership, /\.playground-view \.playground-layout\s*\{[\s\S]*flex-direction: column/, "mobile playground must stack setup and chat vertically");
 assert.match(ownership, /\.playground-view \.playground-main\s*\{[\s\S]*min-height:/, "mobile playground chat must retain a usable work area");
 
+const tabletOwnership = styles.slice(styles.indexOf("Final tablet shell ownership"));
+assert.match(tabletOwnership, /@media \(min-width: 761px\) and \(max-width: 1080px\)/, "tablet shell must have its own final breakpoint");
+assert.match(tabletOwnership, /\.sidebar\s*\{[\s\S]*grid-template-areas:[\s\S]*"brand actions footer"[\s\S]*"nav nav nav"/, "tablet sidebar must collapse into a compact two-row header");
+assert.match(tabletOwnership, /\.sidebar \.nav\s*\{[\s\S]*grid-template-columns: repeat\(6, minmax\(0, 1fr\)\)/, "tablet navigation must stay on one row");
+assert.match(tabletOwnership, /\.sidebar-footer\s*\{[\s\S]*display: flex/, "tablet runtime status and language control must remain compact and visible");
+assert.match(tabletOwnership, /#requestsTable \.request-summary-row\s*\{[\s\S]*grid-template-areas: none/, "tablet and compact desktop request rows must remain a single aligned row");
+assert.match(tabletOwnership, /#requestsTable \.request-row-route\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\) auto/, "request routing evidence must stay aligned without wrapping the row");
+
 console.log("responsive workspace tests passed");
