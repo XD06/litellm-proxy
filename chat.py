@@ -41,7 +41,7 @@ def _proxy_openai_chat_completions(self, req, request_id, start_ts):
         compatibility_profile = request_compatibility_profile(req, client_format=CHAT)
         if blocked_formats and log_each:
             print(f"[proxy] req={request_id} format exclusions={blocked_formats}", flush=True)
-        converted_payloads = {}
+        prepared_payloads = {}
 
         for attempt in ROUTER.iter_attempts(
             canonical_model,
@@ -69,9 +69,9 @@ def _proxy_openai_chat_completions(self, req, request_id, start_ts):
             output_token_field = _provider_output_token_field(CONFIG, attempt)
             anthropic_default_max_tokens = int((CONFIG.get("routing") or {}).get("anthropic_default_max_tokens", 4096))
             payload_cache_key = (fmt, output_token_field, anthropic_default_max_tokens)
-            if payload_cache_key not in converted_payloads:
+            if payload_cache_key not in prepared_payloads:
                 try:
-                    converted_payloads[payload_cache_key] = convert_request(
+                    prepared_payloads[payload_cache_key] = prepare_request_conversion(
                         CHAT,
                         fmt,
                         req,
@@ -82,7 +82,9 @@ def _proxy_openai_chat_completions(self, req, request_id, start_ts):
                 except ValueError as e:
                     _record_request_conversion_failure(request_id, attempt, CHAT, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
                     continue
-            payload = dict(converted_payloads[payload_cache_key])
+            prepared_request = prepared_payloads[payload_cache_key]
+            payload = dict(prepared_request.payload)
+            conversion_context = prepared_request.context
             payload["model"] = attempt.provider_model
             payload["stream"] = is_stream if attempt.upstream_format in (CHAT, RESPONSES, ANTHROPIC) else False
             _force_chat_reasoning_content_if_needed(attempt, payload, log_each=log_each)
@@ -127,6 +129,7 @@ def _proxy_openai_chat_completions(self, req, request_id, start_ts):
                                 original_model,
                                 read_timeout_s=read_t,
                                 initial_lines=initial_lines,
+                                conversion_context=conversion_context,
                             )
                         else:
                             stream_resp = stream_anthropic_sse_to_openai_chat(
@@ -135,6 +138,7 @@ def _proxy_openai_chat_completions(self, req, request_id, start_ts):
                                 original_model,
                                 read_timeout_s=read_t,
                                 initial_lines=initial_lines,
+                                conversion_context=conversion_context,
                             )
                     finally:
                         bwfile.force_flush()
@@ -171,6 +175,7 @@ def _proxy_openai_chat_completions(self, req, request_id, start_ts):
                     CHAT,
                     upstream_data,
                     original_model=original_model,
+                    context=conversion_context,
                 )
                 if _is_empty_visible_output(
                     CHAT,

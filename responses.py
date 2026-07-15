@@ -38,7 +38,7 @@ def _proxy_openai_responses(self, req, request_id, start_ts, path="/openai/v1/re
         first_byte_t = int(routing_cfg.get("first_token_timeout_s", 30))  # Total budget before first stream event.
         max_attempts = int(routing_cfg.get("max_attempts", 6))
         max_budget = (connect_t + read_t) * min(3, max(1, max_attempts))
-        converted_payloads = {}
+        prepared_payloads = {}
 
         for attempt in ROUTER.iter_attempts(
             canonical_model,
@@ -66,9 +66,9 @@ def _proxy_openai_responses(self, req, request_id, start_ts, path="/openai/v1/re
             output_token_field = _provider_output_token_field(CONFIG, attempt)
             anthropic_default_max_tokens = int((CONFIG.get("routing") or {}).get("anthropic_default_max_tokens", 4096))
             payload_cache_key = (fmt, output_token_field, anthropic_default_max_tokens)
-            if payload_cache_key not in converted_payloads:
+            if payload_cache_key not in prepared_payloads:
                 try:
-                    converted_payloads[payload_cache_key] = convert_request(
+                    prepared_payloads[payload_cache_key] = prepare_request_conversion(
                         RESPONSES,
                         fmt,
                         req,
@@ -79,7 +79,9 @@ def _proxy_openai_responses(self, req, request_id, start_ts, path="/openai/v1/re
                 except ValueError as e:
                     _record_request_conversion_failure(request_id, attempt, RESPONSES, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
                     continue
-            payload = dict(converted_payloads[payload_cache_key])
+            prepared_request = prepared_payloads[payload_cache_key]
+            payload = dict(prepared_request.payload)
+            conversion_context = prepared_request.context
             payload["model"] = attempt.provider_model
             payload["stream"] = is_stream if attempt.upstream_format in (RESPONSES, CHAT, ANTHROPIC) else False
             _force_chat_reasoning_content_if_needed(attempt, payload, log_each=log_each)
@@ -121,7 +123,13 @@ def _proxy_openai_responses(self, req, request_id, start_ts, path="/openai/v1/re
                     stream_resp = None
                     try:
                         if attempt.upstream_format == RESPONSES:
-                            stream_resp = relay_sse_stream(upstream_conn, bwfile, initial_lines=initial_lines)
+                            stream_resp = relay_sse_stream(
+                                upstream_conn,
+                                bwfile,
+                                initial_lines=initial_lines,
+                                client_format="responses",
+                                conversion_context=conversion_context,
+                            )
                         elif attempt.upstream_format == CHAT:
                             stream_resp = stream_openai_sse_to_responses(
                                 upstream_conn,
@@ -129,6 +137,7 @@ def _proxy_openai_responses(self, req, request_id, start_ts, path="/openai/v1/re
                                 original_model,
                                 read_timeout_s=read_t,
                                 initial_lines=initial_lines,
+                                conversion_context=conversion_context,
                             )
                         else:
                             stream_resp = stream_anthropic_sse_to_responses(
@@ -137,6 +146,7 @@ def _proxy_openai_responses(self, req, request_id, start_ts, path="/openai/v1/re
                                 original_model,
                                 read_timeout_s=read_t,
                                 initial_lines=initial_lines,
+                                conversion_context=conversion_context,
                             )
                     finally:
                         bwfile.force_flush()
@@ -173,6 +183,7 @@ def _proxy_openai_responses(self, req, request_id, start_ts, path="/openai/v1/re
                     RESPONSES,
                     upstream_data,
                     original_model=original_model,
+                    context=conversion_context,
                 )
                 if _is_empty_visible_output(
                     RESPONSES,

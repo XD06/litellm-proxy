@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
+from conversion_core.compatibility import analyze_request as analyze_agent_request
+
 
 OUTPUT_TOKEN_FIELDS = (
     "max_output_tokens",
@@ -184,53 +186,27 @@ def format_compatibility_plan(
     mode: str = "safe",
 ) -> FormatCompatibilityPlan:
     """Describe how one target format can preserve the request semantics."""
-    if target_format == client_format:
-        return FormatCompatibilityPlan(target_format=target_format, allowed=True)
-
-    policy = str(mode or "safe").strip().lower()
-    if policy not in ("safe", "strict"):
-        policy = "safe"
-
+    core = analyze_agent_request(
+        client_format,
+        target_format,
+        request,
+        mode=str(mode or "safe").strip().lower(),
+    )
     transformations = []
     dropped_hints = []
-    blockers = []
-    for key in sorted(_NATIVE_ONLY_FIELDS.get(client_format, set())):
-        if key not in request or request.get(key) is None:
-            continue
-
-        if client_format == "responses" and key == "store" and request.get(key) is False:
-            dropped_hints.append({"field": key, "action": "omit_false_default"})
-            continue
-        if client_format == "responses" and target_format == "chat_completions" and key == "parallel_tool_calls":
-            transformations.append({"field": key, "target": key, "action": "preserve"})
-            continue
-
-        if policy == "safe" and client_format == "anthropic_messages":
-            if key == "thinking" and target_format in ("chat_completions", "responses"):
-                target = "reasoning_effort" if target_format == "chat_completions" else "reasoning"
-                transformations.append({"field": key, "target": target, "action": "map_reasoning"})
-                continue
-            if key in ("cache_control", "service_tier"):
-                dropped_hints.append({"field": key, "action": "omit_unsupported_hint"})
-                continue
-
-        blockers.append(key)
-
-    if blockers:
-        fidelity = "blocked"
-    elif dropped_hints:
-        fidelity = "safe_drop"
-    elif transformations:
-        fidelity = "mapped"
-    else:
-        fidelity = "lossless"
+    for item in core.actions:
+        payload = item.as_dict()
+        if item.action in ("map", "preserve", "stateful"):
+            transformations.append(payload)
+        elif item.action == "safe_drop":
+            dropped_hints.append(payload)
     return FormatCompatibilityPlan(
         target_format=target_format,
-        allowed=not blockers,
+        allowed=core.allowed,
         transformations=tuple(transformations),
         dropped_hints=tuple(dropped_hints),
-        blockers=tuple(blockers),
-        fidelity=fidelity,
+        blockers=core.blockers,
+        fidelity=core.fidelity,
     )
 
 

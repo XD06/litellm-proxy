@@ -346,6 +346,61 @@ class ResponsesProxyTests(unittest.TestCase):
         self.assertEqual(fake_client.calls[0]["payload"]["messages"], [{"role": "user", "content": "hello"}])
         self.assertEqual(fake_client.calls[0]["payload"]["max_tokens"], 20)
 
+    def test_codex_custom_tool_round_trips_through_chat_fallback(self):
+        fake_router = FakeRouter([self.attempt("chat_completions")])
+        fake_client = FakeClient(
+            {
+                "id": "chatcmpl_1",
+                "model": "provider-model",
+                "choices": [
+                    {
+                        "finish_reason": "tool_calls",
+                        "message": {
+                            "role": "assistant",
+                            "content": "",
+                            "tool_calls": [
+                                {
+                                    "id": "call_patch",
+                                    "type": "function",
+                                    "function": {
+                                        "name": "apply_patch",
+                                        "arguments": json.dumps({"content": "*** Begin Patch\n*** End Patch"}),
+                                    },
+                                }
+                            ],
+                        },
+                    }
+                ],
+                "usage": {"prompt_tokens": 3, "completion_tokens": 5, "total_tokens": 8},
+            }
+        )
+
+        with patch.object(sse2json, "ROUTER", fake_router), patch.object(
+            sse2json, "UPSTREAM_CLIENT", fake_client
+        ), patch.object(sse2json, "DISABLE_MAP", True):
+            status, body = self.run_server_post(
+                "/v1/responses",
+                {
+                    "model": "client-model",
+                    "input": "patch it",
+                    "tools": [
+                        {
+                            "type": "custom",
+                            "name": "apply_patch",
+                            "format": {"type": "grammar", "syntax": "lark", "definition": "start: /.+/s"},
+                        }
+                    ],
+                },
+            )
+
+        self.assertEqual(status, 200)
+        sent_function = fake_client.calls[0]["payload"]["tools"][0]["function"]
+        self.assertEqual(sent_function["name"], "apply_patch")
+        self.assertEqual(sent_function["parameters"]["required"], ["content"])
+        self.assertEqual(body["output"][0]["type"], "custom_tool_call")
+        self.assertEqual(body["output"][0]["call_id"], "call_patch")
+        self.assertEqual(body["output"][0]["input"], "*** Begin Patch\n*** End Patch")
+
     def test_responses_to_opencode_chat_upstream_fills_missing_reasoning_content(self):
         fake_router = FakeRouter([self.named_attempt("opencode", "chat_completions", 1)])
         fake_client = FakeClient(
@@ -714,11 +769,31 @@ class ResponsesProxyTests(unittest.TestCase):
         self.assertTrue(fake_client.calls[0]["payload"]["stream"])
         self.assertEqual(fake_router.iter_calls[0]["allowed_upstream_formats"], ["responses", "chat_completions", "anthropic_messages"])
 
-    def test_native_only_parameters_disable_cross_format_fallback(self):
+    def test_previous_response_id_keeps_cross_format_fallback_eligible_for_local_expansion(self):
         fake_router = FakeRouter([])
         with patch.object(sse2json, "ROUTER", fake_router), patch.object(sse2json, "DISABLE_MAP", True):
             self.run_server_post("/v1/responses", {"model": "client-model", "input": "hi", "previous_response_id": "resp_old"})
-        self.assertEqual(fake_router.iter_calls[0]["allowed_upstream_formats"], ['responses'])
+        self.assertEqual(
+            fake_router.iter_calls[0]["allowed_upstream_formats"],
+            ["responses", "chat_completions", "anthropic_messages"],
+        )
+
+    def test_missing_previous_response_returns_owned_conversion_error_without_provider_penalty(self):
+        fake_router = FakeRouter([self.attempt("chat_completions")])
+        fake_client = FakeClient({})
+        with patch.object(sse2json, "ROUTER", fake_router), patch.object(
+            sse2json, "UPSTREAM_CLIENT", fake_client
+        ), patch.object(sse2json, "DISABLE_MAP", True):
+            status, body = self.run_server_post(
+                "/v1/responses",
+                {"model": "client-model", "input": "hi", "previous_response_id": "resp_missing_test"},
+            )
+
+        self.assertEqual(status, 400)
+        self.assertEqual(body["error"]["code"], "session_missing")
+        self.assertEqual(body["error"]["failure_owner"], "proxy_session")
+        self.assertEqual(fake_client.calls, [])
+        self.assertEqual(fake_router.failures, [])
 
     def test_store_false_and_parallel_tools_keep_chat_fallback_enabled(self):
         fake_router = FakeRouter([])
@@ -733,7 +808,7 @@ class ResponsesProxyTests(unittest.TestCase):
                 },
             )
         call = fake_router.iter_calls[0]
-        self.assertEqual(call["allowed_upstream_formats"], ["responses", "chat_completions"])
+        self.assertEqual(call["allowed_upstream_formats"], ["responses", "chat_completions", "anthropic_messages"])
         self.assertEqual(call["compatibility_profile"], "plain")
 
     def test_responses_streaming_requires_supported_stream_upstream(self):

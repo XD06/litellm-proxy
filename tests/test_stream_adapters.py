@@ -3,6 +3,8 @@ import json
 import socket
 import unittest
 
+from conversion_core.streaming import CustomToolArgumentDecoder
+from format_adapters import ANTHROPIC, CHAT, RESPONSES, prepare_request_conversion
 from stream_adapters import (
     is_sse_done,
     prefetch_first_stream_line,
@@ -76,7 +78,7 @@ class StreamAdapterTests(unittest.TestCase):
         # Reached the data line despite 200 skipped lines because bounds off.
         self.assertEqual(initial[-1], b'data: {"ok": true}\n')
 
-    def test_stream_openai_sse_to_anthropic_emits_thinking_text_and_usage(self):
+    def test_stream_openai_sse_to_anthropic_drops_unsigned_thinking_and_keeps_text_usage(self):
         output = io.BytesIO()
         lines = [
             sse_data({"choices": [{"delta": {"reasoning_content": "think"}}]}),
@@ -94,13 +96,12 @@ class StreamAdapterTests(unittest.TestCase):
         self.assertEqual(result["model"], "client-model")
         self.assertEqual(result["stop_reason"], "end_turn")
         self.assertEqual(result["usage"], {"input_tokens": 2, "output_tokens": 3})
-        self.assertEqual([block["type"] for block in result["content"]], ["thinking", "text"])
-        self.assertEqual(result["content"][0]["thinking"], "think")
-        self.assertEqual(result["content"][1]["text"], "answer")
+        self.assertEqual([block["type"] for block in result["content"]], ["text"])
+        self.assertEqual(result["content"][0]["text"], "answer")
 
         body = output.getvalue().decode("utf-8")
         self.assertIn("event: message_start", body)
-        self.assertIn('"type": "thinking_delta"', body)
+        self.assertNotIn('"type": "thinking_delta"', body)
         self.assertIn('"type": "text_delta"', body)
         self.assertIn("event: message_stop", body)
 
@@ -571,11 +572,10 @@ class StreamAdapterTests(unittest.TestCase):
         self.assertEqual(result["model"], "client-model")
         self.assertEqual(result["stop_reason"], "tool_use")
         self.assertEqual(result["usage"], {"input_tokens": 4, "output_tokens": 6})
-        self.assertEqual([block["type"] for block in result["content"]], ["thinking", "text", "tool_use"])
-        self.assertEqual(result["content"][0]["thinking"], "plan")
-        self.assertEqual(result["content"][1]["text"], "hello")
-        self.assertEqual(result["content"][2]["id"], "call_1")
-        self.assertEqual(result["content"][2]["input"], {"q": "x"})
+        self.assertEqual([block["type"] for block in result["content"]], ["text", "tool_use"])
+        self.assertEqual(result["content"][0]["text"], "hello")
+        self.assertEqual(result["content"][1]["id"], "call_1")
+        self.assertEqual(result["content"][1]["input"], {"q": "x"})
 
         events = parse_sse_events(output.getvalue().decode("utf-8"))
         event_names = [event for event, _data in events]
@@ -588,7 +588,7 @@ class StreamAdapterTests(unittest.TestCase):
             for event, data in events
             if event == "content_block_delta" and data["delta"]["type"] == "thinking_delta"
         ]
-        self.assertEqual(thinking_deltas, ["plan"])
+        self.assertEqual(thinking_deltas, [])
         text_deltas = [
             data["delta"]["text"]
             for event, data in events
@@ -700,15 +700,14 @@ class StreamAdapterTests(unittest.TestCase):
 
         result = stream_responses_sse_to_anthropic([], output, "client-model", initial_lines=lines)
 
-        self.assertEqual(result["content"][0]["type"], "thinking")
-        self.assertEqual(result["content"][0]["thinking"], "plan")
+        self.assertEqual(result["content"], [])
         events = parse_sse_events(output.getvalue().decode("utf-8"))
         thinking_deltas = [
             data["delta"]["thinking"]
             for event, data in events
             if event == "content_block_delta" and data["delta"]["type"] == "thinking_delta"
         ]
-        self.assertEqual(thinking_deltas, ["plan"])
+        self.assertEqual(thinking_deltas, [])
 
     def test_stream_responses_sse_to_anthropic_no_duplicate_when_item_id_mismatch(self):
         """Delta events streamed text, then output_item.done arrives with a
@@ -790,11 +789,8 @@ class StreamAdapterTests(unittest.TestCase):
 
         # Verify final assembled content
         content_types = [c["type"] for c in result["content"]]
-        self.assertIn("thinking", content_types)
         self.assertIn("text", content_types)
-        thinking_block = [c for c in result["content"] if c["type"] == "thinking"][0]
         text_block = [c for c in result["content"] if c["type"] == "text"][0]
-        self.assertEqual(thinking_block["thinking"], "thinking")
         self.assertEqual(text_block["text"], "hello")
 
         events = parse_sse_events(output.getvalue().decode("utf-8"))
@@ -811,7 +807,7 @@ class StreamAdapterTests(unittest.TestCase):
         ]
 
         # Reasoning should only appear once (from delta), not duplicated
-        self.assertEqual(thinking_deltas, ["thinking"])
+        self.assertEqual(thinking_deltas, [])
         # Text should only appear as deltas, not re-emitted as full "hello"
         self.assertEqual(text_deltas, ["hel", "lo"])
 
@@ -1254,7 +1250,7 @@ class ResponsesSequenceNumberTests(unittest.TestCase):
 
 
 class ToolCallArgumentRobustnessTests(unittest.TestCase):
-    """Verify _parse_tool_arguments preserves raw content on parse failure."""
+    """Verify malformed final tool buffers fail explicitly rather than becoming {}."""
 
     def test_valid_json_returns_parsed_dict(self):
         from stream_adapters import _parse_tool_arguments
@@ -1268,21 +1264,22 @@ class ToolCallArgumentRobustnessTests(unittest.TestCase):
         self.assertEqual(_parse_tool_arguments(""), {})
         self.assertEqual(_parse_tool_arguments("   "), {})
 
-    def test_invalid_json_preserves_raw(self):
+    def test_invalid_json_raises_conversion_error_with_raw_details(self):
         from stream_adapters import _parse_tool_arguments
+        from conversion_core import ConversionError
 
-        # Fragmented/incomplete JSON that might arrive from a flaky upstream
-        result = _parse_tool_arguments('{"q": "hel')
-        self.assertIn("_raw", result)
-        self.assertEqual(result["_raw"], '{"q": "hel')
+        with self.assertRaises(ConversionError) as caught:
+            _parse_tool_arguments('{"q": "hel')
+        self.assertEqual(caught.exception.code, "invalid_tool_arguments")
+        self.assertEqual(caught.exception.details["raw_arguments"], '{"q": "hel')
 
-    def test_non_dict_json_preserves_raw(self):
+    def test_non_dict_json_raises_conversion_error(self):
         from stream_adapters import _parse_tool_arguments
+        from conversion_core import ConversionError
 
-        # A bare string or list — not a valid tool input dict
-        result = _parse_tool_arguments('"just a string"')
-        self.assertIn("_raw", result)
-        self.assertEqual(result["_raw"], '"just a string"')
+        with self.assertRaises(ConversionError) as caught:
+            _parse_tool_arguments('"just a string"')
+        self.assertEqual(caught.exception.code, "invalid_tool_arguments")
 
     def test_valid_empty_dict(self):
         from stream_adapters import _parse_tool_arguments
@@ -1290,9 +1287,7 @@ class ToolCallArgumentRobustnessTests(unittest.TestCase):
         result = _parse_tool_arguments("{}")
         self.assertEqual(result, {})
 
-    def test_stream_openai_sse_to_anthropic_preserves_broken_tool_args(self):
-        """When tool call argument buffer is invalid JSON, the content_log
-        should preserve the raw string instead of discarding it as {}."""
+    def test_stream_openai_sse_to_anthropic_reports_broken_tool_args(self):
         output = io.BytesIO()
         # Send a tool call with arguments that will never form valid JSON
         lines = [
@@ -1320,13 +1315,11 @@ class ToolCallArgumentRobustnessTests(unittest.TestCase):
 
         result = stream_openai_sse_to_anthropic([], output, "client-model", initial_lines=lines)
 
-        self.assertEqual(result["stop_reason"], "tool_use")
-        tool_use_block = result["content"][0]
-        self.assertEqual(tool_use_block["type"], "tool_use")
-        self.assertEqual(tool_use_block["name"], "broken_fn")
-        # The raw broken JSON should be preserved, not lost as {}
-        self.assertIn("_raw", tool_use_block["input"])
-        self.assertEqual(tool_use_block["input"]["_raw"], "{not valid")
+        self.assertIsNone(result)
+        events = parse_sse_events(output.getvalue().decode("utf-8"))
+        errors = [data for event, data in events if event == "error"]
+        self.assertEqual(errors[0]["error"]["code"], "invalid_tool_arguments")
+        self.assertEqual(errors[0]["error"]["details"]["raw_arguments"], "{not valid")
 
     def test_stream_openai_sse_to_anthropic_valid_tool_args_unchanged(self):
         """Valid tool call arguments should still parse correctly (no regression)."""
@@ -1359,6 +1352,143 @@ class ToolCallArgumentRobustnessTests(unittest.TestCase):
 
         tool_use_block = result["content"][0]
         self.assertEqual(tool_use_block["input"], {"q": "x"})
+
+
+class AgentCustomToolStreamingTests(unittest.TestCase):
+    def _codex_custom_context(self):
+        prepared = prepare_request_conversion(
+            RESPONSES,
+            CHAT,
+            {
+                "model": "codex-model",
+                "input": "Apply the patch",
+                "stream": True,
+                "tools": [
+                    {
+                        "type": "custom",
+                        "name": "apply.patch",
+                        "description": "Apply a patch",
+                        "format": {"type": "text"},
+                    }
+                ],
+            },
+            resolve_model=lambda model: model,
+        )
+        self.assertEqual(prepared.payload["tools"][0]["function"]["name"], "apply_patch")
+        return prepared.context
+
+    def test_incremental_custom_argument_decoder_handles_every_character_boundary(self):
+        content = '*** Begin Patch\n+世界 "quoted" \\ path\n*** End Patch'
+        wire = json.dumps({"content": content}, ensure_ascii=True)
+        decoder = CustomToolArgumentDecoder()
+
+        decoded = "".join(decoder.feed(char) for char in wire)
+
+        self.assertTrue(decoder.done)
+        self.assertEqual(decoded, content)
+
+    def test_chat_to_responses_restores_custom_tool_stream_and_original_name(self):
+        context = self._codex_custom_context()
+        content = '*** Begin Patch\n+hello "world"\n*** End Patch'
+        arguments = json.dumps({"content": content}, ensure_ascii=True)
+        lines = []
+        for index, char in enumerate(arguments):
+            tool = {"index": 0, "function": {"arguments": char}}
+            if index == 0:
+                tool.update({"id": "call_patch", "type": "function"})
+                tool["function"]["name"] = "apply_patch"
+            lines.append(sse_data({"choices": [{"delta": {"tool_calls": [tool]}}]}))
+        lines.append(sse_data({"choices": [{"delta": {}, "finish_reason": "tool_calls"}]}))
+        output = io.BytesIO()
+
+        result = stream_openai_sse_to_responses(
+            [],
+            output,
+            "codex-model",
+            initial_lines=lines,
+            conversion_context=context,
+        )
+
+        self.assertEqual(len(result["output"]), 1)
+        item = result["output"][0]
+        self.assertEqual(item["type"], "custom_tool_call")
+        self.assertEqual(item["call_id"], "call_patch")
+        self.assertEqual(item["name"], "apply.patch")
+        self.assertEqual(item["input"], content)
+        events = parse_sse_events(output.getvalue().decode("utf-8"))
+        deltas = [
+            data["delta"]
+            for event, data in events
+            if event == "response.custom_tool_call_input.delta"
+        ]
+        self.assertEqual("".join(deltas), content)
+        done = [
+            data["input"]
+            for event, data in events
+            if event == "response.custom_tool_call_input.done"
+        ]
+        self.assertEqual(done, [content])
+        function_events = [event for event, _ in events if "function_call_arguments" in event]
+        self.assertEqual(function_events, [])
+
+    def test_anthropic_to_responses_restores_custom_tool_stream(self):
+        prepared = prepare_request_conversion(
+            RESPONSES,
+            ANTHROPIC,
+            {
+                "model": "codex-model",
+                "input": "Apply the patch",
+                "stream": True,
+                "tools": [{"type": "custom", "name": "apply.patch"}],
+            },
+            resolve_model=lambda model: model,
+        )
+        wire_name = prepared.payload["tools"][0]["name"]
+        content = "*** Begin Patch\n+hello\n*** End Patch"
+        arguments = json.dumps({"content": content}, ensure_ascii=True)
+        lines = [
+            sse_data(
+                {
+                    "type": "content_block_start",
+                    "index": 0,
+                    "content_block": {"type": "tool_use", "id": "call_patch", "name": wire_name, "input": {}},
+                }
+            )
+        ]
+        lines.extend(
+            sse_data(
+                {
+                    "type": "content_block_delta",
+                    "index": 0,
+                    "delta": {"type": "input_json_delta", "partial_json": char},
+                }
+            )
+            for char in arguments
+        )
+        lines.extend(
+            [
+                sse_data({"type": "content_block_stop", "index": 0}),
+                sse_data({"type": "message_delta", "delta": {"stop_reason": "tool_use"}}),
+                sse_data({"type": "message_stop"}),
+            ]
+        )
+        output = io.BytesIO()
+
+        result = stream_anthropic_sse_to_responses(
+            [],
+            output,
+            "codex-model",
+            initial_lines=lines,
+            conversion_context=prepared.context,
+        )
+
+        item = result["output"][0]
+        self.assertEqual(item["type"], "custom_tool_call")
+        self.assertEqual(item["name"], "apply.patch")
+        self.assertEqual(item["input"], content)
+        events = parse_sse_events(output.getvalue().decode("utf-8"))
+        deltas = [data["delta"] for event, data in events if event == "response.custom_tool_call_input.delta"]
+        self.assertEqual("".join(deltas), content)
 
 
 if __name__ == "__main__":

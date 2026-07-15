@@ -128,15 +128,20 @@ class OutputTokenCompatibilityTests(unittest.TestCase):
         self.assertEqual(allowed, [RESPONSES, CHAT, ANTHROPIC])
         self.assertEqual(blocked, {})
 
-    def test_responses_stateful_field_blocks_fallback_formats(self):
+    def test_responses_stateful_field_allows_fallback_formats_with_session_expansion(self):
         allowed, blocked = upstream_format_eligibility(
             {"model": "m", "input": "hello", "previous_response_id": "resp_1"},
             client_format=RESPONSES,
             candidate_formats=[RESPONSES, CHAT, ANTHROPIC],
         )
-        self.assertEqual(allowed, [RESPONSES])
-        self.assertEqual(blocked[CHAT], ("previous_response_id",))
-        self.assertEqual(blocked[ANTHROPIC], ("previous_response_id",))
+        self.assertEqual(allowed, [RESPONSES, CHAT, ANTHROPIC])
+        self.assertEqual(blocked, {})
+        chat_plan = format_compatibility_plan(
+            {"model": "m", "input": "hello", "previous_response_id": "resp_1"},
+            client_format=RESPONSES,
+            target_format=CHAT,
+        )
+        self.assertEqual(chat_plan.fidelity, "stateful")
 
     def test_safe_anthropic_agent_fields_produce_explicit_cross_format_plan(self):
         request = {
@@ -202,14 +207,14 @@ class OutputTokenCompatibilityTests(unittest.TestCase):
             self.assertNotIn("cache_control", payload)
             self.assertNotIn("service_tier", payload)
 
-    def test_responses_parallel_tools_can_convert_to_chat_but_not_anthropic(self):
+    def test_responses_parallel_tools_convert_to_both_fallback_formats(self):
         allowed, blocked = upstream_format_eligibility(
             {"model": "m", "input": "hello", "parallel_tool_calls": False},
             client_format=RESPONSES,
             candidate_formats=[RESPONSES, CHAT, ANTHROPIC],
         )
-        self.assertEqual(allowed, [RESPONSES, CHAT])
-        self.assertEqual(blocked[ANTHROPIC], ("parallel_tool_calls",))
+        self.assertEqual(allowed, [RESPONSES, CHAT, ANTHROPIC])
+        self.assertEqual(blocked, {})
 
     def test_parallel_tool_calls_survives_responses_to_chat_conversion(self):
         payload = convert_request(

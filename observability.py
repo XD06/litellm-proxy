@@ -284,6 +284,7 @@ class ProxyObservability:
         parameter_adaptations: Optional[list] = None,
         failure_owner: str = "",
         state_action: Optional[Dict[str, Any]] = None,
+        conversion_details: Optional[Dict[str, Any]] = None,
     ) -> None:
         provider = str(getattr(attempt, "provider", "") or "unknown")
         upstream_format = str(getattr(attempt, "upstream_format", "") or "unknown")
@@ -310,6 +311,8 @@ class ProxyObservability:
             item["reason"] = reason
         if failure_owner:
             item["failure_owner"] = str(failure_owner)
+        if conversion_details:
+            item["conversion_details"] = dict(conversion_details)
         if state_action:
             item["state_action"] = copy.deepcopy(state_action)
         if http_status is not None:

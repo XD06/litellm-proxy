@@ -385,6 +385,15 @@ def _default_config() -> Dict[str, Any]:
                 "path": "tmp/proxy_history.sqlite3",
                 "retention_days": 30,
             },
+            "responses_sessions": {
+                "enabled": True,
+                "path": "tmp/proxy_sessions.sqlite3",
+                "ttl_seconds": 86400,
+                "max_records": 10000,
+                "max_total_bytes": 268435456,
+                "max_record_bytes": 4194304,
+                "max_chain_depth": 64,
+            },
             "audit": {
                 "enabled": True,
                 "path": "tmp/admin_audit.jsonl",

@@ -82,9 +82,9 @@ class ConversionTests(unittest.TestCase):
             payload = convert_request(ANTHROPIC, CHAT, req, resolve_model=sse2json.resolve_model)
 
         self.assertEqual(payload["model"], "canonical-model")
-        self.assertFalse(payload["stream"])
+        self.assertTrue(payload["stream"])
         self.assertEqual(payload["max_tokens"], 123)
-        self.assertEqual(payload["tool_choice"], "auto")
+        self.assertEqual(payload["tool_choice"], "required")
         self.assertEqual(payload["messages"][0], {"role": "system", "content": "Be brief"})
 
         assistant = payload["messages"][1]
@@ -100,7 +100,7 @@ class ConversionTests(unittest.TestCase):
         self.assertEqual(payload["messages"][2], {"role": "tool", "tool_call_id": "toolu_1", "content": "ok"})
         self.assertEqual(payload["messages"][3], {"role": "user", "content": "continue"})
 
-    def test_to_openai_fills_reasoning_content_after_thinking_mode(self):
+    def test_to_openai_does_not_invent_reasoning_for_later_messages(self):
         req = {
             "model": "plain-model",
             "messages": [
@@ -113,9 +113,9 @@ class ConversionTests(unittest.TestCase):
             payload = convert_request(ANTHROPIC, CHAT, req, resolve_model=sse2json.resolve_model)
 
         self.assertEqual(payload["messages"][0]["reasoning_content"], "first")
-        self.assertEqual(payload["messages"][1]["reasoning_content"], ".")
+        self.assertNotIn("reasoning_content", payload["messages"][1])
 
-    def test_to_anthropic_preserves_reasoning_text_tool_calls_and_usage(self):
+    def test_to_anthropic_omits_unsigned_reasoning_but_preserves_tools_and_usage(self):
         upstream_resp = {
             "model": "provider-model",
             "choices": [
@@ -144,10 +144,9 @@ class ConversionTests(unittest.TestCase):
         self.assertEqual(anth["model"], "client-model")
         self.assertEqual(anth["stop_reason"], "tool_use")
         self.assertEqual(anth["usage"], {"input_tokens": 10, "output_tokens": 5})
-        self.assertEqual([block["type"] for block in anth["content"]], ["thinking", "text", "tool_use"])
-        self.assertEqual(anth["content"][0]["thinking"], "think")
-        self.assertEqual(anth["content"][1]["text"], "answer")
-        self.assertEqual(anth["content"][2]["input"], {"query": "status"})
+        self.assertEqual([block["type"] for block in anth["content"]], ["text", "tool_use"])
+        self.assertEqual(anth["content"][0]["text"], "answer")
+        self.assertEqual(anth["content"][1]["input"], {"query": "status"})
 
     def test_responses_request_converts_to_openai_chat_request(self):
         req = {

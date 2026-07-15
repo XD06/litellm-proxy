@@ -10,6 +10,10 @@ import time
 import uuid
 from typing import Any, Dict, Iterable, Optional
 
+from conversion_core.model import ConversionContext
+from conversion_core.engine import persist_response_session
+from conversion_core.errors import ConversionError
+from conversion_core.streaming import ToolCallRegistry, original_tool_name
 from usage_accounting import empty_usage, has_usage, normalize_usage
 from upstream_client import set_response_read_timeout
 
@@ -17,6 +21,23 @@ from upstream_client import set_response_read_timeout
 _PREFETCH_POOL = None
 _PREFETCH_POOL_LOCK = threading.Lock()
 _PREFETCH_POOL_USAGE_COUNT = 0
+
+
+def _persist_streamed_response(context: Optional[ConversionContext], response: Dict[str, Any]) -> None:
+    try:
+        persist_response_session(context, response)
+    except Exception as exc:
+        # The upstream response is already complete. Do not corrupt a valid SSE
+        # result because local continuation storage is unavailable; the next
+        # previous_response_id request will return a deterministic session error.
+        print(f"[proxy] Responses session persistence failed: {str(exc)[:300]}", flush=True)
+
+
+def _write_chat_conversion_error(wfile, exc: ConversionError) -> None:
+    payload = {"error": exc.as_dict()}
+    wfile.write(f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode())
+    wfile.write(b"data: [DONE]\n\n")
+    wfile.flush()
 
 def _get_prefetch_pool():
     global _PREFETCH_POOL, _PREFETCH_POOL_USAGE_COUNT
@@ -95,24 +116,26 @@ def sse_data_payload(line: str) -> Optional[str]:
 
 
 def _parse_tool_arguments(buffer: str) -> Dict[str, Any]:
-    """Parse a buffered tool-call arguments string into a dict.
-
-    When the final buffer is valid JSON, returns the parsed dict.
-    When parsing fails, returns ``{"_raw": buffer}`` so the original
-    content is preserved instead of being silently discarded as ``{}``.
-    An empty or whitespace-only buffer returns ``{}`` (matching the
-    previous behaviour for truly empty arguments).
-    """
+    """Parse a complete streamed tool argument buffer without fabricating data."""
     if not buffer or not buffer.strip():
         return {}
     try:
         parsed = json.loads(buffer)
         if isinstance(parsed, dict):
             return parsed
-        # Non-dict JSON (e.g. a bare string or list) — wrap it.
-        return {"_raw": buffer}
-    except (json.JSONDecodeError, TypeError):
-        return {"_raw": buffer}
+        raise ConversionError(
+            "streamed tool arguments must decode to a JSON object",
+            code="invalid_tool_arguments",
+            field="stream.tool_arguments",
+            details={"raw_arguments": buffer},
+        )
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise ConversionError(
+            f"streamed tool arguments contain invalid JSON: {exc}",
+            code="invalid_tool_arguments",
+            field="stream.tool_arguments",
+            details={"raw_arguments": buffer},
+        ) from exc
 
 
 def sse_event_name(line: str) -> Optional[str]:
@@ -211,6 +234,7 @@ def relay_sse_stream(
     collect_usage: bool = True,
     read_timeout_s: Optional[int] = None,
     client_format: str = "chat_completions",
+    conversion_context: Optional[ConversionContext] = None,
 ) -> Optional[Dict[str, int]]:
     """Pass-through raw SSE bytes from upstream to client.
 
@@ -240,6 +264,8 @@ def relay_sse_stream(
             buffered_writer.flush()  # Uses intelligent buffering
             if collect_usage:
                 usage = _merge_usage(usage, _usage_from_sse_line(raw))
+            if client_format == "responses" and conversion_context is not None:
+                _persist_native_responses_line(raw, conversion_context)
         for raw in upstream:
             if not timeout_switched and read_timeout_s:
                 set_response_read_timeout(upstream, read_timeout_s)
@@ -248,6 +274,8 @@ def relay_sse_stream(
             buffered_writer.flush()  # Uses intelligent buffering
             if collect_usage:
                 usage = _merge_usage(usage, _usage_from_sse_line(raw))
+            if client_format == "responses" and conversion_context is not None:
+                _persist_native_responses_line(raw, conversion_context)
     except Exception as e:
         err_text = f"[Stream interrupted: {type(e).__name__}]"
         print(f"[proxy] {err_text}: {str(e)[:200]}", flush=True)
@@ -270,6 +298,22 @@ def relay_sse_stream(
     # Ensure all data is flushed at the end
     buffered_writer.force_flush()
     return usage
+
+
+def _persist_native_responses_line(raw: bytes, context: ConversionContext) -> None:
+    try:
+        line = raw.decode("utf-8", errors="replace").strip()
+        data = sse_data_payload(line)
+        if data is None or is_sse_done(data):
+            return
+        payload = json.loads(data)
+        if not isinstance(payload, dict) or payload.get("type") != "response.completed":
+            return
+        response = payload.get("response")
+        if isinstance(response, dict):
+            _persist_streamed_response(context, response)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return
 
 
 def _usage_from_sse_line(raw: bytes) -> Dict[str, int]:
@@ -325,19 +369,20 @@ def stream_openai_sse_to_anthropic(
     first_byte_timeout_s: Optional[int] = None,
     read_timeout_s: Optional[int] = None,
     initial_lines: Optional[Iterable[bytes]] = None,
+    conversion_context: Optional[ConversionContext] = None,
 ):
     """Read upstream OpenAI SSE and write Anthropic SSE events chunk by chunk."""
     msg_id = f"msg_{uuid.uuid4().hex[:24]}"
     reasoning_buf = ""
     content_buf = ""
     tool_calls_buf = {}
+    tool_registry = ToolCallRegistry(conversion_context)
     tool_block_idx = {}
     finish_reason = None
     usage = {}
     block_idx = 0
     thinking_open = False
     thinking_emitted = False
-    thinking_sig = None
     text_open = False
     first_byte_received = False
     stream_start_time = time.time()
@@ -422,40 +467,9 @@ def stream_openai_sse_to_anthropic(
 
             r = delta.get("reasoning_content", "")
             if r:
-                # Anthropic block ordering requires thinking blocks to come
-                # before text/tool. If text or any tool block has already
-                # started, we must NOT reopen a thinking block (that would
-                # violate ordering and reuse a content_block index). Late
-                # reasoning is still accumulated for the final content log so
-                # non-streaming consumers do not lose it.
-                reasoning_started = thinking_open
-                if not text_open and not tool_block_idx and not thinking_open:
-                    thinking_sig = uuid.uuid4().hex
-                    sse(
-                        "content_block_start",
-                        {
-                            "type": "content_block_start",
-                            "index": block_idx,
-                            "content_block": {"type": "thinking", "thinking": "", "signature": ""},
-                        },
-                    )
-                    thinking_open = True
-                    thinking_emitted = True
-                    reasoning_started = True
-                if reasoning_started:
-                    sse(
-                        "content_block_delta",
-                        {
-                            "type": "content_block_delta",
-                            "index": block_idx,
-                            "delta": {"type": "thinking_delta", "thinking": r},
-                        },
-                    )
-                    wfile.flush()
-                # Retain reasoning text for potential inclusion in the final
-                # content log. Note: when reasoning arrives after text/tool
-                # blocks, thinking_emitted stays False and the reasoning is
-                # NOT surfaced in content_log (Anthropic ordering constraint).
+                # Chat reasoning has no reusable Anthropic signature. Exposing
+                # it as a thinking block would make the next Claude turn
+                # invalid, so retain it only for diagnostics.
                 reasoning_buf += r
 
             c = delta.get("content", "")
@@ -512,6 +526,11 @@ def stream_openai_sse_to_anthropic(
                     fn = tc.get("function", {})
                     if fn.get("name"):
                         entry["function"]["name"] = fn["name"]
+                    state = tool_registry.get(int(idx))
+                    state.update(
+                        call_id=str(entry.get("id") or ""),
+                        name=str(entry["function"].get("name") or ""),
+                    )
                     if fn.get("arguments"):
                         entry["function"]["arguments"] += fn["arguments"]
 
@@ -525,7 +544,7 @@ def stream_openai_sse_to_anthropic(
                                 "content_block": {
                                     "type": "tool_use",
                                     "id": entry["id"] or f"call_{uuid.uuid4().hex[:24]}",
-                                    "name": entry["function"]["name"] or "unknown",
+                                    "name": state.name or "unknown",
                                 },
                             },
                         )
@@ -576,6 +595,17 @@ def stream_openai_sse_to_anthropic(
             pass
         return None
 
+    parsed_tool_inputs = {}
+    try:
+        for idx in sorted(tool_calls_buf):
+            parsed_tool_inputs[idx] = _parse_tool_arguments(tool_calls_buf[idx]["function"]["arguments"])
+    except ConversionError as exc:
+        close_all_blocks()
+        sse("error", {"type": "error", "error": {"type": "conversion_error", **exc.as_dict()}})
+        sse("message_stop", {"type": "message_stop"})
+        wfile.flush()
+        return None
+
     close_all_blocks()
 
     reason_map = {"stop": "end_turn", "tool_calls": "tool_use", "length": "max_tokens"}
@@ -595,18 +625,21 @@ def stream_openai_sse_to_anthropic(
     wfile.flush()
 
     content_log = []
-    if reasoning_buf and thinking_emitted:
-        content_log.append({"type": "thinking", "thinking": reasoning_buf, "signature": thinking_sig or uuid.uuid4().hex})
     if content_buf:
         content_log.append({"type": "text", "text": content_buf})
     for idx in sorted(tool_calls_buf):
         tc = tool_calls_buf[idx]
-        args = _parse_tool_arguments(tc["function"]["arguments"])
+        args = parsed_tool_inputs[idx]
+        state = tool_registry.get(int(idx))
+        state.update(
+            call_id=str(tc.get("id") or ""),
+            name=str(tc["function"].get("name") or ""),
+        )
         content_log.append(
             {
                 "type": "tool_use",
                 "id": tc["id"] or f"call_{uuid.uuid4().hex[:24]}",
-                "name": tc["function"]["name"] or "unknown",
+                "name": state.name or "unknown",
                 "input": args,
             }
         )
@@ -629,6 +662,7 @@ def stream_openai_sse_to_responses(
     first_byte_timeout_s: Optional[int] = None,
     read_timeout_s: Optional[int] = None,
     initial_lines: Optional[Iterable[bytes]] = None,
+    conversion_context: Optional[ConversionContext] = None,
 ):
     """Read upstream Chat Completions SSE and write OpenAI Responses-style SSE events."""
     response_id = f"resp_{uuid.uuid4().hex}"
@@ -637,6 +671,7 @@ def stream_openai_sse_to_responses(
     content_buf = ""
     reasoning_buf = ""
     tool_calls_buf = {}
+    tool_registry = ToolCallRegistry(conversion_context)
     tool_item_ids = {}
     tool_output_indices = {}
     output_order = []
@@ -811,6 +846,8 @@ def stream_openai_sse_to_responses(
         )
 
     def ensure_tool_started(idx, entry):
+        state = tool_registry.get(idx)
+        state.update(call_id=str(entry.get("id") or ""), name=str(entry["function"].get("name") or ""))
         if idx in tool_item_ids:
             return tool_item_ids[idx]
         item_id = entry.get("id") or f"call_{uuid.uuid4().hex[:24]}"
@@ -822,14 +859,7 @@ def stream_openai_sse_to_responses(
             {
                 "type": "response.output_item.added",
                 "output_index": output_index,
-                "item": {
-                    "id": item_id,
-                    "type": "function_call",
-                    "call_id": item_id,
-                    "name": entry["function"].get("name") or "unknown",
-                    "arguments": "",
-                    "status": "in_progress",
-                },
+                "item": state.responses_item(status="in_progress", item_id=item_id),
             },
         )
         return item_id
@@ -840,28 +870,25 @@ def stream_openai_sse_to_responses(
             item_id = tool_item_ids.get(idx) or ensure_tool_started(idx, entry)
             output_index = tool_output_indices.get(idx, idx)
             args = entry["function"].get("arguments") or ""
-            sse(
-                "response.function_call_arguments.done",
-                {
-                    "type": "response.function_call_arguments.done",
-                    "item_id": item_id,
-                    "output_index": output_index,
-                    "arguments": args,
-                },
-            )
+            state = tool_registry.get(idx)
+            state.update(call_id=str(entry.get("id") or ""), name=str(entry["function"].get("name") or ""))
+            if state.arguments != args:
+                state.arguments = args
+            state.validate_arguments()
+            done_event = "response.custom_tool_call_input.done" if state.custom else "response.function_call_arguments.done"
+            done_payload = {
+                "type": done_event,
+                "item_id": item_id,
+                "output_index": output_index,
+            }
+            done_payload["input" if state.custom else "arguments"] = state.custom_input() if state.custom else args
+            sse(done_event, done_payload)
             sse(
                 "response.output_item.done",
                 {
                     "type": "response.output_item.done",
                     "output_index": output_index,
-                    "item": {
-                        "id": item_id,
-                        "type": "function_call",
-                        "call_id": item_id,
-                        "name": entry["function"].get("name") or "unknown",
-                        "arguments": args,
-                        "status": "completed",
-                    },
+                    "item": state.responses_item(status="completed", item_id=item_id),
                 },
             )
 
@@ -940,17 +967,23 @@ def stream_openai_sse_to_responses(
                 fn = tc.get("function") or {}
                 if fn.get("name"):
                     entry["function"]["name"] = fn["name"]
+                state = tool_registry.get(idx)
+                state.update(call_id=str(entry.get("id") or ""), name=str(entry["function"].get("name") or ""))
                 item_id = ensure_tool_started(idx, entry)
                 args_chunk = fn.get("arguments") or ""
                 if args_chunk:
                     entry["function"]["arguments"] += args_chunk
+                    client_delta = state.append_arguments(args_chunk)
+                    delta_event = "response.custom_tool_call_input.delta" if state.custom else "response.function_call_arguments.delta"
+                    if not client_delta:
+                        continue
                     sse(
-                        "response.function_call_arguments.delta",
+                        delta_event,
                         {
-                            "type": "response.function_call_arguments.delta",
+                            "type": delta_event,
                             "item_id": item_id,
                             "output_index": tool_output_indices.get(idx, idx),
-                            "delta": args_chunk,
+                            "delta": client_delta,
                         },
                     )
                     wfile.flush()
@@ -979,7 +1012,24 @@ def stream_openai_sse_to_responses(
 
     finish_reasoning_if_needed()
     finish_text_if_needed()
-    finish_tools()
+    try:
+        finish_tools()
+    except ConversionError as exc:
+        sse(
+            "response.failed",
+            {
+                "type": "response.failed",
+                "response": {
+                    "id": response_id,
+                    "object": "response",
+                    "status": "failed",
+                    "model": original_model,
+                    "error": exc.as_dict(),
+                },
+            },
+        )
+        wfile.flush()
+        return None
     output = []
     for kind, ref in output_order:
         if kind == "reasoning":
@@ -1004,19 +1054,16 @@ def stream_openai_sse_to_responses(
         elif kind == "tool":
             entry = tool_calls_buf.get(ref) or {"function": {}}
             item_id = tool_item_ids.get(ref) or entry.get("id") or f"call_{uuid.uuid4().hex[:24]}"
-            output.append(
-                {
-                    "id": item_id,
-                    "type": "function_call",
-                    "call_id": item_id,
-                    "name": entry["function"].get("name") or "unknown",
-                    "arguments": entry["function"].get("arguments") or "",
-                    "status": "completed",
-                }
-            )
+            state = tool_registry.get(ref)
+            state.update(call_id=str(entry.get("id") or ""), name=str(entry["function"].get("name") or ""))
+            args = entry["function"].get("arguments") or ""
+            if state.arguments != args:
+                state.arguments = args
+            output.append(state.responses_item(status="completed", item_id=item_id))
     completed = response_obj(status="completed", output=output)
     completed["output_text"] = content_buf
     completed["finish_reason"] = finish_reason or "stop"
+    _persist_streamed_response(conversion_context, completed)
     sse("response.completed", {"type": "response.completed", "response": completed})
     wfile.flush()
     return completed
@@ -1029,6 +1076,7 @@ def stream_anthropic_sse_to_responses(
     first_byte_timeout_s: Optional[int] = None,
     read_timeout_s: Optional[int] = None,
     initial_lines: Optional[Iterable[bytes]] = None,
+    conversion_context: Optional[ConversionContext] = None,
 ):
     """Read upstream Anthropic Messages SSE and write OpenAI Responses-style SSE events."""
     response_id = f"resp_{uuid.uuid4().hex}"
@@ -1037,6 +1085,7 @@ def stream_anthropic_sse_to_responses(
     content_buf = ""
     reasoning_buf = ""
     blocks = {}
+    tool_registry = ToolCallRegistry(conversion_context)
     tool_item_ids = {}
     tool_output_indices = {}
     tool_done = set()
@@ -1211,6 +1260,8 @@ def stream_anthropic_sse_to_responses(
         )
 
     def ensure_tool_started(index, block):
+        state = tool_registry.get(index)
+        state.update(call_id=str(block.get("id") or ""), name=str(block.get("name") or ""))
         if index in tool_item_ids:
             return tool_item_ids[index]
         item_id = block.get("id") or f"call_{uuid.uuid4().hex[:24]}"
@@ -1222,14 +1273,7 @@ def stream_anthropic_sse_to_responses(
             {
                 "type": "response.output_item.added",
                 "output_index": output_index,
-                "item": {
-                    "id": item_id,
-                    "type": "function_call",
-                    "call_id": item_id,
-                    "name": block.get("name") or "unknown",
-                    "arguments": "",
-                    "status": "in_progress",
-                },
+                "item": state.responses_item(status="in_progress", item_id=item_id),
             },
         )
         return item_id
@@ -1243,29 +1287,29 @@ def stream_anthropic_sse_to_responses(
         item_id = tool_item_ids.get(index) or ensure_tool_started(index, block)
         output_index = tool_output_indices.get(index, index)
         args = block.get("arguments") or ""
+        state = tool_registry.get(index)
+        state.update(call_id=str(block.get("id") or ""), name=str(block.get("name") or ""))
+        if state.arguments != args:
+            state.arguments = args
+        state.validate_arguments()
         tool_done.add(index)
+        done_event = "response.custom_tool_call_input.done" if state.custom else "response.function_call_arguments.done"
+        done_payload = {
+            "type": done_event,
+            "item_id": item_id,
+            "output_index": output_index,
+        }
+        done_payload["input" if state.custom else "arguments"] = state.custom_input() if state.custom else args
         sse(
-            "response.function_call_arguments.done",
-            {
-                "type": "response.function_call_arguments.done",
-                "item_id": item_id,
-                "output_index": output_index,
-                "arguments": args,
-            },
+            done_event,
+            done_payload,
         )
         sse(
             "response.output_item.done",
             {
                 "type": "response.output_item.done",
                 "output_index": output_index,
-                "item": {
-                    "id": item_id,
-                    "type": "function_call",
-                    "call_id": item_id,
-                    "name": block.get("name") or "unknown",
-                    "arguments": args,
-                    "status": "completed",
-                },
+                "item": state.responses_item(status="completed", item_id=item_id),
             },
         )
 
@@ -1302,6 +1346,9 @@ def stream_anthropic_sse_to_responses(
                 initial_input = block.get("input")
                 if initial_input:
                     block["arguments"] = json.dumps(initial_input, ensure_ascii=False)
+                    state = tool_registry.get(idx)
+                    state.update(call_id=str(block.get("id") or ""), name=str(block.get("name") or ""))
+                    state.append_arguments(block["arguments"])
                 ensure_tool_started(idx, block)
             blocks[idx] = block
             return
@@ -1337,14 +1384,20 @@ def stream_anthropic_sse_to_responses(
                     block.setdefault("type", "tool_use")
                     block.setdefault("arguments", "")
                     block["arguments"] += chunk
+                    state = tool_registry.get(idx)
+                    state.update(call_id=str(block.get("id") or ""), name=str(block.get("name") or ""))
+                    client_delta = state.append_arguments(chunk)
                     item_id = ensure_tool_started(idx, block)
+                    delta_event = "response.custom_tool_call_input.delta" if state.custom else "response.function_call_arguments.delta"
+                    if not client_delta:
+                        return
                     sse(
-                        "response.function_call_arguments.delta",
+                        delta_event,
                         {
-                            "type": "response.function_call_arguments.delta",
+                            "type": delta_event,
                             "item_id": item_id,
                             "output_index": tool_output_indices.get(idx, idx),
-                            "delta": chunk,
+                            "delta": client_delta,
                         },
                     )
                     wfile.flush()
@@ -1423,7 +1476,24 @@ def stream_anthropic_sse_to_responses(
             pass
         return None
 
-    finish_all_open_items()
+    try:
+        finish_all_open_items()
+    except ConversionError as exc:
+        sse(
+            "response.failed",
+            {
+                "type": "response.failed",
+                "response": {
+                    "id": response_id,
+                    "object": "response",
+                    "status": "failed",
+                    "model": original_model,
+                    "error": exc.as_dict(),
+                },
+            },
+        )
+        wfile.flush()
+        return None
     output = []
     for kind, ref in output_order:
         if kind == "reasoning":
@@ -1448,21 +1518,18 @@ def stream_anthropic_sse_to_responses(
         elif kind == "tool":
             block = blocks.get(ref) or {}
             item_id = tool_item_ids.get(ref) or block.get("id") or f"call_{uuid.uuid4().hex[:24]}"
-            output.append(
-                {
-                    "id": item_id,
-                    "type": "function_call",
-                    "call_id": item_id,
-                    "name": block.get("name") or "unknown",
-                    "arguments": block.get("arguments") or "",
-                    "status": "completed",
-                }
-            )
+            state = tool_registry.get(ref)
+            state.update(call_id=str(block.get("id") or ""), name=str(block.get("name") or ""))
+            args = block.get("arguments") or ""
+            if state.arguments != args:
+                state.arguments = args
+            output.append(state.responses_item(status="completed", item_id=item_id))
 
     status = "incomplete" if finish_reason == "length" else "completed"
     completed = response_obj(status=status, output=output)
     completed["output_text"] = content_buf
     completed["finish_reason"] = finish_reason or "stop"
+    _persist_streamed_response(conversion_context, completed)
     sse("response.completed", {"type": "response.completed", "response": completed})
     wfile.flush()
     return completed
@@ -1475,6 +1542,7 @@ def stream_responses_sse_to_anthropic(
     first_byte_timeout_s: Optional[int] = None,
     read_timeout_s: Optional[int] = None,
     initial_lines: Optional[Iterable[bytes]] = None,
+    conversion_context: Optional[ConversionContext] = None,
 ):
     """Read upstream OpenAI Responses SSE and write Anthropic Messages-style SSE events."""
     msg_id = f"msg_{uuid.uuid4().hex[:24]}"
@@ -1510,6 +1578,8 @@ def stream_responses_sse_to_anthropic(
         item_id = item.get("id") or item.get("item_id") or item.get("call_id") or f"item_{uuid.uuid4().hex[:24]}"
         existing = items.setdefault(item_id, {"id": item_id, "type": item.get("type") or "message"})
         existing.update({k: v for k, v in item.items() if v is not None})
+        if existing.get("name"):
+            existing["name"] = original_tool_name(conversion_context, str(existing["name"]))
         if item_id not in item_order:
             item_order.append(item_id)
         return existing
@@ -1574,25 +1644,10 @@ def stream_responses_sse_to_anthropic(
         nonlocal _anthropic_reasoning_buf
         if not text:
             return
-        # Anthropic block ordering requires thinking before text/tool. If text
-        # or a tool block has already been emitted, do NOT reopen a thinking
-        # block; only retain the text on the item so non-streaming/history
-        # consumers still see it.
+        # Responses reasoning summaries have no reusable Anthropic signature.
+        # Keep them in the internal log, but never forge a thinking block.
         item["thinking"] = (item.get("thinking") or "") + text
         _anthropic_reasoning_buf += text
-        if text_or_tool_seen:
-            return
-        idx = ensure_block("thinking", item)
-        item["_thinking_emitted"] = True
-        sse(
-            "content_block_delta",
-            {
-                "type": "content_block_delta",
-                "index": idx,
-                "delta": {"type": "thinking_delta", "thinking": text},
-            },
-        )
-        wfile.flush()
 
     def emit_text(text, item):
         nonlocal text_or_tool_seen, _anthropic_text_buf
@@ -1816,6 +1871,19 @@ def stream_responses_sse_to_anthropic(
             pass
         return None
 
+    parsed_tool_inputs = {}
+    try:
+        for position, item_id in enumerate(item_order):
+            item = items.get(item_id) or {}
+            if item.get("type") == "function_call":
+                parsed_tool_inputs[item_id] = _parse_tool_arguments(item.get("arguments") or "")
+    except ConversionError as exc:
+        close_open_block()
+        sse("error", {"type": "error", "error": {"type": "conversion_error", **exc.as_dict()}})
+        sse("message_stop", {"type": "message_stop"})
+        wfile.flush()
+        return None
+
     close_open_block()
     stop_reason = _responses_finish_to_anthropic_stop(finish_reason, response_status, any((items.get(i) or {}).get("type") == "function_call" for i in item_order))
     usage_out = _responses_usage(usage)
@@ -1834,12 +1902,10 @@ def stream_responses_sse_to_anthropic(
     for item_id in item_order:
         item = items.get(item_id) or {}
         item_type = item.get("type")
-        if item_type == "reasoning" and item.get("thinking") and item.get("_thinking_emitted"):
-            content_log.append({"type": "thinking", "thinking": item.get("thinking") or "", "signature": uuid.uuid4().hex})
-        elif item_type == "message" and item.get("text"):
+        if item_type == "message" and item.get("text"):
             content_log.append({"type": "text", "text": item.get("text") or ""})
         elif item_type == "function_call":
-            tool_input = _parse_tool_arguments(item.get("arguments") or "")
+            tool_input = parsed_tool_inputs[item_id]
             content_log.append(
                 {
                     "type": "tool_use",
@@ -1867,6 +1933,7 @@ def stream_responses_sse_to_openai_chat(
     first_byte_timeout_s: Optional[int] = None,
     read_timeout_s: Optional[int] = None,
     initial_lines: Optional[Iterable[bytes]] = None,
+    conversion_context: Optional[ConversionContext] = None,
 ):
     """Read upstream OpenAI Responses SSE and write Chat Completions SSE chunks."""
     completion_id = f"chatcmpl_{uuid.uuid4().hex[:24]}"
@@ -1899,6 +1966,8 @@ def stream_responses_sse_to_openai_chat(
         item_id = item.get("id") or item.get("item_id") or item.get("call_id") or f"item_{uuid.uuid4().hex[:24]}"
         existing = items.setdefault(item_id, {"id": item_id, "type": item.get("type") or "message"})
         existing.update({k: v for k, v in item.items() if v is not None})
+        if existing.get("name"):
+            existing["name"] = original_tool_name(conversion_context, str(existing["name"]))
         if item_id not in item_order:
             item_order.append(item_id)
         return existing
@@ -2128,6 +2197,14 @@ def stream_responses_sse_to_openai_chat(
         return None
 
     has_tool = any((items.get(i) or {}).get("type") == "function_call" for i in item_order)
+    try:
+        for item_id in item_order:
+            item = items.get(item_id) or {}
+            if item.get("type") == "function_call":
+                _parse_tool_arguments(item.get("arguments") or "")
+    except ConversionError as exc:
+        _write_chat_conversion_error(wfile, exc)
+        return None
     final_finish = _responses_finish_to_chat_finish(finish_reason, response_status, has_tool)
     write_chunk({}, finish=final_finish)
     wfile.write(b"data: [DONE]\n\n")
@@ -2168,6 +2245,7 @@ def stream_anthropic_sse_to_openai_chat(
     first_byte_timeout_s: Optional[int] = None,
     read_timeout_s: Optional[int] = None,
     initial_lines: Optional[Iterable[bytes]] = None,
+    conversion_context: Optional[ConversionContext] = None,
 ):
     """Read upstream Anthropic Messages SSE and write Chat Completions SSE chunks."""
     completion_id = f"chatcmpl_{uuid.uuid4().hex[:24]}"
@@ -2267,6 +2345,8 @@ def stream_anthropic_sse_to_openai_chat(
         if event_type == "content_block_start":
             idx = int(payload.get("index", 0) or 0)
             block = dict(payload.get("content_block") or {})
+            if block.get("name"):
+                block["name"] = original_tool_name(conversion_context, str(block["name"]))
             block.setdefault("arguments", "")
             blocks[idx] = block
             if block.get("type") == "tool_use":
@@ -2327,6 +2407,14 @@ def stream_anthropic_sse_to_openai_chat(
             wfile.flush()
         except Exception:
             pass
+        return None
+
+    try:
+        for block in blocks.values():
+            if block.get("type") == "tool_use":
+                _parse_tool_arguments(block.get("arguments") or "")
+    except ConversionError as exc:
+        _write_chat_conversion_error(wfile, exc)
         return None
 
     final_finish = finish_reason or ("tool_calls" if any(b.get("type") == "tool_use" for b in blocks.values()) else "stop")

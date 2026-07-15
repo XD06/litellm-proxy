@@ -139,7 +139,7 @@ class ThreadLocalRuntimeCleanupTests(unittest.TestCase):
 
         # POST to an unknown endpoint to trigger do_POST path
         req = Request(
-            self.base_url + "/v1/chat/completions",
+            self.base_url + "/v1/unknown-endpoint",
             data=json.dumps({"model": "test", "messages": []}).encode("utf-8"),
             headers={"Content-Type": "application/json"},
             method="POST",

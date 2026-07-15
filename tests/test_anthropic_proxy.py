@@ -408,7 +408,7 @@ class AnthropicProxyTests(unittest.TestCase):
             ["anthropic_messages", "chat_completions", "responses"],
         )
 
-    def test_strict_semantic_conversion_keeps_thinking_native_only(self):
+    def test_strict_semantic_conversion_allows_explicit_thinking_mapping(self):
         fake_router = FakeRouter([])
         obs = sse2json.ProxyObservability({"observability": {"history": {"enabled": False}}})
         strict_config = dict(sse2json.CONFIG)
@@ -432,12 +432,12 @@ class AnthropicProxyTests(unittest.TestCase):
 
         self.assertEqual(
             fake_router.iter_calls[0]["allowed_upstream_formats"],
-            ["anthropic_messages"],
+            ["anthropic_messages", "chat_completions", "responses"],
         )
         events = obs.snapshot()["recent_requests"][0]["routing_trace"]
         self.assertTrue(
             any(
-                event["code"] == "format_blocked_by_parameter"
+                event["code"] == "format_parameter_mapped"
                 and event["target_format"] == "chat_completions"
                 and event["field"] == "thinking"
                 for event in events

@@ -136,7 +136,7 @@ class FormatAdapterTests(unittest.TestCase):
         self.assertEqual([b["type"] for b in payload["messages"][2]["content"]], ["tool_result", "tool_result"])
         self.assertEqual([b["tool_use_id"] for b in payload["messages"][2]["content"]], ["call_1", "call_2"])
 
-    def test_responses_reasoning_response_converts_to_anthropic_thinking(self):
+    def test_responses_reasoning_response_does_not_forge_anthropic_signature(self):
         upstream_resp = {
             "id": "resp_1",
             "object": "response",
@@ -151,10 +151,9 @@ class FormatAdapterTests(unittest.TestCase):
 
         resp = convert_response(RESPONSES, ANTHROPIC, upstream_resp, original_model="client-model")
 
-        self.assertEqual([block["type"] for block in resp["content"]], ["thinking", "text", "tool_use"])
-        self.assertEqual(resp["content"][0]["thinking"], "plan")
-        self.assertEqual(resp["content"][1]["text"], "answer")
-        self.assertEqual(resp["content"][2]["id"], "call_1")
+        self.assertEqual([block["type"] for block in resp["content"]], ["text", "tool_use"])
+        self.assertEqual(resp["content"][0]["text"], "answer")
+        self.assertEqual(resp["content"][1]["id"], "call_1")
 
     def test_chat_reasoning_response_converts_to_responses_reasoning_item(self):
         upstream_resp = {

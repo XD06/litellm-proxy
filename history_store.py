@@ -248,6 +248,7 @@ class RequestHistoryStore:
               upstream_error_type TEXT NOT NULL DEFAULT '',
               upstream_error_code TEXT NOT NULL DEFAULT '',
               upstream_error_param TEXT NOT NULL DEFAULT '',
+              conversion_details TEXT NOT NULL DEFAULT '',
               duration_ms INTEGER NOT NULL DEFAULT 0,
               input_tokens INTEGER NOT NULL DEFAULT 0,
               output_tokens INTEGER NOT NULL DEFAULT 0,
@@ -299,6 +300,7 @@ class RequestHistoryStore:
                 "duration_ms": "INTEGER NOT NULL DEFAULT 0",
                 "failure_owner": "TEXT NOT NULL DEFAULT ''",
                 "state_action": "TEXT NOT NULL DEFAULT ''",
+                "conversion_details": "TEXT NOT NULL DEFAULT ''",
             },
         )
 
@@ -400,9 +402,9 @@ class RequestHistoryStore:
               request_id, attempt_no, provider, key_index, key_masked, key_id,
               provider_model, upstream_format, outcome, error_type, reason, http_status,
               diagnostic_stage, upstream_error_summary, upstream_error_type, upstream_error_code,
-              upstream_error_param, parameter_adaptations, failure_owner, state_action,
+              upstream_error_param, parameter_adaptations, failure_owner, state_action, conversion_details,
               duration_ms, input_tokens, output_tokens, total_tokens, cost_usd
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 request_id,
@@ -425,6 +427,7 @@ class RequestHistoryStore:
                 json.dumps(attempt.get("parameter_adaptations") or [], ensure_ascii=False),
                 str(attempt.get("failure_owner") or "")[:100],
                 json.dumps(attempt.get("state_action") or {}, ensure_ascii=False),
+                json.dumps(attempt.get("conversion_details") or {}, ensure_ascii=False),
                 max(0, int(attempt.get("duration_ms") or 0)),
                 usage_totals["input_tokens"],
                 usage_totals["output_tokens"],
@@ -1052,6 +1055,13 @@ class RequestHistoryStore:
                 action = json.loads(row["state_action"])
                 if isinstance(action, dict) and action:
                     item["state_action"] = action
+            except (TypeError, ValueError):
+                pass
+        if "conversion_details" in row.keys() and row["conversion_details"]:
+            try:
+                details = json.loads(row["conversion_details"])
+                if isinstance(details, dict) and details:
+                    item["conversion_details"] = details
             except (TypeError, ValueError):
                 pass
         usage_totals = {
