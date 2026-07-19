@@ -33,6 +33,7 @@ from format_adapters import (
     prepare_request_conversion,
 )
 from observability import ProxyObservability
+from probe_coordinator import ProbeCoordinator
 from parameter_compatibility import (
     ParameterCompatibilityError,
     alternate_output_token_payload,
@@ -43,7 +44,7 @@ from parameter_compatibility import (
     request_compatibility_profile,
     upstream_format_eligibility,
 )
-from proxy_utils import key_fingerprint, key_proxy, key_value, mask_proxy_url
+from proxy_utils import key_fingerprint, key_proxy, key_value, mask_proxy_url, resolve_client_ip
 from request_routes import classify_get, classify_post
 from router import UpstreamRouter, parse_retry_after_seconds
 from routing_trace import RoutingTrace
@@ -89,6 +90,30 @@ def _hmodel(model: str) -> str:
 def _harrow(s: str) -> str:
     """Return arrow '->' highlighted in bold white."""
     return f"\033[1;37m->\033[0m" if _HAS_ANSI else "->"
+
+
+def _observability_request_meta(handler, config, request_profile=""):
+    PROBE_COORDINATOR.note_real_request()
+    server_cfg = (config or {}).get("server") or {}
+    peer_ip = ""
+    try:
+        peer_ip = handler.client_address[0]
+    except Exception:
+        pass
+    client_ip, client_ip_source = resolve_client_ip(
+        peer_ip,
+        getattr(handler, "headers", {}),
+        server_cfg.get("trusted_proxy_cidrs"),
+        server_cfg.get("trusted_proxy_headers"),
+    )
+    headers = getattr(handler, "headers", {})
+    return {
+        "client_ip": client_ip,
+        "client_ip_source": client_ip_source,
+        "user_agent": str(headers.get("User-Agent") or "")[:500] if hasattr(headers, "get") else "",
+        "request_bytes": max(0, int(getattr(handler, "_request_body_bytes", 0) or 0)),
+        "request_profile": str(request_profile or "")[:64],
+    }
 
 # Configuration (config.json + env overlay).
 BASE_CONFIG = load_base_config(apply_env=False)
@@ -462,6 +487,7 @@ _patrol_probe_schedule = {
 # _trigger_patrol_now so two concurrent manual triggers cannot both observe
 # running=False and start overlapping patrol rounds.
 _PATROL_TRIGGER_LOCK = threading.Lock()
+PROBE_COORDINATOR = ProbeCoordinator(min_interval_s=0.0)
 
 
 def _health_monitor_cfg(config=None) -> dict:
@@ -483,6 +509,8 @@ def _health_monitor_cfg(config=None) -> dict:
         "patrol_delay_s": _PATROL_DELAY_S[0],
         "patrol_delay_jitter_s": _PATROL_DELAY_S[1] - _PATROL_DELAY_S[0],
         "patrol_first_byte_timeout_s": _PATROL_FIRST_BYTE_TIMEOUT_S,
+        "probe_recent_success_s": 600,
+        "probe_max_tokens": _PROBE_MAX_TOKENS,
     }
     result = dict(defaults)
     result.update(hm)
@@ -541,7 +569,7 @@ def _idle_check_interval_s(last_finished_at: float, now: float) -> float:
 # responding, not the full completion.
 
 _PROBE_USER_CONTENT = "Hi"
-_PROBE_MAX_TOKENS = 48
+_PROBE_MAX_TOKENS = 16
 
 
 def _build_probe_payload(provider_model: str, *, stream: bool, fmt: str, attempt=None):
@@ -565,7 +593,7 @@ def _build_probe_payload(provider_model: str, *, stream: bool, fmt: str, attempt
     base_payload = {
         "model": provider_model,
         "messages": [{"role": "user", "content": _PROBE_USER_CONTENT}],
-        "max_tokens": _PROBE_MAX_TOKENS,
+        "max_tokens": int(_health_monitor_cfg().get("probe_max_tokens", _PROBE_MAX_TOKENS)),
         "stream": stream,
     }
     payload = convert_request("chat_completions", fmt, base_payload, resolve_model=lambda m: m)
@@ -578,7 +606,7 @@ def _build_probe_payload(provider_model: str, *, stream: bool, fmt: str, attempt
     return payload
 
 
-def _idle_probe_one_provider(rt, provider: str, *, idle_tier: str = "", next_probe_in_s: float = 0, suggested_model: str = "", model_source: str = "") -> bool:
+def _idle_probe_one_provider_impl(rt, provider: str, *, idle_tier: str = "", next_probe_in_s: float = 0, suggested_model: str = "", model_source: str = "") -> bool:
     """Probe a single provider, trying all available keys before giving up.
 
     Returns True if any key succeeds (provider is healthy), False if all keys
@@ -701,7 +729,7 @@ def _idle_probe_one_provider(rt, provider: str, *, idle_tier: str = "", next_pro
         upstream_format=fmt,
         proxy_url=first_proxy,
         canonical_model=canonical_model,
-        compatibility_profile="health_probe",
+        compatibility_profile="plain",
     )
     try:
         payload = _build_probe_payload(first_provider_model or provider_model, stream=True, fmt=fmt, attempt=first_attempt)
@@ -741,7 +769,7 @@ def _idle_probe_one_provider(rt, provider: str, *, idle_tier: str = "", next_pro
             upstream_format=fmt,
             proxy_url=proxy_url,
             canonical_model=canonical_model,
-            compatibility_profile="health_probe",
+            compatibility_profile="plain",
         )
 
         probe_base = {
@@ -752,6 +780,7 @@ def _idle_probe_one_provider(rt, provider: str, *, idle_tier: str = "", next_pro
             "upstream_model": key_provider_model or provider_model,
             "format": fmt,
         }
+        health_scope = (provider, key_index, canonical_model, key_provider_model or provider_model, fmt)
 
         started_at = time.time()
         hm = _health_monitor_cfg(config)
@@ -789,6 +818,7 @@ def _idle_probe_one_provider(rt, provider: str, *, idle_tier: str = "", next_pro
                 # state (cooldown, disabled, fails, transient_fails) AND
                 # provider-level cooldown.
                 router.report_success(probe_attempt)
+                PROBE_COORDINATOR.record_success(health_scope)
                 _record_probe(
                     **probe_base,
                     outcome="success",
@@ -800,13 +830,21 @@ def _idle_probe_one_provider(rt, provider: str, *, idle_tier: str = "", next_pro
                 return True
             else:
                 # Stream opened but no data event within the read bound.
+                apply_failure = PROBE_COORDINATOR.should_apply_failure(health_scope, "first_event_timeout")
+                state_action = None
+                if apply_failure:
+                    state_action = router.report_failure(
+                        probe_attempt,
+                        error_type="provider_compat",
+                    )
                 _record_probe(
                     **probe_base,
                     outcome="failed",
-                    error_type="unknown",
+                    error_type="first_event_timeout",
                     latency_ms=latency_ms,
                     reason="idle stream opened but no data event",
-                    action="observed_only",
+                    cooldown_s=(state_action or {}).get("cooldown_s", 0),
+                    action="reported_failure" if apply_failure else "observed_only",
                 )
                 print(f"[proxy] {_hprov(provider)} idle probe {_harrow('->')} no-data {_hmodel(canonical_model)} key#{key_index}", flush=True)
                 continue  # try next key
@@ -826,60 +864,65 @@ def _idle_probe_one_provider(rt, provider: str, *, idle_tier: str = "", next_pro
                 )
                 print(f"[proxy] {_hprov(provider)} idle probe {_harrow('->')} observed_only HTTP {status} {_hmodel(canonical_model)} key#{key_index}", flush=True)
                 return False
-            # Key-level failure — report it and try the next key.
-            router.report_failure(
-                probe_attempt,
-                error_type=error_type,
-                http_status=status,
-            )
+            apply_failure = PROBE_COORDINATOR.should_apply_failure(health_scope, error_type)
+            if apply_failure:
+                router.report_failure(
+                    probe_attempt,
+                    error_type=error_type,
+                    http_status=status,
+                )
             policy = scheduler_policy.failure_policy_for_error_type(config, error_type)
             _record_probe(
                 **probe_base,
                 outcome="failed",
                 http_status=status,
                 error_type=error_type,
-                cooldown_s=policy.get("cooldown_s"),
-                provider_cooldown_s=policy.get("provider_cooldown_s"),
+                cooldown_s=policy.get("cooldown_s") if apply_failure else 0,
+                provider_cooldown_s=policy.get("provider_cooldown_s") if apply_failure else 0,
                 reason=f"HTTP {status}",
-                action="reported_failure",
+                action="reported_failure" if apply_failure else "observed_only",
             )
             print(f"[proxy] {_hprov(provider)} idle probe {_harrow('->')} FAIL HTTP {status} ({error_type}) {_hmodel(canonical_model)} key#{key_index}, trying next key...", flush=True)
             _close_upstream_conn(stream_conn)
             stream_conn = None
             continue  # try next key
         except (URLError, socket.timeout) as e:
-            router.report_failure(
-                probe_attempt,
-                error_type="network_error",
-            )
+            apply_failure = PROBE_COORDINATOR.should_apply_failure(health_scope, "network_error")
+            if apply_failure:
+                router.report_failure(
+                    probe_attempt,
+                    error_type="network_error",
+                )
             policy = scheduler_policy.failure_policy_for_error_type(config, "network_error")
             _record_probe(
                 **probe_base,
                 outcome="failed",
                 error_type="network_error",
-                cooldown_s=policy.get("cooldown_s"),
-                provider_cooldown_s=policy.get("provider_cooldown_s"),
+                cooldown_s=policy.get("cooldown_s") if apply_failure else 0,
+                provider_cooldown_s=policy.get("provider_cooldown_s") if apply_failure else 0,
                 reason=type(e).__name__,
-                action="reported_failure",
+                action="reported_failure" if apply_failure else "observed_only",
             )
             print(f"[proxy] {_hprov(provider)} idle probe {_harrow('->')} FAIL {type(e).__name__} {_hmodel(canonical_model)} key#{key_index}, trying next key...", flush=True)
             _close_upstream_conn(stream_conn)
             stream_conn = None
             continue  # try next key
         except Exception as e:
-            router.report_failure(
-                probe_attempt,
-                error_type="unknown",
-            )
+            apply_failure = PROBE_COORDINATOR.should_apply_failure(health_scope, "unknown")
+            if apply_failure:
+                router.report_failure(
+                    probe_attempt,
+                    error_type="unknown",
+                )
             policy = scheduler_policy.failure_policy_for_error_type(config, "unknown")
             _record_probe(
                 **probe_base,
                 outcome="failed",
                 error_type="unknown",
-                cooldown_s=policy.get("cooldown_s"),
-                provider_cooldown_s=policy.get("provider_cooldown_s"),
+                cooldown_s=policy.get("cooldown_s") if apply_failure else 0,
+                provider_cooldown_s=policy.get("provider_cooldown_s") if apply_failure else 0,
                 reason=type(e).__name__,
-                action="reported_failure",
+                action="reported_failure" if apply_failure else "observed_only",
             )
             print(f"[proxy] {_hprov(provider)} idle probe {_harrow('->')} FAIL {type(e).__name__} {_hmodel(canonical_model)} key#{key_index}, trying next key...", flush=True)
             _close_upstream_conn(stream_conn)
@@ -891,6 +934,49 @@ def _idle_probe_one_provider(rt, provider: str, *, idle_tier: str = "", next_pro
 
     # All keys exhausted — provider is unhealthy.
     return False
+
+
+def _idle_probe_one_provider(rt, provider: str, *, idle_tier: str = "", next_probe_in_s: float = 0, suggested_model: str = "", model_source: str = "") -> bool:
+    observability = rt.observability
+    config = rt.config
+    probe_model = str(suggested_model or "").strip()
+    if not probe_model:
+        try:
+            probe_model = str(observability.latest_successful_model_for_provider(provider) or "")
+        except Exception:
+            probe_model = ""
+    recent_at = observability.recent_real_success_at(provider, probe_model)
+    recent_window = float(_health_monitor_cfg(config).get("probe_recent_success_s", 600))
+    recent_success = bool(recent_at and time.time() - recent_at < recent_window)
+    key = ("idle", str(provider), probe_model or "auto")
+    executed, result = PROBE_COORDINATOR.run_auto(
+        key,
+        lambda: _idle_probe_one_provider_impl(
+            rt,
+            provider,
+            idle_tier=idle_tier,
+            next_probe_in_s=next_probe_in_s,
+            suggested_model=suggested_model,
+            model_source=model_source,
+        ),
+        recent_success=recent_success,
+    )
+    if not executed:
+        try:
+            observability.record_health_probe(
+                {
+                    "provider": provider,
+                    "model": probe_model,
+                    "idle_tier": idle_tier or "idle",
+                    "outcome": "skipped",
+                    "reason": "recent real success" if recent_success else "probe coordinator busy",
+                    "action": "none",
+                }
+            )
+        except Exception:
+            pass
+        return False
+    return bool(result)
 
 
 def _build_probe_plan(observability, config, router) -> list[tuple[str, str, str]]:
@@ -1102,7 +1188,7 @@ def _start_idle_health_checker() -> None:
 # Patrol health checker (全量巡检保活)
 # ---------------------------------------------------------------------------
 # A separate background thread that does a FULL sweep of all enabled
-# providers × all keys at a long, fixed interval (1-3h random).  Unlike the
+# providers × all keys at a long, fixed interval (6-12h random). Unlike the
 # adaptive idle checker (which only probes the recent model's top providers
 # and stops at the first healthy one), the patrol checks EVERY key to:
 #
@@ -1118,12 +1204,12 @@ def _start_idle_health_checker() -> None:
 # Events are recorded with idle_tier="patrol" so the frontend can
 # distinguish them from idle-checker probes in the same display area.
 
-_PATROL_INTERVAL_S = (3600, 3 * 3600)   # 1-3 hours random between rounds
+_PATROL_INTERVAL_S = (6 * 3600, 12 * 3600)   # 6-12 hours random between rounds
 _PATROL_DELAY_S = (3, 5)                 # 3-5 seconds random between probes
 _PATROL_FIRST_BYTE_TIMEOUT_S = 15         # Max wait for first SSE event
 
 
-def _patrol_probe_one_key(rt, provider: str, key_index: int, *, canonical_model: str = "", model_source: str = "") -> bool:
+def _patrol_probe_one_key_impl(rt, provider: str, key_index: int, *, canonical_model: str = "", model_source: str = "") -> bool:
     """Probe a single key of a provider using a streaming request.
 
     Sends a minimal streaming request (max_tokens=1, stream=true) and reads
@@ -1206,7 +1292,7 @@ def _patrol_probe_one_key(rt, provider: str, key_index: int, *, canonical_model:
         upstream_format=fmt,
         proxy_url=proxy_url,
         canonical_model=canonical_model,
-        compatibility_profile="health_probe",
+        compatibility_profile="plain",
     )
     try:
         payload = _build_probe_payload(provider_model, stream=True, fmt=fmt, attempt=probe_attempt)
@@ -1232,6 +1318,7 @@ def _patrol_probe_one_key(rt, provider: str, key_index: int, *, canonical_model:
         "upstream_model": provider_model,
         "format": fmt,
     }
+    health_scope = (provider, key_index, canonical_model, provider_model, fmt)
 
     stream_conn = None
     started_at = time.time()
@@ -1278,6 +1365,7 @@ def _patrol_probe_one_key(rt, provider: str, key_index: int, *, canonical_model:
             # clear_provider_cooldown (which only clears the provider-level
             # cooldown, leaving the key disabled).
             router.report_success(probe_attempt)
+            PROBE_COORDINATOR.record_success(health_scope)
             _record_probe(
                 **probe_base,
                 outcome="success",
@@ -1289,15 +1377,21 @@ def _patrol_probe_one_key(rt, provider: str, key_index: int, *, canonical_model:
             return True
         else:
             # Stream opened but no data event within the read bound.
-            # Treat as a soft failure — the connection worked but something
-            # is odd (e.g. upstream returned an empty stream).
+            apply_failure = PROBE_COORDINATOR.should_apply_failure(health_scope, "first_event_timeout")
+            state_action = None
+            if apply_failure:
+                state_action = router.report_failure(
+                    probe_attempt,
+                    error_type="provider_compat",
+                )
             _record_probe(
                 **probe_base,
                 outcome="failed",
-                error_type="unknown",
+                error_type="first_event_timeout",
                 latency_ms=latency_ms,
                 reason="patrol stream opened but no data event",
-                action="observed_only",
+                cooldown_s=(state_action or {}).get("cooldown_s", 0),
+                action="reported_failure" if apply_failure else "observed_only",
             )
             print(f"[proxy] {_hprov(provider)} patrol {_harrow('->')} no-data {_hmodel(canonical_model)} key#{key_index}", flush=True)
             return False
@@ -1321,60 +1415,103 @@ def _patrol_probe_one_key(rt, provider: str, key_index: int, *, canonical_model:
                 action="observed_only",
             )
         else:
-            router.report_failure(
-                probe_attempt,
-                error_type=error_type,
-                http_status=status,
-            )
+            apply_failure = PROBE_COORDINATOR.should_apply_failure(health_scope, error_type)
+            if apply_failure:
+                router.report_failure(
+                    probe_attempt,
+                    error_type=error_type,
+                    http_status=status,
+                )
             policy = scheduler_policy.failure_policy_for_error_type(config, error_type)
             _record_probe(
                 **probe_base,
                 outcome="failed",
                 http_status=status,
                 error_type=error_type,
-                cooldown_s=policy.get("cooldown_s"),
-                provider_cooldown_s=policy.get("provider_cooldown_s"),
+                cooldown_s=policy.get("cooldown_s") if apply_failure else 0,
+                provider_cooldown_s=policy.get("provider_cooldown_s") if apply_failure else 0,
                 reason=f"HTTP {status}",
-                action="reported_failure",
+                action="reported_failure" if apply_failure else "observed_only",
             )
         print(f"[proxy] {_hprov(provider)} patrol {_harrow('->')} FAIL HTTP {status} ({error_type}) {_hmodel(canonical_model)} key#{key_index}", flush=True)
         return False
     except (URLError, socket.timeout) as e:
-        router.report_failure(
-            probe_attempt,
-            error_type="network_error",
-        )
+        apply_failure = PROBE_COORDINATOR.should_apply_failure(health_scope, "network_error")
+        if apply_failure:
+            router.report_failure(
+                probe_attempt,
+                error_type="network_error",
+            )
         policy = scheduler_policy.failure_policy_for_error_type(config, "network_error")
         _record_probe(
             **probe_base,
             outcome="failed",
             error_type="network_error",
-            cooldown_s=policy.get("cooldown_s"),
-            provider_cooldown_s=policy.get("provider_cooldown_s"),
+            cooldown_s=policy.get("cooldown_s") if apply_failure else 0,
+            provider_cooldown_s=policy.get("provider_cooldown_s") if apply_failure else 0,
             reason=type(e).__name__,
-            action="reported_failure",
+            action="reported_failure" if apply_failure else "observed_only",
         )
         print(f"[proxy] {_hprov(provider)} patrol {_harrow('->')} FAIL {type(e).__name__} {_hmodel(canonical_model)} key#{key_index}", flush=True)
         return False
     except Exception as e:
-        router.report_failure(
-            probe_attempt,
-            error_type="unknown",
-        )
+        apply_failure = PROBE_COORDINATOR.should_apply_failure(health_scope, "unknown")
+        if apply_failure:
+            router.report_failure(
+                probe_attempt,
+                error_type="unknown",
+            )
         policy = scheduler_policy.failure_policy_for_error_type(config, "unknown")
         _record_probe(
             **probe_base,
             outcome="failed",
             error_type="unknown",
-            cooldown_s=policy.get("cooldown_s"),
-            provider_cooldown_s=policy.get("provider_cooldown_s"),
+            cooldown_s=policy.get("cooldown_s") if apply_failure else 0,
+            provider_cooldown_s=policy.get("provider_cooldown_s") if apply_failure else 0,
             reason=type(e).__name__,
-            action="reported_failure",
+            action="reported_failure" if apply_failure else "observed_only",
         )
         print(f"[proxy] {_hprov(provider)} patrol {_harrow('->')} FAIL {type(e).__name__} {_hmodel(canonical_model)} key#{key_index}", flush=True)
         return False
     finally:
         _close_upstream_conn(stream_conn)
+
+
+def _patrol_probe_one_key(rt, provider: str, key_index: int, *, canonical_model: str = "", model_source: str = "") -> bool:
+    observability = rt.observability
+    config = rt.config
+    recent_at = observability.recent_real_success_at(provider, canonical_model)
+    recent_window = float(_health_monitor_cfg(config).get("probe_recent_success_s", 600))
+    recent_success = bool(recent_at and time.time() - recent_at < recent_window)
+    key = ("patrol", str(provider), int(key_index), str(canonical_model or "auto"))
+    executed, result = PROBE_COORDINATOR.run_auto(
+        key,
+        lambda: _patrol_probe_one_key_impl(
+            rt,
+            provider,
+            key_index,
+            canonical_model=canonical_model,
+            model_source=model_source,
+        ),
+        recent_success=recent_success,
+    )
+    if not executed:
+        try:
+            observability.record_health_probe(
+                {
+                    "provider": provider,
+                    "key_index": key_index,
+                    "model": canonical_model,
+                    "idle_tier": "patrol",
+                    "outcome": "skipped",
+                    "reason": "recent real success" if recent_success else "probe coordinator busy",
+                    "action": "none",
+                }
+            )
+        except Exception:
+            pass
+        return False
+    return bool(result)
 
 
 def _collect_patrol_models(provider: str, observability=None, config=None) -> list[tuple[str, str]]:
@@ -1652,7 +1789,7 @@ def _patrol_health_check_round(*, manual: bool = False) -> None:
 def _start_patrol_health_checker() -> None:
     """Start the patrol health checker daemon thread.
 
-    Runs on a fixed 1-3h random interval, independent of the adaptive
+    Runs on a fixed 6-12h random interval, independent of the adaptive
     idle checker's cadence.  The patrol does a full sweep of all
     providers × keys to discover dead keys and trigger circuit breakers.
     """
@@ -2266,7 +2403,10 @@ def probe_provider_key(provider: str, key_index: int, model: str = "") -> dict:
             return {"ok": False, "error_type": "probe_inflight_error", "error": _sanitize_diagnostic_text(e, 200)}
 
     try:
-        result = _probe_provider_key_once(provider, key_index, model=model)
+        result = PROBE_COORDINATOR.run_manual(
+            ("manual", str(provider), int(key_index), str(model or "")),
+            lambda: _probe_provider_key_once(provider, key_index, model=model),
+        )
         future.set_result(copy.deepcopy(result))
         return result
     except Exception as e:
@@ -2659,7 +2799,59 @@ def _native_nonstream_mode(config: dict = None) -> str:
 
 
 def _native_stream_mode(config: dict = None) -> str:
-    return _config_choice(config or CONFIG, "routing", "native_stream_mode", "guarded", {"safe", "guarded"})
+    return _config_choice(config or CONFIG, "routing", "native_stream_mode", "safe", {"safe", "guarded"})
+
+
+def _first_event_budgets(config: dict, compatibility_profile: str) -> tuple[float, float]:
+    routing = (config or {}).get("routing") or {}
+    features = set(str(compatibility_profile or "plain").split("+"))
+    extended = bool(features.intersection({"tools", "vision", "reasoning"}))
+    candidate_key = "agent_first_event_timeout_s" if extended else "first_event_timeout_s"
+    total_key = "agent_first_event_total_timeout_s" if extended else "first_event_total_timeout_s"
+    candidate_default = 30.0 if extended else 15.0
+    total_default = 75.0 if extended else 45.0
+    try:
+        candidate = max(0.1, float(routing.get(candidate_key, candidate_default)))
+    except Exception:
+        candidate = candidate_default
+    try:
+        total = max(candidate, float(routing.get(total_key, total_default)))
+    except Exception:
+        total = total_default
+    return candidate, total
+
+
+def _adaptive_first_event_budget(
+    config: dict,
+    compatibility_profile: str,
+    provider: str,
+    canonical_model: str,
+    observability,
+    fallback_s: float,
+) -> float:
+    features = set(str(compatibility_profile or "plain").split("+"))
+    extended = bool(features.intersection({"tools", "vision", "reasoning"}))
+    minimum_s, maximum_s = (30.0, 60.0) if extended else (15.0, 30.0)
+    try:
+        stats = observability.first_event_latency_stats(
+            provider,
+            canonical_model,
+            compatibility_profile or "plain",
+            min_samples=20,
+        )
+        if int(stats.get("count") or 0) < 20:
+            return float(fallback_s)
+        p95_s = max(0.0, float(stats.get("p95_ms") or 0) / 1000.0)
+        return min(maximum_s, max(minimum_s, p95_s * 1.5))
+    except Exception:
+        return float(fallback_s)
+
+
+def _candidate_first_event_budget(deadline: float, per_attempt_s: float) -> float:
+    remaining = float(deadline) - time.time()
+    if remaining <= 0:
+        raise socket.timeout("overall first stream event budget exhausted")
+    return max(0.001, min(float(per_attempt_s), remaining))
 
 
 def _native_stream_usage_mode(config: dict = None) -> str:
@@ -3383,15 +3575,28 @@ def _record_transport_failure(
     reason: str = "",
     stage: str = "transport_error",
     duration_ms=None,
+    upstream_headers_ms=None,
+    first_event_ms=None,
+    generation_wait_ms=None,
 ) -> None:
     decision = scheduler_policy.classify_transport_error(type(exception).__name__, _current_rt().config)
-    final_reason = reason or decision.reason
+    before_first_event = stage == "before_first_event"
+    final_reason = reason or ("first_event_timeout" if before_first_event else decision.reason)
     diagnostics = _upstream_error_diagnostics(stage, exception=exception)
-    state_action = _current_rt().router.report_failure(attempt, error_type=decision.error_type)
+    if upstream_headers_ms is not None:
+        diagnostics["upstream_headers_ms"] = max(0, int(upstream_headers_ms or 0))
+    if first_event_ms is not None:
+        diagnostics["first_event_ms"] = max(0, int(first_event_ms or 0))
+    if generation_wait_ms is not None:
+        diagnostics["generation_wait_ms"] = max(0, int(generation_wait_ms or 0))
+    state_action = _current_rt().router.report_failure(
+        attempt,
+        error_type="provider_compat" if before_first_event else decision.error_type,
+    )
     _record_failed_attempt(
         request_id,
         attempt,
-        error_type=decision.error_type,
+        error_type="first_event_timeout" if before_first_event else decision.error_type,
         reason=final_reason,
         duration_ms=duration_ms,
         diagnostics=diagnostics,
@@ -4271,6 +4476,11 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             stream=is_stream,
             path="/v1/chat/completions",
             routing_trace=routing_trace,
+            **_observability_request_meta(
+                self,
+                CONFIG,
+                request_compatibility_profile(req, client_format=CHAT),
+            ),
         )
         msgs_count = len(req.get("messages", []))
         attempt_errors = []
@@ -4285,7 +4495,9 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         routing_cfg = CONFIG.get("routing") or {}
         connect_t = int(routing_cfg.get("connect_timeout_s", 15))
         read_t = int(routing_cfg.get("read_timeout_s", 120))
-        first_byte_t = int(routing_cfg.get("first_token_timeout_s", 30))  # Total budget before first stream event.
+        compatibility_profile = request_compatibility_profile(req, client_format=CHAT)
+        first_event_per_attempt_t, first_event_total_t = _first_event_budgets(CONFIG, compatibility_profile)
+        first_event_deadline = total_start + first_event_total_t
         max_attempts = int(routing_cfg.get("max_attempts", 6))
         max_budget = (connect_t + read_t) * min(3, max(1, max_attempts))
         semantic_conversion_mode = _semantic_conversion_mode(CONFIG)
@@ -4293,7 +4505,6 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             routing_trace, req, client_format=CHAT, candidate_formats=[CHAT, RESPONSES, ANTHROPIC],
             mode=semantic_conversion_mode,
         )
-        compatibility_profile = request_compatibility_profile(req, client_format=CHAT)
         if blocked_formats and log_each:
             print(f"[proxy] req={request_id} format exclusions={blocked_formats}", flush=True)
         prepared_payloads = {}
@@ -4351,24 +4562,42 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             attempt_parameter_adaptations = parameter_adaptations(req, client_format=CHAT, target_format=fmt, output_token_field=actual_token_field, anthropic_default_max_tokens=anthropic_default_max_tokens, semantic_conversion_mode=semantic_conversion_mode)
             response_started = False
             upstream_conn = None
+            upstream_headers_ms = 0
+            first_event_ms = 0
+            generation_wait_ms = 0
 
             try:
                 if is_stream:
+                    adaptive_first_event_t = _adaptive_first_event_budget(
+                        CONFIG,
+                        compatibility_profile,
+                        attempt.provider,
+                        canonical_model,
+                        OBSERVABILITY,
+                        first_event_per_attempt_t,
+                    )
+                    candidate_first_event_t = _candidate_first_event_budget(
+                        first_event_deadline, adaptive_first_event_t
+                    )
                     upstream_conn = _open_stream_with_compat_retry(
                         request_id,
                         attempt,
                         payload,
                         proxy_url=attempt.proxy_url,
                         remaining_timeout_s=remaining,
-                        first_byte_timeout_s=first_byte_t if first_byte_t > 0 else None,
+                        first_byte_timeout_s=candidate_first_event_t,
                         attempt_started_at=attempt_started,
                     )
-                    first_event_remaining = _remaining_first_event_timeout(attempt_started, first_byte_t) if first_byte_t > 0 else None
+                    upstream_headers_ms = _attempt_duration_ms(attempt_started)
+                    first_event_remaining = _remaining_first_event_timeout(
+                        attempt_started, candidate_first_event_t
+                    )
                     if attempt.upstream_format == CHAT and _native_stream_mode(CONFIG) == "guarded":
                         initial_lines = None
                     else:
                         initial_lines = _prefetch_initial_stream_lines(upstream_conn, first_event_remaining)
-                    attempt_first_byte = _attempt_first_byte_ms(attempt_started)
+                    first_event_ms = _attempt_first_byte_ms(attempt_started)
+                    generation_wait_ms = max(0, first_event_ms - upstream_headers_ms)
                     OBSERVABILITY.record_first_byte(request_id)
 
                     self.close_connection = True
@@ -4431,7 +4660,10 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                         outcome="success",
                         usage=_response_usage(stream_resp),
                         duration_ms=_attempt_duration_ms(attempt_started),
-                        first_byte_ms=attempt_first_byte,
+                        first_byte_ms=first_event_ms,
+                        upstream_headers_ms=upstream_headers_ms,
+                        first_event_ms=first_event_ms,
+                        generation_wait_ms=generation_wait_ms,
                         parameter_adaptations=attempt_parameter_adaptations,
                     )
                     OBSERVABILITY.record_request_end(request_id, status_code=200)
@@ -4534,6 +4766,9 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                     return
                 err_label = "timeout" if isinstance(e, socket.timeout) else "network_error"
                 stage = "streaming_idle_timeout" if response_started and isinstance(e, socket.timeout) else _transport_stage_for_exception(e)
+                if is_stream and isinstance(e, socket.timeout) and not response_started:
+                    stage = "before_first_event"
+                    err_label = "first_event_timeout"
                 _record_transport_failure(
                     request_id,
                     attempt,
@@ -4542,6 +4777,9 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                     reason=err_label,
                     stage=stage,
                     duration_ms=_attempt_duration_ms(attempt_started),
+                    upstream_headers_ms=upstream_headers_ms,
+                    first_event_ms=first_event_ms,
+                    generation_wait_ms=generation_wait_ms,
                 )
                 if response_started:
                     OBSERVABILITY.record_request_end(request_id, status_code=502, error=type(e).__name__)
@@ -4581,8 +4819,9 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         detail_log = "; ".join(attempt_errors[-10:])
         print(f"[proxy] ALL ATTEMPTS FAILED req={request_id} {dur_ms}ms: {detail_log}", flush=True)
         err_msg = f"All upstream providers are currently unavailable (req={request_id}, {dur_ms}ms)"
-        OBSERVABILITY.record_request_end(request_id, status_code=502, error=detail_log)
-        return self._resp_json({"error": {"message": err_msg, "request_id": request_id}}, 502)
+        final_status = 504 if attempt_errors and all(":first_event_timeout:" in item for item in attempt_errors) else 502
+        OBSERVABILITY.record_request_end(request_id, status_code=final_status, error=detail_log)
+        return self._resp_json({"error": {"message": err_msg, "request_id": request_id}}, final_status)
 
     def _proxy_openai_responses(self, req, request_id, start_ts, path="/openai/v1/responses"):
         # Snapshot the live runtime once for whole-request consistency during
@@ -4606,6 +4845,11 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             stream=is_stream,
             path=path,
             routing_trace=routing_trace,
+            **_observability_request_meta(
+                self,
+                CONFIG,
+                request_compatibility_profile(req, client_format=RESPONSES),
+            ),
         )
         semantic_conversion_mode = _semantic_conversion_mode(CONFIG)
         allowed_formats, blocked_formats = _trace_format_compatibility(
@@ -4627,7 +4871,8 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         routing_cfg = CONFIG.get("routing") or {}
         connect_t = int(routing_cfg.get("connect_timeout_s", 15))
         read_t = int(routing_cfg.get("read_timeout_s", 120))
-        first_byte_t = int(routing_cfg.get("first_token_timeout_s", 30))  # Total budget before first stream event.
+        first_event_per_attempt_t, first_event_total_t = _first_event_budgets(CONFIG, compatibility_profile)
+        first_event_deadline = total_start + first_event_total_t
         max_attempts = int(routing_cfg.get("max_attempts", 6))
         max_budget = (connect_t + read_t) * min(3, max(1, max_attempts))
         prepared_payloads = {}
@@ -4686,18 +4931,35 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
 
             response_started = False
             upstream_conn = None
+            upstream_headers_ms = 0
+            first_event_ms = 0
+            generation_wait_ms = 0
             try:
                 if is_stream:
+                    adaptive_first_event_t = _adaptive_first_event_budget(
+                        CONFIG,
+                        compatibility_profile,
+                        attempt.provider,
+                        canonical_model,
+                        OBSERVABILITY,
+                        first_event_per_attempt_t,
+                    )
+                    candidate_first_event_t = _candidate_first_event_budget(
+                        first_event_deadline, adaptive_first_event_t
+                    )
                     upstream_conn = _open_stream_with_compat_retry(
                         request_id,
                         attempt,
                         payload,
                         proxy_url=attempt.proxy_url,
                         remaining_timeout_s=remaining,
-                        first_byte_timeout_s=first_byte_t if first_byte_t > 0 else None,
+                        first_byte_timeout_s=candidate_first_event_t,
                         attempt_started_at=attempt_started,
                     )
-                    first_event_remaining = _remaining_first_event_timeout(attempt_started, first_byte_t) if first_byte_t > 0 else None
+                    upstream_headers_ms = _attempt_duration_ms(attempt_started)
+                    first_event_remaining = _remaining_first_event_timeout(
+                        attempt_started, candidate_first_event_t
+                    )
                     if attempt.upstream_format == RESPONSES and _native_stream_mode(CONFIG) == "guarded":
                         initial_lines = None
                     elif attempt.upstream_format in (RESPONSES, ANTHROPIC):
@@ -4705,7 +4967,8 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                     else:
                         first_line = _prefetch_first_stream_line(upstream_conn, first_event_remaining)
                         initial_lines = [first_line] if first_line else None
-                    attempt_first_byte = _attempt_first_byte_ms(attempt_started)
+                    first_event_ms = _attempt_first_byte_ms(attempt_started)
+                    generation_wait_ms = max(0, first_event_ms - upstream_headers_ms)
                     OBSERVABILITY.record_first_byte(request_id)
 
                     self.close_connection = True
@@ -4770,7 +5033,10 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                         outcome="success",
                         usage=_response_usage(stream_resp),
                         duration_ms=_attempt_duration_ms(attempt_started),
-                        first_byte_ms=attempt_first_byte,
+                        first_byte_ms=first_event_ms,
+                        upstream_headers_ms=upstream_headers_ms,
+                        first_event_ms=first_event_ms,
+                        generation_wait_ms=generation_wait_ms,
                         parameter_adaptations=attempt_parameter_adaptations,
                     )
                     OBSERVABILITY.record_request_end(request_id, status_code=200)
@@ -4873,6 +5139,9 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                     return
                 err_label = "timeout" if isinstance(e, socket.timeout) else "network_error"
                 stage = "streaming_idle_timeout" if response_started and isinstance(e, socket.timeout) else _transport_stage_for_exception(e)
+                if is_stream and isinstance(e, socket.timeout) and not response_started:
+                    stage = "before_first_event"
+                    err_label = "first_event_timeout"
                 _record_transport_failure(
                     request_id,
                     attempt,
@@ -4881,6 +5150,9 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                     reason=err_label,
                     stage=stage,
                     duration_ms=_attempt_duration_ms(attempt_started),
+                    upstream_headers_ms=upstream_headers_ms,
+                    first_event_ms=first_event_ms,
+                    generation_wait_ms=generation_wait_ms,
                 )
                 if response_started:
                     OBSERVABILITY.record_request_end(request_id, status_code=502, error=type(e).__name__)
@@ -4920,8 +5192,9 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         detail_log = "; ".join(attempt_errors[-10:])
         print(f"[proxy] ALL ATTEMPTS FAILED req={request_id} {dur_ms}ms: {detail_log}", flush=True)
         err_msg = f"All upstream providers are currently unavailable (req={request_id}, {dur_ms}ms)"
-        OBSERVABILITY.record_request_end(request_id, status_code=502, error=detail_log)
-        return self._resp_json({"error": {"message": err_msg, "request_id": request_id}}, 502)
+        final_status = 504 if attempt_errors and all(":first_event_timeout:" in item for item in attempt_errors) else 502
+        OBSERVABILITY.record_request_end(request_id, status_code=final_status, error=detail_log)
+        return self._resp_json({"error": {"message": err_msg, "request_id": request_id}}, final_status)
 
     def do_PATCH(self):
         try:
@@ -4986,6 +5259,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             req = json.loads(body)
         except Exception as e:
             return self._resp_json({"error": {"message": str(e)}}, 400)
+        self._request_body_bytes = len(body)
 
         client_format = CHAT if is_chat_completions else RESPONSES if is_responses else ANTHROPIC
         try:
@@ -5041,6 +5315,11 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                 stream=bool(is_stream),
                 path="/anthropic/v1/messages" if not route.legacy else "/v1/messages",
                 routing_trace=routing_trace,
+                **_observability_request_meta(
+                    self,
+                    CONFIG,
+                    request_compatibility_profile(req, client_format=ANTHROPIC),
+                ),
             )
 
             payload_base = None
@@ -5070,7 +5349,9 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             routing_cfg = (CONFIG.get("routing") or {})
             connect_t = int(routing_cfg.get("connect_timeout_s", 15))
             read_t = int(routing_cfg.get("read_timeout_s", 120))
-            first_byte_t = int(routing_cfg.get("first_token_timeout_s", 30))  # Total budget before first stream event.
+            compatibility_profile = request_compatibility_profile(req, client_format=ANTHROPIC)
+            first_event_per_attempt_t, first_event_total_t = _first_event_budgets(CONFIG, compatibility_profile)
+            first_event_deadline = total_start + first_event_total_t
             max_attempts = int(routing_cfg.get("max_attempts", 6))
             # Keep a bounded global routing budget across attempts.
             max_budget = (connect_t + read_t) * min(3, max(1, max_attempts))
@@ -5080,7 +5361,6 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                 routing_trace, req, client_format=ANTHROPIC, candidate_formats=[ANTHROPIC, CHAT, RESPONSES],
                 mode=semantic_conversion_mode,
             )
-            compatibility_profile = request_compatibility_profile(req, client_format=ANTHROPIC)
             if blocked_formats and log_each:
                 print(f"[proxy] req={request_id} format exclusions={blocked_formats}", flush=True)
             prepared_payloads = {}
@@ -5140,11 +5420,28 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
 
                 response_started = False
                 upstream_conn = None
+                upstream_headers_ms = 0
+                first_event_ms = 0
+                generation_wait_ms = 0
                 try:
                     if is_stream:
                         # Open upstream stream and prefetch the first event before sending headers.
-                        upstream_conn = _open_stream_with_compat_retry(request_id, attempt, payload, proxy_url=attempt.proxy_url, remaining_timeout_s=remaining, first_byte_timeout_s=first_byte_t if first_byte_t > 0 else None, attempt_started_at=attempt_started)
-                        first_event_remaining = _remaining_first_event_timeout(attempt_started, first_byte_t) if first_byte_t > 0 else None
+                        adaptive_first_event_t = _adaptive_first_event_budget(
+                            CONFIG,
+                            compatibility_profile,
+                            attempt.provider,
+                            canonical_model,
+                            OBSERVABILITY,
+                            first_event_per_attempt_t,
+                        )
+                        candidate_first_event_t = _candidate_first_event_budget(
+                            first_event_deadline, adaptive_first_event_t
+                        )
+                        upstream_conn = _open_stream_with_compat_retry(request_id, attempt, payload, proxy_url=attempt.proxy_url, remaining_timeout_s=remaining, first_byte_timeout_s=candidate_first_event_t, attempt_started_at=attempt_started)
+                        upstream_headers_ms = _attempt_duration_ms(attempt_started)
+                        first_event_remaining = _remaining_first_event_timeout(
+                            attempt_started, candidate_first_event_t
+                        )
                         if attempt.upstream_format == ANTHROPIC and _native_stream_mode(CONFIG) == "guarded":
                             initial_lines = None
                         elif attempt.upstream_format in (ANTHROPIC, RESPONSES):
@@ -5152,7 +5449,8 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                         else:
                             first_line = _prefetch_first_stream_line(upstream_conn, first_event_remaining)
                             initial_lines = [first_line] if first_line else None
-                        attempt_first_byte = _attempt_first_byte_ms(attempt_started)
+                        first_event_ms = _attempt_first_byte_ms(attempt_started)
+                        generation_wait_ms = max(0, first_event_ms - upstream_headers_ms)
                         OBSERVABILITY.record_first_byte(request_id)
 
                         self.close_connection = True
@@ -5216,7 +5514,10 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                             outcome="success",
                             usage=_response_usage(anth_resp),
                             duration_ms=_attempt_duration_ms(attempt_started),
-                            first_byte_ms=attempt_first_byte,
+                            first_byte_ms=first_event_ms,
+                            upstream_headers_ms=upstream_headers_ms,
+                            first_event_ms=first_event_ms,
+                            generation_wait_ms=generation_wait_ms,
                             parameter_adaptations=attempt_parameter_adaptations,
                         )
                         OBSERVABILITY.record_request_end(request_id, status_code=200)
@@ -5362,14 +5663,21 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
 
                 except socket.timeout as e:
                     stage = "streaming_idle_timeout" if response_started else _transport_stage_for_exception(e)
+                    reason = "timeout"
+                    if is_stream and not response_started:
+                        stage = "before_first_event"
+                        reason = "first_event_timeout"
                     _record_transport_failure(
                         request_id,
                         attempt,
                         e,
                         attempt_errors,
-                        reason="timeout",
+                        reason=reason,
                         stage=stage,
                         duration_ms=_attempt_duration_ms(attempt_started),
+                        upstream_headers_ms=upstream_headers_ms,
+                        first_event_ms=first_event_ms,
+                        generation_wait_ms=generation_wait_ms,
                     )
                     if response_started:
                         OBSERVABILITY.record_request_end(request_id, status_code=502, error=type(e).__name__)
@@ -5414,8 +5722,9 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                     log_request(req, {"stream": bool(is_stream)}, {"error": detail_log}, None)
                 except Exception:
                     pass
-            OBSERVABILITY.record_request_end(request_id, status_code=502, error=detail_log)
-            return self._resp_json({"error": {"message": err_msg, "request_id": request_id}}, 502)
+            final_status = 504 if attempt_errors and all(":first_event_timeout:" in item for item in attempt_errors) else 502
+            OBSERVABILITY.record_request_end(request_id, status_code=final_status, error=detail_log)
+            return self._resp_json({"error": {"message": err_msg, "request_id": request_id}}, final_status)
 
         except Exception as e:
             dur_ms = int((time.time() - start_ts) * 1000)
@@ -5698,7 +6007,7 @@ def main():
     # Start the adaptive idle health checker.
     _start_idle_health_checker()
 
-    # Start the patrol health checker (full sweep every 1-3h).
+    # Start the patrol health checker (full sweep every 6-12h).
     _start_patrol_health_checker()
 
     # Read host/port/max_workers from the freshly rebuilt CONFIG

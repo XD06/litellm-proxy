@@ -1205,18 +1205,16 @@ class UpstreamRouter:
 
         for item in provider_items:
             provider = item.name
-            upstream_format = self._first_supported_format(provider, format_order)
-            if not upstream_format:
-                continue
             priority = item.priority
             if auto_active:
                 priority = self._auto_adjusted_priority(provider, priority)
             weight = self._provider_weight(provider, item.weight)
-            item_tuple = (provider, weight, priority, upstream_format)
-            if upstream_format == client_format:
-                native.append(item_tuple)
-            else:
-                fallback.append(item_tuple)
+            for upstream_format in self._supported_formats(provider, format_order):
+                item_tuple = (provider, weight, priority, upstream_format)
+                if upstream_format == client_format:
+                    native.append(item_tuple)
+                else:
+                    fallback.append(item_tuple)
 
         # priority_first: provider priority decides global order; native wins
         # only as a tiebreaker at equal priority. native_first: legacy behavior,
@@ -1419,13 +1417,18 @@ class UpstreamRouter:
             "anthropic_messages": {"enabled": False, "path": "/v1/messages"},
         }
 
-    def _first_supported_format(self, provider: str, format_order: List[str]) -> Optional[str]:
+    def _supported_formats(self, provider: str, format_order: List[str]) -> List[str]:
         formats = self._provider_formats(provider)
+        supported = []
         for fmt in format_order:
             entry = formats.get(fmt) or {}
             if isinstance(entry, dict) and entry.get("enabled", False):
-                return fmt
-        return None
+                supported.append(fmt)
+        return supported
+
+    def _first_supported_format(self, provider: str, format_order: List[str]) -> Optional[str]:
+        supported = self._supported_formats(provider, format_order)
+        return supported[0] if supported else None
 
     def _format_path(self, provider: str, upstream_format: str) -> str:
         formats = self._provider_formats(provider)

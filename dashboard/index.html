@@ -5,9 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Proxy Console</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231f2933'/%3E%3Cpath d='M8 22V10h4v9h9v3H8Zm7-7V10h9v3h-5v5h-4Z' fill='%23f3efe7'/%3E%3C/svg%3E" />
-    <link rel="stylesheet" href="/-/dashboard/styles.css?v=20260713-model-catalog-compact-grid" />
+    <link rel="stylesheet" href="/-/dashboard/styles.css?v=20260718-format-routing-final" />
   </head>
   <body class="is-auth-checking">
+    <a class="skip-link" href="#mainContent" data-i18n="a11y.skip_content">Skip to content</a>
     <section id="authChecking" class="login-gate auth-checking">
       <div class="login-card auth-card" role="status" aria-live="polite">
         <div class="login-mark">LP</div>
@@ -65,7 +66,7 @@
         </div>
       </aside>
 
-      <main class="workspace">
+      <main id="mainContent" class="workspace" tabindex="-1">
         <header class="topbar">
           <div>
             <h1 id="viewTitle" data-i18n="view.overview.title">Overview</h1>
@@ -212,6 +213,32 @@
                   <input id="filterErrorType" class="control" placeholder="error type" data-i18n-attr="placeholder:req.error_type_ph" />
                   <input id="filterReason" class="control" placeholder="failure reason" data-i18n-attr="placeholder:req.reason_ph" />
                   <input id="filterHttpStatus" class="control" placeholder="attempt status" data-i18n-attr="placeholder:req.status_ph" />
+                  <input id="filterClientIp" class="control" placeholder="client IP" data-i18n-attr="placeholder:req.client_ip_ph" />
+                  <select id="filterStream" class="control">
+                    <option value="" data-i18n="req.all_stream_modes">All stream modes</option>
+                    <option value="true" data-i18n="req.streaming">Streaming</option>
+                    <option value="false" data-i18n="req.non_streaming">Non-streaming</option>
+                  </select>
+                  <select id="filterClientFormat" class="control">
+                    <option value="" data-i18n="req.all_client_formats">All client formats</option>
+                    <option value="chat_completions">Chat Completions</option>
+                    <option value="responses">Responses</option>
+                    <option value="anthropic_messages">Anthropic Messages</option>
+                  </select>
+                  <select id="filterUpstreamFormat" class="control">
+                    <option value="" data-i18n="req.all_upstream_formats">All upstream formats</option>
+                    <option value="chat_completions">Chat Completions</option>
+                    <option value="responses">Responses</option>
+                    <option value="anthropic_messages">Anthropic Messages</option>
+                  </select>
+                  <select id="filterCostStatus" class="control">
+                    <option value="" data-i18n="req.all_cost_states">All cost states</option>
+                    <option value="priced" data-i18n="cost.priced">Priced</option>
+                    <option value="estimated" data-i18n="cost.estimated">Estimated</option>
+                    <option value="pending" data-i18n="cost.pending">Pending</option>
+                    <option value="unpriced" data-i18n="cost.unpriced">Unpriced</option>
+                    <option value="legacy" data-i18n="cost.legacy">Legacy</option>
+                  </select>
                 </div>
               </details>
               <button id="applyFiltersButton" class="button secondary compact-action" type="button" data-i18n="req.apply">Apply</button>
@@ -339,12 +366,13 @@
 
             <div class="config-column config-side-column">
               <div class="config-tab-nav" id="configTabNav" role="tablist">
-                <button class="is-active" type="button" data-config-tab="routes" role="tab" data-i18n="cfg.tab_routes">Routes</button>
-                <button type="button" data-config-tab="map" role="tab" data-i18n="cfg.tab_map">Map</button>
-                <button type="button" data-config-tab="runtime" role="tab" data-i18n="cfg.tab_runtime">Runtime</button>
-                <button type="button" data-config-tab="proxy" role="tab" data-i18n="cfg.tab_proxy">Proxy</button>
-                <button type="button" data-config-tab="health" role="tab" data-i18n="cfg.tab_health">Health</button>
-                <button type="button" data-config-tab="advanced" role="tab" data-i18n="cfg.tab_advanced">Advanced</button>
+                <button class="is-active" type="button" data-config-tab="routes" role="tab" aria-selected="true" tabindex="0" data-i18n="cfg.tab_routes">Routes</button>
+                <button type="button" data-config-tab="models" role="tab" aria-selected="false" tabindex="-1" data-i18n="cfg.tab_data_statistics">Data Statistics</button>
+                <button type="button" data-config-tab="map" role="tab" aria-selected="false" tabindex="-1" data-i18n="cfg.tab_map">Map</button>
+                <button type="button" data-config-tab="runtime" role="tab" aria-selected="false" tabindex="-1" data-i18n="cfg.tab_runtime">Runtime</button>
+                <button type="button" data-config-tab="proxy" role="tab" aria-selected="false" tabindex="-1" data-i18n="cfg.tab_proxy">Proxy</button>
+                <button type="button" data-config-tab="health" role="tab" aria-selected="false" tabindex="-1" data-i18n="cfg.tab_health">Health</button>
+                <button type="button" data-config-tab="advanced" role="tab" aria-selected="false" tabindex="-1" data-i18n="cfg.tab_advanced">Advanced</button>
               </div>
 
               <div class="config-tab-panel" data-config-tab-panel="routes">
@@ -370,10 +398,20 @@
                       <span data-i18n="cfg.selection">Selection</span>
                       <select class="control" name="provider_select">
                         <option value="priority_failover">priority_failover</option>
+                        <option value="auto">auto</option>
                         <option value="round_robin">round_robin</option>
                         <option value="weighted_rr">weighted_rr</option>
                         <option value="random">random</option>
                       </select>
+                    </label>
+                    <label class="field">
+                      <span data-i18n="cfg.format_preference">Format preference</span>
+                      <select class="control" name="format_preference">
+                        <option value="" data-i18n="cfg.format_inherit">Inherit global policy</option>
+                        <option value="priority_first" data-i18n="policy.format_priority">Priority first</option>
+                        <option value="native_first" data-i18n="policy.format_native">Native format first</option>
+                      </select>
+                      <small class="field-help" data-i18n="cfg.format_preference_help">Controls whether provider priority or the client-native format wins for this model.</small>
                     </label>
                     <div class="form-actions">
                       <button class="button primary" type="submit" data-i18n="cfg.save_route">Save route</button>
@@ -384,6 +422,114 @@
                 <div id="modelRoutes" class="model-route-list empty" data-i18n="cfg.no_routes">No model routes configured</div>
               </section>
 
+              </div>
+
+              <div class="config-tab-panel" data-config-tab-panel="models" hidden>
+                <section class="panel model-usage-panel statistics-panel">
+                  <div class="statistics-subnav" id="statisticsViewTabs" role="tablist" aria-label="Statistics views" data-i18n-attr="aria-label:usage_stats.views_label">
+                    <button id="usageStatisticsViewTab" class="is-active" type="button" role="tab" aria-selected="true" aria-controls="usageStatisticsView" tabindex="0" data-statistics-view="usage" data-i18n="usage_stats.usage_tab">Usage Statistics</button>
+                    <button id="modelStatisticsViewTab" type="button" role="tab" aria-selected="false" aria-controls="modelStatisticsView" tabindex="-1" data-statistics-view="models" data-i18n="model_usage.title">Model Data</button>
+                  </div>
+
+                  <div id="usageStatisticsView" class="statistics-view-panel" role="tabpanel" aria-labelledby="usageStatisticsViewTab" data-statistics-view-panel="usage">
+                    <div class="usage-statistics-heading">
+                      <div>
+                        <h2 data-i18n="usage_stats.title">Usage Statistics</h2>
+                        <p data-i18n="usage_stats.subtitle">Permanent aggregate usage, cost, request results, and latency.</p>
+                      </div>
+                      <div class="usage-statistics-heading-meta" id="usageStatisticsMeta" aria-live="polite"></div>
+                    </div>
+
+                    <div class="usage-statistics-filters" aria-label="Usage statistics filters" data-i18n-attr="aria-label:usage_stats.filters_label">
+                      <div class="segmented-control usage-statistics-range" id="usageStatisticsRange" role="group" aria-label="Statistics time range" data-i18n-attr="aria-label:usage_stats.range_label">
+                        <button class="segmented-button" type="button" data-usage-statistics-range="today" aria-pressed="false" data-i18n="usage_stats.today">Today</button>
+                        <button class="segmented-button" type="button" data-usage-statistics-range="24h" aria-pressed="false">24h</button>
+                        <button class="segmented-button" type="button" data-usage-statistics-range="7d" aria-pressed="false">7d</button>
+                        <button class="segmented-button" type="button" data-usage-statistics-range="30d" aria-pressed="false">30d</button>
+                        <button class="segmented-button" type="button" data-usage-statistics-range="90d" aria-pressed="false">90d</button>
+                        <button class="segmented-button" type="button" data-usage-statistics-range="1y" aria-pressed="false" data-i18n="usage_stats.one_year">1y</button>
+                        <button class="segmented-button is-active" type="button" data-usage-statistics-range="all" aria-pressed="true" data-i18n="req.all">All</button>
+                        <button class="segmented-button" type="button" data-usage-statistics-range="custom" aria-pressed="false" data-i18n="usage_stats.custom">Custom</button>
+                      </div>
+                      <div class="usage-statistics-dimensions">
+                        <label><span class="sr-only" data-i18n="usage_stats.model_filter">Model filter</span><select id="usageStatisticsModel" class="control" data-usage-statistics-filter="model" aria-label="Model filter" data-i18n-attr="aria-label:usage_stats.model_filter"><option value="" data-i18n="usage_stats.all_models">All models</option></select></label>
+                        <label><span class="sr-only" data-i18n="usage_stats.provider_filter">Provider filter</span><select id="usageStatisticsProvider" class="control" data-usage-statistics-filter="provider" aria-label="Provider filter" data-i18n-attr="aria-label:usage_stats.provider_filter"><option value="" data-i18n="usage_stats.all_providers">All providers</option></select></label>
+                        <label><span class="sr-only" data-i18n="usage_stats.format_filter">Client format filter</span><select id="usageStatisticsFormat" class="control" data-usage-statistics-filter="client_format" aria-label="Client format filter" data-i18n-attr="aria-label:usage_stats.format_filter"><option value="" data-i18n="usage_stats.all_formats">All formats</option></select></label>
+                        <button id="usageStatisticsRefresh" class="icon-button usage-statistics-refresh" type="button" title="Refresh statistics" aria-label="Refresh statistics" data-i18n-attr="title:usage_stats.refresh;aria-label:usage_stats.refresh">
+                          <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 11a8 8 0 1 0-2.3 5.7"></path><path d="M20 4v7h-7"></path></svg>
+                        </button>
+                      </div>
+                      <div class="usage-statistics-custom-range" id="usageStatisticsCustomRange" hidden>
+                        <label><span data-i18n="usage_stats.start_date">Start</span><input id="usageStatisticsStart" class="control" type="date" /></label>
+                        <span aria-hidden="true">→</span>
+                        <label><span data-i18n="usage_stats.end_date">End</span><input id="usageStatisticsEnd" class="control" type="date" /></label>
+                        <button id="usageStatisticsApplyCustom" class="button secondary compact-action" type="button" data-i18n="req.apply">Apply</button>
+                      </div>
+                    </div>
+
+                    <div id="usageStatisticsNotice" class="usage-statistics-notice" aria-live="polite"></div>
+                    <div id="usageStatisticsSummary" class="usage-statistics-summary" aria-live="polite" aria-busy="false"><div class="empty pad" data-i18n="usage_stats.open_tab">Open this tab to load usage statistics.</div></div>
+
+                    <section class="usage-statistics-chart-shell">
+                      <div class="usage-statistics-section-head">
+                        <div><h3 data-i18n="usage_stats.trend">Usage trend</h3><p id="usageStatisticsChartSubtitle"></p></div>
+                        <div class="segmented-control usage-statistics-metric" id="usageStatisticsMetric" role="group" aria-label="Trend metric" data-i18n-attr="aria-label:usage_stats.metric_label">
+                          <button class="segmented-button is-active" type="button" data-usage-statistics-metric="tokens" aria-pressed="true" data-i18n="model_usage.sort_tokens">Tokens</button>
+                          <button class="segmented-button" type="button" data-usage-statistics-metric="cost" aria-pressed="false" data-i18n="model_usage.cost">Cost</button>
+                          <button class="segmented-button" type="button" data-usage-statistics-metric="requests" aria-pressed="false" data-i18n="usage_stats.requests">Requests</button>
+                          <button class="segmented-button" type="button" data-usage-statistics-metric="latency" aria-pressed="false" data-i18n="usage_stats.latency">Latency</button>
+                        </div>
+                      </div>
+                      <div id="usageStatisticsChart" class="usage-statistics-chart" aria-live="polite" aria-busy="false"></div>
+                    </section>
+
+                    <section class="usage-statistics-breakdown-shell">
+                      <div class="usage-statistics-section-head">
+                        <div><h3 data-i18n="usage_stats.breakdown">Usage breakdown</h3><p id="usageStatisticsBreakdownSubtitle" data-i18n="usage_stats.breakdown_hint">Compare the selected range without mixing client requests and upstream consumption.</p></div>
+                        <div class="segmented-control usage-statistics-breakdown-mode" id="usageStatisticsBreakdownMode" role="group" aria-label="Breakdown dimension" data-i18n-attr="aria-label:usage_stats.breakdown_label">
+                          <button class="segmented-button is-active" type="button" data-usage-statistics-breakdown="model" aria-pressed="true" data-i18n="usage_stats.by_model">Models</button>
+                          <button class="segmented-button" type="button" data-usage-statistics-breakdown="provider" aria-pressed="false" data-i18n="usage_stats.by_provider">Providers</button>
+                        </div>
+                      </div>
+                      <div id="usageStatisticsBreakdown" class="usage-statistics-breakdown" aria-live="polite" aria-busy="false"></div>
+                    </section>
+
+                    <details class="usage-statistics-data-management">
+                      <summary data-i18n="usage_stats.data_management">Statistics data management</summary>
+                      <div>
+                        <span><strong data-i18n="usage_stats.clear_title">Clear permanent statistics</strong><small data-i18n="usage_stats.clear_hint">Starts a new statistics generation. Request history is not deleted.</small></span>
+                        <button id="usageStatisticsClear" class="button danger compact-action" type="button" data-i18n="usage_stats.clear_action">Clear statistics</button>
+                      </div>
+                    </details>
+                  </div>
+
+                  <div id="modelStatisticsView" class="statistics-view-panel" role="tabpanel" aria-labelledby="modelStatisticsViewTab" data-statistics-view-panel="models" hidden>
+                  <div class="model-usage-workspace">
+                  <div class="model-usage-toolbar">
+                    <div class="segmented-control" id="modelUsageRange" role="group" aria-label="Model usage time range">
+                      <button class="segmented-button" type="button" data-model-usage-range="24h" aria-pressed="false">24h</button>
+                      <button class="segmented-button is-active" type="button" data-model-usage-range="7d" aria-pressed="true">7d</button>
+                      <button class="segmented-button" type="button" data-model-usage-range="30d" aria-pressed="false">30d</button>
+                      <button class="segmented-button" type="button" data-model-usage-range="all" aria-pressed="false" data-i18n="req.all">All</button>
+                    </div>
+                    <label class="filter-search-field model-usage-search">
+                      <span class="sr-only" data-i18n="model_usage.search">Search models</span>
+                      <input id="modelUsageQuery" class="control" name="model_usage_query" autocomplete="off" spellcheck="false" placeholder="Search model ID..." data-i18n-attr="placeholder:model_usage.search_ph" />
+                    </label>
+                    <select id="modelUsageSort" name="model_usage_sort" class="control model-usage-sort" aria-label="Sort model usage" data-i18n-attr="aria-label:model_usage.sort_label">
+                      <option value="calls" data-i18n="model_usage.sort_calls">Calls</option>
+                      <option value="tokens" data-i18n="model_usage.sort_tokens">Tokens</option>
+                      <option value="cache_rate" data-i18n="model_usage.sort_cache">Cache rate</option>
+                      <option value="cost" data-i18n="model_usage.sort_cost">Cost</option>
+                      <option value="last_used" data-i18n="model_usage.sort_recent">Recently used</option>
+                    </select>
+                    <button id="modelUsageApply" class="button secondary compact-action" type="button" data-i18n="req.apply">Apply</button>
+                  </div>
+                  <div id="modelUsageSummary" class="model-usage-summary" aria-live="polite"></div>
+                  <div id="modelUsageTable" class="model-usage-table-wrap" aria-live="polite" aria-busy="false"><div class="empty pad" data-i18n="model_usage.open_tab">Open this tab to load model data.</div></div>
+                  </div>
+                  </div>
+                </section>
               </div>
 
               <div class="config-tab-panel" data-config-tab-panel="map" hidden>
@@ -487,11 +633,11 @@
                     <div class="health-monitor-fields">
                       <label class="field">
                         <span data-i18n="cfg.patrol_interval_min">Interval min (s)</span>
-                        <input class="control" type="number" id="hmPatrolMin" value="3600" min="60" max="86400" />
+                        <input class="control" type="number" id="hmPatrolMin" value="21600" min="60" max="86400" />
                       </label>
                       <label class="field">
                         <span data-i18n="cfg.patrol_interval_max">Interval max (s)</span>
-                        <input class="control" type="number" id="hmPatrolMax" value="10800" min="60" max="86400" />
+                        <input class="control" type="number" id="hmPatrolMax" value="43200" min="60" max="86400" />
                       </label>
                       <label class="field">
                         <span data-i18n="cfg.patrol_delay">Probe delay (s)</span>
@@ -551,7 +697,7 @@
                     </div>
                   </div>
                 </div>
-                <div id="healthMonitorStatus" class="health-monitor-status"></div>
+                <div id="healthMonitorStatus" class="health-monitor-status" aria-live="polite"></div>
               </section>
               </div>
 
@@ -751,6 +897,6 @@
       </aside>
     </div>
 
-    <script src="/-/dashboard/app.js?v=20260713-model-catalog-compact-grid" defer></script>
+    <script src="/-/dashboard/app.js?v=20260718-format-routing-final" defer></script>
   </body>
 </html>

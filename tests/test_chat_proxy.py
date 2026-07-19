@@ -198,6 +198,22 @@ class FakeStreamingClient:
         return FakeStream(self.lines)
 
 
+class SequenceStreamingClient:
+    def __init__(self, streams):
+        self.streams = list(streams)
+        self.calls = []
+
+    def open_stream(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None, first_byte_timeout_s=None):
+        self.calls.append(
+            {
+                "url": url,
+                "first_byte_timeout_s": first_byte_timeout_s,
+                "payload": json.loads(json.dumps(payload)),
+            }
+        )
+        return FakeStream(self.streams[len(self.calls) - 1])
+
+
 class ChatProxyTests(unittest.TestCase):
     def run_server_post(self, path, payload):
         server = HTTPServer(("127.0.0.1", 0), sse2json.Handler)
@@ -650,8 +666,17 @@ class ChatProxyTests(unittest.TestCase):
         snap = obs.snapshot()
         self.assertEqual(snap["counters"]["usage"]["total_tokens"], 5)
         request = snap["recent_requests"][0]
-        self.assertEqual(request["usage"], {"input_tokens": 2, "output_tokens": 3, "total_tokens": 5})
-        self.assertEqual(request["attempts"][0]["usage"], {"input_tokens": 2, "output_tokens": 3, "total_tokens": 5})
+        expected_usage = {
+            "input_tokens": 2,
+            "uncached_input_tokens": 2,
+            "cached_input_tokens": 0,
+            "cache_write_tokens": 0,
+            "output_tokens": 3,
+            "reasoning_tokens": 0,
+            "total_tokens": 5,
+        }
+        self.assertEqual(request["usage"], expected_usage)
+        self.assertEqual(request["attempts"][0]["usage"], expected_usage)
 
     def test_chat_native_guarded_stream_skips_first_event_prefetch(self):
         lines = [
@@ -675,6 +700,60 @@ class ChatProxyTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(content_type, "text/event-stream")
         self.assertEqual(body, b"".join(lines).decode("utf-8"))
+
+    def test_chat_silent_stream_fails_over_before_client_headers(self):
+        attempts = [
+            self.named_attempt("silent", "chat_completions", 1),
+            self.named_attempt("healthy", "chat_completions", 2),
+        ]
+        fake_router = FakeRouter(attempts)
+        fake_client = SequenceStreamingClient(
+            [
+                [b": keepalive\n", b"data: [DONE]\n"],
+                [b'data: {"choices":[{"delta":{"content":"ok"}}]}\n', b"data: [DONE]\n"],
+            ]
+        )
+        obs = sse2json.ProxyObservability(
+            {"observability": {"recent_requests_limit": 10, "pricing": {"resolve_missing_prices": False}}}
+        )
+
+        with patch.object(sse2json, "ROUTER", fake_router), patch.object(
+            sse2json, "UPSTREAM_CLIENT", fake_client
+        ), patch.object(sse2json, "OBSERVABILITY", obs), patch.object(sse2json, "DISABLE_MAP", True):
+            status, content_type, body = self.run_server_post_raw(
+                "/v1/chat/completions",
+                {"model": "client-model", "stream": True, "messages": [{"role": "user", "content": "hello"}]},
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(content_type, "text/event-stream")
+        self.assertIn('"content":"ok"', body)
+        self.assertEqual(len(fake_client.calls), 2)
+        self.assertEqual(fake_router.failures[0][1]["error_type"], "provider_compat")
+        detail = obs.snapshot()["recent_requests"][0]
+        self.assertEqual(detail["attempts"][0]["error_type"], "first_event_timeout")
+        self.assertEqual(detail["attempts"][0]["diagnostic_stage"], "before_first_event")
+        self.assertEqual(detail["attempts"][1]["outcome"], "success")
+
+    def test_chat_all_silent_streams_return_504_without_sse_headers(self):
+        fake_router = FakeRouter([self.attempt("chat_completions"), self.attempt("chat_completions")])
+        fake_client = SequenceStreamingClient(
+            [[b": keepalive\n", b"data: [DONE]\n"], [b"data:\n", b"data: [DONE]\n"]]
+        )
+        obs = sse2json.ProxyObservability(
+            {"observability": {"recent_requests_limit": 10, "pricing": {"resolve_missing_prices": False}}}
+        )
+
+        with patch.object(sse2json, "ROUTER", fake_router), patch.object(
+            sse2json, "UPSTREAM_CLIENT", fake_client
+        ), patch.object(sse2json, "OBSERVABILITY", obs), patch.object(sse2json, "DISABLE_MAP", True):
+            status, payload = self.run_server_post(
+                "/v1/chat/completions",
+                {"model": "client-model", "stream": True, "messages": [{"role": "user", "content": "hello"}]},
+            )
+
+        self.assertEqual(status, 504)
+        self.assertIn("currently unavailable", payload["error"]["message"])
 
     def test_chat_native_stream_usage_off_preserves_bytes_without_usage_stats(self):
         lines = [

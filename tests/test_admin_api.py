@@ -413,6 +413,185 @@ class AdminApiTests(unittest.TestCase):
 
         self.assertEqual(status, 403)
 
+    def test_admin_model_usage_list_and_detail_are_server_aggregated(self):
+        db_path = self.temp_overlay_path() + ".sqlite3"
+        cfg = {
+            "server": {"admin_key": "admin-secret"},
+            "observability": {
+                "history": {"enabled": True, "path": db_path, "sync_mode": True},
+                "pricing": {"resolve_missing_prices": False},
+            },
+            "models": {"provider_model_map": {"alpha": {"client-model": "alpha-model"}}},
+            "providers": {
+                "alpha": {
+                    "enabled": True,
+                    "keys": [{"key": "alpha-key", "models": {"client-model": "alpha-model"}}],
+                    "formats": {"chat_completions": {"enabled": True}},
+                    "pricing": {
+                        "input_per_million": 1,
+                        "cache_read_per_million": 0.1,
+                        "cache_write_per_million": 1,
+                        "output_per_million": 2,
+                    },
+                }
+            },
+        }
+        obs = ProxyObservability(cfg)
+        obs.record_request_start(
+            "req-model-usage",
+            client_format="chat_completions",
+            endpoint="chat_completions",
+            model="client-model",
+            stream=True,
+            path="/v1/chat/completions",
+            client_ip="198.51.100.9",
+        )
+        obs.record_attempt(
+            "req-model-usage",
+            Attempt(
+                request_id="req-model-usage",
+                attempt_no=1,
+                provider="alpha",
+                key_index=0,
+                key="alpha-key",
+                url="https://alpha.example/v1/chat/completions",
+                headers={},
+                provider_model="alpha-model",
+                upstream_format="chat_completions",
+            ),
+            outcome="success",
+            usage={
+                "prompt_tokens": 20,
+                "completion_tokens": 5,
+                "prompt_tokens_details": {"cached_tokens": 10},
+            },
+        )
+        obs.record_request_end("req-model-usage", status_code=200)
+        headers = {"X-Admin-Key": "admin-secret"}
+
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(sse2json, "OBSERVABILITY", obs):
+            status, listed = self.get_json("/-/admin/models/usage?range=7d", headers=headers)
+            detail_status, detail = self.get_json("/-/admin/models/usage/client-model?range=7d", headers=headers)
+
+        self.assertEqual(status, 200)
+        self.assertEqual(listed["items"][0]["client_model"], "client-model")
+        self.assertEqual(listed["items"][0]["usage"]["cached_input_tokens"], 10)
+        self.assertEqual(listed["items"][0]["current_support_provider_count"], 1)
+        self.assertEqual(detail_status, 200)
+        self.assertEqual(detail["current_support"][0]["provider"], "alpha")
+
+    def test_admin_usage_statistics_endpoints_and_clear_are_authenticated(self):
+        db_path = self.temp_overlay_path() + ".sqlite3"
+        cfg = {
+            "server": {"admin_key": "admin-secret"},
+            "observability": {
+                "history": {"enabled": True, "path": db_path, "sync_mode": True},
+                "usage_statistics": {
+                    "enabled": True,
+                    "hourly_retention_days": 90,
+                    "reporting_timezone": "UTC",
+                },
+                "pricing": {"resolve_missing_prices": False},
+            },
+            "models": {},
+            "providers": {},
+        }
+        obs = ProxyObservability(cfg)
+        obs.record_request_start(
+            "req-lifetime-stats",
+            client_format="chat_completions",
+            endpoint="chat_completions",
+            model="client-model",
+            stream=False,
+            path="/v1/chat/completions",
+        )
+        obs.record_attempt(
+            "req-lifetime-stats",
+            Attempt(
+                request_id="req-lifetime-stats",
+                attempt_no=1,
+                provider="alpha",
+                key_index=0,
+                key="alpha-key",
+                url="https://alpha.example/v1/chat/completions",
+                headers={},
+                provider_model="alpha-model",
+                upstream_format="chat_completions",
+            ),
+            outcome="success",
+            usage={"prompt_tokens": 20, "completion_tokens": 5, "total_tokens": 25},
+        )
+        obs.record_request_end("req-lifetime-stats", status_code=200)
+        headers = {"X-Admin-Key": "admin-secret", "Content-Type": "application/json"}
+
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(sse2json, "OBSERVABILITY", obs):
+            unauthorized, _ = self.get_json("/-/admin/usage-statistics/summary?range=all")
+            status, summary = self.get_json(
+                "/-/admin/usage-statistics/summary?range=all",
+                headers=headers,
+            )
+            timeseries_status, timeseries = self.get_json(
+                "/-/admin/usage-statistics/timeseries?range=7d&metric=tokens",
+                headers=headers,
+            )
+            breakdown_status, breakdown = self.get_json(
+                "/-/admin/usage-statistics/breakdown?range=all&group_by=provider&sort=cost",
+                headers=headers,
+            )
+            dimensions_status, dimensions = self.get_json(
+                "/-/admin/usage-statistics/dimensions",
+                headers=headers,
+            )
+            bad_clear, bad_body = self.post_json(
+                "/-/admin/usage-statistics/clear",
+                {"confirm": "wrong"},
+                headers=headers,
+            )
+            clear_status, cleared = self.post_json(
+                "/-/admin/usage-statistics/clear",
+                {"confirm": "clear_usage_statistics"},
+                headers=headers,
+            )
+            _, after = self.get_json(
+                "/-/admin/usage-statistics/summary?range=all",
+                headers=headers,
+            )
+
+        self.assertEqual(unauthorized, 403)
+        self.assertEqual(status, 200)
+        self.assertEqual(summary["summary"]["requests"], 1)
+        self.assertEqual(summary["summary"]["usage"]["total_tokens"], 25)
+        self.assertEqual(timeseries_status, 200)
+        self.assertTrue(timeseries["points"])
+        self.assertEqual(breakdown_status, 200)
+        self.assertEqual(breakdown["items"][0]["dimension"], "alpha")
+        self.assertEqual(dimensions_status, 200)
+        self.assertEqual(dimensions["models"], ["client-model"])
+        self.assertEqual(bad_clear, 400)
+        self.assertIn("clear_usage_statistics", bad_body["error"]["message"])
+        self.assertEqual(clear_status, 200)
+        self.assertEqual(cleared["action"], "usage_statistics_cleared")
+        self.assertEqual(after["summary"]["requests"], 0)
+
+    def test_admin_usage_statistics_rejects_invalid_range_and_group(self):
+        cfg = {"server": {"admin_key": "admin-secret"}, "providers": {}, "models": {}}
+        headers = {"X-Admin-Key": "admin-secret"}
+
+        with patch.object(sse2json, "CONFIG", cfg):
+            range_status, range_body = self.get_json(
+                "/-/admin/usage-statistics/summary?range=invalid",
+                headers=headers,
+            )
+            group_status, group_body = self.get_json(
+                "/-/admin/usage-statistics/breakdown?group_by=key",
+                headers=headers,
+            )
+
+        self.assertEqual(range_status, 400)
+        self.assertIn("unsupported statistics range", range_body["error"]["message"])
+        self.assertEqual(group_status, 400)
+        self.assertIn("unsupported breakdown group", group_body["error"]["message"])
+
     def test_admin_routing_returns_router_and_policy(self):
         cfg = {
             "server": {"admin_key": "admin-secret"},
@@ -853,12 +1032,54 @@ class AdminApiTests(unittest.TestCase):
         self.assertAlmostEqual(metrics["counters"]["usage"]["cost_usd"], 0.000016)
         # The lightweight metrics payload intentionally omits recent_requests.
         self.assertNotIn("recent_requests", metrics)
-        self.assertEqual(full_metrics["recent_requests"][0]["usage"], {"input_tokens": 4, "output_tokens": 6, "total_tokens": 10})
+        expected_usage = {
+            "input_tokens": 4,
+            "uncached_input_tokens": 4,
+            "cached_input_tokens": 0,
+            "cache_write_tokens": 0,
+            "output_tokens": 6,
+            "reasoning_tokens": 0,
+            "total_tokens": 10,
+        }
+        self.assertEqual(full_metrics["recent_requests"][0]["usage"], expected_usage)
         self.assertAlmostEqual(full_metrics["recent_requests"][0]["cost_usd"], 0.000016)
         self.assertEqual(full_metrics["recent_requests"][0]["attempts"][0]["provider"], "alpha")
-        self.assertEqual(full_metrics["recent_requests"][0]["attempts"][0]["usage"], {"input_tokens": 4, "output_tokens": 6, "total_tokens": 10})
+        self.assertEqual(full_metrics["recent_requests"][0]["attempts"][0]["usage"], expected_usage)
         self.assertEqual(full_metrics["recent_requests"][0]["attempts"][0]["key_masked"], "raw-al**-key")
         self.assertNotIn("raw-alpha-key", json.dumps(full_metrics))
+
+    def test_proxy_request_records_forwarded_ip_only_from_trusted_peer(self):
+        cfg = {
+            "server": {
+                "admin_key": "admin-secret",
+                "trusted_proxy_cidrs": ["127.0.0.0/8"],
+                "trusted_proxy_headers": ["x-forwarded-for"],
+            },
+            "models": {"disable_client_model_map": True},
+            "observability": {"history": {"enabled": False}},
+            "providers": {"alpha": {"pricing": {"input_per_million": 1, "output_per_million": 2}}},
+            "routing": {"connect_timeout_s": 1, "read_timeout_s": 1, "max_attempts": 1},
+        }
+        obs = ProxyObservability(cfg)
+
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(sse2json, "ROUTER", FakeRouter()), patch.object(
+            sse2json, "UPSTREAM_CLIENT", FakeClient()
+        ), patch.object(sse2json, "OBSERVABILITY", obs), patch.object(sse2json, "DISABLE_MAP", True):
+            status, _ = self.post_json(
+                "/v1/chat/completions",
+                {"model": "client-model", "messages": [{"role": "user", "content": "hello"}]},
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Forwarded-For": "198.51.100.20, 127.0.0.2",
+                    "User-Agent": "identity-test/1.0",
+                },
+            )
+
+        self.assertEqual(status, 200)
+        request = obs.snapshot()["recent_requests"][0]
+        self.assertEqual(request["client_ip"], "198.51.100.20")
+        self.assertEqual(request["client_ip_source"], "x-forwarded-for")
+        self.assertEqual(request["user_agent"], "identity-test/1.0")
 
     def test_admin_requests_list_detail_and_timeseries(self):
         cfg = {
@@ -891,12 +1112,21 @@ class AdminApiTests(unittest.TestCase):
         self.assertEqual(listed["items"][0]["providers"], ["alpha"])
         self.assertEqual(listed["items"][0]["attempt_outcomes"], ["success"])
         self.assertEqual(listed["items"][0]["status"], "success")
-        self.assertEqual(listed["items"][0]["usage"], {"input_tokens": 4, "output_tokens": 6, "total_tokens": 10})
+        expected_usage = {
+            "input_tokens": 4,
+            "uncached_input_tokens": 4,
+            "cached_input_tokens": 0,
+            "cache_write_tokens": 0,
+            "output_tokens": 6,
+            "reasoning_tokens": 0,
+            "total_tokens": 10,
+        }
+        self.assertEqual(listed["items"][0]["usage"], expected_usage)
         self.assertEqual(detail_status, 200)
         self.assertEqual(detail["state"], "finished")
         self.assertEqual(detail["request_id"], request_id)
         self.assertEqual(detail["attempts"][0]["provider"], "alpha")
-        self.assertEqual(detail["attempts"][0]["usage"], {"input_tokens": 4, "output_tokens": 6, "total_tokens": 10})
+        self.assertEqual(detail["attempts"][0]["usage"], expected_usage)
         self.assertEqual(detail["attempts"][0]["key_masked"], "raw-al**-key")
         self.assertEqual(series_status, 200)
         self.assertEqual(series["source"], "memory")
@@ -1216,7 +1446,14 @@ class AdminApiTests(unittest.TestCase):
             )
             routing_status, routing_body = self.patch_json(
                 "/-/admin/routing",
-                {"max_attempts": 3, "provider_select": "random", "connect_timeout_s": 4},
+                {
+                    "max_attempts": 3,
+                    "provider_select": "random",
+                    "format_preference": "native_first",
+                    "semantic_conversion": "strict",
+                    "anthropic_default_max_tokens": 8192,
+                    "connect_timeout_s": 4,
+                },
                 headers=headers,
             )
             retry_status, retry_body = self.patch_json(
@@ -1247,6 +1484,7 @@ class AdminApiTests(unittest.TestCase):
                     "model": "deepseek-v4-flash",
                     "providers": "alpha:1, beta:2",
                     "provider_select": "weighted_rr",
+                    "format_preference": "priority_first",
                 },
                 headers=headers,
             )
@@ -1286,6 +1524,9 @@ class AdminApiTests(unittest.TestCase):
         self.assertEqual(fmt_body["action"], "format_updated")
         self.assertEqual(routing_status, 200)
         self.assertEqual(routing_body["action"], "routing_updated")
+        self.assertEqual(routing_body["config"]["routing"]["format_preference"], "native_first")
+        self.assertEqual(routing_body["config"]["routing"]["semantic_conversion"], "strict")
+        self.assertEqual(routing_body["config"]["routing"]["anthropic_default_max_tokens"], 8192)
         self.assertEqual(retry_status, 200)
         self.assertEqual(retry_body["action"], "retry_updated")
         self.assertEqual(failure_policy_status, 200)
@@ -1304,6 +1545,10 @@ class AdminApiTests(unittest.TestCase):
         self.assertEqual(
             route_body["config"]["models"]["routes"]["deepseek-v4-flash"]["providers"],
             [{"name": "alpha", "weight": 1}, {"name": "beta", "weight": 2}],
+        )
+        self.assertEqual(
+            route_body["config"]["models"]["routes"]["deepseek-v4-flash"]["format_preference"],
+            "priority_first",
         )
         self.assertEqual(route_delete_status, 200)
         self.assertEqual(route_delete_body["action"], "model_route_deleted")
@@ -2010,7 +2255,7 @@ class AdminApiTests(unittest.TestCase):
 
         self.assertEqual(status, 403)
 
-    def test_idle_probe_prefers_recent_success_model_and_records_event(self):
+    def test_idle_probe_skips_provider_with_recent_real_success(self):
         cfg = self._probe_cfg()
         router = sse2json.UpstreamRouter(cfg)
         obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
@@ -2055,12 +2300,12 @@ class AdminApiTests(unittest.TestCase):
         with patch.object(sse2json, "CONFIG", cfg):
             healthy = sse2json._idle_probe_one_provider(rt, "alpha")
 
-        self.assertTrue(healthy)
-        self.assertEqual(captured["payload"]["model"], "provider-chosen-model")
+        self.assertFalse(healthy)
+        self.assertEqual(captured, {})
         probes = obs.health_probe_summary("alpha")
-        self.assertEqual(probes["last"]["outcome"], "success")
+        self.assertEqual(probes["last"]["outcome"], "skipped")
         self.assertEqual(probes["last"]["model"], "provider-chosen-model")
-        self.assertEqual(probes["last"]["model_source"], "recent_success")
+        self.assertEqual(probes["last"]["reason"], "recent real success")
         self.assertEqual(obs.snapshot_lite()["counters"]["requests_total"], 1)
 
     def test_idle_probe_fallback_client_error_is_observed_without_cooldown(self):
@@ -2151,8 +2396,8 @@ class IdleProbeAdvancedTests(unittest.TestCase):
         self.assertEqual(probes["last"]["outcome"], "success")
         self.assertEqual(probes["last"]["action"], "reported_success")
 
-    def test_idle_probe_network_error_triggers_key_cooldown(self):
-        """A network error during probe should trigger key cooldown via report_failure."""
+    def test_idle_probe_network_error_requires_two_consecutive_failures(self):
+        """A single probe failure is observational; the second opens transport cooldown."""
         import socket as _socket
         cfg = self._probe_cfg()
         router = sse2json.UpstreamRouter(cfg)
@@ -2163,10 +2408,22 @@ class IdleProbeAdvancedTests(unittest.TestCase):
                 raise _socket.timeout("connection timed out")
 
         rt = sse2json.RuntimeContext(cfg, router, NetErrorClient(), obs, sse2json.AUDIT)
-        with patch.object(sse2json, "CONFIG", cfg):
-            healthy = sse2json._idle_probe_one_provider(rt, "alpha")
+        coordinator = sse2json.ProbeCoordinator(min_interval_s=0)
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(
+            sse2json, "PROBE_COORDINATOR", coordinator
+        ):
+            first = sse2json._idle_probe_one_provider_impl(rt, "alpha")
 
-        self.assertFalse(healthy)
+            self.assertFalse(first)
+            probes = obs.health_probe_summary("alpha")
+            self.assertEqual(probes["last"]["action"], "observed_only")
+            ks = router._keys_state.get(("alpha", 0))
+            self.assertIsNotNone(ks)
+            self.assertEqual(ks.cooldown_until, 0.0)
+
+            second = sse2json._idle_probe_one_provider_impl(rt, "alpha")
+
+        self.assertFalse(second)
         probes = obs.health_probe_summary("alpha")
         self.assertEqual(probes["last"]["outcome"], "failed")
         self.assertEqual(probes["last"]["error_type"], "network_error")
@@ -2508,8 +2765,8 @@ class IdleProbeMultiKeyTests(unittest.TestCase):
             },
         }
 
-    def test_first_key_fails_second_key_succeeds(self):
-        """When key[0] fails with a key-level error, key[1] should be tried."""
+    def test_first_key_requires_repeated_failure_before_cooldown(self):
+        """Key rotation continues immediately, but one patrol cannot cool a key."""
         cfg = self._multi_key_cfg()
         router = sse2json.UpstreamRouter(cfg)
         obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
@@ -2519,7 +2776,7 @@ class IdleProbeMultiKeyTests(unittest.TestCase):
         class FailThenOkClient:
             def open_stream(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None, first_byte_timeout_s=None):
                 call_count[0] += 1
-                if call_count[0] == 1:
+                if call_count[0] % 2 == 1:
                     raise HTTPError(url, 429, "Rate Limited", {}, None)
                 class MockStream:
                     def readline(self, *args, **kwargs):
@@ -2529,11 +2786,19 @@ class IdleProbeMultiKeyTests(unittest.TestCase):
                 return MockStream()
 
         rt = sse2json.RuntimeContext(cfg, router, FailThenOkClient(), obs, sse2json.AUDIT)
-        with patch.object(sse2json, "CONFIG", cfg):
-            healthy = sse2json._idle_probe_one_provider(rt, "alpha")
+        coordinator = sse2json.ProbeCoordinator(min_interval_s=0)
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(
+            sse2json, "PROBE_COORDINATOR", coordinator
+        ):
+            first = sse2json._idle_probe_one_provider_impl(rt, "alpha")
+            ks0 = router._keys_state.get(("alpha", 0))
+            self.assertTrue(first)
+            self.assertEqual(ks0.cooldown_until, 0.0)
+
+            healthy = sse2json._idle_probe_one_provider_impl(rt, "alpha")
 
         self.assertTrue(healthy, "provider should be healthy via second key")
-        self.assertEqual(call_count[0], 2, "should have tried 2 keys")
+        self.assertEqual(call_count[0], 4, "each patrol should rotate from key 0 to key 1")
 
         # Key 0 should be in cooldown (429 → rate_limited)
         ks0 = router._keys_state.get(("alpha", 0))
@@ -2545,8 +2810,8 @@ class IdleProbeMultiKeyTests(unittest.TestCase):
         if ks1:
             self.assertEqual(ks1.cooldown_until, 0.0, "key 1 should not be cooled down")
 
-    def test_all_keys_fail_returns_false(self):
-        """When all keys fail, the provider should be marked unhealthy."""
+    def test_all_keys_require_two_failed_patrols_before_cooldown(self):
+        """One all-key outage is observed; the repeated outage updates key state."""
         cfg = self._multi_key_cfg()
         router = sse2json.UpstreamRouter(cfg)
         obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
@@ -2559,11 +2824,18 @@ class IdleProbeMultiKeyTests(unittest.TestCase):
                 raise HTTPError(url, 500, "Internal Server Error", {}, None)
 
         rt = sse2json.RuntimeContext(cfg, router, AllFailClient(), obs, sse2json.AUDIT)
-        with patch.object(sse2json, "CONFIG", cfg):
-            healthy = sse2json._idle_probe_one_provider(rt, "alpha")
+        coordinator = sse2json.ProbeCoordinator(min_interval_s=0)
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(
+            sse2json, "PROBE_COORDINATOR", coordinator
+        ):
+            first = sse2json._idle_probe_one_provider_impl(rt, "alpha")
+            for i in range(3):
+                self.assertEqual(router._keys_state[("alpha", i)].fails, 0)
+            healthy = sse2json._idle_probe_one_provider_impl(rt, "alpha")
 
+        self.assertFalse(first)
         self.assertFalse(healthy, "provider should be unhealthy when all keys fail")
-        self.assertEqual(call_count[0], 3, "should have tried all 3 keys")
+        self.assertEqual(call_count[0], 6, "both patrols should try all 3 keys")
 
         # All keys should have failures recorded
         for i in range(3):
@@ -2808,8 +3080,8 @@ class PatrolHealthCheckerTests(unittest.TestCase):
         self.assertEqual(probes["last"]["error_type"], "network_error")
         self.assertEqual(probes["last"]["idle_tier"], "patrol")
 
-    def test_patrol_probe_no_data_event(self):
-        """Patrol probe should fail when stream opens but no data event is received."""
+    def test_patrol_probe_no_data_opens_only_compatibility_circuit_after_repeat(self):
+        """Repeated first-event silence is scoped to model/format, not key health."""
         cfg = self._patrol_cfg()
         router = sse2json.UpstreamRouter(cfg)
         obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
@@ -2826,13 +3098,28 @@ class PatrolHealthCheckerTests(unittest.TestCase):
                 return MockStream()
 
         rt = sse2json.RuntimeContext(cfg, router, EmptyStreamClient(), obs, sse2json.AUDIT)
-        with patch.object(sse2json, "CONFIG", cfg):
-            healthy = sse2json._patrol_probe_one_key(rt, "alpha", 0, canonical_model="alpha-model", model_source="patrol_capability")
+        coordinator = sse2json.ProbeCoordinator(min_interval_s=0)
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(
+            sse2json, "PROBE_COORDINATOR", coordinator
+        ):
+            first = sse2json._patrol_probe_one_key_impl(
+                rt, "alpha", 0, canonical_model="alpha-model", model_source="patrol_capability"
+            )
+            self.assertFalse(first)
+            self.assertEqual(obs.health_probe_summary("alpha")["last"]["action"], "observed_only")
+
+            healthy = sse2json._patrol_probe_one_key_impl(
+                rt, "alpha", 0, canonical_model="alpha-model", model_source="patrol_capability"
+            )
 
         self.assertFalse(healthy)
         probes = obs.health_probe_summary("alpha")
         self.assertEqual(probes["last"]["outcome"], "failed")
+        self.assertEqual(probes["last"]["error_type"], "first_event_timeout")
         self.assertEqual(probes["last"]["reason"], "patrol stream opened but no data event")
+        self.assertEqual(probes["last"]["action"], "reported_failure")
+        self.assertEqual(router._keys_state[("alpha", 0)].cooldown_until, 0.0)
+        self.assertEqual(len(router._compatibility_state), 1)
 
     def test_patrol_probe_skips_disabled_provider(self):
         """Patrol probe should skip disabled providers."""
@@ -2928,8 +3215,8 @@ class PatrolHealthCheckerTests(unittest.TestCase):
         self.assertEqual(ks.fails, 0, "key fails should be reset")
         self.assertEqual(ks.transient_fails, 0, "key transient_fails should be reset")
 
-    def test_patrol_probe_http_error_triggers_report_failure(self):
-        """A failed patrol probe should call report_failure to trigger circuit breaker."""
+    def test_patrol_probe_http_error_requires_two_consecutive_failures(self):
+        """A single patrol failure is observational; a repeat opens the circuit."""
         cfg = self._patrol_cfg()
         router = sse2json.UpstreamRouter(cfg)
         obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
@@ -2939,11 +3226,24 @@ class PatrolHealthCheckerTests(unittest.TestCase):
                 raise HTTPError(url, 429, "Rate Limited", {}, None)
 
         rt = sse2json.RuntimeContext(cfg, router, FailClient(), obs, sse2json.AUDIT)
-        with patch.object(sse2json, "CONFIG", cfg):
-            healthy = sse2json._patrol_probe_one_key(rt, "alpha", 0, canonical_model="alpha-model", model_source="patrol_capability")
+        coordinator = sse2json.ProbeCoordinator(min_interval_s=0)
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(
+            sse2json, "PROBE_COORDINATOR", coordinator
+        ):
+            first = sse2json._patrol_probe_one_key_impl(
+                rt, "alpha", 0, canonical_model="alpha-model", model_source="patrol_capability"
+            )
+            ks = router._keys_state.get(("alpha", 0))
+            self.assertFalse(first)
+            self.assertIsNotNone(ks)
+            self.assertEqual(ks.cooldown_until, 0.0)
+
+            healthy = sse2json._patrol_probe_one_key_impl(
+                rt, "alpha", 0, canonical_model="alpha-model", model_source="patrol_capability"
+            )
 
         self.assertFalse(healthy)
-        # Key should have cooldown from report_failure (429 → rate_limited)
+        # The repeated 429 now affects the key.
         ks = router._keys_state.get(("alpha", 0))
         self.assertIsNotNone(ks)
         self.assertGreater(ks.cooldown_until, 0.0, "key should be cooled down after 429")
@@ -3033,6 +3333,26 @@ class ModelPricingEndpointTests(unittest.TestCase):
             except HTTPError as e:
                 self.assertIn(e.code, (401, 403))
                 e.close()
+
+    def test_model_pricing_uses_cached_slug_when_index_is_stale(self):
+        import admin_routes
+        import artificial_analysis_api
+
+        aa = artificial_analysis_api.aa
+        admin_routes._MODEL_PRICING_CACHE.clear()
+        with patch.object(sse2json, "CONFIG", self.cfg), \
+             patch.object(aa._index, "_models", {}), \
+             patch.object(aa._index, "load_local", lambda: False), \
+             patch.object(aa._cache, "list_slugs", return_value=["deepseek-v4-flash"]), \
+             patch.object(aa._cache, "get", side_effect=lambda slug: {
+                 "pricing": {"input": 0.14, "output": 0.28, "cache_hit": 0.014}
+             } if slug == "deepseek-v4-flash" else None):
+            status, body = self._get("/-/admin/model-pricing?models=DeepSeek%20V4%20Flash")
+
+        self.assertEqual(status, 200)
+        entry = body["pricing"]["DeepSeek V4 Flash"]
+        self.assertTrue(entry["available"])
+        self.assertEqual(entry["slug"], "deepseek-v4-flash")
 
 
 if __name__ == "__main__":

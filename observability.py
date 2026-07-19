@@ -10,8 +10,9 @@ from collections import deque
 from typing import Any, Dict, Optional
 
 from history_store import RequestHistoryStore
+from pricing_resolver import PricingResolver
 from routing_explain import enrich_request
-from usage_accounting import add_usage_totals, empty_usage, estimate_cost_usd, has_usage, normalize_usage, safe_float
+from usage_accounting import add_usage_totals, empty_usage, has_usage, normalize_usage, price_usage, safe_float
 
 
 def empty_usage_with_cost() -> Dict[str, Any]:
@@ -29,11 +30,39 @@ def aggregate_attempt_usage(attempts: Any) -> tuple[Dict[str, int], float]:
         attempt_usage = normalize_usage(attempt.get("usage") or attempt)
         if not has_usage(attempt_usage):
             continue
-        usage["input_tokens"] += attempt_usage["input_tokens"]
-        usage["output_tokens"] += attempt_usage["output_tokens"]
-        usage["total_tokens"] += attempt_usage["total_tokens"]
+        for key in empty_usage():
+            usage[key] += attempt_usage[key]
         cost_usd += safe_float(attempt.get("cost_usd"))
     return usage, round(cost_usd, 10)
+
+
+def aggregate_attempt_pricing(attempts: Any) -> tuple[str, str, Dict[str, Any]]:
+    states = []
+    sources = []
+    snapshots = []
+    for attempt in attempts or []:
+        if not isinstance(attempt, dict) or not has_usage(attempt.get("usage") or attempt):
+            continue
+        state = str(attempt.get("cost_status") or "legacy")
+        source = str(attempt.get("pricing_source") or "")
+        snapshot = attempt.get("pricing_snapshot")
+        states.append(state)
+        if source and source not in sources:
+            sources.append(source)
+        if isinstance(snapshot, dict) and snapshot:
+            snapshots.append(copy.deepcopy(snapshot))
+    if "pending" in states:
+        status = "pending"
+    elif "unpriced" in states:
+        status = "unpriced"
+    elif "estimated" in states:
+        status = "estimated"
+    elif states and all(state == "priced" for state in states):
+        status = "priced"
+    else:
+        status = "legacy"
+    snapshot_out = snapshots[0] if len(snapshots) == 1 else ({"attempts": snapshots} if snapshots else {})
+    return status, ",".join(sources), snapshot_out
 
 
 class ProxyObservability:
@@ -46,6 +75,8 @@ class ProxyObservability:
         self._health_probe_events = deque(maxlen=self._health_probe_limit())
         self._counters = self._new_counters()
         self._history = RequestHistoryStore(cfg)
+        self._pricing = PricingResolver(cfg, self._history)
+        self._first_event_stats_cache: Dict[tuple, tuple] = {}
         # Cache for failure_summary — invalidated whenever _recent changes.
         self._failure_summary_cache: Optional[Dict[str, Any]] = None
         # Wall-clock time of the most recent request completion (success or
@@ -110,11 +141,6 @@ class ProxyObservability:
         _history（SQLite）在新实例 __init__ 已重新打开，无需迁移。"""
         if old_obs is None:
             return
-        if hasattr(old_obs, "_history") and old_obs._history:
-            try:
-                old_obs._history.shutdown()
-            except Exception:
-                pass
         with old_obs._lock:
             counters = old_obs._counters
             recent = old_obs._recent
@@ -126,6 +152,16 @@ class ProxyObservability:
         # record_request_end on the OLD observability after the hot-swap
         # still updates _last_request_finished_at on the NEW one.
         old_obs._migrated_to = self
+        if hasattr(old_obs, "_history") and old_obs._history:
+            try:
+                old_obs._history.shutdown()
+            except Exception:
+                pass
+        if hasattr(old_obs, "_pricing") and old_obs._pricing:
+            try:
+                old_obs._pricing.shutdown()
+            except Exception:
+                pass
         with self._lock:
             self._counters = counters
             self._recent = recent
@@ -142,6 +178,52 @@ class ProxyObservability:
             self._health_probe_events = deque(maxlen=self._health_probe_limit())
             self._counters = self._new_counters()
             self._last_request_finished_at = 0.0
+            self._first_event_stats_cache.clear()
+
+    def first_event_latency_stats(
+        self,
+        provider: str,
+        client_model: str,
+        request_profile: str,
+        *,
+        min_samples: int = 20,
+    ) -> Dict[str, int]:
+        key = (str(provider or ""), str(client_model or ""), str(request_profile or "plain"))
+        now = time.monotonic()
+        with self._lock:
+            cached = self._first_event_stats_cache.get(key)
+            if cached and now - float(cached[0]) < 60.0:
+                return dict(cached[1])
+            recent = list(self._recent)
+
+        values = []
+        for request in recent:
+            if str(request.get("model") or "") != key[1]:
+                continue
+            if str(request.get("request_profile") or "plain") != key[2]:
+                continue
+            for attempt in request.get("attempts") or []:
+                if str(attempt.get("provider") or "") != key[0] or str(attempt.get("outcome") or "") != "success":
+                    continue
+                latency = int(attempt.get("first_event_ms") or 0)
+                if latency > 0:
+                    values.append(latency)
+
+        stats = None
+        if len(values) < max(1, int(min_samples or 20)):
+            stats = self._history.first_event_latency_stats(key[0], key[1], key[2])
+        if not stats or int(stats.get("count") or 0) < len(values):
+            values.sort()
+            index = max(0, ((95 * len(values) + 99) // 100) - 1) if values else 0
+            stats = {"count": len(values), "p95_ms": values[index] if values else 0}
+
+        normalized = {
+            "count": max(0, int(stats.get("count") or 0)),
+            "p95_ms": max(0, int(stats.get("p95_ms") or 0)),
+        }
+        with self._lock:
+            self._first_event_stats_cache[key] = (now, normalized)
+        return dict(normalized)
 
     def last_request_finished_at(self) -> float:
         """Return the wall-clock time of the most recent request completion.
@@ -244,6 +326,11 @@ class ProxyObservability:
         stream: bool,
         path: str,
         routing_trace: Any = None,
+        client_ip: str = "",
+        client_ip_source: str = "",
+        user_agent: str = "",
+        request_bytes: int = 0,
+        request_profile: str = "",
     ) -> None:
         now = time.time()
         with self._lock:
@@ -259,6 +346,11 @@ class ProxyObservability:
                 "model": model or "",
                 "stream": bool(stream),
                 "path": path,
+                "client_ip": str(client_ip or "")[:128],
+                "client_ip_source": str(client_ip_source or "")[:64],
+                "user_agent": str(user_agent or "")[:500],
+                "request_bytes": max(0, int(request_bytes or 0)),
+                "request_profile": str(request_profile or "")[:64],
                 "started_at": now,
                 "attempts": [],
                 "_routing_trace": routing_trace,
@@ -276,6 +368,10 @@ class ProxyObservability:
         usage: Optional[Dict[str, Any]] = None,
         duration_ms: Optional[int] = None,
         first_byte_ms: Optional[int] = None,
+        upstream_headers_ms: Optional[int] = None,
+        first_event_ms: Optional[int] = None,
+        generation_wait_ms: Optional[int] = None,
+        finish_reason: str = "",
         diagnostic_stage: str = "",
         upstream_error_summary: str = "",
         upstream_error_type: str = "",
@@ -302,6 +398,16 @@ class ProxyObservability:
             item["duration_ms"] = max(0, int(duration_ms or 0))
         if first_byte_ms is not None:
             item["first_byte_ms"] = max(0, int(first_byte_ms or 0))
+        if upstream_headers_ms is not None:
+            item["upstream_headers_ms"] = max(0, int(upstream_headers_ms or 0))
+        if first_event_ms is not None:
+            item["first_event_ms"] = max(0, int(first_event_ms or 0))
+        elif first_byte_ms is not None:
+            item["first_event_ms"] = max(0, int(first_byte_ms or 0))
+        if generation_wait_ms is not None:
+            item["generation_wait_ms"] = max(0, int(generation_wait_ms or 0))
+        if finish_reason:
+            item["finish_reason"] = str(finish_reason)[:100]
         if raw_key:
             item["key_masked"] = self._mask_secret(raw_key)
             item["key_id"] = self._hash_secret_short(raw_key)
@@ -330,13 +436,25 @@ class ProxyObservability:
         if parameter_adaptations:
             item["parameter_adaptations"] = copy.deepcopy(parameter_adaptations)
         usage_totals = normalize_usage(usage)
-        cost_usd = estimate_cost_usd(self.cfg, provider, provider_model, usage_totals)
+        priced = price_usage(
+            self.cfg,
+            provider,
+            provider_model,
+            usage_totals,
+            resolve_missing=self._pricing.enabled,
+        )
+        cost_usd = safe_float(priced.get("cost_usd"))
         if has_usage(usage_totals):
             item["usage"] = usage_totals
-            item["input_tokens"] = usage_totals["input_tokens"]
-            item["output_tokens"] = usage_totals["output_tokens"]
-            item["total_tokens"] = usage_totals["total_tokens"]
+            for key in empty_usage():
+                item[key] = usage_totals[key]
             item["cost_usd"] = cost_usd
+            item["cost_status"] = str(priced.get("cost_status") or "unpriced")
+            item["pricing_source"] = str(priced.get("pricing_source") or "")
+            if isinstance(priced.get("pricing_snapshot"), dict):
+                item["pricing_snapshot"] = copy.deepcopy(priced["pricing_snapshot"])
+            if item["cost_status"] == "pending":
+                self._pricing.enqueue(provider, provider_model)
 
         trace = None
         with self._lock:
@@ -427,10 +545,31 @@ class ProxyObservability:
             if active is None:
                 active = {"request_id": request_id, "started_at": now, "attempts": []}
             duration_ms = int((now - float(active.get("started_at") or now)) * 1000)
+            for attempt_item in active.get("attempts") or []:
+                if str(attempt_item.get("cost_status") or "") != "pending":
+                    continue
+                snapshot = self._pricing.local_snapshot(
+                    str(attempt_item.get("provider") or ""),
+                    str(attempt_item.get("provider_model") or ""),
+                )
+                if not snapshot:
+                    continue
+                refreshed = price_usage(
+                    self.cfg,
+                    str(attempt_item.get("provider") or ""),
+                    str(attempt_item.get("provider_model") or ""),
+                    attempt_item.get("usage") or attempt_item,
+                    resolve_missing=False,
+                )
+                attempt_item["cost_usd"] = safe_float(refreshed.get("cost_usd"))
+                attempt_item["cost_status"] = str(refreshed.get("cost_status") or "unpriced")
+                attempt_item["pricing_source"] = str(refreshed.get("pricing_source") or "")
+                attempt_item["pricing_snapshot"] = snapshot
             usage_totals = normalize_usage(usage)
             cost_total = safe_float(cost_usd)
             if not has_usage(usage_totals):
                 usage_totals, cost_total = aggregate_attempt_usage(active.get("attempts") or [])
+            cost_status, pricing_source, pricing_snapshot = aggregate_attempt_pricing(active.get("attempts") or [])
             recent_item = {
                 "request_id": request_id,
                 "client_format": active.get("client_format", "unknown"),
@@ -438,6 +577,11 @@ class ProxyObservability:
                 "model": active.get("model", ""),
                 "stream": bool(active.get("stream", False)),
                 "path": active.get("path", ""),
+                "client_ip": active.get("client_ip", ""),
+                "client_ip_source": active.get("client_ip_source", ""),
+                "user_agent": active.get("user_agent", ""),
+                "request_bytes": max(0, int(active.get("request_bytes") or 0)),
+                "request_profile": active.get("request_profile", ""),
                 "status_code": int(status_code or 0),
                 "duration_ms": max(0, duration_ms),
                 "first_byte_ms": max(0, int(active.get("first_byte_ms") or 0)),
@@ -449,10 +593,13 @@ class ProxyObservability:
                 recent_item["routing_trace"] = trace.snapshot()
             if has_usage(usage_totals):
                 recent_item["usage"] = usage_totals
-                recent_item["input_tokens"] = usage_totals["input_tokens"]
-                recent_item["output_tokens"] = usage_totals["output_tokens"]
-                recent_item["total_tokens"] = usage_totals["total_tokens"]
+                for key in empty_usage():
+                    recent_item[key] = usage_totals[key]
                 recent_item["cost_usd"] = round(cost_total, 10)
+                recent_item["cost_status"] = cost_status
+                recent_item["pricing_source"] = pricing_source
+                if pricing_snapshot:
+                    recent_item["pricing_snapshot"] = pricing_snapshot
                 add_usage_totals(self._counters["usage"], usage_totals, cost_usd=cost_total)
                 model_usage = self._counters["by_model_usage"].setdefault(
                     str(active.get("model") or ""),
@@ -482,7 +629,15 @@ class ProxyObservability:
                 if _migrated is not None and _migrated is not self:
                     with _migrated._lock:
                         _migrated._last_request_finished_at = now
-        self._history.record_request(recent_item)
+        migrated = getattr(self, "_migrated_to", None)
+        history_target = (
+            migrated._history
+            if migrated is not None
+            and migrated is not self
+            and getattr(migrated, "_history", None) is not None
+            else self._history
+        )
+        history_target.record_request(recent_item)
 
     def snapshot(self) -> Dict[str, Any]:
         # NH1: deep-copy the counters under the lock. The previous shallow
@@ -666,6 +821,23 @@ class ProxyObservability:
                 request_model = str(item.get("model") or "").strip()
                 return provider_model or request_model or None
         return None
+
+    def recent_real_success_at(self, provider: str, model: str = "") -> float:
+        provider = str(provider or "")
+        model = str(model or "").strip()
+        with self._lock:
+            recent = list(self._recent)
+        for item in recent:
+            if str(item.get("endpoint") or "") == "key_test" or int(item.get("status_code") or 0) >= 400:
+                continue
+            for attempt in item.get("attempts") or []:
+                if str(attempt.get("provider") or "") != provider or str(attempt.get("outcome") or "") != "success":
+                    continue
+                attempt_model = str(attempt.get("provider_model") or item.get("model") or "").strip()
+                if model and model not in (attempt_model, str(item.get("model") or "").strip()):
+                    continue
+                return float(item.get("finished_at") or 0)
+        return 0.0
 
     def provider_activity_summary(
         self, limit: int = 60, include_events: bool = False
@@ -1090,6 +1262,177 @@ class ProxyObservability:
             "filters": dict(filters),  # Shallow copy is sufficient
             "items": filtered[offset : offset + limit],
         }
+
+    def _current_model_support(self, client_model: str) -> list:
+        try:
+            import model_registry
+
+            providers_cfg = (self.cfg.get("providers") or {})
+            matches = model_registry.find_providers_for_model(self.cfg, client_model)
+            seen = set()
+            support = []
+            for match in matches:
+                provider = str(match.get("provider") or "")
+                provider_model = str(match.get("raw_model") or client_model)
+                if not provider or provider in seen:
+                    continue
+                seen.add(provider)
+                pcfg = providers_cfg.get(provider) or {}
+                raw_formats = pcfg.get("formats") or {}
+                if isinstance(raw_formats, dict) and raw_formats:
+                    formats = sorted(
+                        str(fmt)
+                        for fmt, entry in raw_formats.items()
+                        if not isinstance(entry, dict) or entry.get("enabled", True)
+                    )
+                else:
+                    formats = ["chat_completions"]
+                keys = pcfg.get("keys") or []
+                key_states = []
+                for key_index in range(len(keys)):
+                    state = model_registry.key_supports_provider_model(
+                        self.cfg,
+                        provider,
+                        key_index,
+                        client_model,
+                        provider_model,
+                    )
+                    key_states.append(
+                        {"key_index": key_index, "support": "yes" if state is True else "no" if state is False else "unknown"}
+                    )
+                support.append(
+                    {
+                        "provider": provider,
+                        "provider_model": provider_model,
+                        "match_type": str(match.get("match_type") or "declared"),
+                        "enabled": bool(pcfg.get("enabled", True)),
+                        "formats": formats,
+                        "key_coverage": {
+                            "total": len(key_states),
+                            "eligible": sum(1 for item in key_states if item["support"] != "no"),
+                            "known_supported": sum(1 for item in key_states if item["support"] == "yes"),
+                            "keys": key_states,
+                        },
+                    }
+                )
+            return sorted(support, key=lambda item: item["provider"])
+        except Exception:
+            return []
+
+    def model_usage(
+        self,
+        *,
+        range_name: str = "7d",
+        query: str = "",
+        sort: str = "calls",
+        order: str = "desc",
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        payload = self._history.model_usage(
+            range_name=range_name,
+            query=query,
+            sort=sort,
+            order=order,
+            limit=limit,
+            offset=offset,
+        )
+        if payload is None:
+            return {
+                "source": "disabled",
+                "range": range_name,
+                "total": 0,
+                "limit": limit,
+                "offset": offset,
+                "summary": {"calls": 0, "total_tokens": 0, "cache_rate": 0.0, "cost_usd": 0.0},
+                "items": [],
+            }
+        for item in payload.get("items") or []:
+            current = self._current_model_support(str(item.get("client_model") or ""))
+            item["current_support"] = current
+            item["current_support_provider_count"] = sum(1 for entry in current if entry.get("enabled"))
+        return payload
+
+    def model_usage_detail(self, client_model: str, *, range_name: str = "7d") -> Optional[Dict[str, Any]]:
+        payload = self._history.model_usage_detail(client_model, range_name=range_name)
+        if payload is None:
+            return None
+        payload["current_support"] = self._current_model_support(client_model)
+        return payload
+
+    @staticmethod
+    def _usage_statistics_filters(filters: Optional[Dict[str, Any]]) -> Dict[str, str]:
+        source = filters or {}
+        return {
+            key: str(source.get(key) or "").strip()
+            for key in ("model", "provider", "client_format", "upstream_format")
+            if str(source.get(key) or "").strip()
+        }
+
+    def usage_statistics_summary(
+        self,
+        *,
+        range_name: str = "7d",
+        start: Any = None,
+        end: Any = None,
+        filters: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        return self._history.usage_statistics_summary(
+            range_name=range_name,
+            start=start,
+            end=end,
+            filters=self._usage_statistics_filters(filters),
+        )
+
+    def usage_statistics_timeseries(
+        self,
+        *,
+        range_name: str = "7d",
+        start: Any = None,
+        end: Any = None,
+        filters: Optional[Dict[str, Any]] = None,
+        resolution: str = "auto",
+        metric: str = "tokens",
+    ) -> Dict[str, Any]:
+        return self._history.usage_statistics_timeseries(
+            range_name=range_name,
+            start=start,
+            end=end,
+            filters=self._usage_statistics_filters(filters),
+            resolution=resolution,
+            metric=metric,
+        )
+
+    def usage_statistics_breakdown(
+        self,
+        *,
+        range_name: str = "7d",
+        start: Any = None,
+        end: Any = None,
+        filters: Optional[Dict[str, Any]] = None,
+        group_by: str = "model",
+        sort: str = "requests",
+        order: str = "desc",
+        limit: int = 20,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        return self._history.usage_statistics_breakdown(
+            range_name=range_name,
+            start=start,
+            end=end,
+            filters=self._usage_statistics_filters(filters),
+            group_by=group_by,
+            sort=sort,
+            order=order,
+            limit=limit,
+            offset=offset,
+        )
+
+    def usage_statistics_dimensions(self) -> Dict[str, Any]:
+        return self._history.usage_statistics_dimensions()
+
+    def clear_usage_statistics(self) -> Dict[str, Any]:
+        return self._history.clear_usage_statistics()
 
     def get_request(self, request_id: str) -> Optional[Dict[str, Any]]:
         rid = str(request_id or "")

@@ -31,13 +31,22 @@ AA_BASE = "https://artificialanalysis.ai"
 
 
 class ModelFetcher:
-    def __init__(self, proxy: Optional[str] = None):
+    def __init__(
+        self,
+        proxy: Optional[str] = None,
+        *,
+        connect_timeout_s: float = 10.0,
+        total_timeout_s: float = 30.0,
+    ):
         self._proxy = proxy
+        self._connect_timeout_s = max(0.5, float(connect_timeout_s))
+        self._total_timeout_s = max(self._connect_timeout_s, float(total_timeout_s))
 
     def _client(self) -> httpx.AsyncClient:
         transport = httpx.AsyncHTTPTransport(proxy=self._proxy) if self._proxy else None
         headers = {**HEADERS, "User-Agent": random.choice(USER_AGENTS)}
-        return httpx.AsyncClient(transport=transport, follow_redirects=True, timeout=30)
+        timeout = httpx.Timeout(self._total_timeout_s, connect=self._connect_timeout_s)
+        return httpx.AsyncClient(transport=transport, follow_redirects=True, timeout=timeout)
 
     async def fetch_html(self, slug: str) -> tuple[str, str]:
         url = f"{AA_BASE}/models/{slug}"

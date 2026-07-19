@@ -1,6 +1,6 @@
 ﻿import morphdom from "morphdom";
 import { state } from "./state.js";
-import { timeRanges, REQUEST_PAGE_SIZE, PROVIDERS_PAGE_SIZE, CONFIG_PROVIDERS_PAGE_SIZE, MODEL_ROUTES_PAGE_SIZE, PROVIDER_MODEL_MAP_PAGE_SIZE, AUDIT_PAGE_SIZE, OVERVIEW_PROVIDER_LIMIT, OVERVIEW_FAILURE_LIMIT, USAGE_MODEL_LIMIT, views } from "./constants.js";
+import { timeRanges, REQUEST_PAGE_SIZE, PROVIDERS_PAGE_SIZE, CONFIG_PROVIDERS_PAGE_SIZE, MODEL_ROUTES_PAGE_SIZE, PROVIDER_MODEL_MAP_PAGE_SIZE, AUDIT_PAGE_SIZE, MODEL_USAGE_PAGE_SIZE, USAGE_STATISTICS_BREAKDOWN_PAGE_SIZE, OVERVIEW_PROVIDER_LIMIT, OVERVIEW_FAILURE_LIMIT, USAGE_MODEL_LIMIT, views } from "./constants.js";
 import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessage } from "./api.js";
 import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.js";
 import { PROVIDER_CALL_BAR_SLOTS, recentProviderActivityEvents } from "./provider-activity-window.mjs";
@@ -12,6 +12,7 @@ import { groupRoutingTrace, routingTraceIdentity, routingTraceTone, summarizeFor
 import { shouldAcceptModelCapabilitySnapshot } from "./model-capability-order.mjs";
 import { keyModelsPatchValue } from "./key-models.mjs";
 import { mergedProviderKeys } from "./provider-key-view.mjs";
+import { modelBrandIconMarkup, providerBrandIconMarkup } from "./model-brand-icons.js";
 import {
   clearLiveFormField,
   mergeStaticModelIds,
@@ -23,6 +24,13 @@ import {
 
   const el = (id) => document.getElementById(id);
   const qsa = (selector) => Array.from(document.querySelectorAll(selector));
+
+  document.addEventListener("error", (event) => {
+    const image = event.target;
+    if (!(image instanceof HTMLImageElement) || !image.classList.contains("model-brand-icon")) return;
+    image.hidden = true;
+    image.closest(".model-brand-mark")?.classList.add("is-broken");
+  }, true);
 
   // === PERF TRACE (temporary debugging) ===
   // Enable from the browser console:  localStorage.setItem("perfTrace","1")
@@ -49,10 +57,15 @@ import {
   };
   // === END PERF TRACE ===
 
-  // Remembers the model set last sent to /-/admin/model-pricing so repeated
-  // refreshes with an unchanged model list do not re-issue the (potentially
-  // expensive) batch resolve. Reset to "" to force a fresh fetch.
+  // Pricing is decorative enrichment, but it must eventually observe newly
+  // written AA cache files. Keep a short expiry instead of treating an
+  // unresolved first response as permanent.
   let _lastPricingKey = "";
+  let _lastPricingFetchedAt = 0;
+  let _pricingFetchInFlight = false;
+  let pricingFetchSequence = 0;
+  const MODEL_PRICING_BATCH_SIZE = 80;
+  const MODEL_PRICING_REFRESH_MS = 30_000;
 
   // Track whether a follow-up refresh for pending model capabilities is
   // already scheduled, so we don't stack multiple timers.
@@ -386,7 +399,7 @@ import {
 
   function fmtInt(value) {
     const n = Number(value || 0);
-    return Number.isFinite(n) ? n.toLocaleString("en-US") : "0";
+    return Number.isFinite(n) ? n.toLocaleString(getLang() === "zh" ? "zh-CN" : "en-US") : "0";
   }
 
   function fmtTokenCount(value) {
@@ -396,7 +409,7 @@ import {
     const compact = (divisor, suffix) => {
       const scaled = n / divisor;
       const maxDigits = Math.abs(scaled) < 10 ? 1 : 0;
-      return `${scaled.toLocaleString("en-US", {
+      return `${scaled.toLocaleString(getLang() === "zh" ? "zh-CN" : "en-US", {
         minimumFractionDigits: 0,
         maximumFractionDigits: maxDigits,
       })}${suffix}`;
@@ -413,7 +426,7 @@ import {
 
   function fmtMs(value) {
     const n = Math.max(0, Number(value || 0));
-    return `${Math.round(n).toLocaleString("en-US")}ms`;
+    return `${Math.round(n).toLocaleString(getLang() === "zh" ? "zh-CN" : "en-US")}ms`;
   }
 
   function fmtCompactMs(value) {
@@ -421,7 +434,7 @@ import {
     if (n >= 1000) {
       const seconds = n / 1000;
       const rounded = seconds >= 10 ? Math.round(seconds) : Math.round(seconds * 10) / 10;
-      return `${rounded.toLocaleString("en-US")}s`;
+      return `${rounded.toLocaleString(getLang() === "zh" ? "zh-CN" : "en-US")}s`;
     }
     return `${Math.round(n)}ms`;
   }
@@ -445,7 +458,32 @@ import {
     const n = Number(value || 0);
     if (!Number.isFinite(n) || n <= 0) return "$0";
     if (n < 0.0001) return `$${n.toFixed(8)}`;
-    return `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })}`;
+    return `$${n.toLocaleString(getLang() === "zh" ? "zh-CN" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })}`;
+  }
+
+  function fmtPricing(value) {
+    return value === null || value === undefined || value === "" ? "-" : fmtCost(value);
+  }
+
+  function costState(value) {
+    const status = String(value?.cost_status || "legacy");
+    const labels = {
+      priced: t("cost.priced"),
+      estimated: t("cost.estimated"),
+      pending: t("cost.pending"),
+      unpriced: t("cost.unpriced"),
+      legacy: t("cost.legacy"),
+    };
+    const icons = { priced: "check", estimated: "info", pending: "clock", unpriced: "alert", legacy: "info" };
+    const display = status === "pending" || status === "unpriced" ? labels[status] : fmtCost(value?.cost_usd);
+    return { status, label: labels[status] || status, icon: icons[status] || "info", display };
+  }
+
+  function renderCost(value, { compact = false } = {}) {
+    const stateInfo = costState(value);
+    const source = value?.pricing_source ? ` · ${value.pricing_source}` : "";
+    const tip = `${stateInfo.label}${source}`;
+    return `<span class="cost-state cost-${escapeHtml(stateInfo.status)}" data-tip="${escapeHtml(tip)}" tabindex="0" aria-label="${escapeHtml(tip)}">${iconSvg(stateInfo.icon)}<strong>${escapeHtml(stateInfo.display)}</strong>${compact ? "" : `<small>${escapeHtml(stateInfo.label)}</small>`}</span>`;
   }
 
   function proxyText(value) {
@@ -480,9 +518,19 @@ import {
     const inputTokens = Number(usage.input_tokens || value?.input_tokens || 0);
     const outputTokens = Number(usage.output_tokens || value?.output_tokens || 0);
     const totalTokens = Number(usage.total_tokens || value?.total_tokens || 0);
+    const cachedInputTokens = Number(usage.cached_input_tokens || value?.cached_input_tokens || 0);
+    const cacheWriteTokens = Number(usage.cache_write_tokens || value?.cache_write_tokens || 0);
+    const uncachedInputTokens = Number(
+      usage.uncached_input_tokens ?? value?.uncached_input_tokens ?? Math.max(0, inputTokens - cachedInputTokens - cacheWriteTokens)
+    );
+    const reasoningTokens = Number(usage.reasoning_tokens || value?.reasoning_tokens || 0);
     return {
       input_tokens: inputTokens,
+      uncached_input_tokens: uncachedInputTokens,
+      cached_input_tokens: cachedInputTokens,
+      cache_write_tokens: cacheWriteTokens,
       output_tokens: outputTokens,
+      reasoning_tokens: reasoningTokens,
       total_tokens: Math.max(totalTokens, inputTokens + outputTokens),
       cost_usd: Number(value?.cost_usd || usage.cost_usd || 0),
     };
@@ -491,7 +539,11 @@ import {
   function addUsage(target, source) {
     const usage = usageFrom(source);
     target.input_tokens += usage.input_tokens;
+    target.uncached_input_tokens += usage.uncached_input_tokens;
+    target.cached_input_tokens += usage.cached_input_tokens;
+    target.cache_write_tokens += usage.cache_write_tokens;
     target.output_tokens += usage.output_tokens;
+    target.reasoning_tokens += usage.reasoning_tokens;
     target.total_tokens += usage.total_tokens;
     target.cost_usd += usage.cost_usd;
   }
@@ -546,6 +598,18 @@ import {
     const n = Number(ts || 0);
     if (!n) return "-";
     return new Date(n * 1000).toLocaleString();
+  }
+
+  function fmtRequestDateParts(ts) {
+    const n = Number(ts || 0);
+    if (!n) return { date: "-", time: "-", iso: "" };
+    const value = new Date(n * 1000);
+    const locale = getLang() === "zh" ? "zh-CN" : "en-US";
+    return {
+      date: value.toLocaleDateString(locale, { month: "2-digit", day: "2-digit" }),
+      time: value.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }),
+      iso: value.toISOString(),
+    };
   }
 
   function joinList(items) {
@@ -1343,16 +1407,43 @@ import {
     if (!entry) return "";
     const input = entry.input;
     const output = entry.output;
-    const cacheHit = entry.cache_hit;
-    const lines = [`Input ${fmtCost(input)}/M`, `Output ${fmtCost(output)}/M`];
-    if (cacheHit !== null && cacheHit !== undefined && cacheHit !== "") {
-      lines.push(`Cache hit ${fmtCost(cacheHit)}/M`);
+    const cacheRead = entry.cache_read_per_million ?? entry.cache_hit;
+    const cacheWrite = entry.cache_write_per_million;
+    const lines = [
+      `${t("pricing.input")} ${fmtCost(input)}/M`,
+      `${t("pricing.output")} ${fmtCost(output)}/M`,
+    ];
+    if (cacheRead !== null && cacheRead !== undefined && cacheRead !== "") {
+      lines.push(`${t("pricing.cache_read")} ${fmtCost(cacheRead)}/M`);
+    }
+    if (cacheWrite !== null && cacheWrite !== undefined && cacheWrite !== "") {
+      lines.push(`${t("pricing.cache_write")} ${fmtCost(cacheWrite)}/M`);
+    } else if (entry.cache_write_estimated && input !== null && input !== undefined && input !== "") {
+      lines.push(`${t("pricing.cache_write_estimated")} ${fmtCost(input)}/M`);
     }
     if (entry.blended_per_million !== null && entry.blended_per_million !== undefined) {
-      lines.push(`Blended ${fmtCost(entry.blended_per_million)}/M`);
+      lines.push(`${t("pricing.blended")} ${fmtCost(entry.blended_per_million)}/M`);
     }
     const tip = lines.join(" · ");
-    return `<span class="model-price-tip" data-tip="${escapeHtml(tip)}" tabindex="0" aria-label="Pricing for ${escapeHtml(modelName)}">${iconSvg("info")}</span>`;
+    return `<span class="model-price-tip" data-tip="${escapeHtml(tip)}" tabindex="0" aria-label="${escapeHtml(t("misc.pricing_for", { model: modelName }))}">${iconSvg("info")}</span>`;
+  }
+
+  async function refreshModelPricing(modelNames) {
+    const sequence = ++pricingFetchSequence;
+    const batches = [];
+    for (let index = 0; index < modelNames.length; index += MODEL_PRICING_BATCH_SIZE) {
+      batches.push(modelNames.slice(index, index + MODEL_PRICING_BATCH_SIZE));
+    }
+    const responses = await Promise.all(
+      batches.map((batch) => apiGet(`/-/admin/model-pricing?models=${encodeURIComponent(batch.join(","))}`)),
+    );
+    if (sequence !== pricingFetchSequence) return;
+    const merged = {};
+    responses.forEach((response) => {
+      Object.assign(merged, response?.pricing || {});
+    });
+    state.data.pricing = merged;
+    try { renderAll(); } catch (_e) { /* enrichment must not interrupt the dashboard */ }
   }
 
   let _staticRefreshInFlight = false;
@@ -1667,34 +1758,33 @@ import {
       // invalidate together instead of deep-comparing payloads on each render.
       state.data.version = Number(state.data.version || 0) + 1;
 
-      // Batch-fetch cached pricing for the models currently in view. This is a
-      // read-only local-cache lookup on the server, but resolving unknown model
-      // names against the AA index can be expensive, so: (1) cap the candidate
-      // list, (2) skip the request entirely when the model set has not changed
-      // since the last fetch, and (3) fire it without awaiting so a slow pricing
-      // response never delays the main render. Pricing tooltips update on the
-      // next render after the response lands.
+      // Batch-fetch cached pricing for every model currently in view. This is
+      // read-only enrichment, so it runs in the background and never delays
+      // the main render. The expiry matters when a prior request observed a
+      // cache miss and AA writes the summary shortly afterward.
       try {
-        const modelNames = collectModelNames(state.data.status, state.data.config).slice(0, 60);
+        const modelNames = collectModelNames(state.data.status, state.data.config);
         const pricingKey = modelNames.join(",");
-        if (modelNames.length && pricingKey !== _lastPricingKey) {
+        const pricingExpired = Date.now() - _lastPricingFetchedAt >= MODEL_PRICING_REFRESH_MS;
+        if (modelNames.length && (pricingKey !== _lastPricingKey || pricingExpired) && !_pricingFetchInFlight) {
           _lastPricingKey = pricingKey;
-          // Do NOT await: pricing is decorative enrichment. Let it resolve in
-          // the background and re-render once it lands.
-          apiGet(`/-/admin/model-pricing?models=${encodeURIComponent(pricingKey)}`)
-            .then((pricingResp) => {
-              state.data.pricing = (pricingResp && pricingResp.pricing) || {};
-              // Trigger a quiet re-render so tooltips pick up the new pricing
-              // without a full data refetch.
-              try { renderAll(); } catch (_e) {}
+          _lastPricingFetchedAt = Date.now();
+          _pricingFetchInFlight = true;
+          refreshModelPricing(modelNames)
+            .catch(() => {
+              // A failed enrichment request must be retryable on the next
+              // refresh; preserve the last known prices while doing so.
+              _lastPricingFetchedAt = 0;
             })
-            .catch(() => { state.data.pricing = state.data.pricing || {}; });
+            .finally(() => { _pricingFetchInFlight = false; });
         } else if (!modelNames.length) {
           state.data.pricing = {};
+          _lastPricingFetchedAt = 0;
         }
       } catch (e) {
         // Pricing is best-effort enrichment; never block the dashboard on it.
         state.data.pricing = state.data.pricing || {};
+        _lastPricingFetchedAt = 0;
       }
 
       renderAll();
@@ -1846,6 +1936,11 @@ import {
       error_type: el("filterErrorType")?.value,
       failure_reason: el("filterReason")?.value,
       http_status: el("filterHttpStatus")?.value,
+      client_ip: el("filterClientIp")?.value,
+      stream: el("filterStream")?.value,
+      client_format: el("filterClientFormat")?.value,
+      upstream_format: el("filterUpstreamFormat")?.value,
+      cost_status: el("filterCostStatus")?.value,
     };
   }
 
@@ -1931,11 +2026,23 @@ import {
 
   function switchConfigTab(tabName) {
     const tabNav = el("configTabNav");
-    if (!tabNav) return;
-    tabNav.querySelectorAll("button").forEach((b) => b.classList.toggle("is-active", b.dataset.configTab === tabName));
+    const allowedTabs = new Set(["routes", "models", "map", "runtime", "proxy", "health", "advanced"]);
+    if (!tabNav || !allowedTabs.has(tabName)) return;
+    tabNav.querySelectorAll("button").forEach((button) => {
+      const active = button.dataset.configTab === tabName;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-selected", active ? "true" : "false");
+      button.tabIndex = active ? 0 : -1;
+    });
     document.querySelectorAll("[data-config-tab-panel]").forEach((panel) => {
       panel.hidden = panel.dataset.configTabPanel !== tabName;
     });
+    state.configTab = tabName;
+    el("configView")?.classList.toggle("is-model-data", tabName === "models");
+    if (tabName === "models") {
+      if (state.statisticsView === "models") loadModelUsage();
+      else loadUsageStatistics();
+    }
     try {
       localStorage.setItem("proxyConsoleConfigTab", tabName);
     } catch (_e) {}
@@ -1943,18 +2050,214 @@ import {
 
   function bindConfigTabs() {
     const tabNav = el("configTabNav");
-    if (!tabNav || tabNav.dataset.boundConfigTabs) return;
-    tabNav.dataset.boundConfigTabs = "1";
-    tabNav.addEventListener("click", (event) => {
-      const btn = event.target.closest("[data-config-tab]");
-      if (!btn) return;
-      switchConfigTab(btn.dataset.configTab || "");
+    if (!tabNav) return;
+    tabNav.querySelectorAll("[data-config-tab]").forEach((button) => {
+      if (button.dataset.boundConfigTab) return;
+      button.dataset.boundConfigTab = "1";
+      button.addEventListener("click", () => switchConfigTab(button.dataset.configTab || ""));
     });
-    // Restore from localStorage on load
+    if (tabNav.dataset.restoredConfigTab) return;
+    tabNav.dataset.restoredConfigTab = "1";
     try {
       const saved = localStorage.getItem("proxyConsoleConfigTab");
-      if (saved) switchConfigTab(saved);
+      switchConfigTab(saved || state.configTab || "routes");
     } catch (_e) {}
+    bindUsageStatisticsControls();
+  }
+
+  function switchStatisticsView(viewName, { persist = true } = {}) {
+    const allowed = new Set(["usage", "models"]);
+    if (!allowed.has(viewName)) return;
+    const tabs = el("statisticsViewTabs");
+    tabs?.querySelectorAll("[data-statistics-view]").forEach((button) => {
+      const active = button.dataset.statisticsView === viewName;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-selected", active ? "true" : "false");
+      button.tabIndex = active ? 0 : -1;
+    });
+    document.querySelectorAll("[data-statistics-view-panel]").forEach((panel) => {
+      panel.hidden = panel.dataset.statisticsViewPanel !== viewName;
+    });
+    state.statisticsView = viewName;
+    if (persist) {
+      try { localStorage.setItem("proxyConsoleStatisticsView", viewName); } catch (_e) {}
+    }
+    if (state.configTab !== "models") return;
+    if (viewName === "models") loadModelUsage();
+    else loadUsageStatistics();
+  }
+
+  function usageStatisticsCustomTimestamp(value, endOfDay = false) {
+    const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return 0;
+    const date = new Date(
+      Number(match[1]),
+      Number(match[2]) - 1,
+      Number(match[3]),
+      endOfDay ? 23 : 0,
+      endOfDay ? 59 : 0,
+      endOfDay ? 59 : 0,
+      endOfDay ? 999 : 0,
+    );
+    const timestamp = Math.floor(date.getTime() / 1000);
+    return Number.isFinite(timestamp) ? timestamp : 0;
+  }
+
+  function bindHorizontalSelectorKeys(root, selector) {
+    if (!root || root.dataset.boundHorizontalSelectorKeys) return;
+    root.dataset.boundHorizontalSelectorKeys = "1";
+    root.addEventListener("keydown", (event) => {
+      if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+      const buttons = Array.from(root.querySelectorAll(selector)).filter((button) => !button.disabled);
+      const current = buttons.indexOf(document.activeElement);
+      if (!buttons.length || current < 0) return;
+      event.preventDefault();
+      let next = current;
+      if (event.key === "Home") next = 0;
+      else if (event.key === "End") next = buttons.length - 1;
+      else if (event.key === "ArrowRight") next = (current + 1) % buttons.length;
+      else next = (current - 1 + buttons.length) % buttons.length;
+      buttons[next].focus();
+      buttons[next].click();
+    });
+  }
+
+  function bindUsageStatisticsControls() {
+    const tabs = el("statisticsViewTabs");
+    bindHorizontalSelectorKeys(tabs, "[data-statistics-view]");
+    tabs?.querySelectorAll("[data-statistics-view]").forEach((button) => {
+      if (button.dataset.boundStatisticsView) return;
+      button.dataset.boundStatisticsView = "1";
+      button.addEventListener("click", () => switchStatisticsView(button.dataset.statisticsView || "usage"));
+    });
+    if (tabs && !tabs.dataset.restoredStatisticsView) {
+      tabs.dataset.restoredStatisticsView = "1";
+      let saved = state.statisticsView || "usage";
+      try { saved = localStorage.getItem("proxyConsoleStatisticsView") || saved; } catch (_e) {}
+      switchStatisticsView(saved, { persist: false });
+    }
+
+    const range = el("usageStatisticsRange");
+    bindHorizontalSelectorKeys(range, "[data-usage-statistics-range]");
+    if (range && !range.dataset.boundUsageStatisticsRange) {
+      range.dataset.boundUsageStatisticsRange = "1";
+      range.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-usage-statistics-range]");
+        if (!button) return;
+        state.usageStatisticsRange = button.dataset.usageStatisticsRange || "all";
+        state.usageStatisticsBreakdownPage = 0;
+        range.querySelectorAll("[data-usage-statistics-range]").forEach((item) => {
+          const active = item === button;
+          item.classList.toggle("is-active", active);
+          item.setAttribute("aria-pressed", active ? "true" : "false");
+        });
+        const custom = el("usageStatisticsCustomRange");
+        if (custom) custom.hidden = state.usageStatisticsRange !== "custom";
+        if (state.usageStatisticsRange !== "custom") loadUsageStatistics({ force: true });
+      });
+    }
+
+    const metric = el("usageStatisticsMetric");
+    bindHorizontalSelectorKeys(metric, "[data-usage-statistics-metric]");
+    if (metric && !metric.dataset.boundUsageStatisticsMetric) {
+      metric.dataset.boundUsageStatisticsMetric = "1";
+      metric.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-usage-statistics-metric]");
+        if (!button) return;
+        state.usageStatisticsMetric = button.dataset.usageStatisticsMetric || "tokens";
+        state.usageStatisticsBreakdownSort = state.usageStatisticsMetric === "requests"
+          ? "requests"
+          : state.usageStatisticsMetric === "latency" ? "latency" : state.usageStatisticsMetric;
+        state.usageStatisticsBreakdownPage = 0;
+        metric.querySelectorAll("[data-usage-statistics-metric]").forEach((item) => {
+          const active = item === button;
+          item.classList.toggle("is-active", active);
+          item.setAttribute("aria-pressed", active ? "true" : "false");
+        });
+        loadUsageStatistics({ force: true });
+      });
+    }
+
+    const breakdown = el("usageStatisticsBreakdownMode");
+    bindHorizontalSelectorKeys(breakdown, "[data-usage-statistics-breakdown]");
+    if (breakdown && !breakdown.dataset.boundUsageStatisticsBreakdown) {
+      breakdown.dataset.boundUsageStatisticsBreakdown = "1";
+      breakdown.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-usage-statistics-breakdown]");
+        if (!button) return;
+        state.usageStatisticsBreakdown = button.dataset.usageStatisticsBreakdown || "model";
+        state.usageStatisticsBreakdownPage = 0;
+        breakdown.querySelectorAll("[data-usage-statistics-breakdown]").forEach((item) => {
+          const active = item === button;
+          item.classList.toggle("is-active", active);
+          item.setAttribute("aria-pressed", active ? "true" : "false");
+        });
+        loadUsageStatistics({ force: true });
+      });
+    }
+
+    document.querySelectorAll("[data-usage-statistics-filter]").forEach((select) => {
+      if (select.dataset.boundUsageStatisticsFilter) return;
+      select.dataset.boundUsageStatisticsFilter = "1";
+      select.addEventListener("change", () => {
+        const key = select.dataset.usageStatisticsFilter;
+        if (!key) return;
+        state.usageStatisticsFilters[key] = select.value || "";
+        state.usageStatisticsBreakdownPage = 0;
+        loadUsageStatistics({ force: true });
+      });
+    });
+
+    const refresh = el("usageStatisticsRefresh");
+    if (refresh && !refresh.dataset.boundUsageStatisticsRefresh) {
+      refresh.dataset.boundUsageStatisticsRefresh = "1";
+      refresh.addEventListener("click", () => loadUsageStatistics({ force: true, includeDimensions: true }));
+    }
+
+    const applyCustom = el("usageStatisticsApplyCustom");
+    if (applyCustom && !applyCustom.dataset.boundUsageStatisticsCustom) {
+      applyCustom.dataset.boundUsageStatisticsCustom = "1";
+      applyCustom.addEventListener("click", () => {
+        const startValue = el("usageStatisticsStart")?.value || "";
+        const endValue = el("usageStatisticsEnd")?.value || "";
+        const start = usageStatisticsCustomTimestamp(startValue);
+        const end = usageStatisticsCustomTimestamp(endValue, true);
+        if (!start || !end || start >= end) {
+          setNotice(t("usage_stats.invalid_custom_range"), "bad");
+          return;
+        }
+        state.usageStatisticsCustomStart = startValue;
+        state.usageStatisticsCustomEnd = endValue;
+        state.usageStatisticsBreakdownPage = 0;
+        loadUsageStatistics({ force: true });
+      });
+    }
+
+    const clear = el("usageStatisticsClear");
+    if (clear && !clear.dataset.boundUsageStatisticsClear) {
+      clear.dataset.boundUsageStatisticsClear = "1";
+      clear.addEventListener("click", async () => {
+        const confirmed = await openConfirmDialog({
+          title: t("usage_stats.clear_confirm_title"),
+          message: t("usage_stats.clear_confirm_message"),
+          acceptLabel: t("confirm.clear"),
+        });
+        if (!confirmed) return;
+        clear.disabled = true;
+        try {
+          await apiPost("/-/admin/usage-statistics/clear", { confirm: "clear_usage_statistics" });
+          state.data.usageStatistics = null;
+          state.data.usageStatisticsDimensions = null;
+          state.usageStatisticsBreakdownPage = 0;
+          setNotice(t("usage_stats.clear_done"), "ok");
+          await loadUsageStatistics({ force: true, includeDimensions: true });
+        } catch (err) {
+          setNotice(t("usage_stats.clear_failed", { error: err.message }), "bad");
+        } finally {
+          clear.disabled = false;
+        }
+      });
+    }
   }
 
   function bindProxyTestButtons(root = document) {
@@ -1998,6 +2301,43 @@ import {
         }, { duplicateNotice: t("notice.action_already_running") });
       });
     });
+    const modelUsageRange = el("modelUsageRange");
+    if (modelUsageRange && !modelUsageRange.dataset.boundModelUsageRange) {
+      modelUsageRange.dataset.boundModelUsageRange = "1";
+      modelUsageRange.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-model-usage-range]");
+        if (!button) return;
+        state.modelUsageRange = button.dataset.modelUsageRange || "7d";
+        state.modelUsagePage = 0;
+        qsa("[data-model-usage-range]").forEach((item) => {
+          const active = item === button;
+          item.classList.toggle("is-active", active);
+          item.setAttribute("aria-pressed", active ? "true" : "false");
+        });
+        loadModelUsage({ force: true });
+      });
+    }
+    const modelUsageApply = el("modelUsageApply");
+    if (modelUsageApply && !modelUsageApply.dataset.boundModelUsageApply) {
+      modelUsageApply.dataset.boundModelUsageApply = "1";
+      modelUsageApply.addEventListener("click", () => {
+        state.modelUsageQuery = el("modelUsageQuery")?.value || "";
+        state.modelUsageSort = el("modelUsageSort")?.value || "calls";
+        state.modelUsagePage = 0;
+        loadModelUsage({ force: true });
+      });
+    }
+    const modelUsageQuery = el("modelUsageQuery");
+    if (modelUsageQuery && !modelUsageQuery.dataset.boundModelUsageQuery) {
+      modelUsageQuery.dataset.boundModelUsageQuery = "1";
+      modelUsageQuery.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter") return;
+        state.modelUsageQuery = event.currentTarget.value || "";
+        state.modelUsageSort = el("modelUsageSort")?.value || "calls";
+        state.modelUsagePage = 0;
+        loadModelUsage({ force: true });
+      });
+    }
   }
 
   function renderTimeRangeControl() {
@@ -2830,7 +3170,16 @@ import {
   }
 
   function emptyUsageTotal() {
-    return { input_tokens: 0, output_tokens: 0, total_tokens: 0, cost_usd: 0 };
+    return {
+      input_tokens: 0,
+      uncached_input_tokens: 0,
+      cached_input_tokens: 0,
+      cache_write_tokens: 0,
+      output_tokens: 0,
+      reasoning_tokens: 0,
+      total_tokens: 0,
+      cost_usd: 0,
+    };
   }
 
   function modelRankRows(modelTotals) {
@@ -3128,15 +3477,15 @@ import {
       if (state.allMatchingSelected) {
         return `
           <div class="request-select-all-banner">
-            <span>All ${fmtInt(total)} requests matching current filters are selected.</span>
-            <button type="button" class="button link-action" data-request-clear-all-matching>Clear selection</button>
+            <span>${escapeHtml(t("req.all_matching_selected", { count: fmtInt(total) }))}</span>
+            <button type="button" class="button link-action" data-request-clear-all-matching>${escapeHtml(t("req.clear_selection"))}</button>
           </div>
         `;
       } else {
         return `
           <div class="request-select-all-banner">
-            <span>All ${fmtInt(visibleIds.length)} requests on this page are selected.</span>
-            <button type="button" class="button link-action" data-request-select-all-matching>Select all ${fmtInt(total)} matching requests</button>
+            <span>${escapeHtml(t("req.page_selected", { count: fmtInt(visibleIds.length) }))}</span>
+            <button type="button" class="button link-action" data-request-select-all-matching>${escapeHtml(t("req.select_all_matching", { count: fmtInt(total) }))}</button>
           </div>
         `;
       }
@@ -3147,7 +3496,7 @@ import {
   function renderRequestsTable() {
     const data = state.data.requests || {};
     const items = Array.isArray(data.items) ? data.items : [];
-    const sourceLabel = data.source === "sqlite" ? "sqlite history" : "memory";
+    const sourceLabel = data.source === "sqlite" ? t("req.source_sqlite") : t("req.source_memory");
     const total = Number(data.total || 0);
     const totalPages = Math.max(1, Math.ceil(total / REQUEST_PAGE_SIZE));
     if (total > 0 && state.requestsPage >= totalPages) {
@@ -3160,11 +3509,11 @@ import {
     const start = total ? state.requestsPage * REQUEST_PAGE_SIZE + 1 : 0;
     const end = total ? Math.min(total, start + items.length - 1) : 0;
     el("requestCountLabel").textContent = total
-      ? `${fmtInt(total)} matching records from ${sourceLabel}. Showing ${fmtInt(start)}-${fmtInt(end)}.`
-      : `No matching request records from ${sourceLabel}.`;
+      ? t("req.matching_count", { total: fmtInt(total), source: sourceLabel, start: fmtInt(start), end: fmtInt(end) })
+      : t("req.no_matching_count", { source: sourceLabel });
     const target = el("requestsTable");
     if (!items.length) {
-      target.innerHTML = `<div class="request-list-head">${requestPagination(total, currentPage, totalPages, items)}</div><div class="empty pad">No matching requests</div>`;
+      target.innerHTML = `<div class="request-list-head">${requestPagination(total, currentPage, totalPages, items)}</div><div class="empty pad">${escapeHtml(t("req.no_matching"))}</div>`;
       bindRequestPagination(target, totalPages);
       updateRequestSelectionUi();
       return;
@@ -3174,7 +3523,23 @@ import {
       <div class="request-list-head">${requestPagination(total, currentPage, totalPages, items)}</div>
       ${selectAllBannerHtml(total, items)}
       ${requestPageVisuals(items)}
-      <div class="request-summary-list">${rows}</div>
+      <div class="request-table-scroll">
+        <table class="request-data-table">
+          <caption class="sr-only">${escapeHtml(t("req.table_label"))}</caption>
+          <thead>
+            <tr>
+              <th scope="col" class="request-select-column"><span class="sr-only">${escapeHtml(t("req.select"))}</span></th>
+              <th scope="col">${escapeHtml(t("req.col_model"))}</th>
+              <th scope="col">${escapeHtml(t("req.col_status"))}</th>
+              <th scope="col">${escapeHtml(t("req.col_route"))}</th>
+              <th scope="col">${escapeHtml(t("req.col_tokens"))} / ${escapeHtml(t("req.col_cost"))}</th>
+              <th scope="col">${escapeHtml(t("req.col_latency"))}</th>
+              <th scope="col" class="request-open-column"><span class="sr-only">${escapeHtml(t("req.open"))}</span></th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
     `;
     bindRequestRowInteractions(target);
     bindRequestSelection(target, items);
@@ -3194,11 +3559,11 @@ import {
     const totalTokens = rows.reduce((sum, r) => sum + usageFrom(r).total_tokens, 0);
     return `
       <div class="request-page-vitals">
-        ${requestVital("Success", success, rows.length, "success")}
-        ${requestVital("Recovered", recovered, rows.length, "warning")}
-        ${requestVital("Failed", failed, rows.length, "danger")}
-        <span class="request-vital request-vital-info">${iconSvg("clock")}<strong>${avgFirstByte === null ? "-" : escapeHtml(fmtMs(avgFirstByte))}</strong><small>first byte</small></span>
-        <span class="request-vital request-vital-compat">${iconSvg("activity")}<strong>${escapeHtml(fmtTokenCount(totalTokens))}</strong><small>tokens</small></span>
+        ${requestVital(t("req.success_metric"), success, rows.length, "success")}
+        ${requestVital(t("req.recovered_metric"), recovered, rows.length, "warning")}
+        ${requestVital(t("req.failed_metric"), failed, rows.length, "danger")}
+        <span class="request-vital request-vital-info">${iconSvg("clock")}<strong>${avgFirstByte === null ? "-" : escapeHtml(fmtMs(avgFirstByte))}</strong><small>${escapeHtml(t("req.first_event_metric"))}</small></span>
+        <span class="request-vital request-vital-compat">${iconSvg("activity")}<strong>${escapeHtml(fmtTokenCount(totalTokens))}</strong><small>${escapeHtml(t("req.tokens_metric"))}</small></span>
       </div>
     `;
   }
@@ -3221,48 +3586,53 @@ import {
     const failedAttempts = attempts.filter((attempt) => attempt.outcome !== "success").length;
     const provider = primaryProvider(r);
     const route = r.routing_summary?.outcome || "unknown";
-    const routeTone = routeOutcomeTone(route);
     const code = Number(r.status_code || 0);
     const format = r.client_format || r.endpoint || "";
-    const statusIcon = statusTone === "success" ? "check" : statusTone === "warning" ? "rotate" : "alert";
-    const attemptText = attempts.length
-      ? `${fmtInt(attempts.length)} attempts${failedAttempts ? ` / ${fmtInt(failedAttempts)} failed` : ""}`
-      : "no attempts";
     const firstByte = firstByteMsFromRequest(r);
-    const metaParts = [fmtDate(r.finished_at), format].filter(Boolean);
-    const metricParts = [
-      firstByte ? fmtMs(firstByte) : "-",
-      attempts.length ? `${fmtInt(attempts.length)}x${failedAttempts ? `/${fmtInt(failedAttempts)}` : ""}` : "0x",
-    ];
     const requestId = String(r.request_id || "");
     const isSelected = state.allMatchingSelected || state.selectedRequestIds.has(requestId);
     const checked = isSelected ? "checked" : "";
+    const source = String(r.client_ip || "-");
+    const requestTime = fmtRequestDateParts(r.finished_at);
+    const tokenTip = [
+      `${t("tokens.uncached")}: ${fmtInt(usage.uncached_input_tokens)}`,
+      `${t("tokens.cached")}: ${fmtInt(usage.cached_input_tokens)}`,
+      `${t("tokens.cache_write")}: ${fmtInt(usage.cache_write_tokens)}`,
+      `${t("tokens.output")}: ${fmtInt(usage.output_tokens)}`,
+      `${t("tokens.reasoning")}: ${fmtInt(usage.reasoning_tokens)}`,
+    ].join(" · ");
+    const recoveryText = failedAttempts > 0 && code < 400
+      ? t("req.recovered_count", { count: fmtInt(failedAttempts) })
+      : routeOutcomeLabel(route);
+    const firstEventTone = firstByte >= 30000 ? "is-danger" : firstByte >= 15000 ? "is-warning" : "";
+    const durationTone = Number(r.duration_ms || 0) >= 60000 ? "is-warning" : "";
     return `
-      <article class="request-summary-row tone-${escapeHtml(statusTone)} ${isSelected ? "is-selected" : ""}" data-request-row="${escapeHtml(requestId)}" tabindex="0" role="button" aria-label="Open request ${escapeHtml(requestId)}">
-        <label class="request-row-select" title="Select request" aria-label="Select request">
-          <input type="checkbox" data-request-select="${escapeHtml(requestId)}" ${checked} />
-        </label>
-        <span class="request-row-state" aria-hidden="true">${iconSvg(statusIcon)}</span>
-        <span class="request-row-main">
-          <strong class="mono" title="${escapeHtml(r.model || "-")}">${escapeHtml(r.model || "-")}</strong>
-          <small>
-            <span>${escapeHtml(metaParts.join(" / "))}</span>
-          </small>
-        </span>
-        <span class="request-row-status">
-          ${statusBadge(r.status, r.status_code)}
-          <small class="mono">${code || "-"}</small>
-        </span>
-        <span class="request-row-route">
-          <span class="request-provider-pill" title="${escapeHtml(provider)}">${iconSvg("server")} ${escapeHtml(provider)}</span>
-          <span class="route-pill ${escapeHtml(routeTone)}">${escapeHtml(routeOutcomeLabel(route))}</span>
-        </span>
-        <span class="request-row-metrics mono">
-          <strong title="${escapeHtml(fmtInt(usage.total_tokens))} tokens"><span>${escapeHtml(fmtTokenCount(usage.total_tokens))}</span><i></i><span>${escapeHtml(fmtCost(usage.cost_usd))}</span></strong>
-          <small title="${escapeHtml(`${firstByte ? fmtMs(firstByte) : "-"} first byte / ${attemptText}`)}">${escapeHtml(metricParts.join(" / "))}</small>
-        </span>
-        <span class="request-row-open">${iconSvg("chevron-right")}</span>
-      </article>
+      <tr class="request-data-row tone-${escapeHtml(statusTone)} ${isSelected ? "is-selected" : ""}" data-request-row="${escapeHtml(requestId)}" aria-selected="${isSelected ? "true" : "false"}">
+        <td class="request-row-select"><label data-tip="${escapeHtml(t("req.select"))}"><input type="checkbox" data-request-select="${escapeHtml(requestId)}" aria-label="${escapeHtml(t("req.select"))}" ${checked} /><span class="sr-only">${escapeHtml(t("req.select"))}</span></label></td>
+        <td class="request-cell-request">
+          <span class="request-model-mark" data-tip="${escapeHtml(r.model || "-")}" aria-hidden="true">${modelBrandIconMarkup(r.model, iconSvg("boxes"))}</span>
+          <span class="request-identity">
+            <strong class="mono" data-tip="${escapeHtml(r.model || "-")}">${escapeHtml(r.model || "-")}</strong>
+            <small>
+              <time datetime="${escapeHtml(requestTime.iso)}">${escapeHtml(requestTime.date)} ${escapeHtml(requestTime.time)}</time>
+              <span class="request-meta-chip">${escapeHtml(shortFormatLabel(format))}</span>
+              <span class="request-meta-chip mono">${escapeHtml(source)}</span>
+              ${r.stream ? `<span class="request-meta-chip request-stream-chip" data-tip="${escapeHtml(t("req.streaming"))}">${iconSvg("activity")}${escapeHtml(t("req.streaming"))}</span>` : ""}
+            </small>
+          </span>
+        </td>
+        <td class="request-cell-result"><span>${statusBadge(r.status, r.status_code)}</span><small class="mono">${code || "-"}</small></td>
+        <td class="request-cell-route">
+          <span class="request-provider-chip" data-tip="${escapeHtml(provider)}">${iconSvg("server")}<strong>${escapeHtml(provider)}</strong></span>
+          <span class="request-route-chip tone-${escapeHtml(routeOutcomeTone(route))}">${iconSvg(routeOutcomeIcon(route))}${escapeHtml(recoveryText)}</span>
+        </td>
+        <td class="request-cell-usage" data-tip="${escapeHtml(tokenTip)}">
+          <span class="request-token-block mono"><strong>${escapeHtml(fmtTokenCount(usage.total_tokens))}</strong><small>${escapeHtml(fmtTokenCount(usage.input_tokens))} / ${escapeHtml(fmtTokenCount(usage.output_tokens))}</small></span>
+          <span class="request-cost-chip">${renderCost({ ...r, cost_usd: usage.cost_usd }, { compact: true })}</span>
+        </td>
+        <td class="request-cell-performance mono"><span class="request-latency-chip"><strong class="${firstEventTone}">${firstByte ? escapeHtml(fmtCompactMs(firstByte)) : "-"}</strong><i>/</i><small class="${durationTone}">${escapeHtml(fmtCompactMs(r.duration_ms))}</small></span></td>
+        <td class="request-row-open"><button class="icon-action request-row-open-button" type="button" data-request-open="${escapeHtml(requestId)}" aria-label="${escapeHtml(t("req.open_request", { id: requestId }))}">${iconSvg("chevron-right")}</button></td>
+      </tr>
     `;
   }
 
@@ -3295,20 +3665,23 @@ import {
     const visibleIds = items.map((item) => String(item.request_id || "")).filter(Boolean);
     const selectedVisible = state.allMatchingSelected ? visibleIds.length : visibleIds.filter((id) => state.selectedRequestIds.has(id)).length;
     const allVisibleSelected = state.allMatchingSelected || (visibleIds.length > 0 && selectedVisible === visibleIds.length);
-    const labelText = state.allMatchingSelected ? `${fmtInt(total)} selected` : selectedVisible ? `${fmtInt(selectedVisible)} selected` : "Select page";
+    const labelText = state.allMatchingSelected
+      ? t("req.selected", { count: fmtInt(total) })
+      : selectedVisible
+        ? t("req.selected", { count: fmtInt(selectedVisible) })
+        : t("req.select_page");
     return `
       <div class="request-page-summary">
         <label class="request-page-select">
           <input type="checkbox" data-request-select-page ${allVisibleSelected ? "checked" : ""} ${visibleIds.length ? "" : "disabled"} />
           <span>${labelText}</span>
         </label>
-        <strong>${fmtInt(start)}-${fmtInt(end)}</strong>
-        <span>of ${fmtInt(total)} requests</span>
+        <span>${escapeHtml(t("req.range_of", { start: fmtInt(start), end: fmtInt(end), total: fmtInt(total) }))}</span>
       </div>
-      <div class="request-pagination" aria-label="Request pages">
-        <button class="button secondary icon-action" type="button" data-request-page="prev" title="Previous page" aria-label="Previous page" ${currentPage <= 1 ? "disabled" : ""}>${iconSvg("arrow-left")}</button>
-        <span class="request-page-indicator">Page ${fmtInt(currentPage)} / ${fmtInt(totalPages)}</span>
-        <button class="button secondary icon-action" type="button" data-request-page="next" title="Next page" aria-label="Next page" ${currentPage >= totalPages ? "disabled" : ""}>${iconSvg("arrow-right")}</button>
+      <div class="request-pagination" aria-label="${escapeHtml(t("req.request_pages"))}">
+        <button class="button secondary icon-action" type="button" data-request-page="prev" data-tip="${escapeHtml(t("req.previous_page"))}" aria-label="${escapeHtml(t("req.previous_page"))}" ${currentPage <= 1 ? "disabled" : ""}>${iconSvg("arrow-left")}</button>
+        <span class="request-page-indicator">${escapeHtml(t("req.page_of", { page: fmtInt(currentPage), total: fmtInt(totalPages) }))}</span>
+        <button class="button secondary icon-action" type="button" data-request-page="next" data-tip="${escapeHtml(t("req.next_page"))}" aria-label="${escapeHtml(t("req.next_page"))}" ${currentPage >= totalPages ? "disabled" : ""}>${iconSvg("arrow-right")}</button>
       </div>
     `;
   }
@@ -3325,12 +3698,9 @@ import {
         if (event.target.closest(".request-row-select, input, button, a")) return;
         open();
       });
-      row.addEventListener("keydown", (event) => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        if (event.target.closest(".request-row-select, input, button, a")) return;
-        event.preventDefault();
-        open();
-      });
+    });
+    root.querySelectorAll("[data-request-open]").forEach((button) => {
+      button.addEventListener("click", () => openRequestDetail(button.dataset.requestOpen || ""));
     });
   }
 
@@ -3354,7 +3724,10 @@ import {
           if (input.checked) state.selectedRequestIds.add(requestId);
           else state.selectedRequestIds.delete(requestId);
           const row = input.closest("[data-request-row]");
-          if (row) row.classList.toggle("is-selected", input.checked);
+          if (row) {
+            row.classList.toggle("is-selected", input.checked);
+            row.setAttribute("aria-selected", input.checked ? "true" : "false");
+          }
           updateRequestSelectionUi(root, items);
         }
       });
@@ -3395,7 +3768,7 @@ import {
     const total = Number(state.data.requests?.total || 0);
     const count = state.allMatchingSelected ? total : state.selectedRequestIds.size;
     const countEl = el("requestSelectedCount");
-    if (countEl) countEl.textContent = count ? `${fmtInt(count)} selected` : "0 selected";
+    if (countEl) countEl.textContent = t("req.selected", { count: fmtInt(count) });
     const deleteButton = el("deleteRequestsButton");
     if (deleteButton) {
       if (!deleteButton.dataset.iconified) {
@@ -3414,7 +3787,11 @@ import {
       pageInput.checked = ids.length > 0 && selected === ids.length;
       pageInput.indeterminate = !state.allMatchingSelected && selected > 0 && selected < ids.length;
       const label = pageInput.closest(".request-page-select")?.querySelector("span");
-      if (label) label.textContent = state.allMatchingSelected ? `${fmtInt(total)} selected` : selected ? `${fmtInt(selected)} selected` : "Select page";
+      if (label) label.textContent = state.allMatchingSelected
+        ? t("req.selected", { count: fmtInt(total) })
+        : selected
+          ? t("req.selected", { count: fmtInt(selected) })
+          : t("req.select_page");
     }
   }
 
@@ -3979,7 +4356,7 @@ import {
     const model = probe.model || "-";
     const isPatrol = String(probe.idle_tier || "") === "patrol";
     const tierInfo = idleTierLabel(probe.idle_tier);
-    const tierLabel = isPatrol ? { text: "patrol", title: "Patrol health checker — full sweep every 1-3h", tone: "info" } : tierInfo;
+    const tierLabel = isPatrol ? { text: "patrol", title: "Patrol health checker — full sweep every 6–12h", tone: "info" } : tierInfo;
     const meta = [
       probe.format || "",
       probe.model_source ? `source:${probe.model_source}` : "",
@@ -5619,9 +5996,11 @@ import {
       "arrow-left": `<path d="M19 12H5"></path><path d="M12 19l-7-7 7-7"></path>`,
       "arrow-right": `<path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path>`,
       "arrow-up": `<path d="M12 19V5"></path><path d="M5 12l7-7 7 7"></path>`,
+      "arrow-down": `<path d="M12 5v14"></path><path d="M19 12l-7 7-7-7"></path>`,
       boxes: `<path d="M4 7l8-4 8 4-8 4-8-4z"></path><path d="M4 7v10l8 4 8-4V7"></path><path d="M12 11v10"></path>`,
       "chevron-right": `<path d="M9 18l6-6-6-6"></path>`,
       clock: `<circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path>`,
+      dollar: `<circle cx="12" cy="12" r="9"></circle><path d="M16 8.5c-.8-1-2-1.5-3.5-1.5-2 0-3.5 1-3.5 2.5s1.2 2.2 3.5 2.7 3.5 1.2 3.5 2.8-1.5 2.5-3.7 2.5c-1.7 0-3-.6-3.8-1.7"></path><path d="M12 5v14"></path>`,
       filter: `<path d="M4 5h16l-6 7v5l-4 2v-7L4 5z"></path>`,
       pencil: `<path d="M4 20h4l10.5-10.5a2.8 2.8 0 0 0-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path>`,
       search: `<circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path>`,
@@ -5636,6 +6015,7 @@ import {
       zap: `<path d="M13 2 4 14h7l-1 8 10-13h-7l0-7z"></path>`,
       message: `<path d="M5 19l3-3h9a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v6a3 3 0 0 0 3 3"></path><path d="M8 9h8"></path><path d="M8 12h5"></path>`,
       shield: `<path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3z"></path>`,
+      brain: `<path d="M9.5 4.5A3 3 0 0 0 4 6v1.2A3 3 0 0 0 3 12a3 3 0 0 0 1.5 4.8V18a3 3 0 0 0 5.5 1.6V4.8"></path><path d="M14.5 4.5A3 3 0 0 1 20 6v1.2a3 3 0 0 1 1 4.8 3 3 0 0 1-1.5 4.8V18a3 3 0 0 1-5.5 1.6V4.8"></path><path d="M8 9h2M14 9h2M8 15h2M14 15h2"></path>`,
     };
     return `<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${icons[name] || icons.dot}</svg>`;
   }
@@ -6163,6 +6543,8 @@ import {
     const ladder = Array.isArray(retry.key_failure_ladder_s) ? retry.key_failure_ladder_s : [10, 60, 3600];
     const providerPool = Array.isArray(routing.default_provider_pool) ? routing.default_provider_pool.join(", ") : "";
     const currentSelect = String(routing.provider_select || "priority_failover");
+    const currentFormatPreference = String(routing.format_preference || "priority_first");
+    const currentSemanticConversion = String(routing.semantic_conversion || "safe");
     const routeModes = [
       { value: "priority_failover", icon: "bolt", label: t("policy.mode_priority"), tip: t("policy.mode_priority_tip") },
       { value: "auto", icon: "settings", label: t("policy.mode_auto"), tip: t("policy.mode_auto_tip") },
@@ -6191,6 +6573,26 @@ import {
             <label class="field">
               <span class="label-with-tip">${t("policy.max_attempts")}<span class="help-tip" data-tip="${escapeHtml(t("policy.max_attempts_tip"))}">?</span></span>
               <input class="control" name="max_attempts" type="number" min="1" max="50" value="${escapeHtml(routing.max_attempts ?? policy.max_attempts ?? 6)}" required />
+            </label>
+          </div>
+          <div class="form-pair-grid routing-format-grid">
+            <label class="field">
+              <span class="label-with-tip">${t("policy.format_preference")}<span class="help-tip" data-tip="${escapeHtml(t("policy.format_preference_tip"))}">?</span></span>
+              <select class="control" name="format_preference">
+                <option value="priority_first" ${currentFormatPreference === "priority_first" ? "selected" : ""}>${escapeHtml(t("policy.format_priority"))}</option>
+                <option value="native_first" ${currentFormatPreference === "native_first" ? "selected" : ""}>${escapeHtml(t("policy.format_native"))}</option>
+              </select>
+            </label>
+            <label class="field">
+              <span class="label-with-tip">${t("policy.semantic_conversion")}<span class="help-tip" data-tip="${escapeHtml(t("policy.semantic_conversion_tip"))}">?</span></span>
+              <select class="control" name="semantic_conversion">
+                <option value="safe" ${currentSemanticConversion === "safe" ? "selected" : ""}>${escapeHtml(t("policy.semantic_safe"))}</option>
+                <option value="strict" ${currentSemanticConversion === "strict" ? "selected" : ""}>${escapeHtml(t("policy.semantic_strict"))}</option>
+              </select>
+            </label>
+            <label class="field">
+              <span class="label-with-tip">${t("policy.anthropic_default_tokens")}<span class="help-tip" data-tip="${escapeHtml(t("policy.anthropic_default_tokens_tip"))}">?</span></span>
+              <input class="control" name="anthropic_default_max_tokens" type="number" min="1" max="1000000" value="${escapeHtml(routing.anthropic_default_max_tokens ?? 4096)}" required />
             </label>
           </div>
           <details class="policy-advanced">
@@ -6282,6 +6684,9 @@ import {
         const payload = {
           default_provider_pool: String(routingForm.elements.default_provider_pool.value || "").trim(),
           provider_select: String(routingForm.elements.provider_select.value || "").trim(),
+          format_preference: String(routingForm.elements.format_preference.value || "priority_first").trim(),
+          semantic_conversion: String(routingForm.elements.semantic_conversion.value || "safe").trim(),
+          anthropic_default_max_tokens: Number(routingForm.elements.anthropic_default_max_tokens.value || 0),
           max_attempts: Number(routingForm.elements.max_attempts.value || 0),
           connect_timeout_s: Number(routingForm.elements.connect_timeout_s.value || 0),
           read_timeout_s: Number(routingForm.elements.read_timeout_s.value || 0),
@@ -6493,6 +6898,421 @@ import {
     return pieces.join(", ") || rule.decision || "-";
   }
 
+  function usageStatisticsParams() {
+    const params = new URLSearchParams({ range: state.usageStatisticsRange || "all" });
+    const filters = state.usageStatisticsFilters || {};
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.set(key, value);
+    });
+    if (state.usageStatisticsRange === "custom") {
+      const start = usageStatisticsCustomTimestamp(state.usageStatisticsCustomStart);
+      const end = usageStatisticsCustomTimestamp(state.usageStatisticsCustomEnd, true);
+      if (start && end && start < end) {
+        params.set("start", String(start));
+        params.set("end", String(end));
+      }
+    }
+    return params;
+  }
+
+  function setUsageStatisticsBusy(parts, busy) {
+    const mapping = {
+      summary: "usageStatisticsSummary",
+      timeseries: "usageStatisticsChart",
+      breakdown: "usageStatisticsBreakdown",
+    };
+    parts.forEach((part) => el(mapping[part])?.setAttribute("aria-busy", busy ? "true" : "false"));
+    el("usageStatisticsRefresh")?.classList.toggle("is-loading", busy);
+  }
+
+  async function loadUsageStatistics({ force = false, parts = ["summary", "timeseries", "breakdown"], includeDimensions = false } = {}) {
+    if (state.configTab !== "models" || state.statisticsView !== "usage") return;
+    if (state.usageStatisticsLoading && !force) return;
+    const requested = Array.from(new Set(parts));
+    const hasData = state.data.usageStatistics && typeof state.data.usageStatistics === "object";
+    if (!force && hasData && requested.every((part) => state.data.usageStatistics?.[part])) {
+      renderUsageStatistics();
+      return;
+    }
+    const sequence = Number(state.usageStatisticsLoadSeq || 0) + 1;
+    const requestedMetric = state.usageStatisticsMetric || "tokens";
+    state.usageStatisticsLoadSeq = sequence;
+    el("usageStatisticsChart")?.setAttribute("data-requested-metric", requestedMetric);
+    state.usageStatisticsLoading = true;
+    setUsageStatisticsBusy(requested, true);
+    const notice = el("usageStatisticsNotice");
+    if (notice) notice.textContent = "";
+    const base = usageStatisticsParams();
+    const requests = [];
+    requested.forEach((part) => {
+      const params = new URLSearchParams(base);
+      if (part === "summary") requests.push([part, apiGet(`/-/admin/usage-statistics/summary?${params.toString()}`)]);
+      if (part === "timeseries") {
+        params.set("metric", requestedMetric);
+        params.set("resolution", "auto");
+        requests.push([part, apiGet(`/-/admin/usage-statistics/timeseries?${params.toString()}`)]);
+      }
+      if (part === "breakdown") {
+        params.set("group_by", state.usageStatisticsBreakdown || "model");
+        params.set("sort", state.usageStatisticsBreakdownSort || "tokens");
+        params.set("order", "desc");
+        params.set("limit", String(USAGE_STATISTICS_BREAKDOWN_PAGE_SIZE));
+        params.set("offset", String(Math.max(0, Number(state.usageStatisticsBreakdownPage || 0)) * USAGE_STATISTICS_BREAKDOWN_PAGE_SIZE));
+        requests.push([part, apiGet(`/-/admin/usage-statistics/breakdown?${params.toString()}`)]);
+      }
+    });
+    if (includeDimensions || !state.data.usageStatisticsDimensions) {
+      requests.push(["dimensions", apiGet("/-/admin/usage-statistics/dimensions")]);
+    }
+    try {
+      const settled = await Promise.allSettled(requests.map(([, promise]) => promise));
+      if (sequence !== state.usageStatisticsLoadSeq) return;
+      const current = { ...(state.data.usageStatistics || {}) };
+      const failures = [];
+      settled.forEach((result, index) => {
+        const key = requests[index][0];
+        if (result.status === "fulfilled") {
+          if (key === "dimensions") state.data.usageStatisticsDimensions = result.value;
+          else {
+            current[key] = result.value;
+            if (key === "timeseries") el("usageStatisticsChart")?.setAttribute("data-response-metric", result.value?.metric || "");
+          }
+        } else {
+          failures.push(result.reason?.message || String(result.reason || key));
+        }
+      });
+      state.data.usageStatistics = current;
+      renderUsageStatistics();
+      if (failures.length && notice) {
+        notice.innerHTML = `<span class="notice danger">${escapeHtml(t("usage_stats.partial_load_failed", { error: failures.join(" · ") }))}</span>`;
+      }
+    } catch (err) {
+      if (sequence !== state.usageStatisticsLoadSeq) return;
+      if (notice) notice.innerHTML = `<span class="notice danger">${escapeHtml(t("usage_stats.failed", { error: err.message }))}</span>`;
+    } finally {
+      if (sequence === state.usageStatisticsLoadSeq) {
+        state.usageStatisticsLoading = false;
+        setUsageStatisticsBusy(requested, false);
+        renderUsageStatistics();
+      }
+    }
+  }
+
+  function populateUsageStatisticsDimensions() {
+    const dimensions = state.data.usageStatisticsDimensions || {};
+    const specs = [
+      ["usageStatisticsModel", "models", "model", t("usage_stats.all_models")],
+      ["usageStatisticsProvider", "providers", "provider", t("usage_stats.all_providers")],
+      ["usageStatisticsFormat", "client_formats", "client_format", t("usage_stats.all_formats")],
+    ];
+    specs.forEach(([id, listKey, filterKey, allLabel]) => {
+      const select = el(id);
+      if (!select) return;
+      const values = Array.isArray(dimensions[listKey]) ? dimensions[listKey] : [];
+      const selected = String(state.usageStatisticsFilters?.[filterKey] || "");
+      const signature = JSON.stringify([values, allLabel]);
+      if (select.dataset.dimensionSignature !== signature) {
+        select.dataset.dimensionSignature = signature;
+        updateDOM(select, `<option value="">${escapeHtml(allLabel)}</option>${values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("")}`);
+      }
+      select.value = selected;
+    });
+  }
+
+  function usageStatisticsMetaPayload() {
+    const data = state.data.usageStatistics || {};
+    return data.summary || data.timeseries || data.breakdown || {};
+  }
+
+  function renderUsageStatisticsMeta() {
+    const payload = usageStatisticsMetaPayload();
+    const target = el("usageStatisticsMeta");
+    if (!target) return;
+    const startedAt = Number(payload.statistics_started_at || 0);
+    const timezone = payload.reporting_timezone || payload.range?.timezone || "-";
+    const complete = !payload.partial;
+    updateDOM(target, `
+      <span class="usage-statistics-period">${iconSvg("clock")}<span>${escapeHtml(startedAt ? t("usage_stats.since", { date: fmtDate(startedAt) }) : t("usage_stats.awaiting_data"))}</span></span>
+      <span class="usage-statistics-timezone mono">${escapeHtml(timezone)}</span>
+      <span class="usage-statistics-completeness ${complete ? "is-complete" : "is-partial"}"><i aria-hidden="true"></i>${escapeHtml(complete ? t("usage_stats.complete") : t("usage_stats.partial"))}</span>
+    `);
+  }
+
+  function usageStatisticsCostStatus(summary) {
+    const statuses = summary?.cost?.statuses || {};
+    const pending = Number(statuses.pending || 0);
+    const unpriced = Number(statuses.unpriced || 0);
+    if (pending) return { tone: "warning", icon: "clock", label: t("usage_stats.cost_pending", { count: fmtInt(pending) }) };
+    if (unpriced) return { tone: "danger", icon: "alert", label: t("usage_stats.cost_unpriced", { count: fmtInt(unpriced) }) };
+    const estimated = Number(statuses.estimated || 0);
+    if (estimated) return { tone: "info", icon: "info", label: t("usage_stats.cost_estimated", { count: fmtInt(estimated) }) };
+    return { tone: "success", icon: "check", label: t("usage_stats.cost_priced") };
+  }
+
+  function usageStatisticsTokenCard(icon, label, value, tone, share) {
+    return `
+      <article class="usage-token-card tone-${escapeHtml(tone)}">
+        <span class="usage-token-card-icon">${iconSvg(icon)}</span>
+        <span class="usage-token-card-copy"><small>${escapeHtml(label)}</small><strong>${escapeHtml(fmtTokenCount(value))}</strong></span>
+        <span class="usage-token-card-share"><b style="--usage-share:${svgNum(Math.max(0, Math.min(100, share)))}%"></b></span>
+      </article>
+    `;
+  }
+
+  function renderUsageStatisticsSummary() {
+    const payload = state.data.usageStatistics?.summary;
+    const target = el("usageStatisticsSummary");
+    if (!target) return;
+    if (!payload) {
+      if (!state.usageStatisticsLoading) updateDOM(target, `<div class="empty pad">${escapeHtml(t("usage_stats.empty"))}</div>`);
+      return;
+    }
+    const summary = payload.summary || {};
+    const usage = usageFrom(summary.usage || {});
+    const total = Math.max(1, Number(usage.total_tokens || 0));
+    const costStatus = usageStatisticsCostStatus(summary);
+    const requestCount = Number(summary.requests || 0);
+    const successRate = Number(summary.success_rate || 0);
+    const tokensKnown = Number(usage.total_tokens || 0) > 0;
+    updateDOM(target, `
+      <div class="usage-statistics-primary-row">
+        <article class="usage-total-card">
+          <div class="usage-total-label"><span class="usage-total-icon">${iconSvg("bolt")}</span><span><small>${escapeHtml(t("usage_stats.total_tokens"))}</small><b>${escapeHtml(t("usage_stats.upstream_consumption"))}</b></span></div>
+          <strong>${escapeHtml(tokensKnown ? fmtTokenCount(usage.total_tokens) : "—")}</strong>
+          <span class="usage-total-exact mono">${escapeHtml(tokensKnown ? fmtInt(usage.total_tokens) : t("usage_stats.no_token_samples"))}</span>
+        </article>
+        <article class="usage-compact-card">
+          <span class="usage-compact-icon tone-info">${iconSvg("activity")}</span>
+          <span><small>${escapeHtml(t("usage_stats.client_requests"))}</small><strong>${escapeHtml(fmtInt(requestCount))}</strong><b>${escapeHtml(t("usage_stats.success_value", { rate: fmtPct(successRate), count: fmtInt(summary.success || 0) }))}</b></span>
+        </article>
+        <article class="usage-compact-card">
+          <span class="usage-compact-icon tone-success">${iconSvg("dollar")}</span>
+          <span><small>${escapeHtml(t("usage_stats.known_cost"))}</small><strong>${escapeHtml(fmtCost(summary.cost?.known_usd || 0))}</strong><b class="tone-${escapeHtml(costStatus.tone)}">${iconSvg(costStatus.icon)}${escapeHtml(costStatus.label)}</b></span>
+        </article>
+      </div>
+      <div class="usage-token-grid">
+        ${usageStatisticsTokenCard("arrow-down", t("tokens.uncached"), usage.uncached_input_tokens, "info", (usage.uncached_input_tokens / total) * 100)}
+        ${usageStatisticsTokenCard("layers", t("tokens.cached"), usage.cached_input_tokens, "success", (usage.cached_input_tokens / total) * 100)}
+        ${usageStatisticsTokenCard("boxes", t("tokens.cache_write"), usage.cache_write_tokens, "warning", (usage.cache_write_tokens / total) * 100)}
+        ${usageStatisticsTokenCard("arrow-up", t("tokens.output"), usage.output_tokens, "compat", (usage.output_tokens / total) * 100)}
+        ${usageStatisticsTokenCard("brain", t("tokens.reasoning"), usage.reasoning_tokens, "reasoning", (usage.reasoning_tokens / total) * 100)}
+        <article class="usage-token-card tone-cache">
+          <span class="usage-token-card-icon">${iconSvg("zap")}</span>
+          <span class="usage-token-card-copy"><small>${escapeHtml(t("model_usage.cache_rate"))}</small><strong>${escapeHtml(fmtPct(summary.cache_rate || 0))}</strong></span>
+          <span class="usage-token-card-share"><b style="--usage-share:${svgNum(Math.max(0, Math.min(100, Number(summary.cache_rate || 0) * 100)))}%"></b></span>
+        </article>
+      </div>
+    `);
+  }
+
+  function usageStatisticsRangeLabel(range) {
+    const labels = {
+      today: t("usage_stats.today"),
+      "24h": "24h",
+      "7d": "7d",
+      "30d": "30d",
+      "90d": "90d",
+      "1y": t("usage_stats.one_year"),
+      all: t("req.all"),
+      custom: t("usage_stats.custom"),
+    };
+    return labels[range] || range || "-";
+  }
+
+  function usageStatisticsMetricSeries(metric) {
+    const configs = {
+      tokens: [
+        { key: "uncached", label: t("tokens.uncached"), color: "#2f7df4", value: (point) => Number(point.usage?.uncached_input_tokens || 0) },
+        { key: "cached", label: t("tokens.cached"), color: "#12a36b", value: (point) => Number(point.usage?.cached_input_tokens || 0) },
+        { key: "write", label: t("tokens.cache_write"), color: "#e89420", value: (point) => Number(point.usage?.cache_write_tokens || 0) },
+        { key: "output", label: t("tokens.output"), color: "#8157d9", value: (point) => Number(point.usage?.output_tokens || 0) },
+      ],
+      cost: [
+        { key: "priced", label: t("cost.priced"), color: "#12a36b", value: (point) => Number(point.cost?.priced_usd || 0) },
+        { key: "estimated", label: t("cost.estimated"), color: "#e89420", value: (point) => Number(point.cost?.estimated_usd || 0) },
+        { key: "legacy", label: t("cost.legacy"), color: "#718096", value: (point) => Number(point.cost?.legacy_usd || 0) },
+      ],
+      requests: [
+        { key: "success", label: t("usage_stats.success"), color: "#12a36b", value: (point) => Number(point.success || 0) },
+        { key: "failed", label: t("usage_stats.failed_requests"), color: "#e34b59", value: (point) => Number(point.failed || 0) },
+        { key: "recovered", label: t("usage_stats.recovered"), color: "#e89420", value: (point) => Number(point.recovered || 0) },
+      ],
+      latency: [
+        { key: "first", label: t("usage_stats.first_event"), color: "#2f7df4", value: (point) => Number(point.latency?.avg_first_event_ms || 0) },
+        { key: "duration", label: t("usage_stats.total_duration"), color: "#8157d9", value: (point) => Number(point.latency?.avg_duration_ms || 0) },
+      ],
+    };
+    return configs[metric] || configs.tokens;
+  }
+
+  function formatUsageStatisticsMetric(metric, value) {
+    if (metric === "cost") return fmtCost(value);
+    if (metric === "latency") return fmtCompactMs(value);
+    if (metric === "tokens") return fmtTokenCount(value);
+    return fmtInt(value);
+  }
+
+  function usageStatisticsAxisDate(timestamp, resolution) {
+    const value = new Date(Number(timestamp || 0) * 1000);
+    if (!Number.isFinite(value.getTime())) return "-";
+    const locale = getLang() === "zh" ? "zh-CN" : "en-US";
+    return value.toLocaleString(locale, resolution === "hour"
+      ? { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }
+      : { year: "2-digit", month: "2-digit", day: "2-digit" });
+  }
+
+  function renderUsageStatisticsChart() {
+    const payload = state.data.usageStatistics?.timeseries;
+    const target = el("usageStatisticsChart");
+    if (!target) return;
+    if (!payload) {
+      if (!state.usageStatisticsLoading) updateDOM(target, `<div class="empty pad">${escapeHtml(t("usage_stats.empty_series"))}</div>`);
+      return;
+    }
+    const points = Array.isArray(payload.points) ? payload.points : [];
+    const metric = payload.metric || state.usageStatisticsMetric || "tokens";
+    target.setAttribute("data-rendered-metric", metric);
+    const series = usageStatisticsMetricSeries(metric).map((definition) => ({
+      ...definition,
+      values: points.map((point) => Math.max(0, definition.value(point))),
+    })).filter((definition) => definition.values.some((value) => value > 0));
+    const subtitle = el("usageStatisticsChartSubtitle");
+    if (subtitle) subtitle.textContent = t("usage_stats.chart_context", {
+      range: usageStatisticsRangeLabel(payload.range?.name || state.usageStatisticsRange),
+      resolution: payload.resolution === "hour" ? t("usage_stats.hourly") : t("usage_stats.daily"),
+      count: fmtInt(points.length),
+    });
+    if (!points.length || !series.some((definition) => definition.values.some((value) => value > 0))) {
+      updateDOM(target, `<div class="usage-statistics-empty-state">${iconSvg("activity")}<span><strong>${escapeHtml(t("usage_stats.no_series_title"))}</strong><small>${escapeHtml(t("usage_stats.no_series_hint"))}</small></span></div>`);
+      return;
+    }
+    const width = 1000;
+    const height = 286;
+    const pad = { top: 24, right: 24, bottom: 42, left: 62 };
+    const plotW = width - pad.left - pad.right;
+    const plotH = height - pad.top - pad.bottom;
+    const maxValue = niceChartMax(Math.max(1, ...series.flatMap((definition) => definition.values)));
+    const xFor = (index) => pad.left + (points.length > 1 ? (index / (points.length - 1)) * plotW : plotW / 2);
+    const yFor = (value) => pad.top + plotH - (Math.max(0, value) / maxValue) * plotH;
+    const seriesMarkup = series.map((definition, seriesIndex) => {
+      const linePoints = definition.values.map((value, index) => ({ x: xFor(index), y: yFor(value) }));
+      const path = smoothSvgPath(linePoints, pad.top, pad.top + plotH);
+      const area = seriesIndex === 0 && path
+        ? `${path} L ${svgNum(linePoints[linePoints.length - 1].x)} ${svgNum(pad.top + plotH)} L ${svgNum(linePoints[0].x)} ${svgNum(pad.top + plotH)} Z`
+        : "";
+      return `${area ? `<path class="usage-statistics-area" d="${area}" fill="url(#usage-statistics-fill)"></path>` : ""}<path class="usage-statistics-line" d="${path}" style="--series-color:${definition.color}"></path>${points.length <= 48 ? linePoints.map((point, index) => definition.values[index] > 0 ? `<circle class="usage-statistics-dot" cx="${svgNum(point.x)}" cy="${svgNum(point.y)}" r="2.8" style="--series-color:${definition.color}"></circle>` : "").join("") : ""}`;
+    }).join("");
+    const grid = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+      const y = pad.top + plotH - ratio * plotH;
+      return `<line x1="${pad.left}" y1="${svgNum(y)}" x2="${width - pad.right}" y2="${svgNum(y)}"></line><text x="${pad.left - 12}" y="${svgNum(y + 3)}" text-anchor="end">${escapeHtml(formatUsageStatisticsMetric(metric, maxValue * ratio))}</text>`;
+    }).join("");
+    const labelIndexes = Array.from(new Set([0, ...Array.from({ length: 5 }, (_, index) => Math.round(((index + 1) / 6) * (points.length - 1))), points.length - 1])).filter((index) => index >= 0 && index < points.length);
+    const xLabels = labelIndexes.map((index) => `<text x="${svgNum(xFor(index))}" y="${height - 15}" text-anchor="middle">${escapeHtml(usageStatisticsAxisDate(points[index].start, payload.resolution))}</text>`).join("");
+    const slot = Math.max(3, plotW / Math.max(1, points.length));
+    const inspection = points.map((point, index) => {
+      const details = series.map((definition) => `${definition.label}: ${formatUsageStatisticsMetric(metric, definition.values[index])}`).join(" · ");
+      const label = `${fmtDate(point.start)} · ${details}`;
+      return `<rect class="usage-statistics-inspection" x="${svgNum(xFor(index) - slot / 2)}" y="${pad.top}" width="${svgNum(slot)}" height="${plotH}" tabindex="0" role="img" aria-label="${escapeHtml(label)}" data-tip="${escapeHtml(label)}"></rect>`;
+    }).join("");
+    updateDOM(target, `
+      <div class="usage-statistics-chart-canvas">
+        <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(t("usage_stats.chart_aria", { metric: metric }))}">
+          <defs><linearGradient id="usage-statistics-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${series[0]?.color || "#2f7df4"}" stop-opacity=".22"></stop><stop offset="1" stop-color="${series[0]?.color || "#2f7df4"}" stop-opacity="0"></stop></linearGradient></defs>
+          <g class="usage-statistics-grid">${grid}</g>
+          <g class="usage-statistics-x-axis">${xLabels}</g>
+          <g>${seriesMarkup}</g>
+          <g>${inspection}</g>
+        </svg>
+      </div>
+      <div class="usage-statistics-legend">${series.map((definition) => `<span><i style="--series-color:${definition.color}"></i>${escapeHtml(definition.label)}</span>`).join("")}</div>
+    `);
+  }
+
+  function usageStatisticsBreakdownMetric(item) {
+    const sort = state.usageStatisticsBreakdownSort || "tokens";
+    if (sort === "cost") return Number(item.cost?.known_usd || 0);
+    if (sort === "requests") return Number(item.requests || 0);
+    if (sort === "latency") return Number(item.latency?.avg_duration_ms || 0);
+    return Number(item.usage?.total_tokens || 0);
+  }
+
+  function usageStatisticsBreakdownMetricText(item) {
+    const sort = state.usageStatisticsBreakdownSort || "tokens";
+    return formatUsageStatisticsMetric(sort === "requests" ? "requests" : sort, usageStatisticsBreakdownMetric(item));
+  }
+
+  function usageStatisticsBreakdownPagination(payload) {
+    const total = Math.max(0, Number(payload?.total || 0));
+    const limit = Math.max(1, Number(payload?.limit || USAGE_STATISTICS_BREAKDOWN_PAGE_SIZE));
+    const pages = Math.max(1, Math.ceil(total / limit));
+    const page = Math.min(pages, Math.max(1, Number(state.usageStatisticsBreakdownPage || 0) + 1));
+    if (pages <= 1) return "";
+    return `<div class="usage-statistics-breakdown-pagination"><span>${escapeHtml(t("usage_stats.page_of", { page: fmtInt(page), total: fmtInt(pages) }))}</span><span><button class="icon-button" type="button" data-usage-statistics-breakdown-page="${page - 2}" aria-label="${escapeHtml(t("req.previous_page"))}" ${page <= 1 ? "disabled" : ""}>${iconSvg("chevron-left")}</button><button class="icon-button" type="button" data-usage-statistics-breakdown-page="${page}" aria-label="${escapeHtml(t("req.next_page"))}" ${page >= pages ? "disabled" : ""}>${iconSvg("chevron-right")}</button></span></div>`;
+  }
+
+  function bindUsageStatisticsBreakdownPagination(target) {
+    target?.querySelectorAll("[data-usage-statistics-breakdown-page]").forEach((button) => {
+      button.addEventListener("click", () => {
+        if (button.disabled) return;
+        state.usageStatisticsBreakdownPage = Math.max(0, Number(button.dataset.usageStatisticsBreakdownPage || 0));
+        loadUsageStatistics({ force: true, parts: ["breakdown"] });
+      });
+    });
+  }
+
+  function renderUsageStatisticsBreakdown() {
+    const payload = state.data.usageStatistics?.breakdown;
+    const target = el("usageStatisticsBreakdown");
+    if (!target) return;
+    if (!payload) {
+      if (!state.usageStatisticsLoading) updateDOM(target, `<div class="empty pad">${escapeHtml(t("usage_stats.empty_breakdown"))}</div>`);
+      return;
+    }
+    const items = Array.isArray(payload.items) ? payload.items : [];
+    const group = payload.group_by || state.usageStatisticsBreakdown || "model";
+    const maxValue = Math.max(1, ...items.map(usageStatisticsBreakdownMetric));
+    const subtitle = el("usageStatisticsBreakdownSubtitle");
+    if (subtitle) subtitle.textContent = group === "provider" ? t("usage_stats.provider_semantics") : t("usage_stats.model_semantics");
+    if (!items.length) {
+      updateDOM(target, `<div class="usage-statistics-empty-state">${iconSvg(group === "provider" ? "server" : "boxes")}<span><strong>${escapeHtml(t("usage_stats.no_breakdown_title"))}</strong><small>${escapeHtml(t("usage_stats.no_breakdown_hint"))}</small></span></div>`);
+      return;
+    }
+    updateDOM(target, `
+      <div class="usage-statistics-breakdown-list">
+        ${items.map((item, index) => {
+          const dimension = item.dimension || "-";
+          const metricValue = usageStatisticsBreakdownMetric(item);
+          const brand = group === "provider"
+            ? providerBrandIconMarkup(dimension, iconSvg("server"))
+            : modelBrandIconMarkup(dimension, iconSvg("boxes"));
+          return `<article class="usage-statistics-breakdown-row">
+            <span class="usage-statistics-rank mono">${escapeHtml(String(Number(payload.offset || 0) + index + 1).padStart(2, "0"))}</span>
+            <span class="usage-statistics-breakdown-identity">${brand}<span><strong data-tip="${escapeHtml(dimension)}">${escapeHtml(dimension)}</strong><small>${escapeHtml(group === "provider" ? t("usage_stats.upstream_provider") : t("usage_stats.client_model"))}</small></span></span>
+            <span class="usage-statistics-breakdown-bar"><i style="--breakdown-share:${svgNum((metricValue / maxValue) * 100)}%"></i></span>
+            <span class="usage-statistics-breakdown-result"><strong>${escapeHtml(usageStatisticsBreakdownMetricText(item))}</strong><small>${escapeHtml(t("usage_stats.requests_and_success", { requests: fmtInt(item.requests || 0), rate: fmtPct(item.success_rate || 0) }))}</small></span>
+            <span class="usage-statistics-breakdown-cost"><strong>${escapeHtml(fmtCost(item.cost?.known_usd || 0))}</strong><small>${escapeHtml(t("usage_stats.cost_short"))}</small></span>
+          </article>`;
+        }).join("")}
+      </div>
+      ${usageStatisticsBreakdownPagination(payload)}
+    `);
+    bindUsageStatisticsBreakdownPagination(target);
+  }
+
+  function renderUsageStatistics() {
+    populateUsageStatisticsDimensions();
+    renderUsageStatisticsMeta();
+    renderUsageStatisticsSummary();
+    renderUsageStatisticsChart();
+    renderUsageStatisticsBreakdown();
+    const payload = usageStatisticsMetaPayload();
+    const notice = el("usageStatisticsNotice");
+    if (notice && payload.partial && !notice.textContent.trim()) {
+      const remaining = Number(payload.backfill?.remaining || 0);
+      notice.innerHTML = `<span class="usage-statistics-partial">${iconSvg("info")}<span><strong>${escapeHtml(t("usage_stats.backfill_title"))}</strong><small>${escapeHtml(t("usage_stats.backfill_hint", { count: fmtInt(remaining) }))}</small></span></span>`;
+    }
+  }
+
   function renderConfig() {
     const config = state.data.config || {};
     el("configSnapshot").textContent = JSON.stringify(config, null, 2);
@@ -6503,6 +7323,189 @@ import {
     renderProviderModelMap(config);
     renderConfigProviders(config);
     renderAuditTrail();
+    if (state.data.usageStatistics) renderUsageStatistics();
+    if (state.data.modelUsage) renderModelUsage();
+  }
+
+  async function loadModelUsage({ force = false } = {}) {
+    if (state.configTab !== "models" || state.modelUsageLoading) return;
+    if (state.data.modelUsage && !force) {
+      renderModelUsage();
+      return;
+    }
+    state.modelUsageLoading = true;
+    const tableTarget = el("modelUsageTable");
+    tableTarget?.setAttribute("aria-busy", "true");
+    if (!state.data.modelUsage) updateDOM(tableTarget, `<div class="empty pad">${escapeHtml(t("model_usage.loading"))}</div>`);
+    const params = new URLSearchParams({
+      range: state.modelUsageRange || "7d",
+      query: state.modelUsageQuery || "",
+      sort: state.modelUsageSort || "calls",
+      order: "desc",
+      limit: String(MODEL_USAGE_PAGE_SIZE),
+      offset: String(Math.max(0, Number(state.modelUsagePage || 0)) * MODEL_USAGE_PAGE_SIZE),
+    });
+    try {
+      state.data.modelUsage = await apiGet(`/-/admin/models/usage?${params.toString()}`);
+      renderModelUsage();
+    } catch (err) {
+      updateDOM(el("modelUsageTable"), `<div class="notice danger pad">${escapeHtml(t("model_usage.failed", { error: err.message }))}</div>`);
+    } finally {
+      state.modelUsageLoading = false;
+      tableTarget?.setAttribute("aria-busy", "false");
+    }
+  }
+
+  function tokenCompositionBar(usageValue, label = "") {
+    const usage = usageFrom(usageValue);
+    const total = Math.max(1, usage.total_tokens);
+    const parts = [
+      ["uncached", usage.uncached_input_tokens, t("tokens.uncached")],
+      ["cached", usage.cached_input_tokens, t("tokens.cached")],
+      ["write", usage.cache_write_tokens, t("tokens.cache_write")],
+      ["output", usage.output_tokens, t("tokens.output")],
+    ];
+    const aria = parts.map(([, value, name]) => `${name} ${fmtInt(value)}`).join(", ");
+    return `<div class="model-token-composition" data-tip="${escapeHtml(aria)}"><div class="token-composition-bar" role="img" aria-label="${escapeHtml(`${label} ${aria}`)}">${parts.map(([tone, value]) => `<i class="token-segment token-${tone}" aria-hidden="true" style="--token-share:${svgNum((value / total) * 100)}%"></i>`).join("")}</div><small>${escapeHtml(t("model_usage.token_in_out", { input: fmtTokenCount(usage.input_tokens), output: fmtTokenCount(usage.output_tokens) }))}</small></div>`;
+  }
+
+  function modelUsagePagination(payload) {
+    const total = Math.max(0, Number(payload?.total || 0));
+    const limit = Math.max(1, Number(payload?.limit || MODEL_USAGE_PAGE_SIZE));
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const currentPage = Math.min(totalPages, Math.max(1, Number(state.modelUsagePage || 0) + 1));
+    const start = total ? Number(payload?.offset || 0) + 1 : 0;
+    const end = total ? Math.min(total, start + (Array.isArray(payload?.items) ? payload.items.length : 0) - 1) : 0;
+    return `
+      <div class="model-usage-pagination" aria-label="${escapeHtml(t("model_usage.pages"))}">
+        <span class="model-usage-page-copy"><strong>${escapeHtml(t("model_usage.range_of", { start: fmtInt(start), end: fmtInt(end), total: fmtInt(total) }))}</strong><small>${escapeHtml(t("model_usage.aggregation_hint"))}</small></span>
+        <span class="model-usage-page-actions">
+          <button class="icon-button model-usage-page-button" type="button" data-model-usage-page="${currentPage - 2}" aria-label="${escapeHtml(t("req.previous_page"))}" ${currentPage <= 1 ? "disabled" : ""}>${iconSvg("chevron-left")}</button>
+          <strong>${escapeHtml(t("req.page_of", { page: fmtInt(currentPage), total: fmtInt(totalPages) }))}</strong>
+          <button class="icon-button model-usage-page-button" type="button" data-model-usage-page="${currentPage}" aria-label="${escapeHtml(t("req.next_page"))}" ${currentPage >= totalPages ? "disabled" : ""}>${iconSvg("chevron-right")}</button>
+        </span>
+      </div>
+    `;
+  }
+
+  function bindModelUsagePagination(target) {
+    target?.querySelectorAll("[data-model-usage-page]").forEach((button) => {
+      button.addEventListener("click", () => {
+        if (button.disabled) return;
+        state.modelUsagePage = Math.max(0, Number(button.dataset.modelUsagePage || 0));
+        loadModelUsage({ force: true });
+      });
+    });
+  }
+
+  function renderModelUsage() {
+    const payload = state.data.modelUsage || {};
+    const items = Array.isArray(payload.items) ? payload.items : [];
+    const summary = payload.summary || {};
+    updateDOM(el("modelUsageSummary"), `
+      <span class="model-summary-stat tone-info"><i>${iconSvg("activity")}</i><span><small>${escapeHtml(t("model_usage.calls"))}</small><strong>${escapeHtml(fmtInt(summary.calls || 0))}</strong></span></span>
+      <span class="model-summary-stat tone-compat"><i>${iconSvg("boxes")}</i><span><small>${escapeHtml(t("model_usage.total_tokens"))}</small><strong>${escapeHtml(fmtTokenCount(summary.total_tokens || 0))}</strong></span></span>
+      <span class="model-summary-stat tone-success"><i>${iconSvg("layers")}</i><span><small>${escapeHtml(t("model_usage.cache_rate"))}</small><strong>${escapeHtml(fmtPct(summary.cache_rate || 0))}</strong></span></span>
+      <span class="model-summary-stat tone-warning"><i>${iconSvg("dollar")}</i><span><small>${escapeHtml(t("model_usage.cost"))}</small><strong>${escapeHtml(fmtCost(summary.cost_usd || 0))}</strong></span></span>
+    `);
+    const target = el("modelUsageTable");
+    if (!items.length) {
+      updateDOM(target, `<div class="empty pad">${escapeHtml(t("model_usage.empty"))}</div>`);
+      return;
+    }
+    updateDOM(target, `
+      ${modelUsagePagination(payload)}
+      <div class="model-usage-table-scroll">
+      <table class="model-usage-table">
+        <caption class="sr-only">${escapeHtml(t("model_usage.table_label"))}</caption>
+        <thead><tr><th scope="col">${escapeHtml(t("model_usage.col_model"))}</th><th scope="col">${escapeHtml(t("model_usage.col_calls"))}</th><th scope="col">${escapeHtml(t("model_usage.col_success"))}</th><th scope="col">${escapeHtml(t("model_usage.col_tokens"))}</th><th scope="col">${escapeHtml(t("model_usage.col_cache"))}</th><th scope="col">${escapeHtml(t("model_usage.col_cost"))}</th><th scope="col">${escapeHtml(t("model_usage.col_support"))}</th><th scope="col">${escapeHtml(t("model_usage.col_recent"))}</th><th scope="col"><span class="sr-only">${escapeHtml(t("req.open"))}</span></th></tr></thead>
+        <tbody>${items.map((item) => {
+          const support = Array.isArray(item.current_support) ? item.current_support.filter((entry) => entry.enabled) : [];
+          const providers = support.slice(0, 2).map((entry) => entry.provider);
+          const more = Math.max(0, support.length - providers.length);
+          const successRate = Number(item.success_rate || 0);
+          const successTone = successRate >= 0.98 ? "success" : successRate >= 0.8 ? "warning" : "danger";
+          const cacheRate = Number(item.cache_rate || 0);
+          const cacheTone = cacheRate > 0 ? "compat" : "neutral";
+          const recent = fmtRequestDateParts(item.last_used);
+          return `<tr data-model-usage-row="${escapeHtml(item.client_model || "")}">
+            <td class="mono model-usage-model" data-tip="${escapeHtml(item.client_model || "-")}"><span class="model-usage-identity">${modelBrandIconMarkup(item.client_model, iconSvg("boxes"))}<strong>${escapeHtml(item.client_model || "-")}</strong></span></td>
+            <td class="model-usage-calls" data-label="${escapeHtml(t("model_usage.col_calls"))}"><strong class="model-call-count">${escapeHtml(fmtInt(item.calls || 0))}</strong></td>
+            <td class="model-usage-success" data-label="${escapeHtml(t("model_usage.col_success"))}"><small class="model-rate-badge tone-${successTone}">${iconSvg(successTone === "success" ? "check" : successTone === "warning" ? "clock" : "alert")}${escapeHtml(fmtPct(successRate))}</small></td>
+            <td class="model-usage-tokens">${tokenCompositionBar(item.usage, item.client_model)}</td>
+            <td class="model-usage-cache"><span class="model-cache-badge tone-${cacheTone}">${iconSvg("layers")}${escapeHtml(fmtPct(cacheRate))}</span></td>
+            <td class="model-usage-cost">${renderCost({ cost_usd: item.cost_usd, cost_status: dominantCostStatus(item.cost_statuses) }, { compact: true })}</td>
+            <td class="model-usage-support"><div class="model-support-tags">${providers.map((provider) => `<span>${iconSvg("server")}${escapeHtml(provider)}</span>`).join("")}${more ? `<span class="is-more">+${fmtInt(more)}</span>` : ""}${!providers.length && !more ? `<span class="is-empty">—</span>` : ""}</div></td>
+            <td class="model-usage-recent"><time class="model-last-used" datetime="${escapeHtml(recent.iso)}"><strong>${escapeHtml(recent.date)}</strong><small>${escapeHtml(recent.time)}</small></time></td>
+            <td class="model-usage-open"><button class="icon-action model-usage-open-button" type="button" data-model-usage-open="${escapeHtml(item.client_model || "")}" aria-label="${escapeHtml(t("model_usage.open_model", { model: item.client_model || "-" }))}">${iconSvg("chevron-right")}</button></td>
+          </tr>`;
+        }).join("")}</tbody>
+      </table>
+      </div>
+    `);
+    bindModelUsagePagination(target);
+    target.querySelectorAll("[data-model-usage-row]").forEach((row) => {
+      const open = () => openUsageModelDrawer(row.dataset.modelUsageRow || "");
+      row.addEventListener("click", (event) => {
+        if (event.target.closest("button, a, input")) return;
+        open();
+      });
+    });
+    target.querySelectorAll("[data-model-usage-open]").forEach((button) => {
+      button.addEventListener("click", () => openUsageModelDrawer(button.dataset.modelUsageOpen || ""));
+    });
+  }
+
+  function dominantCostStatus(statuses) {
+    const counts = statuses || {};
+    return ["pending", "unpriced", "estimated", "priced", "legacy"].find((key) => Number(counts[key] || 0) > 0) || "legacy";
+  }
+
+  async function openUsageModelDrawer(modelName) {
+    if (!modelName) return;
+    closeDrawer(false);
+    closeProviderDrawer();
+    state.modelDrawerMode = "usage";
+    const drawer = el("modelDrawer");
+    const body = el("modelDrawerBody");
+    el("modelDrawerTitle").innerHTML = `${modelBrandIconMarkup(modelName, iconSvg("boxes"))}<span>${escapeHtml(modelName)}</span>`;
+    el("modelDrawerSubtitle").textContent = t("model_usage.drawer_subtitle");
+    updateDOM(body, `<div class="empty pad">${escapeHtml(t("model_usage.loading"))}</div>`);
+    drawer.classList.add("is-open");
+    drawer.setAttribute("aria-hidden", "false");
+    try {
+      const detail = await apiGet(`/-/admin/models/usage/${encodeURIComponent(modelName)}?range=${encodeURIComponent(state.modelUsageRange || "7d")}`);
+      state.data.modelUsageDetail = detail;
+      renderUsageModelDrawer(detail);
+    } catch (err) {
+      updateDOM(body, `<div class="notice danger pad">${escapeHtml(t("model_usage.failed", { error: err.message }))}</div>`);
+    }
+  }
+
+  function renderUsageModelDrawer(detail) {
+    const body = el("modelDrawerBody");
+    const summary = detail.summary || {};
+    const providers = Array.isArray(detail.providers) ? detail.providers : [];
+    const support = Array.isArray(detail.current_support) ? detail.current_support : [];
+    const series = Array.isArray(detail.timeseries) ? detail.timeseries : [];
+    const maxCalls = Math.max(1, ...series.map((item) => Number(item.calls || 0)));
+    const seriesSummary = series.map((item) => `${fmtDate(item.start)}: ${fmtInt(item.calls)} ${t("model_usage.calls")}`).join(", ");
+    updateDOM(body, `
+      <div class="model-usage-drawer">
+        <div class="model-usage-summary drawer-summary">
+          <span class="model-summary-stat tone-info"><i>${iconSvg("activity")}</i><span><small>${escapeHtml(t("model_usage.calls"))}</small><strong>${escapeHtml(fmtInt(summary.calls || 0))}</strong></span></span>
+          <span class="model-summary-stat tone-success"><i>${iconSvg("check")}</i><span><small>${escapeHtml(t("model_usage.success_rate"))}</small><strong>${escapeHtml(fmtPct(summary.success_rate || 0))}</strong></span></span>
+          <span class="model-summary-stat tone-compat"><i>${iconSvg("boxes")}</i><span><small>${escapeHtml(t("model_usage.total_tokens"))}</small><strong>${escapeHtml(fmtTokenCount(summary.usage?.total_tokens || 0))}</strong></span></span>
+          <span class="model-summary-stat tone-warning"><i>${iconSvg("dollar")}</i><span><small>${escapeHtml(t("model_usage.cost"))}</small><strong>${escapeHtml(fmtCost(summary.cost_usd || 0))}</strong></span></span>
+        </div>
+        ${renderUsageComposition({ usage: summary.usage, cost_usd: summary.cost_usd, cost_status: dominantCostStatus(summary.cost_statuses) })}
+        <section class="model-usage-series"><h3>${escapeHtml(t("model_usage.timeline"))}</h3><div role="img" aria-label="${escapeHtml(t("model_usage.timeline_label", { summary: seriesSummary || t("model_usage.empty") }))}">${series.map((item) => `<span aria-hidden="true" style="--series-height:${svgNum(Math.max(6, (Number(item.calls || 0) / maxCalls) * 100))}%" data-tip="${escapeHtml(`${fmtDate(item.start)} · ${fmtInt(item.calls)} ${t("model_usage.calls")}`)}"></span>`).join("") || `<span class="empty">${escapeHtml(t("model_usage.empty"))}</span>`}</div></section>
+        <section class="model-provider-breakdown"><h3 class="drawer-section-title model-drawer-section-head"><span>${escapeHtml(t("model_usage.provider_breakdown"))}</span><strong>${escapeHtml(fmtInt(providers.length))}</strong></h3>
+          <div class="attempt-table-scroll"><table class="model-provider-usage-table"><thead><tr><th scope="col">${escapeHtml(t("req.provider"))} / ${escapeHtml(t("req.attempt_model"))}</th><th scope="col">${escapeHtml(t("req.attempt_format"))}</th><th scope="col">${escapeHtml(t("model_usage.calls"))}</th><th scope="col">${escapeHtml(t("req.col_tokens"))} / ${escapeHtml(t("req.col_cost"))}</th><th scope="col">${escapeHtml(t("req.col_latency"))}</th></tr></thead><tbody>${providers.map((item) => `<tr><td><span class="model-provider-identity"><strong>${iconSvg("server")}${escapeHtml(item.provider || "-")}</strong><small class="mono">${escapeHtml(item.provider_model || "-")}</small></span></td><td><span class="model-format-badge">${escapeHtml(shortFormatLabel(item.upstream_format || "-"))}</span></td><td><span class="model-attempt-badge">${iconSvg("check")}${escapeHtml(`${fmtInt(item.success || 0)}/${fmtInt(item.attempts || 0)}`)}</span></td><td><span class="model-provider-usage"><strong>${escapeHtml(fmtTokenCount(item.total_tokens || 0))}</strong><small>${escapeHtml(fmtCost(item.cost_usd || 0))}</small></span></td><td><span class="model-latency-badge mono">${iconSvg("clock")}${escapeHtml(fmtCompactMs(item.avg_first_event_ms || item.avg_duration_ms || 0))}</span></td></tr>`).join("")}</tbody></table></div>
+        </section>
+        <section class="model-current-support"><h3 class="drawer-section-title model-drawer-section-head"><span>${escapeHtml(t("model_usage.current_support"))}</span><strong>${escapeHtml(fmtInt(support.filter((item) => item.enabled).length))}</strong></h3>${support.map((item) => `<div><strong>${escapeHtml(item.provider || "-")}</strong><span class="mono">${escapeHtml(item.provider_model || "-")}</span><span>${(Array.isArray(item.formats) ? item.formats : []).map(shortFormatLabel).map(escapeHtml).join(" · ") || "-"}</span><small>${escapeHtml(`${item.key_coverage?.eligible || 0}/${item.key_coverage?.total || 0} ${t("model_usage.keys")}`)}</small></div>`).join("") || `<div class="empty">${escapeHtml(t("model_usage.no_support"))}</div>`}</section>
+      </div>
+    `);
   }
 
   function renderConfigSummary(config) {
@@ -6633,6 +7636,7 @@ import {
   function modelRouteCard(model, route, providerConfigs = {}) {
     const providers = routeProviderItems(route.providers);
     const providerSelect = route.provider_select || "priority_failover";
+    const formatPreference = route.format_preference || "";
     return `
       <article class="model-route-card">
         <div class="model-route-main">
@@ -6670,6 +7674,7 @@ import {
         </div>
         <div class="model-route-side">
           ${badge(providerSelect, providerSelect === "random" ? "warn" : providerSelect === "weighted_rr" ? "info" : "ok")}
+          ${badge(formatPreference ? (formatPreference === "native_first" ? t("policy.format_native") : t("policy.format_priority")) : t("cfg.format_inherit"), formatPreference ? "info" : "neutral")}
           <div class="actions tight">
             <button class="button secondary compact-action icon-action" type="button" data-model-route-edit="${escapeHtml(model)}" title="Edit route" aria-label="Edit route">${iconSvg("pencil")}</button>
             <button class="button danger compact-action icon-action" type="button" data-model-route-delete="${escapeHtml(model)}" title="Delete route" aria-label="Delete route">${iconSvg("trash")}</button>
@@ -7491,7 +8496,7 @@ import {
     } else if (el("modelDrawer")?.classList.contains("is-open")) {
       const modelName = el("modelDrawerTitle")?.textContent || "";
       if (modelName) {
-        state.detailDrawerReturn = { type: "model", name: modelName };
+        state.detailDrawerReturn = { type: "model", name: modelName, mode: state.modelDrawerMode || "summary" };
       }
     }
     closeProviderDrawer();
@@ -7500,42 +8505,221 @@ import {
     drawer.classList.add("is-open");
     drawer.setAttribute("aria-hidden", "false");
     el("drawerSubtitle").textContent = requestId;
-    updateDOM(el("drawerBody"), `<div class="empty">Loading request detail</div>`);
+    updateDOM(el("drawerBody"), `<div class="empty">${escapeHtml(t("req.detail_loading"))}</div>`);
     try {
       const detail = await apiGet(`/-/admin/requests/${encodeURIComponent(requestId)}`);
       renderDrawer(detail);
     } catch (err) {
-      updateDOM(el("drawerBody"), `<div class="notice">Request detail failed: ${escapeHtml(err.message)}</div>`);
+      updateDOM(el("drawerBody"), `<div class="notice">${escapeHtml(t("req.detail_failed", { error: err.message }))}</div>`);
     }
   }
 
   function renderDrawer(detail) {
     const attempts = Array.isArray(detail.attempts) ? detail.attempts : [];
     const summary = detail.routing_summary || {};
+    const usage = usageFrom(detail);
+    const firstEvent = firstByteMsFromRequest(detail);
+    const outcome = summary.outcome || "unknown";
+    const routeTone = routeOutcomeTone(outcome);
     el("drawerSubtitle").textContent = `${detail.request_id || "-"} / ${detail.state || "unknown"}`;
     updateDOM(el("drawerBody"), `
-      ${renderRoutingSummary(summary)}
+      <section class="request-result-band tone-${escapeHtml(requestTone(detail))} outcome-${escapeHtml(routeTone)}">
+        <div class="request-result-status">
+          ${statusBadge(detail.status || detail.state, detail.status_code || "")}
+          <span class="request-detail-route-chip tone-${escapeHtml(routeTone)}">${iconSvg(routeOutcomeIcon(outcome))}${escapeHtml(routeOutcomeLabel(outcome))}</span>
+        </div>
+        <div class="request-result-stat">${iconSvg("boxes")}<span><small>${escapeHtml(t("req.col_model"))}</small><strong class="mono">${escapeHtml(detail.model || "-")}</strong></span></div>
+        <div class="request-result-stat">${iconSvg("server")}<span><small>${escapeHtml(t("req.summary_final_provider"))}</small><strong>${escapeHtml(summary.final_provider || "-")}</strong></span></div>
+        <div class="request-result-stat">${iconSvg("clock")}<span><small>${escapeHtml(t("req.col_latency"))}</small><strong class="mono">${firstEvent ? escapeHtml(fmtCompactMs(firstEvent)) : "-"} / ${escapeHtml(fmtCompactMs(detail.duration_ms))}</strong></span></div>
+        <div class="request-result-stat">${iconSvg("dollar")}<span><small>${escapeHtml(t("req.col_cost"))}</small>${renderCost({ ...detail, cost_usd: usage.cost_usd }, { compact: true })}</span></div>
+        <p class="request-result-message tone-${escapeHtml(routeTone)}">${iconSvg(routeOutcomeIcon(outcome))}<span>${requestResultHeadlineMarkup(summary.headline || detail.error || "-")}</span></p>
+      </section>
+      ${renderRequestIssuePanel(detail, attempts, summary)}
       ${renderRoutingTrace(detail.routing_trace, {
         clientFormat: detail.client_format || "",
         finalFormat: summary.final_upstream_format || "",
       })}
-      <div class="kv-grid drawer-kv">
-        <span>Status</span><span>${detail.status_code ? statusBadge(detail.status, detail.status_code) : messageMarkup(detail.state || "-")}</span>
-        <span>Client Model</span><span class="mono">${escapeHtml(detail.model || "-")}</span>
-        <span>Upstream Model</span><span class="mono">${(() => { const um = [...new Set(attempts.map(a => a.provider_model).filter(Boolean))]; return um.length ? chipList(um) : escapeHtml("-"); })()}</span>
-        <span>Client</span><span>${chipList([detail.client_format || "-"])}</span>
-        <span>Endpoint</span><span>${messageMarkup(detail.endpoint || "-")}</span>
-        <span>Path</span><span>${escapeHtml(detail.path || "-")}</span>
-        <span>Stream</span><span>${detail.stream ? "yes" : "no"}</span>
-        <span>Duration</span><span>${escapeHtml(fmtMs(detail.duration_ms))}</span>
-        <span>First byte</span><span>${detail.first_byte_ms ? escapeHtml(fmtMs(detail.first_byte_ms)) : escapeHtml("-")}</span>
-        <span>Tokens</span><span class="mono" title="${escapeHtml(fmtInt(usageFrom(detail).total_tokens))} tokens">${escapeHtml(fmtTokenCount(usageFrom(detail).total_tokens))}</span>
-        <span>Cost</span><span class="mono">${escapeHtml(fmtCost(usageFrom(detail).cost_usd))}</span>
-        <span>Error</span><span>${messageMarkup(detail.error || "-")}</span>
-      </div>
-      <h3 class="drawer-section-title">Attempts</h3>
-      ${attempts.length ? attempts.map(renderAttempt).join("") : `<div class="empty">No attempts recorded</div>`}
+      ${renderUsageComposition(detail)}
+      <section class="request-attempts-section">
+        <h3 class="drawer-section-title request-attempts-title"><span>${escapeHtml(t("req.attempts"))}</span><strong>${escapeHtml(fmtInt(attempts.length))}</strong></h3>
+        ${renderAttemptsTable(attempts)}
+      </section>
+      ${renderRequestMetadata(detail)}
     `);
+  }
+
+  function requestResultHeadlineMarkup(value) {
+    return messageMarkup(String(value || "-").replace(/;\s+/g, ". "));
+  }
+
+  function renderRequestIssuePanel(detail, attempts, summary) {
+    const outcome = String(summary?.outcome || "unknown");
+    if (outcome === "direct_success" || (outcome === "unknown" && requestTone(detail) === "success")) return "";
+    const failedAttempts = (Array.isArray(attempts) ? attempts : []).filter((attempt) => attempt?.outcome !== "success");
+    const failedAttempt = failedAttempts[failedAttempts.length - 1] || {};
+    const trace = Array.isArray(detail?.routing_trace) ? detail.routing_trace : [];
+    const terminalEvent = [...trace].reverse().find((event) => ["attempt_failed", "no_candidate"].includes(String(event?.code || ""))) || {};
+    const recovered = outcome === "recovered";
+    const noAttempts = outcome === "no_attempts";
+    const ownerRaw = summary?.owner || failedAttempt.failure_owner || terminalEvent.owner || (noAttempts ? "proxy_routing" : "");
+    const provider = failedAttempt.provider || terminalEvent.provider || "";
+    const stage = failedAttempt.diagnostic_stage || terminalEvent.stage || (noAttempts ? "routing" : "");
+    const errorType = failedAttempt.error_type || terminalEvent.error_type || (noAttempts ? terminalEvent.code : "") || "";
+    const reason = failedAttempt.reason || terminalEvent.reason || detail?.error || "";
+    const httpStatus = failedAttempt.http_status || (!recovered ? detail?.status_code : "") || "";
+    const evidence = requestErrorEvidenceSummary(failedAttempt.upstream_error_summary || detail?.error || summary?.headline || reason || "-");
+    const stateAction = requestStateActionText(failedAttempt.state_action);
+    const facts = [
+      ownerRaw ? requestIssueFact("shield", t("req.failure_owner"), requestFailureOwnerLabel(ownerRaw)) : "",
+      provider ? requestIssueFact("server", recovered ? t("req.failed_provider") : t("req.provider"), provider) : "",
+      stage ? requestIssueFact("layers", t("req.failure_stage"), stage, true) : "",
+      (errorType || reason) ? requestIssueFact("alert", t("req.failure_type"), errorType || reason, true) : "",
+      httpStatus ? requestIssueFact("info", t("req.failure_http"), String(httpStatus), true) : "",
+      stateAction ? requestIssueFact("activity", t("req.failure_state_action"), stateAction, true) : "",
+    ].filter(Boolean).join("");
+    const tone = recovered ? "warn" : "bad";
+    const title = recovered
+      ? t("req.recovery_title")
+      : noAttempts
+        ? t("req.no_attempts_title")
+        : t("req.failure_title");
+    const label = recovered ? t("req.recovery_locator") : t("req.failure_locator");
+    return `
+      <section class="request-issue-panel tone-${escapeHtml(tone)}" aria-label="${escapeHtml(label)}">
+        <header class="request-issue-head">
+          <span class="request-issue-marker">${iconSvg(recovered ? "rotate" : "alert")}</span>
+          <div><small>${escapeHtml(label)}</small><h3>${escapeHtml(title)}</h3></div>
+        </header>
+        ${facts ? `<div class="request-issue-facts">${facts}</div>` : ""}
+        <div class="request-issue-evidence"><span>${escapeHtml(t("req.failure_evidence"))}</span><strong>${messageMarkup(evidence)}</strong></div>
+        <div class="request-issue-action">${iconSvg("arrow-right")}<span><small>${escapeHtml(t("req.summary_next_action"))}</small><strong>${messageMarkup(summary?.next_action || "-")}</strong></span></div>
+      </section>
+    `;
+  }
+
+  function requestIssueFact(icon, label, value, mono = false) {
+    return `<div class="request-issue-fact">${iconSvg(icon)}<span><small>${escapeHtml(label)}</small><strong class="${mono ? "mono" : ""}" title="${escapeHtml(value || "-")}">${escapeHtml(value || "-")}</strong></span></div>`;
+  }
+
+  function requestFailureOwnerLabel(owner) {
+    const key = {
+      upstream: "req.owner_upstream",
+      proxy_routing: "req.owner_proxy_routing",
+      proxy_session: "req.owner_proxy_session",
+      client: "req.owner_client",
+    }[String(owner || "").toLowerCase()];
+    return key ? t(key) : String(owner || "-");
+  }
+
+  function requestErrorEvidenceSummary(value) {
+    const text = String(value || "").trim();
+    if (!text) return "-";
+    let payload = null;
+    try {
+      payload = JSON.parse(text);
+    } catch (error) {
+      const jsonStart = text.indexOf("{");
+      const jsonEnd = text.lastIndexOf("}");
+      if (jsonStart >= 0 && jsonEnd > jsonStart) {
+        try {
+          payload = JSON.parse(text.slice(jsonStart, jsonEnd + 1));
+        } catch (nestedError) {
+          payload = null;
+        }
+      }
+    }
+    const message = payload?.error?.message
+      || payload?.message
+      || (typeof payload?.error === "string" ? payload.error : "");
+    return String(message || text);
+  }
+
+  function requestStateActionText(action) {
+    if (!action || typeof action !== "object") return "";
+    const parts = [action.action, action.scope].filter(Boolean);
+    if (Number(action.cooldown_s || 0) > 0) parts.push(`${fmtInt(action.cooldown_s)}s`);
+    if (Number(action.provider_cooldown_s || 0) > 0) parts.push(`provider ${fmtInt(action.provider_cooldown_s)}s`);
+    return parts.join(" · ");
+  }
+
+  function renderUsageComposition(value) {
+    const usage = usageFrom(value);
+    if (usage.total_tokens <= 0 && Number(usage.cost_usd || 0) <= 0) {
+      return `
+        <section class="usage-composition is-empty" aria-label="${escapeHtml(t("tokens.composition"))}">
+          <div class="usage-composition-head"><h3>${escapeHtml(t("tokens.composition"))}</h3><strong>0</strong>${renderCost({ ...value, cost_usd: 0 })}</div>
+          <div class="usage-empty-state">${iconSvg("activity")}<span><strong>${escapeHtml(t("req.no_usage"))}</strong><small>${escapeHtml(t("req.no_usage_desc"))}</small></span></div>
+        </section>
+      `;
+    }
+    const total = Math.max(1, usage.total_tokens);
+    const segments = [
+      ["uncached", usage.uncached_input_tokens, t("tokens.uncached")],
+      ["cached", usage.cached_input_tokens, t("tokens.cached")],
+      ["write", usage.cache_write_tokens, t("tokens.cache_write")],
+      ["output", usage.output_tokens, t("tokens.output")],
+    ];
+    return `
+      <section class="usage-composition" aria-label="${escapeHtml(t("tokens.composition"))}">
+        <div class="usage-composition-head"><h3>${escapeHtml(t("tokens.composition"))}</h3><strong>${escapeHtml(fmtTokenCount(usage.total_tokens))}</strong>${renderCost({ ...value, cost_usd: usage.cost_usd })}</div>
+        <div class="token-composition-bar" role="img" aria-label="${escapeHtml(segments.map(([, count, label]) => `${label} ${fmtInt(count)}`).join(", "))}">
+          ${segments.map(([tone, count, label]) => `<i class="token-segment token-${tone}" aria-hidden="true" style="--token-share:${svgNum((count / total) * 100)}%" data-tip="${escapeHtml(`${label}: ${fmtInt(count)}`)}"></i>`).join("")}
+        </div>
+        <div class="token-composition-legend">
+          ${segments.map(([tone, count, label]) => `<span><i class="token-dot token-${tone}" aria-hidden="true"></i><small>${escapeHtml(label)}</small><strong>${escapeHtml(fmtTokenCount(count))}</strong></span>`).join("")}
+          ${usage.reasoning_tokens ? `<span data-tip="${escapeHtml(t("tokens.reasoning_subset"))}" tabindex="0"><i class="token-dot token-reasoning" aria-hidden="true"></i><small>${escapeHtml(t("tokens.reasoning"))}</small><strong>${escapeHtml(fmtTokenCount(usage.reasoning_tokens))}</strong></span>` : ""}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderAttemptsTable(attempts) {
+    if (!attempts.length) return `<div class="request-attempts-empty">${iconSvg("info")}<span><strong>${escapeHtml(t("req.no_attempts"))}</strong><small>${escapeHtml(t("req.no_attempts_desc"))}</small></span></div>`;
+    return `
+      <div class="attempt-table-scroll">
+        <table class="attempt-data-table">
+          <caption class="sr-only">${escapeHtml(t("req.attempts"))}</caption>
+          <thead><tr>
+            <th scope="col"># / ${escapeHtml(t("req.attempt_result"))}</th><th scope="col">${escapeHtml(t("req.attempt_provider_key"))}</th><th scope="col">${escapeHtml(t("req.attempt_model"))} / ${escapeHtml(t("req.attempt_format"))}</th><th scope="col">${escapeHtml(t("req.col_latency"))}</th><th scope="col">${escapeHtml(t("req.col_tokens"))} / ${escapeHtml(t("req.col_cost"))}</th>
+          </tr></thead>
+          <tbody>${attempts.map((attempt) => {
+            const usage = usageFrom(attempt);
+            const result = attempt.outcome === "success" ? t("req.success") : (attempt.reason || attempt.error_type || t("req.failed"));
+            const key = attempt.key_masked || attempt.key_id || "-";
+            const keyNumber = requestKeyNumber(attempt.key_index);
+            const keyDisplay = [keyNumber, key].filter(Boolean).join(" · ");
+            return `<tr class="tone-${attempt.outcome === "success" ? "success" : "danger"}">
+              <td><span class="attempt-result-cluster"><strong class="mono">#${escapeHtml(attempt.attempt_no || "-")}</strong><span data-tip="${escapeHtml(attempt.upstream_error_summary || result)}">${badge(result, attempt.outcome === "success" ? "ok" : "bad")}</span></span></td>
+              <td><span class="attempt-provider-cluster"><strong>${iconSvg("server")}${escapeHtml(attempt.provider || "-")}</strong><small class="attempt-key-meta" data-tip="${escapeHtml(keyDisplay)}">${keyNumber ? `<b>${escapeHtml(keyNumber)}</b>` : ""}<span class="mono">${escapeHtml(key)}</span></small></span></td>
+              <td><span class="attempt-model-cluster"><strong class="mono" data-tip="${escapeHtml(attempt.provider_model || "-")}">${escapeHtml(attempt.provider_model || "-")}</strong><small>${escapeHtml(shortFormatLabel(attempt.upstream_format || "-"))}</small></span></td>
+              <td><span class="attempt-timing-cluster mono"><span>${escapeHtml(t("req.attempt_headers"))} <strong>${attempt.upstream_headers_ms ? escapeHtml(fmtCompactMs(attempt.upstream_headers_ms)) : "-"}</strong></span><span>${escapeHtml(t("req.attempt_first_event"))} <strong>${attempt.first_event_ms ? escapeHtml(fmtCompactMs(attempt.first_event_ms)) : "-"}</strong></span><span>${escapeHtml(t("req.attempt_total"))} <strong>${attempt.duration_ms ? escapeHtml(fmtCompactMs(attempt.duration_ms)) : "-"}</strong></span></span></td>
+              <td><span class="attempt-usage-cluster"><strong class="mono" data-tip="${escapeHtml(fmtInt(usage.total_tokens))}">${escapeHtml(fmtTokenCount(usage.total_tokens))}</strong>${renderCost({ ...attempt, cost_usd: usage.cost_usd }, { compact: true })}</span></td>
+            </tr>`;
+          }).join("")}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function requestKeyNumber(value) {
+    if (value === null || value === undefined || value === "") return "";
+    const index = Number(value);
+    if (!Number.isInteger(index) || index < 0) return "";
+    return t("req.key_number", { index: fmtInt(index + 1) });
+  }
+
+  function renderRequestMetadata(detail) {
+    const rows = [
+      [t("req.meta_ip"), detail.client_ip || "-"],
+      [t("req.meta_ip_source"), detail.client_ip_source || "-"],
+      ["User-Agent", detail.user_agent || "-"],
+      ["Path", detail.path || "-"],
+      [t("req.meta_size"), detail.request_bytes ? `${fmtInt(detail.request_bytes)} B` : "-"],
+      [t("req.meta_profile"), detail.request_profile || "plain"],
+      [t("req.meta_started"), fmtDate(detail.started_at)],
+      [t("req.meta_finished"), fmtDate(detail.finished_at)],
+    ];
+    return `<details class="request-metadata"><summary>${iconSvg("info")}<span>${escapeHtml(t("req.metadata"))}</span></summary><dl>${rows.map(([label, value]) => `<dt>${escapeHtml(label)}</dt><dd class="mono" title="${escapeHtml(value)}">${escapeHtml(value)}</dd>`).join("")}</dl></details>`;
   }
 
   function renderAttempt(attempt) {
@@ -7637,11 +8821,25 @@ import {
             <span class="routing-diagnostics-count">${escapeHtml(t("req.route_event_count", { count: fmtInt(trace.length) }))}</span>
           </summary>
           <ol class="routing-diagnostic-list">
-            ${trace.map(renderRoutingDiagnosticEvent).join("")}
+            ${collapseRoutingDiagnostics(trace).map(renderRoutingDiagnosticEvent).join("")}
           </ol>
         </details>
       </section>
     `;
+  }
+
+  function collapseRoutingDiagnostics(trace) {
+    const out = [];
+    (Array.isArray(trace) ? trace : []).forEach((event) => {
+      const key = [event.stage, event.code, event.provider, event.key_id || event.key_masked, event.provider_model, event.upstream_format, event.reason, event.target_format].join("|");
+      const previous = out[out.length - 1];
+      if (previous && previous._collapseKey === key) {
+        previous._repeatCount = Number(previous._repeatCount || 1) + 1;
+        return;
+      }
+      out.push({ ...event, _collapseKey: key, _repeatCount: 1 });
+    });
+    return out;
   }
 
   function routingTraceCodeLabel(code) {
@@ -7701,6 +8899,11 @@ import {
     const tone = routingTraceTone(step);
     const event = step.event || {};
     const identity = routingTraceIdentity(event);
+    const keyNumber = requestKeyNumber(event.key_index);
+    if (keyNumber) {
+      const providerIndex = identity.indexOf(event.provider);
+      identity.splice(providerIndex >= 0 ? providerIndex + 1 : 0, 0, keyNumber);
+    }
     let evidence = identity.length ? chipList(identity) : escapeHtml("-");
     const notes = [];
     if (step.kind === "format_evaluation") {
@@ -7733,11 +8936,50 @@ import {
             <strong><span class="routing-path-step-index">${fmtInt(index + 1)}</span>${escapeHtml(routingTraceStepLabel(step))}</strong>
             <span class="routing-path-status">${escapeHtml(routingTraceStepStatus(step, context))}</span>
           </div>
-          <div class="routing-path-evidence">${evidence}</div>
+          <p class="routing-path-summary">${escapeHtml(routingTraceStepSummary(step, context))}</p>
+          <details class="routing-path-technical">
+            <summary>${escapeHtml(t("req.route_technical_evidence"))}</summary>
+            <div class="routing-path-evidence">${evidence}</div>
+          </details>
           ${notes.length ? `<p>${messageMarkup(notes.join(" · "))}</p>` : ""}
         </div>
       </li>
     `;
+  }
+
+  function routingTraceStepSummary(step, context = {}) {
+    const event = step.event || {};
+    if (step.kind === "format_evaluation") {
+      const summary = summarizeFormatTraceStep(step, context);
+      if (summary.mode === "converted") {
+        return t("req.route_summary_converted", {
+          source: routingFormatDisplayName(summary.sourceFormat),
+          target: routingFormatDisplayName(summary.targetFormat),
+        });
+      }
+      return t("req.route_summary_native", { format: routingFormatDisplayName(summary.sourceFormat) });
+    }
+    if (step.kind === "candidate_filter") {
+      return t("req.route_summary_filtered", { count: fmtInt(step.eventCount || 0) });
+    }
+    if (step.code === "selected") {
+      return t("req.route_summary_selected", {
+        provider: event.provider || "-",
+        key: requestKeyNumber(event.key_index) || t("req.key_unknown"),
+        model: event.provider_model || "-",
+      });
+    }
+    if (step.code === "attempt_succeeded") {
+      return t("req.route_summary_succeeded", { provider: event.provider || "-" });
+    }
+    if (step.code === "attempt_failed") {
+      return t("req.route_summary_failed", {
+        provider: event.provider || "-",
+        reason: event.reason || event.error_type || "-",
+      });
+    }
+    if (step.code === "no_candidate") return t("req.route_summary_no_candidate");
+    return routingTraceStepLabel(step);
   }
 
   function routingDiagnosticDetails(event) {
@@ -7842,7 +9084,7 @@ import {
         <div class="routing-diagnostic-content">
           <div class="routing-diagnostic-head">
             <div><strong>${escapeHtml(routingDiagnosticHeadline(event))}</strong><small>${escapeHtml(`${fmtInt(index + 1)} · ${routingDiagnosticStageLabel(event)}`)}</small></div>
-            <span class="routing-diagnostic-status">${escapeHtml(routingDiagnosticStatus(event))}</span>
+            <span class="routing-diagnostic-status">${escapeHtml(routingDiagnosticStatus(event))}${Number(event._repeatCount || 1) > 1 ? ` ×${fmtInt(event._repeatCount)}` : ""}</span>
           </div>
           ${identity.length && event.stage !== "format_compatibility" ? `<div class="routing-diagnostic-identity">${chipList(identity)}</div>` : ""}
           ${description ? `<p>${messageMarkup(description)}</p>` : ""}
@@ -7914,7 +9156,16 @@ import {
     if (outcome === "direct_success") return "ok";
     if (outcome === "recovered") return "warn";
     if (outcome === "failed") return "bad";
+    if (outcome === "no_attempts") return "route-info";
     return "neutral";
+  }
+
+  function routeOutcomeIcon(outcome) {
+    if (outcome === "direct_success") return "check";
+    if (outcome === "recovered") return "rotate";
+    if (outcome === "failed") return "alert";
+    if (outcome === "no_attempts") return "info";
+    return "dot";
   }
 
   function setView(view) {
@@ -8150,7 +9401,7 @@ import {
       });
     });
 
-    ["filterModel", "filterProvider", "filterErrorType", "filterReason", "filterHttpStatus"].forEach((id) => {
+    ["filterModel", "filterProvider", "filterErrorType", "filterReason", "filterHttpStatus", "filterClientIp"].forEach((id) => {
       el(id)?.addEventListener("keydown", (event) => {
         if (event.key !== "Enter") return;
         state.requestsPage = 0;
@@ -8171,7 +9422,7 @@ import {
       closeMobileSettings();
     });
     el("clearFiltersButton").addEventListener("click", () => {
-      ["filterModel", "filterProvider", "filterErrorType", "filterReason", "filterHttpStatus"].forEach((id) => {
+      ["filterModel", "filterProvider", "filterErrorType", "filterReason", "filterHttpStatus", "filterClientIp", "filterStream", "filterClientFormat", "filterUpstreamFormat", "filterCostStatus"].forEach((id) => {
         el(id).value = "";
       });
       state.requestFilters.status = "";
@@ -8307,8 +9558,8 @@ import {
       el("hmIdleDeepMin").value = hm.idle_check_interval_deep_min_s ?? 10800;
       el("hmIdleDeepMax").value = hm.idle_check_interval_deep_max_s ?? 21600;
       el("hmPatrolEnabled").checked = hm.patrol_check_enabled !== false;
-      el("hmPatrolMin").value = hm.patrol_interval_min_s ?? 3600;
-      el("hmPatrolMax").value = hm.patrol_interval_max_s ?? 10800;
+      el("hmPatrolMin").value = hm.patrol_interval_min_s ?? 21600;
+      el("hmPatrolMax").value = hm.patrol_interval_max_s ?? 43200;
       el("hmPatrolDelay").value = hm.patrol_delay_s ?? 3;
       el("hmPatrolJitter").value = hm.patrol_delay_jitter_s ?? 2;
       el("hmPatrolTimeout").value = hm.patrol_first_byte_timeout_s ?? 15;
@@ -8323,8 +9574,8 @@ import {
         idle_check_interval_deep_min_s: parseInt(el("hmIdleDeepMin").value, 10) || 10800,
         idle_check_interval_deep_max_s: parseInt(el("hmIdleDeepMax").value, 10) || 21600,
         patrol_check_enabled: el("hmPatrolEnabled").checked,
-        patrol_interval_min_s: parseInt(el("hmPatrolMin").value, 10) || 3600,
-        patrol_interval_max_s: parseInt(el("hmPatrolMax").value, 10) || 10800,
+        patrol_interval_min_s: parseInt(el("hmPatrolMin").value, 10) || 21600,
+        patrol_interval_max_s: parseInt(el("hmPatrolMax").value, 10) || 43200,
         patrol_delay_s: parseInt(el("hmPatrolDelay").value, 10) || 3,
         patrol_delay_jitter_s: parseInt(el("hmPatrolJitter").value, 10) || 2,
         patrol_first_byte_timeout_s: parseInt(el("hmPatrolTimeout").value, 10) || 15,
@@ -8622,6 +9873,7 @@ import {
         model: String(form.elements.model.value || "").trim(),
         providers: String(form.elements.providers.value || "").trim(),
         provider_select: String(form.elements.provider_select.value || "priority_failover").trim(),
+        format_preference: String(form.elements.format_preference.value || "").trim(),
       };
       await runConfigMutation(form, async () => {
         const result = await apiPatch("/-/admin/models/routes", payload);
@@ -8634,6 +9886,7 @@ import {
           routes[payload.model] = {
             providers: parseRouteProvidersInput(payload.providers),
             provider_select: payload.provider_select,
+            ...(payload.format_preference ? { format_preference: payload.format_preference } : {}),
           };
         },
         drawer: false,
@@ -8673,6 +9926,7 @@ import {
           model,
           providers,
           provider_select: "priority_failover",
+          format_preference: String(route.format_preference || ""),
         };
         await runOptimisticConfigAction(
           priorityButton,
@@ -8681,7 +9935,11 @@ import {
             resourceKey: `model-route:${model}`,
             apply: (config) => {
               const routes = ((config.models ||= {}).routes ||= {});
-              routes[model] = { providers: structuredClone(providers), provider_select: "priority_failover" };
+              routes[model] = {
+                providers: structuredClone(providers),
+                provider_select: "priority_failover",
+                ...(requestPayload.format_preference ? { format_preference: requestPayload.format_preference } : {}),
+              };
             },
           },
           {
@@ -8722,6 +9980,7 @@ import {
         form.elements.model.value = model;
         form.elements.providers.value = routeProvidersText(route.providers);
         form.elements.provider_select.value = route.provider_select || "priority_failover";
+        form.elements.format_preference.value = route.format_preference || "";
         (editor || form).scrollIntoView({ block: "nearest" });
         form.elements.providers.focus();
         return;
@@ -8796,7 +10055,8 @@ import {
     if (returnTarget?.type === "provider" && returnTarget.name) {
       openProviderDrawer(returnTarget.name, returnTarget.tab || "overview");
     } else if (returnTarget?.type === "model" && returnTarget.name) {
-      openModelDrawer(returnTarget.name);
+      if (returnTarget.mode === "usage") openUsageModelDrawer(returnTarget.name);
+      else openModelDrawer(returnTarget.name);
     }
   }
 
@@ -8808,8 +10068,9 @@ import {
     const subtitle = el("modelDrawerSubtitle");
     const body = el("modelDrawerBody");
     if (!drawer || !body) return;
+    state.modelDrawerMode = "summary";
 
-    title.textContent = modelName;
+    title.innerHTML = `${modelBrandIconMarkup(modelName, iconSvg("boxes"))}<span>${escapeHtml(modelName)}</span>`;
     subtitle.textContent = "Loading benchmark data...";
     updateDOM(body, `
       <div class="loading-state pad" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 0;">
@@ -8866,7 +10127,7 @@ import {
               ${summary.price_blended ? `
                 <div class="mini-metric" style="background: var(--surface-raised); border: 1px solid var(--line-soft); border-radius: 8px; padding: 12px;">
                   <span class="metric-label" style="display: block; font-size: 11px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px;">Blended Cost</span>
-                  <strong style="font-size: 18px; font-weight: 800; font-family: var(--mono); color: var(--text);">${fmtCost(summary.price_blended.price_per_1m_tokens)}<span style="font-size: 11px; font-weight: normal;">/1M</span></strong>
+                  <strong style="font-size: 18px; font-weight: 800; font-family: var(--mono); color: var(--text);">${fmtPricing(summary.price_blended.price_per_1m_tokens)}<span style="font-size: 11px; font-weight: normal;">/1M</span></strong>
                   <small style="display: block; font-size: 10px; color: var(--muted); margin-top: 2px;">Rank ${fmtRank(summary.price_blended)}</small>
                 </div>
               ` : ""}
@@ -8882,9 +10143,9 @@ import {
             <h3 class="drawer-section-title" style="font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin: 24px 0 8px; border-bottom: 1px solid var(--line-soft); padding-bottom: 6px;">Pricing per 1M Tokens</h3>
             <div class="kv-grid drawer-kv" style="display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; font-size: 13px;">
               ${summary.pricing ? `
-                <span style="color: var(--muted);">Input Price</span><span class="mono" style="font-family: var(--mono); font-weight: 600; text-align: right;">${fmtCost(summary.pricing.input)}</span>
-                <span style="color: var(--muted);">Output Price</span><span class="mono" style="font-family: var(--mono); font-weight: 600; text-align: right;">${fmtCost(summary.pricing.output)}</span>
-                <span style="color: var(--muted);">Cache Hit Price</span><span class="mono" style="font-family: var(--mono); font-weight: 600; text-align: right;">${summary.pricing.cache_hit !== null ? fmtCost(summary.pricing.cache_hit) : "-"}</span>
+                <span style="color: var(--muted);">Input Price</span><span class="mono" style="font-family: var(--mono); font-weight: 600; text-align: right;">${fmtPricing(summary.pricing.input)}</span>
+                <span style="color: var(--muted);">Output Price</span><span class="mono" style="font-family: var(--mono); font-weight: 600; text-align: right;">${fmtPricing(summary.pricing.output)}</span>
+                <span style="color: var(--muted);">Cache Read Price</span><span class="mono" style="font-family: var(--mono); font-weight: 600; text-align: right;">${fmtPricing(summary.pricing.cache_hit)}</span>
               ` : "<span>Pricing data</span><span>Not available</span>"}
             </div>
 
@@ -8933,6 +10194,7 @@ import {
       drawer.classList.remove("is-open");
       drawer.setAttribute("aria-hidden", "true");
     }
+    state.modelDrawerMode = "summary";
   }
 
   window.LP_openModelDrawer = openModelDrawer;

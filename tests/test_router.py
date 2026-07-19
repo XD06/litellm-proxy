@@ -703,6 +703,88 @@ class RouterTests(unittest.TestCase):
         self.assertEqual(attempts[0].upstream_format, "responses")
         self.assertEqual(attempts[1].upstream_format, "chat_completions")
 
+    def test_priority_first_retries_other_formats_for_same_high_priority_provider(self):
+        cfg = base_config()
+        cfg["routing"].update({
+            "provider_select": "priority_failover",
+            "default_provider_pool": ["alpha", "beta"],
+            "format_preference": "priority_first",
+        })
+        cfg["providers"]["alpha"]["priority"] = 80
+        cfg["providers"]["alpha"]["formats"] = {
+            "chat_completions": {"enabled": True, "path": "/v1/chat/completions"},
+            "responses": {"enabled": True, "path": "/v1/responses"},
+            "anthropic_messages": {"enabled": False, "path": "/v1/messages"},
+        }
+        cfg["providers"]["beta"]["priority"] = 70
+        cfg["providers"]["beta"]["keys"] = ["beta-key-1"]
+        cfg["providers"]["beta"]["formats"] = {
+            "chat_completions": {"enabled": False, "path": "/v1/chat/completions"},
+            "responses": {"enabled": True, "path": "/v1/responses"},
+            "anthropic_messages": {"enabled": False, "path": "/v1/messages"},
+        }
+
+        attempts = list(
+            UpstreamRouter(cfg).iter_attempts(
+                "any-model",
+                False,
+                "req-multi-format-priority",
+                client_format="responses",
+                allowed_upstream_formats=["responses", "chat_completions"],
+            )
+        )
+
+        self.assertEqual(
+            [(a.provider, a.upstream_format) for a in attempts],
+            [
+                ("alpha", "responses"),
+                ("alpha", "chat_completions"),
+                ("beta", "responses"),
+            ],
+        )
+        self.assertEqual(attempts[0].url, "https://alpha.example/v1/responses")
+        self.assertEqual(attempts[1].url, "https://alpha.example/v1/chat/completions")
+
+    def test_native_first_keeps_all_native_candidates_before_same_provider_fallback(self):
+        cfg = base_config()
+        cfg["routing"].update({
+            "provider_select": "priority_failover",
+            "default_provider_pool": ["alpha", "beta"],
+            "format_preference": "native_first",
+        })
+        cfg["providers"]["alpha"]["priority"] = 80
+        cfg["providers"]["alpha"]["formats"] = {
+            "chat_completions": {"enabled": True, "path": "/v1/chat/completions"},
+            "responses": {"enabled": True, "path": "/v1/responses"},
+            "anthropic_messages": {"enabled": False, "path": "/v1/messages"},
+        }
+        cfg["providers"]["beta"]["priority"] = 70
+        cfg["providers"]["beta"]["keys"] = ["beta-key-1"]
+        cfg["providers"]["beta"]["formats"] = {
+            "chat_completions": {"enabled": False, "path": "/v1/chat/completions"},
+            "responses": {"enabled": True, "path": "/v1/responses"},
+            "anthropic_messages": {"enabled": False, "path": "/v1/messages"},
+        }
+
+        attempts = list(
+            UpstreamRouter(cfg).iter_attempts(
+                "any-model",
+                False,
+                "req-multi-format-native",
+                client_format="responses",
+                allowed_upstream_formats=["responses", "chat_completions"],
+            )
+        )
+
+        self.assertEqual(
+            [(a.provider, a.upstream_format) for a in attempts],
+            [
+                ("alpha", "responses"),
+                ("beta", "responses"),
+                ("alpha", "chat_completions"),
+            ],
+        )
+
     def test_attempt_proxy_priority_key_provider_global(self):
         cfg = base_config()
         cfg["routing"]["default_provider_pool"] = ["alpha"]

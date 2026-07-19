@@ -695,6 +695,56 @@ class ConfigManagerTests(unittest.TestCase):
         self.assertIsNone(overlay["models"]["routes"]["base-model"])
         self.assertEqual(overlay["models"]["routes"]["deepseek-v4-flash"]["provider_select"], "priority_failover")
 
+    def test_model_route_format_preference_can_be_saved_preserved_and_cleared(self):
+        _config_path, overlay_path = self.temp_paths()
+        cfg = base_config()
+        cfg["models"]["routes"] = {
+            "existing": {
+                "providers": [{"name": "alpha", "weight": 1}],
+                "provider_select": "priority_failover",
+                "format_preference": "native_first",
+            }
+        }
+        mgr = config_manager.RuntimeConfigManager(cfg, overlay_path=overlay_path)
+
+        preserved = mgr.update_model_route(
+            {
+                "model": "existing",
+                "providers": "alpha:2",
+                "provider_select": "priority_failover",
+            }
+        )
+        self.assertEqual(preserved["models"]["routes"]["existing"]["format_preference"], "native_first")
+
+        updated = mgr.update_model_route(
+            {
+                "model": "existing",
+                "providers": "alpha:2",
+                "provider_select": "priority_failover",
+                "format_preference": "priority_first",
+            }
+        )
+        self.assertEqual(updated["models"]["routes"]["existing"]["format_preference"], "priority_first")
+
+        inherited = mgr.update_model_route(
+            {
+                "model": "existing",
+                "providers": "alpha:2",
+                "provider_select": "priority_failover",
+                "format_preference": "",
+            }
+        )
+        self.assertNotIn("format_preference", inherited["models"]["routes"]["existing"])
+
+        with self.assertRaises(config_manager.ConfigValidationError):
+            mgr.update_model_route(
+                {
+                    "model": "existing",
+                    "providers": "alpha",
+                    "format_preference": "fastest_first",
+                }
+            )
+
     def test_delete_provider_cleans_routes_pool_and_model_metadata(self):
         _config_path, overlay_path = self.temp_paths()
         cfg = base_config()

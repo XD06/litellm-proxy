@@ -52,6 +52,11 @@
     // - random            同一次请求内顺序稳定的随机；适合临时打散，不推荐作为生产默认。
     "provider_select": "priority_failover",
 
+    // 格式与供应商优先级的关系：
+    // - priority_first：先比较 provider priority；同优先级才优先客户端原生格式
+    // - native_first：所有客户端原生格式候选都排在跨格式候选之前
+    "format_preference": "priority_first",
+
     // 单次请求允许的“总尝试次数”上限（跨 provider + key 的总和）
     // 只会在“向客户端写响应前”重试；一旦开始写 SSE，就不会透明重试
     "max_attempts": 6,
@@ -60,6 +65,10 @@
     "connect_timeout_s": 15,
     "read_timeout_s": 120,
     "first_token_timeout_s": 30,
+    "first_event_timeout_s": 15,
+    "agent_first_event_timeout_s": 30,
+    "first_event_total_timeout_s": 45,
+    "agent_first_event_total_timeout_s": 75,
 
     // 跨格式参数语义策略：
     // - safe：映射可安全转换的字段，丢弃 cache_control 等非语义提示，并在请求详情记录决定
@@ -75,7 +84,7 @@
     // - safe: 旧行为，先等首个 SSE data 事件，失败时还能在写响应前换路由
     // - guarded: 默认。上游 HTTP 状态 OK 后立即给客户端发 SSE headers，不等首事件，降低首 token 代理等待；
     //            代价是 headers 发出后首事件超时不能再透明 failover
-    "native_stream_mode": "guarded"
+    "native_stream_mode": "safe"
   },
 
   // 错误分类、可重试状态码与冷却时间
@@ -347,6 +356,16 @@
     // - off: 只转发不解析 SSE 行，减少 CPU；usage 统计会为空
     "native_stream_usage": "full",
 
+    // 缺少本地价格时使用有界后台队列查询 AA；请求线程不会等待网络。
+    "pricing": {
+      "resolve_missing_prices": true,
+      "queue_size": 64,
+      "max_retries": 2,
+      "retry_backoff_s": 1,
+      "connect_timeout_s": 3,
+      "total_timeout_s": 8
+    },
+
     // 安全诊断日志（JSONL，stdlib，无额外依赖）
     // 用于区分失败发生在上游 HTTP、格式兼容重试、请求转换、网络传输还是代理内部异常。
     // 只保存 request_id、provider/model/format、attempt、错误分类、上游错误摘要和脱敏 key；
@@ -363,6 +382,14 @@
       "enabled": true,
       "path": "tmp/proxy_history.sqlite3",
       "retention_days": 30
+    },
+
+    // 永久保存低体积的每日/累计用量；小时趋势默认保留 90 天。
+    // reporting_timezone 留空时在首次初始化统计库时固定为系统时区。
+    "usage_statistics": {
+      "enabled": true,
+      "hourly_retention_days": 90,
+      "reporting_timezone": ""
     },
 
     // Admin 配置/运行时操作审计（JSONL，stdlib，无额外依赖）

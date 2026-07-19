@@ -34,17 +34,38 @@ class ModelSummary:
         self._index = ModelIndex(self._cache_dir)
         self._cache = ModelCache(self._cache_dir)
 
-    def get(self, name: str, proxy: Optional[str] = None, refresh: bool = False) -> dict:
+    def get(
+        self,
+        name: str,
+        proxy: Optional[str] = None,
+        refresh: bool = False,
+        *,
+        connect_timeout_s: float = 10.0,
+        total_timeout_s: float = 30.0,
+    ) -> dict:
         """获取模型摘要。"""
-        return asyncio.run(self._get(name, proxy, refresh))
+        async def resolve():
+            return await asyncio.wait_for(
+                self._get(name, proxy, refresh, connect_timeout_s, total_timeout_s),
+                timeout=max(float(total_timeout_s), float(connect_timeout_s)),
+            )
 
-    async def _get(self, name: str, proxy: Optional[str] = None, refresh: bool = False) -> dict:
-        await self._ensure_index(proxy)
+        return asyncio.run(resolve())
+
+    async def _get(
+        self,
+        name: str,
+        proxy: Optional[str] = None,
+        refresh: bool = False,
+        connect_timeout_s: float = 10.0,
+        total_timeout_s: float = 30.0,
+    ) -> dict:
+        await self._ensure_index(proxy, connect_timeout_s, total_timeout_s)
         slug = self._index.resolve(name)
 
         # 本地索引未匹配 → 可能是新模型，拉取最新索引重试
         if not slug:
-            await self._fetch_index(proxy)
+            await self._fetch_index(proxy, connect_timeout_s, total_timeout_s)
             slug = self._index.resolve(name)
             if not slug:
                 suggestions = self._index.search(name, limit=3)
@@ -59,7 +80,11 @@ class ModelSummary:
             if cached:
                 return {"model": slug, "summary": cached, "cached": True}
 
-        fetcher = ModelFetcher(proxy)
+        fetcher = ModelFetcher(
+            proxy,
+            connect_timeout_s=connect_timeout_s,
+            total_timeout_s=total_timeout_s,
+        )
         try:
             result = await fetcher.fetch_and_parse(slug)
         except Exception as e:
@@ -94,7 +119,12 @@ class ModelSummary:
 
     # ---- internal ----
 
-    async def _ensure_index(self, proxy: Optional[str] = None):
+    async def _ensure_index(
+        self,
+        proxy: Optional[str] = None,
+        connect_timeout_s: float = 10.0,
+        total_timeout_s: float = 30.0,
+    ):
         if self._index.load_local():
             return
         builtin = Path(__file__).parent / "builtin_index.json"
@@ -104,10 +134,19 @@ class ModelSummary:
             self._index.save()
             if self._index.models:
                 return
-        await self._fetch_index(proxy)
+        await self._fetch_index(proxy, connect_timeout_s, total_timeout_s)
 
-    async def _fetch_index(self, proxy: Optional[str] = None):
-        fetcher = ModelFetcher(proxy)
+    async def _fetch_index(
+        self,
+        proxy: Optional[str] = None,
+        connect_timeout_s: float = 10.0,
+        total_timeout_s: float = 30.0,
+    ):
+        fetcher = ModelFetcher(
+            proxy,
+            connect_timeout_s=connect_timeout_s,
+            total_timeout_s=total_timeout_s,
+        )
         html = await fetcher.fetch_index_html()
         self._index.build_from_html(html)
         self._index.save()

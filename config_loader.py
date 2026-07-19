@@ -312,13 +312,17 @@ def _default_config() -> Dict[str, Any]:
             "connect_timeout_s": 15,
             "read_timeout_s": 120,
             "first_token_timeout_s": 30,
+            "first_event_timeout_s": 15,
+            "agent_first_event_timeout_s": 30,
+            "first_event_total_timeout_s": 45,
+            "agent_first_event_total_timeout_s": 75,
             # Bounds for the SSE prelude buffered before client headers are sent.
             # Protects against pathological upstreams that emit infinite
             # comments/keepalives without a data event. 0 disables a bound.
             "stream_prefetch_max_lines": 128,
             "stream_prefetch_max_bytes": 65536,
             "native_nonstream_mode": "validated",
-            "native_stream_mode": "guarded",
+            "native_stream_mode": "safe",
             "anthropic_default_max_tokens": 4096,
         },
         "retry": {
@@ -380,10 +384,23 @@ def _default_config() -> Dict[str, Any]:
             "log_key_mask": {"prefix": 6, "suffix": 2},
             "log_provider_on_each_request": False,
             "native_stream_usage": "full",
+            "pricing": {
+                "resolve_missing_prices": True,
+                "queue_size": 64,
+                "max_retries": 2,
+                "retry_backoff_s": 1.0,
+                "connect_timeout_s": 3.0,
+                "total_timeout_s": 8.0,
+            },
             "history": {
                 "enabled": True,
                 "path": "tmp/proxy_history.sqlite3",
                 "retention_days": 30,
+            },
+            "usage_statistics": {
+                "enabled": True,
+                "hourly_retention_days": 90,
+                "reporting_timezone": "",
             },
             "responses_sessions": {
                 "enabled": True,

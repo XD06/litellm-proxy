@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.backends._legacy:_Backend"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "litellm-proxy"
@@ -67,6 +67,9 @@ py-modules = [
     "scheduler_policy",
     "history_store",
     "usage_accounting",
+    "usage_statistics",
+    "pricing_resolver",
+    "probe_coordinator",
     "audit_store",
     "request_routes",
     "request_dispatcher",

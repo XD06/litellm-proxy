@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import re
 from typing import Any, Dict, List, Optional
 
@@ -133,6 +134,109 @@ def key_value(entry: Any) -> str:
     if isinstance(entry, dict):
         return str(entry.get("key") or entry.get("api_key") or "").strip()
     return str(entry or "").strip()
+
+
+def _normalized_ip(value: Any) -> str:
+    raw = str(value or "").strip().strip('"')
+    if not raw or len(raw) > 128 or raw.lower() == "unknown" or raw.startswith("_"):
+        return ""
+    if raw.startswith("[") and "]" in raw:
+        raw = raw[1:raw.index("]")]
+    elif raw.count(":") == 1 and "." in raw:
+        host, port = raw.rsplit(":", 1)
+        if port.isdigit():
+            raw = host
+    try:
+        return str(ipaddress.ip_address(raw))
+    except ValueError:
+        return ""
+
+
+def _trusted_networks(values: Any) -> list:
+    out = []
+    for value in values if isinstance(values, list) else []:
+        try:
+            out.append(ipaddress.ip_network(str(value or "").strip(), strict=False))
+        except ValueError:
+            continue
+    return out
+
+
+def _ip_is_trusted(value: str, networks: list) -> bool:
+    try:
+        address = ipaddress.ip_address(value)
+    except ValueError:
+        return False
+    return any(address in network for network in networks)
+
+
+def _forwarded_for_values(value: Any) -> list[str]:
+    out = []
+    for element in str(value or "").split(","):
+        for part in element.split(";"):
+            name, sep, raw = part.strip().partition("=")
+            if sep and name.strip().lower() == "for":
+                ip = _normalized_ip(raw)
+                if ip:
+                    out.append(ip)
+                break
+    return out
+
+
+def resolve_client_ip(
+    peer_ip: Any,
+    headers: Any,
+    trusted_proxy_cidrs: Any = None,
+    trusted_proxy_headers: Any = None,
+) -> tuple[str, str]:
+    peer = _normalized_ip(peer_ip)
+    if not peer:
+        return "", ""
+    networks = _trusted_networks(trusted_proxy_cidrs)
+    if not networks or not _ip_is_trusted(peer, networks):
+        return peer, "peer"
+
+    header_order = trusted_proxy_headers if isinstance(trusted_proxy_headers, list) else [
+        "forwarded",
+        "x-forwarded-for",
+        "cf-connecting-ip",
+    ]
+    def header_value(name: str) -> Any:
+        if not hasattr(headers, "get"):
+            return ""
+        value = headers.get(name) or headers.get(name.lower())
+        if value:
+            return value
+        if isinstance(headers, dict):
+            wanted = name.lower()
+            for key, candidate in headers.items():
+                if str(key).lower() == wanted:
+                    return candidate
+        return ""
+
+    for header_name in header_order:
+        normalized_name = str(header_name or "").strip().lower()
+        if not normalized_name:
+            continue
+        raw_value = header_value(normalized_name)
+        if not raw_value:
+            continue
+        if normalized_name == "forwarded":
+            chain = _forwarded_for_values(raw_value)
+        elif normalized_name == "x-forwarded-for":
+            chain = [ip for ip in (_normalized_ip(value) for value in str(raw_value).split(",")) if ip]
+        else:
+            candidate = _normalized_ip(raw_value)
+            chain = [candidate] if candidate else []
+        if not chain:
+            continue
+        if normalized_name in ("forwarded", "x-forwarded-for"):
+            for candidate in reversed(chain):
+                if not _ip_is_trusted(candidate, networks):
+                    return candidate, normalized_name
+            return chain[0], normalized_name
+        return chain[0], normalized_name
+    return peer, "peer"
 
 
 def key_fingerprint(entry: Any) -> str:

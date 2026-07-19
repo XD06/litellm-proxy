@@ -30,6 +30,50 @@ def make_attempt(
 
 
 class ObservabilityTests(unittest.TestCase):
+    def test_inflight_request_after_hot_swap_persists_to_new_history(self):
+        tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+        self.addCleanup(tmp.cleanup)
+        path = os.path.join(tmp.name, "history.sqlite3")
+        cfg = {
+            "observability": {
+                "history": {
+                    "enabled": True,
+                    "path": path,
+                    "sync_mode": True,
+                    "retention_days": 30,
+                },
+                "usage_statistics": {
+                    "enabled": True,
+                    "reporting_timezone": "UTC",
+                },
+            }
+        }
+        old = ProxyObservability(cfg)
+        old.record_request_start(
+            "req-hot-swap",
+            client_format="chat_completions",
+            endpoint="chat_completions",
+            model="client-model",
+            stream=False,
+            path="/v1/chat/completions",
+        )
+        old.record_attempt(
+            "req-hot-swap",
+            make_attempt("req-hot-swap"),
+            outcome="success",
+            usage={"input_tokens": 4, "output_tokens": 6, "total_tokens": 10},
+        )
+        new = ProxyObservability(cfg)
+
+        new.migrate_counters_from(old)
+        old.record_request_end("req-hot-swap", status_code=200)
+
+        self.assertIsNotNone(new.get_request("req-hot-swap"))
+        self.assertEqual(
+            new.usage_statistics_summary(range_name="all")["summary"]["requests"],
+            1,
+        )
+
     def test_request_routing_trace_is_snapshotted_and_redacts_secrets(self):
         obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
         trace = RoutingTrace()
@@ -100,12 +144,23 @@ class ObservabilityTests(unittest.TestCase):
         self.assertAlmostEqual(snap["counters"]["usage"]["cost_usd"], 0.000016)
         self.assertEqual(snap["counters"]["by_provider"]["alpha"]["usage"]["total_tokens"], 10)
         self.assertEqual(snap["counters"]["by_model_usage"]["client-model"]["output_tokens"], 6)
-        self.assertEqual(snap["recent_requests"][0]["usage"], {"input_tokens": 4, "output_tokens": 6, "total_tokens": 10})
+        self.assertEqual(
+            snap["recent_requests"][0]["usage"],
+            {
+                "input_tokens": 4,
+                "uncached_input_tokens": 4,
+                "cached_input_tokens": 0,
+                "cache_write_tokens": 0,
+                "output_tokens": 6,
+                "reasoning_tokens": 0,
+                "total_tokens": 10,
+            },
+        )
         self.assertEqual(snap["recent_requests"][0]["first_byte_ms"], 123)
         self.assertAlmostEqual(snap["recent_requests"][0]["cost_usd"], 0.000016)
         self.assertEqual(snap["recent_requests"][0]["attempts"][0]["provider"], "alpha")
         self.assertEqual(snap["recent_requests"][0]["attempts"][0]["provider_model"], "alpha-model")
-        self.assertEqual(snap["recent_requests"][0]["attempts"][0]["usage"], {"input_tokens": 4, "output_tokens": 6, "total_tokens": 10})
+        self.assertEqual(snap["recent_requests"][0]["attempts"][0]["usage"], snap["recent_requests"][0]["usage"])
         self.assertEqual(snap["recent_requests"][0]["attempts"][0]["key_masked"], "se**ey")
         self.assertEqual(len(snap["recent_requests"][0]["attempts"][0]["key_id"]), 10)
         self.assertNotIn("secret-key", str(snap))

@@ -304,11 +304,13 @@ class RuntimeConfigManager:
         "idle_check_interval_deep_min_s": 3 * 3600,
         "idle_check_interval_deep_max_s": 6 * 3600,
         "patrol_check_enabled": True,
-        "patrol_interval_min_s": 3600,
-        "patrol_interval_max_s": 3 * 3600,
+        "patrol_interval_min_s": 6 * 3600,
+        "patrol_interval_max_s": 12 * 3600,
         "patrol_delay_s": 3,
         "patrol_delay_jitter_s": 2,
         "patrol_first_byte_timeout_s": 15,
+        "probe_recent_success_s": 600,
+        "probe_max_tokens": 16,
     }
 
     def update_health_monitor(self, patch: Dict[str, Any]) -> Dict[str, Any]:
@@ -799,6 +801,10 @@ class RuntimeConfigManager:
             "connect_timeout_s",
             "read_timeout_s",
             "first_token_timeout_s",
+            "first_event_timeout_s",
+            "agent_first_event_timeout_s",
+            "first_event_total_timeout_s",
+            "agent_first_event_total_timeout_s",
             "anthropic_default_max_tokens",
             "semantic_conversion",
         }
@@ -825,7 +831,13 @@ class RuntimeConfigManager:
                 clean[key] = mode
             elif key == "max_attempts":
                 clean[key] = self._bounded_int(value, key, 1, 50)
-            elif key == "first_token_timeout_s":
+            elif key in (
+                "first_token_timeout_s",
+                "first_event_timeout_s",
+                "agent_first_event_timeout_s",
+                "first_event_total_timeout_s",
+                "agent_first_event_total_timeout_s",
+            ):
                 clean[key] = self._bounded_int(value, key, 0, 600)
             elif key == "anthropic_default_max_tokens":
                 clean[key] = self._bounded_int(value, key, 1, 1000000)
@@ -865,7 +877,7 @@ class RuntimeConfigManager:
     def _validate_model_route_patch(self, patch: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
         if not isinstance(patch, dict) or not patch:
             raise ConfigValidationError("model route patch must be a non-empty object")
-        allowed = {"model", "providers", "provider_select"}
+        allowed = {"model", "providers", "provider_select", "format_preference"}
         for key in patch.keys():
             if key not in allowed:
                 raise ConfigValidationError(f"unsupported model route field: {key}")
@@ -875,7 +887,21 @@ class RuntimeConfigManager:
         provider_select = str(patch.get("provider_select") or "priority_failover").strip()
         if provider_select not in PROVIDER_SELECT_MODES:
             raise ConfigValidationError(f"unsupported provider_select: {provider_select}")
-        return model, {"providers": providers, "provider_select": provider_select}
+        route = {"providers": providers, "provider_select": provider_select}
+        if "format_preference" in patch:
+            format_preference = str(patch.get("format_preference") or "").strip()
+            if format_preference:
+                if format_preference not in FORMAT_PREFERENCE_MODES:
+                    raise ConfigValidationError(f"unsupported format_preference: {format_preference}")
+                route["format_preference"] = format_preference
+            else:
+                route["format_preference"] = None
+        else:
+            existing = (((self.config.get("models") or {}).get("routes") or {}).get(model) or {})
+            format_preference = str(existing.get("format_preference") or "").strip()
+            if format_preference in FORMAT_PREFERENCE_MODES:
+                route["format_preference"] = format_preference
+        return model, route
 
     @staticmethod
     def _validate_model_id(model: Any) -> str:
@@ -1069,6 +1095,9 @@ class RuntimeConfigManager:
         if isinstance(routes, dict):
             for model in [name for name, route in routes.items() if route is None]:
                 routes.pop(model, None)
+            for route in routes.values():
+                if isinstance(route, dict) and route.get("format_preference") is None:
+                    route.pop("format_preference", None)
         models = normalized.get("models") or {}
         if isinstance(models, dict):
             for field in (

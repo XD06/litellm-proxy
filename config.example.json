@@ -14,10 +14,15 @@
       "deepseek"
     ],
     "provider_select": "priority_failover",
+    "format_preference": "priority_first",
     "max_attempts": 6,
     "connect_timeout_s": 15,
     "read_timeout_s": 120,
     "first_token_timeout_s": 30,
+    "first_event_timeout_s": 15,
+    "agent_first_event_timeout_s": 30,
+    "first_event_total_timeout_s": 45,
+    "agent_first_event_total_timeout_s": 75,
     "semantic_conversion": "safe"
   },
   "retry": {
@@ -298,6 +303,14 @@
       "suffix": 2
     },
     "log_provider_on_each_request": true,
+    "pricing": {
+      "resolve_missing_prices": true,
+      "queue_size": 64,
+      "max_retries": 2,
+      "retry_backoff_s": 1,
+      "connect_timeout_s": 3,
+      "total_timeout_s": 8
+    },
     "diagnostics": {
       "enabled": true,
       "path": "tmp/proxy_diagnostics.jsonl"
@@ -306,6 +319,11 @@
       "enabled": true,
       "path": "tmp/proxy_history.sqlite3",
       "retention_days": 30
+    },
+    "usage_statistics": {
+      "enabled": true,
+      "hourly_retention_days": 90,
+      "reporting_timezone": ""
     },
     "responses_sessions": {
       "enabled": true,

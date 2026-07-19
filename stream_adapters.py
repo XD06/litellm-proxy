@@ -187,7 +187,14 @@ def prefetch_initial_stream_lines(upstream, timeout_s, preserve_skipped=True, *,
                     q.put(socket.timeout("upstream closed before first stream event"))
                     return
                 line = raw.decode("utf-8", errors="replace").strip()
-                if not line or line.startswith(":") or sse_data_payload(line) is None:
+                data_payload = sse_data_payload(line)
+                if (
+                    not line
+                    or line.startswith(":")
+                    or data_payload is None
+                    or not str(data_payload).strip()
+                    or is_sse_done(str(data_payload).strip())
+                ):
                     if preserve_skipped:
                         initial.append(raw)
                         skipped_count += 1
@@ -353,12 +360,16 @@ def _merge_usage(current: Dict[str, int], candidate: Any) -> Dict[str, int]:
     candidate_usage = normalize_usage(candidate)
     if not has_usage(candidate_usage):
         return current
+    normalized_current = normalize_usage(current)
     merged = {
-        "input_tokens": max(int((current or {}).get("input_tokens") or 0), candidate_usage["input_tokens"]),
-        "output_tokens": max(int((current or {}).get("output_tokens") or 0), candidate_usage["output_tokens"]),
-        "total_tokens": max(int((current or {}).get("total_tokens") or 0), candidate_usage["total_tokens"]),
+        key: max(int(normalized_current.get(key) or 0), int(candidate_usage.get(key) or 0))
+        for key in empty_usage()
     }
-    merged["total_tokens"] = max(merged["total_tokens"], merged["input_tokens"] + merged["output_tokens"])
+    merged["input_tokens"] = max(
+        merged["input_tokens"],
+        merged["uncached_input_tokens"] + merged["cached_input_tokens"] + merged["cache_write_tokens"],
+    )
+    merged["total_tokens"] = merged["input_tokens"] + merged["output_tokens"]
     return merged
 
 

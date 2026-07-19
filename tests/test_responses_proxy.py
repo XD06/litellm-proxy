@@ -315,8 +315,19 @@ class ResponsesProxyTests(unittest.TestCase):
         snap = obs.snapshot()
         self.assertEqual(snap["counters"]["usage"]["total_tokens"], 10)
         request = snap["recent_requests"][0]
-        self.assertEqual(request["usage"], {"input_tokens": 4, "output_tokens": 6, "total_tokens": 10})
-        self.assertEqual(request["attempts"][0]["usage"], {"input_tokens": 4, "output_tokens": 6, "total_tokens": 10})
+        self.assertEqual(
+            request["usage"],
+            {
+                "input_tokens": 4,
+                "uncached_input_tokens": 4,
+                "cached_input_tokens": 0,
+                "cache_write_tokens": 0,
+                "output_tokens": 6,
+                "reasoning_tokens": 0,
+                "total_tokens": 10,
+            },
+        )
+        self.assertEqual(request["attempts"][0]["usage"], request["usage"])
 
     def test_responses_request_can_fallback_to_chat_completions_upstream(self):
         fake_router = FakeRouter([self.attempt("chat_completions")])

@@ -395,8 +395,19 @@ class AnthropicProxyTests(unittest.TestCase):
         snap = obs.snapshot()
         self.assertEqual(snap["counters"]["usage"]["total_tokens"], 18)
         request = snap["recent_requests"][0]
-        self.assertEqual(request["usage"], {"input_tokens": 7, "output_tokens": 11, "total_tokens": 18})
-        self.assertEqual(request["attempts"][0]["usage"], {"input_tokens": 7, "output_tokens": 11, "total_tokens": 18})
+        self.assertEqual(
+            request["usage"],
+            {
+                "input_tokens": 7,
+                "uncached_input_tokens": 7,
+                "cached_input_tokens": 0,
+                "cache_write_tokens": 0,
+                "output_tokens": 11,
+                "reasoning_tokens": 0,
+                "total_tokens": 18,
+            },
+        )
+        self.assertEqual(request["attempts"][0]["usage"], request["usage"])
 
     def test_safe_thinking_parameter_allows_cross_format_fallback(self):
         fake_router = FakeRouter([])

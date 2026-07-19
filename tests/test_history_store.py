@@ -1,9 +1,11 @@
+import gc
 import os
 import sqlite3
 import sys
 import tempfile
 import time
 import unittest
+import warnings
 from unittest.mock import patch
 
 from history_store import RequestHistoryStore
@@ -114,7 +116,18 @@ class RequestHistoryStoreTests(unittest.TestCase):
         self.assertEqual(listed["items"][0]["request_id"], "req-fail")
         self.assertEqual(listed["items"][0]["first_byte_ms"], 321)
         self.assertEqual(listed["items"][0]["providers"], ["beta"])
-        self.assertEqual(listed["items"][0]["usage"], {"input_tokens": 4, "output_tokens": 6, "total_tokens": 10})
+        self.assertEqual(
+            listed["items"][0]["usage"],
+            {
+                "input_tokens": 4,
+                "uncached_input_tokens": 4,
+                "cached_input_tokens": 0,
+                "cache_write_tokens": 0,
+                "output_tokens": 6,
+                "reasoning_tokens": 0,
+                "total_tokens": 10,
+            },
+        )
         self.assertAlmostEqual(listed["items"][0]["cost_usd"], 0.000016)
         self.assertEqual(listed["items"][0]["error_types"], ["server_error"])
         self.assertEqual(listed["items"][0]["failure_reasons"], ["upstream_5xx"])
@@ -210,11 +223,22 @@ class RequestHistoryStoreTests(unittest.TestCase):
         self.assertEqual(detail["state"], "finished")
         self.assertEqual(detail["request_id"], "req-detail")
         self.assertEqual(detail["first_byte_ms"], 321)
-        self.assertEqual(detail["usage"], {"input_tokens": 4, "output_tokens": 6, "total_tokens": 10})
+        self.assertEqual(
+            detail["usage"],
+            {
+                "input_tokens": 4,
+                "uncached_input_tokens": 4,
+                "cached_input_tokens": 0,
+                "cache_write_tokens": 0,
+                "output_tokens": 6,
+                "reasoning_tokens": 0,
+                "total_tokens": 10,
+            },
+        )
         self.assertAlmostEqual(detail["cost_usd"], 0.000016)
         self.assertEqual(detail["attempts"][0]["key_masked"], "sk-abc**xyz")
         self.assertEqual(detail["attempts"][0]["key_id"], "kid123")
-        self.assertEqual(detail["attempts"][0]["usage"], {"input_tokens": 4, "output_tokens": 6, "total_tokens": 10})
+        self.assertEqual(detail["attempts"][0]["usage"], detail["usage"])
         self.assertEqual(detail["routing_summary"]["outcome"], "direct_success")
         self.assertIn("routing_explanation", detail["attempts"][0])
         self.assertIsNone(store.get_request("missing"))
@@ -259,6 +283,82 @@ class RequestHistoryStoreTests(unittest.TestCase):
         self.assertEqual(series["buckets"][0]["first_byte_ms_avg"], 321)
         self.assertEqual(series["buckets"][0]["first_byte_ms_max"], 321)
         self.assertEqual(series["buckets"][0]["first_byte_ms_min"], 321)
+
+    def test_model_usage_aggregates_cache_cost_latency_and_providers(self):
+        store = self.store()
+        first = sample_request("req-usage-a", provider="alpha")
+        first["model"] = "shared-model"
+        first["usage"] = {
+            "input_tokens": 100,
+            "uncached_input_tokens": 40,
+            "cached_input_tokens": 60,
+            "cache_write_tokens": 0,
+            "output_tokens": 25,
+            "reasoning_tokens": 5,
+            "total_tokens": 125,
+        }
+        first["attempts"][0]["usage"] = dict(first["usage"])
+        first["cost_status"] = "priced"
+        first["attempts"][0]["cost_status"] = "priced"
+        second = sample_request("req-usage-b", status_code=502, provider="beta")
+        second["model"] = "shared-model"
+        store.record_request(first)
+        store.record_request(second)
+
+        payload = store.model_usage(range_name="7d", sort="tokens")
+        detail = store.model_usage_detail("shared-model", range_name="7d")
+
+        self.assertEqual(payload["total"], 1)
+        self.assertEqual(payload["items"][0]["calls"], 2)
+        self.assertEqual(payload["items"][0]["success"], 1)
+        self.assertEqual(payload["items"][0]["usage"]["cached_input_tokens"], 60)
+        self.assertEqual(payload["items"][0]["historical_success_providers"], ["alpha"])
+        self.assertAlmostEqual(payload["items"][0]["cache_rate"], 60 / 104, places=4)
+        self.assertEqual({item["provider"] for item in detail["providers"]}, {"alpha", "beta"})
+        self.assertTrue(detail["timeseries"])
+
+    def test_model_usage_paginates_aggregated_client_models(self):
+        store = self.store()
+        for index, model in enumerate(("alpha-model", "beta-model", "gamma-model")):
+            item = sample_request(f"req-model-page-{index}", provider=f"provider-{index}")
+            item["model"] = model
+            store.record_request(item)
+
+        payload = store.model_usage(range_name="7d", sort="calls", limit=1, offset=1)
+
+        self.assertEqual(payload["total"], 3)
+        self.assertEqual(payload["limit"], 1)
+        self.assertEqual(payload["offset"], 1)
+        self.assertEqual(len(payload["items"]), 1)
+        self.assertEqual(payload["items"][0]["client_model"], "beta-model")
+        self.assertEqual(payload["summary"]["calls"], 3)
+
+    def test_pending_price_backfill_is_fixed_and_request_total_is_recomputed(self):
+        store = self.store()
+        item = sample_request("req-pending", provider="alpha")
+        item["cost_usd"] = 0
+        item["cost_status"] = "pending"
+        item["attempts"][0].update({"cost_usd": 0, "cost_status": "pending"})
+        store.record_request(item)
+        snapshot = {
+            "input_per_million": 1,
+            "cache_read_per_million": 0.1,
+            "cache_write_per_million": 1,
+            "output_per_million": 2,
+            "source": "aa_cache",
+            "resolved_model": "provider-model",
+            "resolved_at": int(time.time()),
+            "complete": True,
+        }
+
+        result = store.backfill_pending_pricing("alpha", "provider-model", snapshot)
+        detail = store.get_request("req-pending")
+
+        self.assertEqual(result, {"attempts_updated": 1, "requests_updated": 1})
+        self.assertEqual(detail["cost_status"], "priced")
+        self.assertEqual(detail["pricing_source"], "aa_cache")
+        self.assertAlmostEqual(detail["cost_usd"], 0.000016)
+        self.assertEqual(detail["attempts"][0]["cost_status"], "priced")
 
     def test_clear_removes_persisted_requests_and_attempts(self):
         store = self.store()
@@ -419,6 +519,21 @@ class RequestHistoryStoreTests(unittest.TestCase):
         self.assertEqual(detail["attempts"][0]["diagnostic_stage"], "upstream_http_error")
         self.assertEqual(detail["attempts"][0]["upstream_error_code"], "invalid_request_error")
 
+    def test_first_event_latency_stats_returns_recent_provider_model_profile_p95(self):
+        store = self.store()
+        for index in range(20):
+            item = sample_request(f"req-latency-{index}", provider="alpha")
+            item["stream"] = True
+            item["request_profile"] = "plain"
+            item["attempts"][0]["first_event_ms"] = (index + 1) * 100
+            store.record_request(item)
+
+        stats = store.first_event_latency_stats("alpha", "client-model", "plain")
+        missing = store.first_event_latency_stats("beta", "client-model", "plain")
+
+        self.assertEqual(stats, {"count": 20, "p95_ms": 1900})
+        self.assertEqual(missing, {"count": 0, "p95_ms": 0})
+
     def test_dropped_count_increments_when_queue_full(self):
         # Use a tiny queue so it saturates quickly. sync_mode defaults to
         # False (the production async path) so record_request exercises the
@@ -453,6 +568,27 @@ class RequestHistoryStoreTests(unittest.TestCase):
         cfg = {"observability": {"history": {"enabled": True, "path": ":memory:"}}}
         store = RequestHistoryStore(cfg)
         self.assertEqual(store.dropped_count(), 0)
+
+    def test_shutdown_releases_pooled_database_connections(self):
+        # Clear connections left eligible for collection by earlier tests so
+        # this assertion observes only the store created below.
+        gc.collect()
+        store = self.store()
+        store.initialize()
+
+        store.shutdown()
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", ResourceWarning)
+            del store
+            gc.collect()
+        unclosed_database_warnings = [
+            warning
+            for warning in caught
+            if warning.category is ResourceWarning
+            and "unclosed database" in str(warning.message)
+        ]
+        self.assertEqual(unclosed_database_warnings, [])
 
 
     def test_attempt_parameter_adaptations_are_persisted(self):

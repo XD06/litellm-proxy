@@ -160,7 +160,18 @@ class StreamAdapterTests(unittest.TestCase):
         result = relay_sse_stream(upstream, output, initial_lines=[b"data: first\n"])
 
         self.assertEqual(output.getvalue(), b"data: first\ndata: second\ndata: third\n")
-        self.assertEqual(result, {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0})
+        self.assertEqual(
+            result,
+            {
+                "input_tokens": 0,
+                "uncached_input_tokens": 0,
+                "cached_input_tokens": 0,
+                "cache_write_tokens": 0,
+                "output_tokens": 0,
+                "reasoning_tokens": 0,
+                "total_tokens": 0,
+            },
+        )
 
     def test_relay_sse_stream_extracts_chat_usage_without_changing_output(self):
         output = io.BytesIO()
@@ -178,7 +189,18 @@ class StreamAdapterTests(unittest.TestCase):
         result = relay_sse_stream([], output, initial_lines=lines)
 
         self.assertEqual(output.getvalue(), b"".join(lines))
-        self.assertEqual(result, {"input_tokens": 2, "output_tokens": 3, "total_tokens": 5})
+        self.assertEqual(
+            result,
+            {
+                "input_tokens": 2,
+                "uncached_input_tokens": 2,
+                "cached_input_tokens": 0,
+                "cache_write_tokens": 0,
+                "output_tokens": 3,
+                "reasoning_tokens": 0,
+                "total_tokens": 5,
+            },
+        )
 
     def test_relay_sse_stream_can_skip_usage_scan(self):
         output = io.BytesIO()
@@ -195,7 +217,18 @@ class StreamAdapterTests(unittest.TestCase):
         result = relay_sse_stream([], output, initial_lines=lines, collect_usage=False)
 
         self.assertEqual(output.getvalue(), b"".join(lines))
-        self.assertEqual(result, {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0})
+        self.assertEqual(
+            result,
+            {
+                "input_tokens": 0,
+                "uncached_input_tokens": 0,
+                "cached_input_tokens": 0,
+                "cache_write_tokens": 0,
+                "output_tokens": 0,
+                "reasoning_tokens": 0,
+                "total_tokens": 0,
+            },
+        )
 
     def test_sse_data_payload_tolerates_missing_space(self):
         self.assertEqual(sse_data_payload("data:hello"), "hello")
@@ -226,7 +259,18 @@ class StreamAdapterTests(unittest.TestCase):
         result = relay_sse_stream([], output, initial_lines=lines)
 
         self.assertEqual(output.getvalue(), b"".join(lines))
-        self.assertEqual(result, {"input_tokens": 2, "output_tokens": 3, "total_tokens": 5})
+        self.assertEqual(
+            result,
+            {
+                "input_tokens": 2,
+                "uncached_input_tokens": 2,
+                "cached_input_tokens": 0,
+                "cache_write_tokens": 0,
+                "output_tokens": 3,
+                "reasoning_tokens": 0,
+                "total_tokens": 5,
+            },
+        )
 
         output = io.BytesIO()
         lines = [
@@ -244,7 +288,18 @@ class StreamAdapterTests(unittest.TestCase):
         result = relay_sse_stream([], output, initial_lines=lines)
 
         self.assertEqual(output.getvalue(), b"".join(lines))
-        self.assertEqual(result, {"input_tokens": 4, "output_tokens": 6, "total_tokens": 10})
+        self.assertEqual(
+            result,
+            {
+                "input_tokens": 4,
+                "uncached_input_tokens": 4,
+                "cached_input_tokens": 0,
+                "cache_write_tokens": 0,
+                "output_tokens": 6,
+                "reasoning_tokens": 0,
+                "total_tokens": 10,
+            },
+        )
 
     def test_relay_sse_stream_combines_anthropic_message_usage(self):
         output = io.BytesIO()
@@ -258,7 +313,111 @@ class StreamAdapterTests(unittest.TestCase):
         result = relay_sse_stream([], output, initial_lines=lines)
 
         self.assertEqual(output.getvalue(), b"".join(lines))
-        self.assertEqual(result, {"input_tokens": 7, "output_tokens": 11, "total_tokens": 18})
+        self.assertEqual(
+            result,
+            {
+                "input_tokens": 7,
+                "uncached_input_tokens": 7,
+                "cached_input_tokens": 0,
+                "cache_write_tokens": 0,
+                "output_tokens": 11,
+                "reasoning_tokens": 0,
+                "total_tokens": 18,
+            },
+        )
+
+    def test_relay_sse_stream_preserves_cache_usage_for_all_protocols(self):
+        cases = [
+            (
+                "chat",
+                [
+                    sse_data(
+                        {
+                            "choices": [{"delta": {}, "finish_reason": "stop"}],
+                            "usage": {
+                                "prompt_tokens": 50,
+                                "completion_tokens": 10,
+                                "prompt_tokens_details": {"cached_tokens": 20},
+                            },
+                        }
+                    )
+                ],
+                {
+                    "input_tokens": 50,
+                    "uncached_input_tokens": 30,
+                    "cached_input_tokens": 20,
+                    "cache_write_tokens": 0,
+                    "output_tokens": 10,
+                    "reasoning_tokens": 0,
+                    "total_tokens": 60,
+                },
+            ),
+            (
+                "responses",
+                [
+                    b"event: response.completed\n",
+                    sse_data(
+                        {
+                            "type": "response.completed",
+                            "response": {
+                                "usage": {
+                                    "input_tokens": 40,
+                                    "output_tokens": 6,
+                                    "input_tokens_details": {"cached_tokens": 10},
+                                    "output_tokens_details": {"reasoning_tokens": 2},
+                                }
+                            },
+                        }
+                    ),
+                ],
+                {
+                    "input_tokens": 40,
+                    "uncached_input_tokens": 30,
+                    "cached_input_tokens": 10,
+                    "cache_write_tokens": 0,
+                    "output_tokens": 6,
+                    "reasoning_tokens": 2,
+                    "total_tokens": 46,
+                },
+            ),
+            (
+                "anthropic",
+                [
+                    b"event: message_start\n",
+                    sse_data(
+                        {
+                            "type": "message_start",
+                            "message": {
+                                "usage": {
+                                    "input_tokens": 5,
+                                    "cache_read_input_tokens": 20,
+                                    "cache_creation_input_tokens": 7,
+                                    "output_tokens": 0,
+                                }
+                            },
+                        }
+                    ),
+                    b"event: message_delta\n",
+                    sse_data({"type": "message_delta", "usage": {"output_tokens": 3}}),
+                ],
+                {
+                    "input_tokens": 32,
+                    "uncached_input_tokens": 5,
+                    "cached_input_tokens": 20,
+                    "cache_write_tokens": 7,
+                    "output_tokens": 3,
+                    "reasoning_tokens": 0,
+                    "total_tokens": 35,
+                },
+            ),
+        ]
+
+        for name, lines, expected in cases:
+            with self.subTest(protocol=name):
+                output = io.BytesIO()
+                result = relay_sse_stream([], output, initial_lines=lines)
+                self.assertEqual(output.getvalue(), b"".join(lines))
+                self.assertEqual(result, expected)
 
     def test_stream_openai_sse_to_responses_emits_text_usage_and_completion(self):
         output = io.BytesIO()

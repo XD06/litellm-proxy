@@ -4,6 +4,12 @@ const assert = require("assert");
 
 const styles = fs.readFileSync(path.join(__dirname, "..", "src", "styles.css"), "utf8");
 
+function cssRule(source, selector) {
+  const start = source.indexOf(selector);
+  if (start < 0) return "";
+  return source.slice(start, source.indexOf("}", start) + 1);
+}
+
 const ownership = styles.slice(styles.indexOf("Final responsive ownership"));
 assert.match(ownership, /@media \(max-width: 760px\)[\s\S]*#providersView \.provider-card-grid\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\)/, "mobile providers must own a one-column card layout");
 assert.match(ownership, /#providersView \.provider-toolbar\s*\{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/, "mobile provider filters must use the available width without horizontal scrolling");
@@ -17,5 +23,15 @@ assert.match(tabletOwnership, /\.sidebar \.nav\s*\{[\s\S]*grid-template-columns:
 assert.match(tabletOwnership, /\.sidebar-footer\s*\{[\s\S]*display: flex/, "tablet runtime status and language control must remain compact and visible");
 assert.match(tabletOwnership, /#requestsTable \.request-summary-row\s*\{[\s\S]*grid-template-areas: none/, "tablet and compact desktop request rows must remain a single aligned row");
 assert.match(tabletOwnership, /#requestsTable \.request-row-route\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\) auto/, "request routing evidence must stay aligned without wrapping the row");
+
+const focusedRequestPass = styles.slice(styles.indexOf("Focused request, request-detail, and model-data visual pass"));
+const requestTableScrollStyles = cssRule(focusedRequestPass, "#requestsTable .request-table-scroll {");
+const mobileRequestStyles = focusedRequestPass.slice(focusedRequestPass.lastIndexOf("@media (max-width: 760px)"));
+const mobileRequestTableScrollStyles = cssRule(mobileRequestStyles, "#requestsTable .request-table-scroll {");
+assert.match(requestTableScrollStyles, /overscroll-behavior-y:\s*auto/, "desktop request tables must pass vertical wheel input to the page");
+assert.match(mobileRequestTableScrollStyles, /overflow:\s*visible/, "mobile request lists must not remain nested scroll containers");
+const mobileModelTableScrollStyles = cssRule(mobileRequestStyles, "#configView.is-model-data .model-usage-table-scroll {");
+assert.match(mobileModelTableScrollStyles, /overflow:\s*visible/, "mobile model usage must scroll with the page rather than inside the table");
+assert.match(mobileRequestStyles, /#configView\.is-model-data \.model-usage-table tr\s*\{[\s\S]*grid-template-areas:[\s\S]*"model open"[\s\S]*"support support"/, "mobile model rows must preserve the aggregated model hierarchy");
 
 console.log("responsive workspace tests passed");

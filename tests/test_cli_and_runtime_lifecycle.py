@@ -336,10 +336,10 @@ class NativeModeDefaultConsistencyTests(unittest.TestCase):
         cfg = config_loader._default_config()
         self.assertEqual(cfg["routing"]["native_nonstream_mode"], "validated")
 
-    def test_stream_guarded_is_default(self):
-        """Default config should use 'guarded' for native_stream_mode."""
+    def test_stream_safe_is_default(self):
+        """Default config must prefetch a usable event before sending HTTP 200."""
         cfg = config_loader._default_config()
-        self.assertEqual(cfg["routing"]["native_stream_mode"], "guarded")
+        self.assertEqual(cfg["routing"]["native_stream_mode"], "safe")
 
 
 if __name__ == "__main__":

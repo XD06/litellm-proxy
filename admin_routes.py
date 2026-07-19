@@ -293,6 +293,73 @@ class AdminRoutesMixin:
             limit = filters.pop("limit", 50)
             offset = filters.pop("offset", 0)
             return self._resp_json(OBSERVABILITY.list_requests(filters=filters, limit=limit, offset=offset))
+        if endpoint == "models/usage":
+            params = self._query_params()
+            return self._resp_json(
+                OBSERVABILITY.model_usage(
+                    range_name=params.get("range", "7d"),
+                    query=params.get("query", ""),
+                    sort=params.get("sort", "calls"),
+                    order=params.get("order", "desc"),
+                    limit=params.get("limit", 50),
+                    offset=params.get("offset", 0),
+                )
+            )
+        if endpoint == "usage-statistics/summary":
+            params = self._query_params()
+            try:
+                return self._resp_json(
+                    OBSERVABILITY.usage_statistics_summary(
+                        range_name=params.get("range", "7d"),
+                        start=params.get("start"),
+                        end=params.get("end"),
+                        filters=params,
+                    )
+                )
+            except ValueError as exc:
+                return self._resp_json({"error": {"message": str(exc)}}, 400)
+        if endpoint == "usage-statistics/timeseries":
+            params = self._query_params()
+            try:
+                return self._resp_json(
+                    OBSERVABILITY.usage_statistics_timeseries(
+                        range_name=params.get("range", "7d"),
+                        start=params.get("start"),
+                        end=params.get("end"),
+                        filters=params,
+                        resolution=params.get("resolution", "auto"),
+                        metric=params.get("metric", "tokens"),
+                    )
+                )
+            except ValueError as exc:
+                return self._resp_json({"error": {"message": str(exc)}}, 400)
+        if endpoint == "usage-statistics/breakdown":
+            params = self._query_params()
+            try:
+                return self._resp_json(
+                    OBSERVABILITY.usage_statistics_breakdown(
+                        range_name=params.get("range", "7d"),
+                        start=params.get("start"),
+                        end=params.get("end"),
+                        filters=params,
+                        group_by=params.get("group_by", "model"),
+                        sort=params.get("sort", "requests"),
+                        order=params.get("order", "desc"),
+                        limit=params.get("limit", 20),
+                        offset=params.get("offset", 0),
+                    )
+                )
+            except ValueError as exc:
+                return self._resp_json({"error": {"message": str(exc)}}, 400)
+        if endpoint == "usage-statistics/dimensions":
+            return self._resp_json(OBSERVABILITY.usage_statistics_dimensions())
+        if endpoint.startswith("models/usage/"):
+            params = self._query_params()
+            client_model = urllib.parse.unquote(endpoint.split("models/usage/", 1)[1])
+            detail = OBSERVABILITY.model_usage_detail(client_model, range_name=params.get("range", "7d"))
+            if detail is None:
+                return self._resp_json({"error": {"message": f"unknown model usage: {client_model}"}}, 404)
+            return self._resp_json(detail)
         if endpoint.startswith("requests/"):
             request_id = endpoint.split("/", 1)[1]
             detail = OBSERVABILITY.get_request(request_id)
@@ -369,9 +436,30 @@ class AdminRoutesMixin:
                     # and runs O(n) fuzzy matching every time). For 200 candidates
                     # this cuts the endpoint from ~6s to a few ms.
                     models_map = getattr(aa._index, "_models", {}) or {}
+                    try:
+                        cached_slugs = list(aa._cache.list_slugs()) if hasattr(aa._cache, "list_slugs") else []
+                    except Exception:
+                        cached_slugs = []
                     fast_lookup = {}  # normalized_key -> slug
                     for slug, short_name in models_map.items():
-                        for k in (slug, slug.lower(), short_name, short_name.lower() if short_name else ""):
+                        raw_keys = (slug, slug.lower(), short_name, short_name.lower() if short_name else "")
+                        normalized_keys = tuple(
+                            re.sub(r"[^a-z0-9]+", "-", str(key).lower()).strip("-")
+                            for key in raw_keys if key
+                        )
+                        for k in (*raw_keys, *normalized_keys):
+                            if k and k not in fast_lookup:
+                                fast_lookup[k] = slug
+                    # Cached summaries are independently durable from the AA
+                    # index. Include their slugs so a newly cached model is
+                    # immediately visible even while the index refresh lags.
+                    for slug in cached_slugs:
+                        raw_keys = (slug, str(slug).lower())
+                        normalized_keys = tuple(
+                            re.sub(r"[^a-z0-9]+", "-", str(key).lower()).strip("-")
+                            for key in raw_keys if key
+                        )
+                        for k in (*raw_keys, *normalized_keys):
                             if k and k not in fast_lookup:
                                 fast_lookup[k] = slug
 
@@ -417,6 +505,9 @@ class AdminRoutesMixin:
                                     "input": p.get("input"),
                                     "output": p.get("output"),
                                     "cache_hit": p.get("cache_hit"),
+                                    "cache_read_per_million": p.get("cache_hit"),
+                                    "cache_write_per_million": p.get("cache_write"),
+                                    "cache_write_estimated": p.get("cache_write") is None,
                                     "blended_per_million": (cached.get("price_blended") or {}).get("price_per_1m_tokens"),
                                 }
                                 # Index under BOTH the queried name and the slug, so
@@ -542,6 +633,34 @@ class AdminRoutesMixin:
                 },
             )
             return self._resp_json({"action": "request_history_cleared", **result})
+
+        if parts == ["usage-statistics", "clear"]:
+            body = self._read_json_body()
+            if isinstance(body, tuple):
+                return self._resp_json(body[0], body[1])
+            confirm = str((body or {}).get("confirm") or "").strip()
+            if confirm != "clear_usage_statistics":
+                self._audit_admin_event(
+                    "usage_statistics_clear_failed",
+                    target="usage_statistics",
+                    status="failed",
+                    error="confirmation required",
+                )
+                return self._resp_json(
+                    {"error": {"message": "confirm must be clear_usage_statistics"}},
+                    400,
+                )
+            result = OBSERVABILITY.clear_usage_statistics()
+            self._audit_admin_event(
+                "usage_statistics_cleared",
+                target="usage_statistics",
+                detail={
+                    "generation": result.get("generation", 0),
+                    "statistics_started_at": result.get("statistics_started_at", 0),
+                    "rows_deleted": result.get("rows_deleted", 0),
+                },
+            )
+            return self._resp_json({"action": "usage_statistics_cleared", **result})
 
         if parts == ["requests", "delete"]:
             body = self._read_json_body()
