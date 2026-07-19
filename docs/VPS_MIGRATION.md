@@ -124,6 +124,8 @@ sudo certbot --nginx -d proxy.example.com
     "max_workers": 20,
     "log_dir": "proxy_logs",
     "debug_disk_log": false,
+    "trusted_proxy_cidrs": ["172.16.0.0/12"],
+    "trusted_proxy_headers": ["forwarded", "x-forwarded-for", "x-real-ip"],
     "admin_key": "replace-with-a-long-random-secret"
   }
 }
@@ -134,6 +136,7 @@ sudo certbot --nginx -d proxy.example.com
 - `admin_key` 使用强随机值。
 - 优先通过 HTTPS 反代访问。
 - 防火墙只开放 80/443；4894 只监听本机或只在内网开放。
+- `trusted_proxy_cidrs` 必须覆盖 Nginx 到容器时的实际来源网段，建议根据 `docker network inspect` 的结果收窄；未命中时请求历史会安全地记录 TCP peer（例如 `172.21.0.1`），而不会信任可伪造的转发头。
 - `runtime_config.json`、`config.json`、`tmp/`、`data/` 定期备份。
 
 ## 常用运维命令

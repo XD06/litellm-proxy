@@ -441,6 +441,12 @@ def _apply_env_overlays(cfg: Dict[str, Any]) -> Dict[str, Any]:
         )
     if os.environ.get("PROXY_ADMIN_KEY"):
         overlay = _deep_merge(overlay, {"server": {"admin_key": os.environ.get("PROXY_ADMIN_KEY")}})
+    trusted_proxy_cidrs = _json_env("PROXY_TRUSTED_PROXY_CIDRS")
+    if isinstance(trusted_proxy_cidrs, list):
+        overlay = _deep_merge(overlay, {"server": {"trusted_proxy_cidrs": trusted_proxy_cidrs}})
+    trusted_proxy_headers = _json_env("PROXY_TRUSTED_PROXY_HEADERS")
+    if isinstance(trusted_proxy_headers, list):
+        overlay = _deep_merge(overlay, {"server": {"trusted_proxy_headers": trusted_proxy_headers}})
 
     # ---- legacy single-upstream env ----
     upstream_url = os.environ.get("UPSTREAM_URL")

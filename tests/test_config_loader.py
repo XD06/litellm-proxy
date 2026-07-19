@@ -3,7 +3,7 @@ import os
 import tempfile
 import unittest
 
-from config_loader import _normalize_config, load_config
+from config_loader import _normalize_config, apply_env_overlays, load_config
 
 
 class ConfigLoaderTests(unittest.TestCase):
@@ -41,6 +41,28 @@ class ConfigLoaderTests(unittest.TestCase):
                 os.unlink(runtime_path)
             except OSError:
                 pass
+
+    def test_trusted_proxy_environment_overlays_are_json_lists(self):
+        old_cidrs = os.environ.get("PROXY_TRUSTED_PROXY_CIDRS")
+        old_headers = os.environ.get("PROXY_TRUSTED_PROXY_HEADERS")
+        try:
+            os.environ["PROXY_TRUSTED_PROXY_CIDRS"] = '["127.0.0.0/8", "172.16.0.0/12"]'
+            os.environ["PROXY_TRUSTED_PROXY_HEADERS"] = '["x-forwarded-for", "x-real-ip"]'
+            cfg = apply_env_overlays({
+                "server": {},
+                "providers": {
+                    "alpha": {
+                        "base_url": "https://alpha.example",
+                        "keys": ["alpha-key"],
+                    }
+                },
+            })
+        finally:
+            self.restore_env("PROXY_TRUSTED_PROXY_CIDRS", old_cidrs)
+            self.restore_env("PROXY_TRUSTED_PROXY_HEADERS", old_headers)
+
+        self.assertEqual(cfg["server"]["trusted_proxy_cidrs"], ["127.0.0.0/8", "172.16.0.0/12"])
+        self.assertEqual(cfg["server"]["trusted_proxy_headers"], ["x-forwarded-for", "x-real-ip"])
 
     def test_provider_without_formats_defaults_to_chat_completions(self):
         cfg = self.load_from_temp_config(

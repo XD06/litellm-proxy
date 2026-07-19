@@ -199,6 +199,7 @@ def resolve_client_ip(
     header_order = trusted_proxy_headers if isinstance(trusted_proxy_headers, list) else [
         "forwarded",
         "x-forwarded-for",
+        "x-real-ip",
         "cf-connecting-ip",
     ]
     def header_value(name: str) -> Any:

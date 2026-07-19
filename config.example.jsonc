@@ -9,6 +9,8 @@
 //   - PROXY_PROVIDERS_JSON='{"p1":{...}}'       覆盖整个 providers（JSON 字符串）
 //   - PROXY_PROVIDER_KEYS__opencode='["k1"]'    覆盖单个 provider 的 keys（JSON 数组字符串）
 //   - PROXY_MODEL_ROUTES_JSON='{...}'           覆盖 models.routes（JSON 字符串）
+//   - PROXY_TRUSTED_PROXY_CIDRS='["172.16.0.0/12"]' 可信反代来源网段
+//   - PROXY_TRUSTED_PROXY_HEADERS='["x-forwarded-for","x-real-ip"]' 可信客户端 IP 头
 //
 // 兼容旧环境变量覆盖（短期保留）：
 //   - 仍可设置 UPSTREAM_URL / UPSTREAM_API_KEY / MODEL_MAP / DISABLE_MODEL_MAP
@@ -32,6 +34,11 @@
     // 是否开启“请求级落盘日志”（非常多文件，建议仅调试时开启）
     // 等同于旧环境变量 PROXY_DEBUG=true
     "debug_disk_log": false,
+
+    // 仅信任这些反向代理网段提供的真实客户端 IP 请求头。
+    // Docker bridge 通常属于 172.16.0.0/12；请按实际网络收窄，直连公网时不要盲目信任私网段。
+    "trusted_proxy_cidrs": ["127.0.0.0/8", "172.16.0.0/12"],
+    "trusted_proxy_headers": ["forwarded", "x-forwarded-for", "x-real-ip"],
 
     // Admin API 密钥。为空时 /-/admin/* 不可访问。
     // 可通过 X-Admin-Key、Authorization: Bearer ... 或 ?admin_key=... 传入。

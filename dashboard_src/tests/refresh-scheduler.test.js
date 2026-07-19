@@ -114,6 +114,26 @@ assert.match(
   /refreshRuntimeData\(\{ forceViewData: true \}\)/,
   'request pagination must fetch only current runtime view data',
 );
+assert.match(
+  requestPaginationBody,
+  /if \(_requestPageNavigation\) return;/,
+  'request pagination must ignore repeated clicks while navigation is pending',
+);
+assert.match(
+  requestPaginationBody,
+  /_requestPageNavigation = \{ from: currentPage, to: targetPage \}/,
+  'request pagination must advance exactly one page from the committed page',
+);
+assert.match(
+  requestPaginationBody,
+  /state\.forceRequestsFetch = true/,
+  'request pagination must force the target page payload even inside the refresh window',
+);
+assert.match(
+  source,
+  /requestPayloadMatchesPage\(requestsPayload, requestedRequestPage, REQUEST_PAGE_SIZE\)/,
+  'request view refreshes must reject payloads for an obsolete offset',
+);
 const requestFilterStart = source.lastIndexOf('qsa("[data-request-status]")');
 const requestFilterEnd = source.indexOf('el("deleteRequestsButton")', requestFilterStart);
 assert.ok(requestFilterStart >= 0 && requestFilterEnd > requestFilterStart, 'missing request filter handlers');

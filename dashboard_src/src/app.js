@@ -13,6 +13,7 @@ import { shouldAcceptModelCapabilitySnapshot } from "./model-capability-order.mj
 import { keyModelsPatchValue } from "./key-models.mjs";
 import { mergedProviderKeys } from "./provider-key-view.mjs";
 import { bindPanelPaginationDelegated, changePanelPage } from "./panel-pagination.mjs";
+import { requestPageTarget, requestPayloadMatchesPage } from "./request-pagination.mjs";
 import { compareProviderViews } from "./provider-sort.mjs";
 import { modelBrandIconMarkup, providerBrandIconMarkup } from "./model-brand-icons.js";
 import {
@@ -1609,6 +1610,7 @@ import {
   let _runtimeRefreshWantedForceViewData = false;
   let _runtimeRefreshGeneration = 0;
   let _runtimeViewAbortController = null;
+  let _requestPageNavigation = null;
   let _lastMetricsFullAt = 0;
   const RUNTIME_VIEW_REFRESH_MS = 15000;
   const _lastRuntimeViewRefreshAt = { overview: 0, requests: 0 };
@@ -1660,6 +1662,7 @@ import {
     _runtimeRefreshInFlight = true;
     const generation = ++_runtimeRefreshGeneration;
     const requestedView = state.view || "overview";
+    const requestedRequestPage = requestedView === "requests" ? Math.max(0, Number(state.requestsPage) || 0) : null;
     let viewController = null;
     try {
       const coreEntries = [
@@ -1722,10 +1725,32 @@ import {
       const viewSettled = await viewPromise;
       if (generation !== _runtimeRefreshGeneration || requestedView !== state.view) return;
       const viewResult = toResult(viewEntries, viewSettled);
-      const viewChanged = Object.keys(viewResult).length
+      const requestsPayload = requestedView === "requests" ? viewResult.requests : undefined;
+      let requestNavigationFailed = false;
+      const requestViewMatches = requestedView !== "requests" || (
+        Number(state.requestsPage) === requestedRequestPage &&
+        requestPayloadMatchesPage(requestsPayload, requestedRequestPage, REQUEST_PAGE_SIZE)
+      );
+      if (!requestViewMatches) {
+        _runtimeRefreshWanted = true;
+        _runtimeRefreshWantedForceViewData = true;
+      }
+      const viewChanged = requestViewMatches && Object.keys(viewResult).length
         ? applyRuntimeViewData(viewResult, requestedView)
         : false;
-      if (viewChanged || (coreChanged && viewEntries.length)) renderAll();
+      if (requestedView === "requests" && requestsPayload !== undefined && requestViewMatches) {
+        if (_requestPageNavigation?.to === requestedRequestPage) _requestPageNavigation = null;
+      } else if (
+        requestedView === "requests" &&
+        requestsPayload === undefined &&
+        Number(state.requestsPage) === requestedRequestPage &&
+        _requestPageNavigation?.to === requestedRequestPage
+      ) {
+        state.requestsPage = _requestPageNavigation.from;
+        _requestPageNavigation = null;
+        requestNavigationFailed = true;
+      }
+      if (viewChanged || requestNavigationFailed || (coreChanged && viewEntries.length && requestViewMatches)) renderAll();
     } catch (err) {
       setConnection(false, t("conn.connection_error"));
     } finally {
@@ -3689,7 +3714,6 @@ import {
     const provider = primaryProvider(r);
     const route = r.routing_summary?.outcome || "unknown";
     const code = Number(r.status_code || 0);
-    const format = r.client_format || r.endpoint || "";
     const firstByte = firstByteMsFromRequest(r);
     const requestId = String(r.request_id || "");
     const isSelected = state.allMatchingSelected || state.selectedRequestIds.has(requestId);
@@ -3717,7 +3741,7 @@ import {
             <strong class="mono" data-tip="${escapeHtml(r.model || "-")}">${escapeHtml(r.model || "-")}</strong>
             <small>
               <time datetime="${escapeHtml(requestTime.iso)}">${escapeHtml(requestTime.date)} ${escapeHtml(requestTime.time)}</time>
-              <span class="request-meta-chip">${escapeHtml(shortFormatLabel(format))}</span>
+              ${requestFormatBadge(r)}
               <span class="request-meta-chip mono">${escapeHtml(source)}</span>
               ${r.stream ? `<span class="request-meta-chip request-stream-chip" data-tip="${escapeHtml(t("req.streaming"))}">${iconSvg("activity")}${escapeHtml(t("req.streaming"))}</span>` : ""}
             </small>
@@ -3736,6 +3760,19 @@ import {
         <td class="request-row-open"><button class="icon-action request-row-open-button" type="button" data-request-open="${escapeHtml(requestId)}" aria-label="${escapeHtml(t("req.open_request", { id: requestId }))}">${iconSvg("chevron-right")}</button></td>
       </tr>
     `;
+  }
+
+  function requestFormatBadge(request) {
+    const clientFormat = String(request?.client_format || request?.endpoint || "").trim();
+    const finalUpstreamFormat = String(request?.routing_summary?.final_upstream_format || "").trim();
+    const converted = Boolean(clientFormat && finalUpstreamFormat && clientFormat !== finalUpstreamFormat);
+    const label = converted
+      ? `${shortFormatLabel(clientFormat)} → ${shortFormatLabel(finalUpstreamFormat)}`
+      : shortFormatLabel(clientFormat);
+    const tip = converted
+      ? `${formatLabel(clientFormat)} → ${formatLabel(finalUpstreamFormat)}`
+      : formatLabel(clientFormat);
+    return `<span class="request-meta-chip request-format-chip${converted ? " is-converted" : ""}" data-tip="${escapeHtml(tip)}">${escapeHtml(label)}</span>`;
   }
 
   function requestTone(request) {
@@ -3772,6 +3809,7 @@ import {
       : selectedVisible
         ? t("req.selected", { count: fmtInt(selectedVisible) })
         : t("req.select_page");
+    const navigationBusy = Boolean(_requestPageNavigation);
     return `
       <div class="request-page-summary">
         <label class="request-page-select">
@@ -3780,10 +3818,10 @@ import {
         </label>
         <span>${escapeHtml(t("req.range_of", { start: fmtInt(start), end: fmtInt(end), total: fmtInt(total) }))}</span>
       </div>
-      <div class="request-pagination" aria-label="${escapeHtml(t("req.request_pages"))}">
-        <button class="button secondary icon-action" type="button" data-request-page="prev" data-tip="${escapeHtml(t("req.previous_page"))}" aria-label="${escapeHtml(t("req.previous_page"))}" ${currentPage <= 1 ? "disabled" : ""}>${iconSvg("arrow-left")}</button>
+      <div class="request-pagination" aria-label="${escapeHtml(t("req.request_pages"))}" ${navigationBusy ? 'aria-busy="true"' : ""}>
+        <button class="button secondary icon-action" type="button" data-request-page="prev" data-tip="${escapeHtml(t("req.previous_page"))}" aria-label="${escapeHtml(t("req.previous_page"))}" ${navigationBusy || currentPage <= 1 ? "disabled" : ""}>${iconSvg("arrow-left")}</button>
         <span class="request-page-indicator">${escapeHtml(t("req.page_of", { page: fmtInt(currentPage), total: fmtInt(totalPages) }))}</span>
-        <button class="button secondary icon-action" type="button" data-request-page="next" data-tip="${escapeHtml(t("req.next_page"))}" aria-label="${escapeHtml(t("req.next_page"))}" ${currentPage >= totalPages ? "disabled" : ""}>${iconSvg("arrow-right")}</button>
+        <button class="button secondary icon-action" type="button" data-request-page="next" data-tip="${escapeHtml(t("req.next_page"))}" aria-label="${escapeHtml(t("req.next_page"))}" ${navigationBusy || currentPage >= totalPages ? "disabled" : ""}>${iconSvg("arrow-right")}</button>
       </div>
     `;
   }
@@ -3910,9 +3948,18 @@ import {
       if (button.dataset.bounddatarequestpage) return;
       button.dataset.bounddatarequestpage = "1";
       button.addEventListener("click", () => {
+        if (_requestPageNavigation) return;
         const direction = button.dataset.requestPage;
-        if (direction === "prev") state.requestsPage = Math.max(0, state.requestsPage - 1);
-        if (direction === "next") state.requestsPage = Math.min(totalPages - 1, state.requestsPage + 1);
+        const currentPage = Math.max(0, Number(state.requestsPage) || 0);
+        const targetPage = requestPageTarget(currentPage, totalPages, direction);
+        if (targetPage === currentPage) return;
+        _requestPageNavigation = { from: currentPage, to: targetPage };
+        state.requestsPage = targetPage;
+        root.querySelectorAll("[data-request-page]").forEach((control) => {
+          control.disabled = true;
+        });
+        root.querySelector(".request-pagination")?.setAttribute("aria-busy", "true");
+        state.forceRequestsFetch = true;
         refreshRuntimeData({ forceViewData: true });
       });
     });

@@ -22,6 +22,24 @@ class ClientIdentityTests(unittest.TestCase):
 
         self.assertEqual((ip, source), ("198.51.100.20", "x-forwarded-for"))
 
+    def test_docker_bridge_proxy_uses_forwarded_client_ip(self):
+        ip, source = resolve_client_ip(
+            "172.21.0.1",
+            {"X-Forwarded-For": "198.51.100.20, 172.21.0.1"},
+            ["172.16.0.0/12"],
+        )
+
+        self.assertEqual((ip, source), ("198.51.100.20", "x-forwarded-for"))
+
+    def test_trusted_proxy_accepts_nginx_real_ip_header(self):
+        ip, source = resolve_client_ip(
+            "172.21.0.1",
+            {"X-Real-IP": "198.51.100.21"},
+            ["172.21.0.0/16"],
+        )
+
+        self.assertEqual((ip, source), ("198.51.100.21", "x-real-ip"))
+
     def test_forwarded_header_accepts_quoted_ipv6(self):
         ip, source = resolve_client_ip(
             "127.0.0.1",

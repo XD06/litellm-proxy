@@ -5,6 +5,15 @@
     "max_workers": 20,
     "log_dir": "proxy_logs",
     "debug_disk_log": false,
+    "trusted_proxy_cidrs": [
+      "127.0.0.0/8",
+      "172.16.0.0/12"
+    ],
+    "trusted_proxy_headers": [
+      "forwarded",
+      "x-forwarded-for",
+      "x-real-ip"
+    ],
     "admin_key": "sk-admin-change-me"
   },
   "routing": {

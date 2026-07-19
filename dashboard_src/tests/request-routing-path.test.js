@@ -17,6 +17,8 @@ const routingPath = bodyBetween("function renderRoutingTrace", "function routing
 const routingSummary = bodyBetween("function renderRoutingSummary", "function renderAttemptExplanation");
 const routeOutcomeHelpers = bodyBetween("function routeOutcomeLabel", "function setView");
 const requestDetail = bodyBetween("function renderDrawer", "function renderRoutingTrace");
+const requestSummaryRow = bodyBetween("function requestSummaryRow", "function requestTone");
+const requestFormatBadge = bodyBetween("function requestFormatBadge", "function requestTone");
 const requestDetailCardStyles = styles.slice(
   styles.indexOf("#detailDrawer .routing-path-shell,"),
   styles.indexOf("#detailDrawer .routing-path-header", styles.indexOf("#detailDrawer .routing-path-shell,")),
@@ -83,6 +85,11 @@ assert.match(routeOutcomeHelpers, /outcome === "failed"[\s\S]*return "bad"/, "fa
 assert.match(routeOutcomeHelpers, /outcome === "no_attempts"[\s\S]*return "route-info"/, "no-attempt routing must use a distinct blue information tone");
 assert.match(routeOutcomeHelpers, /return "neutral"/, "unknown and legacy routing outcomes must fall back to a neutral tone");
 assert.match(source, /request-route-chip tone-\$\{escapeHtml\(routeOutcomeTone\(route\)\)\}[\s\S]*routeOutcomeIcon\(route\)/, "request rows must render the shared route tone and icon");
+assert.match(requestSummaryRow, /requestFormatBadge\(r\)/, "request rows must render the shared client/upstream format badge");
+assert.match(requestFormatBadge, /routing_summary\?\.final_upstream_format/, "format conversion must use the actual selected upstream format");
+assert.match(requestFormatBadge, /clientFormat !== finalUpstreamFormat/, "native requests must remain visually distinct from converted requests");
+assert.match(requestFormatBadge, /shortFormatLabel\(clientFormat\).*shortFormatLabel\(finalUpstreamFormat\)/, "converted requests must disclose the source and target formats");
+assert.match(styles, /\.request-format-chip\.is-converted\s*\{[\s\S]*background:\s*#f2f0fb;[\s\S]*color:\s*#6558ad;/, "converted request formats need a restrained compatibility color");
 assert.match(styles, /\.request-route-chip\.tone-ok/, "direct route chips need a green style");
 assert.match(styles, /\.request-route-chip\.tone-warn/, "recovered route chips need an amber style");
 assert.match(styles, /\.request-route-chip\.tone-bad/, "failed route chips need a red style");
