@@ -5,7 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Proxy Console</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231f2933'/%3E%3Cpath d='M8 22V10h4v9h9v3H8Zm7-7V10h9v3h-5v5h-4Z' fill='%23f3efe7'/%3E%3C/svg%3E" />
-    <link rel="stylesheet" href="/-/dashboard/styles.css?v=20260718-format-routing-final" />
+    <style>
+      .skip-link { position: fixed; top: 8px; left: 8px; z-index: 2000; transform: translateY(-200%); }
+      .skip-link:focus-visible { transform: translateY(0); }
+    </style>
+    <link rel="stylesheet" href="/-/dashboard/styles.css?v=20260720-overview-traffic-style-1" />
   </head>
   <body class="is-auth-checking">
     <a class="skip-link" href="#mainContent" data-i18n="a11y.skip_content">Skip to content</a>
@@ -824,7 +828,7 @@
       <aside id="providerDrawer" class="drawer provider-drawer" aria-hidden="true">
         <div class="drawer-head">
           <div>
-            <h2 id="providerDrawerTitle" data-i18n="prov.drawer_title">Provider</h2>
+            <h2 id="providerDrawerTitle"><span id="providerDrawerIconSlot" class="provider-drawer-icon-slot"><span class="provider-server-icon" aria-hidden="true"><svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4" y="4" width="16" height="6" rx="2"></rect><rect x="4" y="14" width="16" height="6" rx="2"></rect><path d="M8 7h.01"></path><path d="M8 17h.01"></path><path d="M12 7h4"></path><path d="M12 17h4"></path></svg></span></span><span id="providerDrawerTitleText" data-i18n="prov.drawer_title">Provider</span></h2>
             <p id="providerDrawerSubtitle" data-i18n="prov.drawer_subtitle">Select a provider to view its models and state.</p>
           </div>
           <button id="closeProviderDrawerButton" class="icon-button" aria-label="Close" data-i18n-attr="aria-label:confirm.close">×</button>
@@ -897,6 +901,6 @@
       </aside>
     </div>
 
-    <script src="/-/dashboard/app.js?v=20260718-format-routing-final" defer></script>
+    <script src="/-/dashboard/app.js?v=20260720-overview-traffic-style-1" defer></script>
   </body>
 </html>

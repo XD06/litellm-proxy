@@ -94,7 +94,9 @@ assert.match(styles, /--request-direct:\s*#20ad50;[\s\S]*--request-recovered:\s*
 assert.match(styles, /#requestsTable \.request-data-table th\s*\{[\s\S]*height:\s*28px;[\s\S]*request-header-surface/, "request table headers must be compact and visually distinct");
 assert.match(styles, /--request-row-alt:\s*#ffffff;[\s\S]*tbody tr:nth-child\(even\)[\s\S]*request-row-alt/, "request rows must use clean white surfaces with divider-based separation");
 assert.match(styles, /tbody tr:hover,[\s\S]*request-row-hover[\s\S]*request-hover-line/, "request row hover must use a neutral surface and full outline");
-assert.match(styles, /\.request-route-chip\s*\{[\s\S]*font-weight:\s*760/, "routing outcome labels must read as semantic fields, not body copy");
+assert.match(styles, /\.request-route-chip\s*\{[\s\S]*font-weight:\s*800/, "routing outcome labels must read as semantic fields, not body copy");
+assert.match(styles, /#requestsTable \.request-cell-route\s*\{[\s\S]*grid-template-columns:\s*minmax\(0, 1fr\) 84px/, "provider and routing badges must use stable columns");
+assert.match(styles, /#requestsTable \.request-cell-result \.badge\s*\{[\s\S]*font-weight:\s*800/, "request status badges must use a strong semantic weight");
 assert.match(styles, /\.request-meta-chip\s*\{[\s\S]*font-weight:\s*620/, "request metadata tags need a consistent medium weight");
 assert.match(styles, /#detailDrawer \.request-result-stat small\s*\{[\s\S]*font-weight:\s*700/, "request detail field labels must remain visually explicit");
 assert.match(requestDetail, /request-detail-route-chip tone-\$\{escapeHtml\(routeTone\)\}/, "request detail must expose the formal routing outcome beside request status");

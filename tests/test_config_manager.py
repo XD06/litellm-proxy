@@ -189,10 +189,16 @@ class ConfigManagerTests(unittest.TestCase):
 
         updated = mgr.add_provider(
             "new-provider",
-            {"base_url": "https://new.example", "keys": ["new-secret-key"], "enabled": True},
+            {
+                "base_url": "https://new.example",
+                "site_url": "https://new.example/about",
+                "keys": ["new-secret-key"],
+                "enabled": True,
+            },
         )
 
         self.assertEqual(updated["providers"]["new-provider"]["priority"], 11)
+        self.assertEqual(updated["providers"]["new-provider"]["site_url"], "https://new.example/about")
 
     def test_add_provider_update_provider_key_and_format_write_overlay(self):
         _config_path, overlay_path = self.temp_paths()

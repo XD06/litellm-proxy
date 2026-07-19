@@ -28,6 +28,9 @@ assert.doesNotMatch(
 assert.match(trafficRenderer, /summary:\s*\{/, "traffic totals must be passed into the chart workspace");
 assert.match(comboRenderer, /traffic-workspace-header/, "the chart must own one integrated header");
 assert.match(comboRenderer, /traffic-workspace-metrics/, "the integrated header must expose compact metrics");
+assert.match(comboRenderer, /traffic-workspace-metric-icon/, "traffic metrics must expose semantic icon wrappers");
+assert.match(comboRenderer, /iconSvg\(metric\.icon\)/, "traffic metric icons must use the shared icon system");
+assert.match(comboRenderer, /tone-compat/, "token metrics must retain the usage statistics compatibility tone");
 assert.match(comboRenderer, /traffic-success-line/, "request success must render as a readable trend line");
 assert.match(comboRenderer, /traffic-failure-line/, "request failures must render as a separate trend line");
 assert.match(comboRenderer, /data-traffic-bucket/, "time buckets must expose inspection targets");

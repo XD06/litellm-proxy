@@ -87,6 +87,7 @@ assert.match(index, /id="usageStatisticsBreakdown"[^>]+aria-busy="false"/, "stat
 assert.match(index, /id="usageStatisticsClear"/, "permanent statistics need an intentionally hidden management action");
 assert.match(index, /id="healthMonitorStatus"[^>]+aria-live="polite"/, "health status needs aria-live");
 assert.match(index, /class="skip-link" href="#mainContent"/, "dashboard needs a skip link");
+assert.match(index, /\.skip-link \{[^}]*transform: translateY\(-200%\)/, "skip link must be hidden before the external stylesheet loads");
 assert.match(index, /<main id="mainContent"[^>]+tabindex="-1"/, "skip link target must be focusable");
 assert.match(index, /id="hmPatrolMin" value="21600"/, "patrol minimum should default to 6 hours");
 assert.match(index, /id="hmPatrolMax" value="43200"/, "patrol maximum should default to 12 hours");

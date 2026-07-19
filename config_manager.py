@@ -706,6 +706,7 @@ class RuntimeConfigManager:
             raise ConfigValidationError("provider patch must be a non-empty object")
         allowed = {
             "base_url",
+            "site_url",
             "models_path",
             "enabled",
             "keys",
@@ -738,6 +739,8 @@ class RuntimeConfigManager:
             clean["skip_patrol_probe"] = bool(clean["skip_patrol_probe"])
         if "base_url" in clean and not str(clean.get("base_url") or "").strip():
             raise ConfigValidationError("base_url cannot be empty")
+        if "site_url" in clean:
+            clean["site_url"] = str(clean.get("site_url") or "").strip()
         if "user_agent" in clean:
             clean["user_agent"] = str(clean.get("user_agent") or "").strip()
         if "keys" in clean:

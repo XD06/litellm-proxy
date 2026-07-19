@@ -12,6 +12,8 @@ import { groupRoutingTrace, routingTraceIdentity, routingTraceTone, summarizeFor
 import { shouldAcceptModelCapabilitySnapshot } from "./model-capability-order.mjs";
 import { keyModelsPatchValue } from "./key-models.mjs";
 import { mergedProviderKeys } from "./provider-key-view.mjs";
+import { bindPanelPaginationDelegated, changePanelPage } from "./panel-pagination.mjs";
+import { compareProviderViews } from "./provider-sort.mjs";
 import { modelBrandIconMarkup, providerBrandIconMarkup } from "./model-brand-icons.js";
 import {
   clearLiveFormField,
@@ -20,7 +22,6 @@ import {
   normalizeVariantEntries,
   resetLiveForm,
 } from "./provider-model-config.mjs";
-
 
   const el = (id) => document.getElementById(id);
   const qsa = (selector) => Array.from(document.querySelectorAll(selector));
@@ -88,6 +89,19 @@ import {
   let _refreshWantedArgs = null;
   let _backgroundRefreshTimer = null;
   let _backgroundRefreshArgs = null;
+  // Runtime polling returns a few time-varying fields (uptime, countdowns,
+  // elapsed active-request duration) on every response. Those fields should
+  // update lightweight status text, but must not cause the whole view to be
+  // reconciled every five seconds. Keep signatures of the render-relevant
+  // payloads so an unchanged poll is a no-op for the DOM.
+  let _lastRuntimeCoreSignature = "";
+  let _lastRuntimeViewSignature = "";
+  let _lastRenderedConfigObject = null;
+  let _lastRenderedOverlayObject = null;
+  let _lastRenderedModelUsageObject = null;
+  let _lastRenderedUsageStatisticsObject = null;
+  let _lastRenderedConfigLocale = "";
+  const _renderedHtmlByTarget = new WeakMap();
   const pendingRuntimeMutations = new Set();
   const optimisticConfigStore = new OptimisticConfigStore();
   const setMutationBusy = createMutationBusySetter();
@@ -95,6 +109,37 @@ import {
   const configRefreshCoordinator = new ConfigRefreshCoordinator();
   const uiActionRegistry = new InFlightActionRegistry();
   const STATIC_CONFIG_DOMAINS = new Set(["routing", "config", "overlay"]);
+
+  function runtimeSignatureValue(value, key = "") {
+    if (value === null || value === undefined) return value;
+    // These values are intentionally volatile and do not change the visible
+    // routing/request facts. Including them makes every poll look "changed".
+    if ([
+      "uptime_s", "idle_seconds", "last_run_ago_s", "next_probe_in_s", "next_run_in_s",
+      "nearest_recovery_s", "computed_at", "duration_ms", "disabled_remaining_s",
+    ].includes(key)) return undefined;
+    if (["cooldown_remaining_s", "provider_cooldown_remaining_s"].includes(key)) {
+      const numeric = Number(value);
+      return Number.isFinite(numeric) ? Math.ceil(Math.max(0, numeric) / 5) : value;
+    }
+    if (Array.isArray(value)) return value.map((item) => runtimeSignatureValue(item, "")).filter((item) => item !== undefined);
+    if (typeof value === "object") {
+      return Object.keys(value).sort().reduce((out, childKey) => {
+        const child = runtimeSignatureValue(value[childKey], childKey);
+        if (child !== undefined) out[childKey] = child;
+        return out;
+      }, {});
+    }
+    return value;
+  }
+
+  function runtimeSignature(value) {
+    try {
+      return JSON.stringify(runtimeSignatureValue(value));
+    } catch (_err) {
+      return "";
+    }
+  }
 
   function acceptConfirmedConfig(config) {
     const effective = optimisticConfigStore.acceptConfirmed(config || {});
@@ -342,17 +387,46 @@ import {
 
   function updateDOM(target, htmlString) {
     if (!target) return;
+    const nextHtml = String(htmlString ?? "");
+    // Most polling cycles produce byte-for-byte identical markup. Avoid even
+    // parsing that markup or asking morphdom to walk the subtree in that case.
+    // WeakMap keeps this cache tied to the DOM node and prevents detached
+    // views from retaining their last render string.
+    if (_renderedHtmlByTarget.get(target) === nextHtml) return;
     const __t0 = performance.now();
     if (!target.innerHTML.trim()) {
-      target.innerHTML = htmlString;
+      target.innerHTML = nextHtml;
+      _renderedHtmlByTarget.set(target, nextHtml);
       scheduleTooltipReconcile();
       window.__perfMark && window.__perfMark("updateDOM.innerHTML[" + (target.id || target.className || "?") + "]", performance.now() - __t0);
       return;
     }
     const wrapper = target.cloneNode(false);
-    wrapper.innerHTML = htmlString;
+    wrapper.innerHTML = nextHtml;
     const __t1 = performance.now();
-    morphdom(target, wrapper, { childrenOnly: true });
+    morphdom(target, wrapper, {
+      childrenOnly: true,
+      // Keep rows/cards and their descendants alive across polling. The
+      // default morphdom key is only `id`, which means a reordered provider or
+      // request list can discard focused controls, tooltip anchors, and image
+      // loading state even when the record itself is unchanged.
+      getNodeKey(node) {
+        if (!node || node.nodeType !== 1) return undefined;
+        if (node.id) return `id:${node.id}`;
+        for (const attr of [
+          "data-provider-card",
+          "data-request-row",
+          "data-model-usage-row",
+          "data-provider-activity-list",
+          "data-provider-probe-list",
+        ]) {
+          const value = node.getAttribute(attr);
+          if (value) return `${attr}:${value}`;
+        }
+        return undefined;
+      },
+    });
+    _renderedHtmlByTarget.set(target, nextHtml);
     scheduleTooltipReconcile();
     const __t2 = performance.now();
     window.__perfMark && window.__perfMark("updateDOM.build[" + (target.id || target.className || "?") + "]", __t1 - __t0);
@@ -1069,6 +1143,10 @@ import {
             <input class="control" name="key" type="password" required placeholder="sk-..." autocomplete="off" />
           </label>
         </div>
+        <label class="field form-field-inline">
+          <span>${escapeHtml(t("form.site_url"))}<span class="help-tip" data-tip="${escapeHtml(t("form.site_url_tip"))}">?</span></span>
+          <input class="control" name="site_url" type="url" placeholder="https://provider.example.com" autocomplete="off" />
+        </label>
         <div class="form-row-2">
           <label class="field form-field-inline">
             <span>Upstream format</span>
@@ -1291,12 +1369,14 @@ import {
         const proxy = String(data.get("proxy") || "").trim();
         const key = String(data.get("key") || "").trim();
         const keyProxy = String(data.get("key_proxy") || "").trim();
+        const siteUrl = String(data.get("site_url") || "").trim();
         const priority = Number(data.get("priority") || 0);
         const payload = {
           name: String(data.get("name") || "").trim(),
           base_url: String(data.get("base_url") || "").trim(),
           keys: [keyProxy ? { key, proxy: keyProxy } : key],
         };
+        if (siteUrl) payload.site_url = siteUrl;
         // Only send priority if user explicitly set a non-zero value.
         // When omitted, the backend auto-assigns the highest priority.
         if (priority !== 0) payload.priority = priority;
@@ -1442,8 +1522,12 @@ import {
     responses.forEach((response) => {
       Object.assign(merged, response?.pricing || {});
     });
+    const nextSignature = runtimeSignature(merged);
+    const previousSignature = runtimeSignature(state.data.pricing || {});
     state.data.pricing = merged;
-    try { renderAll(); } catch (_e) { /* enrichment must not interrupt the dashboard */ }
+    if (nextSignature !== previousSignature) {
+      try { renderAll(); } catch (_e) { /* enrichment must not interrupt the dashboard */ }
+    }
   }
 
   let _staticRefreshInFlight = false;
@@ -1530,6 +1614,14 @@ import {
   const _lastRuntimeViewRefreshAt = { overview: 0, requests: 0 };
 
   function applyRuntimeCore(result) {
+    const signature = runtimeSignature({
+      metrics: result.metrics,
+      providerActivity: result.providerActivity,
+      healthScores: result.healthScores,
+      routerSnapshot: result.routerSnapshot,
+    });
+    if (signature && signature === _lastRuntimeCoreSignature) return false;
+    _lastRuntimeCoreSignature = signature;
     if (result.metrics !== undefined) state.data.metrics = result.metrics;
     if (result.providerActivity !== undefined) {
       const activity = result.providerActivity || {};
@@ -1540,9 +1632,13 @@ import {
       state.data.status = { ...(state.data.status || {}), router: result.routerSnapshot };
     }
     state.data.runtimeVersion = Number(state.data.runtimeVersion || 0) + 1;
+    return true;
   }
 
   function applyRuntimeViewData(result, view) {
+    const signature = runtimeSignature({ view, ...result });
+    if (signature && signature === _lastRuntimeViewSignature) return false;
+    _lastRuntimeViewSignature = signature;
     if (result.metricsFull !== undefined) {
       state.data.metricsFull = result.metricsFull;
       _lastMetricsFullAt = Date.now();
@@ -1551,6 +1647,7 @@ import {
     if (result.requests !== undefined) state.data.requests = result.requests;
     if (view && Object.keys(result).length) _lastRuntimeViewRefreshAt[view] = Date.now();
     state.data.runtimeVersion = Number(state.data.runtimeVersion || 0) + 1;
+    return true;
   }
 
   async function refreshRuntimeData({ forceViewData = false } = {}) {
@@ -1609,23 +1706,26 @@ import {
       if (generation !== _runtimeRefreshGeneration || requestedView !== state.view) return;
 
       const coreResult = toResult(coreEntries, coreSettled);
-      applyRuntimeCore(coreResult);
+      const coreChanged = applyRuntimeCore(coreResult);
       const metricsVersion = coreResult.metrics?.models_version;
       if (metricsVersion !== undefined && metricsVersion !== _lastModelsVersion) {
         const firstSync = _lastModelsVersion === null;
         _lastModelsVersion = metricsVersion;
         if (!firstSync) refreshCapabilitiesOnly();
       }
-      renderAll();
+      // The core and view requests are independent. If the view payload is
+      // already fresh, render the core change immediately; otherwise the view
+      // result below gets one consolidated render after it arrives.
+      if (coreChanged && !viewEntries.length) renderAll();
       setConnection(true, `Updated ${new Date().toLocaleTimeString()}`);
 
       const viewSettled = await viewPromise;
       if (generation !== _runtimeRefreshGeneration || requestedView !== state.view) return;
       const viewResult = toResult(viewEntries, viewSettled);
-      if (Object.keys(viewResult).length) {
-        applyRuntimeViewData(viewResult, requestedView);
-        renderAll();
-      }
+      const viewChanged = Object.keys(viewResult).length
+        ? applyRuntimeViewData(viewResult, requestedView)
+        : false;
+      if (viewChanged || (coreChanged && viewEntries.length)) renderAll();
     } catch (err) {
       setConnection(false, t("conn.connection_error"));
     } finally {
@@ -1853,8 +1953,8 @@ import {
     if (!state.adminKey || document.hidden) return false;
     try {
       const caps = await apiGet("/-/admin/models/capabilities");
-      acceptModelCapabilities(caps);
-      if (state.view === "providers") {
+      const changed = acceptModelCapabilities(caps);
+      if (changed && state.view === "providers") {
         state.forceModelCapsRender = true;
         renderModelCapabilities();
         renderProviderDrawer();
@@ -2435,7 +2535,7 @@ import {
         : providerPct > 0 && keyPct > 0
         ? "soft"
         : "bad";
-    target.innerHTML = `
+    updateDOM(target, `
       ${overviewMetricCard(
         t("traffic.total_tokens"),
         fmtTokenCount(usage.total_tokens),
@@ -2448,7 +2548,7 @@ import {
       ${overviewMetricCard(t("kpi.success_rate"), fmtPct(successRate), `${fmtInt(displaySuccess)} ${t("metric.success")}`, successRate >= 0.98 ? "success" : successRate >= 0.95 ? "info" : successRate >= 0.85 ? "warning" : "danger", "check")}
       ${overviewMetricCard(t("kpi.first_byte"), latestLatency === null ? "-" : fmtMs(latestLatency), avgLatency === null ? t("kpi.no_samples") : `avg ${fmtMs(avgLatency)} / max ${fmtMs(maxLatency)}`, toneForLatency(avgLatency || latestLatency || 0), "clock")}
       ${overviewMetricCard(t("kpi.active_keys"), `${fmtInt(keyUsable)}/${fmtInt(keyTotal)}`, `${fmtInt(providerAvailable)}/${fmtInt(providerCount)} ${t("metric.providers")}`, healthTone === "bad" ? "danger" : healthTone === "soft" ? "warning" : healthTone === "warn" ? "info" : "success", "key")}
-    `;
+    `);
   }
 
   function overviewMetricCard(label, value, hint, tone, icon, valueTitle = "", hintTitle = "") {
@@ -2578,12 +2678,12 @@ import {
 
     if (!chartBuckets.length) {
       if (chartWindow) chartWindow.textContent = `${currentTimeRange().label} / no samples`;
-      target.innerHTML = `
+      updateDOM(target, `
         <div class="traffic-chart-shell traffic-workspace-empty">
           <strong>No traffic in this window</strong>
           <span>Choose a wider time range or wait for the next completed request.</span>
         </div>
-      `;
+      `);
       return;
     }
 
@@ -2620,7 +2720,7 @@ import {
         : `${currentTimeRange().label} / ${sourceLabel}`;
     }
 
-    target.innerHTML = renderTrafficComboChart({
+    updateDOM(target, renderTrafficComboChart({
       buckets: chartBuckets,
       firstTs,
       lastTs,
@@ -2640,7 +2740,7 @@ import {
         totalTokens: displayUsage.total_tokens,
         costUsd: displayUsage.cost_usd,
       },
-    });
+    }));
 
     bindTrafficModeControls(target, {
       getMode: () => state.trafficChartMode,
@@ -2757,16 +2857,16 @@ import {
     const workspaceSubtitle = `${options.windowLabel || currentTimeRange().label} / ${options.sourceLabel || "history"}`;
     const workspaceMetrics = requestMode
       ? [
-          { label: t("traffic.requests"), value: fmtInt(summary.requests), hint: t("traffic.total"), tone: "" },
-          { label: t("traffic.success"), value: fmtInt(summary.success), hint: fmtPct(summary.successRate), tone: "is-success" },
-          { label: t("traffic.failed"), value: fmtInt(summary.failed), hint: fmtPct(1 - Number(summary.successRate || 0)), tone: "is-failure" },
-          { label: t("traffic.avg_latency"), value: fmtMs(summary.avgLatency), hint: t("traffic.first_byte"), tone: "" },
+          { label: t("traffic.requests"), value: fmtInt(summary.requests), hint: t("traffic.total"), icon: "activity", tone: "tone-info" },
+          { label: t("traffic.success"), value: fmtInt(summary.success), hint: fmtPct(summary.successRate), icon: "check", tone: "tone-success" },
+          { label: t("traffic.failed"), value: fmtInt(summary.failed), hint: fmtPct(1 - Number(summary.successRate || 0)), icon: "alert", tone: "tone-danger" },
+          { label: t("traffic.avg_latency"), value: fmtMs(summary.avgLatency), hint: t("traffic.first_byte"), icon: "clock", tone: "tone-warning" },
         ]
       : [
-          { label: t("traffic.total_tokens"), value: fmtTokenCount(summary.totalTokens), hint: fmtInt(summary.totalTokens), tone: "" },
-          { label: t("traffic.input"), value: fmtTokenCount(summary.input), hint: t("traffic.tokens"), tone: "" },
-          { label: t("traffic.output"), value: fmtTokenCount(summary.output), hint: t("traffic.tokens"), tone: "is-success" },
-          { label: t("traffic.estimated_cost"), value: fmtCost(summary.costUsd), hint: t("traffic.window"), tone: "" },
+          { label: t("traffic.total_tokens"), value: fmtTokenCount(summary.totalTokens), hint: fmtInt(summary.totalTokens), icon: "bolt", tone: "tone-compat" },
+          { label: t("traffic.input"), value: fmtTokenCount(summary.input), hint: t("traffic.tokens"), icon: "arrow-down", tone: "tone-info" },
+          { label: t("traffic.output"), value: fmtTokenCount(summary.output), hint: t("traffic.tokens"), icon: "arrow-up", tone: "tone-compat" },
+          { label: t("traffic.estimated_cost"), value: fmtCost(summary.costUsd), hint: t("traffic.window"), icon: "dollar", tone: "tone-success" },
         ];
 
     const xFor = (bucket, index, total) => {
@@ -3065,9 +3165,11 @@ import {
           <div class="traffic-workspace-metrics">
             ${workspaceMetrics.map((metric) => `
               <div class="traffic-workspace-metric ${metric.tone}">
-                <span>${escapeHtml(metric.label)}</span>
-                <strong>${escapeHtml(metric.value)}</strong>
-                <small>${escapeHtml(metric.hint)}</small>
+                <span class="traffic-workspace-metric-icon">${iconSvg(metric.icon)}</span>
+                <span class="traffic-workspace-metric-copy">
+                  <span class="traffic-workspace-metric-label">${escapeHtml(metric.label)}</span>
+                  <span class="traffic-workspace-metric-value"><strong>${escapeHtml(metric.value)}</strong><small>${escapeHtml(metric.hint)}</small></span>
+                </span>
               </div>
             `).join("")}
           </div>
@@ -3146,11 +3248,11 @@ import {
       : "no token samples";
 
     if (!totalUsage.total_tokens && !modelRows.length) {
-      target.innerHTML = `<div class="empty pad">No model usage recorded yet</div>`;
+      updateDOM(target, `<div class="empty pad">No model usage recorded yet</div>`);
       return;
     }
 
-    target.innerHTML = `
+    updateDOM(target, `
       <div class="usage-summary">
         ${miniMetric("Input", fmtTokenCount(totalUsage.input_tokens), "tokens")}
         ${miniMetric("Output", fmtTokenCount(totalUsage.output_tokens), "tokens")}
@@ -3166,7 +3268,7 @@ import {
           ${usageRows(modelRows, "No model calls")}
         </section>
       </div>
-    `;
+    `);
   }
 
   function emptyUsageTotal() {
@@ -3255,7 +3357,7 @@ import {
     const names = providerNames(providers, configProviders);
     if (!names.length) {
       target.classList.add("empty");
-      target.innerHTML = "No providers";
+      updateDOM(target, "No providers");
       return;
     }
     target.classList.remove("empty");
@@ -3268,7 +3370,7 @@ import {
       .map((name) => providerLightView(name))
       .sort((a, b) => providerOverviewPriority(a) - providerOverviewPriority(b) || a.name.localeCompare(b.name));
     const visible = views.slice(0, OVERVIEW_PROVIDER_LIMIT);
-    target.innerHTML = `
+    updateDOM(target, `
       <div class="overview-summary-meta">
         <span>${iconSvg("server")} ${fmtInt(visible.length)} priority / ${fmtInt(views.length)} total</span>
         ${views.length > visible.length ? `<button class="overview-jump-button" type="button" data-view-target="providers" title="Open Providers" aria-label="Open Providers">${iconSvg("arrow-right")}</button>` : ""}
@@ -3293,7 +3395,7 @@ import {
           `;
         }).join("")}
       </div>
-    `;
+    `);
     bindViewTargetButtons();
   }
 
@@ -3321,7 +3423,7 @@ import {
       return p && p.keys && Array.isArray(p.keys) && p.keys.length > 0;
     });
     if (!zeroConfig && hasProviders) {
-      target.innerHTML = "";
+      updateDOM(target, "");
       target.style.display = "none";
       return;
     }
@@ -3333,7 +3435,7 @@ import {
           ${presets.slice(0, 6).map((p) => `<span class="onboarding-preset-chip" title="${escapeHtml(p.env_var)}">${escapeHtml(p.name)}</span>`).join("")}
         </div>`
       : "";
-    target.innerHTML = `
+    updateDOM(target, `
       <div class="onboarding-banner">
         <div class="onboarding-banner-icon">${iconSvg("settings")}</div>
         <div class="onboarding-banner-content">
@@ -3348,7 +3450,7 @@ import {
           </div>
         </div>
       </div>
-    `;
+    `);
     const addBtn = document.getElementById("onboardingAddProvider");
     if (addBtn) addBtn.addEventListener("click", openAddProviderModal);
     bindViewTargetButtons();
@@ -3359,14 +3461,14 @@ import {
     if (!target) return;
     const hs = state.data.healthScores;
     if (!hs || !hs.providers) {
-      target.innerHTML = `<div class="health-overview-loading">${iconSvg("rotate")}<span>${escapeHtml(t("health.loading"))}</span></div>`;
+      updateDOM(target, `<div class="health-overview-loading">${iconSvg("rotate")}<span>${escapeHtml(t("health.loading"))}</span></div>`);
       return;
     }
     const overall = hs.overall || 0;
     const providers = hs.providers;
     const names = Object.keys(providers);
     if (!names.length) {
-      target.innerHTML = `<div class="health-overview-empty">${escapeHtml(t("health.no_data"))}</div>`;
+      updateDOM(target, `<div class="health-overview-empty">${escapeHtml(t("health.no_data"))}</div>`);
       return;
     }
     // Sort by score ascending (worst first) so problem providers are visible.
@@ -3375,7 +3477,7 @@ import {
     const overallTone = overall >= 75 ? "success" : overall >= 50 ? "warning" : "danger";
     const visibleNames = names.slice(0, 8);
     const hiddenCount = Math.max(0, names.length - visibleNames.length);
-    target.innerHTML = `
+    updateDOM(target, `
       <div class="health-overview-header">
         <div class="health-overview-score tone-${escapeHtml(overallTone)}">
           <span class="health-score-ring ${escapeHtml(overallGrade)}">
@@ -3406,7 +3508,7 @@ import {
         }).join("")}
         ${hiddenCount ? `<div class="health-overview-more">${escapeHtml(t("health.more_providers", { count: fmtInt(hiddenCount) }))}</div>` : ""}
       </div>
-    `;
+    `);
   }
 
   function enabledFormats(formats) {
@@ -3426,10 +3528,10 @@ import {
     const rows = failures.slice(0, OVERVIEW_FAILURE_LIMIT);
     const target = el("recentFailures");
     if (!rows.length) {
-      target.innerHTML = `<div class="empty pad">No recent failures</div>`;
+      updateDOM(target, `<div class="empty pad">No recent failures</div>`);
       return;
     }
-    target.innerHTML = `
+    updateDOM(target, `
       <div class="overview-summary-meta recent-failure-summary">
         <span>${iconSvg("alert")} latest ${fmtInt(rows.length)} / ${fmtInt(failures.length)}</span>
         <button class="overview-jump-button" type="button" data-view-target="requests" title="Open Requests" aria-label="Open Requests">${iconSvg("arrow-right")}</button>
@@ -3458,7 +3560,7 @@ import {
           `;
         }).join("")}
       </div>
-    `;
+    `);
     target.querySelectorAll("[data-request-id]").forEach((row) => {
       if (row.dataset.bounddatarequestid) return;
       row.dataset.bounddatarequestid = "1";
@@ -3513,13 +3615,13 @@ import {
       : t("req.no_matching_count", { source: sourceLabel });
     const target = el("requestsTable");
     if (!items.length) {
-      target.innerHTML = `<div class="request-list-head">${requestPagination(total, currentPage, totalPages, items)}</div><div class="empty pad">${escapeHtml(t("req.no_matching"))}</div>`;
+      updateDOM(target, `<div class="request-list-head">${requestPagination(total, currentPage, totalPages, items)}</div><div class="empty pad">${escapeHtml(t("req.no_matching"))}</div>`);
       bindRequestPagination(target, totalPages);
       updateRequestSelectionUi();
       return;
     }
     const rows = items.map(requestSummaryRow).join("");
-    target.innerHTML = `
+    updateDOM(target, `
       <div class="request-list-head">${requestPagination(total, currentPage, totalPages, items)}</div>
       ${selectAllBannerHtml(total, items)}
       ${requestPageVisuals(items)}
@@ -3540,7 +3642,7 @@ import {
           <tbody>${rows}</tbody>
         </table>
       </div>
-    `;
+    `);
     bindRequestRowInteractions(target);
     bindRequestSelection(target, items);
     bindRequestPagination(target, totalPages);
@@ -3850,21 +3952,32 @@ import {
   }
 
   function bindPanelPagination(root) {
-    root.querySelectorAll("[data-list-page-key]").forEach((button) => {
-      if (button.dataset.bounddatalistpagekey) return;
-      button.dataset.bounddatalistpagekey = "1";
-      button.addEventListener("click", () => {
-        const pageKey = button.dataset.listPageKey || "";
-        if (!(pageKey in state)) return;
-        const direction = button.dataset.listPage;
-        if (direction === "prev") state[pageKey] = Math.max(0, Number(state[pageKey] || 0) - 1);
-        if (direction === "next") state[pageKey] = Number(state[pageKey] || 0) + 1;
-        state.forceConfigRender = true;
-        state.forceModelRoutesRender = true;
+    bindPanelPaginationDelegated(root, ({ pageKey, direction }) => {
+      if (!changePanelPage(state, pageKey, direction)) return;
+      if (pageKey === "providersPage") {
         state.forceProvidersRender = true;
-        state.forceModelCapsRender = true;
-        renderAll();
-      });
+        renderProvidersTable();
+        return;
+      }
+      if (pageKey === "configProvidersPage") {
+        state.forceConfigRender = true;
+        renderConfigProviders(state.data.config || {});
+        return;
+      }
+      if (pageKey === "modelRoutesPage") {
+        state.forceModelRoutesRender = true;
+        renderModelRoutes(state.data.config || {});
+        return;
+      }
+      if (pageKey === "providerModelMapPage") {
+        renderProviderModelMap(state.data.config || {});
+        return;
+      }
+      if (pageKey === "auditPage") {
+        renderAuditTrail();
+        return;
+      }
+      renderAll();
     });
   }
 
@@ -3889,31 +4002,24 @@ import {
     const filtered = allNames
       .map((name) => providerLightView(name))
       .filter(providerMatchesFiltersLight)
-      .sort((a, b) => {
-        const statusOrder = { normal: 0, degraded: 1, cooldown: 2, unavailable: 3, disabled: 4 };
-        const aStatus = statusOrder[a.runtimeState.id] ?? 99;
-        const bStatus = statusOrder[b.runtimeState.id] ?? 99;
-        if (aStatus !== bStatus) return aStatus - bStatus;
-        if (a.priority !== b.priority) return b.priority - a.priority;
-        return a.name.localeCompare(b.name);
-      });
+      .sort(compareProviderViews);
 
     if (!allNames.length) {
-      target.innerHTML = `<div class="empty pad">No providers configured</div>`;
+      updateDOM(target, `<div class="empty pad">No providers configured</div>`);
       return;
     }
 
     if (!filtered.length) {
-      target.innerHTML = `<div class="empty pad">No providers match the current filters</div>`;
+      updateDOM(target, `<div class="empty pad">No providers match the current filters</div>`);
       return;
     }
 
     const page = paginate(filtered, "providersPage", PROVIDERS_PAGE_SIZE);
     const visibleCards = page.items.map((view) => providerViewModel(view.name));
-    target.innerHTML = `
+    updateDOM(target, `
       ${panelPagination("providersPage", page, "providers")}
       <div class="provider-card-grid">${visibleCards.map(providerRuntimeCard).join("")}</div>
-    `;
+    `);
 
     bindPanelPagination(target);
     bindActionButtons(target);
@@ -4229,18 +4335,13 @@ import {
     return `
       <article class="provider-runtime-card provider-health-tile ${view.runtimeState.tone}" data-provider-card="${escapeHtml(view.name)}">
         <div class="provider-card-topline">
-          <span class="provider-status-dot ${view.runtimeState.badge}"></span>
+          ${providerServerIconMarkup(view.config, view.name)}
           <div class="provider-title-block">
             <div class="provider-name name-${view.runtimeState.badge}" title="${escapeHtml(view.name)}">${escapeHtml(view.name)}</div>
-            <div class="provider-meta">${view.formatNames.length ? view.formatNames.map(formatChip).join("") : `<span class="muted">No formats</span>`}<span class="priority-chip prio-${view.priority >= 10 ? "hi" : view.priority >= 5 ? "mid" : "lo"}" title="Priority ${view.priority}">P${view.priority}</span></div>
           </div>
           <button class="provider-card-settings-btn" type="button" data-provider-open="${escapeHtml(view.name)}" title="Settings" aria-label="Provider settings">${iconSvg("settings")}</button>
+          <div class="provider-meta">${view.formatNames.length ? view.formatNames.map(formatChip).join("") : `<span class="muted">No formats</span>`}<span class="priority-chip prio-${view.priority >= 10 ? "hi" : view.priority >= 5 ? "mid" : "lo"}" title="Priority ${view.priority}">P${view.priority}</span><span class="provider-state-badge provider-state-badge-inline tone-${view.runtimeState.badge}">${escapeHtml(view.runtimeState.label)}</span></div>
         </div>
-        <div class="provider-card-state-row">
-          <span class="provider-state-badge tone-${view.runtimeState.badge}">${escapeHtml(view.runtimeState.label)}</span>
-          <span class="provider-state-note">${escapeHtml(`${fmtInt(keyUsable)}/${fmtInt(keyTotal)} keys${view.keyStats.cooldown > 0 ? ` · ${fmtInt(view.keyStats.cooldown)} cooldown` : ""}`)}</span>
-        </div>
-
         <div class="provider-card-signal">
           <span class="provider-signal-item ${escapeHtml(successTone)}" title="Success rate">${iconSvg("activity")}<strong>${escapeHtml(successText)}</strong><small>success</small></span>
           <span class="provider-signal-item model-count" title="${escapeHtml(`${fmtInt(modelCount)} available models`)}">${iconSvg("boxes")}<strong>${escapeHtml(view.capability.status === "pending" ? "..." : fmtInt(modelCount))}</strong><small>models</small></span>
@@ -4267,6 +4368,26 @@ import {
 
   function compactStatInline(iconName, value, tone) {
     return `<span class="provider-stat ${tone || ""}" title="${escapeHtml(value)}">${iconSvg(iconName)}<strong>${escapeHtml(value)}</strong></span>`;
+  }
+
+  function providerSiteUrl(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    try {
+      const parsed = new URL(raw);
+      return ["http:", "https:"].includes(parsed.protocol) ? parsed.href : "";
+    } catch (_error) {
+      return "";
+    }
+  }
+
+  function providerServerIconMarkup(providerConfig, providerName) {
+    const siteUrl = providerSiteUrl(providerConfig?.site_url);
+    const label = t("prov.open_site", { name: providerName });
+    if (!siteUrl) {
+      return `<span class="provider-server-icon" aria-hidden="true">${iconSvg("server")}</span>`;
+    }
+    return `<a class="provider-server-icon" href="${escapeHtml(siteUrl)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${iconSvg("server")}</a>`;
   }
 
   function probeTone(probe = {}) {
@@ -4682,7 +4803,11 @@ import {
     const view = providerViewModel(name);
     const tabs = ["overview", "keys", "models", "routing", "config"];
     if (!tabs.includes(state.providerDrawerTab)) state.providerDrawerTab = "overview";
-    el("providerDrawerTitle").textContent = name;
+    const drawerIconSlot = el("providerDrawerIconSlot");
+    if (drawerIconSlot) updateDOM(drawerIconSlot, providerServerIconMarkup(view.config, name));
+    const drawerTitleText = el("providerDrawerTitleText");
+    if (drawerTitleText) drawerTitleText.textContent = name;
+    else el("providerDrawerTitle").textContent = name;
     el("providerDrawerSubtitle").textContent = t("prov.drawer_runtime_summary", {
       state: view.runtimeState.label,
       usable: view.keyStats.usable,
@@ -5509,12 +5634,12 @@ import {
 
     if (!names.length) {
       target.classList.add("empty");
-      target.innerHTML = `${header}<div class="pad-slim">No providers configured</div>`;
+      updateDOM(target, `${header}<div class="pad-slim">No providers configured</div>`);
       return;
     }
 
     target.classList.remove("empty");
-    target.innerHTML = `${header}${names.map((name) => modelCapabilityCard(name, providers[name] || {}, configProviders[name] || {})).join("")}`;
+    updateDOM(target, `${header}${names.map((name) => modelCapabilityCard(name, providers[name] || {}, configProviders[name] || {})).join("")}`);
   }
 
   function modelCapabilityCard(name, capability, providerConfig) {
@@ -5647,6 +5772,8 @@ import {
             <div class="provider-inspector-grid">
               <label for="provider-base-url-${escapeHtml(name)}">${escapeHtml(t("form.base_url"))}</label>
               <input id="provider-base-url-${escapeHtml(name)}" class="control mono" name="base_url" type="url" autocomplete="off" spellcheck="false" value="${escapeHtml(provider.base_url || "")}" placeholder="https://api.example.com" required />
+              <label for="provider-site-url-${escapeHtml(name)}">${escapeHtml(t("form.site_url"))}</label>
+              <input id="provider-site-url-${escapeHtml(name)}" class="control mono" name="site_url" type="url" autocomplete="off" spellcheck="false" value="${escapeHtml(provider.site_url || "")}" placeholder="https://provider.example.com" />
               <label for="provider-proxy-${escapeHtml(name)}">${escapeHtml(t("form.proxy"))}</label>
               <div>${proxyControlInput("proxy", provider.proxy || "", "direct / http://host:port / socks5://host:port", `id="provider-proxy-${escapeHtml(name)}" autocomplete="off" spellcheck="false"`)}</div>
               <label for="provider-user-agent-${escapeHtml(name)}">${escapeHtml(t("form.user_agent"))}</label>
@@ -5751,7 +5878,7 @@ import {
     const providerCooldown = Number(p.cooldown_remaining_s || 0);
     const compatibilityCircuits = Number(p.compatibility_circuit_count || 0);
     const hardFailure = Boolean(p.has_hard_failure);
-    if (!enabled) return { id: "disabled", label: "disabled", tone: "is-disabled", badge: "bad" };
+    if (!enabled) return { id: "disabled", label: "disabled", tone: "is-disabled", badge: "disabled" };
     if (providerCooldown > 0) return { id: "cooldown", label: "cooldown", tone: "is-cooldown", badge: "warn" };
     if (stats.total > 0 && stats.usable <= 0) {
       if (stats.cooldown > 0) return { id: "cooldown", label: "key cooldown", tone: "is-cooldown", badge: "warn" };
@@ -5769,7 +5896,7 @@ import {
       }
       return { id: "normal", label: "normal", tone: "is-available", badge: "ok" };
     }
-    return { id: "unavailable", label: "unavailable", tone: "is-unavailable", badge: "warn" };
+    return { id: "unavailable", label: "unavailable", tone: "is-unavailable", badge: "bad" };
   }
 
   function miniMetric(label, value, hint) {
@@ -6521,11 +6648,11 @@ import {
 
     const policies = state.data.config?.retry?.failure_policies || policy.failure_policies || {};
     const rows = Object.entries(policies).sort();
-    target.innerHTML = rows.length ? `
+    updateDOM(target, rows.length ? `
       <div class="failure-policy-list">
         ${rows.map(([errorType, cfg]) => failurePolicyCard(errorType, cfg || {})).join("")}
       </div>
-    ` : `<div class="empty pad">No failure policies</div>`;
+    ` : `<div class="empty pad">No failure policies</div>`);
     state.forceFailurePoliciesRender = false;
     bindFailurePolicyForms(target);
   }
@@ -6552,7 +6679,7 @@ import {
       { value: "weighted_rr", icon: "layers", label: t("policy.mode_weighted"), tip: t("policy.mode_weighted_tip") },
       { value: "random", icon: "dot", label: t("policy.mode_random"), tip: t("policy.mode_random_tip") },
     ];
-    target.innerHTML = `
+    updateDOM(target, `
       <div class="policy-control-grid">
         <form id="routingControlForm" class="policy-control-card">
           <div class="policy-control-card-head">
@@ -6652,7 +6779,7 @@ import {
           <button class="button secondary" type="submit">${t("policy.save_retry")}</button>
         </form>
       </div>
-    `;
+    `);
     state.forcePolicyRender = false;
     bindPolicyControlForms(target);
   }
@@ -7315,16 +7442,34 @@ import {
 
   function renderConfig() {
     const config = state.data.config || {};
-    el("configSnapshot").textContent = JSON.stringify(config, null, 2);
-    renderConfigSummary(config);
-    renderGlobalProxy(config);
-    renderOverlaySafety(config);
-    renderModelRoutes(config);
-    renderProviderModelMap(config);
-    renderConfigProviders(config);
-    renderAuditTrail();
-    if (state.data.usageStatistics) renderUsageStatistics();
-    if (state.data.modelUsage) renderModelUsage();
+    const locale = getLang();
+    const configChanged = state.forceConfigRender || config !== _lastRenderedConfigObject || locale !== _lastRenderedConfigLocale;
+    const overlayChanged = configChanged || state.data.overlay !== _lastRenderedOverlayObject;
+    if (configChanged) {
+      const snapshot = el("configSnapshot");
+      if (snapshot) snapshot.textContent = JSON.stringify(config, null, 2);
+      renderConfigSummary(config);
+      renderGlobalProxy(config);
+      renderModelRoutes(config);
+      renderProviderModelMap(config);
+      renderConfigProviders(config);
+      renderAuditTrail();
+      _lastRenderedConfigObject = config;
+      _lastRenderedConfigLocale = locale;
+      state.forceConfigRender = false;
+    }
+    if (overlayChanged) {
+      renderOverlaySafety(config);
+      _lastRenderedOverlayObject = state.data.overlay;
+    }
+    if (state.data.usageStatistics && (configChanged || state.data.usageStatistics !== _lastRenderedUsageStatisticsObject)) {
+      renderUsageStatistics();
+      _lastRenderedUsageStatisticsObject = state.data.usageStatistics;
+    }
+    if (state.data.modelUsage && (configChanged || state.data.modelUsage !== _lastRenderedModelUsageObject)) {
+      renderModelUsage();
+      _lastRenderedModelUsageObject = state.data.modelUsage;
+    }
   }
 
   async function loadModelUsage({ force = false } = {}) {
@@ -7523,7 +7668,7 @@ import {
         if (cfg?.enabled && formatCounts[fmt] !== undefined) formatCounts[fmt] += 1;
       });
     });
-    target.innerHTML = `
+    updateDOM(target, `
       <div class="config-summary-grid config-status-grid">
         ${miniMetric("Providers", `${fmtInt(enabledProviders)}/${fmtInt(providerCount)}`, "enabled")}
         ${miniMetric("Keys", fmtInt(keyCount), "masked")}
@@ -7535,7 +7680,7 @@ import {
         <span>Overlay path</span>
         <strong class="mono">${escapeHtml(overlayPath)}</strong>
       </div>
-    `;
+    `);
   }
 
   function renderGlobalProxy(config) {
@@ -7553,7 +7698,7 @@ import {
     const hasOverlay = Boolean(overlay.has_overlay ?? config.has_overlay);
     const overlayPath = overlay.overlay_path || config.overlay_path || "-";
     const overlayKeys = overlay.overlay && typeof overlay.overlay === "object" ? Object.keys(overlay.overlay).sort() : [];
-    target.innerHTML = `
+    updateDOM(target, `
       <div class="config-summary-grid overlay-summary-grid">
         ${miniMetric("Overlay", hasOverlay ? "active" : "none", "runtime_config")}
         ${miniMetric("Sections", overlayKeys.length ? overlayKeys.join(", ") : "-", "overlay")}
@@ -7564,7 +7709,7 @@ import {
         <span>Overlay path</span>
         <strong class="mono">${escapeHtml(overlayPath)}</strong>
       </div>
-    `;
+    `);
     const preview = el("overlayPreview");
     if (preview && !state.data.overlayPreviewPinned) {
       preview.textContent = JSON.stringify(overlay.overlay || {}, null, 2);
@@ -7581,19 +7726,19 @@ import {
     const names = Object.keys(providers).sort();
     if (!names.length) {
       target.classList.add("empty");
-      target.innerHTML = "No providers configured";
+      updateDOM(target, "No providers configured");
       state.forceConfigRender = false;
       return;
     }
 
     const page = paginate(names, "configProvidersPage", CONFIG_PROVIDERS_PAGE_SIZE);
     target.classList.remove("empty");
-    target.innerHTML = `
+    updateDOM(target, `
       ${panelPagination("configProvidersPage", page, "providers")}
       <div class="config-provider-page-list">
         ${page.items.map((name) => providerConfigSummaryCard(name, providers[name] || {})).join("")}
       </div>
-    `;
+    `);
     bindPanelPagination(target);
     state.forceConfigRender = false;
   }
@@ -7615,20 +7760,20 @@ import {
 
     if (!entries.length) {
       target.classList.add("empty");
-      target.innerHTML = `${hint}<div class="pad-slim">No model routes configured</div>`;
+      updateDOM(target, `${hint}<div class="pad-slim">No model routes configured</div>`);
       state.forceModelRoutesRender = false;
       return;
     }
 
     target.classList.remove("empty");
     const page = paginate(entries, "modelRoutesPage", MODEL_ROUTES_PAGE_SIZE);
-    target.innerHTML = `
+    updateDOM(target, `
       ${hint}
       ${panelPagination("modelRoutesPage", page, "routes")}
       <div class="model-route-page-list">
         ${page.items.map(([model, route]) => modelRouteCard(model, route, config.providers || {})).join("")}
       </div>
-    `;
+    `);
     bindPanelPagination(target);
     state.forceModelRoutesRender = false;
   }
@@ -7720,13 +7865,13 @@ import {
       .sort(([a], [b]) => a.localeCompare(b));
     if (!providers.length) {
       target.classList.add("empty");
-      target.innerHTML = `<div class="pad-slim">No provider model overrides configured</div>`;
+      updateDOM(target, `<div class="pad-slim">No provider model overrides configured</div>`);
       return;
     }
 
     target.classList.remove("empty");
     const page = paginate(providers, "providerModelMapPage", PROVIDER_MODEL_MAP_PAGE_SIZE);
-    target.innerHTML = `
+    updateDOM(target, `
       ${panelPagination("providerModelMapPage", page, "maps")}
       <div class="provider-model-map-page-list">
         ${page.items.map(([provider, entries]) => {
@@ -7749,7 +7894,7 @@ import {
       `;
     }).join("")}
       </div>
-    `;
+    `);
     bindPanelPagination(target);
   }
 
@@ -7766,18 +7911,18 @@ import {
     const items = Array.isArray(audit.items) ? audit.items : [];
     if (!items.length) {
       target.classList.add("empty");
-      target.innerHTML = "No audit events recorded";
+      updateDOM(target, "No audit events recorded");
       return;
     }
 
     target.classList.remove("empty");
     const page = paginate(items, "auditPage", AUDIT_PAGE_SIZE);
-    target.innerHTML = `
+    updateDOM(target, `
       ${panelPagination("auditPage", page, "events")}
       <div class="audit-page-list">
         ${page.items.map((item) => auditTrailItem(item)).join("")}
       </div>
-    `;
+    `);
     bindPanelPagination(target);
   }
 
@@ -7863,6 +8008,10 @@ import {
               <label class="field">
                 <span class="label-with-tip">${t("form.base_url")}<span class="help-tip" data-tip="${escapeHtml(t("form.base_url_tip"))}">?</span></span>
                 <input class="control" name="base_url" value="${escapeHtml(provider.base_url || "")}" placeholder="https://api.example.com" required />
+              </label>
+              <label class="field">
+                <span class="label-with-tip">${t("form.site_url")}<span class="help-tip" data-tip="${escapeHtml(t("form.site_url_tip"))}">?</span></span>
+                <input class="control" name="site_url" type="url" value="${escapeHtml(provider.site_url || "")}" placeholder="https://provider.example.com" />
               </label>
               <label class="field">
                 <span class="label-with-tip">${t("form.proxy")}<span class="help-tip" data-tip="${escapeHtml(t("form.proxy_tip"))}">?</span></span>
@@ -8065,6 +8214,7 @@ import {
         const provider = form.dataset.provider || "";
         const payload = {
           base_url: String(form.elements.base_url.value || "").trim(),
+          site_url: String(form.elements.site_url?.value || "").trim(),
           proxy: String(form.elements.proxy.value || "").trim(),
           user_agent: String(form.elements.user_agent?.value || "").trim(),
           priority: Number(form.elements.priority.value || 0),
@@ -9837,12 +9987,14 @@ import {
       const proxy = String(form.get("proxy") || "").trim();
       const key = String(form.get("key") || "").trim();
       const keyProxy = String(form.get("key_proxy") || "").trim();
+      const siteUrl = String(form.get("site_url") || "").trim();
       const priority = Number(form.get("priority") || 0);
       const payload = {
         name: String(form.get("name") || "").trim(),
         base_url: String(form.get("base_url") || "").trim(),
         keys: [keyProxy ? { key, proxy: keyProxy } : key],
       };
+      if (siteUrl) payload.site_url = siteUrl;
       // Only send priority if user explicitly set a non-zero value.
       // When omitted, the backend auto-assigns the highest priority.
       if (priority !== 0) payload.priority = priority;
