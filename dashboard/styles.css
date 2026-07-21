@@ -22090,7 +22090,8 @@ body {
   justify-content: center;
   padding: 8px 14px 10px;
   border-top: 1px solid #eef1f4;
-  background: #fafbfc;
+  background: transparent;
+  box-shadow: none;
 }
 
 #overviewView .traffic-trend-legend {
