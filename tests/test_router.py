@@ -1696,6 +1696,100 @@ class RouterTests(unittest.TestCase):
         self.assertGreaterEqual(snap["providers"]["alpha"]["cooldown_remaining_s"], 15)
         self.assertFalse(snap["providers"]["alpha"]["available"])
 
+    def test_clear_provider_cooldown_also_clears_compatibility_circuits(self):
+        """clear_provider_cooldown must also clear compatibility circuits for that provider."""
+        router = UpstreamRouter(base_config())
+        failed = next(router.iter_attempts(
+            "any-model", False, "req-1", compatibility_profile="tools"
+        ))
+        # Open a compatibility circuit
+        for _ in range(3):
+            router.report_failure(failed, error_type="client_error", http_status=422)
+
+        snap = router.snapshot()
+        self.assertGreater(snap["compatibility_circuits"]["active"], 0)
+
+        # Clear provider cooldown — should also clear compatibility circuits
+        self.assertTrue(router.clear_provider_cooldown(failed.provider))
+        snap = router.snapshot()
+        self.assertEqual(snap["compatibility_circuits"]["active"], 0)
+
+        # The candidate should now be available again
+        attempts = list(router.iter_attempts(
+            "any-model", False, "req-2", compatibility_profile="tools"
+        ))
+        self.assertTrue(any(a.provider == failed.provider for a in attempts))
+
+    def test_clear_key_state_also_clears_compatibility_circuits(self):
+        """clear_key_state must also clear compatibility circuits for that key."""
+        router = UpstreamRouter(base_config())
+        failed = next(router.iter_attempts(
+            "any-model", False, "req-1", compatibility_profile="tools"
+        ))
+        # Open a compatibility circuit
+        for _ in range(3):
+            router.report_failure(failed, error_type="provider_compat", http_status=400)
+
+        snap = router.snapshot()
+        self.assertGreater(snap["compatibility_circuits"]["active"], 0)
+
+        # Clear key state — should also clear compatibility circuits
+        self.assertTrue(router.clear_key_state(failed.provider, failed.key_index))
+        snap = router.snapshot()
+        self.assertEqual(snap["compatibility_circuits"]["active"], 0)
+
+    def test_clear_compatibility_circuits_filtered_by_provider(self):
+        """clear_compatibility_circuits with provider filter only clears that provider."""
+        router = UpstreamRouter(base_config())
+        alpha_attempt = next(router.iter_attempts(
+            "any-model", False, "req-a", compatibility_profile="tools"
+        ))
+        # Force a beta attempt
+        router.report_failure(alpha_attempt, error_type="client_error", http_status=422)
+        router.report_failure(alpha_attempt, error_type="client_error", http_status=422)
+        router.report_failure(alpha_attempt, error_type="client_error", http_status=422)
+
+        beta_attempts = [a for a in router.iter_attempts(
+            "any-model", False, "req-b", compatibility_profile="tools"
+        ) if a.provider == "beta"]
+        if beta_attempts:
+            beta_attempt = beta_attempts[0]
+            router.report_failure(beta_attempt, error_type="client_error", http_status=422)
+            router.report_failure(beta_attempt, error_type="client_error", http_status=422)
+            router.report_failure(beta_attempt, error_type="client_error", http_status=422)
+
+        snap = router.snapshot()
+        self.assertGreaterEqual(snap["compatibility_circuits"]["active"], 1)
+
+        # Clear only alpha
+        removed = router.clear_compatibility_circuits(provider="alpha")
+        self.assertGreaterEqual(removed, 1)
+
+        snap = router.snapshot()
+        # Beta circuits should still exist if they were created
+        beta_circuits = [e for e in snap["compatibility_circuits"]["entries"] if e["provider"] == "beta"]
+        alpha_circuits = [e for e in snap["compatibility_circuits"]["entries"] if e["provider"] == "alpha"]
+        self.assertEqual(len(alpha_circuits), 0)
+
+    def test_clear_compatibility_circuits_all(self):
+        """clear_compatibility_circuits with no args clears all circuits."""
+        router = UpstreamRouter(base_config())
+        failed = next(router.iter_attempts(
+            "any-model", False, "req-1", compatibility_profile="tools"
+        ))
+        router.report_failure(failed, error_type="client_error", http_status=422)
+        router.report_failure(failed, error_type="client_error", http_status=422)
+        router.report_failure(failed, error_type="client_error", http_status=422)
+
+        snap = router.snapshot()
+        self.assertGreater(snap["compatibility_circuits"]["active"], 0)
+
+        removed = router.clear_compatibility_circuits()
+        self.assertGreaterEqual(removed, 1)
+
+        snap = router.snapshot()
+        self.assertEqual(snap["compatibility_circuits"]["active"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

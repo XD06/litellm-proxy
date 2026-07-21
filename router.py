@@ -607,7 +607,54 @@ class UpstreamRouter:
         with self._lock:
             ps = self._providers_state.setdefault(provider, _ProviderState())
             ps.cooldown_until = 0.0
+            # Also clear any compatibility circuits for this provider so that
+            # the dashboard "clear cooldown" action fully restores routing.
+            to_remove = [
+                key for key in self._compatibility_state
+                if key[0] == provider
+            ]
+            for key in to_remove:
+                self._compatibility_state.pop(key, None)
         return True
+
+    def clear_compatibility_circuits(
+        self,
+        provider: Optional[str] = None,
+        key_index: Optional[int] = None,
+    ) -> int:
+        """Clear format-compatibility circuits.
+
+        If *provider* is None, clears all circuits.  If *key_index* is also
+        given, clears only circuits whose key fingerprint matches that key.
+
+        Returns the number of circuits removed.
+        """
+        providers_cfg = self.cfg.get("providers") or {}
+        key_hint: Optional[str] = None
+        if provider is not None and key_index is not None:
+            pcfg = providers_cfg.get(provider)
+            if not pcfg:
+                return 0
+            keys = pcfg.get("keys") or []
+            if key_index < 0 or key_index >= len(keys):
+                return 0
+            key_hint = _key_fingerprint(key_value(keys[key_index]) or "")
+
+        removed = 0
+        with self._lock:
+            to_remove = []
+            for key, state in self._compatibility_state.items():
+                if state.cooldown_until <= time.time():
+                    continue
+                if provider is not None and key[0] != provider:
+                    continue
+                if key_hint is not None and key[1] != key_hint:
+                    continue
+                to_remove.append(key)
+            for key in to_remove:
+                self._compatibility_state.pop(key, None)
+                removed += 1
+        return removed
 
     def set_key_enabled(self, provider: str, key_index: int, enabled: bool) -> bool:
         providers_cfg = self.cfg.get("providers") or {}
@@ -643,6 +690,19 @@ class UpstreamRouter:
                 ks.fails = 0
                 ks.transient_fails = 0
                 ks.credential_fails = 0
+            # Also clear compatibility circuits for the affected key(s) so that
+            # the dashboard "clear key state" action fully restores routing.
+            target_hints = {
+                _key_fingerprint(key_value(keys[idx]) or "")
+                for idx in indexes
+                if 0 <= idx < len(keys)
+            }
+            to_remove = [
+                key for key in self._compatibility_state
+                if key[0] == provider and key[1] in target_hints
+            ]
+            for key in to_remove:
+                self._compatibility_state.pop(key, None)
         return True
 
     def snapshot(self) -> Dict[str, Any]:

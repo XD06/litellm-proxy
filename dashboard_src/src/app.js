@@ -5157,6 +5157,7 @@ import {
               <span class="provider-overview-section-icon">${iconSvg("alert")}</span>
               <div><h3>${escapeHtml(t("prov.overview_routing_exceptions"))}</h3><p>${escapeHtml(t("prov.overview_routing_exceptions_tip"))}</p></div>
               <span class="section-count-badge">${fmtInt(compatibilityCircuits.length)}</span>
+              ${actionButton(t("prov.overview_clear_exceptions") || "Clear exceptions", `/providers/${encodeURIComponent(view.name)}/compatibility/clear`, "secondary")}
             </div>
             <div class="provider-route-list">
               ${compatibilityCircuits.map((entry) => `

@@ -838,6 +838,22 @@ class AdminRoutesMixin:
                 self._audit_admin_event("config_overlay_compact_failed", target="config/overlay", status="failed", error=str(e))
                 return self._resp_json({"error": {"message": str(e)}}, 400)
 
+        if parts == ["compatibility", "clear"]:
+            removed = ROUTER.clear_compatibility_circuits()
+            _save_router_state()
+            self._audit_admin_event(
+                "compatibility_circuits_cleared",
+                target="all",
+                detail={"removed": removed},
+            )
+            return self._resp_json(
+                {
+                    "action": "compatibility_circuits_cleared",
+                    "removed": removed,
+                    "router": ROUTER.snapshot(),
+                }
+            )
+
         if parts == ["models", "infer-mapping"]:
             body = self._read_json_body()
             if isinstance(body, tuple):
@@ -983,6 +999,23 @@ class AdminRoutesMixin:
                     {
                         "action": "provider_cooldown_cleared",
                         "provider": provider,
+                        "router": ROUTER.snapshot(),
+                    }
+                )
+
+            if len(parts) == 4 and parts[2] == "compatibility" and parts[3] == "clear":
+                removed = ROUTER.clear_compatibility_circuits(provider=provider)
+                _save_router_state()
+                self._audit_admin_event(
+                    "compatibility_circuits_cleared",
+                    target=provider,
+                    detail={"removed": removed},
+                )
+                return self._resp_json(
+                    {
+                        "action": "compatibility_circuits_cleared",
+                        "provider": provider,
+                        "removed": removed,
                         "router": ROUTER.snapshot(),
                     }
                 )

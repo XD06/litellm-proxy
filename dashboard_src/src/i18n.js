@@ -357,6 +357,7 @@ const dict = {
   "prov.overview_successful_calls": { en: "successful calls", zh: "成功请求" },
   "prov.overview_routing_exceptions": { en: "Routing exceptions", zh: "路由异常" },
   "prov.overview_routing_exceptions_tip": { en: "Active model, key, and format compatibility circuits", zh: "当前生效的模型、密钥与格式兼容性熔断" },
+  "prov.overview_clear_exceptions": { en: "Clear exceptions", zh: "清除熔断" },
   "prov.overview_failures": { en: "{count} failures", zh: "失败 {count} 次" },
   "prov.overview_cooldown_remaining": { en: "{time} cooldown remaining", zh: "剩余冷却 {time}" },
   "prov.overview_recent_activity": { en: "Recent activity", zh: "近期调用" },

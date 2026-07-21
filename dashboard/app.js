@@ -1861,6 +1861,10 @@
 				en: "Active model, key, and format compatibility circuits",
 				zh: "当前生效的模型、密钥与格式兼容性熔断"
 			},
+			"prov.overview_clear_exceptions": {
+				en: "Clear exceptions",
+				zh: "清除熔断"
+			},
 			"prov.overview_failures": {
 				en: "{count} failures",
 				zh: "失败 {count} 次"
@@ -9830,6 +9834,7 @@
               <span class="provider-overview-section-icon">${iconSvg("alert")}</span>
               <div><h3>${escapeHtml(t("prov.overview_routing_exceptions"))}</h3><p>${escapeHtml(t("prov.overview_routing_exceptions_tip"))}</p></div>
               <span class="section-count-badge">${fmtInt(compatibilityCircuits.length)}</span>
+              ${actionButton(t("prov.overview_clear_exceptions") || "Clear exceptions", `/providers/${encodeURIComponent(view.name)}/compatibility/clear`, "secondary")}
             </div>
             <div class="provider-route-list">
               ${compatibilityCircuits.map((entry) => `
