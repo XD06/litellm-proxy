@@ -63,6 +63,9 @@ assert.match(app, /MODEL_PRICING_BATCH_SIZE/, "pricing enrichment must support b
 assert.match(app, /pricingFetchSequence/, "stale pricing responses must not overwrite a newer model pricing set");
 assert.match(usageStatisticsChart, /role="img" aria-label=/, "statistics charts need an accessible summary");
 assert.match(usageStatisticsChart, /data-tip=/, "statistics points need inspectable evidence");
+assert.match(usageStatisticsChart, /usage-statistics-fill-\$\{seriesIndex\}/, "each chart series needs its own gradient fill id");
+assert.doesNotMatch(usageStatisticsChart, /seriesIndex === 0 && path/, "area fills must not be limited to the first series");
+assert.match(usageStatisticsChart, /seriesAreas[\s\S]*seriesLines/, "chart areas should paint under series lines");
 assert.match(usageStatisticsBreakdown, /providerBrandIconMarkup/, "provider breakdowns must use provider identity icons");
 assert.match(usageStatisticsBreakdown, /modelBrandIconMarkup/, "model breakdowns must use model identity icons");
 assert.match(state, /usageStatisticsRange:\s*"all"/, "lifetime statistics should open on the complete retained aggregate");
