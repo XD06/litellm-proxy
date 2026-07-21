@@ -20527,9 +20527,9 @@ body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-rows: auto auto;
-  gap: 2px 12px;
+  gap: 2px 18px;
   align-items: center;
-  padding: 11px 12px;
+  padding: 11px 14px;
 }
 
 .usage-total-label {
@@ -20537,6 +20537,8 @@ body {
   min-width: 0;
   gap: 8px;
   align-items: center;
+  grid-column: 1;
+  grid-row: 1;
 }
 
 .usage-total-icon,
@@ -20565,13 +20567,19 @@ body {
 .usage-total-card > strong {
   grid-row: 1 / 3;
   grid-column: 2;
+  justify-self: end;
+  align-self: center;
+  min-width: 3.5ch;
   color: #111827;
-  font: 800 26px/1 var(--mono);
-  letter-spacing: -.045em;
+  font: 800 30px/1 var(--mono);
+  letter-spacing: -.04em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .usage-total-exact {
   grid-column: 1;
+  grid-row: 2;
   padding-left: 39px;
   color: var(--muted);
   font-size: 7.5px;
@@ -21068,17 +21076,29 @@ body {
   height: 13px;
 }
 
+#configView.is-model-data .model-usage-success {
+  text-align: center;
+}
+
 #configView.is-model-data .model-rate-badge {
-  min-height: 20px;
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
-  padding: 1px 6px;
+  min-height: 20px;
+  margin-top: 0;
+  padding: 1px 7px;
+  overflow: visible;
+  font-size: 10px;
   font-weight: 720;
   line-height: 1;
   white-space: nowrap;
+  text-overflow: clip;
+  vertical-align: middle;
 }
 
 #configView.is-model-data .model-rate-badge .icon-svg {
   flex: 0 0 10px;
+  display: block;
 }
 
 #modelDrawer .drawer-head h2 {
@@ -21545,10 +21565,12 @@ body {
 }
 
 #overviewView .traffic-workspace-metrics {
+  grid-column: 1 / -1;
+  grid-row: 2;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
-  padding: 8px 12px;
-  border-top: 1px solid #e7ebef;
+  padding: 10px 12px 12px;
+  border-top: 1px solid #eef1f4;
   background: #fafbfc;
 }
 
@@ -21557,8 +21579,8 @@ body {
   grid-template-columns: 28px minmax(0, 1fr);
   gap: 8px;
   align-items: center;
-  min-height: 48px;
-  padding: 8px 9px;
+  min-height: 52px;
+  padding: 9px 10px;
   border: 1px solid #e1e5ea;
   border-radius: 8px;
   background: #fff;
@@ -21592,7 +21614,7 @@ body {
 #overviewView .traffic-workspace-metric-label {
   overflow: hidden;
   color: #8490a1;
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 680;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -21600,24 +21622,27 @@ body {
 
 #overviewView .traffic-workspace-metric-value {
   display: flex;
+  flex-wrap: wrap;
   min-width: 0;
-  gap: 5px;
+  gap: 4px 6px;
   align-items: baseline;
+  overflow: visible;
+  white-space: normal;
 }
 
 #overviewView .traffic-workspace-metric-value strong {
   margin: 0;
-  overflow: hidden;
+  overflow: visible;
   color: #151a23;
-  font: 780 14px/1.1 var(--mono);
-  text-overflow: ellipsis;
+  font: 780 15px/1.15 var(--mono);
+  text-overflow: clip;
   white-space: nowrap;
 }
 
 #overviewView .traffic-workspace-metric-value small {
   overflow: hidden;
   color: #9aa3b1;
-  font-size: 7px;
+  font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -21754,5 +21779,585 @@ body {
 
   #overviewView .traffic-workspace-metric-value strong {
     font-size: 12px;
+  }
+}
+
+/* Overview page visual unify: align with Usage Statistics shell language. */
+#overviewView .overview-page-head {
+  margin-bottom: 14px;
+}
+
+#overviewView .overview-page-head h1 {
+  color: #151a23;
+  font-size: 20px;
+  font-weight: 780;
+  letter-spacing: -0.02em;
+}
+
+#overviewView .overview-page-head p {
+  color: #8490a1;
+  font-size: 12px;
+}
+
+#overviewView .time-range-control {
+  min-height: 34px;
+  padding: 3px;
+  border: 1px solid #e1e5ea;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(18, 28, 45, 0.035);
+}
+
+#overviewView .segmented-button {
+  min-height: 26px;
+  border-radius: 7px;
+  color: #8490a1;
+  font-size: 11px;
+  font-weight: 720;
+}
+
+#overviewView .segmented-button.is-active {
+  background: #151a23;
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(18, 28, 45, 0.18);
+}
+
+#overviewView .overview-visuals {
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+#overviewView .visual-card {
+  min-height: 88px;
+  padding: 13px 14px;
+  border: 1px solid #e1e5ea;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(18, 28, 45, 0.035);
+}
+
+#overviewView .visual-card::before {
+  display: none;
+}
+
+#overviewView .visual-card:hover {
+  border-color: #d5dbe3;
+  box-shadow: 0 6px 16px rgba(18, 28, 45, 0.06);
+  transform: none;
+}
+
+#overviewView .visual-card .metric-label {
+  color: #8490a1;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+#overviewView .visual-card .metric-val {
+  margin-top: 8px;
+  color: #151a23;
+  font: 800 26px/1 var(--mono);
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+#overviewView .visual-card.accent-success .metric-val,
+#overviewView .visual-card.accent-danger .metric-val,
+#overviewView .visual-card.accent-warning .metric-val,
+#overviewView .visual-card.accent-info .metric-val,
+#overviewView .visual-card.accent-compat .metric-val {
+  color: #151a23;
+}
+
+#overviewView .visual-card .metric-sub {
+  margin-top: 7px;
+  color: #9aa3b1;
+  font-size: 11px;
+  font-weight: 560;
+}
+
+#overviewView .visual-card .metric-icon {
+  width: 30px;
+  height: 30px;
+  border: 1px solid #dfe3e8;
+  border-radius: 8px;
+  background: #f5f7fa;
+  color: #5b6575;
+  box-shadow: none;
+}
+
+#overviewView .visual-card .metric-icon .icon-svg {
+  width: 14px;
+  height: 14px;
+}
+
+#overviewView .visual-card .metric-icon.tone-compat {
+  border-color: #ddd1ff;
+  background: #f5f0ff;
+  color: #7b55d6;
+}
+
+#overviewView .visual-card .metric-icon.tone-success {
+  border-color: #b8e3cf;
+  background: #effaf4;
+  color: #0f9d72;
+}
+
+#overviewView .visual-card .metric-icon.tone-info {
+  border-color: #d4e2fb;
+  background: #eaf2ff;
+  color: #2f7df4;
+}
+
+#overviewView .visual-card .metric-icon.tone-warning {
+  border-color: #f0d5ad;
+  background: #fff8ed;
+  color: #d58b12;
+}
+
+#overviewView .visual-card .metric-icon.tone-danger {
+  border-color: #f1c7cf;
+  background: #fff3f4;
+  color: #d45565;
+}
+
+#overviewView .overview-grid {
+  gap: 12px;
+}
+
+#overviewView .panel {
+  border: 1px solid #e1e5ea;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(18, 28, 45, 0.035);
+}
+
+#overviewView .panel-head {
+  min-height: 50px;
+  padding: 12px 14px 11px;
+  border-bottom: 1px solid #e7ebef;
+  background: #fff;
+}
+
+#overviewView .panel-head h2 {
+  color: #151a23;
+  font-size: 14px;
+  font-weight: 780;
+  letter-spacing: -0.01em;
+}
+
+#overviewView .panel-head .tag,
+#overviewView .panel-head .badge {
+  min-height: 22px;
+  padding: 0 8px;
+  border: 1px solid #e1e5ea;
+  border-radius: 999px;
+  background: #f7f8fa;
+  color: #8490a1;
+  font: 700 10px/1 var(--mono);
+}
+
+#overviewView .overview-traffic-panel .chart {
+  padding: 0;
+  background: #fff;
+}
+
+#overviewView .traffic-chart-shell {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* Traffic header: title + mode on row 1, full-width metric cards on row 2. */
+#overviewView .traffic-workspace-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  border-bottom: 1px solid #e7ebef;
+  background: #fff;
+}
+
+#overviewView .traffic-workspace-title {
+  min-width: 0;
+  padding: 12px 14px;
+}
+
+#overviewView .traffic-workspace-title strong {
+  color: #151a23;
+  font-size: 13px;
+  font-weight: 780;
+}
+
+#overviewView .traffic-workspace-title small {
+  color: #8490a1;
+  font-size: 10px;
+}
+
+#overviewView .traffic-workspace-metrics {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px 12px 12px;
+  border-top: 1px solid #eef1f4;
+  background: #fafbfc;
+}
+
+#overviewView .traffic-workspace-metric {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  min-height: 52px;
+  padding: 9px 10px;
+  border: 1px solid #e1e5ea;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(18, 28, 45, 0.03);
+}
+
+#overviewView .traffic-workspace-metric-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  align-content: center;
+}
+
+#overviewView .traffic-workspace-metric-label {
+  overflow: hidden;
+  color: #8490a1;
+  font-size: 10px;
+  font-weight: 680;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#overviewView .traffic-workspace-metric-value {
+  display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
+  gap: 4px 6px;
+  align-items: baseline;
+  overflow: visible;
+  white-space: normal;
+}
+
+#overviewView .traffic-workspace-metric-value strong {
+  margin: 0;
+  overflow: visible;
+  color: #151a23;
+  font: 780 15px/1.15 var(--mono);
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+#overviewView .traffic-workspace-metric-value small {
+  overflow: hidden;
+  color: #9aa3b1;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#overviewView .traffic-workspace-header .traffic-mode-selectors {
+  align-self: center;
+  margin: 0 12px;
+  border: 1px solid #e1e5ea;
+  border-radius: 8px;
+  background: #f7f8fa;
+  box-shadow: none;
+}
+
+#overviewView .traffic-workspace-header .traffic-mode-selectors .pill-toggle {
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 720;
+}
+
+#overviewView .traffic-workspace-header .traffic-mode-selectors .pill-toggle.is-active {
+  background: #151a23;
+  color: #fff;
+}
+
+#overviewView .traffic-chart-header {
+  position: relative;
+  min-height: 40px;
+  justify-content: center;
+  padding: 8px 14px 10px;
+  border-top: 1px solid #eef1f4;
+  background: #fafbfc;
+}
+
+#overviewView .traffic-trend-legend {
+  flex: 0 0 auto;
+  justify-content: center;
+  gap: 14px;
+}
+
+#overviewView .traffic-trend-legend-item {
+  color: #5b6575;
+  font-size: 10px;
+  font-weight: 680;
+}
+
+#overviewView .traffic-chart-unit {
+  position: absolute;
+  right: 14px;
+  margin-left: 0;
+  padding-left: 0;
+  border-left: 0;
+  color: #8490a1;
+  font: 680 10px/1.3 var(--mono);
+}
+
+#overviewView .traffic-chart-shell svg,
+#overviewView .traffic-chart-shell > svg {
+  height: 268px;
+}
+
+#overviewView .chart .traffic-grid-line,
+#overviewView .chart .traffic-x-tick {
+  stroke: #eef1f4;
+}
+
+#overviewView .health-overview {
+  gap: 10px;
+  padding: 12px 14px 14px;
+  background: #fff;
+}
+
+#overviewView .health-overview-header {
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eef1f4;
+}
+
+#overviewView .health-score-ring {
+  width: 52px;
+  height: 52px;
+  border-width: 2px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+}
+
+#overviewView .health-score-ring strong {
+  color: #151a23;
+  font-size: 16px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+#overviewView .health-score-label {
+  color: #151a23;
+  font-size: 12px;
+  font-weight: 760;
+}
+
+#overviewView .health-overview-meta {
+  color: #8490a1;
+  font-size: 11px;
+}
+
+#overviewView .health-provider-row {
+  grid-template-columns: minmax(88px, 1fr) minmax(0, 1.2fr) 34px auto;
+  gap: 8px;
+  min-height: 34px;
+  padding: 7px 9px;
+  border: 1px solid #eef1f4;
+  border-radius: 8px;
+  background: #fafbfc;
+}
+
+#overviewView .health-provider-row:hover {
+  border-color: #e1e5ea;
+  background: #fff;
+}
+
+#overviewView .health-provider-name {
+  color: #151a23;
+  font: 680 11px/1.2 var(--mono);
+}
+
+#overviewView .health-provider-bar {
+  height: 4px;
+  background: #edf0f4;
+}
+
+#overviewView .health-provider-score {
+  color: #151a23;
+  font: 760 12px/1 var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+#overviewView .health-provider-grade {
+  min-height: 18px;
+  padding: 2px 7px;
+  border: 1px solid transparent;
+  font: 700 9.5px/1 var(--sans);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+#overviewView .health-overview-more {
+  color: #9aa3b1;
+  font: 680 10.5px/1 var(--mono);
+}
+
+#overviewView #recentFailures {
+  padding: 10px 12px 12px;
+  background: #fff;
+}
+
+#overviewView .overview-failures-panel .recent-failure-list,
+#overviewView #recentFailures .recent-failure-list {
+  gap: 6px;
+}
+
+#overviewView #recentFailures .recent-failure-row {
+  grid-template-columns: 26px minmax(0, 1fr) auto minmax(88px, 0.95fr);
+  gap: 8px;
+  min-height: 42px;
+  padding: 7px 8px;
+  border: 1px solid #eef1f4;
+  border-radius: 8px;
+  background: #fafbfc;
+  box-shadow: none;
+}
+
+#overviewView #recentFailures .recent-failure-row:hover,
+#overviewView #recentFailures .recent-failure-row:focus-visible {
+  border-color: #e1e5ea;
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(18, 28, 45, 0.05);
+}
+
+#overviewView #recentFailures .recent-failure-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+}
+
+#overviewView #recentFailures .recent-failure-main strong {
+  color: #151a23;
+  font-size: 11.5px;
+  font-weight: 720;
+}
+
+#overviewView #recentFailures .recent-failure-main small,
+#overviewView #recentFailures .recent-failure-latency {
+  color: #8490a1;
+  font-size: 10px;
+}
+
+#overviewView #recentFailures .recent-failure-reason {
+  padding: 3px 7px;
+  border: 1px solid #e7ebef;
+  border-radius: 999px;
+  background: #fff;
+  color: #64748b;
+  font-size: 10px;
+}
+
+#overviewView .usage-chart {
+  gap: 10px;
+  padding: 12px 12px 14px;
+  background: #fff;
+}
+
+#overviewView .usage-summary {
+  gap: 8px;
+}
+
+#overviewView .usage-chart .mini-metric {
+  min-height: 56px;
+  padding: 9px 10px;
+  border: 1px solid #e1e5ea;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(18, 28, 45, 0.03);
+}
+
+#overviewView .usage-chart .mini-metric strong {
+  color: #151a23;
+  font: 780 15px/1.1 var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+#overviewView .usage-chart .mini-metric span,
+#overviewView .usage-chart .mini-metric small {
+  color: #8490a1;
+}
+
+#overviewView .usage-model-only .usage-bars {
+  gap: 6px;
+}
+
+#overviewView .usage-model-only .usage-row {
+  padding: 8px 9px;
+  border: 1px solid #eef1f4;
+  border-radius: 8px;
+  background: #fafbfc;
+  box-shadow: none;
+}
+
+#overviewView .usage-model-only .usage-row:hover {
+  border-color: #e1e5ea;
+  background: #fff;
+}
+
+#overviewView .usage-model-only .usage-rank {
+  min-width: 24px;
+  border: 1px solid #e1e5ea;
+  border-radius: 999px;
+  background: #fff;
+  color: #5b6575;
+  font: 740 10px/1 var(--mono);
+}
+
+#overviewView .usage-model-only .usage-track {
+  height: 4px;
+  border-radius: 999px;
+  background: #edf0f4;
+}
+
+#overviewView .usage-model-only .usage-row-head strong,
+#overviewView .usage-model-only .usage-row-foot strong {
+  color: #151a23;
+  font-variant-numeric: tabular-nums;
+}
+
+#overviewView .usage-model-only .usage-row-foot,
+#overviewView .usage-section-title span {
+  color: #8490a1;
+}
+
+@media (max-width: 1180px) {
+  #overviewView .traffic-workspace-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  #overviewView .traffic-workspace-metrics {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  #overviewView .overview-visuals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #overviewView .traffic-workspace-metrics {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  #overviewView .traffic-chart-unit {
+    display: none;
   }
 }

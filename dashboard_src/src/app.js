@@ -7369,39 +7369,51 @@ import {
     const maxValue = niceChartMax(Math.max(1, ...series.flatMap((definition) => definition.values)));
     const xFor = (index) => pad.left + (points.length > 1 ? (index / (points.length - 1)) * plotW : plotW / 2);
     const yFor = (value) => pad.top + plotH - (Math.max(0, value) / maxValue) * plotH;
-    const seriesMarkup = series.map((definition, seriesIndex) => {
+    const seriesGeometry = series.map((definition, seriesIndex) => {
       const linePoints = definition.values.map((value, index) => ({ x: xFor(index), y: yFor(value) }));
       const path = smoothSvgPath(linePoints, pad.top, pad.top + plotH);
-      const area = seriesIndex === 0 && path
-        ? `${path} L ${svgNum(linePoints[linePoints.length - 1].x)} ${svgNum(pad.top + plotH)} L ${svgNum(linePoints[0].x)} ${svgNum(pad.top + plotH)} Z`
-        : "";
-      return `${area ? `<path class="usage-statistics-area" d="${area}" fill="url(#usage-statistics-fill)"></path>` : ""}<path class="usage-statistics-line" d="${path}" style="--series-color:${definition.color}"></path>${points.length <= 48 ? linePoints.map((point, index) => definition.values[index] > 0 ? `<circle class="usage-statistics-dot" cx="${svgNum(point.x)}" cy="${svgNum(point.y)}" r="2.8" style="--series-color:${definition.color}"></circle>` : "").join("") : ""}`;
-    }).join("");
-    const grid = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
-      const y = pad.top + plotH - ratio * plotH;
-      return `<line x1="${pad.left}" y1="${svgNum(y)}" x2="${width - pad.right}" y2="${svgNum(y)}"></line><text x="${pad.left - 12}" y="${svgNum(y + 3)}" text-anchor="end">${escapeHtml(formatUsageStatisticsMetric(metric, maxValue * ratio))}</text>`;
-    }).join("");
-    const labelIndexes = Array.from(new Set([0, ...Array.from({ length: 5 }, (_, index) => Math.round(((index + 1) / 6) * (points.length - 1))), points.length - 1])).filter((index) => index >= 0 && index < points.length);
-    const xLabels = labelIndexes.map((index) => `<text x="${svgNum(xFor(index))}" y="${height - 15}" text-anchor="middle">${escapeHtml(usageStatisticsAxisDate(points[index].start, payload.resolution))}</text>`).join("");
-    const slot = Math.max(3, plotW / Math.max(1, points.length));
-    const inspection = points.map((point, index) => {
-      const details = series.map((definition) => `${definition.label}: ${formatUsageStatisticsMetric(metric, definition.values[index])}`).join(" · ");
-      const label = `${fmtDate(point.start)} · ${details}`;
-      return `<rect class="usage-statistics-inspection" x="${svgNum(xFor(index) - slot / 2)}" y="${pad.top}" width="${svgNum(slot)}" height="${plotH}" tabindex="0" role="img" aria-label="${escapeHtml(label)}" data-tip="${escapeHtml(label)}"></rect>`;
-    }).join("");
-    updateDOM(target, `
-      <div class="usage-statistics-chart-canvas">
-        <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(t("usage_stats.chart_aria", { metric: metric }))}">
-          <defs><linearGradient id="usage-statistics-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${series[0]?.color || "#2f7df4"}" stop-opacity=".22"></stop><stop offset="1" stop-color="${series[0]?.color || "#2f7df4"}" stop-opacity="0"></stop></linearGradient></defs>
-          <g class="usage-statistics-grid">${grid}</g>
-          <g class="usage-statistics-x-axis">${xLabels}</g>
-          <g>${seriesMarkup}</g>
-          <g>${inspection}</g>
-        </svg>
-      </div>
-      <div class="usage-statistics-legend">${series.map((definition) => `<span><i style="--series-color:${definition.color}"></i>${escapeHtml(definition.label)}</span>`).join("")}</div>
-    `);
-  }
+          const gradientId = `usage-statistics-fill-${seriesIndex}`;
+          const area = path
+            ? `${path} L ${svgNum(linePoints[linePoints.length - 1].x)} ${svgNum(pad.top + plotH)} L ${svgNum(linePoints[0].x)} ${svgNum(pad.top + plotH)} Z`
+            : "";
+          return { definition, linePoints, path, gradientId, area };
+        });
+        // Paint every series area first, then lines/dots, so multi-series fills never cover stroke markers.
+        const gradientDefs = seriesGeometry.map(({ definition, gradientId }) => (
+          `<linearGradient id="${gradientId}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${definition.color}" stop-opacity=".22"></stop><stop offset="1" stop-color="${definition.color}" stop-opacity="0"></stop></linearGradient>`
+        )).join("");
+        const seriesAreas = seriesGeometry.map(({ area, gradientId }) => (
+          area ? `<path class="usage-statistics-area" d="${area}" fill="url(#${gradientId})"></path>` : ""
+        )).join("");
+        const seriesLines = seriesGeometry.map(({ definition, linePoints, path }) => (
+          `<path class="usage-statistics-line" d="${path}" style="--series-color:${definition.color}"></path>${points.length <= 48 ? linePoints.map((point, index) => definition.values[index] > 0 ? `<circle class="usage-statistics-dot" cx="${svgNum(point.x)}" cy="${svgNum(point.y)}" r="2.8" style="--series-color:${definition.color}"></circle>` : "").join("") : ""}`
+        )).join("");
+        const grid = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+          const y = pad.top + plotH - ratio * plotH;
+          return `<line x1="${pad.left}" y1="${svgNum(y)}" x2="${width - pad.right}" y2="${svgNum(y)}"></line><text x="${pad.left - 12}" y="${svgNum(y + 3)}" text-anchor="end">${escapeHtml(formatUsageStatisticsMetric(metric, maxValue * ratio))}</text>`;
+        }).join("");
+        const labelIndexes = Array.from(new Set([0, ...Array.from({ length: 5 }, (_, index) => Math.round(((index + 1) / 6) * (points.length - 1))), points.length - 1])).filter((index) => index >= 0 && index < points.length);
+        const xLabels = labelIndexes.map((index) => `<text x="${svgNum(xFor(index))}" y="${height - 15}" text-anchor="middle">${escapeHtml(usageStatisticsAxisDate(points[index].start, payload.resolution))}</text>`).join("");
+        const slot = Math.max(3, plotW / Math.max(1, points.length));
+        const inspection = points.map((point, index) => {
+          const details = series.map((definition) => `${definition.label}: ${formatUsageStatisticsMetric(metric, definition.values[index])}`).join(" · ");
+          const label = `${fmtDate(point.start)} · ${details}`;
+          return `<rect class="usage-statistics-inspection" x="${svgNum(xFor(index) - slot / 2)}" y="${pad.top}" width="${svgNum(slot)}" height="${plotH}" tabindex="0" role="img" aria-label="${escapeHtml(label)}" data-tip="${escapeHtml(label)}"></rect>`;
+        }).join("");
+        updateDOM(target, `
+          <div class="usage-statistics-chart-canvas">
+            <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(t("usage_stats.chart_aria", { metric: metric }))}">
+              <defs>${gradientDefs}</defs>
+              <g class="usage-statistics-grid">${grid}</g>
+              <g class="usage-statistics-x-axis">${xLabels}</g>
+              <g>${seriesAreas}</g>
+              <g>${seriesLines}</g>
+              <g>${inspection}</g>
+            </svg>
+          </div>
+          <div class="usage-statistics-legend">${series.map((definition) => `<span><i style="--series-color:${definition.color}"></i>${escapeHtml(definition.label)}</span>`).join("")}</div>
+        `);
+      }
 
   function usageStatisticsBreakdownMetric(item) {
     const sort = state.usageStatisticsBreakdownSort || "tokens";
