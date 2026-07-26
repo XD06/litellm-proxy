@@ -130,6 +130,7 @@ class AdminRoutesMixin:
         CONFIG_MANAGER = sse.CONFIG_MANAGER
         OBSERVABILITY = sse.OBSERVABILITY
         AUDIT = sse.AUDIT
+        CONVERSION_DIAGNOSTICS = sse.CONVERSION_DIAGNOSTICS
         ROUTER = sse.ROUTER
         CONFIG = sse.CONFIG
         scheduler_policy = sse.scheduler_policy
@@ -288,6 +289,16 @@ class AdminRoutesMixin:
         if endpoint == "audit":
             params = self._query_params()
             return self._resp_json(AUDIT.list(limit=params.get("limit", 50)), etag=True)
+        if endpoint == "conversion-diagnostics":
+            return self._resp_json(CONVERSION_DIAGNOSTICS.status())
+        if endpoint == "conversion-diagnostics/export":
+            payload = CONVERSION_DIAGNOSTICS.export_bytes()
+            filename = time.strftime("conversion-errors-%Y%m%d-%H%M%S.jsonl", time.gmtime())
+            return self._resp_bytes(
+                payload,
+                content_type="application/x-ndjson; charset=utf-8",
+                extra_headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            )
         if endpoint == "requests":
             filters = self._query_params()
             limit = filters.pop("limit", 50)
@@ -568,6 +579,7 @@ class AdminRoutesMixin:
         CONFIG_MANAGER = sse.CONFIG_MANAGER
         OBSERVABILITY = sse.OBSERVABILITY
         AUDIT = sse.AUDIT
+        CONVERSION_DIAGNOSTICS = sse.CONVERSION_DIAGNOSTICS
         ROUTER = sse.ROUTER
         CONFIG = sse.CONFIG
         scheduler_policy = sse.scheduler_policy
@@ -633,6 +645,23 @@ class AdminRoutesMixin:
                 },
             )
             return self._resp_json({"action": "request_history_cleared", **result})
+
+        if parts == ["conversion-diagnostics", "clear"]:
+            body = self._read_json_body()
+            if isinstance(body, tuple):
+                return self._resp_json(body[0], body[1])
+            if str((body or {}).get("confirm") or "").strip() != "clear_conversion_diagnostics":
+                return self._resp_json(
+                    {"error": {"message": "confirm must be clear_conversion_diagnostics"}},
+                    400,
+                )
+            result = CONVERSION_DIAGNOSTICS.clear()
+            self._audit_admin_event(
+                "conversion_diagnostics_cleared",
+                target="conversion_diagnostics",
+                detail=result,
+            )
+            return self._resp_json({"action": "conversion_diagnostics_cleared", **result})
 
         if parts == ["usage-statistics", "clear"]:
             body = self._read_json_body()

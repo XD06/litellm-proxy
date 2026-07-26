@@ -1448,6 +1448,7 @@ class ToolCallArgumentRobustnessTests(unittest.TestCase):
 
     def test_stream_openai_sse_to_anthropic_reports_broken_tool_args(self):
         output = io.BytesIO()
+        recorded = []
         # Send a tool call with arguments that will never form valid JSON
         lines = [
             sse_data(
@@ -1472,13 +1473,21 @@ class ToolCallArgumentRobustnessTests(unittest.TestCase):
                       "usage": {"prompt_tokens": 1, "completion_tokens": 1}}),
         ]
 
-        result = stream_openai_sse_to_anthropic([], output, "client-model", initial_lines=lines)
+        result = stream_openai_sse_to_anthropic(
+            [],
+            output,
+            "client-model",
+            initial_lines=lines,
+            on_conversion_error=recorded.append,
+        )
 
         self.assertIsNone(result)
         events = parse_sse_events(output.getvalue().decode("utf-8"))
         errors = [data for event, data in events if event == "error"]
         self.assertEqual(errors[0]["error"]["code"], "invalid_tool_arguments")
         self.assertEqual(errors[0]["error"]["details"]["raw_arguments"], "{not valid")
+        self.assertEqual(len(recorded), 1)
+        self.assertEqual(recorded[0].code, "invalid_tool_arguments")
 
     def test_stream_openai_sse_to_anthropic_valid_tool_args_unchanged(self):
         """Valid tool call arguments should still parse correctly (no regression)."""

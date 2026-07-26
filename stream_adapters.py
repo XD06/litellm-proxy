@@ -8,7 +8,7 @@ import socket
 import threading
 import time
 import uuid
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Callable, Dict, Iterable, Optional
 
 from conversion_core.model import ConversionContext
 from conversion_core.engine import persist_response_session
@@ -38,6 +38,15 @@ def _write_chat_conversion_error(wfile, exc: ConversionError) -> None:
     wfile.write(f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode())
     wfile.write(b"data: [DONE]\n\n")
     wfile.flush()
+
+
+def _notify_conversion_error(callback: Optional[Callable[[ConversionError], None]], exc: ConversionError) -> None:
+    if callback is None:
+        return
+    try:
+        callback(exc)
+    except Exception:
+        pass
 
 def _get_prefetch_pool():
     global _PREFETCH_POOL, _PREFETCH_POOL_USAGE_COUNT
@@ -381,6 +390,7 @@ def stream_openai_sse_to_anthropic(
     read_timeout_s: Optional[int] = None,
     initial_lines: Optional[Iterable[bytes]] = None,
     conversion_context: Optional[ConversionContext] = None,
+    on_conversion_error: Optional[Callable[[ConversionError], None]] = None,
 ):
     """Read upstream OpenAI SSE and write Anthropic SSE events chunk by chunk."""
     msg_id = f"msg_{uuid.uuid4().hex[:24]}"
@@ -611,6 +621,7 @@ def stream_openai_sse_to_anthropic(
         for idx in sorted(tool_calls_buf):
             parsed_tool_inputs[idx] = _parse_tool_arguments(tool_calls_buf[idx]["function"]["arguments"])
     except ConversionError as exc:
+        _notify_conversion_error(on_conversion_error, exc)
         close_all_blocks()
         sse("error", {"type": "error", "error": {"type": "conversion_error", **exc.as_dict()}})
         sse("message_stop", {"type": "message_stop"})
@@ -674,6 +685,7 @@ def stream_openai_sse_to_responses(
     read_timeout_s: Optional[int] = None,
     initial_lines: Optional[Iterable[bytes]] = None,
     conversion_context: Optional[ConversionContext] = None,
+    on_conversion_error: Optional[Callable[[ConversionError], None]] = None,
 ):
     """Read upstream Chat Completions SSE and write OpenAI Responses-style SSE events."""
     response_id = f"resp_{uuid.uuid4().hex}"
@@ -1026,6 +1038,7 @@ def stream_openai_sse_to_responses(
     try:
         finish_tools()
     except ConversionError as exc:
+        _notify_conversion_error(on_conversion_error, exc)
         sse(
             "response.failed",
             {
@@ -1088,6 +1101,7 @@ def stream_anthropic_sse_to_responses(
     read_timeout_s: Optional[int] = None,
     initial_lines: Optional[Iterable[bytes]] = None,
     conversion_context: Optional[ConversionContext] = None,
+    on_conversion_error: Optional[Callable[[ConversionError], None]] = None,
 ):
     """Read upstream Anthropic Messages SSE and write OpenAI Responses-style SSE events."""
     response_id = f"resp_{uuid.uuid4().hex}"
@@ -1490,6 +1504,7 @@ def stream_anthropic_sse_to_responses(
     try:
         finish_all_open_items()
     except ConversionError as exc:
+        _notify_conversion_error(on_conversion_error, exc)
         sse(
             "response.failed",
             {
@@ -1554,6 +1569,7 @@ def stream_responses_sse_to_anthropic(
     read_timeout_s: Optional[int] = None,
     initial_lines: Optional[Iterable[bytes]] = None,
     conversion_context: Optional[ConversionContext] = None,
+    on_conversion_error: Optional[Callable[[ConversionError], None]] = None,
 ):
     """Read upstream OpenAI Responses SSE and write Anthropic Messages-style SSE events."""
     msg_id = f"msg_{uuid.uuid4().hex[:24]}"
@@ -1889,6 +1905,7 @@ def stream_responses_sse_to_anthropic(
             if item.get("type") == "function_call":
                 parsed_tool_inputs[item_id] = _parse_tool_arguments(item.get("arguments") or "")
     except ConversionError as exc:
+        _notify_conversion_error(on_conversion_error, exc)
         close_open_block()
         sse("error", {"type": "error", "error": {"type": "conversion_error", **exc.as_dict()}})
         sse("message_stop", {"type": "message_stop"})
@@ -1945,6 +1962,7 @@ def stream_responses_sse_to_openai_chat(
     read_timeout_s: Optional[int] = None,
     initial_lines: Optional[Iterable[bytes]] = None,
     conversion_context: Optional[ConversionContext] = None,
+    on_conversion_error: Optional[Callable[[ConversionError], None]] = None,
 ):
     """Read upstream OpenAI Responses SSE and write Chat Completions SSE chunks."""
     completion_id = f"chatcmpl_{uuid.uuid4().hex[:24]}"
@@ -2214,6 +2232,7 @@ def stream_responses_sse_to_openai_chat(
             if item.get("type") == "function_call":
                 _parse_tool_arguments(item.get("arguments") or "")
     except ConversionError as exc:
+        _notify_conversion_error(on_conversion_error, exc)
         _write_chat_conversion_error(wfile, exc)
         return None
     final_finish = _responses_finish_to_chat_finish(finish_reason, response_status, has_tool)
@@ -2257,6 +2276,7 @@ def stream_anthropic_sse_to_openai_chat(
     read_timeout_s: Optional[int] = None,
     initial_lines: Optional[Iterable[bytes]] = None,
     conversion_context: Optional[ConversionContext] = None,
+    on_conversion_error: Optional[Callable[[ConversionError], None]] = None,
 ):
     """Read upstream Anthropic Messages SSE and write Chat Completions SSE chunks."""
     completion_id = f"chatcmpl_{uuid.uuid4().hex[:24]}"
@@ -2425,6 +2445,7 @@ def stream_anthropic_sse_to_openai_chat(
             if block.get("type") == "tool_use":
                 _parse_tool_arguments(block.get("arguments") or "")
     except ConversionError as exc:
+        _notify_conversion_error(on_conversion_error, exc)
         _write_chat_conversion_error(wfile, exc)
         return None
 

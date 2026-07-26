@@ -298,6 +298,16 @@ def _default_config() -> Dict[str, Any]:
             "max_workers": 20,
             "log_dir": "proxy_logs",
             "debug_disk_log": False,
+            # The default deployment is commonly Nginx -> Docker -> proxy.
+            # Only private proxy peers may supply forwarded identity headers;
+            # deployments with a different bridge range should override this.
+            "trusted_proxy_cidrs": ["127.0.0.0/8", "172.16.0.0/12"],
+            "trusted_proxy_headers": [
+                "cf-connecting-ip",
+                "forwarded",
+                "x-forwarded-for",
+                "x-real-ip",
+            ],
             "admin_key": "",
         },
         "routing": {
@@ -410,6 +420,14 @@ def _default_config() -> Dict[str, Any]:
                 "max_total_bytes": 268435456,
                 "max_record_bytes": 4194304,
                 "max_chain_depth": 64,
+            },
+            "conversion_diagnostics": {
+                "enabled": True,
+                "path": "conversion_errors.jsonl",
+                "queue_size": 256,
+                "max_file_bytes": 8388608,
+                "retained_files": 7,
+                "max_context_bytes": 65536,
             },
             "audit": {
                 "enabled": True,

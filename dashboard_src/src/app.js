@@ -101,6 +101,7 @@ import {
   let _lastRenderedOverlayObject = null;
   let _lastRenderedModelUsageObject = null;
   let _lastRenderedUsageStatisticsObject = null;
+  let _lastRenderedConversionDiagnosticsObject = null;
   let _lastRenderedConfigLocale = "";
   const _renderedHtmlByTarget = new WeakMap();
   const pendingRuntimeMutations = new Set();
@@ -111,32 +112,24 @@ import {
   const uiActionRegistry = new InFlightActionRegistry();
   const STATIC_CONFIG_DOMAINS = new Set(["routing", "config", "overlay"]);
 
-  function runtimeSignatureValue(value, key = "") {
-    if (value === null || value === undefined) return value;
-    // These values are intentionally volatile and do not change the visible
-    // routing/request facts. Including them makes every poll look "changed".
-    if ([
-      "uptime_s", "idle_seconds", "last_run_ago_s", "next_probe_in_s", "next_run_in_s",
-      "nearest_recovery_s", "computed_at", "duration_ms", "disabled_remaining_s",
-    ].includes(key)) return undefined;
-    if (["cooldown_remaining_s", "provider_cooldown_remaining_s"].includes(key)) {
-      const numeric = Number(value);
-      return Number.isFinite(numeric) ? Math.ceil(Math.max(0, numeric) / 5) : value;
-    }
-    if (Array.isArray(value)) return value.map((item) => runtimeSignatureValue(item, "")).filter((item) => item !== undefined);
-    if (typeof value === "object") {
-      return Object.keys(value).sort().reduce((out, childKey) => {
-        const child = runtimeSignatureValue(value[childKey], childKey);
-        if (child !== undefined) out[childKey] = child;
-        return out;
-      }, {});
-    }
-    return value;
-  }
+  const RUNTIME_SIGNATURE_IGNORED_FIELDS = new Set([
+    "uptime_s", "idle_seconds", "last_run_ago_s", "next_probe_in_s", "next_run_in_s",
+    "nearest_recovery_s", "computed_at", "duration_ms", "disabled_remaining_s",
+  ]);
+  const RUNTIME_SIGNATURE_BUCKETED_FIELDS = new Set([
+    "cooldown_remaining_s", "provider_cooldown_remaining_s",
+  ]);
 
   function runtimeSignature(value) {
     try {
-      return JSON.stringify(runtimeSignatureValue(value));
+      return JSON.stringify(value, (key, current) => {
+        if (RUNTIME_SIGNATURE_IGNORED_FIELDS.has(key)) return undefined;
+        if (RUNTIME_SIGNATURE_BUCKETED_FIELDS.has(key)) {
+          const numeric = Number(current);
+          return Number.isFinite(numeric) ? Math.ceil(Math.max(0, numeric) / 5) : current;
+        }
+        return current;
+      });
     } catch (_err) {
       return "";
     }
@@ -145,6 +138,7 @@ import {
   function acceptConfirmedConfig(config) {
     const effective = optimisticConfigStore.acceptConfirmed(config || {});
     state.data.config = effective;
+    state.staticDataState = "ready";
     return effective;
   }
 
@@ -975,6 +969,7 @@ import {
     optimisticConfigStore.clear();
     uiActionRegistry.clear();
     state.data.config = null;
+    state.staticDataState = "idle";
   }
 
   async function validateAdminKey(key) {
@@ -986,7 +981,9 @@ import {
   async function openConsoleWithKey(key, { persist = false, checkingMessage = "Checking console access." } = {}) {
     showAuthChecking(checkingMessage);
     try {
-      await validateAdminKey(key);
+      const status = await validateAdminKey(key);
+      applyStatusPayload(status);
+      state.staticDataState = state.data.config ? "ready" : "loading";
       if (persist) {
         try {
           localStorage.setItem("proxyConsoleAdminKey", state.adminKey);
@@ -1541,6 +1538,8 @@ import {
       return false;
     }
     _staticRefreshInFlight = true;
+    const includesConfig = !domains || domains.includes("config");
+    if (includesConfig && !state.data.config) state.staticDataState = "loading";
     const refreshSnapshot = configRefreshCoordinator.snapshot();
     const protectedAtStart = hasProtectedConfigInteraction();
     try {
@@ -1551,6 +1550,7 @@ import {
         ["config", () => apiGet("/-/admin/config", { cache: true })],
         ["overlay", () => apiGet("/-/admin/config/overlay", { cache: true })],
         ["audit", () => apiGet("/-/admin/audit?limit=12", { cache: true })],
+        ["conversionDiagnostics", () => apiGet("/-/admin/conversion-diagnostics")],
       ];
       const selectedEntries = (domains ? entries.filter(([name]) => domains.includes(name)) : entries)
         .filter(([name]) => !(protectedAtStart && STATIC_CONFIG_DOMAINS.has(name)));
@@ -1573,8 +1573,10 @@ import {
       }
       if (allowConfigApply && result.routing !== undefined) state.data.routing = result.routing;
       if (allowConfigApply && result.config !== undefined) acceptConfirmedConfig(result.config);
+      else if (includesConfig && !state.data.config) state.staticDataState = "error";
       if (allowConfigApply && result.overlay !== undefined) state.data.overlay = result.overlay;
       if (result.audit !== undefined) state.data.audit = result.audit;
+      if (result.conversionDiagnostics !== undefined) state.data.conversionDiagnostics = result.conversionDiagnostics;
       state.data.version = Number(state.data.version || 0) + 1;
       if (allowConfigApply) {
         state.forceConfigRender = true;
@@ -1594,6 +1596,7 @@ import {
       _maybeScheduleCapabilityFollowUp();
       return true;
     } catch (err) {
+      if (!state.data.config) state.staticDataState = "error";
       setConnection(false, t("conn.connection_error"));
       return false;
     } finally {
@@ -1806,6 +1809,7 @@ import {
       // refresh, or an explicit invalidation — not on every 5s overview poll.
       const needRecentRing = !quiet || !state.data.metricsFull || state.forceRequestsFetch;
       const needStaticAdminData = staticData || !quiet || !state.data.status || !state.data.config;
+      if (needStaticAdminData && !state.data.config) state.staticDataState = "loading";
       state.forceTimeseriesFetch = false;
       state.forceRequestsFetch = false;
 
@@ -1822,6 +1826,7 @@ import {
         fetches.config = apiGet("/-/admin/config");
         fetches.overlay = apiGet("/-/admin/config/overlay");
         fetches.audit = apiGet("/-/admin/audit?limit=12");
+        fetches.conversionDiagnostics = apiGet("/-/admin/conversion-diagnostics");
       }
       if (needRecentRing) fetches.metricsFull = apiGet("/-/admin/metrics/full");
       if (needTimeseries) fetches.timeseries = apiGet(timeseriesPath());
@@ -1853,6 +1858,7 @@ import {
       if (result.config !== undefined) acceptConfirmedConfig(result.config);
       if (result.overlay !== undefined) state.data.overlay = result.overlay;
       if (result.audit !== undefined) state.data.audit = result.audit;
+      if (result.conversionDiagnostics !== undefined) state.data.conversionDiagnostics = result.conversionDiagnostics;
 
       // Check models_version from the metrics or status payload. When the
       // backend bumps this counter, provider_model_capabilities changed
@@ -1922,6 +1928,7 @@ import {
       // requiring a manual page reload.
       _maybeScheduleCapabilityFollowUp();
     } catch (err) {
+      if (!state.data.config) state.staticDataState = "error";
       setConnection(false, t("conn.connection_error"));
       if (isAuthError(err)) {
         clearStoredAdminKey();
@@ -2682,22 +2689,33 @@ import {
     if (chartBuckets.length && !chartBuckets.some((bucket) => Number(bucket.total_tokens || 0) > 0)) {
       const firstTs = Number(chartBuckets[0]?.start || chartBuckets[0]?.ts || 0);
       const lastTs = Number(chartBuckets[chartBuckets.length - 1]?.end || chartBuckets[chartBuckets.length - 1]?.ts || firstTs);
+      const bucketTimes = chartBuckets.map((bucket) => Number(bucket.ts || 0));
+      const nearestBucket = (timestamp) => {
+        let low = 0;
+        let high = bucketTimes.length;
+        while (low < high) {
+          const middle = (low + high) >> 1;
+          if (bucketTimes[middle] < timestamp) low = middle + 1;
+          else high = middle;
+        }
+        if (low <= 0) return chartBuckets[0];
+        if (low >= bucketTimes.length) return chartBuckets[chartBuckets.length - 1];
+        return timestamp - bucketTimes[low - 1] <= bucketTimes[low] - timestamp
+          ? chartBuckets[low - 1]
+          : chartBuckets[low];
+      };
       recentSorted
         .filter((request) => Number(request.finished_at || 0) >= firstTs && Number(request.finished_at || 0) <= lastTs)
         .forEach((request) => {
           const ts = Number(request.finished_at || 0);
           const usage = usageFrom(request);
           if (!ts || !usage.total_tokens) return;
-          let closest = null;
-          chartBuckets.forEach((bucket) => {
-            const distance = Math.abs(Number(bucket.ts || 0) - ts);
-            if (!closest || distance < closest.distance) closest = { bucket, distance };
-          });
-          if (!closest?.bucket) return;
-          closest.bucket.input += usage.input_tokens;
-          closest.bucket.output += usage.output_tokens;
-          closest.bucket.total_tokens += usage.total_tokens;
-          closest.bucket.cost_usd += usage.cost_usd;
+          const bucket = nearestBucket(ts);
+          if (!bucket) return;
+          bucket.input += usage.input_tokens;
+          bucket.output += usage.output_tokens;
+          bucket.total_tokens += usage.total_tokens;
+          bucket.cost_usd += usage.cost_usd;
         });
     }
 
@@ -3437,6 +3455,11 @@ import {
   function renderOnboardingBanner() {
     const target = el("onboardingBanner");
     if (!target) return;
+    if (state.staticDataState !== "ready") {
+      updateDOM(target, "");
+      target.style.display = "none";
+      return;
+    }
     const status = state.data.status || {};
     const config = state.data.config || {};
     const providers = config.providers || {};
@@ -4033,6 +4056,7 @@ import {
     const configProviders = state.data.config?.providers || {};
     const target = el("providersTable");
     if (!target) return;
+    providerCompatibilityToolbar();
     // Skip auto-refresh re-render only while the user is actively typing into a
     // control inside this table (filters, pagination input, inline forms). A
     // plain focus on a non-input element (e.g. a card or button) still allows
@@ -4071,6 +4095,62 @@ import {
     bindPanelPagination(target);
     bindActionButtons(target);
     bindProviderCards(target);
+  }
+
+  function providerCompatibilityToolbar() {
+    const target = el("providerCompatibilityToolbar");
+    if (!target) return;
+    const circuits = state.data.status?.router?.compatibility_circuits || {};
+    const active = Math.max(0, Number(circuits.active || 0));
+    if (!active) {
+      updateDOM(target, "");
+      target.hidden = true;
+      return;
+    }
+    target.hidden = false;
+    updateDOM(target, `
+      <span class="provider-compatibility-icon">${iconSvg("alert")}</span>
+      <span class="provider-compatibility-copy">
+        <strong>${escapeHtml(t("prov.compatibility_active", { count: fmtInt(active) }))}</strong>
+        <small>${escapeHtml(t("prov.compatibility_recovery", { time: fmtNextProbe(Number(circuits.nearest_recovery_s || 0)) || "0s" }))}</small>
+      </span>
+      <button class="button provider-compatibility-clear" type="button" data-clear-compatibility="all">${iconSvg("rotate")}<span>${escapeHtml(t("prov.compatibility_clear_all"))}</span></button>
+    `);
+    bindCompatibilityClearButtons(target);
+  }
+
+  function bindCompatibilityClearButtons(root) {
+    root?.querySelectorAll("[data-clear-compatibility]").forEach((button) => {
+      if (button.dataset.boundClearCompatibility) return;
+      button.dataset.boundClearCompatibility = "1";
+      button.addEventListener("click", async () => {
+        const scope = button.dataset.clearCompatibility || "all";
+        const all = scope === "all";
+        const label = all ? t("prov.compatibility_clear_all") : scope;
+        const confirmed = await openConfirmDialog({
+          title: t("confirm.clear_compatibility.title"),
+          message: t("confirm.clear_compatibility.msg", { scope: label }),
+          acceptLabel: t("confirm.clear"),
+        });
+        if (!confirmed) return;
+        const path = all
+          ? "/-/admin/compatibility/clear"
+          : `/-/admin/providers/${encodeURIComponent(scope)}/compatibility/clear`;
+        await runExclusiveUiAction(`compatibility:${scope}`, async () => {
+          button.disabled = true;
+          try {
+            const result = await apiPost(path, {});
+            applyMutationResult(result, { drawer: true });
+            setNotice(t("notice.compatibility_cleared", { count: fmtInt(result.removed || 0) }), "ok");
+            await refreshRuntimeData({ forceViewData: false });
+          } catch (err) {
+            setNotice(t("notice.action_failed", { error: err.message }), "bad");
+          } finally {
+            button.disabled = false;
+          }
+        });
+      });
+    });
   }
 
   function providerNames(runtimeProviders, configProviders) {
@@ -4962,6 +5042,7 @@ import {
     bindKeyDeleteButtons(root);
     bindProbeModelPickers(root);
     bindKeyTestButtons(root);
+    bindCompatibilityClearButtons(root);
     bindActionButtons(root);
     bindConfigProviderForms(root);
     bindProviderModelRefreshButtons(root);
@@ -5157,11 +5238,11 @@ import {
               <span class="provider-overview-section-icon">${iconSvg("alert")}</span>
               <div><h3>${escapeHtml(t("prov.overview_routing_exceptions"))}</h3><p>${escapeHtml(t("prov.overview_routing_exceptions_tip"))}</p></div>
               <span class="section-count-badge">${fmtInt(compatibilityCircuits.length)}</span>
-              ${actionButton(t("prov.overview_clear_exceptions") || "Clear exceptions", `/providers/${encodeURIComponent(view.name)}/compatibility/clear`, "secondary")}
+              <button class="button provider-compatibility-clear" type="button" data-clear-compatibility="${escapeHtml(view.name)}">${iconSvg("rotate")}<span>${escapeHtml(t("prov.overview_clear_exceptions"))}</span></button>
             </div>
             <div class="provider-route-list">
               ${compatibilityCircuits.map((entry) => `
-                <article class="provider-route-card">
+                <article class="provider-route-card provider-compatibility-circuit" data-compatibility-circuit="${escapeHtml([entry.provider, entry.key_id, entry.canonical_model, entry.upstream_format, entry.compatibility_profile].join(":"))}">
                   <div>
                     <strong class="mono" translate="no">${escapeHtml(entry.canonical_model || "-")} → ${escapeHtml(entry.provider_model || "-")}</strong>
                     <small translate="no">${escapeHtml([entry.key_id && `key ${entry.key_id}`, entry.upstream_format, entry.compatibility_profile].filter(Boolean).join(" · "))}</small>
@@ -5737,13 +5818,20 @@ import {
   // whenever new data lands. Keyed on the inputs' identity via the data version
   // so callers do not need to build their own signature.
   const _modelCapabilityItemsCache = new Map();
+  let _modelCapabilityItemsCacheVersion = "";
   function modelCapabilityItemsMemo(name, models, canonicalMap) {
     const version = Number(state.data?.version || 0);
     const modelsVersion = Number(state.data?.modelsVersion || 0);
-    const cacheKey = `${name}\n${version}\n${modelsVersion}`;
+    const nextVersion = `${version}\n${modelsVersion}`;
+    if (nextVersion !== _modelCapabilityItemsCacheVersion) {
+      _modelCapabilityItemsCache.clear();
+      _modelCapabilityItemsCacheVersion = nextVersion;
+    }
+    const cacheKey = String(name || "");
     const cached = _modelCapabilityItemsCache.get(cacheKey);
     if (cached) return cached;
     const items = modelCapabilityItems(models, canonicalMap);
+    if (_modelCapabilityItemsCache.size >= 512) _modelCapabilityItemsCache.clear();
     _modelCapabilityItemsCache.set(cacheKey, items);
     return items;
   }
@@ -7530,6 +7618,38 @@ import {
       renderModelUsage();
       _lastRenderedModelUsageObject = state.data.modelUsage;
     }
+    if (configChanged || state.data.conversionDiagnostics !== _lastRenderedConversionDiagnosticsObject) {
+      renderConversionDiagnostics();
+      _lastRenderedConversionDiagnosticsObject = state.data.conversionDiagnostics;
+    }
+  }
+
+  function fmtFileSize(value) {
+    const bytes = Math.max(0, Number(value || 0));
+    if (bytes < 1024) return `${fmtInt(bytes)} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(bytes >= 10240 ? 0 : 1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(bytes >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
+  }
+
+  function renderConversionDiagnostics() {
+    const target = el("conversionDiagnosticsStatus");
+    if (!target) return;
+    const data = state.data.conversionDiagnostics;
+    if (!data) {
+      updateDOM(target, `<span class="conversion-diagnostics-empty">${iconSvg("rotate")}<span>${escapeHtml(t("model_usage.loading"))}</span></span>`);
+      return;
+    }
+    if (!data.enabled) {
+      updateDOM(target, `<span class="conversion-diagnostics-empty">${iconSvg("alert")}<span>${escapeHtml(t("cfg.diagnostics_disabled"))}</span></span>`);
+      return;
+    }
+    const records = Math.max(0, Number(data.records || 0));
+    updateDOM(target, records ? `
+      <span><small>${escapeHtml(t("cfg.diagnostics_records"))}</small><strong>${fmtInt(records)}</strong></span>
+      <span><small>${escapeHtml(t("cfg.diagnostics_files"))}</small><strong>${fmtInt(data.files || 0)}</strong></span>
+      <span><small>${escapeHtml(t("cfg.diagnostics_size"))}</small><strong>${escapeHtml(fmtFileSize(data.bytes || 0))}</strong></span>
+      <span class="${Number(data.dropped || 0) ? "tone-warning" : ""}"><small>${escapeHtml(t("cfg.diagnostics_dropped"))}</small><strong>${fmtInt(data.dropped || 0)}</strong></span>
+    ` : `<span class="conversion-diagnostics-empty">${iconSvg("check")}<span>${escapeHtml(t("cfg.diagnostics_empty"))}</span></span>`);
   }
 
   async function loadModelUsage({ force = false } = {}) {
@@ -9979,6 +10099,54 @@ import {
         },
       );
       setTimeout(() => { status.textContent = ""; status.className = "health-monitor-status"; }, 3000);
+    });
+
+    el("downloadConversionDiagnostics")?.addEventListener("click", async () => {
+      const button = el("downloadConversionDiagnostics");
+      button.disabled = true;
+      try {
+        const response = await fetch(withAdmin("/-/admin/conversion-diagnostics/export"), {
+          headers: state.adminKey ? { "X-Admin-Key": state.adminKey } : {},
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const blob = await response.blob();
+        const disposition = response.headers.get("Content-Disposition") || "";
+        const filename = disposition.match(/filename="?([^";]+)"?/i)?.[1] || "conversion-errors.jsonl";
+        const href = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = href;
+        anchor.download = filename;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(href);
+        setNotice(t("notice.diagnostics_downloaded"), "ok");
+      } catch (err) {
+        setNotice(t("notice.action_failed", { error: err.message }), "bad");
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    el("clearConversionDiagnostics")?.addEventListener("click", async () => {
+      const confirmed = await openConfirmDialog({
+        title: t("confirm.clear_diagnostics.title"),
+        message: t("confirm.clear_diagnostics.msg"),
+        acceptLabel: t("confirm.clear"),
+      });
+      if (!confirmed) return;
+      const button = el("clearConversionDiagnostics");
+      button.disabled = true;
+      try {
+        await apiPost("/-/admin/conversion-diagnostics/clear", { confirm: "clear_conversion_diagnostics" });
+        state.data.conversionDiagnostics = await apiGet("/-/admin/conversion-diagnostics");
+        renderConversionDiagnostics();
+        setNotice(t("notice.diagnostics_cleared"), "ok");
+      } catch (err) {
+        setNotice(t("notice.action_failed", { error: err.message }), "bad");
+      } finally {
+        button.disabled = false;
+      }
     });
 
     el("exportOverlayButton").addEventListener("click", async () => {

@@ -157,6 +157,13 @@ class RequestHistoryStore:
         except Exception:
             return 1000
 
+    def _write_batch_size(self) -> int:
+        hist = self._history_cfg()
+        try:
+            return max(1, min(500, int(hist.get("write_batch_size", 100))))
+        except Exception:
+            return 100
+
     def _sync_mode_enabled(self) -> bool:
         """Whether to write history records synchronously (blocking the caller).
 
@@ -201,30 +208,54 @@ class RequestHistoryStore:
             if item is None:
                 self._queue.task_done()
                 break
+            batch = [item]
+            stop_after_batch = False
+            for _ in range(self._write_batch_size() - 1):
+                try:
+                    queued = self._queue.get_nowait()
+                except queue.Empty:
+                    break
+                if queued is None:
+                    self._queue.task_done()
+                    stop_after_batch = True
+                    break
+                batch.append(queued)
             try:
                 self._ensure_ready()
                 with self._lock:
                     with self._connection() as conn:
-                        self._insert_request(conn, item)
+                        for queued in batch:
+                            self._insert_request(conn, queued)
                         self._prune_locked(conn)
             except Exception as e:
-                # NH3: previously ``except Exception: pass`` silently dropped
-                # every DB write failure (disk full, corruption, constraint
-                # violation). Count and log them so operators can notice that
-                # history recording has stopped instead of discovering it only
-                # when queries come back empty.
-                self._write_failures += 1
-                if self._write_failures <= 3 or self._write_failures % 100 == 0:
+                # A malformed record must not roll back the healthy remainder
+                # of a drained batch. Retry individually only on the rare
+                # failed-batch path and report records that still fail.
+                for queued in batch:
                     try:
-                        print(
-                            f"[history] write failed ({self._write_failures} total): "
-                            f"{type(e).__name__}: {e}",
-                            flush=True,
-                        )
-                    except Exception:
-                        pass
+                        with self._lock:
+                            with self._connection() as conn:
+                                self._insert_request(conn, queued)
+                    except Exception as item_error:
+                        self._record_write_failure(item_error)
             finally:
-                self._queue.task_done()
+                for _ in batch:
+                    self._queue.task_done()
+            if stop_after_batch:
+                break
+
+    def _record_write_failure(self, error: Exception) -> None:
+        # Surface persistent history loss without flooding stdout.
+        self._write_failures += 1
+        if self._write_failures <= 3 or self._write_failures % 100 == 0:
+            try:
+                print(
+                    f"[history] write failed ({self._write_failures} total): "
+                    f"{type(error).__name__}: {error}",
+                    flush=True,
+                )
+            except Exception:
+                pass
 
     def _backfill_statistics_batch(
         self, *, force: bool = False, limit: int = 25
@@ -889,58 +920,145 @@ class RequestHistoryStore:
                 "by_model_usage": {},
             }
             with self._connection() as conn:
-                requests = conn.execute("SELECT * FROM requests").fetchall()
-                for row in requests:
-                    item = self._request_from_row(row)
-                    counters["requests_total"] += 1
-                    if int(item.get("status_code") or 0) < 400:
-                        counters["requests_success"] += 1
-                    else:
-                        counters["requests_failed"] += 1
-                    self._inc_dict(counters["by_client_format"], item.get("client_format") or "unknown")
-                    self._inc_dict(counters["by_endpoint"], item.get("endpoint") or "unknown")
-                    self._inc_dict(counters["by_model"], item.get("model") or "")
-                    self._inc_dict(counters["by_status"], str(int(item.get("status_code") or 0)))
-                    usage_totals = normalize_usage(item.get("usage") or item)
-                    if has_usage(usage_totals):
-                        cost_usd = safe_float(item.get("cost_usd"))
-                        add_usage_totals(counters["usage"], usage_totals, cost_usd=cost_usd)
-                        model_usage = counters["by_model_usage"].setdefault(item.get("model") or "", empty_usage_with_cost())
-                        add_usage_totals(model_usage, usage_totals, cost_usd=cost_usd)
+                usage_columns = (
+                    "input_tokens",
+                    "uncached_input_tokens",
+                    "cached_input_tokens",
+                    "cache_write_tokens",
+                    "output_tokens",
+                    "reasoning_tokens",
+                    "total_tokens",
+                )
+                has_usage_sql = "(input_tokens > 0 OR output_tokens > 0 OR total_tokens > 0)"
 
-                attempts = conn.execute("SELECT * FROM attempts").fetchall()
-                for row in attempts:
-                    attempt = self._attempt_from_row(row)
-                    provider = attempt.get("provider") or "unknown"
-                    upstream_format = attempt.get("upstream_format") or "unknown"
-                    outcome = attempt.get("outcome") or ""
-                    counters["attempts_total"] += 1
-                    if outcome == "success":
-                        counters["attempts_success"] += 1
-                    else:
-                        counters["attempts_failed"] += 1
-                    prov = counters["by_provider"].setdefault(
-                        provider,
-                        {"attempts": 0, "success": 0, "failed": 0, "by_upstream_format": {}, "usage": empty_usage_with_cost()},
-                    )
-                    prov["attempts"] += 1
-                    if outcome == "success":
-                        prov["success"] += 1
-                    else:
-                        prov["failed"] += 1
-                    self._inc_dict(prov["by_upstream_format"], upstream_format)
-                    if attempt.get("error_type"):
-                        self._inc_dict(counters["by_error_type"], attempt.get("error_type"))
-                    if attempt.get("reason"):
-                        self._inc_dict(counters["by_failure_reason"], attempt.get("reason"))
-                    if attempt.get("http_status") is not None:
-                        self._inc_dict(counters["by_attempt_http_status"], str(int(attempt.get("http_status") or 0)))
-                    usage_totals = normalize_usage(attempt.get("usage") or attempt)
-                    if outcome == "success" and has_usage(usage_totals):
-                        add_usage_totals(prov["usage"], usage_totals, cost_usd=attempt.get("cost_usd"))
+                request_totals = conn.execute(
+                    f"""
+                    SELECT
+                      COUNT(*) AS total,
+                      SUM(CASE WHEN status_code < 400 THEN 1 ELSE 0 END) AS success,
+                      SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END) AS failed,
+                      {', '.join(f'SUM({column}) AS {column}' for column in usage_columns)},
+                      SUM(CASE WHEN {has_usage_sql} THEN cost_usd ELSE 0 END) AS cost_usd
+                    FROM requests
+                    """
+                ).fetchone()
+                counters["requests_total"] = int(request_totals["total"] or 0)
+                counters["requests_success"] = int(request_totals["success"] or 0)
+                counters["requests_failed"] = int(request_totals["failed"] or 0)
+                counters["usage"] = self._usage_aggregate_from_row(request_totals)
+
+                for target, expression in (
+                    ("by_client_format", "COALESCE(NULLIF(client_format, ''), 'unknown')"),
+                    ("by_endpoint", "COALESCE(NULLIF(endpoint, ''), 'unknown')"),
+                    ("by_model", "COALESCE(model, '')"),
+                    ("by_status", "CAST(status_code AS TEXT)"),
+                ):
+                    counters[target] = self._sql_group_counts(conn, "requests", expression)
+
+                model_rows = conn.execute(
+                    f"""
+                    SELECT
+                      COALESCE(model, '') AS group_key,
+                      {', '.join(f'SUM({column}) AS {column}' for column in usage_columns)},
+                      SUM(cost_usd) AS cost_usd
+                    FROM requests
+                    WHERE {has_usage_sql}
+                    GROUP BY group_key
+                    """
+                ).fetchall()
+                counters["by_model_usage"] = {
+                    str(row["group_key"]): self._usage_aggregate_from_row(row)
+                    for row in model_rows
+                }
+
+                attempt_totals = conn.execute(
+                    """
+                    SELECT
+                      COUNT(*) AS total,
+                      SUM(CASE WHEN outcome = 'success' THEN 1 ELSE 0 END) AS success,
+                      SUM(CASE WHEN outcome = 'success' THEN 0 ELSE 1 END) AS failed
+                    FROM attempts
+                    """
+                ).fetchone()
+                counters["attempts_total"] = int(attempt_totals["total"] or 0)
+                counters["attempts_success"] = int(attempt_totals["success"] or 0)
+                counters["attempts_failed"] = int(attempt_totals["failed"] or 0)
+                counters["by_error_type"] = self._sql_group_counts(
+                    conn, "attempts", "error_type", where="error_type <> ''"
+                )
+                counters["by_failure_reason"] = self._sql_group_counts(
+                    conn, "attempts", "reason", where="reason <> ''"
+                )
+                counters["by_attempt_http_status"] = self._sql_group_counts(
+                    conn,
+                    "attempts",
+                    "CAST(http_status AS TEXT)",
+                    where="http_status IS NOT NULL",
+                )
+
+                provider_rows = conn.execute(
+                    f"""
+                    SELECT
+                      COALESCE(NULLIF(provider, ''), 'unknown') AS provider_key,
+                      COUNT(*) AS attempts,
+                      SUM(CASE WHEN outcome = 'success' THEN 1 ELSE 0 END) AS success,
+                      SUM(CASE WHEN outcome = 'success' THEN 0 ELSE 1 END) AS failed,
+                      {', '.join(
+                          f"SUM(CASE WHEN outcome = 'success' AND {has_usage_sql} THEN {column} ELSE 0 END) AS {column}"
+                          for column in usage_columns
+                      )},
+                      SUM(CASE WHEN outcome = 'success' AND {has_usage_sql} THEN cost_usd ELSE 0 END) AS cost_usd
+                    FROM attempts
+                    GROUP BY provider_key
+                    """
+                ).fetchall()
+                for row in provider_rows:
+                    counters["by_provider"][str(row["provider_key"])] = {
+                        "attempts": int(row["attempts"] or 0),
+                        "success": int(row["success"] or 0),
+                        "failed": int(row["failed"] or 0),
+                        "by_upstream_format": {},
+                        "usage": self._usage_aggregate_from_row(row),
+                    }
+                provider_format_rows = conn.execute(
+                    """
+                    SELECT
+                      COALESCE(NULLIF(provider, ''), 'unknown') AS provider_key,
+                      COALESCE(NULLIF(upstream_format, ''), 'unknown') AS format_key,
+                      COUNT(*) AS count
+                    FROM attempts
+                    GROUP BY provider_key, format_key
+                    """
+                ).fetchall()
+                for row in provider_format_rows:
+                    provider = counters["by_provider"].get(str(row["provider_key"]))
+                    if provider is not None:
+                        provider["by_upstream_format"][str(row["format_key"])] = int(row["count"] or 0)
             return counters
         except Exception:
             return None
+
+    @staticmethod
+    def _usage_aggregate_from_row(row: sqlite3.Row) -> Dict[str, Any]:
+        usage = empty_usage_with_cost()
+        for column in empty_usage():
+            usage[column] = max(0, int(row[column] or 0))
+        usage["cost_usd"] = round(max(0.0, float(row["cost_usd"] or 0)), 10)
+        return usage
+
+    @staticmethod
+    def _sql_group_counts(
+        conn: sqlite3.Connection,
+        table: str,
+        expression: str,
+        *,
+        where: str = "",
+    ) -> Dict[str, int]:
+        where_sql = f" WHERE {where}" if where else ""
+        rows = conn.execute(
+            f"SELECT {expression} AS group_key, COUNT(*) AS count FROM {table}{where_sql} GROUP BY group_key"
+        ).fetchall()
+        return {str(row["group_key"]): int(row["count"] or 0) for row in rows}
 
     def recent_requests(self, limit: int) -> Optional[list]:
         if not self.enabled:
@@ -1002,17 +1120,36 @@ class RequestHistoryStore:
             series = [self._new_bucket(start + i * bucket_s, bucket_s) for i in range(buckets)]
             with self._connection() as conn:
                 rows = conn.execute(
-                    "SELECT * FROM requests WHERE finished_at >= ? AND finished_at < ? ORDER BY finished_at ASC",
+                    """
+                    SELECT request_id, client_format, model, status_code, duration_ms,
+                           first_byte_ms, finished_at, input_tokens,
+                           uncached_input_tokens, cached_input_tokens,
+                           cache_write_tokens, output_tokens, reasoning_tokens,
+                           total_tokens, cost_usd
+                    FROM requests
+                    WHERE finished_at >= ? AND finished_at < ?
+                    ORDER BY finished_at ASC
+                    """,
                     (start, end),
                 ).fetchall()
-                # Batch-load attempts for the whole window in ONE query instead
-                # of one sub-query per request (the old N+1 path). Only the few
-                # fields _add_to_bucket reads are needed, but we keep it simple
-                # and select * joined on the same time window via request_id IN.
                 request_ids = [row["request_id"] for row in rows]
-                attempts_by_request = self._attempts_batch(conn, request_ids)
+                attempts_by_request = self._timeseries_attempts_batch(conn, request_ids)
                 for row in rows:
-                    item = self._request_from_row(row)
+                    usage = {
+                        column: int(row[column] or 0)
+                        for column in empty_usage()
+                    }
+                    item = {
+                        "request_id": str(row["request_id"] or ""),
+                        "client_format": str(row["client_format"] or "unknown"),
+                        "model": str(row["model"] or ""),
+                        "status_code": int(row["status_code"] or 0),
+                        "duration_ms": int(row["duration_ms"] or 0),
+                        "first_byte_ms": int(row["first_byte_ms"] or 0),
+                        "finished_at": int(row["finished_at"] or 0),
+                        "usage": usage,
+                        "cost_usd": round(float(row["cost_usd"] or 0), 10),
+                    }
                     item["attempts"] = attempts_by_request.get(item["request_id"], [])
                     self._add_to_bucket(series, start, bucket_s, item)
             for bucket in series:
@@ -1029,6 +1166,43 @@ class RequestHistoryStore:
             return {"source": "sqlite", "bucket_s": bucket_s, "buckets": series}
         except Exception:
             return None
+
+    @staticmethod
+    def _timeseries_attempts_batch(conn: sqlite3.Connection, request_ids) -> Dict[str, list]:
+        out: Dict[str, list] = {}
+        ids = [str(request_id) for request_id in request_ids if request_id]
+        for index in range(0, len(ids), 500):
+            chunk = ids[index : index + 500]
+            placeholders = ",".join("?" for _ in chunk)
+            rows = conn.execute(
+                f"""
+                SELECT request_id, provider, upstream_format, outcome,
+                       error_type, reason, http_status, input_tokens,
+                       uncached_input_tokens, cached_input_tokens,
+                       cache_write_tokens, output_tokens, reasoning_tokens,
+                       total_tokens, cost_usd
+                FROM attempts
+                WHERE request_id IN ({placeholders})
+                """,
+                chunk,
+            ).fetchall()
+            for row in rows:
+                usage = {column: int(row[column] or 0) for column in empty_usage()}
+                attempt = {
+                    "provider": str(row["provider"] or ""),
+                    "upstream_format": str(row["upstream_format"] or ""),
+                    "outcome": str(row["outcome"] or ""),
+                    "usage": usage,
+                    "cost_usd": round(float(row["cost_usd"] or 0), 10),
+                }
+                if row["error_type"]:
+                    attempt["error_type"] = str(row["error_type"])
+                if row["reason"]:
+                    attempt["reason"] = str(row["reason"])
+                if row["http_status"] is not None:
+                    attempt["http_status"] = int(row["http_status"])
+                out.setdefault(str(row["request_id"]), []).append(attempt)
+        return out
 
     @staticmethod
     def _usage_range_start(value: Any) -> int:
@@ -1052,24 +1226,41 @@ class RequestHistoryStore:
             with self._connection() as conn:
                 rows = conn.execute(
                     """
-                    SELECT a.first_event_ms
+                    SELECT a.outcome, a.error_type, a.duration_ms, a.first_event_ms
                     FROM attempts a
                     JOIN requests r ON r.request_id = a.request_id
                     WHERE a.provider = ?
                       AND r.model = ?
                       AND r.request_profile = ?
-                      AND a.outcome = 'success'
-                      AND a.first_event_ms > 0
-                    ORDER BY r.finished_at DESC
+                    ORDER BY r.finished_at DESC, a.attempt_no DESC
                     LIMIT ?
                     """,
                     (str(provider or ""), str(client_model or ""), str(request_profile or "plain"), limit),
                 ).fetchall()
-            values = sorted(max(0, int(row["first_event_ms"] or 0)) for row in rows)
+            values = sorted(
+                max(0, int(row["first_event_ms"] or 0))
+                for row in rows
+                if str(row["outcome"] or "") == "success" and int(row["first_event_ms"] or 0) > 0
+            )
+            recent_timeouts = [
+                max(0, int(row["duration_ms"] or 0))
+                for row in rows[:20]
+                if str(row["error_type"] or "") == "first_event_timeout"
+            ]
             if not values:
-                return {"count": 0, "p95_ms": 0}
+                return {
+                    "count": 0,
+                    "p95_ms": 0,
+                    "recent_timeout_count": len(recent_timeouts),
+                    "timeout_floor_ms": max(recent_timeouts, default=0),
+                }
             index = max(0, ((95 * len(values) + 99) // 100) - 1)
-            return {"count": len(values), "p95_ms": values[index]}
+            return {
+                "count": len(values),
+                "p95_ms": values[index],
+                "recent_timeout_count": len(recent_timeouts),
+                "timeout_floor_ms": max(recent_timeouts, default=0),
+            }
         except Exception:
             return None
 

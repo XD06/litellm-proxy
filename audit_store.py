@@ -32,6 +32,8 @@ class AdminAuditStore:
         self.max_records = self._max_records()
         self._lock = threading.Lock()
         self._recent = deque(maxlen=self.max_records)
+        self._line_count = 0
+        self._load_persistent_tail()
 
     def record(
         self,
@@ -68,6 +70,7 @@ class AdminAuditStore:
                 with open(self.path, "a", encoding="utf-8") as f:
                     f.write(json.dumps(item, ensure_ascii=False, sort_keys=True))
                     f.write("\n")
+                self._line_count += 1
                 self._prune_locked()
             except Exception:
                 pass
@@ -83,9 +86,7 @@ class AdminAuditStore:
             return {"source": "disabled", "total": 0, "limit": limit, "items": []}
 
         with self._lock:
-            items = self._read_items_locked()
-            if not items:
-                items = [copy.deepcopy(item) for item in self._recent]
+            items = [copy.deepcopy(item) for item in self._recent]
         items = sorted(items, key=lambda item: (int(item.get("ts") or 0), str(item.get("id") or "")), reverse=True)
         return {
             "source": "jsonl" if os.path.exists(self.path) else "memory",
@@ -118,40 +119,52 @@ class AdminAuditStore:
             return 1000
 
     def _read_items_locked(self) -> list:
-        if not os.path.exists(self.path):
-            return []
+        return [copy.deepcopy(item) for item in self._recent]
+
+    def _load_persistent_tail(self) -> None:
+        if not self.enabled or not os.path.exists(self.path):
+            return
+        recent = deque(maxlen=self.max_records)
+        line_count = 0
         try:
             with open(self.path, "r", encoding="utf-8") as f:
-                lines = f.readlines()[-self.max_records :]
-            items = []
-            for line in lines:
-                try:
-                    item = json.loads(line)
-                except Exception:
-                    continue
-                if isinstance(item, dict):
-                    items.append(item)
-            return items
+                for line in f:
+                    if not line.strip():
+                        continue
+                    line_count += 1
+                    try:
+                        item = json.loads(line)
+                    except Exception:
+                        continue
+                    if isinstance(item, dict):
+                        recent.append(item)
         except Exception:
-            return []
+            return
+        self._recent = recent
+        self._line_count = line_count
 
     def _prune_locked(self) -> None:
-        if self.max_records <= 0 or not os.path.exists(self.path):
+        if (
+            self.max_records <= 0
+            or self._line_count <= self.max_records
+            or not os.path.exists(self.path)
+        ):
             return
         try:
-            with open(self.path, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-            if len(lines) <= self.max_records:
-                return
             # Atomic prune: write to a temp file then os.replace() onto the
             # real path. The previous open("w") truncated first and wrote
             # second, so a crash between the two wiped the whole audit log.
             # os.replace is atomic on POSIX and Windows for same-filesystem
             # renames, so readers never see a partial/empty file.
+            items = list(self._recent)[-self.max_records :]
             tmp = self.path + ".tmp"
             with open(tmp, "w", encoding="utf-8") as f:
-                f.writelines(lines[-self.max_records :])
+                for item in items:
+                    f.write(json.dumps(item, ensure_ascii=False, sort_keys=True))
+                    f.write("\n")
             os.replace(tmp, self.path)
+            self._recent = deque(items, maxlen=self.max_records)
+            self._line_count = len(items)
         except Exception:
             return
 

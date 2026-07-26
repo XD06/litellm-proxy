@@ -48,7 +48,7 @@ assert.match(
 );
 assert.match(
   source,
-  /const cacheKey = `\$\{name\}\\n\$\{version\}\\n\$\{modelsVersion\}`/,
+  /const nextVersion = `\$\{version\}\\n\$\{modelsVersion\}`[\s\S]{0,280}_modelCapabilityItemsCache\.clear\(\)/,
   'model capability memoization must invalidate on capability-only refreshes',
 );
 assert.match(

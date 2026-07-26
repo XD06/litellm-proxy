@@ -311,6 +311,7 @@
                 </label>
                 <button id="clearProviderFiltersButton" class="button secondary" type="button" data-i18n="req.clear">Clear</button>
               </div>
+              <div id="providerCompatibilityToolbar" class="provider-compatibility-toolbar" hidden></div>
             </div>
             <div id="providersTable" class="provider-table"></div>
             <div id="modelCapabilities" class="provider-model-list empty" hidden data-i18n="prov.no_capabilities">No model capabilities loaded</div>
@@ -706,6 +707,19 @@
               </div>
 
               <div class="config-tab-panel" data-config-tab-panel="advanced" hidden>
+              <section class="panel config-advanced-panel conversion-diagnostics-panel">
+                <div class="panel-head">
+                  <div>
+                    <h2 data-i18n="cfg.conversion_diagnostics">Conversion Diagnostics</h2>
+                  </div>
+                  <div class="conversion-diagnostics-actions">
+                    <button id="downloadConversionDiagnostics" class="button secondary compact-action" type="button" data-i18n="cfg.download_diagnostics">Download</button>
+                    <button id="clearConversionDiagnostics" class="button danger compact-action" type="button" data-i18n="cfg.clear_diagnostics">Clear</button>
+                  </div>
+                </div>
+                <div id="conversionDiagnosticsStatus" class="conversion-diagnostics-status" aria-live="polite"></div>
+              </section>
+
               <section id="overlaySafetyPanel" class="panel config-advanced-panel">
                 <details class="config-advanced-details">
                   <summary>

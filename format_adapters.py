@@ -33,6 +33,8 @@ def configure_responses_session_store(config: Dict[str, Any]) -> Optional[Respon
     observability = config.get("observability") or {}
     raw = observability.get("responses_sessions") or {}
     if not isinstance(raw, dict) or not bool(raw.get("enabled", True)):
+        if _SESSION_STORE is not None:
+            _SESSION_STORE.close()
         _SESSION_STORE = None
         return None
     path = str(raw.get("path") or os.path.join("tmp", "proxy_sessions.sqlite3"))
@@ -52,8 +54,12 @@ def configure_responses_session_store(config: Dict[str, Any]) -> Optional[Respon
         max_record_bytes=positive_int("max_record_bytes", 4 * 1024 * 1024),
         max_chain_depth=positive_int("max_chain_depth", 64),
     )
-    _SESSION_STORE = ResponsesSessionStore(path, limits=limits)
-    _SESSION_STORE.initialize()
+    previous_store = _SESSION_STORE
+    next_store = ResponsesSessionStore(path, limits=limits)
+    next_store.initialize()
+    _SESSION_STORE = next_store
+    if previous_store is not None:
+        previous_store.close()
     return _SESSION_STORE
 
 

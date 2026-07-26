@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from proxy_utils import key_fingerprint
 from router import Attempt, UpstreamRouter
@@ -1789,6 +1790,69 @@ class RouterTests(unittest.TestCase):
 
         snap = router.snapshot()
         self.assertEqual(snap["compatibility_circuits"]["active"], 0)
+
+    def test_expired_compatibility_circuits_are_removed_from_memory(self):
+        router = UpstreamRouter(base_config())
+        failed = next(router.iter_attempts(
+            "any-model", False, "req-expired", compatibility_profile="tools"
+        ))
+        router.report_failure(failed, error_type="provider_compat", http_status=400)
+        for state in router._compatibility_state.values():
+            state.cooldown_until = 0
+
+        router.snapshot()
+
+        self.assertEqual(router._compatibility_state, {})
+
+    def test_attempt_reuses_one_key_fingerprint_and_skips_trace_metadata_without_trace(self):
+        router = UpstreamRouter(base_config())
+        from router import _key_fingerprint as real_fingerprint
+
+        with patch("router._key_fingerprint", wraps=real_fingerprint) as fingerprint_spy, \
+             patch("router._hash_key_short", side_effect=AssertionError("unused trace key id")), \
+             patch("router._mask_key", side_effect=AssertionError("unused trace key mask")):
+            attempt = next(router.iter_attempts("any-model", False, "req-fingerprint"))
+
+        self.assertTrue(attempt.key_fingerprint)
+        self.assertEqual(fingerprint_spy.call_count, 1)
+
+    def test_snapshot_reuses_short_lived_result_and_invalidates_on_state_change(self):
+        router = UpstreamRouter(base_config())
+        with patch("router._hash_key_short", side_effect=AssertionError("hash inside snapshot")), \
+             patch("router._mask_key", side_effect=AssertionError("mask inside snapshot")), \
+             patch("router.resolve_proxy_url", side_effect=AssertionError("proxy resolution inside snapshot")):
+            first = router.snapshot()
+        second = router.snapshot()
+        self.assertIs(first, second)
+
+        router.update_provider_priority("alpha", 99)
+        third = router.snapshot()
+
+        self.assertIsNot(second, third)
+        self.assertEqual(third["providers"]["alpha"]["priority"], 99)
+
+    def test_model_support_and_provider_candidates_are_cached_per_model_version(self):
+        router = UpstreamRouter(base_config())
+        import model_registry
+
+        with patch.object(
+            model_registry,
+            "provider_supports_model",
+            wraps=model_registry.provider_supports_model,
+        ) as support_spy, patch.object(
+            model_registry,
+            "resolve_provider_model_candidates",
+            wraps=model_registry.resolve_provider_model_candidates,
+        ) as candidates_spy:
+            list(router.iter_attempts("cache-model", False, "req-cache-1"))
+            first_support_calls = support_spy.call_count
+            first_candidate_calls = candidates_spy.call_count
+            list(router.iter_attempts("cache-model", False, "req-cache-2"))
+
+        self.assertGreater(first_support_calls, 0)
+        self.assertGreater(first_candidate_calls, 0)
+        self.assertEqual(support_spy.call_count, first_support_calls)
+        self.assertEqual(candidates_spy.call_count, first_candidate_calls)
 
 
 if __name__ == "__main__":

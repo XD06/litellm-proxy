@@ -31,6 +31,31 @@ class ClientIdentityTests(unittest.TestCase):
 
         self.assertEqual((ip, source), ("198.51.100.20", "x-forwarded-for"))
 
+    def test_cloudflare_connecting_ip_precedes_appended_edge_hop(self):
+        ip, source = resolve_client_ip(
+            "172.21.0.1",
+            {
+                "CF-Connecting-IP": "198.51.100.20",
+                "X-Forwarded-For": "198.51.100.20, 104.16.10.20",
+            },
+            ["172.16.0.0/12"],
+        )
+
+        self.assertEqual((ip, source), ("198.51.100.20", "cf-connecting-ip"))
+
+    def test_explicit_forwarded_header_order_is_preserved(self):
+        ip, source = resolve_client_ip(
+            "172.21.0.1",
+            {
+                "CF-Connecting-IP": "198.51.100.20",
+                "X-Real-IP": "198.51.100.21",
+            },
+            ["172.16.0.0/12"],
+            ["x-real-ip", "cf-connecting-ip"],
+        )
+
+        self.assertEqual((ip, source), ("198.51.100.21", "x-real-ip"))
+
     def test_trusted_proxy_accepts_nginx_real_ip_header(self):
         ip, source = resolve_client_ip(
             "172.21.0.1",

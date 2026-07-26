@@ -12,6 +12,7 @@ from unittest.mock import patch, MagicMock
 
 import sse2json
 import config_manager
+from conversion_diagnostics import ConversionDiagnosticStore
 from observability import ProxyObservability
 from router import Attempt, UpstreamRouter, _KeyState
 
@@ -1080,6 +1081,57 @@ class AdminApiTests(unittest.TestCase):
         self.assertEqual(request["client_ip"], "198.51.100.20")
         self.assertEqual(request["client_ip_source"], "x-forwarded-for")
         self.assertEqual(request["user_agent"], "identity-test/1.0")
+
+    def test_conversion_diagnostics_status_export_and_clear(self):
+        headers = {"X-Admin-Key": "admin-secret"}
+        with tempfile.TemporaryDirectory() as root:
+            store = ConversionDiagnosticStore({
+                "server": {"log_dir": root},
+                "observability": {"conversion_diagnostics": {"enabled": True}},
+            })
+            try:
+                store.record(
+                    request_id="req-conversion-1",
+                    stage="response",
+                    source_format="responses",
+                    target_format="chat_completions",
+                    error=ValueError("invalid tool arguments"),
+                    context={"Authorization": "Bearer secret-value"},
+                )
+                self.assertTrue(store.flush(timeout=2))
+                with patch.object(sse2json, "CONVERSION_DIAGNOSTICS", store), patch.object(
+                    sse2json,
+                    "CONFIG",
+                    {**sse2json.CONFIG, "server": {**(sse2json.CONFIG.get("server") or {}), "admin_key": "admin-secret"}},
+                ):
+                    status_code, status = self.get_json("/-/admin/conversion-diagnostics", headers=headers)
+                    export_code, export_headers, exported = self.get_raw(
+                        "/-/admin/conversion-diagnostics/export",
+                        headers=headers,
+                    )
+                    denied_code, _ = self.post_json(
+                        "/-/admin/conversion-diagnostics/clear",
+                        {},
+                        headers={"X-Admin-Key": "admin-secret", "Content-Type": "application/json"},
+                    )
+                    clear_code, cleared = self.post_json(
+                        "/-/admin/conversion-diagnostics/clear",
+                        {"confirm": "clear_conversion_diagnostics"},
+                        headers={"X-Admin-Key": "admin-secret", "Content-Type": "application/json"},
+                    )
+            finally:
+                store.close()
+
+        self.assertEqual(status_code, 200)
+        self.assertEqual(status["records"], 1)
+        self.assertEqual(export_code, 200)
+        self.assertIn("application/x-ndjson", export_headers.get("Content-Type", ""))
+        self.assertIn("attachment", export_headers.get("Content-Disposition", ""))
+        self.assertIn(b"req-conversion-1", exported)
+        self.assertNotIn(b"secret-value", exported)
+        self.assertEqual(denied_code, 400)
+        self.assertEqual(clear_code, 200)
+        self.assertTrue(cleared["cleared"])
 
     def test_admin_requests_list_detail_and_timeseries(self):
         cfg = {

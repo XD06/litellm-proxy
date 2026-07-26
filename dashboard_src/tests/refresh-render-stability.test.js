@@ -6,6 +6,10 @@ const source = fs.readFileSync(
   path.join(__dirname, "..", "src", "app.js"),
   "utf8",
 );
+const stateSource = fs.readFileSync(
+  path.join(__dirname, "..", "src", "state.js"),
+  "utf8",
+);
 
 function bodyBetween(start, end) {
   const startAt = source.indexOf(start);
@@ -49,6 +53,27 @@ assert.match(
   source,
   /_renderedHtmlByTarget|get\(target\) === nextHtml/,
   "identical generated markup should bypass morphdom",
+);
+assert.match(
+  stateSource,
+  /staticDataState:\s*"idle"/,
+  "static admin data needs an explicit initial loading state",
+);
+const onboardingRenderer = bodyBetween("function renderOnboardingBanner", "function renderHealthOverview");
+assert.match(
+  onboardingRenderer,
+  /staticDataState !== "ready"/,
+  "onboarding must not interpret missing initial config as an empty config",
+);
+assert.match(
+  source,
+  /state\.staticDataState = "loading"/,
+  "the initial static refresh must publish a loading state",
+);
+assert.match(
+  source,
+  /state\.staticDataState = "ready"/,
+  "a confirmed config response must publish a ready state",
 );
 
 console.log("refresh-render-stability tests passed");

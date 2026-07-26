@@ -64,6 +64,15 @@ class ConfigLoaderTests(unittest.TestCase):
         self.assertEqual(cfg["server"]["trusted_proxy_cidrs"], ["127.0.0.0/8", "172.16.0.0/12"])
         self.assertEqual(cfg["server"]["trusted_proxy_headers"], ["x-forwarded-for", "x-real-ip"])
 
+    def test_legacy_config_gets_safe_private_proxy_identity_defaults(self):
+        cfg = self.load_from_temp_config({"providers": {}})
+
+        self.assertEqual(cfg["server"]["trusted_proxy_cidrs"], ["127.0.0.0/8", "172.16.0.0/12"])
+        self.assertEqual(
+            cfg["server"]["trusted_proxy_headers"],
+            ["cf-connecting-ip", "forwarded", "x-forwarded-for", "x-real-ip"],
+        )
+
     def test_provider_without_formats_defaults_to_chat_completions(self):
         cfg = self.load_from_temp_config(
             {

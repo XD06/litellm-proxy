@@ -1,5 +1,6 @@
 export const state = {
   adminKey: "",
+  staticDataState: "idle",
   paused: false,
   refreshMs: 5000,
   timer: null,
@@ -77,6 +78,7 @@ export const state = {
     requests: null,
     overlay: null,
     providerActivity: null,
+    conversionDiagnostics: null,
     usageStatistics: null,
     usageStatisticsDimensions: null,
     modelUsage: null,

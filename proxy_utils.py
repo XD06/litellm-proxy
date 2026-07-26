@@ -197,10 +197,10 @@ def resolve_client_ip(
         return peer, "peer"
 
     header_order = trusted_proxy_headers if isinstance(trusted_proxy_headers, list) else [
+        "cf-connecting-ip",
         "forwarded",
         "x-forwarded-for",
         "x-real-ip",
-        "cf-connecting-ip",
     ]
     def header_value(name: str) -> Any:
         if not hasattr(headers, "get"):

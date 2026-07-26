@@ -165,6 +165,65 @@ class ObservabilityTests(unittest.TestCase):
         self.assertEqual(len(snap["recent_requests"][0]["attempts"][0]["key_id"]), 10)
         self.assertNotIn("secret-key", str(snap))
 
+    def test_first_event_latency_stats_include_recent_timeout_floor(self):
+        obs = ProxyObservability(
+            {"observability": {"recent_requests_limit": 20, "history": {"enabled": False}}}
+        )
+        for index, latency_ms in enumerate((4309, 10516, 23302, 24540)):
+            request_id = f"req-success-{index}"
+            obs.record_request_start(
+                request_id,
+                client_format="responses",
+                endpoint="responses",
+                model="gpt-5.6-sol",
+                stream=True,
+                path="/v1/responses",
+                request_profile="reasoning+structured_output",
+            )
+            obs.record_attempt(
+                request_id,
+                make_attempt(request_id, provider="tken", provider_model="gpt-5.6-sol", upstream_format="responses"),
+                outcome="success",
+                duration_ms=latency_ms + 1000,
+                first_event_ms=latency_ms,
+            )
+            obs.record_request_end(request_id, status_code=200)
+
+        initial_stats = obs.first_event_latency_stats(
+            "tken", "gpt-5.6-sol", "reasoning+structured_output"
+        )
+        self.assertEqual(initial_stats["recent_timeout_count"], 0)
+
+        for index, duration_ms in enumerate((35000, 35120)):
+            request_id = f"req-timeout-{index}"
+            obs.record_request_start(
+                request_id,
+                client_format="responses",
+                endpoint="responses",
+                model="gpt-5.6-sol",
+                stream=True,
+                path="/v1/responses",
+                request_profile="reasoning+structured_output",
+            )
+            obs.record_attempt(
+                request_id,
+                make_attempt(request_id, provider="tken", provider_model="gpt-5.6-sol", upstream_format="responses"),
+                outcome="failed",
+                error_type="first_event_timeout",
+                reason="first_event_timeout",
+                duration_ms=duration_ms,
+            )
+            obs.record_request_end(request_id, status_code=504)
+
+        stats = obs.first_event_latency_stats(
+            "tken", "gpt-5.6-sol", "reasoning+structured_output"
+        )
+
+        self.assertEqual(stats["count"], 4)
+        self.assertEqual(stats["p95_ms"], 24540)
+        self.assertEqual(stats["recent_timeout_count"], 2)
+        self.assertEqual(stats["timeout_floor_ms"], 35120)
+
     def test_sqlite_history_restores_recent_requests_on_restart(self):
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             cfg = {

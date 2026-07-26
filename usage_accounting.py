@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+import threading
 import re
 from typing import Any, Dict, Optional, Tuple
 
@@ -11,6 +12,36 @@ try:
     from artificial_analysis_api import aa as _aa
 except Exception:
     _aa = None
+
+
+_aa_index_lock = threading.Lock()
+_aa_index_owner: Optional[int] = None
+_aa_index_loaded = False
+_aa_index_last_attempt = 0.0
+
+
+def _ensure_aa_index_loaded() -> None:
+    """Try local index loading once, then back off when the file is absent."""
+    global _aa_index_owner, _aa_index_loaded, _aa_index_last_attempt
+    index = getattr(_aa, "_index", None) if _aa is not None else None
+    if index is None:
+        return
+    owner = id(index)
+    now = time.monotonic()
+    with _aa_index_lock:
+        if _aa_index_owner != owner:
+            _aa_index_owner = owner
+            _aa_index_loaded = False
+            _aa_index_last_attempt = 0.0
+        if _aa_index_loaded or (
+            _aa_index_last_attempt > 0 and now - _aa_index_last_attempt < 60.0
+        ):
+            return
+        _aa_index_last_attempt = now
+        try:
+            _aa_index_loaded = bool(index.load_local()) or bool(getattr(index, "size", 0))
+        except Exception:
+            _aa_index_loaded = False
 
 
 _INPUT_RATE_KEYS = (
@@ -298,10 +329,7 @@ def resolve_price_snapshot(
     if not allow_aa_cache or _aa is None:
         return None
     try:
-        try:
-            _aa._index.load_local()
-        except Exception:
-            pass
+        _ensure_aa_index_loaded()
         slug = _aa._index.resolve(provider_model)
         cached = _aa._cache.get(slug) if slug else None
         # The summary cache is durable and can be populated before the model

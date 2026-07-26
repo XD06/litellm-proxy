@@ -20,6 +20,7 @@ import model_registry
 import model_discovery_queue
 import scheduler_policy
 from conversion_core import ConversionError
+from conversion_diagnostics import ConversionDiagnosticStore
 from audit_store import AdminAuditStore
 from config_manager import ConfigValidationError, RuntimeConfigManager
 from config_loader import apply_env_overlays, load_base_config, load_config, ZERO_CONFIG_ACTIVE
@@ -396,7 +397,6 @@ def _start_state_autosave() -> None:
         while True:
             time.sleep(_ROUTER_STATE_INTERVAL_S)
             _save_router_state()
-            _update_health_scores()
     t = threading.Thread(target=_loop, name="router-state-saver", daemon=True)
     t.start()
 
@@ -1877,6 +1877,7 @@ ROUTER = UpstreamRouter(CONFIG)
 UPSTREAM_CLIENT = OpenAIUpstreamClient(CONFIG)
 OBSERVABILITY = ProxyObservability(CONFIG)
 AUDIT = AdminAuditStore(CONFIG)
+CONVERSION_DIAGNOSTICS = ConversionDiagnosticStore(CONFIG)
 
 
 class RuntimeContext:
@@ -1917,10 +1918,11 @@ def _refresh_model_mapping_globals() -> None:
 
 
 def _apply_runtime_config(new_config: dict, *, persist_state: bool = True) -> None:
-    global CONFIG, ROUTER, UPSTREAM_CLIENT, OBSERVABILITY, AUDIT, RUNTIME
+    global CONFIG, ROUTER, UPSTREAM_CLIENT, OBSERVABILITY, AUDIT, CONVERSION_DIAGNOSTICS, RUNTIME
     old_router = ROUTER
     old_obs = OBSERVABILITY
     old_upstream_client = UPSTREAM_CLIENT
+    old_conversion_diagnostics = CONVERSION_DIAGNOSTICS
     old_caps = dict(((CONFIG.get("models") or {}).get("provider_model_capabilities") or {})) if CONFIG else {}
     old_key_caps = dict(((CONFIG.get("models") or {}).get("provider_key_model_capabilities") or {})) if CONFIG else {}
     new_config = apply_env_overlays(new_config)
@@ -1967,6 +1969,7 @@ def _apply_runtime_config(new_config: dict, *, persist_state: bool = True) -> No
     if old_obs is not None:
         new_observability.migrate_counters_from(old_obs)
     new_audit = AdminAuditStore(new_config)
+    new_conversion_diagnostics = ConversionDiagnosticStore(new_config)
 
     # Atomic swap: a single STORE_GLOBAL on RUNTIME is the linearization point.
     # Every reader that captured RUNTIME before this line keeps the old set;
@@ -1981,6 +1984,7 @@ def _apply_runtime_config(new_config: dict, *, persist_state: bool = True) -> No
     UPSTREAM_CLIENT = new_upstream_client
     OBSERVABILITY = new_observability
     AUDIT = new_audit
+    CONVERSION_DIAGNOSTICS = new_conversion_diagnostics
     _refresh_model_mapping_globals()
     # After a config reload, re-scan providers through the discovery queue so
     # newly added providers get discovered and removed ones are dropped. The
@@ -2006,6 +2010,10 @@ def _apply_runtime_config(new_config: dict, *, persist_state: bool = True) -> No
             _timer = threading.Timer(_retire_delay, _close_fn)
             _timer.daemon = True
             _timer.start()
+    if old_conversion_diagnostics is not None and old_conversion_diagnostics is not new_conversion_diagnostics:
+        _timer = threading.Timer(5.0, old_conversion_diagnostics.close)
+        _timer.daemon = True
+        _timer.start()
 
 
 def _request_runtime() -> "RuntimeContext":
@@ -2839,10 +2847,20 @@ def _adaptive_first_event_budget(
             compatibility_profile or "plain",
             min_samples=20,
         )
-        if int(stats.get("count") or 0) < 20:
-            return float(fallback_s)
-        p95_s = max(0.0, float(stats.get("p95_ms") or 0) / 1000.0)
-        return min(maximum_s, max(minimum_s, p95_s * 1.5))
+        budget_s = float(fallback_s)
+        if int(stats.get("count") or 0) >= 20:
+            p95_s = max(0.0, float(stats.get("p95_ms") or 0) / 1000.0)
+            budget_s = max(budget_s, p95_s * 1.5)
+
+        # A first-event timeout is right-censored: the actual latency is
+        # greater than the time we waited. Success-only percentiles therefore
+        # lock a slow model at the same failing threshold forever. Let recent
+        # censored samples raise the next budget while retaining a hard cap.
+        if int(stats.get("recent_timeout_count") or 0) > 0:
+            timeout_floor_s = max(0.0, float(stats.get("timeout_floor_ms") or 0) / 1000.0)
+            budget_s = max(budget_s, timeout_floor_s * 1.5)
+
+        return min(max(maximum_s, float(fallback_s)), max(minimum_s, budget_s))
     except Exception:
         return float(fallback_s)
 
@@ -3540,7 +3558,71 @@ def _record_upstream_http_failure(request_id, attempt, status, error_body, decis
     return err_type
 
 
-def _record_request_conversion_failure(request_id, attempt, client_format: str, exception, attempt_errors, *, duration_ms=None) -> None:
+def _record_conversion_diagnostic(
+    request_id,
+    attempt,
+    exception,
+    *,
+    stage: str,
+    source_format: str,
+    target_format: str,
+    context=None,
+) -> None:
+    try:
+        CONVERSION_DIAGNOSTICS.record(
+            request_id=request_id,
+            stage=stage,
+            source_format=source_format,
+            target_format=target_format,
+            provider=str(getattr(attempt, "provider", "") or ""),
+            attempt_no=int(getattr(attempt, "attempt_no", 0) or 0),
+            key_index=int(getattr(attempt, "key_index", 0) or 0),
+            key_id=key_fingerprint(getattr(attempt, "key", "")),
+            provider_model=str(getattr(attempt, "provider_model", "") or ""),
+            error=exception,
+            context=context,
+        )
+    except Exception:
+        pass
+
+
+def _stream_conversion_error_recorder(request_id, attempt, source_format: str, target_format: str, context=None):
+    errors = []
+    def record(exception):
+        errors.append(exception)
+    record.errors = errors
+    record.request_id = request_id
+    record.attempt = attempt
+    record.source_format = source_format
+    record.target_format = target_format
+    record.context = context
+    return record
+
+
+def _record_stream_result_failure(request_id, attempt, recorder, attempt_errors, *, duration_ms=None) -> str:
+    errors = list(getattr(recorder, "errors", []) or [])
+    if errors:
+        _record_proxy_exception(
+            request_id,
+            attempt,
+            errors[-1],
+            attempt_errors,
+            duration_ms=duration_ms,
+            conversion_stage="stream",
+            conversion_target=str(getattr(recorder, "target_format", "") or ""),
+            context=getattr(recorder, "context", None),
+        )
+        return "conversion_error"
+    _record_stream_interrupted(
+        request_id,
+        attempt,
+        attempt_errors,
+        duration_ms=duration_ms,
+    )
+    return "stream_interrupted"
+
+
+def _record_request_conversion_failure(request_id, attempt, client_format: str, exception, attempt_errors, *, duration_ms=None, context=None) -> None:
     reason = str(getattr(exception, "code", "") or "request_conversion_unsupported")
     summary = f"Could not convert client {client_format} request to upstream {attempt.upstream_format}: {exception}"
     diagnostics = _upstream_error_diagnostics("request_conversion", exception=exception)
@@ -3557,6 +3639,15 @@ def _record_request_conversion_failure(request_id, attempt, client_format: str, 
         diagnostics=diagnostics,
         failure_owner="proxy_conversion",
         state_action={"action": "none", "reason": "proxy conversion failures do not affect provider health"},
+    )
+    _record_conversion_diagnostic(
+        request_id,
+        attempt,
+        exception,
+        stage="request",
+        source_format=client_format,
+        target_format=str(getattr(attempt, "upstream_format", "") or ""),
+        context=context,
     )
     attempt_errors.append(f"{attempt.provider}:request_conversion:{attempt.upstream_format}:{reason}")
     print(
@@ -3591,7 +3682,11 @@ def _record_transport_failure(
         diagnostics["generation_wait_ms"] = max(0, int(generation_wait_ms or 0))
     state_action = _current_rt().router.report_failure(
         attempt,
-        error_type="provider_compat" if before_first_event else decision.error_type,
+        # A slow or silent stream is a transport/latency failure, not proof
+        # that this model, key and upstream format are incompatible. Keep the
+        # detailed attempt error below, but do not poison the compatibility
+        # circuit with a timing-dependent failure.
+        error_type=decision.error_type,
     )
     _record_failed_attempt(
         request_id,
@@ -3611,18 +3706,55 @@ def _record_transport_failure(
     )
 
 
-def _record_proxy_exception(request_id, attempt, exception, attempt_errors, *, duration_ms=None) -> None:
-    diagnostics = _upstream_error_diagnostics("proxy_exception", exception=exception)
-    _current_rt().router.report_failure(attempt, error_type="network_error")
+def _record_proxy_exception(
+    request_id,
+    attempt,
+    exception,
+    attempt_errors,
+    *,
+    duration_ms=None,
+    conversion_stage: str = "response",
+    conversion_target: str = "",
+    context=None,
+) -> None:
+    is_conversion = isinstance(exception, ConversionError)
+    diagnostics = _upstream_error_diagnostics(
+        f"{conversion_stage}_conversion" if is_conversion else "proxy_exception",
+        exception=exception,
+    )
+    if is_conversion:
+        details = getattr(exception, "details", None)
+        if isinstance(details, dict) and details:
+            diagnostics["conversion_details"] = details
+        _record_conversion_diagnostic(
+            request_id,
+            attempt,
+            exception,
+            stage=conversion_stage,
+            source_format=str(getattr(attempt, "upstream_format", "") or ""),
+            target_format=conversion_target,
+            context=context,
+        )
+        error_type = "conversion_error"
+        reason = str(getattr(exception, "code", "") or "response_conversion_error")
+        failure_owner = "proxy_conversion"
+        state_action = {"action": "none", "reason": "proxy conversion failures do not affect provider health"}
+    else:
+        state_action = _current_rt().router.report_failure(attempt, error_type="network_error")
+        error_type = "network_error"
+        reason = "unknown_exception"
+        failure_owner = "proxy"
     _record_failed_attempt(
         request_id,
         attempt,
-        error_type="network_error",
-        reason="unknown_exception",
+        error_type=error_type,
+        reason=reason,
         duration_ms=duration_ms,
         diagnostics=diagnostics,
+        failure_owner=failure_owner,
+        state_action=state_action,
     )
-    attempt_errors.append(f"{attempt.provider}:unknown:{type(exception).__name__}")
+    attempt_errors.append(f"{attempt.provider}:{reason}:{type(exception).__name__}")
     print(
         f"[proxy] ERROR req={request_id} {_h(attempt.provider)} "
         f"stage=proxy_exception: {_sanitize_diagnostic_text(exception, 200)}",
@@ -4263,6 +4395,7 @@ def do_stream(
     read_timeout_s=None,
     initial_lines=None,
     conversion_context=None,
+    on_conversion_error=None,
 ):
     return stream_openai_sse_to_anthropic(
         upstream,
@@ -4272,6 +4405,7 @@ def do_stream(
         read_timeout_s=read_timeout_s,
         initial_lines=initial_lines,
         conversion_context=conversion_context,
+        on_conversion_error=on_conversion_error,
     )
 
 # HTTP Handler.
@@ -4549,7 +4683,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                     )
                 except ValueError as e:
                     conversion_failures.append(e)
-                    _record_request_conversion_failure(request_id, attempt, CHAT, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
+                    _record_request_conversion_failure(request_id, attempt, CHAT, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started), context=req)
                     continue
             prepared_request = prepared_payloads[payload_cache_key]
             payload = dict(prepared_request.payload)
@@ -4562,6 +4696,8 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             attempt_parameter_adaptations = parameter_adaptations(req, client_format=CHAT, target_format=fmt, output_token_field=actual_token_field, anthropic_default_max_tokens=anthropic_default_max_tokens, semantic_conversion_mode=semantic_conversion_mode)
             response_started = False
             upstream_conn = None
+            stream_conversion_recorder = None
+            upstream_data = None
             upstream_headers_ms = 0
             first_event_ms = 0
             generation_wait_ms = 0
@@ -4624,6 +4760,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                                 client_format="chat_completions",
                             )
                         elif attempt.upstream_format == RESPONSES:
+                            stream_conversion_recorder = _stream_conversion_error_recorder(request_id, attempt, RESPONSES, CHAT, req)
                             stream_resp = stream_responses_sse_to_openai_chat(
                                 upstream_conn,
                                 bwfile,
@@ -4631,8 +4768,10 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                                 read_timeout_s=read_t,
                                 initial_lines=initial_lines,
                                 conversion_context=conversion_context,
+                                on_conversion_error=stream_conversion_recorder,
                             )
                         else:
+                            stream_conversion_recorder = _stream_conversion_error_recorder(request_id, attempt, ANTHROPIC, CHAT, req)
                             stream_resp = stream_anthropic_sse_to_openai_chat(
                                 upstream_conn,
                                 bwfile,
@@ -4640,18 +4779,17 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                                 read_timeout_s=read_t,
                                 initial_lines=initial_lines,
                                 conversion_context=conversion_context,
+                                on_conversion_error=stream_conversion_recorder,
                             )
                     finally:
                         bwfile.force_flush()
 
                     if stream_resp is None:
-                        _record_stream_interrupted(
-                            request_id,
-                            attempt,
-                            attempt_errors,
+                        failure = _record_stream_result_failure(
+                            request_id, attempt, stream_conversion_recorder, attempt_errors,
                             duration_ms=_attempt_duration_ms(attempt_started),
                         )
-                        OBSERVABILITY.record_request_end(request_id, status_code=502, error="stream_interrupted")
+                        OBSERVABILITY.record_request_end(request_id, status_code=502, error=failure)
                         return
                     ROUTER.report_success(attempt)
                     OBSERVABILITY.record_attempt(
@@ -4789,10 +4927,20 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             except Exception as e:
                 if response_started:
                     print(f"[proxy] STREAM ERROR req={request_id} {_h(attempt.provider)}: {type(e).__name__}", flush=True)
-                    _record_proxy_exception(request_id, attempt, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
+                    _record_proxy_exception(
+                        request_id, attempt, e, attempt_errors,
+                        duration_ms=_attempt_duration_ms(attempt_started),
+                        conversion_target=CHAT,
+                        context={"client_request": req, "upstream_response": locals().get("upstream_data")},
+                    )
                     OBSERVABILITY.record_request_end(request_id, status_code=502, error=type(e).__name__)
                     return
-                _record_proxy_exception(request_id, attempt, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
+                _record_proxy_exception(
+                    request_id, attempt, e, attempt_errors,
+                    duration_ms=_attempt_duration_ms(attempt_started),
+                    conversion_target=CHAT,
+                    context={"client_request": req, "upstream_response": locals().get("upstream_data")},
+                )
                 continue
 
             finally:
@@ -4917,7 +5065,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                     )
                 except ValueError as e:
                     conversion_failures.append(e)
-                    _record_request_conversion_failure(request_id, attempt, RESPONSES, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
+                    _record_request_conversion_failure(request_id, attempt, RESPONSES, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started), context=req)
                     continue
             prepared_request = prepared_payloads[payload_cache_key]
             payload = dict(prepared_request.payload)
@@ -4931,6 +5079,8 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
 
             response_started = False
             upstream_conn = None
+            stream_conversion_recorder = None
+            upstream_data = None
             upstream_headers_ms = 0
             first_event_ms = 0
             generation_wait_ms = 0
@@ -4997,6 +5147,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                                 conversion_context=conversion_context,
                             )
                         elif attempt.upstream_format == CHAT:
+                            stream_conversion_recorder = _stream_conversion_error_recorder(request_id, attempt, CHAT, RESPONSES, req)
                             stream_resp = stream_openai_sse_to_responses(
                                 upstream_conn,
                                 bwfile,
@@ -5004,8 +5155,10 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                                 read_timeout_s=read_t,
                                 initial_lines=initial_lines,
                                 conversion_context=conversion_context,
+                                on_conversion_error=stream_conversion_recorder,
                             )
                         else:
+                            stream_conversion_recorder = _stream_conversion_error_recorder(request_id, attempt, ANTHROPIC, RESPONSES, req)
                             stream_resp = stream_anthropic_sse_to_responses(
                                 upstream_conn,
                                 bwfile,
@@ -5013,18 +5166,17 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                                 read_timeout_s=read_t,
                                 initial_lines=initial_lines,
                                 conversion_context=conversion_context,
+                                on_conversion_error=stream_conversion_recorder,
                             )
                     finally:
                         bwfile.force_flush()
 
                     if stream_resp is None:
-                        _record_stream_interrupted(
-                            request_id,
-                            attempt,
-                            attempt_errors,
+                        failure = _record_stream_result_failure(
+                            request_id, attempt, stream_conversion_recorder, attempt_errors,
                             duration_ms=_attempt_duration_ms(attempt_started),
                         )
-                        OBSERVABILITY.record_request_end(request_id, status_code=502, error="stream_interrupted")
+                        OBSERVABILITY.record_request_end(request_id, status_code=502, error=failure)
                         return
                     ROUTER.report_success(attempt)
                     OBSERVABILITY.record_attempt(
@@ -5162,10 +5314,20 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             except Exception as e:
                 if response_started:
                     print(f"[proxy] STREAM ERROR req={request_id} {_h(attempt.provider)}: {type(e).__name__}", flush=True)
-                    _record_proxy_exception(request_id, attempt, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
+                    _record_proxy_exception(
+                        request_id, attempt, e, attempt_errors,
+                        duration_ms=_attempt_duration_ms(attempt_started),
+                        conversion_target=RESPONSES,
+                        context={"client_request": req, "upstream_response": locals().get("upstream_data")},
+                    )
                     OBSERVABILITY.record_request_end(request_id, status_code=502, error=type(e).__name__)
                     return
-                _record_proxy_exception(request_id, attempt, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
+                _record_proxy_exception(
+                    request_id, attempt, e, attempt_errors,
+                    duration_ms=_attempt_duration_ms(attempt_started),
+                    conversion_target=RESPONSES,
+                    context={"client_request": req, "upstream_response": locals().get("upstream_data")},
+                )
                 continue
 
             finally:
@@ -5406,7 +5568,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                         )
                     except ValueError as e:
                         conversion_failures.append(e)
-                        _record_request_conversion_failure(request_id, attempt, ANTHROPIC, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
+                        _record_request_conversion_failure(request_id, attempt, ANTHROPIC, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started), context=req)
                         continue
                 prepared_request = prepared_payloads[payload_cache_key]
                 payload = dict(prepared_request.payload)
@@ -5420,6 +5582,8 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
 
                 response_started = False
                 upstream_conn = None
+                stream_conversion_recorder = None
+                upstream_data = None
                 upstream_headers_ms = 0
                 first_event_ms = 0
                 generation_wait_ms = 0
@@ -5478,6 +5642,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                                 )
                                 anth_resp = {"streamed": True, "native": True, "usage": native_usage}
                             elif attempt.upstream_format == RESPONSES:
+                                stream_conversion_recorder = _stream_conversion_error_recorder(request_id, attempt, RESPONSES, ANTHROPIC, req)
                                 anth_resp = stream_responses_sse_to_anthropic(
                                     upstream_conn,
                                     bwfile,
@@ -5485,8 +5650,10 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                                     read_timeout_s=read_t,
                                     initial_lines=initial_lines,
                                     conversion_context=conversion_context,
+                                    on_conversion_error=stream_conversion_recorder,
                                 )
                             else:
+                                stream_conversion_recorder = _stream_conversion_error_recorder(request_id, attempt, CHAT, ANTHROPIC, req)
                                 anth_resp = do_stream(
                                     upstream_conn,
                                     bwfile,
@@ -5494,18 +5661,17 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                                     read_timeout_s=read_t,
                                     initial_lines=initial_lines,
                                     conversion_context=conversion_context,
+                                    on_conversion_error=stream_conversion_recorder,
                                 )
                         finally:
                             bwfile.force_flush()
 
                         if anth_resp is None:
-                            _record_stream_interrupted(
-                                request_id,
-                                attempt,
-                                attempt_errors,
+                            failure = _record_stream_result_failure(
+                                request_id, attempt, stream_conversion_recorder, attempt_errors,
                                 duration_ms=_attempt_duration_ms(attempt_started),
                             )
-                            OBSERVABILITY.record_request_end(request_id, status_code=502, error="stream_interrupted")
+                            OBSERVABILITY.record_request_end(request_id, status_code=502, error=failure)
                             return
                         ROUTER.report_success(attempt)
                         OBSERVABILITY.record_attempt(
@@ -5687,10 +5853,20 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                 except Exception as e:
                     if response_started:
                         print(f"[proxy] STREAM ERROR req={request_id} {_h(attempt.provider)}: {type(e).__name__}", flush=True)
-                        _record_proxy_exception(request_id, attempt, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
+                        _record_proxy_exception(
+                            request_id, attempt, e, attempt_errors,
+                            duration_ms=_attempt_duration_ms(attempt_started),
+                            conversion_target=ANTHROPIC,
+                            context={"client_request": req, "upstream_response": locals().get("upstream_data")},
+                        )
                         OBSERVABILITY.record_request_end(request_id, status_code=502, error=type(e).__name__)
                         return
-                    _record_proxy_exception(request_id, attempt, e, attempt_errors, duration_ms=_attempt_duration_ms(attempt_started))
+                    _record_proxy_exception(
+                        request_id, attempt, e, attempt_errors,
+                        duration_ms=_attempt_duration_ms(attempt_started),
+                        conversion_target=ANTHROPIC,
+                        context={"client_request": req, "upstream_response": locals().get("upstream_data")},
+                    )
                     continue
 
                 finally:

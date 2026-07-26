@@ -30,6 +30,11 @@ class ResponsesSessionStore:
         self._clock = clock
         self._lock = threading.RLock()
         self._ready = False
+        self._conn: Optional[sqlite3.Connection] = None
+        self._record_count = 0
+        self._total_bytes = 0
+        self._last_prune_time = 0.0
+        self._prune_interval_seconds = 60.0
 
     def initialize(self) -> None:
         with self._lock:
@@ -86,6 +91,10 @@ class ResponsesSessionStore:
         parent_response_id = str(request.get("previous_response_id") or "") or None
         self.initialize()
         with self._lock, self._connection() as conn:
+            previous = conn.execute(
+                "SELECT payload_bytes FROM response_sessions WHERE response_id = ?",
+                (response_id,),
+            ).fetchone()
             conn.execute(
                 """
                 INSERT INTO response_sessions(
@@ -110,7 +119,12 @@ class ResponsesSessionStore:
                     payload_bytes,
                 ),
             )
-            self._prune_locked(conn)
+            if previous is None:
+                self._record_count += 1
+                self._total_bytes += payload_bytes
+            else:
+                self._total_bytes += payload_bytes - int(previous["payload_bytes"] or 0)
+            self._maybe_prune_locked(conn, now=now)
         return True
 
     def expand_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
@@ -151,7 +165,7 @@ class ResponsesSessionStore:
                 seen.add(current)
                 row = conn.execute(
                     """
-                    SELECT parent_response_id, request_json, response_json, expires_at
+                    SELECT parent_response_id, request_json, response_json, expires_at, payload_bytes
                     FROM response_sessions WHERE response_id = ?
                     """,
                     (current,),
@@ -165,6 +179,8 @@ class ResponsesSessionStore:
                     )
                 if int(row["expires_at"] or 0) <= now:
                     conn.execute("DELETE FROM response_sessions WHERE response_id = ?", (current,))
+                    self._record_count = max(0, self._record_count - 1)
+                    self._total_bytes = max(0, self._total_bytes - int(row["payload_bytes"] or 0))
                     raise ConversionError(
                         f"Responses session expired: {current}",
                         code="session_expired",
@@ -193,25 +209,31 @@ class ResponsesSessionStore:
         self.initialize()
         placeholders = ",".join("?" for _ in ids)
         with self._lock, self._connection() as conn:
+            removed = conn.execute(
+                f"SELECT COUNT(*) AS count, COALESCE(SUM(payload_bytes), 0) AS bytes "
+                f"FROM response_sessions WHERE response_id IN ({placeholders})",
+                ids,
+            ).fetchone()
             cursor = conn.execute(
                 f"DELETE FROM response_sessions WHERE response_id IN ({placeholders})",
                 ids,
             )
+            self._record_count = max(0, self._record_count - int(removed["count"] or 0))
+            self._total_bytes = max(0, self._total_bytes - int(removed["bytes"] or 0))
             return max(0, int(cursor.rowcount or 0))
 
     def clear(self) -> int:
         self.initialize()
         with self._lock, self._connection() as conn:
             cursor = conn.execute("DELETE FROM response_sessions")
+            self._record_count = 0
+            self._total_bytes = 0
             return max(0, int(cursor.rowcount or 0))
 
     def stats(self) -> Dict[str, int]:
         self.initialize()
-        with self._lock, self._connection() as conn:
-            row = conn.execute(
-                "SELECT COUNT(*) AS count, COALESCE(SUM(payload_bytes), 0) AS bytes FROM response_sessions"
-            ).fetchone()
-            return {"records": int(row["count"]), "bytes": int(row["bytes"])}
+        with self._lock:
+            return {"records": int(self._record_count), "bytes": int(self._total_bytes)}
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.path, timeout=10, check_same_thread=False)
@@ -223,15 +245,37 @@ class ResponsesSessionStore:
 
     @contextmanager
     def _connection(self):
-        conn = self._connect()
+        if self._conn is None:
+            self._conn = self._connect()
+        conn = self._conn
         try:
             yield conn
             conn.commit()
         except Exception:
             conn.rollback()
             raise
-        finally:
-            conn.close()
+
+    def close(self) -> None:
+        with self._lock:
+            conn, self._conn = self._conn, None
+            self._ready = False
+            if conn is not None:
+                conn.close()
+
+    def __del__(self) -> None:
+        try:
+            self.close()
+        except Exception:
+            pass
+
+    def _maybe_prune_locked(self, conn: sqlite3.Connection, *, now: int) -> None:
+        capacity_exceeded = (
+            self._record_count > self.limits.max_records
+            or self._total_bytes > self.limits.max_total_bytes
+        )
+        if not capacity_exceeded and float(now) - self._last_prune_time < self._prune_interval_seconds:
+            return
+        self._prune_locked(conn)
 
     def _prune_locked(self, conn: sqlite3.Connection) -> None:
         now = int(self._clock())
@@ -256,6 +300,12 @@ class ResponsesSessionStore:
                 break
             conn.execute("DELETE FROM response_sessions WHERE response_id = ?", (row["response_id"],))
             total_bytes -= int(row["payload_bytes"] or 0)
+        totals = conn.execute(
+            "SELECT COUNT(*) AS count, COALESCE(SUM(payload_bytes), 0) AS bytes FROM response_sessions"
+        ).fetchone()
+        self._record_count = int(totals["count"] or 0)
+        self._total_bytes = int(totals["bytes"] or 0)
+        self._last_prune_time = float(now)
 
     @staticmethod
     def _input_items(value: Any) -> list[Any]:

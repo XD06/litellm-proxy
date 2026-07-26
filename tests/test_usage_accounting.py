@@ -157,6 +157,24 @@ class UsageAccountingTests(unittest.TestCase):
         self.assertEqual(snapshot["resolved_model"], "deepseek-v4-flash")
         self.assertEqual(snapshot["cache_read_per_million"], 0.0028)
 
+    def test_missing_aa_index_load_is_throttled(self):
+        load_calls = []
+        fake_aa = SimpleNamespace(
+            _index=SimpleNamespace(
+                load_local=lambda: load_calls.append(True) or False,
+                resolve=lambda _query: None,
+            ),
+            _cache=SimpleNamespace(get=lambda _slug: None, list_slugs=lambda: []),
+        )
+        with patch.object(accounting, "_aa", fake_aa), \
+             patch.object(accounting, "_aa_index_owner", None), \
+             patch.object(accounting, "_aa_index_loaded", False), \
+             patch.object(accounting, "_aa_index_last_attempt", 0.0):
+            accounting.resolve_price_snapshot({}, "alpha", "unknown-model")
+            accounting.resolve_price_snapshot({}, "alpha", "unknown-model")
+
+        self.assertEqual(len(load_calls), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

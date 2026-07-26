@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from observability import ProxyObservability
 from router import Attempt
@@ -199,6 +200,24 @@ class ProviderActivitySummaryTests(unittest.TestCase):
         self.assertEqual(obs.latest_successful_model_for_provider("alpha"), "m")
         self.assertEqual(obs.latest_successful_model_for_provider("beta"), "m")
         self.assertIsNone(obs.latest_successful_model_for_provider("missing"))
+
+    def test_summary_cache_is_reused_until_request_or_probe_activity_changes(self):
+        obs = _obs()
+        attempt = _attempt("r1", provider="alpha")
+        _record(obs, "r1", attempts=[(attempt, "success")], status_code=200, final_provider="alpha")
+
+        with patch.object(
+            obs,
+            "_provider_activity_from_recent",
+            wraps=obs._provider_activity_from_recent,
+        ) as aggregate_spy:
+            obs.provider_activity_summary()
+            obs.provider_activity_summary()
+            self.assertEqual(aggregate_spy.call_count, 1)
+
+            obs.record_health_probe({"provider": "alpha", "outcome": "success"})
+            obs.provider_activity_summary()
+            self.assertEqual(aggregate_spy.call_count, 2)
 
 
 class SnapshotLiteTests(unittest.TestCase):

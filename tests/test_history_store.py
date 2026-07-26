@@ -6,6 +6,7 @@ import tempfile
 import time
 import unittest
 import warnings
+from contextlib import contextmanager
 from unittest.mock import patch
 
 from history_store import RequestHistoryStore
@@ -261,7 +262,9 @@ class RequestHistoryStoreTests(unittest.TestCase):
         store.record_request(sample_request("req-ok", finished_at=now))
         store.record_request(sample_request("req-fail", status_code=502, provider="beta", finished_at=now))
 
-        series = store.timeseries(bucket_s=60, buckets=1)
+        with patch.object(store, "_request_from_row", side_effect=AssertionError("full request row materialized")), \
+             patch.object(store, "_attempt_from_row", side_effect=AssertionError("full attempt row materialized")):
+            series = store.timeseries(bucket_s=60, buckets=1)
 
         self.assertEqual(series["source"], "sqlite")
         self.assertEqual(len(series["buckets"]), 1)
@@ -283,6 +286,27 @@ class RequestHistoryStoreTests(unittest.TestCase):
         self.assertEqual(series["buckets"][0]["first_byte_ms_avg"], 321)
         self.assertEqual(series["buckets"][0]["first_byte_ms_max"], 321)
         self.assertEqual(series["buckets"][0]["first_byte_ms_min"], 321)
+
+    def test_rebuild_counters_uses_sql_aggregates_without_materializing_history_rows(self):
+        store = self.store()
+        store.record_request(sample_request("req-rebuild-ok", provider="alpha"))
+        store.record_request(sample_request("req-rebuild-fail", status_code=502, provider="beta"))
+
+        with patch.object(store, "_request_from_row", side_effect=AssertionError("request rows materialized")), \
+             patch.object(store, "_attempt_from_row", side_effect=AssertionError("attempt rows materialized")):
+            counters = store.rebuild_counters()
+
+        self.assertEqual(counters["requests_total"], 2)
+        self.assertEqual(counters["requests_success"], 1)
+        self.assertEqual(counters["requests_failed"], 1)
+        self.assertEqual(counters["attempts_total"], 2)
+        self.assertEqual(counters["attempts_success"], 1)
+        self.assertEqual(counters["attempts_failed"], 1)
+        self.assertEqual(counters["by_provider"]["alpha"]["success"], 1)
+        self.assertEqual(counters["by_provider"]["beta"]["failed"], 1)
+        self.assertEqual(counters["by_error_type"]["server_error"], 1)
+        self.assertEqual(counters["usage"]["total_tokens"], 20)
+        self.assertEqual(counters["by_model_usage"]["client-model"]["total_tokens"], 20)
 
     def test_model_usage_aggregates_cache_cost_latency_and_providers(self):
         store = self.store()
@@ -521,18 +545,38 @@ class RequestHistoryStoreTests(unittest.TestCase):
 
     def test_first_event_latency_stats_returns_recent_provider_model_profile_p95(self):
         store = self.store()
+        now = int(time.time())
         for index in range(20):
-            item = sample_request(f"req-latency-{index}", provider="alpha")
+            item = sample_request(f"req-latency-{index}", provider="alpha", finished_at=now - 30 + index)
             item["stream"] = True
             item["request_profile"] = "plain"
             item["attempts"][0]["first_event_ms"] = (index + 1) * 100
+            store.record_request(item)
+        for index, duration_ms in enumerate((30000, 35000)):
+            item = sample_request(
+                f"req-timeout-{index}",
+                status_code=504,
+                provider="alpha",
+                finished_at=now + index,
+            )
+            item["stream"] = True
+            item["request_profile"] = "plain"
+            item["attempts"][0]["error_type"] = "first_event_timeout"
+            item["attempts"][0]["reason"] = "first_event_timeout"
+            item["attempts"][0]["duration_ms"] = duration_ms
             store.record_request(item)
 
         stats = store.first_event_latency_stats("alpha", "client-model", "plain")
         missing = store.first_event_latency_stats("beta", "client-model", "plain")
 
-        self.assertEqual(stats, {"count": 20, "p95_ms": 1900})
-        self.assertEqual(missing, {"count": 0, "p95_ms": 0})
+        self.assertEqual(
+            stats,
+            {"count": 20, "p95_ms": 1900, "recent_timeout_count": 2, "timeout_floor_ms": 35000},
+        )
+        self.assertEqual(
+            missing,
+            {"count": 0, "p95_ms": 0, "recent_timeout_count": 0, "timeout_floor_ms": 0},
+        )
 
     def test_dropped_count_increments_when_queue_full(self):
         # Use a tiny queue so it saturates quickly. sync_mode defaults to
@@ -568,6 +612,42 @@ class RequestHistoryStoreTests(unittest.TestCase):
         cfg = {"observability": {"history": {"enabled": True, "path": ":memory:"}}}
         store = RequestHistoryStore(cfg)
         self.assertEqual(store.dropped_count(), 0)
+
+    def test_async_writer_batches_queued_requests_in_one_transaction(self):
+        cfg = {
+            "observability": {
+                "history": {
+                    "enabled": True,
+                    "path": self.temp_db(),
+                    "queue_size": 20,
+                    "write_batch_size": 20,
+                }
+            }
+        }
+        store = RequestHistoryStore(cfg)
+        self.addCleanup(store.shutdown)
+        store._writer_running = True
+        store.initialize()
+        for index in range(8):
+            store.record_request(sample_request(f"batch-{index}"))
+        store._writer_running = False
+
+        transaction_count = 0
+        original_connection = store._connection
+
+        @contextmanager
+        def counted_connection():
+            nonlocal transaction_count
+            transaction_count += 1
+            with original_connection() as conn:
+                yield conn
+
+        with patch.object(store, "_connection", counted_connection):
+            store.initialize()
+            store._queue.join()
+
+        self.assertEqual(transaction_count, 1)
+        self.assertEqual(store.list_requests(limit=20)["total"], 8)
 
     def test_shutdown_releases_pooled_database_connections(self):
         # Clear connections left eligible for collection by earlier tests so

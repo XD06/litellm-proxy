@@ -729,7 +729,7 @@ class ChatProxyTests(unittest.TestCase):
         self.assertEqual(content_type, "text/event-stream")
         self.assertIn('"content":"ok"', body)
         self.assertEqual(len(fake_client.calls), 2)
-        self.assertEqual(fake_router.failures[0][1]["error_type"], "provider_compat")
+        self.assertEqual(fake_router.failures[0][1]["error_type"], "network_error")
         detail = obs.snapshot()["recent_requests"][0]
         self.assertEqual(detail["attempts"][0]["error_type"], "first_event_timeout")
         self.assertEqual(detail["attempts"][0]["diagnostic_stage"], "before_first_event")

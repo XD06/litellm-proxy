@@ -3,8 +3,10 @@ import json
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from conversion_core import ConversionError, ResponsesSessionStore, SessionStoreLimits
+import format_adapters
 from format_adapters import CHAT, RESPONSES, convert_response, prepare_request_conversion
 from stream_adapters import relay_sse_stream, stream_openai_sse_to_responses
 
@@ -20,7 +22,54 @@ class ResponsesSessionStoreTests(unittest.TestCase):
         self.store = ResponsesSessionStore(self.path)
 
     def tearDown(self):
+        self.store.close()
         self.temp_dir.cleanup()
+
+    def test_reuses_connection_and_does_not_prune_after_every_save(self):
+        original_connect = self.store._connect
+        with patch.object(self.store, "_connect", wraps=original_connect) as connect_spy, \
+             patch.object(self.store, "_prune_locked", wraps=self.store._prune_locked) as prune_spy:
+            for index in range(5):
+                self.store.save(
+                    {"model": "m", "input": str(index)},
+                    {"id": f"resp_reuse_{index}", "output": []},
+                )
+
+        self.assertEqual(connect_spy.call_count, 1)
+        self.assertEqual(prune_spy.call_count, 1)
+
+    def test_reconfigure_closes_previous_session_store(self):
+        first_path = os.path.join(self.temp_dir.name, "first.sqlite3")
+        second_path = os.path.join(self.temp_dir.name, "second.sqlite3")
+        first = format_adapters.configure_responses_session_store(
+            {"observability": {"responses_sessions": {"enabled": True, "path": first_path}}}
+        )
+        with patch.object(first, "close", wraps=first.close) as close_spy:
+            second = format_adapters.configure_responses_session_store(
+                {"observability": {"responses_sessions": {"enabled": True, "path": second_path}}}
+            )
+            self.assertEqual(close_spy.call_count, 1)
+        second.close()
+        format_adapters._SESSION_STORE = None
+
+    def test_capacity_limit_still_prunes_immediately(self):
+        bounded = ResponsesSessionStore(
+            os.path.join(self.temp_dir.name, "bounded.sqlite3"),
+            limits=SessionStoreLimits(max_records=2),
+        )
+        try:
+            for index in range(3):
+                bounded.save(
+                    {"model": "m", "input": str(index)},
+                    {"id": f"resp_bounded_{index}", "output": []},
+                )
+
+            self.assertEqual(bounded.stats()["records"], 2)
+            with self.assertRaises(ConversionError) as caught:
+                bounded.load_chain("resp_bounded_0")
+            self.assertEqual(caught.exception.code, "session_missing")
+        finally:
+            bounded.close()
 
     def test_expands_parent_chain_in_request_output_order(self):
         self.store.save(

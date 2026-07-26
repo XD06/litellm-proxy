@@ -54,6 +54,8 @@ assert.strictEqual(
   "Overview must render exactly four primary KPIs",
 );
 assert.match(overviewPanel, /compatibilityCircuits\.length \?/, "routing exceptions must only render when active");
+assert.match(overviewPanel, /provider-compatibility-clear/, "provider compatibility clear must have a dedicated warning action");
+assert.match(overviewPanel, /data-compatibility-circuit/, "each compatibility circuit must expose traceable row metadata");
 assert.match(overviewPanel, /data-provider-activity-list/, "Overview must preserve lazy activity loading");
 assert.match(overviewPanel, /data-provider-probe-list/, "Overview must preserve lazy probe loading");
 assert.match(overviewPanel, /<details class="provider-overview-disclosure"/, "health probes must use progressive disclosure");
@@ -126,6 +128,8 @@ assert.match(styles, /\.provider-overview-readiness/, "provider overview must st
 assert.match(styles, /\.provider-overview-state-facts/, "provider overview must visually separate state evidence");
 assert.match(styles, /\.provider-overview-kpis/, "provider overview must provide a compact KPI grid");
 assert.match(styles, /\.provider-overview-disclosure > summary:focus-visible/, "probe disclosure must keep keyboard focus feedback");
+assert.match(styles, /\.provider-compatibility-clear/, "compatibility clear action must have a distinct visual treatment");
+assert.match(source, /providerCompatibilityToolbar/, "providers view must expose a global compatibility-circuit summary and clear action");
 assert.match(styles, /#providersView \.provider-card-topline > \.provider-meta[\s\S]*grid-column: 1 \/ -1/, "provider metadata must align to the card left edge");
 
 console.log("provider drawer layout tests passed");

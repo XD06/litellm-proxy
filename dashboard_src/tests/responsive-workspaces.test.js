@@ -26,7 +26,7 @@ assert.match(tabletOwnership, /#requestsTable \.request-row-route\s*\{[\s\S]*gri
 
 const focusedRequestPass = styles.slice(styles.indexOf("Focused request, request-detail, and model-data visual pass"));
 const requestTableScrollStyles = cssRule(focusedRequestPass, "#requestsTable .request-table-scroll {");
-const mobileRequestStyles = focusedRequestPass.slice(focusedRequestPass.lastIndexOf("@media (max-width: 760px)"));
+const mobileRequestStyles = focusedRequestPass.slice(focusedRequestPass.indexOf("@media (max-width: 760px)"));
 const mobileRequestTableScrollStyles = cssRule(mobileRequestStyles, "#requestsTable .request-table-scroll {");
 assert.match(requestTableScrollStyles, /overscroll-behavior-y:\s*auto/, "desktop request tables must pass vertical wheel input to the page");
 assert.match(mobileRequestTableScrollStyles, /overflow:\s*visible/, "mobile request lists must not remain nested scroll containers");

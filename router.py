@@ -149,8 +149,13 @@ class UpstreamRouter:
         self._keys_state: Dict[Tuple[str, int], _KeyState] = {}
         self._compatibility_state: Dict[Tuple[str, str, str, str, str, str], _CompatibilityState] = {}
         self._attempt_static_cache: Dict[Tuple[str, str], Tuple[str, Dict[str, str], set, Tuple[str, ...], str, str]] = {}
-        # Cache for provider model support results to avoid repeated checks
-        self._provider_support_cache: Dict[Tuple[str, str], bool] = {}
+        self._provider_support_cache: Dict[Tuple[int, str, str, bool], bool] = {}
+        self._provider_model_candidates_cache: Dict[Tuple[int, str, str], Tuple[str, ...]] = {}
+        self._key_candidate_cache: Dict[
+            Tuple[int, str, str, str], Tuple[Tuple[int, str, str, bool], ...]
+        ] = {}
+        self._model_cache_version = model_registry.models_version()
+        self._snapshot_cache: Optional[Tuple[float, Dict[str, Any]]] = None
 
         # Health scores for auto routing mode (updated externally via
         # update_health_scores()).
@@ -162,6 +167,7 @@ class UpstreamRouter:
         self._runtime_weights: Dict[str, int] = {}
 
         self._init_states()
+        self._snapshot_provider_metadata = self._build_snapshot_provider_metadata()
 
     # ---------------------------------------------------------------------
     # public
@@ -204,9 +210,7 @@ class UpstreamRouter:
                 and provider_formats[index + slot_count] == (provider, upstream_format)
             ):
                 slot_count += 1
-            for provider_model in model_registry.resolve_provider_model_candidates(
-                self.cfg, provider, canonical_model
-            ):
+            for provider_model in self._provider_model_candidates(provider, canonical_model):
                 provider_order.extend(
                     [(provider, upstream_format, provider_model)] * slot_count
                 )
@@ -257,44 +261,46 @@ class UpstreamRouter:
                     break
                 continue
 
-            key_index, key = sel
+            key_index, key, key_fingerprint = sel
             stalled_scans = 0
             candidate_id = (provider, key_index, provider_model, upstream_format)
             if candidate_id in seen_candidates:
-                _record_trace(
-                    routing_trace,
-                    "duplicate_candidate",
-                    provider=provider,
-                    key_index=key_index,
-                    key_id=_hash_key_short(key),
-                    canonical_model=canonical_model,
-                    provider_model=provider_model,
-                    upstream_format=upstream_format,
-                )
+                if routing_trace is not None:
+                    _record_trace(
+                        routing_trace,
+                        "duplicate_candidate",
+                        provider=provider,
+                        key_index=key_index,
+                        key_id=key_fingerprint[:10],
+                        canonical_model=canonical_model,
+                        provider_model=provider_model,
+                        upstream_format=upstream_format,
+                    )
                 current_prov_idx += 1
                 continue
 
             if not self._compatibility_available(
                 provider,
-                key,
+                key_fingerprint,
                 canonical_model,
                 provider_model,
                 upstream_format,
                 compatibility_profile,
             ):
                 seen_candidates.add(candidate_id)
-                _record_trace(
-                    routing_trace,
-                    "compatibility_circuit",
-                    provider=provider,
-                    key_index=key_index,
-                    key_id=_hash_key_short(key),
-                    key_masked=_mask_key(key),
-                    canonical_model=canonical_model,
-                    provider_model=provider_model,
-                    upstream_format=upstream_format,
-                    compatibility_profile=compatibility_profile,
-                )
+                if routing_trace is not None:
+                    _record_trace(
+                        routing_trace,
+                        "compatibility_circuit",
+                        provider=provider,
+                        key_index=key_index,
+                        key_id=key_fingerprint[:10],
+                        key_masked=_mask_key(key),
+                        canonical_model=canonical_model,
+                        provider_model=provider_model,
+                        upstream_format=upstream_format,
+                        compatibility_profile=compatibility_profile,
+                    )
                 current_prov_idx += 1
                 continue
 
@@ -309,18 +315,19 @@ class UpstreamRouter:
                 client_headers=client_headers,
                 provider_model=provider_model,
             )
-            _record_trace(
-                routing_trace,
-                "selected",
-                provider=provider,
-                key_index=key_index,
-                key_id=_hash_key_short(key),
-                key_masked=_mask_key(key),
-                canonical_model=canonical_model,
-                provider_model=provider_model,
-                upstream_format=upstream_format,
-                attempt_no=attempt_no,
-            )
+            if routing_trace is not None:
+                _record_trace(
+                    routing_trace,
+                    "selected",
+                    provider=provider,
+                    key_index=key_index,
+                    key_id=key_fingerprint[:10],
+                    key_masked=_mask_key(key),
+                    canonical_model=canonical_model,
+                    provider_model=provider_model,
+                    upstream_format=upstream_format,
+                    attempt_no=attempt_no,
+                )
              
             yield Attempt(
                 request_id=request_id,
@@ -335,7 +342,7 @@ class UpstreamRouter:
                 proxy_url=proxy_url,
                 canonical_model=canonical_model,
                 compatibility_profile=str(compatibility_profile or "plain"),
-                key_fingerprint=_key_fingerprint(key),
+                key_fingerprint=key_fingerprint,
             )
             current_prov_idx += 1
 
@@ -353,6 +360,7 @@ class UpstreamRouter:
             if ps:
                 ps.cooldown_until = 0.0
             self._compatibility_state.pop(self._compatibility_key(attempt), None)
+            self._invalidate_snapshot_locked()
         # 成功不需要额外行为
         _ = now
 
@@ -378,6 +386,8 @@ class UpstreamRouter:
                     state.cooldown_until,
                     now + cooldown_s,
                 )
+                self._prune_compatibility_locked(now)
+                self._invalidate_snapshot_locked()
             return {
                 "scope": "compatibility",
                 "action": "circuit_open",
@@ -429,6 +439,7 @@ class UpstreamRouter:
             if provider_cooldown_s > 0 and http_status not in (400, 401, 403):
                 ps = self._providers_state.setdefault(attempt.provider, _ProviderState())
                 ps.cooldown_until = max(ps.cooldown_until, now + provider_cooldown_s)
+            self._invalidate_snapshot_locked()
         return {
             "scope": cooldown_scope,
             "action": "disabled" if disable_key else ("cooldown" if cooldown_s > 0 else "observed"),
@@ -454,21 +465,25 @@ class UpstreamRouter:
     def _compatibility_available(
         self,
         provider: str,
-        key: str,
+        key_fingerprint: str,
         canonical_model: str,
         provider_model: str,
         upstream_format: str,
         profile: str,
     ) -> bool:
         key = (
-            str(provider), str(_key_fingerprint(key)), str(canonical_model or ""),
+            str(provider), str(key_fingerprint), str(canonical_model or ""),
             str(provider_model or ""),
             str(upstream_format or "chat_completions"), str(profile or "plain"),
         )
         now = time.time()
         with self._lock:
             state = self._compatibility_state.get(key)
-            return state is None or state.available(now)
+            if state is not None and state.available(now):
+                self._compatibility_state.pop(key, None)
+                self._invalidate_snapshot_locked()
+                return True
+            return state is None
 
     def _compatibility_ladder_seconds(self, fail_count: int) -> int:
         raw = (self.cfg.get("retry") or {}).get("compatibility_failure_ladder_s")
@@ -598,6 +613,7 @@ class UpstreamRouter:
             ps.runtime_enabled = bool(enabled)
             if enabled:
                 ps.cooldown_until = 0.0
+            self._invalidate_snapshot_locked()
         return True
 
     def clear_provider_cooldown(self, provider: str) -> bool:
@@ -615,6 +631,7 @@ class UpstreamRouter:
             ]
             for key in to_remove:
                 self._compatibility_state.pop(key, None)
+            self._invalidate_snapshot_locked()
         return True
 
     def clear_compatibility_circuits(
@@ -654,6 +671,8 @@ class UpstreamRouter:
             for key in to_remove:
                 self._compatibility_state.pop(key, None)
                 removed += 1
+            if removed:
+                self._invalidate_snapshot_locked()
         return removed
 
     def set_key_enabled(self, provider: str, key_index: int, enabled: bool) -> bool:
@@ -670,6 +689,7 @@ class UpstreamRouter:
             if enabled:
                 ks.cooldown_until = 0.0
                 ks.disabled_until = 0.0
+            self._invalidate_snapshot_locked()
         return True
 
     def clear_key_state(self, provider: str, key_index: Optional[int] = None) -> bool:
@@ -703,21 +723,77 @@ class UpstreamRouter:
             ]
             for key in to_remove:
                 self._compatibility_state.pop(key, None)
+            self._invalidate_snapshot_locked()
         return True
+
+    def _invalidate_snapshot_locked(self) -> None:
+        self._snapshot_cache = None
+
+    def _prune_compatibility_locked(self, now: float) -> None:
+        expired = [
+            key
+            for key, state in self._compatibility_state.items()
+            if len(key) != 6 or state.cooldown_until <= now
+        ]
+        for key in expired:
+            self._compatibility_state.pop(key, None)
+
+        try:
+            limit = max(
+                100,
+                min(100_000, int((self.cfg.get("routing") or {}).get("compatibility_state_limit", 10_000))),
+            )
+        except (TypeError, ValueError):
+            limit = 10_000
+        overflow = len(self._compatibility_state) - limit
+        if overflow > 0:
+            oldest = sorted(
+                self._compatibility_state,
+                key=lambda key: self._compatibility_state[key].cooldown_until,
+            )[:overflow]
+            for key in oldest:
+                self._compatibility_state.pop(key, None)
+
+    def _build_snapshot_provider_metadata(self) -> Dict[str, Dict[str, Any]]:
+        providers: Dict[str, Dict[str, Any]] = {}
+        for provider, pcfg in (self.cfg.get("providers") or {}).items():
+            key_metadata = []
+            for index, key in enumerate((pcfg or {}).get("keys") or []):
+                raw_key = key_value(key)
+                key_metadata.append(
+                    {
+                        "index": index,
+                        "key_id": _hash_key_short(raw_key),
+                        "masked": _mask_key(raw_key),
+                        "proxy": resolve_proxy_url(key_proxy(key)) or "",
+                    }
+                )
+            providers[str(provider)] = {
+                "config_enabled": bool((pcfg or {}).get("enabled", True)),
+                "configured_priority": int((pcfg or {}).get("priority", 0) or 0),
+                "formats": self._provider_formats(str(provider)),
+                "keys": key_metadata,
+            }
+        return providers
 
     def snapshot(self) -> Dict[str, Any]:
         """Return provider/key runtime state without exposing raw API keys."""
         now = time.time()
-        providers_cfg = self.cfg.get("providers") or {}
+        monotonic_now = time.monotonic()
         with self._lock:
+            if self._snapshot_cache is not None:
+                cache_until, cached = self._snapshot_cache
+                if monotonic_now < cache_until:
+                    return cached
+            self._prune_compatibility_locked(now)
             providers: Dict[str, Any] = {}
-            for provider, pcfg in providers_cfg.items():
+            for provider, metadata in self._snapshot_provider_metadata.items():
                 ps = self._providers_state.get(provider)
                 keys = []
                 provider_hard_failure = False
-                for idx, key in enumerate(pcfg.get("keys") or []):
+                for key_metadata in metadata["keys"]:
+                    idx = int(key_metadata["index"])
                     ks = self._keys_state.get((provider, idx))
-                    key_s = key_value(key)
                     key_available = bool(ks is None or ks.available(now))
                     cooldown_remaining_s = max(0, int(((ks.cooldown_until if ks else 0.0) - now)))
                     disabled_remaining_s = max(0, int(((ks.disabled_until if ks else 0.0) - now)))
@@ -726,10 +802,7 @@ class UpstreamRouter:
                         provider_hard_failure = True
                     keys.append(
                         {
-                            "index": idx,
-                            "key_id": _hash_key_short(key_s),
-                            "masked": _mask_key(key_s),
-                            "proxy": resolve_proxy_url(key_proxy(key)) or "",
+                            **key_metadata,
                             "available": key_available,
                             "runtime_enabled": bool(ks.runtime_enabled if ks else True),
                             "cooldown_remaining_s": cooldown_remaining_s,
@@ -740,7 +813,7 @@ class UpstreamRouter:
                             "has_failure": key_failed,
                         }
                     )
-                config_enabled = bool((pcfg or {}).get("enabled", True))
+                config_enabled = bool(metadata["config_enabled"])
                 runtime_enabled = bool(ps.runtime_enabled if ps else True)
                 provider_state_available = bool(ps is None or ps.available(now))
                 available_key_count = sum(1 for item in keys if item.get("available"))
@@ -755,9 +828,9 @@ class UpstreamRouter:
                     "key_count": len(keys),
                     "available_key_count": available_key_count,
                     "keys": keys,
-                    "formats": self._provider_formats(provider),
+                    "formats": metadata["formats"],
                     "priority": self._provider_priority(provider),
-                    "configured_priority": int((pcfg or {}).get("priority", 0) or 0),
+                    "configured_priority": int(metadata["configured_priority"]),
                     "priority_override_active": provider in self._runtime_priorities,
                 }
             compatibility_entries = []
@@ -782,30 +855,105 @@ class UpstreamRouter:
                     1 for entry in compatibility_entries if entry["provider"] == provider
                 )
             active_compatibility = [entry["cooldown_remaining_s"] for entry in compatibility_entries]
-        return {
-            "providers": providers,
-            "compatibility_circuits": {
-                "active": len(active_compatibility),
-                "nearest_recovery_s": int(min(active_compatibility)) if active_compatibility else 0,
-                "entries": compatibility_entries,
-            },
-        }
+            result = {
+                "providers": providers,
+                "compatibility_circuits": {
+                    "active": len(active_compatibility),
+                    "nearest_recovery_s": int(min(active_compatibility)) if active_compatibility else 0,
+                    "entries": compatibility_entries,
+                },
+            }
+            self._snapshot_cache = (monotonic_now + 0.75, result)
+            return result
 
     # ---------------------------------------------------------------------
     # internal
     # ---------------------------------------------------------------------
     def _provider_supports_with_cache(self, provider: str, model: str, manual_filter_active: bool) -> bool:
-        """Check if provider supports model."""
-        return model_registry.provider_supports_model(
+        """Cache discovery-derived support until the model registry version changes."""
+        self._refresh_model_caches()
+        cache_key = (
+            self._model_cache_version,
+            str(provider),
+            str(model),
+            bool(manual_filter_active),
+        )
+        if cache_key in self._provider_support_cache:
+            return self._provider_support_cache[cache_key]
+        supported = model_registry.provider_supports_model(
             self.cfg,
             provider,
             model,
             manual_filter_active=manual_filter_active,
         )
+        if len(self._provider_support_cache) >= 4096:
+            self._provider_support_cache.clear()
+        self._provider_support_cache[cache_key] = bool(supported)
+        return bool(supported)
+
+    def _provider_model_candidates(self, provider: str, canonical_model: str) -> Tuple[str, ...]:
+        self._refresh_model_caches()
+        cache_key = (self._model_cache_version, str(provider), str(canonical_model))
+        cached = self._provider_model_candidates_cache.get(cache_key)
+        if cached is not None:
+            return cached
+        candidates = tuple(
+            model_registry.resolve_provider_model_candidates(
+                self.cfg, provider, canonical_model
+            )
+        )
+        if len(self._provider_model_candidates_cache) >= 4096:
+            self._provider_model_candidates_cache.clear()
+        self._provider_model_candidates_cache[cache_key] = candidates
+        return candidates
+
+    def _prepared_key_candidates(
+        self,
+        provider: str,
+        canonical_model: str,
+        provider_model: str,
+    ) -> Tuple[Tuple[int, str, str, bool], ...]:
+        self._refresh_model_caches()
+        cache_key = (
+            self._model_cache_version,
+            str(provider),
+            str(canonical_model),
+            str(provider_model),
+        )
+        cached = self._key_candidate_cache.get(cache_key)
+        if cached is not None:
+            return cached
+        keys = ((self.cfg.get("providers") or {}).get(provider) or {}).get("keys") or []
+        prepared = tuple(
+            (
+                index,
+                key_value(key_entry),
+                _key_fingerprint(key_value(key_entry)),
+                model_registry.key_supports_provider_model(
+                    self.cfg, provider, index, canonical_model, provider_model
+                ) is not False,
+            )
+            for index, key_entry in enumerate(keys)
+        )
+        if len(self._key_candidate_cache) >= 4096:
+            self._key_candidate_cache.clear()
+        self._key_candidate_cache[cache_key] = prepared
+        return prepared
+
+    def _refresh_model_caches(self) -> None:
+        version = model_registry.models_version()
+        if version == self._model_cache_version:
+            return
+        self._model_cache_version = version
+        self._provider_support_cache.clear()
+        self._provider_model_candidates_cache.clear()
+        self._key_candidate_cache.clear()
     
     def _clear_provider_support_cache(self) -> None:
-        """No-op: cache removed after benchmark showed it added overhead."""
-        pass
+        self._provider_support_cache.clear()
+        self._provider_model_candidates_cache.clear()
+        self._key_candidate_cache.clear()
+        self._model_cache_version = model_registry.models_version()
 
     def _init_states(self) -> None:
         with self._lock:
@@ -881,6 +1029,8 @@ class UpstreamRouter:
             self._runtime_priorities.update(old_runtime_priorities)
             self._runtime_weights.update(old_runtime_weights)
             self._health_scores = old_health_scores
+            self._prune_compatibility_locked(time.time())
+            self._invalidate_snapshot_locked()
 
     def dump_state(self) -> Dict[str, Any]:
         """序列化可持久化的运行时状态（不含原始 key 值）。
@@ -890,6 +1040,7 @@ class UpstreamRouter:
         now = time.time()
         providers_cfg = self.cfg.get("providers") or {}
         with self._lock:
+            self._prune_compatibility_locked(now)
             providers = {}
             for p, ps in self._providers_state.items():
                 providers[p] = {
@@ -1016,12 +1167,15 @@ class UpstreamRouter:
                     self._rr_model[model] = int(idx)
                 except Exception:
                     pass
+            self._prune_compatibility_locked(now)
+            self._invalidate_snapshot_locked()
 
     def _cooldown_provider(self, provider: str, reason: str) -> None:
         _ = reason
         with self._lock:
             ps = self._providers_state.setdefault(provider, _ProviderState())
             ps.cooldown_until = max(ps.cooldown_until, time.time() + 2.0)
+            self._invalidate_snapshot_locked()
 
     def update_health_scores(self, scores: Dict[str, Any]) -> None:
         """Store the latest provider health scores for auto routing mode.
@@ -1040,11 +1194,13 @@ class UpstreamRouter:
         """
         with self._lock:
             self._runtime_priorities[str(provider)] = int(priority)
+            self._invalidate_snapshot_locked()
 
     def update_provider_weight(self, provider: str, weight: int) -> None:
         """Hot-update a single provider's weight (used in weighted_rr mode)."""
         with self._lock:
             self._runtime_weights[str(provider)] = max(1, int(weight))
+            self._invalidate_snapshot_locked()
 
     def clear_runtime_overrides(self, provider: Optional[str] = None) -> None:
         """Clear runtime priority/weight overrides.
@@ -1059,6 +1215,7 @@ class UpstreamRouter:
             else:
                 self._runtime_priorities.pop(str(provider), None)
                 self._runtime_weights.pop(str(provider), None)
+            self._invalidate_snapshot_locked()
 
     def _auto_adjusted_priority(self, provider: str, base_priority: int) -> int:
         """Adjust provider priority based on health scores for auto mode.
@@ -1385,7 +1542,7 @@ class UpstreamRouter:
         canonical_model: str = "",
         seen_candidates: Optional[set] = None,
         routing_trace: Any = None,
-    ) -> Optional[Tuple[int, str]]:
+    ) -> Optional[Tuple[int, str, str]]:
         now = time.time()
         providers_cfg = self.cfg.get("providers") or {}
         pcfg = providers_cfg.get(provider) or {}
@@ -1393,57 +1550,80 @@ class UpstreamRouter:
         if not keys:
             return None
 
-        with self._lock:
-            ps = self._providers_state.setdefault(provider, _ProviderState())
-            if not ps.available(now):
-                _record_trace(
-                    routing_trace,
-                    "provider_cooldown",
-                    provider=provider,
-                    cooldown_remaining_s=max(0, int(ps.cooldown_until - now)),
-                )
-                return None
-
-            for i in range(len(keys)):
-                raw_key = key_value(keys[i])
-                safe_key = {
-                    "provider": provider,
-                    "key_index": i,
-                    "key_id": _hash_key_short(raw_key),
-                    "key_masked": _mask_key(raw_key),
-                    "canonical_model": canonical_model,
-                    "provider_model": provider_model,
-                    "upstream_format": upstream_format,
-                }
-                candidate_id = (provider, i, provider_model, upstream_format)
-                if seen_candidates is not None and candidate_id in seen_candidates:
-                    continue
-                if model_registry.key_supports_provider_model(
-                    self.cfg, provider, i, canonical_model, provider_model
-                ) is False:
-                    if seen_candidates is not None:
-                        seen_candidates.add(candidate_id)
+        prepared = []
+        for index, raw_key, fingerprint, supported in self._prepared_key_candidates(
+            provider, canonical_model, provider_model
+        ):
+            candidate_id = (provider, index, provider_model, upstream_format)
+            if seen_candidates is not None and candidate_id in seen_candidates:
+                continue
+            if not supported:
+                if seen_candidates is not None:
+                    seen_candidates.add(candidate_id)
+                if routing_trace is not None:
                     _record_trace(
                         routing_trace,
                         "model_unsupported_by_key",
                         owner="proxy_routing",
-                        **safe_key,
+                        provider=provider,
+                        key_index=index,
+                        key_id=fingerprint[:10],
+                        key_masked=_mask_key(raw_key),
+                        canonical_model=canonical_model,
+                        provider_model=provider_model,
+                        upstream_format=upstream_format,
                     )
-                    continue
-                ks = self._keys_state.setdefault((provider, i), _KeyState())
-                if ks.available(now):
-                    selected = raw_key
-                    if selected:
-                        return i, selected
-                else:
-                    code = "key_disabled" if not ks.runtime_enabled or ks.disabled_until > now else "key_cooldown"
-                    _record_trace(
-                        routing_trace,
-                        code,
-                        cooldown_remaining_s=max(0, int(max(ks.cooldown_until, ks.disabled_until) - now)),
-                        **safe_key,
-                    )
-        return None
+                continue
+            prepared.append((index, raw_key, fingerprint))
+
+        unavailable_events = []
+        selected: Optional[Tuple[int, str, str]] = None
+        provider_cooldown_remaining = 0
+        with self._lock:
+            ps = self._providers_state.setdefault(provider, _ProviderState())
+            if not ps.available(now):
+                provider_cooldown_remaining = max(0, int(ps.cooldown_until - now))
+            else:
+                for index, raw_key, fingerprint in prepared:
+                    ks = self._keys_state.setdefault((provider, index), _KeyState())
+                    if ks.available(now) and raw_key:
+                        selected = (index, raw_key, fingerprint)
+                        break
+                    if routing_trace is not None:
+                        code = "key_disabled" if not ks.runtime_enabled or ks.disabled_until > now else "key_cooldown"
+                        unavailable_events.append(
+                            (
+                                code,
+                                index,
+                                raw_key,
+                                fingerprint,
+                                max(0, int(max(ks.cooldown_until, ks.disabled_until) - now)),
+                            )
+                        )
+
+        if provider_cooldown_remaining:
+            if routing_trace is not None:
+                _record_trace(
+                    routing_trace,
+                    "provider_cooldown",
+                    provider=provider,
+                    cooldown_remaining_s=provider_cooldown_remaining,
+                )
+            return None
+        for code, index, raw_key, fingerprint, cooldown_remaining in unavailable_events:
+            _record_trace(
+                routing_trace,
+                code,
+                cooldown_remaining_s=cooldown_remaining,
+                provider=provider,
+                key_index=index,
+                key_id=fingerprint[:10],
+                key_masked=_mask_key(raw_key),
+                canonical_model=canonical_model,
+                provider_model=provider_model,
+                upstream_format=upstream_format,
+            )
+        return selected
 
     def _provider_has_available_key(self, provider: str) -> bool:
         now = time.time()

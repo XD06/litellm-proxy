@@ -5,6 +5,7 @@ import json
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from audit_store import AdminAuditStore
 
@@ -65,6 +66,21 @@ class AuditPruneTests(unittest.TestCase):
             self.assertTrue(os.path.exists(path))
             with open(path, "r", encoding="utf-8") as f:
                 self.assertEqual(len(f.read().splitlines()), 2)
+
+    def test_record_and_list_do_not_rescan_existing_file(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "audit.jsonl")
+            with open(path, "w", encoding="utf-8") as f:
+                for index in range(20):
+                    f.write(json.dumps({"id": f"old-{index}", "ts": index, "target": f"t{index}"}) + "\n")
+
+            store = self._store(path, max_records=10)
+            with patch.object(store, "_read_items_locked", side_effect=AssertionError("audit file rescanned")):
+                store.record("test_action", target="new")
+                payload = store.list(limit=20)
+
+            self.assertEqual(payload["total"], 10)
+            self.assertEqual(payload["items"][0]["target"], "new")
 
 
 if __name__ == "__main__":

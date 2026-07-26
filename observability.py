@@ -79,6 +79,8 @@ class ProxyObservability:
         self._first_event_stats_cache: Dict[tuple, tuple] = {}
         # Cache for failure_summary — invalidated whenever _recent changes.
         self._failure_summary_cache: Optional[Dict[str, Any]] = None
+        self._provider_activity_version = 0
+        self._provider_activity_cache: Dict[tuple, Dict[str, Dict[str, Any]]] = {}
         # Wall-clock time of the most recent request completion (success or
         # failure).  Used by the idle-health-checker to decide how aggressively
         # to probe providers: right after a request finishes we check more
@@ -100,6 +102,7 @@ class ProxyObservability:
                 self._recent = deque(recent, maxlen=self._recent_limit())
             self._health_probe_events = deque(maxlen=self._health_probe_limit())
             self._failure_summary_cache = None  # Invalidate after restore
+            self._invalidate_provider_activity_locked()
 
     def _recent_limit(self) -> int:
         try:
@@ -169,6 +172,7 @@ class ProxyObservability:
             self._active = active
             self._started_at = started_at
             self._last_request_finished_at = last_request_finished_at
+            self._invalidate_provider_activity_locked()
 
     def reset(self) -> None:
         with self._lock:
@@ -179,6 +183,7 @@ class ProxyObservability:
             self._counters = self._new_counters()
             self._last_request_finished_at = 0.0
             self._first_event_stats_cache.clear()
+            self._invalidate_provider_activity_locked()
 
     def first_event_latency_stats(
         self,
@@ -197,17 +202,23 @@ class ProxyObservability:
             recent = list(self._recent)
 
         values = []
+        recent_timeouts = []
+        matching_attempts = 0
         for request in recent:
             if str(request.get("model") or "") != key[1]:
                 continue
             if str(request.get("request_profile") or "plain") != key[2]:
                 continue
             for attempt in request.get("attempts") or []:
-                if str(attempt.get("provider") or "") != key[0] or str(attempt.get("outcome") or "") != "success":
+                if str(attempt.get("provider") or "") != key[0]:
                     continue
-                latency = int(attempt.get("first_event_ms") or 0)
-                if latency > 0:
-                    values.append(latency)
+                if matching_attempts < 20 and str(attempt.get("error_type") or "") == "first_event_timeout":
+                    recent_timeouts.append(max(0, int(attempt.get("duration_ms") or 0)))
+                matching_attempts += 1
+                if str(attempt.get("outcome") or "") == "success":
+                    latency = int(attempt.get("first_event_ms") or 0)
+                    if latency > 0:
+                        values.append(latency)
 
         stats = None
         if len(values) < max(1, int(min_samples or 20)):
@@ -215,11 +226,22 @@ class ProxyObservability:
         if not stats or int(stats.get("count") or 0) < len(values):
             values.sort()
             index = max(0, ((95 * len(values) + 99) // 100) - 1) if values else 0
-            stats = {"count": len(values), "p95_ms": values[index] if values else 0}
+            stats = {
+                "count": len(values),
+                "p95_ms": values[index] if values else 0,
+                "recent_timeout_count": len(recent_timeouts),
+                "timeout_floor_ms": max(recent_timeouts, default=0),
+            }
 
         normalized = {
             "count": max(0, int(stats.get("count") or 0)),
             "p95_ms": max(0, int(stats.get("p95_ms") or 0)),
+            "recent_timeout_count": max(
+                len(recent_timeouts), max(0, int(stats.get("recent_timeout_count") or 0))
+            ),
+            "timeout_floor_ms": max(
+                max(recent_timeouts, default=0), max(0, int(stats.get("timeout_floor_ms") or 0))
+            ),
         }
         with self._lock:
             self._first_event_stats_cache[key] = (now, normalized)
@@ -262,6 +284,7 @@ class ProxyObservability:
             self._recent = deque(maxlen=self._recent_limit())
             self._counters = self._new_counters()
             self._counters["requests_in_flight"] = active_count
+            self._invalidate_provider_activity_locked()
         return {
             "memory": {
                 "recent_requests_cleared": True,
@@ -289,6 +312,7 @@ class ProxyObservability:
             remaining = [item for item in self._recent if str(item.get("request_id") or "") not in seen]
             self._recent = deque(remaining, maxlen=self._recent_limit())
             recent_deleted = before - len(self._recent)
+            self._invalidate_provider_activity_locked()
         return {
             "memory": {
                 "requested": len(ids),
@@ -308,6 +332,7 @@ class ProxyObservability:
             ]
             self._recent = deque(remaining, maxlen=self._recent_limit())
             recent_deleted = before - len(self._recent)
+            self._invalidate_provider_activity_locked()
         return {
             "memory": {
                 "filters": dict(filters),  # Shallow copy is sufficient
@@ -609,7 +634,9 @@ class ProxyObservability:
             if error:
                 recent_item["error"] = str(error)[:500]
             self._recent.appendleft(recent_item)
+            self._first_event_stats_cache.clear()
             self._failure_summary_cache = None  # Invalidate cache
+            self._invalidate_provider_activity_locked()
             # admin_probe (manual key test) requests must NOT refresh the
             # idle health checker's "last request finished" timestamp — they
             # are diagnostic probes, not real user traffic.  Without this
@@ -759,6 +786,7 @@ class ProxyObservability:
                 pass
         with self._lock:
             self._health_probe_events.appendleft(item)
+            self._invalidate_provider_activity_locked()
         return item
 
     def health_probe_summary(self, provider: Optional[str] = None, limit: int = 20) -> Dict[str, Any]:
@@ -861,11 +889,23 @@ class ProxyObservability:
         except Exception:
             limit = 60
         with self._lock:
+            cache_key = (self._provider_activity_version, limit, bool(include_events))
+            cached = self._provider_activity_cache.get(cache_key)
+            if cached is not None:
+                return cached
+            version = self._provider_activity_version
             recent = list(self._recent)  # Reference, don't copy
             probe_events = list(self._health_probe_events)
         summary = self._provider_activity_from_recent(recent, limit, include_events=include_events)
         self._merge_health_probe_summary(summary, probe_events, limit, include_events=include_events)
+        with self._lock:
+            if version == self._provider_activity_version:
+                self._provider_activity_cache[cache_key] = summary
         return summary
+
+    def _invalidate_provider_activity_locked(self) -> None:
+        self._provider_activity_version += 1
+        self._provider_activity_cache.clear()
 
     def provider_health_scores(
         self, router_snapshot: Optional[Dict[str, Any]] = None

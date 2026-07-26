@@ -41,12 +41,19 @@ class _FakeOpener:
 
 class TimeoutBudgetTests(unittest.TestCase):
     class Stats:
-        def __init__(self, count, p95_ms):
+        def __init__(self, count, p95_ms, *, recent_timeout_count=0, timeout_floor_ms=0):
             self.count = count
             self.p95_ms = p95_ms
+            self.recent_timeout_count = recent_timeout_count
+            self.timeout_floor_ms = timeout_floor_ms
 
         def first_event_latency_stats(self, provider, model, profile, *, min_samples=20):
-            return {"count": self.count, "p95_ms": self.p95_ms}
+            return {
+                "count": self.count,
+                "p95_ms": self.p95_ms,
+                "recent_timeout_count": self.recent_timeout_count,
+                "timeout_floor_ms": self.timeout_floor_ms,
+            }
 
     def test_first_event_timeout_uses_remaining_budget(self):
         with patch.object(sse2json.time, "time", return_value=112.5):
@@ -92,6 +99,18 @@ class TimeoutBudgetTests(unittest.TestCase):
         )
 
         self.assertEqual(budget, 22.0)
+
+    def test_adaptive_first_event_budget_learns_from_censored_agent_timeouts(self):
+        budget = sse2json._adaptive_first_event_budget(
+            {},
+            "reasoning+structured_output",
+            "alpha",
+            "model-a",
+            self.Stats(5, 24540, recent_timeout_count=2, timeout_floor_ms=35000),
+            30,
+        )
+
+        self.assertEqual(budget, 52.5)
 
 
 if __name__ == "__main__":
