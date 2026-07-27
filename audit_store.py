@@ -25,7 +25,7 @@ SENSITIVE_FIELD_NAMES = {
 
 
 class AdminAuditStore:
-    def __init__(self, cfg: Dict[str, Any]):
+    def __init__(self, cfg: Dict[str, Any], *, load_tail: bool = True):
         self.cfg = cfg or {}
         self.enabled = self._enabled()
         self.path = self._path()
@@ -33,7 +33,28 @@ class AdminAuditStore:
         self._lock = threading.Lock()
         self._recent = deque(maxlen=self.max_records)
         self._line_count = 0
-        self._load_persistent_tail()
+        if load_tail:
+            self._load_persistent_tail()
+
+    def migrate_state_from(self, old: "AdminAuditStore") -> None:
+        """Carry the in-memory audit tail across a config hot-swap.
+
+        Re-reading the whole JSONL tail from disk on every admin save is
+        wasted work when the previous instance already holds it in memory.
+        When the audit path is unchanged we hand the buffer over directly; a
+        changed path falls back to a fresh load so the new file is reflected.
+        """
+        if old is None or not self.enabled:
+            return
+        if getattr(old, "path", None) == self.path:
+            with old._lock:
+                recent = list(old._recent)
+                line_count = old._line_count
+            with self._lock:
+                self._recent = deque(recent, maxlen=self.max_records)
+                self._line_count = line_count
+        else:
+            self._load_persistent_tail()
 
     def record(
         self,

@@ -111,6 +111,13 @@ import {
   const configRefreshCoordinator = new ConfigRefreshCoordinator();
   const uiActionRegistry = new InFlightActionRegistry();
   const STATIC_CONFIG_DOMAINS = new Set(["routing", "config", "overlay"]);
+  // Static-admin domains worth refreshing right after an optimistic config
+  // mutation. The mutation response already carried the authoritative merged
+  // config (applied synchronously via confirmOptimisticConfigMutation), so the
+  // follow-up skips re-fetching the large /-/admin/config payload it just
+  // delivered and only pulls the side-effect domains. Keep in sync with the
+  // entries built in refreshStaticAdminData().
+  const POST_CONFIG_MUTATION_DOMAINS = ["status", "models", "routing", "overlay", "audit", "conversionDiagnostics"];
 
   const RUNTIME_SIGNATURE_IGNORED_FIELDS = new Set([
     "uptime_s", "idle_seconds", "last_run_ago_s", "next_probe_in_s", "next_run_in_s",
@@ -288,7 +295,10 @@ import {
         skipConfig: result?.config !== undefined,
       });
       callbacks.onSuccess?.(result);
-      scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
+      // The mutation already returned and applied the authoritative merged
+      // config, so this follow-up refreshes only the side-effect domains and
+      // skips re-downloading /-/admin/config.
+      scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true, staticDomains: POST_CONFIG_MUTATION_DOMAINS });
       return true;
     } catch (err) {
       rejectOptimisticConfigMutation(mutation, { drawer: callbacks.drawer !== false });
@@ -304,11 +314,22 @@ import {
   function mergeRefreshArgs(previous, next) {
     if (!previous) return { ...(next || {}) };
     next = next || {};
+    const prevDomains = previous.staticDomains || [];
+    const nextDomains = next.staticDomains || [];
+    // A static refresh requested without explicit domains means "all domains".
+    // When it coalesces with a narrower request the broad one must win: a plain
+    // union treats "all" as an empty contribution and would silently drop the
+    // domains only the broad refresh wanted. Falling back to [] (=all) is the
+    // safe direction -- it can only fetch more, never miss a changed domain.
+    const prevWantsAll = Boolean(previous.staticData) && prevDomains.length === 0;
+    const nextWantsAll = Boolean(next.staticData) && nextDomains.length === 0;
     return {
       quiet: Boolean(previous.quiet && next.quiet),
       preserveNotice: Boolean(previous.preserveNotice || next.preserveNotice),
       staticData: Boolean(previous.staticData || next.staticData),
-      staticDomains: Array.from(new Set([...(previous.staticDomains || []), ...(next.staticDomains || [])])),
+      staticDomains: (prevWantsAll || nextWantsAll)
+        ? []
+        : Array.from(new Set([...prevDomains, ...nextDomains])),
     };
   }
 

@@ -5501,6 +5501,14 @@
 			"config",
 			"overlay"
 		]);
+		var POST_CONFIG_MUTATION_DOMAINS = [
+			"status",
+			"models",
+			"routing",
+			"overlay",
+			"audit",
+			"conversionDiagnostics"
+		];
 		var RUNTIME_SIGNATURE_IGNORED_FIELDS = new Set([
 			"uptime_s",
 			"idle_seconds",
@@ -5662,7 +5670,8 @@
 				scheduleBackgroundRefresh({
 					quiet: true,
 					preserveNotice: true,
-					staticData: true
+					staticData: true,
+					staticDomains: POST_CONFIG_MUTATION_DOMAINS
 				});
 				return true;
 			} catch (err) {
@@ -5678,11 +5687,15 @@
 		function mergeRefreshArgs(previous, next) {
 			if (!previous) return { ...next || {} };
 			next = next || {};
+			const prevDomains = previous.staticDomains || [];
+			const nextDomains = next.staticDomains || [];
+			const prevWantsAll = Boolean(previous.staticData) && prevDomains.length === 0;
+			const nextWantsAll = Boolean(next.staticData) && nextDomains.length === 0;
 			return {
 				quiet: Boolean(previous.quiet && next.quiet),
 				preserveNotice: Boolean(previous.preserveNotice || next.preserveNotice),
 				staticData: Boolean(previous.staticData || next.staticData),
-				staticDomains: Array.from(new Set([...previous.staticDomains || [], ...next.staticDomains || []]))
+				staticDomains: prevWantsAll || nextWantsAll ? [] : Array.from(new Set([...prevDomains, ...nextDomains]))
 			};
 		}
 		function scheduleBackgroundRefresh(args = {}, delayMs = 120) {

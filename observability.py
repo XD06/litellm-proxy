@@ -66,7 +66,7 @@ def aggregate_attempt_pricing(attempts: Any) -> tuple[str, str, Dict[str, Any]]:
 
 
 class ProxyObservability:
-    def __init__(self, cfg: Dict[str, Any]):
+    def __init__(self, cfg: Dict[str, Any], *, restore_history: bool = True):
         self.cfg = cfg
         self._lock = threading.Lock()
         self._started_at = time.time()
@@ -87,7 +87,14 @@ class ProxyObservability:
         # often (the user may send another request soon), while after a long
         # idle period we back off to a slow cadence.
         self._last_request_finished_at: float = 0.0
-        self._restore_counters_from_history()
+        # Rebuilding counters from SQLite history is only needed at cold start.
+        # During a config hot-swap the fresh instance immediately receives the
+        # live in-memory counters via migrate_counters_from(), which overwrites
+        # whatever a rebuild would produce -- so the full-table aggregate would
+        # be pure wasted work on every admin save (and scales with history
+        # size). Hot-reload callers pass restore_history=False.
+        if restore_history:
+            self._restore_counters_from_history()
 
     def _restore_counters_from_history(self) -> None:
         counters = self._history.rebuild_counters()

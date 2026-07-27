@@ -1921,6 +1921,7 @@ def _apply_runtime_config(new_config: dict, *, persist_state: bool = True) -> No
     global CONFIG, ROUTER, UPSTREAM_CLIENT, OBSERVABILITY, AUDIT, CONVERSION_DIAGNOSTICS, RUNTIME
     old_router = ROUTER
     old_obs = OBSERVABILITY
+    old_audit = AUDIT
     old_upstream_client = UPSTREAM_CLIENT
     old_conversion_diagnostics = CONVERSION_DIAGNOSTICS
     old_caps = dict(((CONFIG.get("models") or {}).get("provider_model_capabilities") or {})) if CONFIG else {}
@@ -1965,11 +1966,20 @@ def _apply_runtime_config(new_config: dict, *, persist_state: bool = True) -> No
         new_router.migrate_state_from(old_router)
     model_registry.rebuild_models_union_snapshot(new_config, new_router)
     new_upstream_client = OpenAIUpstreamClient(new_config)
-    new_observability = ProxyObservability(new_config)
+    new_observability = ProxyObservability(new_config, restore_history=old_obs is None)
     if old_obs is not None:
         new_observability.migrate_counters_from(old_obs)
-    new_audit = AdminAuditStore(new_config)
-    new_conversion_diagnostics = ConversionDiagnosticStore(new_config)
+    # Audit tail and conversion-diagnostics counters are handed over from the
+    # previous instances instead of being re-read from disk. On a hot-swap the
+    # old objects already hold that state in memory, so re-scanning the audit
+    # JSONL tail and line-counting every retained diagnostics file (up to
+    # retained_files x max_file_bytes) would be wasted I/O on every admin save.
+    new_audit = AdminAuditStore(new_config, load_tail=old_audit is None)
+    if old_audit is not None:
+        new_audit.migrate_state_from(old_audit)
+    new_conversion_diagnostics = ConversionDiagnosticStore(new_config, load_existing=old_conversion_diagnostics is None)
+    if old_conversion_diagnostics is not None:
+        new_conversion_diagnostics.migrate_state_from(old_conversion_diagnostics)
 
     # Atomic swap: a single STORE_GLOBAL on RUNTIME is the linearization point.
     # Every reader that captured RUNTIME before this line keeps the old set;

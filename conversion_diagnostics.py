@@ -108,7 +108,7 @@ def sanitize_diagnostic_value(value: Any, *, depth: int = 0, max_depth: int = 10
 
 
 class ConversionDiagnosticStore:
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None, *, load_existing: bool = True):
         config = config or {}
         raw = ((config.get("observability") or {}).get("conversion_diagnostics") or {})
         if not isinstance(raw, dict):
@@ -132,7 +132,28 @@ class ConversionDiagnosticStore:
         self.path = configured_path if os.path.isabs(configured_path) else os.path.join(log_dir, configured_path)
         self.path = os.path.abspath(self.path)
         self._worker: Optional[threading.Thread] = None
-        if self.enabled:
+        if self.enabled and load_existing:
+            self._load_existing_state()
+
+    def migrate_state_from(self, old: "ConversionDiagnosticStore") -> None:
+        """Carry the record/updated-at counters across a config hot-swap.
+
+        _load_existing_state() line-counts every retained diagnostics file (up
+        to retained_files x max_file_bytes) purely to seed two display
+        counters. Repeating that on every admin save is wasted I/O, so when
+        the diagnostics path is unchanged we copy the counters from the
+        previous instance; a changed path falls back to a fresh scan.
+        """
+        if old is None or not self.enabled:
+            return
+        if getattr(old, "path", None) == self.path:
+            with old._state_lock:
+                records = old._records
+                updated_at = old._updated_at
+            with self._state_lock:
+                self._records = records
+                self._updated_at = updated_at
+        else:
             self._load_existing_state()
 
     def _ensure_worker(self) -> bool:
