@@ -448,7 +448,7 @@
 			timeRange: "30m",
 			requestsPage: 0,
 			requestFilters: { status: "" },
-			configTab: "routes",
+			configTab: "models",
 			statisticsView: "usage",
 			usageStatisticsRange: "all",
 			usageStatisticsMetric: "tokens",
@@ -4115,6 +4115,62 @@
 				en: "No enabled provider currently declares this model.",
 				zh: "当前没有已启用供应商声明支持此模型。"
 			},
+			"model_usage.keys_available": {
+				en: "keys available",
+				zh: "密钥可用"
+			},
+			"model_usage.priority_tip": {
+				en: "Effective priority. Higher tries first; route/override sources shown as tags.",
+				zh: "有效优先级，数值越高越先尝试；标签标注优先级来源（路由覆盖/临时覆盖/健康调整）。"
+			},
+			"model_usage.priority_route": {
+				en: "route",
+				zh: "路由"
+			},
+			"model_usage.priority_override": {
+				en: "override",
+				zh: "临时"
+			},
+			"model_usage.priority_auto": {
+				en: "auto",
+				zh: "健康"
+			},
+			"model_usage.rotation_note": {
+				en: "{mode} rotates providers per request; the order below is what the next request would try.",
+				zh: "{mode} 模式下供应商按请求轮换，以下为下一次请求将尝试的顺序。"
+			},
+			"model_usage.routing_path": {
+				en: "Live routing path",
+				zh: "实时路由路径"
+			},
+			"model_usage.reason_not_selected": {
+				en: "Skipped by current routing rules",
+				zh: "当前路由规则不会尝试此供应商"
+			},
+			"model_usage.reason_provider_disabled": {
+				en: "Provider disabled",
+				zh: "供应商已禁用"
+			},
+			"model_usage.reason_provider_runtime_disabled": {
+				en: "Provider paused at runtime",
+				zh: "供应商运行时已暂停"
+			},
+			"model_usage.reason_model_disabled": {
+				en: "Model disabled on this provider",
+				zh: "该模型在此供应商已停用"
+			},
+			"model_usage.reason_provider_cooldown": {
+				en: "Cooling down ({seconds}s)",
+				zh: "冷却中（{seconds}s）"
+			},
+			"model_usage.reason_no_available_keys": {
+				en: "All keys cooling down or disabled",
+				zh: "所有密钥冷却或禁用中"
+			},
+			"model_usage.reason_no_keys": {
+				en: "No keys configured",
+				zh: "未配置密钥"
+			},
 			"req.client_ip_ph": {
 				en: "client IP",
 				zh: "客户端 IP"
@@ -7369,7 +7425,7 @@
 			if (tabNav.dataset.restoredConfigTab) return;
 			tabNav.dataset.restoredConfigTab = "1";
 			try {
-				switchConfigTab(localStorage.getItem("proxyConsoleConfigTab") || state.configTab || "routes");
+				switchConfigTab(localStorage.getItem("proxyConsoleConfigTab") || state.configTab || "models");
 			} catch (_e) {}
 			bindUsageStatisticsControls();
 		}
@@ -12585,11 +12641,44 @@
 				updateDOM(body, `<div class="notice danger pad">${escapeHtml(t("model_usage.failed", { error: err.message }))}</div>`);
 			}
 		}
+		function modelSupportReasonLabel(code, item) {
+			if (code === "provider_cooldown") return t("model_usage.reason_provider_cooldown", { seconds: fmtInt(item.cooldown_remaining_s || 0) });
+			return t(`model_usage.reason_${code}`);
+		}
+		function modelSupportPriorityBadge(item) {
+			const priorityKnown = Number.isFinite(Number(item.effective_priority));
+			const sourceTag = item.priority_source === "model_route" ? t("model_usage.priority_route") : item.priority_source === "runtime_override" ? t("model_usage.priority_override") : "";
+			const priorityTags = [sourceTag, item.auto_adjusted ? t("model_usage.priority_auto") : ""].filter(Boolean);
+			if (!priorityKnown && !priorityTags.length) return "";
+			return `<span class="support-priority mono" data-tip="${escapeHtml(t("model_usage.priority_tip"))}">${priorityKnown ? `P${escapeHtml(fmtInt(item.effective_priority))}` : "P?"}${priorityTags.map((tag) => `<em>${escapeHtml(tag)}</em>`).join("")}</span>`;
+		}
+		function renderModelRoutingStep(step) {
+			const keysLabel = step.key_count !== undefined ? `${fmtInt(step.available_key_count || 0)}/${fmtInt(step.key_count || 0)} ${t("model_usage.keys_available")}` : "";
+			return `<div class="support-row is-available"><span class="support-rank">#${escapeHtml(fmtInt(step.rank || 0))}</span><strong>${escapeHtml(step.provider || "-")}</strong>${modelSupportPriorityBadge(step)}<span class="mono">${escapeHtml(step.provider_model || "-")}</span><span>${escapeHtml(shortFormatLabel(step.upstream_format || "-"))}</span>${keysLabel ? `<small>${escapeHtml(keysLabel)}</small>` : ""}</div>`;
+		}
+		function renderModelSupportRow(item, { excluded = false } = {}) {
+			const enriched = item.available !== undefined;
+			const isAvailable = enriched ? !!item.available : !!item.enabled;
+			const keysLabel = enriched ? `${fmtInt(item.available_key_count || 0)}/${fmtInt(item.key_count || 0)} ${t("model_usage.keys_available")}` : `${fmtInt(item.key_coverage?.eligible || 0)}/${fmtInt(item.key_coverage?.total || 0)} ${t("model_usage.keys")}`;
+			const reasonCodes = Array.isArray(item.unavailable_reasons) ? item.unavailable_reasons : [];
+			const reasons = reasonCodes.map((code) => modelSupportReasonLabel(code, item)).join(" · ") || (excluded && isAvailable ? t("model_usage.reason_not_selected") : "");
+			const rowClass = excluded ? "is-excluded" : isAvailable ? "is-available" : "is-unavailable";
+			return `<div class="support-row ${rowClass}"><span class="support-rank">${excluded ? "—" : isAvailable ? "•" : iconSvg("alert")}</span><strong>${escapeHtml(item.provider || "-")}</strong>${modelSupportPriorityBadge(item)}<span class="mono">${escapeHtml(item.provider_model || "-")}</span><span>${(Array.isArray(item.formats) ? item.formats : []).map(shortFormatLabel).map(escapeHtml).join(" · ") || "-"}</span><small>${escapeHtml(keysLabel)}</small>${reasons ? `<span class="support-reason">${escapeHtml(reasons)}</span>` : ""}</div>`;
+		}
 		function renderUsageModelDrawer(detail) {
 			const body = el("modelDrawerBody");
 			const summary = detail.summary || {};
 			const providers = Array.isArray(detail.providers) ? detail.providers : [];
 			const support = Array.isArray(detail.current_support) ? detail.current_support : [];
+			const routeOverview = detail.routing_overview || {};
+			const routingPath = Array.isArray(detail.routing_path) ? detail.routing_path : [];
+			const pathProviders = new Set(routingPath.map((step) => step.provider));
+			const excludedSupport = support.filter((item) => !pathProviders.has(item.provider));
+			const rotationMode = [
+				"round_robin",
+				"weighted_rr",
+				"random"
+			].includes(routeOverview.provider_select) ? routeOverview.provider_select : "";
 			const series = Array.isArray(detail.timeseries) ? detail.timeseries : [];
 			const maxCalls = Math.max(1, ...series.map((item) => Number(item.calls || 0)));
 			const seriesSummary = series.map((item) => `${fmtDate(item.start)}: ${fmtInt(item.calls)} ${t("model_usage.calls")}`).join(", ");
@@ -12610,7 +12699,7 @@
         <section class="model-provider-breakdown"><h3 class="drawer-section-title model-drawer-section-head"><span>${escapeHtml(t("model_usage.provider_breakdown"))}</span><strong>${escapeHtml(fmtInt(providers.length))}</strong></h3>
           <div class="attempt-table-scroll"><table class="model-provider-usage-table"><thead><tr><th scope="col">${escapeHtml(t("req.provider"))} / ${escapeHtml(t("req.attempt_model"))}</th><th scope="col">${escapeHtml(t("req.attempt_format"))}</th><th scope="col">${escapeHtml(t("model_usage.calls"))}</th><th scope="col">${escapeHtml(t("req.col_tokens"))} / ${escapeHtml(t("req.col_cost"))}</th><th scope="col">${escapeHtml(t("req.col_latency"))}</th></tr></thead><tbody>${providers.map((item) => `<tr><td><span class="model-provider-identity"><strong>${iconSvg("server")}${escapeHtml(item.provider || "-")}</strong><small class="mono">${escapeHtml(item.provider_model || "-")}</small></span></td><td><span class="model-format-badge">${escapeHtml(shortFormatLabel(item.upstream_format || "-"))}</span></td><td><span class="model-attempt-badge">${iconSvg("check")}${escapeHtml(`${fmtInt(item.success || 0)}/${fmtInt(item.attempts || 0)}`)}</span></td><td><span class="model-provider-usage"><strong>${escapeHtml(fmtTokenCount(item.total_tokens || 0))}</strong><small>${escapeHtml(fmtCost(item.cost_usd || 0))}</small></span></td><td><span class="model-latency-badge mono">${iconSvg("clock")}${escapeHtml(fmtCompactMs(item.avg_first_event_ms || item.avg_duration_ms || 0))}</span></td></tr>`).join("")}</tbody></table></div>
         </section>
-        <section class="model-current-support"><h3 class="drawer-section-title model-drawer-section-head"><span>${escapeHtml(t("model_usage.current_support"))}</span><strong>${escapeHtml(fmtInt(support.filter((item) => item.enabled).length))}</strong></h3>${support.map((item) => `<div><strong>${escapeHtml(item.provider || "-")}</strong><span class="mono">${escapeHtml(item.provider_model || "-")}</span><span>${(Array.isArray(item.formats) ? item.formats : []).map(shortFormatLabel).map(escapeHtml).join(" · ") || "-"}</span><small>${escapeHtml(`${item.key_coverage?.eligible || 0}/${item.key_coverage?.total || 0} ${t("model_usage.keys")}`)}</small></div>`).join("") || `<div class="empty">${escapeHtml(t("model_usage.no_support"))}</div>`}</section>
+        <section class="model-current-support"><h3 class="drawer-section-title model-drawer-section-head"><span>${escapeHtml(routingPath.length ? t("model_usage.routing_path") : t("model_usage.current_support"))}</span><strong>${escapeHtml(routingPath.length ? excludedSupport.length ? `${fmtInt(routingPath.length)}/${fmtInt(routingPath.length + excludedSupport.length)}` : fmtInt(routingPath.length) : `${fmtInt(support.filter((item) => item.available !== undefined ? item.available : item.enabled).length)}/${fmtInt(support.length)}`)}</strong></h3>${rotationMode ? `<p class="support-mode-note">${escapeHtml(t("model_usage.rotation_note", { mode: rotationMode }))}</p>` : ""}${routingPath.length ? `${routingPath.map(renderModelRoutingStep).join("")}${excludedSupport.map((item) => renderModelSupportRow(item, { excluded: true })).join("")}` : support.map((item) => renderModelSupportRow(item)).join("") || `<div class="empty">${escapeHtml(t("model_usage.no_support"))}</div>`}</section>
       </div>
     `);
 		}

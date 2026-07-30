@@ -866,6 +866,110 @@ class UpstreamRouter:
             self._snapshot_cache = (monotonic_now + 0.75, result)
             return result
 
+    def model_routing_overview(self, canonical_model: str, provider_names: List[str]) -> Dict[str, Any]:
+        """Describe effective routing order and availability for one model.
+
+        For each provider in *provider_names* the entry reports the effective
+        priority (model-route override > runtime override > provider config,
+        plus the auto-mode health penalty when active) and the current runtime
+        availability (provider enabled/cooldown, per-key cooldown/disable and
+        model-disable switches). Raw API keys are never exposed.
+        """
+        now = time.time()
+        routes = (self.cfg.get("models") or {}).get("routes") or {}
+        route = routes.get(canonical_model) or {}
+        route_providers: Dict[str, Dict[str, Any]] = {}
+        if isinstance(route, dict):
+            for order, it in enumerate(route.get("providers") or []):
+                if isinstance(it, str):
+                    route_providers[str(it)] = {"order": order, "priority": None}
+                elif isinstance(it, dict) and it.get("name"):
+                    route_providers[str(it["name"])] = {
+                        "order": order,
+                        "priority": it.get("priority") if "priority" in it else None,
+                    }
+        provider_select = self._provider_select_mode(canonical_model)
+        auto_active = provider_select == "auto"
+        providers_cfg = self.cfg.get("providers") or {}
+        provider_capabilities = (self.cfg.get("models") or {}).get("provider_model_capabilities") or {}
+
+        runtime_states: Dict[str, Dict[str, Any]] = {}
+        with self._lock:
+            for name in provider_names:
+                name = str(name)
+                keys = (providers_cfg.get(name) or {}).get("keys") or []
+                ps = self._providers_state.get(name)
+                available_keys = 0
+                for index in range(len(keys)):
+                    ks = self._keys_state.get((name, index))
+                    if ks is None or ks.available(now):
+                        available_keys += 1
+                runtime_states[name] = {
+                    "runtime_enabled": bool(ps.runtime_enabled if ps else True),
+                    "provider_available": bool(ps is None or ps.available(now)),
+                    "cooldown_remaining_s": max(0, int((ps.cooldown_until if ps else 0.0) - now)),
+                    "key_count": len(keys),
+                    "available_key_count": available_keys,
+                }
+
+        entries: Dict[str, Dict[str, Any]] = {}
+        for name in provider_names:
+            name = str(name)
+            pcfg = providers_cfg.get(name) or {}
+            rt = runtime_states.get(name) or {}
+            route_entry = route_providers.get(name)
+            route_priority = route_entry.get("priority") if route_entry else None
+            runtime_priority = self._runtime_priorities.get(name)
+            if route_priority is not None:
+                base_priority = self._provider_priority(name, route_priority)
+                priority_source = "model_route"
+            elif runtime_priority is not None:
+                base_priority = int(runtime_priority)
+                priority_source = "runtime_override"
+            else:
+                base_priority = self._provider_priority(name)
+                priority_source = "provider"
+            effective_priority = self._auto_adjusted_priority(name, base_priority) if auto_active else base_priority
+            caps = provider_capabilities.get(name)
+            canonical_map = caps.get("canonical_map") if isinstance(caps, dict) else {}
+            model_disabled = bool(
+                model_registry.provider_model_id_disabled(self.cfg, name, canonical_model, canonical_map)
+            )
+            config_enabled = bool(pcfg.get("enabled", True))
+            reasons = []
+            if not config_enabled:
+                reasons.append("provider_disabled")
+            if not rt.get("runtime_enabled", True):
+                reasons.append("provider_runtime_disabled")
+            if model_disabled:
+                reasons.append("model_disabled")
+            if config_enabled and rt.get("runtime_enabled", True) and not rt.get("provider_available", True):
+                reasons.append("provider_cooldown")
+            if not rt.get("key_count", 0):
+                reasons.append("no_keys")
+            elif not rt.get("available_key_count", 0):
+                reasons.append("no_available_keys")
+            entries[name] = {
+                "available": not reasons,
+                "unavailable_reasons": reasons,
+                "effective_priority": int(effective_priority),
+                "base_priority": int(base_priority),
+                "priority_source": priority_source,
+                "auto_adjusted": bool(auto_active and effective_priority != base_priority),
+                "in_model_route": route_entry is not None,
+                "route_order": int(route_entry["order"]) if route_entry else None,
+                "cooldown_remaining_s": int(rt.get("cooldown_remaining_s", 0)),
+                "key_count": int(rt.get("key_count", 0)),
+                "available_key_count": int(rt.get("available_key_count", 0)),
+            }
+        return {
+            "provider_select": provider_select,
+            "auto_routing": auto_active,
+            "format_preference": self._format_preference(canonical_model),
+            "has_model_route": bool(route_providers),
+            "providers": entries,
+        }
+
     # ---------------------------------------------------------------------
     # internal
     # ---------------------------------------------------------------------
@@ -1397,6 +1501,7 @@ class UpstreamRouter:
         request_id: str,
         client_format: str,
         allowed_upstream_formats: Optional[List[str]],
+        mutate_rotation: bool = True,
     ) -> List[Tuple[str, str]]:
         allowed = [str(f) for f in (allowed_upstream_formats or [client_format or "chat_completions"]) if str(f)]
         if not allowed:
@@ -1463,6 +1568,7 @@ class UpstreamRouter:
                     rotation_key,
                     f"{request_id}|{rotation_key}",
                     provider_select,
+                    mutate_rotation=mutate_rotation,
                 )
             )
         if fallback:
@@ -1473,6 +1579,7 @@ class UpstreamRouter:
                     rotation_key,
                     f"{request_id}|{rotation_key}",
                     provider_select,
+                    mutate_rotation=mutate_rotation,
                 )
             )
         return selected
@@ -1506,6 +1613,8 @@ class UpstreamRouter:
         rotation_key: str,
         random_key: str,
         provider_select: str,
+        *,
+        mutate_rotation: bool = True,
     ) -> List[Tuple[str, str]]:
         if provider_select == "priority_failover":
             ordered = sorted(enumerate(items), key=lambda entry: (-entry[1][2], entry[0]))
@@ -1530,8 +1639,51 @@ class UpstreamRouter:
             return expanded
         with self._lock:
             idx = self._rr_model.get(rotation_key, 0) % len(expanded)
-            self._rr_model[rotation_key] = (idx + 1) % len(expanded)
+            if mutate_rotation:
+                self._rr_model[rotation_key] = (idx + 1) % len(expanded)
         return expanded[idx:] + expanded[:idx]
+
+    def preview_model_routing(
+        self,
+        canonical_model: str,
+        *,
+        client_format: str = "chat_completions",
+        allowed_upstream_formats: Optional[List[str]] = None,
+    ) -> List[Dict[str, Any]]:
+        """Dry-run the live provider selection for one model.
+
+        Reuses the exact ordering logic of :meth:`iter_attempts` (model-route
+        priority, runtime overrides, auto health penalties, format preference,
+        rotation pointers and runtime cooldown filters) without consuming
+        rotation state or mutating anything. Returns the ordered candidate
+        list a request arriving right now would try.
+        """
+        if allowed_upstream_formats is None:
+            allowed_upstream_formats = ["chat_completions", "responses", "anthropic_messages"]
+        provider_formats = self._select_provider_attempts(
+            canonical_model,
+            request_id="routing-preview",
+            client_format=client_format,
+            allowed_upstream_formats=allowed_upstream_formats,
+            mutate_rotation=False,
+        )
+        path: List[Dict[str, Any]] = []
+        seen = set()
+        for provider, upstream_format in provider_formats:
+            for provider_model in self._provider_model_candidates(provider, canonical_model):
+                candidate = (provider, upstream_format, provider_model)
+                if candidate in seen:
+                    continue
+                seen.add(candidate)
+                path.append(
+                    {
+                        "rank": len(path) + 1,
+                        "provider": provider,
+                        "upstream_format": upstream_format,
+                        "provider_model": provider_model,
+                    }
+                )
+        return path
 
     def _select_key(
         self,

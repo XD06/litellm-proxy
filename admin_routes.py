@@ -370,6 +370,38 @@ class AdminRoutesMixin:
             detail = OBSERVABILITY.model_usage_detail(client_model, range_name=params.get("range", "7d"))
             if detail is None:
                 return self._resp_json({"error": {"message": f"unknown model usage: {client_model}"}}, 404)
+            try:
+                support = detail.get("current_support") or []
+                names = [str(entry.get("provider") or "") for entry in support]
+                overview = ROUTER.model_routing_overview(client_model, names)
+                per_provider = overview.pop("providers", {}) or {}
+                detail["routing_overview"] = overview
+                for entry in support:
+                    info = per_provider.get(str(entry.get("provider") or ""))
+                    if isinstance(info, dict):
+                        entry.update(info)
+                support.sort(
+                    key=lambda entry: (
+                        0 if entry.get("available") else 1,
+                        -int(entry.get("effective_priority", 0) or 0),
+                        entry.get("route_order") if entry.get("route_order") is not None else 1 << 30,
+                        str(entry.get("provider") or ""),
+                    )
+                )
+                # Live dry-run of the router: the exact candidate order a request
+                # arriving right now would try (rotation state is not consumed).
+                path = ROUTER.preview_model_routing(client_model)
+                for step in path:
+                    info = per_provider.get(str(step.get("provider") or ""))
+                    if isinstance(info, dict):
+                        step["effective_priority"] = info.get("effective_priority")
+                        step["priority_source"] = info.get("priority_source")
+                        step["auto_adjusted"] = info.get("auto_adjusted")
+                        step["available_key_count"] = info.get("available_key_count")
+                        step["key_count"] = info.get("key_count")
+                detail["routing_path"] = path
+            except Exception:
+                pass
             return self._resp_json(detail)
         if endpoint.startswith("requests/"):
             request_id = endpoint.split("/", 1)[1]

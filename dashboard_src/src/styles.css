@@ -4499,6 +4499,70 @@ tr.clickable:hover {
   white-space: nowrap;
 }
 
+/* Routing support rows: rank/state, provider, priority, model, formats, keys. */
+.model-current-support > div.support-row {
+  grid-template-columns: 34px minmax(84px, .9fr) auto minmax(130px, 1.3fr) minmax(90px, .9fr) auto;
+}
+
+.model-current-support .support-rank {
+  font: 760 10px/1 var(--mono);
+  color: var(--success);
+  text-align: center;
+}
+
+.model-current-support .support-row.is-unavailable .support-rank {
+  color: var(--danger);
+}
+
+.model-current-support .support-rank .icon-svg {
+  width: 12px;
+  height: 12px;
+}
+
+.model-current-support .support-priority {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: max-content;
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-raised);
+  font-weight: 760;
+}
+
+.model-current-support .support-priority em {
+  font-style: normal;
+  font-size: 9px;
+  color: var(--muted);
+}
+
+.model-current-support .support-row.is-unavailable > *:not(.support-reason),
+.model-current-support .support-row.is-excluded > *:not(.support-reason) {
+  opacity: .55;
+}
+
+.model-current-support .support-reason {
+  grid-column: 1 / -1;
+  font-size: 10px;
+  color: var(--danger);
+  white-space: normal;
+}
+
+.model-current-support .support-row.is-excluded .support-rank {
+  color: var(--muted);
+}
+
+.model-current-support .support-row.is-excluded .support-reason {
+  color: var(--muted);
+}
+
+.model-current-support .support-mode-note {
+  margin: 0 0 6px;
+  font-size: 10px;
+  color: var(--muted);
+}
+
 @media (max-width: 900px) {
   .model-usage-toolbar {
     grid-template-columns: 1fr 1fr;

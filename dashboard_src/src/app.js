@@ -2213,7 +2213,7 @@ import {
     tabNav.dataset.restoredConfigTab = "1";
     try {
       const saved = localStorage.getItem("proxyConsoleConfigTab");
-      switchConfigTab(saved || state.configTab || "routes");
+      switchConfigTab(saved || state.configTab || "models");
     } catch (_e) {}
     bindUsageStatisticsControls();
   }
@@ -7828,11 +7828,49 @@ import {
     }
   }
 
+  function modelSupportReasonLabel(code, item) {
+    if (code === "provider_cooldown") return t("model_usage.reason_provider_cooldown", { seconds: fmtInt(item.cooldown_remaining_s || 0) });
+    return t(`model_usage.reason_${code}`);
+  }
+
+  function modelSupportPriorityBadge(item) {
+    const priorityKnown = Number.isFinite(Number(item.effective_priority));
+    const sourceTag = item.priority_source === "model_route" ? t("model_usage.priority_route") : item.priority_source === "runtime_override" ? t("model_usage.priority_override") : "";
+    const priorityTags = [sourceTag, item.auto_adjusted ? t("model_usage.priority_auto") : ""].filter(Boolean);
+    if (!priorityKnown && !priorityTags.length) return "";
+    return `<span class="support-priority mono" data-tip="${escapeHtml(t("model_usage.priority_tip"))}">${priorityKnown ? `P${escapeHtml(fmtInt(item.effective_priority))}` : "P?"}${priorityTags.map((tag) => `<em>${escapeHtml(tag)}</em>`).join("")}</span>`;
+  }
+
+  function renderModelRoutingStep(step) {
+    const keysLabel = step.key_count !== undefined
+      ? `${fmtInt(step.available_key_count || 0)}/${fmtInt(step.key_count || 0)} ${t("model_usage.keys_available")}`
+      : "";
+    return `<div class="support-row is-available"><span class="support-rank">#${escapeHtml(fmtInt(step.rank || 0))}</span><strong>${escapeHtml(step.provider || "-")}</strong>${modelSupportPriorityBadge(step)}<span class="mono">${escapeHtml(step.provider_model || "-")}</span><span>${escapeHtml(shortFormatLabel(step.upstream_format || "-"))}</span>${keysLabel ? `<small>${escapeHtml(keysLabel)}</small>` : ""}</div>`;
+  }
+
+  function renderModelSupportRow(item, { excluded = false } = {}) {
+    const enriched = item.available !== undefined;
+    const isAvailable = enriched ? !!item.available : !!item.enabled;
+    const keysLabel = enriched
+      ? `${fmtInt(item.available_key_count || 0)}/${fmtInt(item.key_count || 0)} ${t("model_usage.keys_available")}`
+      : `${fmtInt(item.key_coverage?.eligible || 0)}/${fmtInt(item.key_coverage?.total || 0)} ${t("model_usage.keys")}`;
+    const reasonCodes = Array.isArray(item.unavailable_reasons) ? item.unavailable_reasons : [];
+    const reasons = reasonCodes.map((code) => modelSupportReasonLabel(code, item)).join(" · ")
+      || (excluded && isAvailable ? t("model_usage.reason_not_selected") : "");
+    const rowClass = excluded ? "is-excluded" : isAvailable ? "is-available" : "is-unavailable";
+    return `<div class="support-row ${rowClass}"><span class="support-rank">${excluded ? "—" : isAvailable ? "•" : iconSvg("alert")}</span><strong>${escapeHtml(item.provider || "-")}</strong>${modelSupportPriorityBadge(item)}<span class="mono">${escapeHtml(item.provider_model || "-")}</span><span>${(Array.isArray(item.formats) ? item.formats : []).map(shortFormatLabel).map(escapeHtml).join(" · ") || "-"}</span><small>${escapeHtml(keysLabel)}</small>${reasons ? `<span class="support-reason">${escapeHtml(reasons)}</span>` : ""}</div>`;
+  }
+
   function renderUsageModelDrawer(detail) {
     const body = el("modelDrawerBody");
     const summary = detail.summary || {};
     const providers = Array.isArray(detail.providers) ? detail.providers : [];
     const support = Array.isArray(detail.current_support) ? detail.current_support : [];
+    const routeOverview = detail.routing_overview || {};
+    const routingPath = Array.isArray(detail.routing_path) ? detail.routing_path : [];
+    const pathProviders = new Set(routingPath.map((step) => step.provider));
+    const excludedSupport = support.filter((item) => !pathProviders.has(item.provider));
+    const rotationMode = ["round_robin", "weighted_rr", "random"].includes(routeOverview.provider_select) ? routeOverview.provider_select : "";
     const series = Array.isArray(detail.timeseries) ? detail.timeseries : [];
     const maxCalls = Math.max(1, ...series.map((item) => Number(item.calls || 0)));
     const seriesSummary = series.map((item) => `${fmtDate(item.start)}: ${fmtInt(item.calls)} ${t("model_usage.calls")}`).join(", ");
@@ -7849,7 +7887,7 @@ import {
         <section class="model-provider-breakdown"><h3 class="drawer-section-title model-drawer-section-head"><span>${escapeHtml(t("model_usage.provider_breakdown"))}</span><strong>${escapeHtml(fmtInt(providers.length))}</strong></h3>
           <div class="attempt-table-scroll"><table class="model-provider-usage-table"><thead><tr><th scope="col">${escapeHtml(t("req.provider"))} / ${escapeHtml(t("req.attempt_model"))}</th><th scope="col">${escapeHtml(t("req.attempt_format"))}</th><th scope="col">${escapeHtml(t("model_usage.calls"))}</th><th scope="col">${escapeHtml(t("req.col_tokens"))} / ${escapeHtml(t("req.col_cost"))}</th><th scope="col">${escapeHtml(t("req.col_latency"))}</th></tr></thead><tbody>${providers.map((item) => `<tr><td><span class="model-provider-identity"><strong>${iconSvg("server")}${escapeHtml(item.provider || "-")}</strong><small class="mono">${escapeHtml(item.provider_model || "-")}</small></span></td><td><span class="model-format-badge">${escapeHtml(shortFormatLabel(item.upstream_format || "-"))}</span></td><td><span class="model-attempt-badge">${iconSvg("check")}${escapeHtml(`${fmtInt(item.success || 0)}/${fmtInt(item.attempts || 0)}`)}</span></td><td><span class="model-provider-usage"><strong>${escapeHtml(fmtTokenCount(item.total_tokens || 0))}</strong><small>${escapeHtml(fmtCost(item.cost_usd || 0))}</small></span></td><td><span class="model-latency-badge mono">${iconSvg("clock")}${escapeHtml(fmtCompactMs(item.avg_first_event_ms || item.avg_duration_ms || 0))}</span></td></tr>`).join("")}</tbody></table></div>
         </section>
-        <section class="model-current-support"><h3 class="drawer-section-title model-drawer-section-head"><span>${escapeHtml(t("model_usage.current_support"))}</span><strong>${escapeHtml(fmtInt(support.filter((item) => item.enabled).length))}</strong></h3>${support.map((item) => `<div><strong>${escapeHtml(item.provider || "-")}</strong><span class="mono">${escapeHtml(item.provider_model || "-")}</span><span>${(Array.isArray(item.formats) ? item.formats : []).map(shortFormatLabel).map(escapeHtml).join(" · ") || "-"}</span><small>${escapeHtml(`${item.key_coverage?.eligible || 0}/${item.key_coverage?.total || 0} ${t("model_usage.keys")}`)}</small></div>`).join("") || `<div class="empty">${escapeHtml(t("model_usage.no_support"))}</div>`}</section>
+        <section class="model-current-support"><h3 class="drawer-section-title model-drawer-section-head"><span>${escapeHtml(routingPath.length ? t("model_usage.routing_path") : t("model_usage.current_support"))}</span><strong>${escapeHtml(routingPath.length ? (excludedSupport.length ? `${fmtInt(routingPath.length)}/${fmtInt(routingPath.length + excludedSupport.length)}` : fmtInt(routingPath.length)) : `${fmtInt(support.filter((item) => (item.available !== undefined ? item.available : item.enabled)).length)}/${fmtInt(support.length)}`)}</strong></h3>${rotationMode ? `<p class="support-mode-note">${escapeHtml(t("model_usage.rotation_note", { mode: rotationMode }))}</p>` : ""}${routingPath.length ? `${routingPath.map(renderModelRoutingStep).join("")}${excludedSupport.map((item) => renderModelSupportRow(item, { excluded: true })).join("")}` : support.map((item) => renderModelSupportRow(item)).join("") || `<div class="empty">${escapeHtml(t("model_usage.no_support"))}</div>`}</section>
       </div>
     `);
   }

@@ -347,7 +347,7 @@
           </div>
         </section>
 
-        <section id="configView" class="view">
+        <section id="configView" class="view is-model-data">
           <div class="config-grid">
             <div class="config-column config-main-column">
               <section class="panel config-provider-panel">
@@ -371,8 +371,8 @@
 
             <div class="config-column config-side-column">
               <div class="config-tab-nav" id="configTabNav" role="tablist">
-                <button class="is-active" type="button" data-config-tab="routes" role="tab" aria-selected="true" tabindex="0" data-i18n="cfg.tab_routes">Routes</button>
-                <button type="button" data-config-tab="models" role="tab" aria-selected="false" tabindex="-1" data-i18n="cfg.tab_data_statistics">Data Statistics</button>
+                <button class="is-active" type="button" data-config-tab="models" role="tab" aria-selected="true" tabindex="0" data-i18n="cfg.tab_data_statistics">Data Statistics</button>
+                <button type="button" data-config-tab="routes" role="tab" aria-selected="false" tabindex="-1" data-i18n="cfg.tab_routes">Routes</button>
                 <button type="button" data-config-tab="map" role="tab" aria-selected="false" tabindex="-1" data-i18n="cfg.tab_map">Map</button>
                 <button type="button" data-config-tab="runtime" role="tab" aria-selected="false" tabindex="-1" data-i18n="cfg.tab_runtime">Runtime</button>
                 <button type="button" data-config-tab="proxy" role="tab" aria-selected="false" tabindex="-1" data-i18n="cfg.tab_proxy">Proxy</button>
@@ -380,7 +380,7 @@
                 <button type="button" data-config-tab="advanced" role="tab" aria-selected="false" tabindex="-1" data-i18n="cfg.tab_advanced">Advanced</button>
               </div>
 
-              <div class="config-tab-panel" data-config-tab-panel="routes">
+              <div class="config-tab-panel" data-config-tab-panel="routes" hidden>
               <section id="modelRoutesPanel" class="panel model-routes-panel">
                 <div class="panel-head">
                   <div>
@@ -429,7 +429,7 @@
 
               </div>
 
-              <div class="config-tab-panel" data-config-tab-panel="models" hidden>
+              <div class="config-tab-panel" data-config-tab-panel="models">
                 <section class="panel model-usage-panel statistics-panel">
                   <div class="statistics-subnav" id="statisticsViewTabs" role="tablist" aria-label="Statistics views" data-i18n-attr="aria-label:usage_stats.views_label">
                     <button id="usageStatisticsViewTab" class="is-active" type="button" role="tab" aria-selected="true" aria-controls="usageStatisticsView" tabindex="0" data-statistics-view="usage" data-i18n="usage_stats.usage_tab">Usage Statistics</button>

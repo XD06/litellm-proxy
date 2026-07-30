@@ -10,7 +10,7 @@ export const state = {
   requestFilters: {
     status: "",
   },
-  configTab: "routes",
+  configTab: "models",
   statisticsView: "usage",
   usageStatisticsRange: "all",
   usageStatisticsMetric: "tokens",
