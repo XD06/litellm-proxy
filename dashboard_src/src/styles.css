@@ -3579,6 +3579,15 @@ tr.clickable:hover {
   align-items: center;
 }
 
+.failure-policy-head h3 {
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+.failure-policy-head .compact-control {
+  margin-left: auto;
+}
+
 .key-card-badges {
   display: inline-flex;
   gap: 6px;
@@ -3665,8 +3674,7 @@ tr.clickable:hover {
   color: var(--faint);
 }
 
-.provider-metrics,
-.policy-summary-grid {
+.provider-metrics {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
@@ -3713,8 +3721,7 @@ tr.clickable:hover {
   white-space: nowrap;
 }
 
-.runtime-state-strip,
-.policy-decision-strip {
+.runtime-state-strip {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -4904,8 +4911,33 @@ form.is-busy {
   font-size: 12px;
 }
 
-.policy-summary-grid {
-  padding: 14px 14px 0;
+.policy-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  align-items: center;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.policy-fact {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 720;
+}
+
+.policy-fact .icon-svg {
+  width: 13px;
+  height: 13px;
+  color: var(--faint);
+}
+
+.policy-fact b {
+  color: var(--text);
+  font: 740 11.5px var(--mono);
 }
 
 .policy-controls {
@@ -4982,70 +5014,23 @@ form.is-busy {
   color: var(--text);
 }
 
-.policy-card-list,
 .failure-policy-list {
   display: grid;
-  gap: 10px;
-  padding: 14px;
+  gap: 8px;
+  padding: 12px;
 }
 
-.policy-rule-card,
 .failure-policy-card {
   display: grid;
   gap: 10px;
   min-width: 0;
   padding: 12px;
   border: 1px solid var(--line);
-  border-left: 3px solid var(--neutral);
   border-radius: 8px;
   background: var(--surface);
   box-shadow: var(--shadow);
 }
 
-.policy-rule-card.tone-danger,
-.failure-policy-card.tone-danger {
-  border-left-color: var(--danger);
-}
-
-.policy-rule-card.tone-warn,
-.failure-policy-card.tone-warn {
-  border-left-color: var(--warning);
-}
-
-.policy-rule-card.tone-info,
-.failure-policy-card.tone-info {
-  border-left-color: var(--info);
-}
-
-.policy-rule-card.tone-compat,
-.failure-policy-card.tone-compat {
-  border-left-color: var(--compat);
-}
-
-.policy-rule-card.tone-success,
-.failure-policy-card.tone-success {
-  border-left-color: var(--success);
-}
-
-.policy-rule-head {
-  display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
-  gap: 10px;
-}
-
-.rule-index {
-  display: grid;
-  width: 30px;
-  height: 30px;
-  place-items: center;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--muted);
-  font: 760 11px var(--mono);
-}
-
-.policy-rule-head h3,
 .failure-policy-head h3 {
   margin: 0;
   color: var(--text);
@@ -5054,15 +5039,97 @@ form.is-busy {
   line-height: 1.35;
 }
 
-.policy-rule-head p,
 .failure-policy-card p {
   margin-top: 3px;
-  color: var(--text);
+  color: var(--muted);
   font-size: 12px;
   line-height: 1.45;
 }
 
-.policy-rule-meta,
+/* Rule decision matrix: one icon per decision, color only marks state. */
+.policy-matrix-wrap {
+  overflow-x: auto;
+}
+
+.policy-matrix {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.policy-matrix th,
+.policy-matrix td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.policy-matrix thead th {
+  background: var(--surface-raised);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 760;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.policy-matrix thead th .icon-svg {
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+  vertical-align: -2px;
+  color: var(--faint);
+}
+
+.policy-matrix tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.policy-matrix tbody tr:hover td {
+  background: var(--surface-raised);
+}
+
+.policy-matrix .pm-idx {
+  width: 36px;
+  color: var(--faint);
+  font: 720 11px var(--mono);
+  text-align: center;
+}
+
+.policy-matrix .pm-trigger {
+  min-width: 180px;
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 760;
+  text-align: left;
+}
+
+.policy-matrix .pm-col,
+.policy-matrix .pm-state {
+  width: 76px;
+  text-align: center;
+}
+
+.policy-matrix .pm-state .icon-svg {
+  width: 14px;
+  height: 14px;
+  vertical-align: middle;
+}
+
+.policy-matrix .pm-state.pass .icon-svg { color: var(--success); }
+.policy-matrix .pm-state.deny .icon-svg { color: var(--danger); }
+.policy-matrix .pm-state.cool .icon-svg { color: var(--warning); }
+
+.policy-matrix .pm-state.cool span {
+  margin-left: 4px;
+  color: var(--text);
+  font: 740 11px var(--mono);
+  vertical-align: middle;
+}
+
+.policy-matrix .pm-dash {
+  color: var(--line);
+  font-weight: 700;
+}
+
 .failure-policy-grid {
   display: grid;
   grid-template-columns: minmax(68px, auto) minmax(0, 1fr);
@@ -5071,12 +5138,10 @@ form.is-busy {
   font-size: 12px;
 }
 
-.policy-rule-meta span,
 .failure-policy-grid span {
   color: var(--muted);
 }
 
-.policy-rule-meta strong,
 .failure-policy-grid strong {
   min-width: 0;
   color: var(--text);
@@ -10200,7 +10265,6 @@ body {
 
   .provider-card-grid,
   .provider-model-list,
-  .policy-card-list,
   .failure-policy-list {
     grid-template-columns: 1fr;
     gap: 8px;
@@ -10222,7 +10286,6 @@ body {
 
   .provider-runtime-card,
   .model-capability-card,
-  .policy-rule-card,
   .failure-policy-card {
     gap: 10px;
     padding: 10px;
@@ -10397,16 +10460,9 @@ body {
     gap: 4px;
   }
 
-  .policy-rule-head {
-    grid-template-columns: 28px minmax(0, 1fr);
-    gap: 8px;
-  }
-
-  .rule-index {
-    width: 26px;
-    height: 26px;
-    border-radius: 7px;
-    font-size: 10px;
+  .policy-matrix th,
+  .policy-matrix td {
+    padding: 7px 8px;
   }
 
   .kv-grid {
@@ -13066,25 +13122,6 @@ body {
   box-shadow: none;
 }
 
-.policy-rule-head {
-  grid-template-columns: 8px 34px minmax(0, 1fr);
-  align-items: start;
-}
-
-.policy-rule-head > .status-dot {
-  margin-top: 11px;
-}
-
-.policy-rule-head h3,
-.policy-rule-head p {
-  overflow-wrap: anywhere;
-  word-break: normal;
-}
-
-.policy-rule-head .message-text {
-  white-space: normal;
-}
-
 .failure-policy-head h3 {
   min-width: 0;
   overflow-wrap: anywhere;
@@ -13110,10 +13147,6 @@ body {
   grid-column: 2 / -1;
   width: 100%;
   min-width: 0;
-}
-
-.failure-policy-card .failure-policy-head .badge {
-  margin-left: 0 !important;
 }
 
 .config-side-column,
@@ -13200,12 +13233,15 @@ body {
   box-shadow: none;
 }
 
-#policyView #routingControlForm {
-  border-left: 3px solid #111827;
+#policyView #retryControlForm {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  background: #fbfcfd;
 }
 
-#policyView #retryControlForm {
-  background: #fbfcfd;
+#policyView #retryControlForm > .button {
+  margin-top: auto;
 }
 
 #policyView .policy-control-card-head {
@@ -13250,7 +13286,7 @@ body {
 #policyView .selection-mode-field {
   gap: 8px;
   padding: 10px;
-  border-color: #dfe5ec;
+  border-color: transparent;
   border-radius: 10px;
   background: #fbfcfd;
 }
@@ -13292,8 +13328,8 @@ body {
 
 #policyView #routingControlForm #routeModeGroup button.is-active {
   border-color: #111827;
-  background: #111827;
-  color: #fff;
+  background: #eef2f7;
+  color: #111827;
 }
 
 #policyView #routingControlForm #routeModeGroup button.is-active .icon-svg {
@@ -13326,9 +13362,10 @@ body {
 }
 
 #policyView .policy-grid {
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.55fr);
-  gap: 14px;
-  margin-top: 14px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.85fr);
+  gap: 12px;
+  align-items: start;
+  margin-top: 20px;
 }
 
 @media (max-width: 1180px) {
@@ -13620,59 +13657,6 @@ body {
   align-self: start;
 }
 
-#policyView .policy-rule-card {
-  gap: 9px;
-  padding: 12px;
-  border-color: #e3e8ef;
-  border-radius: 10px;
-  box-shadow: none;
-}
-
-#policyView .policy-rule-head {
-  grid-template-columns: 8px 32px minmax(0, 1fr);
-  gap: 9px;
-}
-
-#policyView .policy-rule-head h3 {
-  font-size: 13px;
-}
-
-#policyView .policy-rule-head p {
-  display: -webkit-box;
-  max-width: 100%;
-  overflow: hidden;
-  color: #64748b;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
-#policyView .policy-decision-strip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-#policyView .policy-rule-meta {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  padding-top: 0;
-}
-
-#policyView .policy-rule-meta span,
-#policyView .policy-rule-meta strong {
-  display: block;
-}
-
-#policyView .policy-rule-meta span {
-  color: #7b8491;
-  font-size: 10.5px;
-}
-
-#policyView .policy-rule-meta strong {
-  margin-top: 2px;
-  font-size: 11.5px;
-}
-
 #policyView .failure-policy-card.collapsible-card {
   border-color: #e3e8ef;
   border-radius: 10px;
@@ -13682,16 +13666,18 @@ body {
 
 #policyView .failure-policy-card .failure-policy-head {
   grid-template-columns: 8px minmax(0, 1fr) auto 16px;
-  padding: 11px 12px;
+  padding: 8px 12px;
 }
 
 #policyView .failure-policy-card .failure-policy-head h3 {
-  font-size: 13px;
+  font-size: 12.5px;
 }
 
 #policyView .failure-policy-card .failure-policy-head .compact-control {
-  grid-column: 2 / -1;
-  min-height: 34px;
+  grid-column: auto;
+  width: auto;
+  min-width: 128px;
+  min-height: 30px;
 }
 
 #policyView .failure-policy-card .collapsible-card-body .failure-policy-edit-grid {

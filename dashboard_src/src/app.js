@@ -6783,14 +6783,28 @@ import {
     const retryStatuses = Array.isArray(policy.retryable_status) ? policy.retryable_status : [];
     renderPolicyControls(policy);
     updateDOM(el("ruleTable"), ruleRows.length ? `
-      <div class="policy-summary-grid">
-        ${miniMetric("Max attempts", fmtInt(policy.max_attempts), "per request")}
-        ${miniMetric("Connect timeout", `${fmtInt(policy.connect_timeout_s)}s`, "upstream")}
-        ${miniMetric("Read timeout", `${fmtInt(policy.read_timeout_s)}s`, "upstream")}
-        ${miniMetric("Retry HTTP", retryStatuses.length ? retryStatuses.join(", ") : "-", "status codes")}
+      <div class="policy-facts">
+        <span class="policy-fact" title="${escapeHtml(t("policy.max_attempts_tip"))}">${iconSvg("rotate")}${t("policy.max_attempts")}<b>${fmtInt(policy.max_attempts)}</b></span>
+        <span class="policy-fact" title="connect / read">${iconSvg("clock")}${t("policy.timeouts")}<b>${fmtInt(policy.connect_timeout_s)}s · ${fmtInt(policy.read_timeout_s)}s</b></span>
+        <span class="policy-fact" title="${escapeHtml(t("policy.retryable_tip"))}">${iconSvg("shield")}${t("policy.retryable_statuses")}<b>${retryStatuses.length ? retryStatuses.join(", ") : "-"}</b></span>
       </div>
-      <div class="policy-card-list">
-        ${ruleRows.map(renderPolicyRule).join("")}
+      <div class="policy-matrix-wrap">
+        <table class="policy-matrix">
+          <thead>
+            <tr>
+              <th class="pm-idx">#</th>
+              <th class="pm-trigger">${t("policy.col_trigger")}</th>
+              <th class="pm-col">${iconSvg("rotate")}<span>${t("policy.col_retry")}</span></th>
+              <th class="pm-col">${iconSvg("arrow-right")}<span>${t("policy.col_switch")}</span></th>
+              <th class="pm-col">${iconSvg("power-off")}<span>${t("policy.col_stop")}</span></th>
+              <th class="pm-col">${iconSvg("clock")}<span>${t("policy.col_cooldown")}</span></th>
+              <th class="pm-col">${iconSvg("key")}<span>${t("policy.col_key")}</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${ruleRows.map(renderPolicyRule).join("")}
+          </tbody>
+        </table>
       </div>
     ` : `<div class="empty pad">No rule table</div>`);
 
@@ -7077,32 +7091,35 @@ import {
     return runConfigMutation(form, operation, optimistic);
   }
 
+  function pmStateCell(tone, icon, tip) {
+    return `<td class="pm-state ${tone}" title="${escapeHtml(tip)}">${icon ? iconSvg(icon) : `<span class="pm-dash">—</span>`}</td>`;
+  }
+
+  function pmShortDuration(value) {
+    const n = Number(value) || 0;
+    if (n >= 3600 && n % 3600 === 0) return `${n / 3600}h`;
+    if (n >= 60 && n % 60 === 0) return `${n / 60}m`;
+    return `${n}s`;
+  }
+
   function renderPolicyRule(rule, index) {
     const decision = policyDecision(rule);
-    const headDotTone = decision.retryable ? (decision.disables_key ? "bad" : "warn") : "bad";
+    const scope = decision.cooldown_scope || "none";
+    const canSwitch = Boolean(rule.retry_next_attempt);
+    const codes = [decision.error_type, decision.reason].filter((item, idx, arr) => item && arr.indexOf(item) === idx);
+    const tip = [rule.notes || "", codes.join(" · ")].filter(Boolean).join("\n");
     return `
-      <article class="policy-rule-card tone-${toneForText(decision.error_type || rule.match || "")}">
-        <div class="policy-rule-head">
-          <span class="status-dot ${headDotTone}"></span>
-          <span class="rule-index">${String(index + 1).padStart(2, "0")}</span>
-          <div>
-            <h3>${messageMarkup(rule.match || rule.name || "-")}</h3>
-            <p>${messageMarkup(rule.notes || decision.reason || "-")}</p>
-          </div>
-        </div>
-        <div class="policy-decision-strip">
-          ${decisionBadgeWithDot(decision.retryable ? "retry" : "no retry", decision.retryable ? "ok" : "bad")}
-          ${decisionBadgeWithDot(rule.retry_next_attempt ? "switch attempt" : "do not switch", rule.retry_next_attempt ? "ok" : "bad")}
-          ${decisionBadgeWithDot(decision.stop_attempts ? "stop attempts" : "continue", decision.stop_attempts ? "bad" : "ok")}
-          ${decisionBadgeWithDot(`cooldown ${decision.cooldown_scope || "none"}`, toneForText(decision.cooldown_scope || "none"))}
-          ${decisionBadgeWithDot(decision.disables_key ? "disable key" : "keep key", decision.disables_key ? "bad" : "neutral")}
-        </div>
-        <div class="policy-rule-meta">
-          <span>Error</span><strong>${messageMarkup(decision.error_type || "-")}</strong>
-          <span>Reason</span><strong>${messageMarkup(decision.reason || "-")}</strong>
-          <span>Cooldown</span><strong>${escapeHtml(fmtInt(decision.cooldown_s))}s</strong>
-        </div>
-      </article>
+      <tr>
+        <td class="pm-idx">${String(index + 1).padStart(2, "0")}</td>
+        <td class="pm-trigger" title="${escapeHtml(tip)}">${escapeHtml(rule.match || rule.name || "-")}</td>
+        ${decision.retryable ? pmStateCell("pass", "check", "retry") : pmStateCell("deny", "x", "no retry")}
+        ${canSwitch ? pmStateCell("pass", "check", "switch attempt") : pmStateCell("deny", "x", "no switch")}
+        ${decision.stop_attempts ? pmStateCell("deny", "power-off", "stop attempts") : pmStateCell("idle", "", "continue")}
+        ${scope === "none"
+          ? pmStateCell("idle", "", "no cooldown")
+          : `<td class="pm-state cool" title="cooldown ${escapeHtml(scope)} · ${fmtInt(decision.cooldown_s)}s">${iconSvg("clock")}<span>${pmShortDuration(decision.cooldown_s)}</span></td>`}
+        ${decision.disables_key ? pmStateCell("deny", "key", "disable key") : pmStateCell("idle", "", "keep key")}
+      </tr>
     `;
   }
 
@@ -7110,11 +7127,10 @@ import {
     const scope = cfg.cooldown_scope || "none";
     const dotTone = scope === "none" ? "off" : scope === "key" ? "warn" : scope === "provider" ? "warn" : "bad";
     return `
-      <form class="failure-policy-card failure-policy-form collapsible-card tone-${toneForText(errorType)}" data-error-type="${escapeHtml(errorType)}">
+      <form class="failure-policy-card failure-policy-form collapsible-card" data-error-type="${escapeHtml(errorType)}">
         <div class="failure-policy-head collapsible-card-header">
           <span class="status-dot ${dotTone}"></span>
-          <h3>${messageMarkup(errorType)}</h3>
-          <span class="badge ${scope === "none" ? "neutral" : "warn"}" style="margin-left:auto">${escapeHtml(scope)}</span>
+          <h3>${escapeHtml(errorType)}</h3>
           <select class="control compact-control" name="cooldown_scope" aria-label="${escapeHtml(errorType)} cooldown scope">
             ${["none", "key", "provider", "key_provider"].map((item) => `<option value="${item}" ${scope === item ? "selected" : ""}>${item}</option>`).join("")}
           </select>
@@ -7150,12 +7166,6 @@ import {
     if (text.includes("empty_visible")) return "Empty converted output is retried without cooling the upstream key.";
     if (text.includes("compat")) return "Compatibility failures are retried when another format/provider may satisfy the request.";
     return "Default failure handling for this error type.";
-  }
-
-  function decisionBadgeWithDot(label, tone) {
-    const safeTone = tone === "success" ? "ok" : tone === "danger" ? "bad" : tone === "warn" ? "warn" : tone;
-    const dotClass = safeTone === "ok" ? "ok" : safeTone === "bad" ? "bad" : safeTone === "warn" ? "warn" : "off";
-    return `<span class="badge ${safeTone}"><span class="status-dot ${dotClass}" style="margin-right:4px"></span>${escapeHtml(label)}</span>`;
   }
 
   function policyDecision(rule) {
