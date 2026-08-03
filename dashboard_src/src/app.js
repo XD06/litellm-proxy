@@ -7,6 +7,7 @@ import { PROVIDER_CALL_BAR_SLOTS, recentProviderActivityEvents } from "./provide
 import { OptimisticConfigStore, appendPendingKey, appendPendingProvider } from "./optimistic-config.mjs";
 import { createMutationBusySetter, liveElementLocator, MutationBusyTracker } from "./mutation-ui.mjs";
 import { bindTrafficModeControls } from "./traffic-mode.mjs";
+import { chartScaleMax, niceChartMax, positiveChartPoints } from "./traffic-chart-scale.mjs";
 import { ConfigRefreshCoordinator, InFlightActionRegistry } from "./operation-guard.mjs";
 import { groupRoutingTrace, routingTraceIdentity, routingTraceTone, summarizeFormatTraceStep } from "./routing-trace-view.mjs";
 import { shouldAcceptModelCapabilitySnapshot } from "./model-capability-order.mjs";
@@ -2558,6 +2559,7 @@ import {
     const traffic = currentTrafficTotal(counters);
     const usage = currentUsageTotal(counters);
     const displaySuccess = traffic.requests > 0 ? Math.min(traffic.success, traffic.requests) : traffic.success;
+    const displayFailed = traffic.requests > 0 ? Math.max(0, traffic.requests - displaySuccess) : traffic.failed;
     const successRate = traffic.requests > 0 ? Math.min(1, traffic.success / traffic.requests) : 1;
     const providerCount = providers.length;
     const providerAvailable = providers.filter((p) => p.available && p.enabled).length;
@@ -2594,17 +2596,19 @@ import {
         fmtTokenCount(usage.total_tokens),
         `${fmtTokenCount(usage.input_tokens)} ${t("traffic.input")} · ${fmtTokenCount(usage.output_tokens)} ${t("traffic.output")}`,
         "compat",
-        "boxes",
+        "layers",
         `${fmtInt(usage.total_tokens)} ${t("traffic.tokens")}`,
         `${fmtInt(usage.input_tokens)} ${t("traffic.input")} · ${fmtInt(usage.output_tokens)} ${t("traffic.output")}`,
+        "token",
+        "token",
       )}
-      ${overviewMetricCard(t("kpi.success_rate"), fmtPct(successRate), `${fmtInt(displaySuccess)} ${t("metric.success")}`, successRate >= 0.98 ? "success" : successRate >= 0.95 ? "info" : successRate >= 0.85 ? "warning" : "danger", "check")}
-      ${overviewMetricCard(t("kpi.first_byte"), latestLatency === null ? "-" : fmtMs(latestLatency), avgLatency === null ? t("kpi.no_samples") : `avg ${fmtMs(avgLatency)} / max ${fmtMs(maxLatency)}`, toneForLatency(avgLatency || latestLatency || 0), "clock")}
-      ${overviewMetricCard(t("kpi.active_keys"), `${fmtInt(keyUsable)}/${fmtInt(keyTotal)}`, `${fmtInt(providerAvailable)}/${fmtInt(providerCount)} ${t("metric.providers")}`, healthTone === "bad" ? "danger" : healthTone === "soft" ? "warning" : healthTone === "warn" ? "info" : "success", "key")}
+      ${overviewMetricCard(t("kpi.success_rate"), fmtPct(successRate), `${fmtInt(displaySuccess)} ${t("metric.success")} / ${fmtInt(displayFailed)} ${t("traffic.failed")}`, successRate >= 0.98 ? "success" : successRate >= 0.95 ? "info" : successRate >= 0.85 ? "warning" : "danger", "check-circle", "", "", "percent", "success")}
+      ${overviewMetricCard(t("kpi.first_byte"), latestLatency === null ? "-" : fmtMs(latestLatency), avgLatency === null ? t("kpi.no_samples") : `avg ${fmtMs(avgLatency)} / max ${fmtMs(maxLatency)}`, toneForLatency(avgLatency || latestLatency || 0), "zap", "", "", "latency")}
+      ${overviewMetricCard(t("kpi.active_keys"), `${fmtInt(keyUsable)}/${fmtInt(keyTotal)}`, `${fmtInt(providerAvailable)}/${fmtInt(providerCount)} ${t("metric.providers")}`, healthTone === "bad" ? "danger" : healthTone === "soft" ? "warning" : healthTone === "warn" ? "info" : "success", "key-round", "", "", "ratio", "key")}
     `);
   }
 
-  function overviewMetricCard(label, value, hint, tone, icon, valueTitle = "", hintTitle = "") {
+  function overviewMetricCard(label, value, hint, tone, icon, valueTitle = "", hintTitle = "", valueKind = "plain", hintKind = "plain") {
     const safeTone = ["compat", "success", "warning", "danger", "info"].includes(tone) ? tone : "info";
     return `
       <article class="visual-card accent-${escapeHtml(safeTone)}">
@@ -2612,10 +2616,43 @@ import {
           <span class="metric-label">${escapeHtml(label)}</span>
           <span class="metric-icon tone-${escapeHtml(safeTone)}">${iconSvg(icon || "activity")}</span>
         </div>
-        <strong class="metric-val"${valueTitle ? ` title="${escapeHtml(valueTitle)}"` : ""}>${escapeHtml(value)}</strong>
-        <small class="metric-sub"${hintTitle ? ` title="${escapeHtml(hintTitle)}"` : ""}>${metricDot(safeTone)}${escapeHtml(hint)}</small>
+        <strong class="metric-val metric-val-${escapeHtml(valueKind)}"${valueTitle ? ` title="${escapeHtml(valueTitle)}"` : ""}>${overviewMetricValue(value, valueKind)}</strong>
+        <small class="metric-sub metric-sub-${escapeHtml(hintKind)}"${hintTitle ? ` title="${escapeHtml(hintTitle)}"` : ""}>${overviewMetricHint(hint, safeTone, hintKind)}</small>
       </article>
     `;
+  }
+
+  function overviewMetricValue(value, kind) {
+    const text = String(value ?? "-");
+    if (kind === "ratio" && text.includes("/")) {
+      const [primary, ...rest] = text.split("/");
+      return `<span class="metric-val-main">${escapeHtml(primary.trim())}</span><span class="metric-val-secondary">/ ${escapeHtml(rest.join("/").trim())}</span>`;
+    }
+    const suffixPattern = kind === "percent"
+      ? /^(.*?)(%)$/
+      : kind === "latency"
+        ? /^(.*?)(ms|s)$/i
+        : kind === "token"
+          ? /^(.*?)([kmbt])$/i
+          : null;
+    const match = suffixPattern ? text.match(suffixPattern) : null;
+    if (!match) return `<span class="metric-val-main">${escapeHtml(text)}</span>`;
+    return `<span class="metric-val-main">${escapeHtml(match[1])}</span><span class="metric-val-unit">${escapeHtml(match[2])}</span>`;
+  }
+
+  function overviewMetricHint(hint, tone, kind) {
+    const text = String(hint ?? "");
+    if (kind === "success") {
+      const [positive, ...rest] = text.split(" / ");
+      const failure = rest.join(" / ");
+      return `<span class="metric-sub-positive">${escapeHtml(positive)}</span>${failure ? `<span class="metric-sub-divider">/</span><span>${escapeHtml(failure)}</span>` : ""}`;
+    }
+    if (kind === "token") return `${metricDot("success")}<span>${escapeHtml(text)}</span>`;
+    if (kind === "key") {
+      const match = text.match(/^(\S+)\s+(.*)$/);
+      if (match) return `<span class="metric-sub-positive">${escapeHtml(match[1])}</span><span>${escapeHtml(match[2])}</span>`;
+    }
+    return `<span>${escapeHtml(text)}</span>`;
   }
 
   function metricDot(tone) {
@@ -2683,10 +2720,18 @@ import {
       Number(bucket.output || 0) ||
       Number(bucket.total_tokens || 0)
     );
-    const useRecentSamples = !bucketHasSignal && recentSorted.length > 0;
+    const range = currentTimeRange();
+    const nowTs = Date.now() / 1000;
+    const windowFirstTs = Number(chartBuckets[0]?.start || (nowTs - range.bucket_s * range.buckets));
+    const windowLastTs = Number(chartBuckets[chartBuckets.length - 1]?.end || nowTs);
+    const recentInWindow = recentSorted.filter((request) => {
+      const ts = Number(request.finished_at || 0);
+      return ts >= windowFirstTs && ts <= windowLastTs;
+    });
+    const useRecentSamples = !bucketHasSignal && recentInWindow.length > 0;
 
     if (useRecentSamples) {
-      chartBuckets = recentSorted.slice(-72).map((request) => {
+      chartBuckets = recentInWindow.slice(-72).map((request) => {
         const ts = Number(request.finished_at || 0);
         const usage = usageFrom(request);
         const statusCode = Number(request.status_code || 0);
@@ -2790,7 +2835,7 @@ import {
       lastTs,
       width: 1120,
       height: 360,
-      pad: { top: 32, right: 72, bottom: 48, left: 72 },
+      pad: { top: 24, right: 96, bottom: 32, left: 72 },
       sourceLabel: useRecentSamples ? "recent requests" : sourceLabel,
       windowLabel: currentTimeRange().label,
       summary: {
@@ -2836,7 +2881,7 @@ import {
       guide.setAttribute("x2", bucket.dataset.trafficBucketSvgX || "0");
       guide.classList.add("is-visible");
       if (time) time.textContent = bucket.dataset.trafficBucketTime || "-";
-      const values = shell.dataset.trafficMode === "tokens"
+      const values = shell.dataset.trafficCurrentMode === "tokens"
         ? [
             ["Total tokens", bucket.dataset.trafficBucketTokens || "0"],
             ["Input", bucket.dataset.trafficBucketInput || "0"],
@@ -2875,19 +2920,11 @@ import {
     });
   }
 
-  function niceChartMax(value) {
-    const raw = Math.max(1, Number(value || 1));
-    const magnitude = Math.pow(10, Math.floor(Math.log10(raw)));
-    const normalized = raw / magnitude;
-    const step = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 3 ? 3 : normalized <= 5 ? 5 : 10;
-    return step * magnitude;
-  }
-
   function svgNum(value) {
     return Number(value || 0).toFixed(2).replace(/\.?0+$/, "");
   }
 
-  function smoothSvgPath(points, minY, maxY) {
+  function smoothSvgPath(points, minY, maxY, curveFactor = 1 / 6) {
     if (!points.length) return "";
     if (points.length === 1) return `M ${svgNum(points[0].x)} ${svgNum(points[0].y)}`;
     const clampY = (value) => Math.max(minY, Math.min(maxY, Number(value || 0)));
@@ -2897,13 +2934,69 @@ import {
       const p1 = points[i];
       const p2 = points[i + 1];
       const p3 = points[i + 2] || p2;
-      const cp1x = p1.x + (p2.x - p0.x) / 6;
-      const cp1y = clampY(p1.y + (p2.y - p0.y) / 6);
-      const cp2x = p2.x - (p3.x - p1.x) / 6;
-      const cp2y = clampY(p2.y - (p3.y - p1.y) / 6);
+      const cp1x = p1.x + (p2.x - p0.x) * curveFactor;
+      const cp1y = clampY(p1.y + (p2.y - p0.y) * curveFactor);
+      const cp2x = p2.x - (p3.x - p1.x) * curveFactor;
+      const cp2y = clampY(p2.y - (p3.y - p1.y) * curveFactor);
       path += ` C ${svgNum(cp1x)} ${svgNum(cp1y)}, ${svgNum(cp2x)} ${svgNum(cp2y)}, ${svgNum(p2.x)} ${svgNum(p2.y)}`;
     }
     return path;
+  }
+
+  function trafficDisplayBuckets(buckets) {
+    const source = Array.isArray(buckets) ? buckets : [];
+    if (state.timeRange !== "7d" || source.length <= 8) return source;
+
+    const groups = Array.from({ length: 8 }, () => []);
+    source.forEach((bucket, index) => {
+      const groupIndex = Math.round((index * (groups.length - 1)) / Math.max(1, source.length - 1));
+      groups[groupIndex].push(bucket);
+    });
+
+    return groups.map((group, groupIndex) => {
+      const representativeIndex = Math.round((groupIndex * (source.length - 1)) / (groups.length - 1));
+      const representative = source[representativeIndex] || group[0] || {};
+      const totals = group.reduce((memo, bucket) => {
+        const requests = Number(bucket.requests || 0);
+        const latency = Number(bucket.first_byte_ms_avg || 0);
+        memo.requests += requests;
+        memo.success += Number(bucket.success || 0);
+        memo.failed += Number(bucket.failed || 0);
+        memo.input += Number(bucket.input || 0);
+        memo.output += Number(bucket.output || 0);
+        memo.total_tokens += Number(bucket.total_tokens || 0);
+        memo.cost_usd += Number(bucket.cost_usd || 0);
+        if (requests > 0 && latency > 0) {
+          memo.latencyTotal += latency * requests;
+          memo.latencyRequests += requests;
+        }
+        return memo;
+      }, {
+        requests: 0,
+        success: 0,
+        failed: 0,
+        input: 0,
+        output: 0,
+        total_tokens: 0,
+        cost_usd: 0,
+        latencyTotal: 0,
+        latencyRequests: 0,
+      });
+      return {
+        ts: Number(representative.ts || representative.start || 0),
+        start: Number(representative.start || representative.ts || 0),
+        end: Number(representative.end || representative.ts || 0),
+        requests: totals.requests,
+        success: totals.success,
+        failed: totals.failed,
+        input: totals.input,
+        output: totals.output,
+        total_tokens: totals.total_tokens,
+        cost_usd: totals.cost_usd,
+        first_byte_ms_avg: totals.latencyRequests ? totals.latencyTotal / totals.latencyRequests : 0,
+        displayBucket: true,
+      };
+    });
   }
 
   function renderTrafficComboChart(options) {
@@ -2914,7 +3007,7 @@ import {
     const lastTs = Number(options.lastTs || firstTs);
     const plotW = width - pad.left - pad.right;
     const plotH = height - pad.top - pad.bottom;
-    const buckets = Array.isArray(options.buckets) ? options.buckets : [];
+    const buckets = trafficDisplayBuckets(options.buckets);
     const summary = options.summary || {};
     const requestMode = state.trafficChartMode === "requests";
     const workspaceTitle = requestMode ? t("traffic.request_volume") : t("traffic.token_usage");
@@ -2935,6 +3028,7 @@ import {
 
     const xFor = (bucket, index, total) => {
       const ts = Number(bucket.ts || 0);
+      if (bucket.displayBucket) return pad.left + (total > 1 ? (index / (total - 1)) * plotW : plotW / 2);
       if (lastTs > firstTs && ts) return pad.left + ((ts - firstTs) / (lastTs - firstTs)) * plotW;
       return pad.left + (total > 1 ? (index / (total - 1)) * plotW : plotW / 2);
     };
@@ -2980,29 +3074,24 @@ import {
 
     const safeMax = (values, fallback = 1) => Math.max(fallback, ...values.map((value) => Number(value || 0)));
     const barBaseline = height - pad.bottom;
+    const demoCurveFactor = 0.1;
 
     let svgContent = "";
     let legendItems = [];
 
     if (state.trafficChartMode === "requests") {
       const requestMax = niceChartMax(Math.max(4, safeMax(buckets.map((b) => b.requests), 1) * 1.15));
-      const latencyMax = niceChartMax(safeMax(buckets.map((b) => b.first_byte_ms_avg), 1000) * 1.15);
+      const latencyMax = chartScaleMax(buckets.map((bucket) => bucket.first_byte_ms_avg), { fallback: 1000, nice: true });
 
       const yBar = (value) => barBaseline - (Number(value || 0) / Math.max(1, requestMax)) * plotH;
       const yLatency = (value) => barBaseline - (Number(value || 0) / Math.max(1, latencyMax)) * plotH;
 
-      const requestLabels = [0, Math.ceil(requestMax / 2), requestMax];
-      const latencyLabels = [0, Math.ceil(latencyMax / 2), latencyMax];
+      const requestLabels = Array.from({ length: 6 }, (_, index) => (requestMax * index) / 5);
 
       // Draw grid lines and left Y axis labels (Requests)
       const gridAndLabels = requestLabels.map((label) => `
         <line class="axis traffic-grid-line" x1="${pad.left}" y1="${yBar(label)}" x2="${width - pad.right}" y2="${yBar(label)}"></line>
         <text class="traffic-axis-label" x="${pad.left - 14}" y="${yBar(label) + 4}" text-anchor="end">${escapeHtml(fmtInt(label))}</text>
-      `).join("");
-
-      // Draw right Y axis labels (Latency)
-      const rightLabels = latencyLabels.map((label) => `
-        <text class="traffic-axis-label traffic-axis-label-info" x="${width - pad.right + 14}" y="${yLatency(label) + 4}">${escapeHtml(fmtMs(label))}</text>
       `).join("");
 
       // Trend lines stay legible across sparse multi-day windows where bars
@@ -3021,17 +3110,18 @@ import {
         start: bucket.start,
         ts: bucket.ts,
       }));
-      const successPath = smoothSvgPath(successPoints, pad.top, barBaseline);
-      const failurePath = smoothSvgPath(failurePoints, pad.top, barBaseline);
+      const successPath = smoothSvgPath(successPoints, pad.top, barBaseline, demoCurveFactor);
+      const failurePath = smoothSvgPath(failurePoints, pad.top, barBaseline, demoCurveFactor);
+      const hasFailures = failurePoints.some((point) => point.value > 0);
       const successAreaPath = successPath && successPoints.length > 1
         ? `${successPath} L ${svgNum(successPoints[successPoints.length - 1].x)} ${svgNum(barBaseline)} L ${svgNum(successPoints[0].x)} ${svgNum(barBaseline)} Z`
         : "";
       const requestTrends = `
         ${successAreaPath ? `<path class="traffic-success-area" d="${successAreaPath}"></path>` : ""}
         ${successPath ? `<path class="traffic-success-line" d="${successPath}"></path>` : ""}
-        ${failurePath ? `<path class="traffic-failure-line" d="${failurePath}"></path>` : ""}
-        ${successPoints.length <= 64 ? successPoints.filter((point) => point.value > 0).map((point) => `<circle class="traffic-trend-dot traffic-success-dot" cx="${svgNum(point.x)}" cy="${svgNum(point.y)}" r="2.6"></circle>`).join("") : ""}
-        ${failurePoints.length <= 64 ? failurePoints.filter((point) => point.value > 0).map((point) => `<circle class="traffic-trend-dot traffic-failure-dot" cx="${svgNum(point.x)}" cy="${svgNum(point.y)}" r="2.6"></circle>`).join("") : ""}
+        ${hasFailures && failurePath ? `<path class="traffic-failure-line" d="${failurePath}"></path>` : ""}
+        ${successPoints.length <= 64 ? successPoints.filter((point) => point.value > 0).map((point) => `<circle class="traffic-trend-dot traffic-success-dot" cx="${svgNum(point.x)}" cy="${svgNum(point.y)}" r="3"></circle>`).join("") : ""}
+        ${hasFailures && failurePoints.length <= 64 ? failurePoints.filter((point) => point.value > 0).map((point) => `<circle class="traffic-trend-dot traffic-failure-dot" cx="${svgNum(point.x)}" cy="${svgNum(point.y)}" r="3"></circle>`).join("") : ""}
       `;
 
       // Draw latency line & area
@@ -3044,20 +3134,13 @@ import {
           start: bucket.start,
           ts: bucket.ts,
         }));
-      const latencyPath = smoothSvgPath(latencyPoints, pad.top, barBaseline);
-      const latencyAreaPath = latencyPath && latencyPoints.length > 1
-        ? `${latencyPath} L ${svgNum(latencyPoints[latencyPoints.length - 1].x)} ${svgNum(barBaseline)} L ${svgNum(latencyPoints[0].x)} ${svgNum(barBaseline)} Z`
-        : "";
-
-      const latencyArea = latencyAreaPath
-        ? `<path class="traffic-latency-region" d="${latencyAreaPath}"></path>`
-        : "";
+      const latencyPath = smoothSvgPath(latencyPoints, pad.top, barBaseline, demoCurveFactor);
       const latencyLine = latencyPath
         ? `<path class="traffic-latency-line" d="${latencyPath}"></path>`
         : "";
       const latencyDots = latencyPoints.length <= 64
         ? latencyPoints.map((point) => `
-            <circle class="traffic-trend-dot traffic-latency-dot" cx="${svgNum(point.x)}" cy="${svgNum(point.y)}" r="3.2">
+            <circle class="traffic-trend-dot traffic-latency-dot" cx="${svgNum(point.x)}" cy="${svgNum(point.y)}" r="3">
               <title>${escapeHtml(`${fmtDate(point.start || point.ts)} Avg Latency: ${fmtMs(point.value)}`)}</title>
             </circle>
           `).join("")
@@ -3065,33 +3148,29 @@ import {
 
       svgContent = `
         ${gridAndLabels}
-        ${rightLabels}
         ${requestTrends}
-        ${latencyArea}
         ${latencyLine}
         ${latencyDots}
-        <text class="traffic-axis-title" x="${pad.left}" y="${pad.top - 8}">requests</text>
-        <text class="traffic-axis-title traffic-axis-label-info" x="${width - pad.right}" y="${pad.top - 8}" text-anchor="end">latency</text>
       `;
 
       legendItems = [
         { dotClass: "traffic-success-legend", label: t("traffic.success_requests") },
-        { dotClass: "traffic-failure-legend", label: t("traffic.failures") },
+        ...(hasFailures ? [{ dotClass: "traffic-failure-legend", label: t("traffic.failures") }] : []),
         { dotClass: "traffic-latency-legend", label: t("traffic.avg_latency") },
       ];
     } else {
       // Tokens & Usage mode
-      const tokenMax = niceChartMax(safeMax(buckets.flatMap((bucket) => [
+      const tokenMax = chartScaleMax(buckets.flatMap((bucket) => [
         bucket.total_tokens,
         bucket.input,
         bucket.output,
-      ]), 1000) * 1.15);
-      const costMax = safeMax(buckets.map((b) => b.cost_usd), 0.01) * 1.15;
+      ]), { fallback: 1000, nice: true });
+      const costMax = chartScaleMax(buckets.map((bucket) => bucket.cost_usd), { fallback: 0.01 });
 
       const yToken = (value) => barBaseline - (Number(value || 0) / Math.max(1, tokenMax)) * plotH;
       const yCost = (value) => barBaseline - (Number(value || 0) / Math.max(0.000001, costMax)) * plotH;
 
-      const tokenLabels = [0, Math.ceil(tokenMax / 2), tokenMax];
+      const tokenLabels = Array.from({ length: 5 }, (_, index) => (tokenMax * index) / 4);
       const costLabels = [0, costMax / 2, costMax];
 
       // Draw grid lines and left Y axis labels (Tokens)
@@ -3113,7 +3192,7 @@ import {
         start: bucket.start,
         ts: bucket.ts,
       }));
-      const totalPath = smoothSvgPath(totalPoints, pad.top, barBaseline);
+      const totalPath = smoothSvgPath(totalPoints, pad.top, barBaseline, demoCurveFactor);
       const totalAreaPath = totalPath && totalPoints.length > 1
         ? `${totalPath} L ${svgNum(totalPoints[totalPoints.length - 1].x)} ${svgNum(barBaseline)} L ${svgNum(totalPoints[0].x)} ${svgNum(barBaseline)} Z`
         : "";
@@ -3129,7 +3208,7 @@ import {
         start: bucket.start,
         ts: bucket.ts,
       }));
-      const inputPath = smoothSvgPath(inputPoints, pad.top, barBaseline);
+      const inputPath = smoothSvgPath(inputPoints, pad.top, barBaseline, demoCurveFactor);
       const inputLine = inputPath ? `<path class="traffic-input-line" d="${inputPath}"></path>` : "";
 
       const outputPoints = enriched.map((bucket) => ({
@@ -3139,7 +3218,7 @@ import {
         start: bucket.start,
         ts: bucket.ts,
       }));
-      const outputPath = smoothSvgPath(outputPoints, pad.top, barBaseline);
+      const outputPath = smoothSvgPath(outputPoints, pad.top, barBaseline, demoCurveFactor);
       const outputLine = outputPath ? `<path class="traffic-output-line" d="${outputPath}"></path>` : "";
 
       // Draw cost line
@@ -3150,12 +3229,12 @@ import {
         start: bucket.start,
         ts: bucket.ts,
       }));
-      const costPath = smoothSvgPath(costPoints, pad.top, barBaseline);
+      const costPath = smoothSvgPath(costPoints, pad.top, barBaseline, demoCurveFactor);
       const costLine = costPath ? `<path class="traffic-cost-line" d="${costPath}"></path>` : "";
 
       // Draw dots for total tokens
       const totalDots = totalPoints.length <= 64
-        ? totalPoints.map((point) => `
+        ? positiveChartPoints(totalPoints).map((point) => `
             <circle class="traffic-trend-dot traffic-total-dot" cx="${svgNum(point.x)}" cy="${svgNum(point.y)}" r="3.6">
               <title>${escapeHtml(`${fmtDate(point.start || point.ts)} Total Tokens: ${fmtTokenCount(point.value)}`)}</title>
             </circle>
@@ -3164,7 +3243,7 @@ import {
 
       // Draw dots for cost
       const costDots = costPoints.length <= 64 && costPath
-        ? costPoints.map((point) => `
+        ? positiveChartPoints(costPoints).map((point) => `
             <circle class="traffic-trend-dot traffic-cost-dot" cx="${svgNum(point.x)}" cy="${svgNum(point.y)}" r="3.2">
               <title>${escapeHtml(`${fmtDate(point.start || point.ts)} Est. Cost: ${fmtCost(point.value)}`)}</title>
             </circle>
@@ -3194,8 +3273,11 @@ import {
     }
 
     // Common elements: baseline, X ticks, and wrapping structure.
-    const xTicks = enriched.length > 2
-      ? [enriched[0], enriched[Math.floor(enriched.length / 2)], enriched[enriched.length - 1]]
+    const rangeTickCounts = { "30m": 7, "2h": 5, "24h": 7, "7d": 8 };
+    const desiredTickCount = rangeTickCounts[state.timeRange] || 8;
+    const tickCount = Math.min(desiredTickCount, enriched.length);
+    const xTicks = tickCount > 1
+      ? Array.from({ length: tickCount }, (_, index) => enriched[Math.round((index * (enriched.length - 1)) / (tickCount - 1))])
       : enriched;
 
     const shortDate = (ts) => {
@@ -3203,7 +3285,7 @@ import {
       if (!n) return "-";
       const d = new Date(n * 1000);
       const range = currentTimeRange();
-      const opts = range === timeRanges["24h"] || range === timeRanges["7d"]
+      const opts = range === timeRanges["7d"]
         ? { month: "2-digit", day: "2-digit" }
         : { hour: "2-digit", minute: "2-digit" };
       return d.toLocaleString(undefined, opts);
@@ -3224,7 +3306,13 @@ import {
         <div class="traffic-workspace-header">
           <div class="traffic-workspace-title">
             <strong>${escapeHtml(workspaceTitle)}</strong>
-            <small>${escapeHtml(workspaceSubtitle)}</small>
+            <div class="traffic-workspace-subtitle-row">
+              <small>${escapeHtml(workspaceSubtitle)}</small>
+              <div class="traffic-mode-selectors" role="group" aria-label="${escapeHtml(t("traffic.mode"))}">
+                <button type="button" class="button pill-toggle ${state.trafficChartMode === "requests" ? "is-active" : ""}" data-traffic-mode="requests" aria-pressed="${state.trafficChartMode === "requests" ? "true" : "false"}">${escapeHtml(t("traffic.requests"))}</button>
+                <button type="button" class="button pill-toggle ${state.trafficChartMode === "tokens" ? "is-active" : ""}" data-traffic-mode="tokens" aria-pressed="${state.trafficChartMode === "tokens" ? "true" : "false"}">${escapeHtml(t("traffic.tokens"))}</button>
+              </div>
+            </div>
           </div>
           <div class="traffic-workspace-metrics">
             ${workspaceMetrics.map((metric) => `
@@ -3237,33 +3325,33 @@ import {
               </div>
             `).join("")}
           </div>
-          <div class="traffic-mode-selectors" role="group" aria-label="${escapeHtml(t("traffic.mode"))}">
-            <button type="button" class="button pill-toggle ${state.trafficChartMode === "requests" ? "is-active" : ""}" data-traffic-mode="requests" aria-pressed="${state.trafficChartMode === "requests" ? "true" : "false"}">${escapeHtml(t("traffic.requests"))}</button>
-            <button type="button" class="button pill-toggle ${state.trafficChartMode === "tokens" ? "is-active" : ""}" data-traffic-mode="tokens" aria-pressed="${state.trafficChartMode === "tokens" ? "true" : "false"}">${escapeHtml(t("traffic.tokens"))}</button>
+          <div class="traffic-workspace-actions">
+            <div class="traffic-trend-legend">${legend}</div>
           </div>
         </div>
         <div class="traffic-chart-header">
-          <div class="traffic-trend-legend">${legend}</div>
           <span class="traffic-chart-unit">${escapeHtml(t(state.trafficChartMode === "requests" ? "traffic.requests_per_minute" : "traffic.tokens_per_minute"))}</span>
         </div>
-        <svg viewBox="0 0 ${width} ${height}" role="group" aria-label="${escapeHtml(t("traffic.chart_aria"))}">
+        <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="group" aria-label="${escapeHtml(t("traffic.chart_aria"))}">
           <defs>
             <linearGradient id="trafficTokenArea" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stop-color="#a855f7" stop-opacity="0.22"></stop>
-              <stop offset="55%" stop-color="#a855f7" stop-opacity="0.07"></stop>
-              <stop offset="100%" stop-color="#a855f7" stop-opacity="0"></stop>
+              <stop offset="0%" stop-color="#7b55d6" stop-opacity="0.16"></stop>
+              <stop offset="55%" stop-color="#7b55d6" stop-opacity="0.055"></stop>
+              <stop offset="100%" stop-color="#7b55d6" stop-opacity="0"></stop>
             </linearGradient>
             <linearGradient id="trafficLatencyArea" x1="0" x2="0" y1="0" y2="1">
               <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.16"></stop>
               <stop offset="100%" stop-color="#f59e0b" stop-opacity="0"></stop>
             </linearGradient>
             <linearGradient id="trafficRequestArea" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stop-color="#239d79" stop-opacity="0.18"></stop>
-              <stop offset="100%" stop-color="#239d79" stop-opacity="0"></stop>
+              <stop offset="0%" stop-color="#10b981" stop-opacity="0.12"></stop>
+              <stop offset="55%" stop-color="#10b981" stop-opacity="0.04"></stop>
+              <stop offset="100%" stop-color="#10b981" stop-opacity="0"></stop>
             </linearGradient>
           </defs>
           <g aria-hidden="true">
             <rect class="traffic-plot-bg" x="${pad.left}" y="${pad.top}" width="${plotW}" height="${plotH}" rx="0"></rect>
+            <line class="axis traffic-y-axis" x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${barBaseline}"></line>
             ${svgContent}
             <line class="traffic-inspection-guide" data-traffic-guide x1="0" y1="${pad.top}" x2="0" y2="${barBaseline}"></line>
             <line class="axis traffic-baseline" x1="${pad.left}" y1="${barBaseline}" x2="${width - pad.right}" y2="${barBaseline}"></line>
@@ -3527,9 +3615,13 @@ import {
 
   function renderHealthOverview() {
     const target = el("healthOverview");
+    const summaryTarget = el("healthHeaderSummary");
+    const subtitleTarget = el("healthPanelSubtitle");
     if (!target) return;
     const hs = state.data.healthScores;
     if (!hs || !hs.providers) {
+      if (summaryTarget) updateDOM(summaryTarget, "");
+      if (subtitleTarget) subtitleTarget.textContent = t("health.loading");
       updateDOM(target, `<div class="health-overview-loading">${iconSvg("rotate")}<span>${escapeHtml(t("health.loading"))}</span></div>`);
       return;
     }
@@ -3537,6 +3629,8 @@ import {
     const providers = hs.providers;
     const names = Object.keys(providers);
     if (!names.length) {
+      if (summaryTarget) updateDOM(summaryTarget, "");
+      if (subtitleTarget) subtitleTarget.textContent = t("health.no_data");
       updateDOM(target, `<div class="health-overview-empty">${escapeHtml(t("health.no_data"))}</div>`);
       return;
     }
@@ -3544,21 +3638,19 @@ import {
     names.sort((a, b) => (providers[a].score || 0) - (providers[b].score || 0));
     const overallGrade = overall >= 90 ? "excellent" : overall >= 75 ? "good" : overall >= 50 ? "fair" : overall >= 25 ? "poor" : "critical";
     const overallTone = overall >= 75 ? "success" : overall >= 50 ? "warning" : "danger";
-    const visibleNames = names.slice(0, 8);
+    const visibleNames = names.slice(0, 6);
     const hiddenCount = Math.max(0, names.length - visibleNames.length);
+    if (subtitleTarget) subtitleTarget.textContent = t("health.providers_count", { count: fmtInt(names.length) });
+    if (summaryTarget) updateDOM(summaryTarget, `
+      <span class="health-overview-score tone-${escapeHtml(overallTone)}">
+        <span class="health-score-ring ${escapeHtml(overallGrade)}">
+          <strong>${fmtInt(overall)}</strong>
+          <small>/ 100</small>
+        </span>
+        <span class="health-score-label">${escapeHtml(t("health.grade." + overallGrade))}</span>
+      </span>
+    `);
     updateDOM(target, `
-      <div class="health-overview-header">
-        <div class="health-overview-score tone-${escapeHtml(overallTone)}">
-          <span class="health-score-ring ${escapeHtml(overallGrade)}">
-            <strong>${fmtInt(overall)}</strong>
-            <small>/ 100</small>
-          </span>
-          <span class="health-score-label">${escapeHtml(t("health.grade." + overallGrade))}</span>
-        </div>
-        <div class="health-overview-meta">
-          <span>${iconSvg("server")} ${escapeHtml(t("health.providers_count", { count: fmtInt(names.length) }))}</span>
-        </div>
-      </div>
       <div class="health-overview-list">
         ${visibleNames.map((name) => {
           const p = providers[name];
@@ -3570,8 +3662,7 @@ import {
               <div class="health-provider-bar">
                 <div class="health-provider-bar-fill tone-${escapeHtml(tone)}" style="width:${Math.max(2, Math.min(100, p.score))}%"></div>
               </div>
-              <span class="health-provider-score">${fmtInt(p.score)}</span>
-              <span class="health-provider-grade grade-${escapeHtml(gradeLabel)}">${escapeHtml(t("health.grade." + gradeLabel))}</span>
+              <span class="health-provider-grade grade-${escapeHtml(gradeLabel)}">${escapeHtml(t("health.grade." + gradeLabel))} <strong>${fmtInt(p.score)}</strong></span>
             </div>
           `;
         }).join("")}
@@ -3640,30 +3731,6 @@ import {
     bindViewTargetButtons();
   }
 
-  function selectAllBannerHtml(total, items) {
-    const visibleIds = items.map((item) => String(item.request_id || "")).filter(Boolean);
-    const selectedVisible = visibleIds.filter((id) => state.selectedRequestIds.has(id)).length;
-    const allVisibleSelected = visibleIds.length > 0 && selectedVisible === visibleIds.length;
-    if (allVisibleSelected && total > visibleIds.length) {
-      if (state.allMatchingSelected) {
-        return `
-          <div class="request-select-all-banner">
-            <span>${escapeHtml(t("req.all_matching_selected", { count: fmtInt(total) }))}</span>
-            <button type="button" class="button link-action" data-request-clear-all-matching>${escapeHtml(t("req.clear_selection"))}</button>
-          </div>
-        `;
-      } else {
-        return `
-          <div class="request-select-all-banner">
-            <span>${escapeHtml(t("req.page_selected", { count: fmtInt(visibleIds.length) }))}</span>
-            <button type="button" class="button link-action" data-request-select-all-matching>${escapeHtml(t("req.select_all_matching", { count: fmtInt(total) }))}</button>
-          </div>
-        `;
-      }
-    }
-    return "";
-  }
-
   function renderRequestsTable() {
     const data = state.data.requests || {};
     const items = Array.isArray(data.items) ? data.items : [];
@@ -3683,28 +3750,35 @@ import {
       ? t("req.matching_count", { total: fmtInt(total), source: sourceLabel, start: fmtInt(start), end: fmtInt(end) })
       : t("req.no_matching_count", { source: sourceLabel });
     const target = el("requestsTable");
+    const pageRoot = el("requestsView");
+    const paginationTarget = el("requestToolbarPagination");
+    const vitalsTarget = el("requestsPageVitals");
+    const searchIcon = el("requestSearchIcon");
+    if (searchIcon && !searchIcon.dataset.iconified) {
+      updateDOM(searchIcon, iconSvg("search"));
+      searchIcon.dataset.iconified = "1";
+    }
+    updateDOM(vitalsTarget, requestPageVisuals(items));
+    updateDOM(paginationTarget, requestPagination(total, currentPage, totalPages, items));
     if (!items.length) {
-      updateDOM(target, `<div class="request-list-head">${requestPagination(total, currentPage, totalPages, items)}</div><div class="empty pad">${escapeHtml(t("req.no_matching"))}</div>`);
-      bindRequestPagination(target, totalPages);
-      updateRequestSelectionUi();
+      updateDOM(target, `<div class="empty pad">${escapeHtml(t("req.no_matching"))}</div>`);
+      bindRequestPagination(paginationTarget, totalPages);
+      updateRequestSelectionUi(pageRoot, items);
       return;
     }
     const rows = items.map(requestSummaryRow).join("");
     updateDOM(target, `
-      <div class="request-list-head">${requestPagination(total, currentPage, totalPages, items)}</div>
-      ${selectAllBannerHtml(total, items)}
-      ${requestPageVisuals(items)}
       <div class="request-table-scroll">
-        <table class="request-data-table">
+        <table class="request-data-table${items.length === REQUEST_PAGE_SIZE ? " is-full-page" : ""}">
           <caption class="sr-only">${escapeHtml(t("req.table_label"))}</caption>
           <thead>
             <tr>
-              <th scope="col" class="request-select-column"><span class="sr-only">${escapeHtml(t("req.select"))}</span></th>
-              <th scope="col">${escapeHtml(t("req.col_model"))}</th>
+              <th scope="col">${escapeHtml(t("req.col_model_time"))}</th>
               <th scope="col">${escapeHtml(t("req.col_status"))}</th>
-              <th scope="col">${escapeHtml(t("req.col_route"))}</th>
-              <th scope="col">${escapeHtml(t("req.col_tokens"))} / ${escapeHtml(t("req.col_cost"))}</th>
-              <th scope="col">${escapeHtml(t("req.col_latency"))}</th>
+              <th scope="col">${escapeHtml(t("req.col_provider_route"))}</th>
+              <th scope="col" class="request-numeric-column">${escapeHtml(t("req.col_tokens_detail"))}</th>
+              <th scope="col" class="request-numeric-column">${escapeHtml(t("req.col_cost_estimate"))}</th>
+              <th scope="col" class="request-numeric-column">${escapeHtml(t("req.col_latency_ttft"))}</th>
               <th scope="col" class="request-open-column"><span class="sr-only">${escapeHtml(t("req.open"))}</span></th>
             </tr>
           </thead>
@@ -3713,9 +3787,8 @@ import {
       </div>
     `);
     bindRequestRowInteractions(target);
-    bindRequestSelection(target, items);
-    bindRequestPagination(target, totalPages);
-    updateRequestSelectionUi();
+    bindRequestPagination(paginationTarget, totalPages);
+    updateRequestSelectionUi(pageRoot, items);
   }
 
   function requestPageVisuals(items) {
@@ -3729,13 +3802,11 @@ import {
       : null;
     const totalTokens = rows.reduce((sum, r) => sum + usageFrom(r).total_tokens, 0);
     return `
-      <div class="request-page-vitals">
-        ${requestVital(t("req.success_metric"), success, rows.length, "success")}
-        ${requestVital(t("req.recovered_metric"), recovered, rows.length, "warning")}
-        ${requestVital(t("req.failed_metric"), failed, rows.length, "danger")}
-        <span class="request-vital request-vital-info">${iconSvg("clock")}<strong>${avgFirstByte === null ? "-" : escapeHtml(fmtMs(avgFirstByte))}</strong><small>${escapeHtml(t("req.first_event_metric"))}</small></span>
-        <span class="request-vital request-vital-compat">${iconSvg("activity")}<strong>${escapeHtml(fmtTokenCount(totalTokens))}</strong><small>${escapeHtml(t("req.tokens_metric"))}</small></span>
-      </div>
+      ${requestVital(t("req.success_metric"), success, rows.length, "success")}
+      ${requestVital(t("req.recovered_metric"), recovered, rows.length, "warning")}
+      ${requestVital(t("req.failed_metric"), failed, rows.length, "danger")}
+      <span class="request-vital request-vital-info">${iconSvg("clock")}<strong>${avgFirstByte === null ? "-" : escapeHtml(fmtMs(avgFirstByte))}</strong><small>${escapeHtml(t("req.first_event_metric"))}</small></span>
+      <span class="request-vital request-vital-compat">${iconSvg("activity")}<strong>${escapeHtml(fmtTokenCount(totalTokens))}</strong><small>${escapeHtml(t("req.tokens_metric"))}</small></span>
     `;
   }
 
@@ -3760,8 +3831,6 @@ import {
     const code = Number(r.status_code || 0);
     const firstByte = firstByteMsFromRequest(r);
     const requestId = String(r.request_id || "");
-    const isSelected = state.allMatchingSelected || state.selectedRequestIds.has(requestId);
-    const checked = isSelected ? "checked" : "";
     const source = String(r.client_ip || "-");
     const requestTime = fmtRequestDateParts(r.finished_at);
     const tokenTip = [
@@ -3777,8 +3846,7 @@ import {
     const firstEventTone = firstByte >= 30000 ? "is-danger" : firstByte >= 15000 ? "is-warning" : "";
     const durationTone = Number(r.duration_ms || 0) >= 60000 ? "is-warning" : "";
     return `
-      <tr class="request-data-row tone-${escapeHtml(statusTone)} ${isSelected ? "is-selected" : ""}" data-request-row="${escapeHtml(requestId)}" aria-selected="${isSelected ? "true" : "false"}">
-        <td class="request-row-select"><label data-tip="${escapeHtml(t("req.select"))}"><input type="checkbox" data-request-select="${escapeHtml(requestId)}" aria-label="${escapeHtml(t("req.select"))}" ${checked} /><span class="sr-only">${escapeHtml(t("req.select"))}</span></label></td>
+      <tr class="request-data-row tone-${escapeHtml(statusTone)}" data-request-row="${escapeHtml(requestId)}">
         <td class="request-cell-request">
           <span class="request-model-mark" data-tip="${escapeHtml(r.model || "-")}" aria-hidden="true">${modelBrandIconMarkup(r.model, iconSvg("boxes"))}</span>
           <span class="request-identity">
@@ -3793,14 +3861,16 @@ import {
         </td>
         <td class="request-cell-result"><span>${statusBadge(r.status, r.status_code)}</span><small class="mono">${code || "-"}</small></td>
         <td class="request-cell-route">
-          <span class="request-provider-chip" data-tip="${escapeHtml(provider)}">${iconSvg("server")}<strong>${escapeHtml(provider)}</strong></span>
+          <span class="request-provider-chip" data-tip="${escapeHtml(provider)}">${providerBrandIconMarkup(provider, iconSvg("server"))}<strong>${escapeHtml(provider)}</strong></span>
           <span class="request-route-chip tone-${escapeHtml(routeOutcomeTone(route))}">${iconSvg(routeOutcomeIcon(route))}${escapeHtml(recoveryText)}</span>
         </td>
         <td class="request-cell-usage" data-tip="${escapeHtml(tokenTip)}">
           <span class="request-token-block mono"><strong>${escapeHtml(fmtTokenCount(usage.total_tokens))}</strong><small>${escapeHtml(fmtTokenCount(usage.input_tokens))} / ${escapeHtml(fmtTokenCount(usage.output_tokens))}</small></span>
+        </td>
+        <td class="request-cell-cost">
           <span class="request-cost-chip">${renderCost({ ...r, cost_usd: usage.cost_usd }, { compact: true })}</span>
         </td>
-        <td class="request-cell-performance mono"><span class="request-latency-chip"><strong class="${firstEventTone}">${firstByte ? escapeHtml(fmtCompactMs(firstByte)) : "-"}</strong><i>/</i><small class="${durationTone}">${escapeHtml(fmtCompactMs(r.duration_ms))}</small></span></td>
+        <td class="request-cell-performance mono"><span class="request-latency-chip"><strong class="${durationTone}">${escapeHtml(fmtCompactMs(r.duration_ms))}</strong><small class="${firstEventTone}">${firstByte ? escapeHtml(fmtCompactMs(firstByte)) : "-"} ${escapeHtml(t("req.ttft_short"))}</small></span></td>
         <td class="request-row-open"><button class="icon-action request-row-open-button" type="button" data-request-open="${escapeHtml(requestId)}" aria-label="${escapeHtml(t("req.open_request", { id: requestId }))}">${iconSvg("chevron-right")}</button></td>
       </tr>
     `;
@@ -3845,21 +3915,9 @@ import {
     const visibleCount = items.length;
     const start = total ? state.requestsPage * REQUEST_PAGE_SIZE + 1 : 0;
     const end = total ? Math.min(total, start + Number(visibleCount || 0) - 1) : 0;
-    const visibleIds = items.map((item) => String(item.request_id || "")).filter(Boolean);
-    const selectedVisible = state.allMatchingSelected ? visibleIds.length : visibleIds.filter((id) => state.selectedRequestIds.has(id)).length;
-    const allVisibleSelected = state.allMatchingSelected || (visibleIds.length > 0 && selectedVisible === visibleIds.length);
-    const labelText = state.allMatchingSelected
-      ? t("req.selected", { count: fmtInt(total) })
-      : selectedVisible
-        ? t("req.selected", { count: fmtInt(selectedVisible) })
-        : t("req.select_page");
     const navigationBusy = Boolean(_requestPageNavigation);
     return `
       <div class="request-page-summary">
-        <label class="request-page-select">
-          <input type="checkbox" data-request-select-page ${allVisibleSelected ? "checked" : ""} ${visibleIds.length ? "" : "disabled"} />
-          <span>${labelText}</span>
-        </label>
         <span>${escapeHtml(t("req.range_of", { start: fmtInt(start), end: fmtInt(end), total: fmtInt(total) }))}</span>
       </div>
       <div class="request-pagination" aria-label="${escapeHtml(t("req.request_pages"))}" ${navigationBusy ? 'aria-busy="true"' : ""}>
@@ -3879,7 +3937,7 @@ import {
         if (requestId) openRequestDetail(requestId);
       };
       row.addEventListener("click", (event) => {
-        if (event.target.closest(".request-row-select, input, button, a")) return;
+        if (event.target.closest("input, button, a")) return;
         open();
       });
     });
@@ -3888,71 +3946,7 @@ import {
     });
   }
 
-  function bindRequestSelection(root, items) {
-    root.querySelectorAll("[data-request-select]").forEach((input) => {
-      if (input.dataset.bounddatarequestselect) return;
-      input.dataset.bounddatarequestselect = "1";
-      input.addEventListener("click", (event) => event.stopPropagation());
-      input.addEventListener("change", () => {
-        const requestId = input.dataset.requestSelect || "";
-        if (!requestId) return;
-        if (state.allMatchingSelected) {
-          state.allMatchingSelected = false;
-          state.selectedRequestIds.clear();
-          const visibleIds = (Array.isArray(items) ? items : []).map((item) => String(item.request_id || "")).filter(Boolean);
-          visibleIds.forEach((id) => {
-            if (id !== requestId) state.selectedRequestIds.add(id);
-          });
-          renderRequestsTable();
-        } else {
-          if (input.checked) state.selectedRequestIds.add(requestId);
-          else state.selectedRequestIds.delete(requestId);
-          const row = input.closest("[data-request-row]");
-          if (row) {
-            row.classList.toggle("is-selected", input.checked);
-            row.setAttribute("aria-selected", input.checked ? "true" : "false");
-          }
-          updateRequestSelectionUi(root, items);
-        }
-      });
-    });
-    const pageInput = root.querySelector("[data-request-select-page]");
-    if (pageInput) {
-      const ids = (Array.isArray(items) ? items : []).map((item) => String(item.request_id || "")).filter(Boolean);
-      const selected = ids.filter((id) => state.selectedRequestIds.has(id)).length;
-      pageInput.indeterminate = !state.allMatchingSelected && selected > 0 && selected < ids.length;
-      pageInput.addEventListener("change", () => {
-        state.allMatchingSelected = false;
-        ids.forEach((id) => {
-          if (pageInput.checked) state.selectedRequestIds.add(id);
-          else state.selectedRequestIds.delete(id);
-        });
-        renderRequestsTable();
-      });
-    }
-    const selectAllBtn = root.querySelector("[data-request-select-all-matching]");
-    if (selectAllBtn) {
-      selectAllBtn.addEventListener("click", () => {
-        state.allMatchingSelected = true;
-        state.selectedRequestIds.clear();
-        renderRequestsTable();
-      });
-    }
-    const clearAllBtn = root.querySelector("[data-request-clear-all-matching]");
-    if (clearAllBtn) {
-      clearAllBtn.addEventListener("click", () => {
-        state.allMatchingSelected = false;
-        state.selectedRequestIds.clear();
-        renderRequestsTable();
-      });
-    }
-  }
-
-  function updateRequestSelectionUi(root = el("requestsTable"), items = state.data.requests?.items || []) {
-    const total = Number(state.data.requests?.total || 0);
-    const count = state.allMatchingSelected ? total : state.selectedRequestIds.size;
-    const countEl = el("requestSelectedCount");
-    if (countEl) countEl.textContent = t("req.selected", { count: fmtInt(count) });
+  function updateRequestSelectionUi() {
     const deleteButton = el("deleteRequestsButton");
     if (deleteButton) {
       if (!deleteButton.dataset.iconified) {
@@ -3960,22 +3954,9 @@ import {
         deleteButton.dataset.iconified = "1";
       }
       const filters = activeRequestFilters();
-      const action = count ? "Delete selected" : Object.keys(filters).length ? "Delete matching" : "Clear history";
+      const action = Object.keys(filters).length ? "Delete matching" : "Clear history";
       deleteButton.title = action;
       deleteButton.setAttribute("aria-label", action);
-    }
-    const ids = (Array.isArray(items) ? items : []).map((item) => String(item.request_id || "")).filter(Boolean);
-    const selected = state.allMatchingSelected ? ids.length : ids.filter((id) => state.selectedRequestIds.has(id)).length;
-    const pageInput = root?.querySelector?.("[data-request-select-page]");
-    if (pageInput) {
-      pageInput.checked = ids.length > 0 && selected === ids.length;
-      pageInput.indeterminate = !state.allMatchingSelected && selected > 0 && selected < ids.length;
-      const label = pageInput.closest(".request-page-select")?.querySelector("span");
-      if (label) label.textContent = state.allMatchingSelected
-        ? t("req.selected", { count: fmtInt(total) })
-        : selected
-          ? t("req.selected", { count: fmtInt(selected) })
-          : t("req.select_page");
     }
   }
 
@@ -6270,17 +6251,20 @@ import {
       rotate: `<path d="M20 11a8 8 0 1 0-2.3 5.7"></path><path d="M20 4v7h-7"></path>`,
       trash: `<path d="M4 7h16"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M6 7l1 14h10l1-14"></path><path d="M9 7V4h6v3"></path>`,
       check: `<path d="M5 12l4 4L19 6"></path>`,
+      "check-circle": `<circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path>`,
       key: `<circle cx="7.5" cy="12.5" r="3.5"></circle><path d="M11 12.5h9"></path><path d="M16 12.5v3"></path><path d="M19 12.5v2"></path>`,
+      "key-round": `<path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"></path><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"></circle>`,
       activity: `<path d="M3 12h4l3-7 4 14 3-7h4"></path>`,
       radar: `<path d="M12 12l6-6"></path><circle cx="12" cy="12" r="2"></circle><path d="M20 12a8 8 0 1 1-2.3-5.7"></path><path d="M16.2 8.2a6 6 0 1 1-8.4 0"></path>`,
       alert: `<path d="M12 3 2.8 20h18.4L12 3z"></path><path d="M12 9v5"></path><path d="M12 17h.01"></path>`,
       gauge: `<path d="M4 14a8 8 0 1 1 16 0"></path><path d="M12 14l4-4"></path><path d="M7 14h.01"></path><path d="M17 14h.01"></path>`,
-      layers: `<path d="M12 3 3 8l9 5 9-5-9-5z"></path><path d="M3 12l9 5 9-5"></path><path d="M3 16l9 5 9-5"></path>`,
-      server: `<rect x="4" y="4" width="16" height="6" rx="2"></rect><rect x="4" y="14" width="16" height="6" rx="2"></rect><path d="M8 7h.01"></path><path d="M8 17h.01"></path><path d="M12 7h4"></path><path d="M12 17h4"></path>`,
+      layers: `<path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"></path><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"></path><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"></path>`,
+      server: `<rect width="20" height="8" x="2" y="2" rx="2" ry="2"></rect><rect width="20" height="8" x="2" y="14" rx="2" ry="2"></rect><line x1="6" x2="6.01" y1="6" y2="6"></line><line x1="6" x2="6.01" y1="18" y2="18"></line>`,
       "arrow-left": `<path d="M19 12H5"></path><path d="M12 19l-7-7 7-7"></path>`,
       "arrow-right": `<path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path>`,
       "arrow-up": `<path d="M12 19V5"></path><path d="M5 12l7-7 7 7"></path>`,
       "arrow-down": `<path d="M12 5v14"></path><path d="M19 12l-7 7-7-7"></path>`,
+      "git-branch": `<line x1="6" x2="6" y1="3" y2="15"></line><circle cx="18" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M18 9a9 9 0 0 1-9 9"></path>`,
       boxes: `<path d="M4 7l8-4 8 4-8 4-8-4z"></path><path d="M4 7v10l8 4 8-4V7"></path><path d="M12 11v10"></path>`,
       "chevron-right": `<path d="M9 18l6-6-6-6"></path>`,
       clock: `<circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path>`,
@@ -6296,7 +6280,7 @@ import {
       settings: `<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle>`,
       dot: `<circle cx="12" cy="12" r="2"></circle>`,
       bolt: `<path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"></path>`,
-      zap: `<path d="M13 2 4 14h7l-1 8 10-13h-7l0-7z"></path>`,
+      zap: `<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"></path>`,
       message: `<path d="M5 19l3-3h9a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v6a3 3 0 0 0 3 3"></path><path d="M8 9h8"></path><path d="M8 12h5"></path>`,
       shield: `<path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3z"></path>`,
       brain: `<path d="M9.5 4.5A3 3 0 0 0 4 6v1.2A3 3 0 0 0 3 12a3 3 0 0 0 1.5 4.8V18a3 3 0 0 0 5.5 1.6V4.8"></path><path d="M14.5 4.5A3 3 0 0 1 20 6v1.2a3 3 0 0 1 1 4.8 3 3 0 0 1-1.5 4.8V18a3 3 0 0 1-5.5 1.6V4.8"></path><path d="M8 9h2M14 9h2M8 15h2M14 15h2"></path>`,
@@ -6854,11 +6838,11 @@ import {
       <div class="policy-control-grid">
         <form id="routingControlForm" class="policy-control-card">
           <div class="policy-control-card-head">
-            <h3>${t("policy.routing")}<span class="help-tip" data-tip="${escapeHtml(t("policy.routing_tip2"))}">?</span></h3>
+            <h3>${iconSvg("git-branch")}<span>${t("policy.routing_controls")}</span><span class="help-tip" data-tip="${escapeHtml(t("policy.routing_tip2"))}">?</span></h3>
           </div>
           <label class="field">
             <span class="label-with-tip">${t("policy.provider_pool")}<span class="help-tip" data-tip="${escapeHtml(t("policy.provider_pool_tip"))}">?</span></span>
-            <input class="control" name="default_provider_pool" value="${escapeHtml(providerPool)}" placeholder="opencode, deepseek, rawchat" required />
+            <textarea class="control" name="default_provider_pool" rows="2" placeholder="opencode, deepseek, rawchat" required>${escapeHtml(providerPool)}</textarea>
           </label>
           <div class="form-pair-grid routing-mode-grid">
             <div class="field selection-mode-field">
@@ -6893,29 +6877,31 @@ import {
               <input class="control" name="anthropic_default_max_tokens" type="number" min="1" max="1000000" value="${escapeHtml(routing.anthropic_default_max_tokens ?? 4096)}" required />
             </label>
           </div>
-          <details class="policy-advanced">
-            <summary>${t("policy.timeouts")}</summary>
-            <div class="form-pair-grid" style="margin-top:10px">
-              <label class="field">
-                <span class="label-with-tip">${t("policy.connect")}<span class="help-tip" data-tip="${escapeHtml(t("policy.connect_tip"))}">?</span></span>
-                <input class="control" name="connect_timeout_s" type="number" min="1" max="3600" value="${escapeHtml(routing.connect_timeout_s ?? policy.connect_timeout_s ?? 15)}" required />
-              </label>
-              <label class="field">
-                <span class="label-with-tip">${t("policy.read")}<span class="help-tip" data-tip="${escapeHtml(t("policy.read_tip"))}">?</span></span>
-                <input class="control" name="read_timeout_s" type="number" min="1" max="3600" value="${escapeHtml(routing.read_timeout_s ?? policy.read_timeout_s ?? 120)}" required />
-              </label>
-              <label class="field">
-                <span class="label-with-tip">${t("policy.first_token")}<span class="help-tip" data-tip="${escapeHtml(t("policy.first_token_tip"))}">?</span></span>
-                <input class="control" name="first_token_timeout_s" type="number" min="0" max="600" value="${escapeHtml(routing.first_token_timeout_s ?? policy.first_token_timeout_s ?? 30)}" required />
-              </label>
-            </div>
-          </details>
-          <button class="button secondary" type="submit">${t("policy.save_routing")}</button>
+          <div class="policy-routing-footer">
+            <details class="policy-advanced">
+              <summary>${t("policy.timeouts")}</summary>
+              <div class="form-pair-grid" style="margin-top:10px">
+                <label class="field">
+                  <span class="label-with-tip">${t("policy.connect")}<span class="help-tip" data-tip="${escapeHtml(t("policy.connect_tip"))}">?</span></span>
+                  <input class="control" name="connect_timeout_s" type="number" min="1" max="3600" value="${escapeHtml(routing.connect_timeout_s ?? policy.connect_timeout_s ?? 15)}" required />
+                </label>
+                <label class="field">
+                  <span class="label-with-tip">${t("policy.read")}<span class="help-tip" data-tip="${escapeHtml(t("policy.read_tip"))}">?</span></span>
+                  <input class="control" name="read_timeout_s" type="number" min="1" max="3600" value="${escapeHtml(routing.read_timeout_s ?? policy.read_timeout_s ?? 120)}" required />
+                </label>
+                <label class="field">
+                  <span class="label-with-tip">${t("policy.first_token")}<span class="help-tip" data-tip="${escapeHtml(t("policy.first_token_tip"))}">?</span></span>
+                  <input class="control" name="first_token_timeout_s" type="number" min="0" max="600" value="${escapeHtml(routing.first_token_timeout_s ?? policy.first_token_timeout_s ?? 30)}" required />
+                </label>
+              </div>
+            </details>
+            <button class="button secondary" type="submit">${t("policy.save_routing")}</button>
+          </div>
         </form>
 
         <form id="retryControlForm" class="policy-control-card">
           <div class="policy-control-card-head">
-            <h3>${t("policy.retry")}<span class="help-tip" data-tip="${escapeHtml(t("policy.retry_tip"))}">?</span></h3>
+            <h3>${iconSvg("rotate")}<span>${t("policy.retry_controls")}</span><span class="help-tip" data-tip="${escapeHtml(t("policy.retry_tip"))}">?</span></h3>
           </div>
           <label class="field">
             <span class="label-with-tip">${t("policy.retryable_statuses")}<span class="help-tip" data-tip="${escapeHtml(t("policy.retryable_tip"))}">?</span></span>
@@ -11710,6 +11696,7 @@ return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g
     const sendBtn = el("pgSendButton");
     const stopBtn = el("pgStopButton");
     const clearBtn = el("pgClearButton");
+    const headerClearBtn = el("pgHeaderClearButton");
     const chat = el("pgChat");
 
     if (sendBtn && !sendBtn.dataset.pgBound) {
@@ -11723,6 +11710,10 @@ return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g
     if (clearBtn && !clearBtn.dataset.pgBound) {
       clearBtn.dataset.pgBound = "1";
       clearBtn.addEventListener("click", pgClear);
+    }
+    if (headerClearBtn && !headerClearBtn.dataset.pgBound) {
+      headerClearBtn.dataset.pgBound = "1";
+      headerClearBtn.addEventListener("click", pgClear);
     }
 
     // Enter to send, Shift+Enter for newline

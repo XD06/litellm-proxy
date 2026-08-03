@@ -9,7 +9,10 @@
       .skip-link { position: fixed; top: 8px; left: 8px; z-index: 2000; transform: translateY(-200%); }
       .skip-link:focus-visible { transform: translateY(0); }
     </style>
-    <link rel="stylesheet" href="/-/dashboard/styles.css?v=20260730-policy-matrix-2" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
+    <link rel="stylesheet" href="/-/dashboard/styles.css?v=20260802-routing-desktop-03" />
   </head>
   <body class="is-auth-checking">
     <a class="skip-link" href="#mainContent" data-i18n="a11y.skip_content">Skip to content</a>
@@ -146,13 +149,6 @@
 
           <div class="overview-grid">
             <section class="panel panel-wide overview-traffic-panel">
-              <div class="panel-head">
-                <div>
-                  <h2 data-i18n="ov.usage_trend">Usage Trend</h2>
-                  <p data-i18n="ov.usage_trend_desc">Token flow, request volume, and failures in the selected window.</p>
-                </div>
-                <span class="badge info" id="chartWindow" data-i18n="ov.selected_window">selected window</span>
-              </div>
               <div id="trafficChart" class="chart"></div>
             </section>
 
@@ -185,8 +181,9 @@
                   <div class="panel-head">
                     <div>
                       <h2 data-i18n="health.title">Failover Health</h2>
-                      <p data-i18n="health.subtitle">Provider health scores based on success rate, latency, and key availability.</p>
+                      <p id="healthPanelSubtitle" data-i18n="health.subtitle">Provider health scores based on success rate, latency, and key availability.</p>
                     </div>
+                    <div id="healthHeaderSummary" class="health-header-summary" aria-live="polite"></div>
                   </div>
                   <div id="healthOverview" class="health-overview"></div>
                 </section>
@@ -196,28 +193,42 @@
         </section>
 
         <section id="requestsView" class="view">
+          <header class="requests-page-head">
+            <div>
+              <h1 data-i18n="nav.requests">Requests</h1>
+              <p data-i18n="req.page_desc">Live proxy request details, routing traces, and token usage.</p>
+              <p id="requestCountLabel" class="sr-only" data-i18n="req.recent">Recent request records.</p>
+            </div>
+            <div id="requestsPageVitals" class="request-page-vitals" aria-live="polite"></div>
+          </header>
           <div id="requestsToolbar" class="toolbar request-filter-bar">
             <div class="request-filter-primary">
+              <div class="request-search-group" role="search">
+                <span id="requestSearchIcon" class="request-search-icon" aria-hidden="true"></span>
+                <label class="filter-search-field">
+                  <span class="sr-only" data-i18n="req.model">Model</span>
+                  <input id="filterModel" class="control" placeholder="model" data-i18n-attr="placeholder:req.model_ph" />
+                </label>
+                <label class="filter-search-field">
+                  <span class="sr-only" data-i18n="req.provider">Provider</span>
+                  <input id="filterProvider" class="control" placeholder="provider" data-i18n-attr="placeholder:req.provider_ph" />
+                </label>
+                <label class="filter-search-field request-client-ip-field">
+                  <span class="sr-only" data-i18n="req.client_ip_ph">Client IP</span>
+                  <input id="filterClientIp" class="control" placeholder="client IP" data-i18n-attr="placeholder:req.client_ip_ph" />
+                </label>
+              </div>
               <div class="request-status-chips" aria-label="Request status filters">
                 <button class="filter-chip is-active" type="button" data-request-status="" data-i18n="req.all">All</button>
                 <button class="filter-chip tone-success" type="button" data-request-status="success" data-i18n="req.success">Success</button>
                 <button class="filter-chip tone-danger" type="button" data-request-status="failed" data-i18n="req.failed">Failed</button>
               </div>
-              <label class="filter-search-field">
-                <span class="sr-only" data-i18n="req.model">Model</span>
-                <input id="filterModel" class="control" placeholder="model" data-i18n-attr="placeholder:req.model_ph" />
-              </label>
-              <label class="filter-search-field">
-                <span class="sr-only" data-i18n="req.provider">Provider</span>
-                <input id="filterProvider" class="control" placeholder="provider" data-i18n-attr="placeholder:req.provider_ph" />
-              </label>
               <details class="advanced-filter-box">
                 <summary data-i18n="req.more">More</summary>
                 <div class="advanced-filter-fields">
                   <input id="filterErrorType" class="control" placeholder="error type" data-i18n-attr="placeholder:req.error_type_ph" />
                   <input id="filterReason" class="control" placeholder="failure reason" data-i18n-attr="placeholder:req.reason_ph" />
                   <input id="filterHttpStatus" class="control" placeholder="attempt status" data-i18n-attr="placeholder:req.status_ph" />
-                  <input id="filterClientIp" class="control" placeholder="client IP" data-i18n-attr="placeholder:req.client_ip_ph" />
                   <select id="filterStream" class="control">
                     <option value="" data-i18n="req.all_stream_modes">All stream modes</option>
                     <option value="true" data-i18n="req.streaming">Streaming</option>
@@ -243,23 +254,19 @@
                     <option value="unpriced" data-i18n="cost.unpriced">Unpriced</option>
                     <option value="legacy" data-i18n="cost.legacy">Legacy</option>
                   </select>
+                  <div class="request-advanced-actions">
+                    <button id="deleteRequestsButton" class="button danger compact-action icon-action" type="button" title="Delete requests" aria-label="Delete requests" data-i18n-attr="title:req.delete_title,aria-label:req.delete_title"></button>
+                  </div>
                 </div>
               </details>
               <button id="applyFiltersButton" class="button secondary compact-action" type="button" data-i18n="req.apply">Apply</button>
               <button id="clearFiltersButton" class="button ghost compact-action" type="button" data-i18n="req.clear">Clear</button>
             </div>
-            <div class="request-bulk-actions">
-              <span id="requestSelectedCount" class="selection-count" data-i18n="req.selected_count">0 selected</span>
-              <button id="deleteRequestsButton" class="button danger compact-action icon-action" type="button" title="Delete requests" aria-label="Delete requests" data-i18n-attr="title:req.delete_title,aria-label:req.delete_title"></button>
+            <div class="request-toolbar-tail">
+              <div id="requestToolbarPagination" class="request-toolbar-pagination" aria-live="polite"></div>
             </div>
           </div>
-          <section class="panel">
-            <div class="panel-head">
-              <div>
-                <h2 data-i18n="nav.requests">Requests</h2>
-                <p id="requestCountLabel" data-i18n="req.recent">Recent request records.</p>
-              </div>
-            </div>
+          <section class="panel requests-panel">
             <div id="requestsTable" class="table-wrap"></div>
           </section>
         </section>
@@ -319,16 +326,15 @@
         </section>
 
         <section id="policyView" class="view">
-          <section class="panel">
-            <div class="panel-head">
-              <div>
-                <h2 data-i18n="policy.routing_controls">Routing Controls<span class="help-tip" data-tip="Safe runtime-overlay edits for common scheduling and retry settings." data-i18n-tip="policy.routing_tip">?</span></h2>
-              </div>
+          <header class="policy-page-head">
+            <div>
+              <h1 data-i18n="view.policy.title">Routing Policy &amp; Rules</h1>
+              <p data-i18n="view.policy.subtitle">Configure multi-provider scheduling, retry status codes, and circuit-breaker behavior.</p>
             </div>
-            <div id="policyControls" class="policy-controls"></div>
-          </section>
+          </header>
+          <div id="policyControls" class="policy-controls"></div>
           <div class="policy-grid">
-            <section class="panel">
+            <section class="panel policy-rules-panel">
               <div class="panel-head">
                 <div>
                   <h2 data-i18n="policy.rule_table">Rule Table<span class="help-tip" data-tip="How requests move across attempts." data-i18n-tip="policy.rule_tip">?</span></h2>
@@ -336,7 +342,7 @@
               </div>
               <div id="ruleTable" class="table-wrap"></div>
             </section>
-            <section class="panel">
+            <section class="panel policy-failures-panel">
               <div class="panel-head">
                 <div>
                   <h2 data-i18n="policy.failure_policies">Failure Policies<span class="help-tip" data-tip="Cooldown and disable behavior by error type." data-i18n-tip="policy.failure_tip">?</span></h2>
@@ -756,6 +762,13 @@
         </section>
 
         <section id="playgroundView" class="view playground-view">
+          <header class="playground-page-head">
+            <div>
+              <h1 data-i18n="pg.page_title">Playground</h1>
+              <p data-i18n="pg.page_desc">Test runtime model formats, parameters, and response streams.</p>
+            </div>
+            <span id="pgStatusText" class="pg-status" data-i18n="pg.ready">Ready.</span>
+          </header>
           <div class="playground-layout">
             <aside class="playground-config">
               <div class="pg-config-head">
@@ -807,7 +820,7 @@
                   <span class="eyebrow" data-i18n="pg.live_test">Live test</span>
                   <h2 data-i18n="pg.sandbox">Message sandbox</h2>
                 </div>
-                <span id="pgStatusText" class="pg-status" data-i18n="pg.ready">Ready.</span>
+                <button id="pgHeaderClearButton" class="pg-header-clear" type="button" data-i18n="pg.clear_conversation">Clear conversation</button>
               </header>
               <div class="pg-chat-wrap">
                 <div id="pgChat" class="pg-chat-area"></div>
@@ -817,9 +830,9 @@
                 <div class="pg-input-bar">
                   <textarea id="pgChatInput" class="pg-input" placeholder="Type a message... (Enter to send, Shift+Enter for newline)" rows="2" data-i18n-attr="placeholder:pg.input_ph"></textarea>
                   <div class="pg-input-actions">
-                  <button id="pgClearButton" class="button secondary pg-btn" data-i18n="pg.clear">Clear</button>
-                  <button id="pgStopButton" class="button danger pg-btn" hidden data-i18n="pg.stop">Stop</button>
-                  <button id="pgSendButton" class="button primary pg-btn" data-i18n="pg.send">Send</button>
+                    <button id="pgClearButton" class="button secondary pg-btn pg-icon-btn" type="button" title="Clear" aria-label="Clear" data-i18n-attr="title:pg.clear,aria-label:pg.clear"><svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M6 7l1 14h10l1-14"></path><path d="M9 7V4h6v3"></path></svg></button>
+                    <button id="pgStopButton" class="button danger pg-btn pg-icon-btn" type="button" title="Stop" aria-label="Stop" data-i18n-attr="title:pg.stop,aria-label:pg.stop" hidden><svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="7" y="7" width="10" height="10" rx="1"></rect></svg></button>
+                    <button id="pgSendButton" class="button primary pg-btn pg-icon-btn" type="button" title="Send" aria-label="Send" data-i18n-attr="title:pg.send,aria-label:pg.send"><svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 19V5"></path><path d="M5 12l7-7 7 7"></path></svg></button>
                   </div>
                 </div>
               </div>
@@ -915,6 +928,6 @@
       </aside>
     </div>
 
-    <script src="/-/dashboard/app.js?v=20260730-policy-matrix-2" defer></script>
+    <script src="/-/dashboard/app.js?v=20260802-routing-desktop-03" defer></script>
   </body>
 </html>
