@@ -15,3 +15,7 @@ export function requestPayloadMatchesPage(payload, page, pageSize) {
   const size = Math.max(1, Number(pageSize) || 1);
   return Number.isFinite(offset) && offset === Math.max(0, Number(page) || 0) * size;
 }
+
+export function requestNavigationPayloadMatchesPage(payload, page, pageSize) {
+  return payload !== undefined && requestPayloadMatchesPage(payload, page, pageSize);
+}

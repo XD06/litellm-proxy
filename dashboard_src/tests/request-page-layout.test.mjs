@@ -45,6 +45,7 @@ for (const id of [
 assert.match(requestPath, /params\.set\("limit"[\s\S]*params\.set\("offset"[\s\S]*\/-\/admin\/requests\?/, "request list endpoint and pagination query must stay unchanged");
 assert.match(requestRender, /modelBrandIconMarkup\(r\.model/, "request rows must preserve model brand icons");
 assert.match(requestRender, /providerBrandIconMarkup\(provider/, "request rows must preserve provider brand icons");
+assert.match(requestRender, /request-cell-provider[\s\S]*request-provider-chip[\s\S]*request-cell-route[\s\S]*request-route-chip/, "provider and routing outcome must use separate aligned columns");
 assert.match(requestRender, /requestFormatBadge\(r\)/, "request identity must retain client and upstream format");
 assert.match(requestRender, /r\.client_ip/, "request identity must retain client IP");
 assert.match(requestRender, /r\.stream/, "request identity must retain streaming state");
@@ -52,6 +53,8 @@ assert.match(requestRender, /statusBadge\(r\.status, r\.status_code\)/, "request
 assert.match(requestRender, /usage\.total_tokens[\s\S]*usage\.input_tokens[\s\S]*usage\.output_tokens/, "total, input, and output token fields must remain visible");
 assert.match(requestRender, /renderCost\([\s\S]*cost_usd/, "cost and pricing state must remain visible");
 assert.match(requestRender, /firstByteMsFromRequest\(r\)[\s\S]*r\.duration_ms/, "TTFT and total duration must remain visible");
+assert.match(requestRender, /request-latency-chip[\s\S]*fmtCompactMs\(firstByte\)[\s\S]*aria-hidden="true">\/<[\s\S]*fmtCompactMs\(r\.duration_ms\)/, "latency cells must render TTFT before total duration with only a slash separator");
+assert.doesNotMatch(requestRender, /t\("req\.ttft_short"\)/, "latency cells must not append explanatory text");
 assert.doesNotMatch(requestMarkup, /requestSelectedCount|data-request-select-page/, "request page must not expose bulk-selection controls");
 assert.match(requestMarkup, /advanced-filter-fields[\s\S]*request-advanced-actions[\s\S]*id="deleteRequestsButton"/, "destructive history actions must stay available inside advanced filters");
 assert.doesNotMatch(requestRender, /request-select-column|data-request-select=/, "request rows must not reserve a checkbox column");

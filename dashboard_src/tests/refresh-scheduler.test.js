@@ -116,8 +116,23 @@ assert.match(
 );
 assert.match(
   requestPaginationBody,
-  /if \(_requestPageNavigation\) return;/,
+  /button\.disabled \|\| _requestPageNavigation/,
   'request pagination must ignore repeated clicks while navigation is pending',
+);
+assert.match(
+  requestPaginationBody,
+  /root\.addEventListener\("click", \(event\) =>/,
+  'request pagination must delegate clicks from the stable pagination container',
+);
+assert.match(
+  requestPaginationBody,
+  /event\.target\?\.closest\?\.\("\[data-request-page\]"\)/,
+  'delegated pagination must read the direction from the current button node',
+);
+assert.doesNotMatch(
+  requestPaginationBody,
+  /button\.addEventListener\("click"/,
+  'morphed pagination buttons must not retain per-node direction closures',
 );
 assert.match(
   requestPaginationBody,
@@ -133,6 +148,21 @@ assert.match(
   source,
   /requestPayloadMatchesPage\(requestsPayload, requestedRequestPage, REQUEST_PAGE_SIZE\)/,
   'request view refreshes must reject payloads for an obsolete offset',
+);
+assert.match(
+  source,
+  /requestNavigationPayloadMatchesPage\(requestsPayload, requestedRequestPage, REQUEST_PAGE_SIZE\)/,
+  'pending request navigation must require an actual target-page payload',
+);
+assert.match(
+  source,
+  /requestViewSettled\.reason\?\.name === "AbortError"/,
+  'an aborted target-page request must be retried without rollback',
+);
+assert.match(
+  source,
+  /state\.requestsPage = _requestPageNavigation\.from[\s\S]{0,180}_requestPageNavigation = null/,
+  'a genuine non-abort request failure must restore the committed page',
 );
 const requestFilterStart = source.lastIndexOf('qsa("[data-request-status]")');
 const requestFilterEnd = source.indexOf('el("deleteRequestsButton")', requestFilterStart);

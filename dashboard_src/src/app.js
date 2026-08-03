@@ -14,7 +14,7 @@ import { shouldAcceptModelCapabilitySnapshot } from "./model-capability-order.mj
 import { keyModelsPatchValue } from "./key-models.mjs";
 import { mergedProviderKeys } from "./provider-key-view.mjs";
 import { bindPanelPaginationDelegated, changePanelPage } from "./panel-pagination.mjs";
-import { requestPageTarget, requestPayloadMatchesPage } from "./request-pagination.mjs";
+import { requestPageTarget, requestPayloadMatchesPage, requestNavigationPayloadMatchesPage } from "./request-pagination.mjs";
 import { compareProviderViews } from "./provider-sort.mjs";
 import { modelBrandIconMarkup, providerBrandIconMarkup } from "./model-brand-icons.js";
 import {
@@ -1751,10 +1751,17 @@ import {
       if (generation !== _runtimeRefreshGeneration || requestedView !== state.view) return;
       const viewResult = toResult(viewEntries, viewSettled);
       const requestsPayload = requestedView === "requests" ? viewResult.requests : undefined;
-      let requestNavigationFailed = false;
+      const requestNavigationPending = requestedView === "requests" && _requestPageNavigation?.to === requestedRequestPage;
+      const requestViewEntryIndex = viewEntries.findIndex(([key]) => key === "requests");
+      const requestViewWasRequested = requestViewEntryIndex >= 0;
+      const requestViewSettled = requestViewWasRequested ? viewSettled[requestViewEntryIndex] : null;
+      const requestViewAborted = requestViewSettled?.status === "rejected" && requestViewSettled.reason?.name === "AbortError";
+      const requestViewRejected = requestViewSettled?.status === "rejected";
       const requestViewMatches = requestedView !== "requests" || (
         Number(state.requestsPage) === requestedRequestPage &&
-        requestPayloadMatchesPage(requestsPayload, requestedRequestPage, REQUEST_PAGE_SIZE)
+        (requestNavigationPending
+          ? requestNavigationPayloadMatchesPage(requestsPayload, requestedRequestPage, REQUEST_PAGE_SIZE)
+          : requestPayloadMatchesPage(requestsPayload, requestedRequestPage, REQUEST_PAGE_SIZE))
       );
       if (!requestViewMatches) {
         _runtimeRefreshWanted = true;
@@ -1763,19 +1770,24 @@ import {
       const viewChanged = requestViewMatches && Object.keys(viewResult).length
         ? applyRuntimeViewData(viewResult, requestedView)
         : false;
-      if (requestedView === "requests" && requestsPayload !== undefined && requestViewMatches) {
-        if (_requestPageNavigation?.to === requestedRequestPage) _requestPageNavigation = null;
-      } else if (
-        requestedView === "requests" &&
-        requestsPayload === undefined &&
-        Number(state.requestsPage) === requestedRequestPage &&
-        _requestPageNavigation?.to === requestedRequestPage
-      ) {
-        state.requestsPage = _requestPageNavigation.from;
-        _requestPageNavigation = null;
-        requestNavigationFailed = true;
+      if (requestNavigationPending) {
+        if (requestNavigationPayloadMatchesPage(requestsPayload, requestedRequestPage, REQUEST_PAGE_SIZE) && requestViewMatches) {
+          _requestPageNavigation = null;
+        } else if (!requestViewRejected || requestViewAborted) {
+          // An aborted or omitted view request is inconclusive. Keep the page
+          // the user selected and force a trailing fetch instead of rolling it
+          // back to stale data from the previous page.
+          _runtimeRefreshWanted = true;
+          _runtimeRefreshWantedForceViewData = true;
+        } else {
+          // A non-abort request error is a genuine navigation failure. Restore
+          // the last committed page so the rows and page indicator stay aligned.
+          state.requestsPage = _requestPageNavigation.from;
+          _requestPageNavigation = null;
+          renderAll();
+        }
       }
-      if (viewChanged || requestNavigationFailed || (coreChanged && viewEntries.length && requestViewMatches)) renderAll();
+      if (viewChanged || (coreChanged && viewEntries.length && requestViewMatches)) renderAll();
     } catch (err) {
       setConnection(false, t("conn.connection_error"));
     } finally {
@@ -3775,7 +3787,8 @@ import {
             <tr>
               <th scope="col">${escapeHtml(t("req.col_model_time"))}</th>
               <th scope="col">${escapeHtml(t("req.col_status"))}</th>
-              <th scope="col">${escapeHtml(t("req.col_provider_route"))}</th>
+              <th scope="col">${escapeHtml(t("req.provider"))}</th>
+              <th scope="col">${escapeHtml(t("req.col_route"))}</th>
               <th scope="col" class="request-numeric-column">${escapeHtml(t("req.col_tokens_detail"))}</th>
               <th scope="col" class="request-numeric-column">${escapeHtml(t("req.col_cost_estimate"))}</th>
               <th scope="col" class="request-numeric-column">${escapeHtml(t("req.col_latency_ttft"))}</th>
@@ -3860,8 +3873,10 @@ import {
           </span>
         </td>
         <td class="request-cell-result"><span>${statusBadge(r.status, r.status_code)}</span><small class="mono">${code || "-"}</small></td>
-        <td class="request-cell-route">
+        <td class="request-cell-provider">
           <span class="request-provider-chip" data-tip="${escapeHtml(provider)}">${providerBrandIconMarkup(provider, iconSvg("server"))}<strong>${escapeHtml(provider)}</strong></span>
+        </td>
+        <td class="request-cell-route">
           <span class="request-route-chip tone-${escapeHtml(routeOutcomeTone(route))}">${iconSvg(routeOutcomeIcon(route))}${escapeHtml(recoveryText)}</span>
         </td>
         <td class="request-cell-usage" data-tip="${escapeHtml(tokenTip)}">
@@ -3870,7 +3885,7 @@ import {
         <td class="request-cell-cost">
           <span class="request-cost-chip">${renderCost({ ...r, cost_usd: usage.cost_usd }, { compact: true })}</span>
         </td>
-        <td class="request-cell-performance mono"><span class="request-latency-chip"><strong class="${durationTone}">${escapeHtml(fmtCompactMs(r.duration_ms))}</strong><small class="${firstEventTone}">${firstByte ? escapeHtml(fmtCompactMs(firstByte)) : "-"} ${escapeHtml(t("req.ttft_short"))}</small></span></td>
+        <td class="request-cell-performance mono"><span class="request-latency-chip"><strong class="${firstEventTone}">${firstByte ? escapeHtml(fmtCompactMs(firstByte)) : "-"}</strong><i aria-hidden="true">/</i><small class="${durationTone}">${escapeHtml(fmtCompactMs(r.duration_ms))}</small></span></td>
         <td class="request-row-open"><button class="icon-action request-row-open-button" type="button" data-request-open="${escapeHtml(requestId)}" aria-label="${escapeHtml(t("req.open_request", { id: requestId }))}">${iconSvg("chevron-right")}</button></td>
       </tr>
     `;
@@ -3969,24 +3984,27 @@ import {
   }
 
   function bindRequestPagination(root, totalPages) {
-    root.querySelectorAll("[data-request-page]").forEach((button) => {
-      if (button.dataset.bounddatarequestpage) return;
-      button.dataset.bounddatarequestpage = "1";
-      button.addEventListener("click", () => {
-        if (_requestPageNavigation) return;
-        const direction = button.dataset.requestPage;
-        const currentPage = Math.max(0, Number(state.requestsPage) || 0);
-        const targetPage = requestPageTarget(currentPage, totalPages, direction);
-        if (targetPage === currentPage) return;
-        _requestPageNavigation = { from: currentPage, to: targetPage };
-        state.requestsPage = targetPage;
-        root.querySelectorAll("[data-request-page]").forEach((control) => {
-          control.disabled = true;
-        });
-        root.querySelector(".request-pagination")?.setAttribute("aria-busy", "true");
-        state.forceRequestsFetch = true;
-        refreshRuntimeData({ forceViewData: true });
+    if (!root || root.dataset.requestPaginationBound) return;
+    root.dataset.requestPaginationBound = "1";
+    root.addEventListener("click", (event) => {
+      const button = event.target?.closest?.("[data-request-page]");
+      if (!button || !root.contains(button) || button.disabled || _requestPageNavigation) return;
+      const direction = button.dataset.requestPage;
+      const currentPage = Math.max(0, Number(state.requestsPage) || 0);
+      const currentTotal = Number(state.data.requests?.total || 0);
+      const availablePages = currentTotal > 0
+        ? Math.max(1, Math.ceil(currentTotal / REQUEST_PAGE_SIZE))
+        : totalPages;
+      const targetPage = requestPageTarget(currentPage, availablePages, direction);
+      if (targetPage === currentPage) return;
+      _requestPageNavigation = { from: currentPage, to: targetPage };
+      state.requestsPage = targetPage;
+      root.querySelectorAll("[data-request-page]").forEach((control) => {
+        control.disabled = true;
       });
+      root.querySelector(".request-pagination")?.setAttribute("aria-busy", "true");
+      state.forceRequestsFetch = true;
+      refreshRuntimeData({ forceViewData: true });
     });
   }
 

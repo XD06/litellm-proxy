@@ -1022,7 +1022,7 @@ const dict = {
   "req.col_cost": { en: "Cost", zh: "成本" },
   "req.col_cost_estimate": { en: "Estimated cost", zh: "估算成本" },
   "req.col_latency": { en: "First event / total", zh: "首事件 / 总耗时" },
-  "req.col_latency_ttft": { en: "Latency / TTFT", zh: "延迟 / TTFT" },
+  "req.col_latency_ttft": { en: "TTFT / Latency", zh: "TTFT / 延迟" },
   "req.ttft_short": { en: "ttft", zh: "ttft" },
   "req.recovered_count": { en: "Recovered after {count}", zh: "失败 {count} 次后恢复" },
   "req.attempts": { en: "Attempts", zh: "尝试" },
