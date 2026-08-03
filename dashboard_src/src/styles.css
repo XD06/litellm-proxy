@@ -25285,10 +25285,10 @@ body {
     padding-inline: 4px 10px;
   }
 
-  #requestsTable .request-data-table th:nth-child(1) { width: 26%; }
-  #requestsTable .request-data-table th:nth-child(2) { width: 9%; }
+  #requestsTable .request-data-table th:nth-child(1) { width: 24%; }
+  #requestsTable .request-data-table th:nth-child(2) { width: 12%; }
   #requestsTable .request-data-table th:nth-child(3) { width: 10%; }
-  #requestsTable .request-data-table th:nth-child(4) { width: 13%; }
+  #requestsTable .request-data-table th:nth-child(4) { width: 12%; }
   #requestsTable .request-data-table th:nth-child(5) { width: 10%; }
   #requestsTable .request-data-table th:nth-child(6) { width: 11%; }
   #requestsTable .request-data-table th:nth-child(7) { width: 9%; }

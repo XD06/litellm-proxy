@@ -125,7 +125,7 @@ sudo certbot --nginx -d proxy.example.com
     "log_dir": "proxy_logs",
     "debug_disk_log": false,
     "trusted_proxy_cidrs": ["172.16.0.0/12"],
-    "trusted_proxy_headers": ["forwarded", "x-forwarded-for", "x-real-ip"],
+    "trusted_proxy_headers": ["cf-connecting-ip", "forwarded", "x-forwarded-for", "x-real-ip"],
     "admin_key": "replace-with-a-long-random-secret"
   }
 }

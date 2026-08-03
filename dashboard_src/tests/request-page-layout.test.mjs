@@ -76,6 +76,7 @@ assert.match(requestDesktopStyles, /#requestsTable \.request-data-table td\s*\{[
 assert.match(requestDesktopStyles, /#requestsTable \.request-data-table\.is-full-page\s*\{[\s\S]*height:\s*100%/, "full request pages must fill the available panel height");
 assert.match(requestDesktopStyles, /#requestsTable \.request-identity\s*\{[\s\S]*display:\s*inline-flex/, "request identity must keep a compact flex layout");
 assert.match(requestDesktopStyles, /#requestsTable \.request-cell-client-ip\s*\{[\s\S]*white-space:\s*nowrap/, "client IP column must remain compact");
+assert.match(requestDesktopStyles, /#requestsTable \.request-data-table th:nth-child\(2\)\s*\{\s*width:\s*12%/, "client IP column must reserve enough width for a complete IPv4 address");
 assert.match(requestDesktopStyles, /#requestsTable \.request-identity\s*\{[\s\S]*flex-direction:\s*column/, "request metadata must sit below the model name");
 assert.match(requestDesktopStyles, /#requestsTable \.request-identity > strong\s*\{[\s\S]*flex:\s*0 0 auto/, "model names must not shrink before secondary metadata");
 assert.match(requestDesktopStyles, /#requestsTable \.request-model-mark\s*\{[\s\S]*border:\s*1px solid/, "model brand marks must retain a compact framed treatment");

@@ -38,7 +38,7 @@
     // 仅信任这些反向代理网段提供的真实客户端 IP 请求头。
     // Docker bridge 通常属于 172.16.0.0/12；请按实际网络收窄，直连公网时不要盲目信任私网段。
     "trusted_proxy_cidrs": ["127.0.0.0/8", "172.16.0.0/12"],
-    "trusted_proxy_headers": ["forwarded", "x-forwarded-for", "x-real-ip"],
+    "trusted_proxy_headers": ["cf-connecting-ip", "forwarded", "x-forwarded-for", "x-real-ip"],
 
     // Admin API 密钥。为空时 /-/admin/* 不可访问。
     // 可通过 X-Admin-Key、Authorization: Bearer ... 或 ?admin_key=... 传入。
