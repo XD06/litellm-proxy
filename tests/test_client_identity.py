@@ -43,6 +43,15 @@ class ClientIdentityTests(unittest.TestCase):
 
         self.assertEqual((ip, source), ("198.51.100.20", "cf-connecting-ip"))
 
+    def test_cloudflare_edge_peer_uses_connecting_ip(self):
+        ip, source = resolve_client_ip(
+            "172.71.151.77",
+            {"CF-Connecting-IP": "198.51.100.20"},
+            ["172.64.0.0/13"],
+        )
+
+        self.assertEqual((ip, source), ("198.51.100.20", "cf-connecting-ip"))
+
     def test_explicit_forwarded_header_order_is_preserved(self):
         ip, source = resolve_client_ip(
             "172.21.0.1",

@@ -1,7 +1,19 @@
 import { defineConfig } from 'vite';
+import { copyFileSync } from 'node:fs';
 import { resolve } from 'path';
 
+const sourceStyles = resolve(__dirname, 'src/styles.css');
+const outputStyles = resolve(__dirname, '../dashboard/styles.css');
+
 export default defineConfig({
+  plugins: [
+    {
+      name: 'copy-dashboard-styles',
+      writeBundle() {
+        copyFileSync(sourceStyles, outputStyles);
+      },
+    },
+  ],
   build: {
     outDir: '../dashboard',
     emptyOutDir: false,
@@ -11,10 +23,7 @@ export default defineConfig({
       output: {
         format: 'iife',
         entryFileNames: 'app.js',
-        assetFileNames: (assetInfo) => {
-          if (assetInfo.name.endsWith('.css')) return 'styles.css';
-          return '[name][extname]';
-        },
+        assetFileNames: '[name][extname]',
         chunkFileNames: '[name].js',
       }
     }

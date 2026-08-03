@@ -100,10 +100,37 @@ def provider_model_id_disabled(
     raw_model = str(model_id or "").strip()
     if not raw_model or not isinstance(canonical_map, dict):
         return False
+    mapped_raw = canonical_map.get(raw_model)
+    if mapped_raw is None:
+        mapped_raw = canonical_map.get(raw_model.lower())
+    if mapped_raw is not None and provider_model_disabled(
+        config, provider, str(mapped_raw)
+    ):
+        return True
     for canonical, raw in canonical_map.items():
         if str(raw or "").strip() == raw_model and provider_model_disabled(config, provider, str(canonical)):
             return True
     return False
+
+
+def provider_model_request_disabled(
+    config: Dict[str, Any],
+    provider: str,
+    canonical_model: str,
+    canonical_map: Optional[Dict[str, str]] = None,
+) -> bool:
+    """Check a client-facing model without confusing it with a raw model id."""
+    manual_map = ((config.get("models") or {}).get("provider_model_map") or {}).get(provider) or {}
+    if isinstance(manual_map, dict):
+        raw_model = manual_map.get(canonical_model)
+        if raw_model is None:
+            raw_model = manual_map.get(str(canonical_model or "").lower())
+        raw_model = str(raw_model or "").strip()
+        if raw_model:
+            return provider_model_disabled(config, provider, raw_model)
+    return provider_model_id_disabled(
+        config, provider, canonical_model, canonical_map
+    )
 
 
 def _manual_raw_claims(config: Dict[str, Any], provider: str) -> Dict[str, str]:
@@ -125,7 +152,16 @@ def provider_model_auto_hidden_by_manual_map(
     canonical_model: str,
     canonical_map: Optional[Dict[str, str]] = None,
 ) -> bool:
-    if not canonical_model or not isinstance(canonical_map, dict):
+    if not canonical_model:
+        return False
+    manual_map = ((config.get("models") or {}).get("provider_model_map") or {}).get(provider) or {}
+    if isinstance(manual_map, dict):
+        manual_raw = manual_map.get(canonical_model)
+        if manual_raw is None:
+            manual_raw = manual_map.get(str(canonical_model).lower())
+        if str(manual_raw or "").strip():
+            return True
+    if not isinstance(canonical_map, dict):
         return False
     raw_model = canonical_map.get(canonical_model)
     if raw_model is None:
@@ -530,10 +566,16 @@ def _configured_model_ids(config: Dict[str, Any], provider: Optional[str] = None
 
         manual_map = (models_cfg.get("provider_model_map") or {}).get(str(pname or "")) or {}
         if isinstance(manual_map, dict):
+            caps = (models_cfg.get("provider_model_capabilities") or {}).get(str(pname or "")) or {}
+            canonical_map = caps.get("canonical_map") if isinstance(caps, dict) else {}
             out.extend(
-                str(mid)
-                for mid in manual_map.keys()
-                if str(mid or "").strip() and not provider_model_disabled(config, str(pname or ""), str(mid))
+                str(canonical)
+                for canonical, raw_model in manual_map.items()
+                if str(canonical or "").strip()
+                and str(raw_model or "").strip()
+                and not provider_model_request_disabled(
+                    config, str(pname or ""), str(canonical), canonical_map
+                )
             )
 
         variants = (models_cfg.get("provider_model_variants") or {}).get(str(pname or "")) or {}
@@ -927,6 +969,11 @@ def key_supports_provider_model(
     )
     capability = provider_caps.get(fingerprint) if isinstance(provider_caps, dict) else None
     if isinstance(capability, dict) and capability.get("status") in ("ok", "stale"):
+        raw_models = {
+            str(model or "").strip() for model in capability.get("models") or []
+        }
+        if str(provider_model or "").strip() in raw_models:
+            return True
         canonical_map = capability.get("canonical_map") or {}
         expected = canonical_map.get(canonical_model)
         if expected is None:
@@ -955,7 +1002,7 @@ def provider_has_declared_model(
     models_cfg = config.get("models") or {}
     caps = (models_cfg.get("provider_model_capabilities") or {}).get(provider)
     canonical_map = caps.get("canonical_map") if isinstance(caps, dict) else {}
-    if provider_model_id_disabled(config, provider, model, canonical_map):
+    if provider_model_request_disabled(config, provider, model, canonical_map):
         return False
 
     manual_map = (models_cfg.get("provider_model_map") or {}).get(provider) or {}
@@ -1098,11 +1145,17 @@ def provider_supports_model(
     caps = (models_cfg.get("provider_model_capabilities") or {}).get(provider)
     canonical_map = caps.get("canonical_map") if isinstance(caps, dict) else {}
 
+    raw_model = manual_map.get(canonical_model) if isinstance(manual_map, dict) else None
+    if raw_model is None and isinstance(manual_map, dict):
+        raw_model = manual_map.get(str(canonical_model).lower())
+    raw_model = str(raw_model or "").strip()
+    if raw_model:
+        return bool(raw_model) and not provider_model_request_disabled(
+            config, provider, canonical_model, canonical_map
+        )
+
     if provider_model_id_disabled(config, provider, canonical_model, canonical_map):
         return False
-
-    if canonical_model in manual_map:
-        return True
 
     variants = (models_cfg.get("provider_model_variants") or {}).get(provider) or {}
     raw_variants = variants.get(canonical_model) if isinstance(variants, dict) else None

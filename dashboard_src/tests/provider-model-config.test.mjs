@@ -2,9 +2,12 @@ import assert from "node:assert/strict";
 
 import {
   clearLiveFormField,
+  mergeProviderModelCatalogItems,
   mergeStaticModelIds,
   normalizeStaticModelIds,
   normalizeVariantEntries,
+  providerModelMappingOldId,
+  providerModelSourceId,
   resetLiveForm,
 } from "../src/provider-model-config.mjs";
 
@@ -32,6 +35,30 @@ assert.deepEqual(
   mergeStaticModelIds(["existing-model"], "new-model, existing-model, second-model"),
   ["existing-model", "new-model", "second-model"],
   "static model additions must append and de-duplicate",
+);
+
+const conflictingModels = mergeProviderModelCatalogItems(
+  [
+    { label: "deepseek-v4-flash", raw: "deepseek-v4-flash" },
+    { label: "deepseek-v4-flash-free", raw: "deepseek-v4-flash-free" },
+  ],
+  { "deepseek-v4-flash": "deepseek-v4-flash-free" },
+);
+assert.deepEqual(
+  conflictingModels.map((item) => [item.label, item.raw, item.manual]),
+  [
+    ["deepseek-v4-flash", "deepseek-v4-flash-free", true],
+    ["deepseek-v4-flash", "deepseek-v4-flash", false],
+  ],
+  "a manual alias must not hide a different same-named upstream model",
+);
+assert.equal(providerModelSourceId(conflictingModels[0]), "deepseek-v4-flash-free");
+assert.equal(providerModelSourceId(conflictingModels[1]), "deepseek-v4-flash");
+assert.equal(providerModelMappingOldId(conflictingModels[0]), "deepseek-v4-flash");
+assert.equal(
+  providerModelMappingOldId(conflictingModels[1]),
+  "",
+  "editing an automatic model must not delete a same-named manual mapping",
 );
 
 const liveInput = { value: "saved-model" };

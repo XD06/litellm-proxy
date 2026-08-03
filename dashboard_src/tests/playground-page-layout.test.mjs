@@ -51,6 +51,9 @@ assert.match(styles, /#playgroundView \.playground-config,[\s\S]*?#playgroundVie
 assert.match(styles, /#playgroundView \.pg-input-bar\s*\{[^}]*border-radius:\s*18px[^}]*box-shadow:/, "message composer must use the approved floating surface");
 assert.match(styles, /#playgroundView \.pg-input\s*\{[^}]*grid-column:\s*1 \/ -1[^}]*border:\s*0;/, "message input must be integrated into the floating composer");
 assert.match(styles, /#playgroundView \.pg-input-actions\s*\{[^}]*grid-column:\s*2;[^}]*grid-row:\s*2;/, "message actions must stay inside the composer footer");
+assert.match(styles, /#playgroundView \.pg-input-bar\s*\{[^}]*width:\s*min\(88%, 860px\)[^}]*grid-template-rows:\s*minmax\(40px, auto\) auto/, "desktop composer must use the approved compact width and row height");
+assert.match(styles, /#playgroundView \.pg-input\s*\{[^}]*min-height:\s*40px[^}]*max-height:\s*96px/, "desktop message input must remain compact while still supporting multiple lines");
+assert.match(styles, /#playgroundView \.pg-btn\s*\{[^}]*width:\s*32px[^}]*height:\s*32px/, "composer icon actions must match the compact input geometry");
 assert.match(html, /id="pgClearButton"[^>]*pg-icon-btn[^>]*aria-label="Clear"/, "clear action must remain accessible after iconification");
 assert.match(html, /id="pgStopButton"[^>]*pg-icon-btn[^>]*aria-label="Stop"/, "stop action must remain accessible after iconification");
 assert.match(html, /id="pgSendButton"[^>]*pg-icon-btn[^>]*aria-label="Send"/, "send action must remain accessible after iconification");

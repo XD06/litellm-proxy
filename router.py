@@ -933,7 +933,9 @@ class UpstreamRouter:
             caps = provider_capabilities.get(name)
             canonical_map = caps.get("canonical_map") if isinstance(caps, dict) else {}
             model_disabled = bool(
-                model_registry.provider_model_id_disabled(self.cfg, name, canonical_model, canonical_map)
+                model_registry.provider_model_request_disabled(
+                    self.cfg, name, canonical_model, canonical_map
+                )
             )
             config_enabled = bool(pcfg.get("enabled", True))
             reasons = []
@@ -1442,7 +1444,9 @@ class UpstreamRouter:
             if name in route_provider_names:
                 caps = provider_capabilities.get(name)
                 canonical_map = caps.get("canonical_map") if isinstance(caps, dict) else {}
-                if model_registry.provider_model_id_disabled(self.cfg, name, canonical_model, canonical_map):
+                if model_registry.provider_model_request_disabled(
+                    self.cfg, name, canonical_model, canonical_map
+                ):
                     continue
             elif not self._provider_supports_with_cache(name, canonical_model, auto_filter_active):
                 continue

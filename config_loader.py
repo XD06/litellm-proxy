@@ -29,6 +29,36 @@ LEGACY_FORMAT_PATH_KEYS = {
     "anthropic_messages": "anthropic_messages_path",
 }
 
+# Cloudflare publishes these ranges as the definitive list of proxy addresses
+# that can connect to customer origins. Keeping them in the existing trust
+# list lets CF-Connecting-IP work without weakening forwarded-header checks.
+DEFAULT_TRUSTED_PROXY_CIDRS = (
+    "127.0.0.0/8",
+    "172.16.0.0/12",
+    "103.21.244.0/22",
+    "103.22.200.0/22",
+    "103.31.4.0/22",
+    "104.16.0.0/13",
+    "104.24.0.0/14",
+    "108.162.192.0/18",
+    "131.0.72.0/22",
+    "141.101.64.0/18",
+    "162.158.0.0/15",
+    "172.64.0.0/13",
+    "173.245.48.0/20",
+    "188.114.96.0/20",
+    "190.93.240.0/20",
+    "197.234.240.0/22",
+    "198.41.128.0/17",
+    "2400:cb00::/32",
+    "2606:4700::/32",
+    "2803:f800::/32",
+    "2405:b500::/32",
+    "2405:8100::/32",
+    "2a06:98c0::/29",
+    "2c0f:f248::/32",
+)
+
 
 def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
     """深度合并 dict：override 覆盖 base。"""
@@ -298,10 +328,9 @@ def _default_config() -> Dict[str, Any]:
             "max_workers": 20,
             "log_dir": "proxy_logs",
             "debug_disk_log": False,
-            # The default deployment is commonly Nginx -> Docker -> proxy.
-            # Only private proxy peers may supply forwarded identity headers;
-            # deployments with a different bridge range should override this.
-            "trusted_proxy_cidrs": ["127.0.0.0/8", "172.16.0.0/12"],
+            # The default deployment is commonly Cloudflare -> Nginx/Docker -> proxy.
+            # Only these known proxy peers may supply forwarded identity headers.
+            "trusted_proxy_cidrs": list(DEFAULT_TRUSTED_PROXY_CIDRS),
             "trusted_proxy_headers": [
                 "cf-connecting-ip",
                 "forwarded",

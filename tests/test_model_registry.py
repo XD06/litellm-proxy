@@ -174,6 +174,62 @@ class ModelRegistryTests(unittest.TestCase):
             {"model-high": "model-high", "model-low": "model-low"},
         )
 
+    def test_conflicting_model_override_is_stable_across_key_discovery_order(self):
+        for keys in (
+            ["alpha-free-key", "alpha-paid-key"],
+            ["alpha-paid-key", "alpha-free-key"],
+        ):
+            with self.subTest(keys=keys):
+                cfg = registry_config("union")
+                cfg["providers"]["alpha"]["keys"] = keys
+                cfg["models"]["provider_model_map"] = {
+                    "alpha": {"deepseek-v4-flash": "deepseek-v4-flash-free"}
+                }
+                cfg["models"]["provider_model_disabled"] = {
+                    "alpha": {"deepseek-v4-flash": True}
+                }
+                client = KeyAwareFakeUpstreamClient(
+                    {
+                        "Bearer alpha-free-key": {
+                            "data": [{"id": "deepseek-v4-flash-free"}]
+                        },
+                        "Bearer alpha-paid-key": {
+                            "data": [{"id": "deepseek-v4-flash"}]
+                        },
+                    }
+                )
+
+                model_registry.fetch_upstream_models(
+                    cfg, FakeRouter(), client, only_provider="alpha"
+                )
+
+                self.assertEqual(
+                    model_registry.resolve_provider_model_candidates(
+                        cfg, "alpha", "deepseek-v4-flash"
+                    ),
+                    ["deepseek-v4-flash-free"],
+                )
+                free_index = keys.index("alpha-free-key")
+                paid_index = keys.index("alpha-paid-key")
+                self.assertTrue(
+                    model_registry.key_supports_provider_model(
+                        cfg,
+                        "alpha",
+                        free_index,
+                        "deepseek-v4-flash",
+                        "deepseek-v4-flash-free",
+                    )
+                )
+                self.assertFalse(
+                    model_registry.key_supports_provider_model(
+                        cfg,
+                        "alpha",
+                        paid_index,
+                        "deepseek-v4-flash",
+                        "deepseek-v4-flash-free",
+                    )
+                )
+
     def test_union_refresh_discovers_every_key_catalog(self):
         cfg = registry_config("union")
         cfg["providers"]["alpha"]["keys"] = ["alpha-key-a", "alpha-key-b"]
@@ -459,6 +515,24 @@ class ModelRegistryTests(unittest.TestCase):
         self.assertNotIn("shared-model", [m["id"] for m in result["data"]])
         self.assertNotIn("shared-model", model_registry.union_model_ids())
 
+    def test_disabled_raw_provider_id_hides_automatic_canonical_model(self):
+        cfg = registry_config("union")
+        cfg["models"]["provider_model_capabilities"] = {
+            "alpha": {
+                "status": "ok",
+                "models": ["Vendor/Conflict-Model"],
+                "canonical_map": {"conflict-model": "Vendor/Conflict-Model"},
+                "formats": ["chat_completions"],
+            }
+        }
+        cfg["models"]["provider_model_disabled"] = {
+            "alpha": {"Vendor/Conflict-Model": True}
+        }
+
+        result = model_registry.models_from_capabilities(cfg, FakeRouter())
+
+        self.assertNotIn("conflict-model", [model["id"] for model in result["data"]])
+
     def test_models_from_capabilities_reads_current_persisted_union_snapshot(self):
         cfg = registry_config("union")
         cfg["models"]["provider_model_capabilities"] = {
@@ -519,6 +593,52 @@ class ModelRegistryTests(unittest.TestCase):
         result = model_registry.models_from_capabilities(cfg, FakeRouter())
 
         self.assertEqual([m["id"] for m in result["data"]], ["manual-alpha", "mapped-beta", "routed-model"])
+
+    def test_disabled_raw_model_does_not_hide_same_named_manual_alias(self):
+        cfg = registry_config("union")
+        cfg["models"]["provider_model_map"] = {
+            "alpha": {"conflict-model": "conflict-model-free"}
+        }
+        cfg["models"]["provider_model_disabled"] = {
+            "alpha": {"conflict-model": True}
+        }
+        cfg["models"]["provider_model_capabilities"] = {
+            "alpha": {
+                "status": "ok",
+                "models": ["conflict-model", "conflict-model-free"],
+                "canonical_map": {
+                    "conflict-model": "conflict-model",
+                    "conflict-model-free": "conflict-model-free",
+                },
+            }
+        }
+
+        result = model_registry.models_from_capabilities(cfg, FakeRouter())
+
+        self.assertIn("conflict-model", [model["id"] for model in result["data"]])
+
+    def test_disabled_manual_mapping_target_is_not_advertised_via_auto_name(self):
+        cfg = registry_config("union")
+        cfg["models"]["provider_model_map"] = {
+            "alpha": {"conflict-model": "conflict-model-free"}
+        }
+        cfg["models"]["provider_model_disabled"] = {
+            "alpha": {"conflict-model-free": True}
+        }
+        cfg["models"]["provider_model_capabilities"] = {
+            "alpha": {
+                "status": "ok",
+                "models": ["conflict-model", "conflict-model-free"],
+                "canonical_map": {
+                    "conflict-model": "conflict-model",
+                    "conflict-model-free": "conflict-model-free",
+                },
+            }
+        }
+
+        result = model_registry.models_from_capabilities(cfg, FakeRouter())
+
+        self.assertNotIn("conflict-model", [model["id"] for model in result["data"]])
 
     def test_models_from_capabilities_includes_provider_variant_aliases(self):
         cfg = registry_config("union")

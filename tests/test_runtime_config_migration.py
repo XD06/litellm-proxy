@@ -941,18 +941,39 @@ class ProbeModelDisabledTests(unittest.TestCase):
         model, source = sse2json._pick_probe_model_with_source("alpha", observability=None, config=cfg)
         self.assertIsNone(model, "should return None when all models are disabled")
 
-    def test_pick_probe_model_skips_disabled_manual_map(self):
-        """_pick_probe_model_with_source skips disabled models in provider_model_map."""
+    def test_pick_probe_model_skips_disabled_manual_map_target(self):
+        """_pick_probe_model_with_source skips a disabled mapped raw model."""
         cfg = {
             "providers": self.providers,
             "models": {
                 "provider_model_map": {"alpha": {"gpt-5": "gpt-5-upstream", "gpt-4": "gpt-4-upstream"}},
-                "provider_model_disabled": {"alpha": {"gpt-5": True}},
+                "provider_model_disabled": {"alpha": {"gpt-5-upstream": True}},
             },
             "routing": {},
         }
         model, source = sse2json._pick_probe_model_with_source("alpha", observability=None, config=cfg)
         self.assertEqual(model, "gpt-4")
+        self.assertEqual(source, "manual_map")
+
+    def test_pick_probe_model_keeps_alias_when_same_named_raw_model_is_disabled(self):
+        cfg = {
+            "providers": self.providers,
+            "models": {
+                "provider_model_map": {
+                    "alpha": {"deepseek-v4-flash": "deepseek-v4-flash-free"}
+                },
+                "provider_model_disabled": {
+                    "alpha": {"deepseek-v4-flash": True}
+                },
+            },
+            "routing": {},
+        }
+
+        model, source = sse2json._pick_probe_model_with_source(
+            "alpha", observability=None, config=cfg
+        )
+
+        self.assertEqual(model, "deepseek-v4-flash")
         self.assertEqual(source, "manual_map")
 
     def test_pick_probe_model_skips_disabled_route(self):

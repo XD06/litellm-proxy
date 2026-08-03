@@ -47,7 +47,15 @@ assert.match(requestRender, /modelBrandIconMarkup\(r\.model/, "request rows must
 assert.match(requestRender, /providerBrandIconMarkup\(provider/, "request rows must preserve provider brand icons");
 assert.match(requestRender, /request-cell-provider[\s\S]*request-provider-chip[\s\S]*request-cell-route[\s\S]*request-route-chip/, "provider and routing outcome must use separate aligned columns");
 assert.match(requestRender, /requestFormatBadge\(r\)/, "request identity must retain client and upstream format");
+assert.match(requestRender, /<th scope="col">\$\{escapeHtml\(t\("req\.meta_ip"\)\)\}<\/th>/, "request table must expose a dedicated client IP column");
+assert.match(requestRender, /request-cell-client-ip[\s\S]*r\.client_ip|r\.client_ip[\s\S]*request-cell-client-ip/, "client IP must render in its own table cell");
+assert.match(requestRender, /request-format-chip format-\$\{escapeHtml\(formatTone\)\}/, "request formats must expose a stable color class");
+assert.match(requestRender, /const displayFormat = converted \? finalUpstreamFormat : clientFormat/, "converted badges must derive their appearance from the displayed final format");
+assert.match(requestRender, /displayFormat === "chat_completions"[\s\S]*\? "chat"/, "Chat requests must use the Chat format tone");
+assert.match(requestRender, /displayFormat === "responses"[\s\S]*\? "responses"/, "Responses requests must use the Responses format tone");
+assert.match(requestRender, /displayFormat === "anthropic_messages"[\s\S]*\? "messages"/, "Messages requests must use the Messages format tone");
 assert.match(requestRender, /r\.client_ip/, "request identity must retain client IP");
+assert.doesNotMatch(requestRender, /request-identity[\s\S]*request-meta-chip mono[^\n]*source/, "client IP must not remain mixed into model metadata");
 assert.match(requestRender, /r\.stream/, "request identity must retain streaming state");
 assert.match(requestRender, /statusBadge\(r\.status, r\.status_code\)/, "request status and HTTP status must remain visible");
 assert.match(requestRender, /usage\.total_tokens[\s\S]*usage\.input_tokens[\s\S]*usage\.output_tokens/, "total, input, and output token fields must remain visible");
@@ -67,11 +75,17 @@ assert.match(requestDesktopStyles, /#requestsTable \.request-data-table thead th
 assert.match(requestDesktopStyles, /#requestsTable \.request-data-table td\s*\{[\s\S]*height:\s*54px/, "desktop request rows must remain compact");
 assert.match(requestDesktopStyles, /#requestsTable \.request-data-table\.is-full-page\s*\{[\s\S]*height:\s*100%/, "full request pages must fill the available panel height");
 assert.match(requestDesktopStyles, /#requestsTable \.request-identity\s*\{[\s\S]*display:\s*inline-flex/, "request identity must keep a compact flex layout");
+assert.match(requestDesktopStyles, /#requestsTable \.request-cell-client-ip\s*\{[\s\S]*white-space:\s*nowrap/, "client IP column must remain compact");
 assert.match(requestDesktopStyles, /#requestsTable \.request-identity\s*\{[\s\S]*flex-direction:\s*column/, "request metadata must sit below the model name");
 assert.match(requestDesktopStyles, /#requestsTable \.request-identity > strong\s*\{[\s\S]*flex:\s*0 0 auto/, "model names must not shrink before secondary metadata");
 assert.match(requestDesktopStyles, /#requestsTable \.request-model-mark\s*\{[\s\S]*border:\s*1px solid/, "model brand marks must retain a compact framed treatment");
 assert.match(requestDesktopStyles, /#requestsTable \.request-provider-chip,[\s\S]*border:\s*1px solid/, "provider badges must retain a compact framed treatment");
 assert.match(requestDesktopStyles, /#requestsTable \.request-token-block\s*\{[\s\S]*flex-direction:\s*column/, "total and input-output token values must remain on separate lines");
+assert.match(requestDesktopStyles, /\.request-format-chip\.format-chat\s*\{[\s\S]*color:\s*#047857/, "Chat format must use restrained green");
+assert.match(requestDesktopStyles, /\.request-format-chip\.format-responses\s*\{[\s\S]*color:\s*#2563eb/, "Responses format must use restrained blue");
+assert.match(requestDesktopStyles, /\.request-format-chip\.format-messages\s*\{[\s\S]*color:\s*#b45309/, "Messages format must use restrained amber");
+assert.match(requestRender, /converted \? iconSvg\("arrow-right-left"\)/, "converted formats must use a compact conversion icon");
+assert.match(requestRender, /shortFormatLabel\(displayFormat\)/, "converted badges must display only the final format");
 assert.match(i18n, /"req\.page_desc"[^\n]+zh:/, "request page description must remain bilingual");
 
 console.log("request page layout tests passed");

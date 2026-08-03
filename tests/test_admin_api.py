@@ -14,6 +14,7 @@ import sse2json
 import config_manager
 from conversion_diagnostics import ConversionDiagnosticStore
 from observability import ProxyObservability
+from proxy_utils import key_fingerprint
 from router import Attempt, UpstreamRouter, _KeyState
 
 
@@ -826,6 +827,99 @@ class AdminApiTests(unittest.TestCase):
         model_ids = [m["id"] for m in models_body["data"]]
         self.assertIn("client-alpha", model_ids)
         self.assertNotIn("alpha-model", model_ids)
+
+    def test_admin_model_mapping_preserves_disabled_same_named_raw_model(self):
+        keys = ["alpha-key-a", "alpha-key-b"]
+        key_capabilities = {
+            key_fingerprint(key): {
+                "status": "ok",
+                "models": ["deepseek-v4-flash", "deepseek-v4-flash-free"],
+                "canonical_map": {
+                    "deepseek-v4-flash": "deepseek-v4-flash",
+                    "deepseek-v4-flash-free": "deepseek-v4-flash-free",
+                },
+            }
+            for key in keys
+        }
+        cfg = {
+            "server": {"admin_key": "admin-secret"},
+            "routing": {
+                "default_provider_pool": ["alpha"],
+                "provider_select": "priority_failover",
+            },
+            "models": {
+                "models_source": "union",
+                "provider_model_disabled": {
+                    "alpha": {"deepseek-v4-flash": True}
+                },
+                "provider_model_capabilities": {
+                    "alpha": {
+                        "status": "ok",
+                        "models": ["deepseek-v4-flash", "deepseek-v4-flash-free"],
+                        "canonical_map": {
+                            "deepseek-v4-flash": "deepseek-v4-flash",
+                            "deepseek-v4-flash-free": "deepseek-v4-flash-free",
+                        },
+                    }
+                },
+                "provider_key_model_capabilities": {"alpha": key_capabilities},
+            },
+            "providers": {
+                "alpha": {
+                    "base_url": "https://alpha.example",
+                    "keys": keys,
+                    "enabled": True,
+                }
+            },
+        }
+        manager = config_manager.RuntimeConfigManager(
+            cfg, overlay_path=self.temp_overlay_path()
+        )
+        headers = {
+            "Content-Type": "application/json",
+            "X-Admin-Key": "admin-secret",
+        }
+
+        with self.runtime_config(manager):
+            status, _body = self.patch_json(
+                "/-/admin/providers/alpha/models/map",
+                {
+                    "old_model": "deepseek-v4-flash-free",
+                    "model": "deepseek-v4-flash",
+                    "raw_model": "deepseek-v4-flash-free",
+                },
+                headers=headers,
+            )
+            models_status, models_body = self.get_json("/v1/models")
+            attempts = list(
+                sse2json.ROUTER.iter_attempts(
+                    "deepseek-v4-flash", False, "req-admin-conflicting-models"
+                )
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(models_status, 200)
+        self.assertTrue(
+            manager.config["models"]["provider_model_disabled"]["alpha"][
+                "deepseek-v4-flash"
+            ]
+        )
+        self.assertEqual(
+            manager.config["models"]["provider_model_map"]["alpha"][
+                "deepseek-v4-flash"
+            ],
+            "deepseek-v4-flash-free",
+        )
+        self.assertIn(
+            "deepseek-v4-flash", [model["id"] for model in models_body["data"]]
+        )
+        self.assertEqual(
+            [(attempt.key_index, attempt.provider_model) for attempt in attempts],
+            [
+                (0, "deepseek-v4-flash-free"),
+                (1, "deepseek-v4-flash-free"),
+            ],
+        )
 
     def test_admin_provider_model_variants_update_runtime_routing(self):
         cfg = {

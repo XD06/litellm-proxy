@@ -19,9 +19,12 @@ import { compareProviderViews } from "./provider-sort.mjs";
 import { modelBrandIconMarkup, providerBrandIconMarkup } from "./model-brand-icons.js";
 import {
   clearLiveFormField,
+  mergeProviderModelCatalogItems,
   mergeStaticModelIds,
   normalizeStaticModelIds,
   normalizeVariantEntries,
+  providerModelMappingOldId,
+  providerModelSourceId,
   resetLiveForm,
 } from "./provider-model-config.mjs";
 
@@ -3137,29 +3140,43 @@ import {
       `;
 
       // Draw latency line & area
-      const latencyPoints = enriched
-        .filter((bucket) => bucket.requests > 0 && bucket.first_byte_ms_avg > 0)
-        .map((bucket) => ({
+      const latencyPoints = enriched.map((bucket) => {
+        const value = Number(bucket.requests || 0) > 0
+          ? Math.max(0, Number(bucket.first_byte_ms_avg || 0))
+          : 0;
+        return {
           x: bucket.x,
-          y: yLatency(bucket.first_byte_ms_avg),
-          value: bucket.first_byte_ms_avg,
+          y: yLatency(value),
+          value,
           start: bucket.start,
           ts: bucket.ts,
-        }));
+        };
+      });
       const latencyPath = smoothSvgPath(latencyPoints, pad.top, barBaseline, demoCurveFactor);
+      const latencyAreaPath = latencyPath && latencyPoints.length > 1
+        ? `${latencyPath} L ${svgNum(latencyPoints[latencyPoints.length - 1].x)} ${svgNum(barBaseline)} L ${svgNum(latencyPoints[0].x)} ${svgNum(barBaseline)} Z`
+        : "";
+      const latencyArea = latencyAreaPath
+        ? `<path class="traffic-latency-region" d="${latencyAreaPath}"></path>`
+        : "";
       const latencyLine = latencyPath
         ? `<path class="traffic-latency-line" d="${latencyPath}"></path>`
         : "";
       const latencyDots = latencyPoints.length <= 64
-        ? latencyPoints.map((point) => `
+        ? latencyPoints.filter((point) => point.value > 0).map((point) => `
             <circle class="traffic-trend-dot traffic-latency-dot" cx="${svgNum(point.x)}" cy="${svgNum(point.y)}" r="3">
               <title>${escapeHtml(`${fmtDate(point.start || point.ts)} Avg Latency: ${fmtMs(point.value)}`)}</title>
             </circle>
           `).join("")
         : "";
+      const latencyLabels = [0, latencyMax / 2, latencyMax].map((label) => `
+        <text class="traffic-axis-label traffic-axis-label-info" x="${width - pad.right + 14}" y="${yLatency(label) + 4}">${escapeHtml(fmtMs(label))}</text>
+      `).join("");
 
       svgContent = `
         ${gridAndLabels}
+        ${latencyLabels}
+        ${latencyArea}
         ${requestTrends}
         ${latencyLine}
         ${latencyDots}
@@ -3242,6 +3259,10 @@ import {
         ts: bucket.ts,
       }));
       const costPath = smoothSvgPath(costPoints, pad.top, barBaseline, demoCurveFactor);
+      const costAreaPath = costPath && costPoints.length > 1
+        ? `${costPath} L ${svgNum(costPoints[costPoints.length - 1].x)} ${svgNum(barBaseline)} L ${svgNum(costPoints[0].x)} ${svgNum(barBaseline)} Z`
+        : "";
+      const costArea = costAreaPath ? `<path class="traffic-cost-region" d="${costAreaPath}"></path>` : "";
       const costLine = costPath ? `<path class="traffic-cost-line" d="${costPath}"></path>` : "";
 
       // Draw dots for total tokens
@@ -3265,6 +3286,7 @@ import {
       svgContent = `
         ${gridAndLabels}
         ${rightLabels}
+        ${costArea}
         ${totalArea}
         ${totalLine}
         ${inputLine}
@@ -3352,8 +3374,14 @@ import {
               <stop offset="100%" stop-color="#7b55d6" stop-opacity="0"></stop>
             </linearGradient>
             <linearGradient id="trafficLatencyArea" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.16"></stop>
+              <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.10"></stop>
+              <stop offset="58%" stop-color="#f59e0b" stop-opacity="0.03"></stop>
               <stop offset="100%" stop-color="#f59e0b" stop-opacity="0"></stop>
+            </linearGradient>
+            <linearGradient id="trafficCostArea" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stop-color="#e49a24" stop-opacity="0.09"></stop>
+              <stop offset="58%" stop-color="#e49a24" stop-opacity="0.025"></stop>
+              <stop offset="100%" stop-color="#e49a24" stop-opacity="0"></stop>
             </linearGradient>
             <linearGradient id="trafficRequestArea" x1="0" x2="0" y1="0" y2="1">
               <stop offset="0%" stop-color="#10b981" stop-opacity="0.12"></stop>
@@ -3650,7 +3678,7 @@ import {
     names.sort((a, b) => (providers[a].score || 0) - (providers[b].score || 0));
     const overallGrade = overall >= 90 ? "excellent" : overall >= 75 ? "good" : overall >= 50 ? "fair" : overall >= 25 ? "poor" : "critical";
     const overallTone = overall >= 75 ? "success" : overall >= 50 ? "warning" : "danger";
-    const visibleNames = names.slice(0, 6);
+    const visibleNames = names.slice(0, 9);
     const hiddenCount = Math.max(0, names.length - visibleNames.length);
     if (subtitleTarget) subtitleTarget.textContent = t("health.providers_count", { count: fmtInt(names.length) });
     if (summaryTarget) updateDOM(summaryTarget, `
@@ -3678,9 +3706,10 @@ import {
             </div>
           `;
         }).join("")}
-        ${hiddenCount ? `<div class="health-overview-more">${escapeHtml(t("health.more_providers", { count: fmtInt(hiddenCount) }))}</div>` : ""}
+        ${hiddenCount ? `<button class="health-overview-more" type="button" data-view-target="providers">${escapeHtml(t("health.more_providers", { count: fmtInt(hiddenCount) }))}</button>` : ""}
       </div>
     `);
+    bindViewTargetButtons();
   }
 
   function enabledFormats(formats) {
@@ -3786,6 +3815,7 @@ import {
           <thead>
             <tr>
               <th scope="col">${escapeHtml(t("req.col_model_time"))}</th>
+              <th scope="col">${escapeHtml(t("req.meta_ip"))}</th>
               <th scope="col">${escapeHtml(t("req.col_status"))}</th>
               <th scope="col">${escapeHtml(t("req.provider"))}</th>
               <th scope="col">${escapeHtml(t("req.col_route"))}</th>
@@ -3845,6 +3875,9 @@ import {
     const firstByte = firstByteMsFromRequest(r);
     const requestId = String(r.request_id || "");
     const source = String(r.client_ip || "-");
+    const sourceTip = r.client_ip_source
+      ? `${source} · ${String(r.client_ip_source)}`
+      : source;
     const requestTime = fmtRequestDateParts(r.finished_at);
     const tokenTip = [
       `${t("tokens.uncached")}: ${fmtInt(usage.uncached_input_tokens)}`,
@@ -3867,11 +3900,11 @@ import {
             <small>
               <time datetime="${escapeHtml(requestTime.iso)}">${escapeHtml(requestTime.date)} ${escapeHtml(requestTime.time)}</time>
               ${requestFormatBadge(r)}
-              <span class="request-meta-chip mono">${escapeHtml(source)}</span>
               ${r.stream ? `<span class="request-meta-chip request-stream-chip" data-tip="${escapeHtml(t("req.streaming"))}">${iconSvg("activity")}${escapeHtml(t("req.streaming"))}</span>` : ""}
             </small>
           </span>
         </td>
+        <td class="request-cell-client-ip"><span class="request-client-ip mono" data-tip="${escapeHtml(sourceTip)}">${escapeHtml(source)}</span></td>
         <td class="request-cell-result"><span>${statusBadge(r.status, r.status_code)}</span><small class="mono">${code || "-"}</small></td>
         <td class="request-cell-provider">
           <span class="request-provider-chip" data-tip="${escapeHtml(provider)}">${providerBrandIconMarkup(provider, iconSvg("server"))}<strong>${escapeHtml(provider)}</strong></span>
@@ -3895,13 +3928,19 @@ import {
     const clientFormat = String(request?.client_format || request?.endpoint || "").trim();
     const finalUpstreamFormat = String(request?.routing_summary?.final_upstream_format || "").trim();
     const converted = Boolean(clientFormat && finalUpstreamFormat && clientFormat !== finalUpstreamFormat);
-    const label = converted
-      ? `${shortFormatLabel(clientFormat)} → ${shortFormatLabel(finalUpstreamFormat)}`
-      : shortFormatLabel(clientFormat);
+    const displayFormat = converted ? finalUpstreamFormat : clientFormat;
+    const label = shortFormatLabel(displayFormat);
     const tip = converted
       ? `${formatLabel(clientFormat)} → ${formatLabel(finalUpstreamFormat)}`
       : formatLabel(clientFormat);
-    return `<span class="request-meta-chip request-format-chip${converted ? " is-converted" : ""}" data-tip="${escapeHtml(tip)}">${escapeHtml(label)}</span>`;
+    const formatTone = displayFormat === "chat_completions"
+      ? "chat"
+      : displayFormat === "responses"
+        ? "responses"
+        : displayFormat === "anthropic_messages"
+          ? "messages"
+          : "neutral";
+    return `<span class="request-meta-chip request-format-chip format-${escapeHtml(formatTone)}${converted ? " is-converted" : ""}" data-tip="${escapeHtml(tip)}" aria-label="${escapeHtml(tip)}">${converted ? iconSvg("arrow-right-left") : ""}${escapeHtml(label)}</span>`;
   }
 
   function requestTone(request) {
@@ -4304,46 +4343,24 @@ import {
       Array.isArray(capability.models) ? capability.models : [],
       capability.canonical_map || {},
     );
-    const items = [];
-    const seen = new Set();
-    const seenKey = (value) => String(value || "").trim().toLowerCase();
-    const rememberModelItem = (item) => {
-      [item?.label, item?.raw].forEach((value) => {
-        const key = seenKey(value);
-        if (key) seen.add(key);
-      });
-    };
     const configuredMap = state.data.config?.models?.provider_model_map?.[name] || {};
-    Object.entries(configuredMap || {})
-      .filter(([_canonical, raw]) => raw)
-      .sort(([a], [b]) => String(a).localeCompare(String(b)))
-      .forEach(([canonical, raw]) => {
-        if (seen.has(seenKey(canonical)) || seen.has(seenKey(raw))) return;
-        const item = {
-          label: String(canonical || raw),
-          raw: String(raw || ""),
-          title: raw && raw !== canonical ? `${canonical} maps to ${raw}` : String(canonical || raw),
-          manual: true,
-        };
-        items.push(item);
-        rememberModelItem(item);
-      });
-    base.forEach((item) => {
-      if (seen.has(seenKey(item.label)) || seen.has(seenKey(item.raw))) return;
-      items.push(item);
-      rememberModelItem(item);
-    });
+    const items = mergeProviderModelCatalogItems(base, configuredMap);
+    const visibleLabels = new Set(items.map((item) => String(item.label || "").trim().toLowerCase()));
     providerRouteModels(name).forEach((model) => {
-      if (seen.has(seenKey(model))) return;
-      const item = { label: model, raw: "", title: model };
-      items.push(item);
-      rememberModelItem(item);
+      const normalized = String(model || "").trim().toLowerCase();
+      if (!normalized || visibleLabels.has(normalized)) return;
+      items.push({ label: model, raw: "", title: model, manual: false });
+      visibleLabels.add(normalized);
     });
-    return items.map((item) => ({
-      ...item,
-      disabled: isProviderModelDisabled(name, item.label),
-      pending: Object.prototype.hasOwnProperty.call(providerModelDraft(name), String(item.label || "")),
-    }));
+    return items.map((item) => {
+      const sourceModel = providerModelSourceId(item);
+      return {
+        ...item,
+        sourceModel,
+        disabled: isProviderModelDisabled(name, sourceModel),
+        pending: Object.prototype.hasOwnProperty.call(providerModelDraft(name), sourceModel),
+      };
+    });
   }
 
   function providerModelDisabledMap(provider) {
@@ -5498,7 +5515,7 @@ import {
               <span class="model-map-chip provider-model-chip ${item.disabled ? "is-disabled" : ""} ${item.pending ? "is-pending" : ""} ${item.manual ? "is-manual-map" : ""}" role="listitem">
                 <button class="model-chip-toggle" type="button"
                   data-provider-model-disable-provider="${escapeHtml(view.name)}"
-                  data-provider-model-disable-model="${escapeHtml(item.label)}"
+                  data-provider-model-disable-model="${escapeHtml(item.sourceModel)}"
                   data-provider-model-disable-next="${item.disabled ? "false" : "true"}"
                   title="${escapeHtml(`${item.disabled ? t("prov.models.stage_enable") : t("prov.models.stage_disable")} ${item.title}`)}"
                   aria-label="${escapeHtml(`${item.disabled ? t("prov.models.stage_enable") : t("prov.models.stage_disable")} ${item.label}`)}">
@@ -6282,6 +6299,7 @@ import {
       "arrow-right": `<path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path>`,
       "arrow-up": `<path d="M12 19V5"></path><path d="M5 12l7-7 7 7"></path>`,
       "arrow-down": `<path d="M12 5v14"></path><path d="M19 12l-7 7-7-7"></path>`,
+      "arrow-right-left": `<path d="M8 3 4 7l4 4"></path><path d="M4 7h16"></path><path d="m16 21 4-4-4-4"></path><path d="M20 17H4"></path>`,
       "git-branch": `<line x1="6" x2="6" y1="3" y2="15"></line><circle cx="18" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M18 9a9 9 0 0 1-9 9"></path>`,
       boxes: `<path d="M4 7l8-4 8 4-8 4-8-4z"></path><path d="M4 7v10l8 4 8-4V7"></path><path d="M12 11v10"></path>`,
       "chevron-right": `<path d="M9 18l6-6-6-6"></path>`,
@@ -6559,7 +6577,7 @@ import {
   }
 
   async function updateProviderModelMapping(provider, oldModel, rawModel, nextModel) {
-    if (!provider || !oldModel || !rawModel) return false;
+    if (!provider || !rawModel) return false;
     return runOptimisticConfigAction(
       null,
       () => apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/models/map`, {
@@ -6568,10 +6586,10 @@ import {
         raw_model: rawModel,
       }),
       {
-        resourceKey: `provider-model-map:${provider}:${oldModel}`,
+        resourceKey: `provider-model-map:${provider}:${oldModel || rawModel}`,
         apply: (config) => {
           const providerMap = ((((config.models ||= {}).provider_model_map ||= {})[provider] ||= {}));
-          if (oldModel !== nextModel) delete providerMap[oldModel];
+          if (oldModel && oldModel !== nextModel) delete providerMap[oldModel];
           if (nextModel) providerMap[nextModel] = rawModel;
         },
       },
@@ -6626,7 +6644,12 @@ import {
       }
       const submit = form.querySelector('button[type="submit"]');
       if (submit) submit.disabled = true;
-      const saved = await updateProviderModelMapping(provider, oldModel, rawModel, nextModel);
+      const saved = await updateProviderModelMapping(
+        provider,
+        providerModelMappingOldId({ label: oldModel, manual: isManual }),
+        rawModel,
+        nextModel,
+      );
       if (saved) closeFormModal();
       else if (submit) submit.disabled = false;
     });
@@ -6746,8 +6769,8 @@ import {
         const next = action === "disable";
         const models = {};
         visibleItems.forEach((item) => {
-          if (!item.label) return;
-          models[item.label] = next;
+          if (!item.sourceModel) return;
+          models[item.sourceModel] = next;
         });
         if (!Object.keys(models).length) return;
         setProviderModelsDisabledDraft(provider, models);

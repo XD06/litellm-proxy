@@ -24604,7 +24604,7 @@ body {
     min-height: 0;
     flex: 1 1 auto;
     flex-direction: column;
-    padding: 16px 24px 24px;
+    padding: 12px 24px 16px;
     background: transparent;
   }
 
@@ -24614,7 +24614,7 @@ body {
     height: 100%;
     flex: 1 1 auto;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
     padding: 0;
   }
 
@@ -24687,6 +24687,7 @@ body {
   }
 
   #overviewView .health-overview-more {
+    width: 100%;
     min-height: 34px;
     margin-top: auto;
     padding: 8px 12px;
@@ -24696,11 +24697,17 @@ body {
     color: #71717a;
     font: 500 12px/16px var(--sans);
     text-align: center;
+    cursor: pointer;
     transition: transform 100ms cubic-bezier(0.23, 1, 0.32, 1), background-color 150ms cubic-bezier(0.23, 1, 0.32, 1);
   }
 
   #overviewView .health-overview-more:hover {
     background: #fafafa;
+  }
+
+  #overviewView .health-overview-more:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
   }
 }
 
@@ -25278,13 +25285,14 @@ body {
     padding-inline: 4px 10px;
   }
 
-  #requestsTable .request-data-table th:nth-child(1) { width: 34%; }
-  #requestsTable .request-data-table th:nth-child(2) { width: 10%; }
-  #requestsTable .request-data-table th:nth-child(3) { width: 14%; }
-  #requestsTable .request-data-table th:nth-child(4) { width: 11%; }
-  #requestsTable .request-data-table th:nth-child(5) { width: 11%; }
-  #requestsTable .request-data-table th:nth-child(6) { width: 10%; }
-  #requestsTable .request-data-table th:nth-child(7) { width: 10%; }
+  #requestsTable .request-data-table th:nth-child(1) { width: 26%; }
+  #requestsTable .request-data-table th:nth-child(2) { width: 9%; }
+  #requestsTable .request-data-table th:nth-child(3) { width: 10%; }
+  #requestsTable .request-data-table th:nth-child(4) { width: 13%; }
+  #requestsTable .request-data-table th:nth-child(5) { width: 10%; }
+  #requestsTable .request-data-table th:nth-child(6) { width: 11%; }
+  #requestsTable .request-data-table th:nth-child(7) { width: 9%; }
+  #requestsTable .request-data-table th:nth-child(8) { width: 12%; }
 
   #requestsTable .request-data-table td {
     height: 54px;
@@ -25314,6 +25322,20 @@ body {
   }
 
   #requestsTable .request-cell-request {
+    white-space: nowrap;
+  }
+
+  #requestsTable .request-cell-client-ip {
+    color: #71717a;
+    white-space: nowrap;
+  }
+
+  #requestsTable .request-client-ip {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    font: 400 10.5px/16px var(--mono);
+    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
@@ -25392,6 +25414,33 @@ body {
     white-space: nowrap;
   }
 
+  #requestsTable .request-format-chip.format-chat,
+  #requestsTable .request-format-chip.format-responses,
+  #requestsTable .request-format-chip.format-messages {
+    padding: 1px 5px;
+    border: 1px solid;
+    border-radius: 5px;
+    font-weight: 500;
+  }
+
+  #requestsTable .request-format-chip.format-chat {
+    border-color: #a7f3d0;
+    background: #ecfdf5;
+    color: #047857;
+  }
+
+  #requestsTable .request-format-chip.format-responses {
+    border-color: #bfdbfe;
+    background: #eff6ff;
+    color: #2563eb;
+  }
+
+  #requestsTable .request-format-chip.format-messages {
+    border-color: #fde68a;
+    background: #fffbeb;
+    color: #b45309;
+  }
+
   #requestsTable .request-format-chip.is-converted {
     padding: 1px 5px;
     border: 1px solid #ddd6fe;
@@ -25399,6 +25448,13 @@ body {
     background: #f5f3ff;
     color: #6d5bc3;
     font-weight: 500;
+  }
+
+  #requestsTable .request-format-chip.is-converted .icon-svg {
+    width: 10px;
+    height: 10px;
+    margin-right: 3px;
+    stroke-width: 1.8;
   }
 
   #requestsTable .request-stream-chip {
@@ -26713,7 +26769,7 @@ body {
   #playgroundView .pg-param #pgIncludeHistory {
     width: 16px;
     height: 16px;
-    accent-color: #1688f8;
+    accent-color: #151a23bf;
   }
 
   #playgroundView .pg-system-prompt {
@@ -26840,10 +26896,12 @@ body {
 
   #playgroundView .pg-input-bar {
     position: relative;
+    width: min(88%, 860px);
+    margin-inline: auto;
     grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: minmax(52px, auto) auto;
-    gap: 12px;
-    padding: 16px;
+    grid-template-rows: minmax(40px, auto) auto;
+    gap: 8px;
+    padding: 12px 14px;
     border: 1px solid #e4e4e7;
     border-radius: 18px;
     background: #fff;
@@ -26852,8 +26910,8 @@ body {
 
   #playgroundView .pg-input {
     grid-column: 1 / -1;
-    min-height: 52px;
-    max-height: 132px;
+    min-height: 40px;
+    max-height: 96px;
     padding: 0;
     border: 0;
     border-radius: 0;
@@ -26876,10 +26934,10 @@ body {
 
   #playgroundView .pg-btn {
     display: inline-grid;
-    width: 36px;
-    min-width: 36px;
-    height: 36px;
-    min-height: 36px;
+    width: 32px;
+    min-width: 32px;
+    height: 32px;
+    min-height: 32px;
     place-items: center;
     padding: 0;
     border-radius: 999px;
@@ -27384,4 +27442,34 @@ body.is-auth-checking {
   50% {
     opacity: 1;
   }
+}
+
+/* Final overview chart ownership: secondary series keep distinct, restrained areas. */
+#overviewView .traffic-latency-region {
+  display: block;
+  fill: url("#trafficLatencyArea");
+  opacity: 1;
+  pointer-events: none;
+}
+
+#overviewView .traffic-cost-region {
+  display: block;
+  fill: url("#trafficCostArea");
+  opacity: 1;
+  pointer-events: none;
+}
+
+#overviewView .traffic-latency-line,
+#overviewView .traffic-cost-line {
+  filter: none;
+}
+
+#overviewView .chart .traffic-grid-line {
+  stroke: #eceff3;
+  stroke-width: 1;
+}
+
+#overviewView .chart .traffic-y-axis,
+#overviewView .chart .traffic-baseline {
+  stroke: #dfe4ea;
 }

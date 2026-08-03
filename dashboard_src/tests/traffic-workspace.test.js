@@ -44,6 +44,28 @@ assert.match(
   /id="trafficRequestArea"[\s\S]{0,240}stop-color="#10b981"[\s\S]{0,120}stop-opacity="0\.12"/,
   "the request area must use a subtle mint success-series gradient",
 );
+assert.match(
+  comboRenderer,
+  /id="trafficLatencyArea"[\s\S]{0,240}stop-color="#f59e0b"[\s\S]{0,120}stop-opacity="0\.10"/,
+  "average latency must use a restrained amber area gradient",
+);
+assert.match(
+  comboRenderer,
+  /id="trafficCostArea"[\s\S]{0,240}stop-color="#e49a24"[\s\S]{0,120}stop-opacity="0\.09"/,
+  "estimated cost must use a restrained gold area gradient",
+);
+assert.match(comboRenderer, /latencyAreaPath[\s\S]*traffic-latency-region/, "average latency must close its curve to the chart baseline");
+assert.match(
+  comboRenderer,
+  /const latencyPoints = enriched\.map/,
+  "average latency must retain empty time buckets so the line returns continuously to zero",
+);
+assert.doesNotMatch(
+  comboRenderer,
+  /const latencyPoints = enriched\s*\.filter/,
+  "average latency must not remove empty buckets and create broken chart segments",
+);
+assert.match(comboRenderer, /costAreaPath[\s\S]*traffic-cost-region/, "estimated cost must close its curve to the chart baseline");
 assert.doesNotMatch(
   styles,
   /#overviewView \.traffic-success-area\s*\{[\s\S]{0,100}fill:\s*rgba/,
@@ -59,6 +81,8 @@ assert.match(
   /#overviewView \.traffic-success-area\s*\{[\s\S]{0,100}display:\s*block;[\s\S]{0,100}fill:\s*url\("?#trafficRequestArea"?\);/,
   "the current overview bundle must explicitly override legacy area hiding",
 );
+assert.match(styles, /#overviewView \.traffic-latency-region\s*\{[\s\S]{0,100}fill:\s*url\("?#trafficLatencyArea"?\)/, "latency area styling must preserve its SVG gradient");
+assert.match(styles, /#overviewView \.traffic-cost-region\s*\{[\s\S]{0,100}fill:\s*url\("?#trafficCostArea"?\)/, "cost area styling must preserve its SVG gradient");
 assert.doesNotMatch(
   styles,
   /\.traffic-token-area\s*\{[\s\S]{0,100}fill:\s*color-mix/,
@@ -106,6 +130,15 @@ assert.match(dashboardHtml, /data-i18n="health\.subtitle"/, "failover health des
 assert.match(healthRenderer, /t\("health\.grade\." \+ overallGrade\)/, "overall health grade must be translated");
 assert.match(healthRenderer, /t\("health\.providers_count"/, "provider count must be translated");
 assert.match(healthRenderer, /t\("health\.more_providers"/, "hidden provider count must be translated");
+assert.match(healthRenderer, /const visibleNames = names\.slice\(0, 9\)/, "desktop health overview must use the available card height");
+assert.match(
+  healthRenderer,
+  /<button class="health-overview-more" type="button" data-view-target="providers"/,
+  "the remaining-provider control must be a real navigation button",
+);
+assert.match(healthRenderer, /bindViewTargetButtons\(\)/, "health navigation must be rebound after dynamic rendering");
+assert.match(styles, /#overviewView \.health-overview\s*\{[\s\S]{0,180}padding:\s*12px 24px 16px;/, "health content padding must keep the remaining-provider button inside the fixed card");
+assert.match(styles, /#overviewView \.health-overview-list\s*\{[\s\S]{0,180}gap:\s*8px;/, "nine provider rows must use the compact vertical rhythm");
 assert.match(translations, /"health\.grade\.excellent"\s*:\s*\{\s*en:\s*"Excellent",\s*zh:\s*"优秀"/, "excellent grade needs Chinese and English copy");
 assert.match(translations, /"traffic\.requests_per_minute"\s*:\s*\{\s*en:\s*"Unit: requests\/min",\s*zh:\s*"单位：请求\/分钟"/, "request chart unit must be explicit");
 assert.match(styles, /\.traffic-success-legend i,[\s\S]{0,120}width:\s*18px/, "request legends must use visible line swatches");

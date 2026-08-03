@@ -9,6 +9,8 @@ const dashboardDir = path.resolve(rootDir, "..", "dashboard");
 const html = fs.readFileSync(path.join(dashboardDir, "index.html"), "utf8");
 const styles = fs.readFileSync(path.join(rootDir, "src", "styles.css"), "utf8");
 const app = fs.readFileSync(path.join(rootDir, "src", "app.js"), "utf8");
+const main = fs.readFileSync(path.join(rootDir, "src", "main.js"), "utf8");
+const viteConfig = fs.readFileSync(path.join(rootDir, "vite.config.js"), "utf8");
 
 for (const id of ["authChecking", "authCheckingText", "loginGate", "app"]) {
   assert.match(html, new RegExp(`id="${id}"`), `authentication flow must preserve #${id}`);
@@ -20,5 +22,7 @@ assert.match(styles, /\.auth-checking \.auth-progress::after\s*\{[^}]*animation:
 assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.auth-checking \.auth-card/, "loading motion must respect reduced-motion preferences");
 assert.match(app, /el\("authChecking"\)\?\.removeAttribute\("hidden"\)/, "authentication checking behavior must remain connected");
 assert.match(app, /document\.body\.classList\.add\("is-auth-checking"\)/, "authentication checking body state must remain connected");
+assert.doesNotMatch(main, /import\s+["']\.\/styles\.css["']/, "the JavaScript bundle must not inject a second copy of the dashboard stylesheet");
+assert.match(viteConfig, /copyFileSync\(sourceStyles, outputStyles\)/, "the production build must copy the canonical stylesheet beside the bundle");
 
 console.log("loading state tests passed");

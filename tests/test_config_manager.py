@@ -582,6 +582,37 @@ class ConfigManagerTests(unittest.TestCase):
         self.assertEqual(pmap["client-alpha"], "vendor/alpha")
         self.assertEqual(pmap["renamed-alpha"], "vendor/alpha")
 
+    def test_disabled_raw_and_same_named_alias_survive_config_reload(self):
+        _config_path, overlay_path = self.temp_paths()
+        mgr = config_manager.RuntimeConfigManager(
+            base_config(), overlay_path=overlay_path
+        )
+        mgr.update_provider_model_disabled(
+            "alpha", "deepseek-v4-flash", True
+        )
+        mgr.update_provider_model_mapping(
+            "alpha",
+            old_model="deepseek-v4-flash-free",
+            model="deepseek-v4-flash",
+            raw_model="deepseek-v4-flash-free",
+        )
+
+        reloaded = config_manager.RuntimeConfigManager(
+            base_config(), overlay_path=overlay_path
+        )
+
+        self.assertTrue(
+            reloaded.config["models"]["provider_model_disabled"]["alpha"][
+                "deepseek-v4-flash"
+            ]
+        )
+        self.assertEqual(
+            reloaded.config["models"]["provider_model_map"]["alpha"][
+                "deepseek-v4-flash"
+            ],
+            "deepseek-v4-flash-free",
+        )
+
     def test_update_provider_model_mapping_tombstones_base_config_entry(self):
         """When renaming a mapping that exists in base config, the old name
         must be tombstoned (None) in the overlay so it doesn't resurrect

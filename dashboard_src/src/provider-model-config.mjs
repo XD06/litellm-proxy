@@ -41,6 +41,52 @@ export function normalizeVariantEntries(entries) {
   return variants;
 }
 
+export function mergeProviderModelCatalogItems(discoveredItems, configuredMap) {
+  const items = [];
+  const seenPairs = new Set();
+  const claimedRawModels = new Set();
+  const key = (value) => String(value || "").trim().toLowerCase();
+  const push = (item) => {
+    const label = String(item?.label || item?.raw || "").trim();
+    const raw = String(item?.raw || "").trim();
+    if (!label) return;
+    const pair = `${key(label)}\n${key(raw)}`;
+    if (seenPairs.has(pair)) return;
+    seenPairs.add(pair);
+    items.push({ ...item, label, raw });
+  };
+
+  Object.entries(configuredMap || {})
+    .filter(([_canonical, raw]) => String(raw || "").trim())
+    .sort(([a], [b]) => String(a).localeCompare(String(b)))
+    .forEach(([canonical, raw]) => {
+      const label = String(canonical || raw).trim();
+      const rawModel = String(raw || "").trim();
+      claimedRawModels.add(key(rawModel));
+      push({
+        label,
+        raw: rawModel,
+        title: rawModel !== label ? `${label} maps to ${rawModel}` : label,
+        manual: true,
+      });
+    });
+
+  for (const item of Array.isArray(discoveredItems) ? discoveredItems : []) {
+    const rawModel = String(item?.raw || item?.label || "").trim();
+    if (claimedRawModels.has(key(rawModel))) continue;
+    push({ ...item, manual: false });
+  }
+  return items;
+}
+
+export function providerModelSourceId(item) {
+  return String(item?.raw || item?.label || "").trim();
+}
+
+export function providerModelMappingOldId(item) {
+  return item?.manual ? String(item?.label || "").trim() : "";
+}
+
 export function clearLiveFormField(root, selector, fieldName) {
   const form = root?.querySelector?.(selector);
   const elements = form?.elements;

@@ -476,6 +476,178 @@ class RouterTests(unittest.TestCase):
             [(0, "upstream-model-free")],
         )
 
+    def test_disabled_raw_model_does_not_disable_same_named_manual_alias(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha"]
+        cfg["routing"]["provider_select"] = "priority_failover"
+        cfg["providers"]["alpha"]["keys"] = ["alpha-key-a", "alpha-key-b"]
+        cfg["providers"]["beta"]["enabled"] = False
+        cfg["models"]["provider_model_map"] = {
+            "alpha": {"deepseek-v4-flash": "deepseek-v4-flash-free"}
+        }
+        cfg["models"]["provider_model_disabled"] = {
+            "alpha": {"deepseek-v4-flash": True}
+        }
+        cfg["models"]["provider_model_capabilities"] = {
+            "alpha": {
+                "status": "ok",
+                "models": ["deepseek-v4-flash", "deepseek-v4-flash-free"],
+                "canonical_map": {
+                    "deepseek-v4-flash": "deepseek-v4-flash",
+                    "deepseek-v4-flash-free": "deepseek-v4-flash-free",
+                },
+            }
+        }
+        cfg["models"]["provider_key_model_capabilities"] = {
+            "alpha": {
+                key_fingerprint(key): {
+                    "status": "ok",
+                    "models": ["deepseek-v4-flash", "deepseek-v4-flash-free"],
+                    "canonical_map": {
+                        "deepseek-v4-flash": "deepseek-v4-flash",
+                        "deepseek-v4-flash-free": "deepseek-v4-flash-free",
+                    },
+                }
+                for key in cfg["providers"]["alpha"]["keys"]
+            }
+        }
+
+        attempts = list(
+            UpstreamRouter(cfg).iter_attempts(
+                "deepseek-v4-flash", False, "req-conflicting-model-identities"
+            )
+        )
+
+        self.assertEqual(
+            [(attempt.key_index, attempt.provider_model) for attempt in attempts],
+            [
+                (0, "deepseek-v4-flash-free"),
+                (1, "deepseek-v4-flash-free"),
+            ],
+        )
+
+    def test_same_key_routes_same_named_manual_alias_to_free_raw_model(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha"]
+        cfg["routing"]["provider_select"] = "priority_failover"
+        cfg["providers"]["alpha"]["keys"] = ["alpha-key"]
+        cfg["providers"]["beta"]["enabled"] = False
+        cfg["models"]["provider_model_map"] = {
+            "alpha": {"deepseek-v4-flash": "deepseek-v4-flash-free"}
+        }
+        cfg["models"]["provider_model_disabled"] = {
+            "alpha": {"deepseek-v4-flash": True}
+        }
+        capability = {
+            "status": "ok",
+            "models": ["deepseek-v4-flash", "deepseek-v4-flash-free"],
+            "canonical_map": {
+                "deepseek-v4-flash": "deepseek-v4-flash",
+                "deepseek-v4-flash-free": "deepseek-v4-flash-free",
+            },
+        }
+        cfg["models"]["provider_model_capabilities"] = {"alpha": capability}
+        cfg["models"]["provider_key_model_capabilities"] = {
+            "alpha": {key_fingerprint("alpha-key"): capability}
+        }
+
+        attempts = list(
+            UpstreamRouter(cfg).iter_attempts(
+                "deepseek-v4-flash", False, "req-single-key-conflicting-models"
+            )
+        )
+
+        self.assertEqual(
+            [(attempt.key_index, attempt.provider_model) for attempt in attempts],
+            [(0, "deepseek-v4-flash-free")],
+        )
+
+    def test_same_named_manual_alias_routes_without_discovery_capabilities(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha", "beta"]
+        cfg["routing"]["provider_select"] = "priority_failover"
+        cfg["providers"]["alpha"]["keys"] = ["alpha-key"]
+        cfg["providers"]["alpha"]["priority"] = 100
+        cfg["providers"]["beta"]["enabled"] = True
+        cfg["providers"]["beta"]["keys"] = ["beta-key"]
+        cfg["providers"]["beta"]["priority"] = 90
+        cfg["models"]["provider_model_map"] = {
+            "alpha": {"deepseek-v4-flash": "deepseek-v4-flash-free"},
+            "beta": {"deepseek-v4-flash": "deepseek-v4-flash"},
+        }
+        cfg["models"]["provider_model_disabled"] = {
+            "alpha": {"deepseek-v4-flash": True}
+        }
+        cfg["models"]["provider_model_capabilities"] = {}
+        cfg["models"]["provider_key_model_capabilities"] = {}
+
+        attempts = list(
+            UpstreamRouter(cfg).iter_attempts(
+                "deepseek-v4-flash", False, "req-no-discovery-conflicting-models"
+            )
+        )
+
+        self.assertEqual(
+            [
+                (attempt.provider, attempt.key_index, attempt.provider_model)
+                for attempt in attempts
+            ],
+            [
+                ("alpha", 0, "deepseek-v4-flash-free"),
+                ("beta", 0, "deepseek-v4-flash"),
+            ],
+        )
+
+    def test_explicit_route_keeps_same_named_manual_alias_routable(self):
+        cfg = base_config()
+        cfg["routing"]["provider_select"] = "priority_failover"
+        cfg["providers"]["alpha"]["keys"] = ["alpha-key"]
+        cfg["models"]["routes"] = {
+            "deepseek-v4-flash": {
+                "providers": [{"name": "alpha", "priority": 100}],
+                "provider_select": "priority_failover",
+            }
+        }
+        cfg["models"]["provider_model_map"] = {
+            "alpha": {"deepseek-v4-flash": "deepseek-v4-flash-free"}
+        }
+        cfg["models"]["provider_model_disabled"] = {
+            "alpha": {"deepseek-v4-flash": True}
+        }
+        cfg["models"]["provider_model_capabilities"] = {
+            "alpha": {
+                "status": "ok",
+                "models": ["deepseek-v4-flash", "deepseek-v4-flash-free"],
+                "canonical_map": {
+                    "deepseek-v4-flash": "deepseek-v4-flash",
+                    "deepseek-v4-flash-free": "deepseek-v4-flash-free",
+                },
+            }
+        }
+        cfg["models"]["provider_key_model_capabilities"] = {
+            "alpha": {
+                key_fingerprint("alpha-key"): {
+                    "status": "ok",
+                    "models": ["deepseek-v4-flash", "deepseek-v4-flash-free"],
+                    "canonical_map": {
+                        "deepseek-v4-flash": "deepseek-v4-flash",
+                        "deepseek-v4-flash-free": "deepseek-v4-flash-free",
+                    },
+                }
+            }
+        }
+
+        attempts = list(
+            UpstreamRouter(cfg).iter_attempts(
+                "deepseek-v4-flash", False, "req-explicit-conflicting-identities"
+            )
+        )
+
+        self.assertEqual(
+            [attempt.provider_model for attempt in attempts],
+            ["deepseek-v4-flash-free"],
+        )
+
     def test_routing_trace_records_rejected_and_selected_key_candidates(self):
         cfg = base_config()
         cfg["routing"]["default_provider_pool"] = ["alpha"]

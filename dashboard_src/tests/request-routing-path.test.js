@@ -89,7 +89,9 @@ assert.match(requestSummaryRow, /requestFormatBadge\(r\)/, "request rows must re
 assert.match(requestSummaryRow, /request-cell-provider[\s\S]*request-provider-chip[\s\S]*request-cell-route[\s\S]*request-route-chip/, "provider and routing outcome must render in separate table columns");
 assert.match(requestFormatBadge, /routing_summary\?\.final_upstream_format/, "format conversion must use the actual selected upstream format");
 assert.match(requestFormatBadge, /clientFormat !== finalUpstreamFormat/, "native requests must remain visually distinct from converted requests");
-assert.match(requestFormatBadge, /shortFormatLabel\(clientFormat\).*shortFormatLabel\(finalUpstreamFormat\)/, "converted requests must disclose the source and target formats");
+assert.match(requestFormatBadge, /shortFormatLabel\(displayFormat\)/, "converted requests must display only the selected upstream format");
+assert.match(requestFormatBadge, /iconSvg\("arrow-right-left"\)/, "converted requests must expose a compact conversion icon");
+assert.match(requestFormatBadge, /clientFormat.*→.*finalUpstreamFormat/s, "converted request tooltips must retain the source and target formats");
 assert.match(styles, /\.request-format-chip\.is-converted\s*\{[\s\S]*background:\s*#f2f0fb;[\s\S]*color:\s*#6558ad;/, "converted request formats need a restrained compatibility color");
 assert.match(styles, /\.request-route-chip\.tone-ok/, "direct route chips need a green style");
 assert.match(styles, /\.request-route-chip\.tone-warn/, "recovered route chips need an amber style");
