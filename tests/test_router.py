@@ -428,6 +428,54 @@ class RouterTests(unittest.TestCase):
             [(0, "grok-4.3-high")],
         )
 
+    def test_manual_provider_mapping_and_paid_disable_survive_multi_key_discovery(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha"]
+        cfg["routing"]["provider_select"] = "priority_failover"
+        cfg["providers"]["alpha"]["keys"] = ["alpha-free-key", "alpha-paid-key"]
+        cfg["providers"]["beta"]["enabled"] = False
+        cfg["models"]["provider_model_map"] = {
+            "alpha": {"renamed-model": "upstream-model-free"}
+        }
+        cfg["models"]["provider_model_disabled"] = {
+            "alpha": {"upstream-model-paid": True}
+        }
+        cfg["models"]["provider_model_capabilities"] = {
+            "alpha": {
+                "status": "ok",
+                "models": ["upstream-model-free", "upstream-model-paid"],
+                "canonical_map": {
+                    "renamed-model": "upstream-model-paid",
+                    "upstream-model-free": "upstream-model-free",
+                },
+            }
+        }
+        cfg["models"]["provider_key_model_capabilities"] = {
+            "alpha": {
+                key_fingerprint("alpha-free-key"): {
+                    "status": "ok",
+                    "models": ["upstream-model-free"],
+                    "canonical_map": {"upstream-model-free": "upstream-model-free"},
+                },
+                key_fingerprint("alpha-paid-key"): {
+                    "status": "ok",
+                    "models": ["upstream-model-paid"],
+                    "canonical_map": {"renamed-model": "upstream-model-paid"},
+                },
+            }
+        }
+
+        attempts = list(
+            UpstreamRouter(cfg).iter_attempts(
+                "renamed-model", False, "req-manual-map-multi-key"
+            )
+        )
+
+        self.assertEqual(
+            [(attempt.key_index, attempt.provider_model) for attempt in attempts],
+            [(0, "upstream-model-free")],
+        )
+
     def test_routing_trace_records_rejected_and_selected_key_candidates(self):
         cfg = base_config()
         cfg["routing"]["default_provider_pool"] = ["alpha"]

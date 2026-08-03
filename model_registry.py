@@ -809,16 +809,17 @@ def resolve_provider_model_candidates(
                 + _key_discovered_raw_models(config, provider, canonical_model)
             )
 
-    key_models = _dedupe(
-        _key_manual_raw_models(config, provider, canonical_model)
-        + _key_discovered_raw_models(config, provider, canonical_model)
-    )
-    if key_models:
-        return key_models
+    key_manual_models = _key_manual_raw_models(config, provider, canonical_model)
+    if key_manual_models:
+        return key_manual_models
 
     manual_map = ((config.get("models") or {}).get("provider_model_map") or {}).get(provider) or {}
     if canonical_model in manual_map:
         return [str(manual_map[canonical_model])]
+
+    key_discovered_models = _key_discovered_raw_models(config, provider, canonical_model)
+    if key_discovered_models:
+        return key_discovered_models
 
     caps = ((config.get("models") or {}).get("provider_model_capabilities") or {}).get(provider) or {}
     if isinstance(caps, dict):
