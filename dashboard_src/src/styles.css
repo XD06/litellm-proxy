@@ -27001,6 +27001,10 @@ body {
 
 /* Keep Config & Statistics on the shared desktop shell without restyling its content. */
 @media (min-width: 1181px) {
+  html:has(#configView.is-active) {
+    scrollbar-gutter: stable;
+  }
+
   body:has(#configView.is-active) {
     background: #f4f6f8;
   }
@@ -27472,4 +27476,43 @@ body.is-auth-checking {
 #overviewView .chart .traffic-y-axis,
 #overviewView .chart .traffic-baseline {
   stroke: #dfe4ea;
+}
+
+/* Keep desktop sidebar icons aligned with the overview reference. */
+@media (min-width: 1181px) {
+  body:has(#requestsView.is-active, #providersView.is-active, #policyView.is-active, #configView.is-active, #playgroundView.is-active) .nav-item {
+    grid-template-columns: 16px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  body:has(#requestsView.is-active, #providersView.is-active, #policyView.is-active, #configView.is-active, #playgroundView.is-active) .nav-item::after {
+    width: 16px;
+    height: 16px;
+    mask-size: 16px 16px;
+    -webkit-mask-size: 16px 16px;
+  }
+
+  body:has(#requestsView.is-active, #providersView.is-active, #policyView.is-active, #configView.is-active, #playgroundView.is-active) .nav-item[data-view="overview"] {
+    --nav-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='7' height='9' x='3' y='3' rx='1'/%3E%3Crect width='7' height='5' x='14' y='3' rx='1'/%3E%3Crect width='7' height='9' x='14' y='12' rx='1'/%3E%3Crect width='7' height='5' x='3' y='16' rx='1'/%3E%3C/svg%3E");
+  }
+
+  body:has(#requestsView.is-active, #providersView.is-active, #policyView.is-active, #configView.is-active, #playgroundView.is-active) .nav-item[data-view="requests"] {
+    --nav-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 6h18'/%3E%3Cpath d='M7 12h10'/%3E%3Cpath d='M10 18h4'/%3E%3C/svg%3E");
+  }
+
+  body:has(#requestsView.is-active, #providersView.is-active, #policyView.is-active, #configView.is-active, #playgroundView.is-active) .nav-item[data-view="providers"] {
+    --nav-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='20' height='8' x='2' y='2' rx='2' ry='2'/%3E%3Crect width='20' height='8' x='2' y='14' rx='2' ry='2'/%3E%3Cline x1='6' x2='6.01' y1='6' y2='6'/%3E%3Cline x1='6' x2='6.01' y1='18' y2='18'/%3E%3C/svg%3E");
+  }
+
+  body:has(#requestsView.is-active, #providersView.is-active, #policyView.is-active, #configView.is-active, #playgroundView.is-active) .nav-item[data-view="policy"] {
+    --nav-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='18' r='3'/%3E%3Ccircle cx='6' cy='6' r='3'/%3E%3Ccircle cx='18' cy='6' r='3'/%3E%3Cpath d='M18 9v2c0 .6-.4 1-1 1H7c-.6 0-1-.4-1-1V9'/%3E%3Cpath d='M12 12v3'/%3E%3C/svg%3E");
+  }
+
+  body:has(#requestsView.is-active, #providersView.is-active, #policyView.is-active, #configView.is-active, #playgroundView.is-active) .nav-item[data-view="config"] {
+    --nav-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 21v-7'/%3E%3Cpath d='M4 10V3'/%3E%3Cpath d='M12 21v-9'/%3E%3Cpath d='M12 8V3'/%3E%3Cpath d='M20 21v-5'/%3E%3Cpath d='M20 12V3'/%3E%3Cpath d='M2 14h4'/%3E%3Cpath d='M10 8h4'/%3E%3Cpath d='M18 16h4'/%3E%3C/svg%3E");
+  }
+
+  body:has(#requestsView.is-active, #providersView.is-active, #policyView.is-active, #configView.is-active, #playgroundView.is-active) .nav-item[data-view="playground"] {
+    --nav-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2v6a2 2 0 0 0 .245.96l5.51 10.08A2 2 0 0 1 18 22H6a2 2 0 0 1-1.755-2.96l5.51-10.08A2 2 0 0 0 10 8V2'/%3E%3Cpath d='M6.453 15h11.094'/%3E%3Cpath d='M8.5 2h7'/%3E%3C/svg%3E");
+  }
 }

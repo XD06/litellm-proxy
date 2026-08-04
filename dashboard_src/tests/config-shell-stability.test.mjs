@@ -32,4 +32,10 @@ assert.match(
   "config content must retain its existing desktop geometry without a page-entry shift",
 );
 
+assert.match(
+  styles,
+  /html:has\(#configView\.is-active\)\s*\{[^}]*scrollbar-gutter:\s*stable/,
+  "config statistics view must reserve the root scrollbar gutter while switching panels",
+);
+
 console.log("config shell stability tests passed");
