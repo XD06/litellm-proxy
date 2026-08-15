@@ -388,16 +388,20 @@ sequenceDiagram
 | 🖥️ 控制台运行时 | `dashboard/` | 构建后的静态资源，由代理服务 |
 | 🎨 控制台源码 | `dashboard_src/` | Vite + 原生 JS 源码，含 i18n、morphdom |
 | 🐳 部署 | `Dockerfile`, `docker-compose.yml`, `deploy/` | Docker、systemd、Nginx 反向代理配置 |
-| 🧪 测试 | `tests/`（28 个文件，459+ 测试） | 覆盖路由、转换、配置、流式、Admin API 的 pytest |
+| 🧪 测试 | `tests/`（30+ 个文件，821+ 测试） | 覆盖路由、转换、配置、流式、Admin API 的 pytest |
 
-> **深入架构说明请见 [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md)。**
+> **📚 进阶架构与排障指南**：
+> - **[架构全景概览 (PROJECT_OVERVIEW.md)](PROJECT_OVERVIEW.md)**
+> - **[模型生命周期与路由决策指南 (docs/MODEL_ROUTING_LIFECYCLE.md)](docs/MODEL_ROUTING_LIFECYCLE.md)**
+> - **[生产故障排查与诊断手册 (docs/TROUBLESHOOTING.md)](docs/TROUBLESHOOTING.md)**
+> - **[系统 API 规范手册 (docs/API_REFERENCE.md)](docs/API_REFERENCE.md)**
 
 ---
 
 ## 🛠️ 开发
 
 ```bash
-# 运行测试（459+ 测试）
+# 运行测试（821+ 测试）
 python -m pytest tests/ -q
 
 # 编译检查核心文件
