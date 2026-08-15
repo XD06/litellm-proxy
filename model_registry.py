@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import concurrent.futures
+import copy
 import datetime
 import hashlib
 import json
@@ -381,12 +382,31 @@ def _store_provider_capabilities(
     }
     if error:
         entry["error"] = error
-    caps[provider] = entry
-    # Mark the union snapshot as dirty so the next /v1/models request
-    # rebuilds it lazily.  This avoids redundant full rebuilds when the
-    # background discovery queue discovers multiple providers sequentially.
+    # Write the capability entry and bump version atomically under the cache
+    # lock.  Concurrent readers (rebuild_models_union_snapshot,
+    # _rebuild_union_model_ids_from_capabilities) iterate caps without their
+    # own lock, so an unsynchronized caps[provider] = entry here can trigger
+    # "dictionary changed size during iteration" in those readers.
     global _union_dirty, _models_version
     with _cache_lock:
+        caps[provider] = entry
+        _union_dirty = True
+        _models_version += 1
+
+
+def store_capability(config: Dict[str, Any], provider: str, entry: Dict[str, Any]) -> None:
+    """Thread-safe write of a capability entry into config.
+
+    Used by sse2json._merge_provider_model_capability_from to avoid the
+    "dictionary changed size during iteration" race that occurs when an
+    unsynchronized caps[provider] = ... runs concurrently with readers
+    iterating caps.items().
+    """
+    models_cfg = config.setdefault("models", {})
+    caps = models_cfg.setdefault("provider_model_capabilities", {})
+    global _union_dirty, _models_version
+    with _cache_lock:
+        caps[provider] = copy.deepcopy(entry)
         _union_dirty = True
         _models_version += 1
 
@@ -396,7 +416,9 @@ def _rebuild_union_model_ids_from_capabilities(config: Dict[str, Any]) -> None:
     caps = ((config.get("models") or {}).get("provider_model_capabilities") or {})
     model_ids = set()
     if isinstance(caps, dict):
-        for provider, entry in caps.items():
+        # Snapshot keys to avoid "dictionary changed size during iteration"
+        # when a discovery thread writes caps[provider] concurrently.
+        for provider, entry in list(caps.items()):
             if not isinstance(entry, dict) or entry.get("status") not in ("ok", "error", "pending"):
                 continue
             for mid in (entry.get("canonical_map") or {}).keys():
@@ -627,7 +649,8 @@ def rebuild_models_union_snapshot(config: Dict[str, Any], router=None) -> Dict[s
     if models_source == "union":
         model_ids: List[str] = []
         if isinstance(caps, dict):
-            for provider, entry in caps.items():
+            # Snapshot to avoid concurrent mutation by discovery threads.
+            for provider, entry in list(caps.items()):
                 provider_name = str(provider)
                 pcfg = providers_cfg.get(provider_name) or {}
                 if not pcfg.get("enabled", True):
@@ -670,7 +693,7 @@ def rebuild_models_union_snapshot(config: Dict[str, Any], router=None) -> Dict[s
         except Exception:
             provider = None
     if not provider:
-        for pname, entry in (caps.items() if isinstance(caps, dict) else []):
+        for pname, entry in (list(caps.items()) if isinstance(caps, dict) else []):
             pcfg = providers_cfg.get(str(pname)) or {}
             if pcfg.get("enabled", True) and isinstance(entry, dict) and entry.get("status") == "ok":
                 provider = str(pname)
@@ -760,7 +783,7 @@ def models_from_capabilities(config: Dict[str, Any], router=None) -> Dict[str, A
     if not provider:
         caps = ((config.get("models") or {}).get("provider_model_capabilities") or {})
         providers_cfg = config.get("providers") or {}
-        for pname, entry in (caps.items() if isinstance(caps, dict) else []):
+        for pname, entry in (list(caps.items()) if isinstance(caps, dict) else []):
             pcfg = providers_cfg.get(str(pname)) or {}
             if pcfg.get("enabled", True) and isinstance(entry, dict) and entry.get("status") == "ok":
                 provider = str(pname)
@@ -817,6 +840,32 @@ def resolve_provider_model(config: Dict[str, Any], provider: str, canonical_mode
     return resolve_provider_model_candidates(config, provider, canonical_model)[0]
 
 
+# ---------------------------------------------------------------------------
+# Canonical → raw model resolution (per-provider isolated)
+#
+# All lookups below are scoped to a single provider via two-level nesting:
+#   config["models"]["provider_model_map"][provider][canonical] = raw_model
+# Provider A renaming model "x" to "y" never affects provider B's "x".
+#
+# Resolution priority (first non-empty result wins):
+#   1. provider_model_variants[provider][canonical]   — 1:many, priority-ordered
+#   2. key-level manual map (key config "models" dict)
+#   3. provider_model_map[provider][canonical]        — 1:1 manual rename
+#   4. key-level discovered capabilities
+#   5. provider_model_capabilities[provider].canonical_map[canonical] — auto-discovered
+#   6. fallback: return [canonical_model] unchanged
+#
+# Model refresh (fetch_upstream_models) only writes provider_model_capabilities
+# and provider_key_model_capabilities. It never overwrites user modifications:
+#   - provider_model_map        (renames)      — preserved across refreshes
+#   - provider_model_disabled   (disables)     — preserved across refreshes
+#   - provider_model_variants   (variants)     — preserved across refreshes
+#   - providers[*].static_models (static list)  — preserved across refreshes
+#
+# The /v1/models listing (rebuild_models_union_snapshot) re-applies all user
+# modifications on top of the refreshed canonical_map, so disables/renames/
+# variants stay in effect even after a model list update.
+# ---------------------------------------------------------------------------
 def resolve_provider_model_candidates(
     config: Dict[str, Any], provider: str, canonical_model: str
 ) -> List[str]:
@@ -917,6 +966,18 @@ def _key_discovered_raw_models(
     return _dedupe(raw_models)
 
 
+# ---------------------------------------------------------------------------
+# Key-level model whitelist check
+#
+# When a key has a "models" field (dict or list), only models in that
+# whitelist are allowed for the key.  The dict form maps canonical→raw
+# and the list form is a set of raw model ids.
+#
+# If the canonical model was renamed (provider_model_map), the whitelist
+# may have been configured with the *original* raw model id.  To avoid
+# falsely rejecting a renamed model, the dict-form lookup falls back to
+# searching by provider_model (raw) when the canonical key is not found.
+# ---------------------------------------------------------------------------
 def key_supports_provider_model(
     config: Dict[str, Any],
     provider: str,
@@ -956,6 +1017,15 @@ def key_supports_provider_model(
             expected = models.get(canonical)
             if expected is None:
                 expected = models.get(canonical.lower())
+            # Fallback: the key whitelist may have been configured using the
+            # raw upstream model id (before a manual rename changed the
+            # canonical).  If the canonical lookup misses, try the raw
+            # provider_model so that renaming a model does not silently
+            # break a key that was previously allowed.
+            if expected is None:
+                expected = models.get(str(provider_model or ""))
+            if expected is None:
+                expected = models.get(str(provider_model or "").lower())
             if expected is None:
                 return False
             return str(expected or "").strip() == str(provider_model or "").strip()
@@ -1081,7 +1151,7 @@ def find_providers_for_model(
                 seen_providers.add(str(provider))
 
     # 2. Check discovered canonical_map (exact match)
-    for provider, entry in caps.items():
+    for provider, entry in list(caps.items()):
         provider = str(provider)
         if provider in seen_providers:
             continue
@@ -1097,7 +1167,7 @@ def find_providers_for_model(
 
     # 3. Fuzzy matching: normalise both sides and compare
     if safe_model:
-        for provider, entry in caps.items():
+        for provider, entry in list(caps.items()):
             provider = str(provider)
             if provider in seen_providers:
                 continue
@@ -1247,7 +1317,8 @@ def fetch_upstream_models(
         if not pcfg.get("enabled", True):
             return None
 
-        base_url = (pcfg.get("base_url") or "").rstrip("/")
+        raw_base_url = pcfg.get("base_url") or ""
+        base_url = raw_base_url if raw_base_url.endswith("/") else raw_base_url.rstrip("/")
         models_path = pcfg.get("models_path") or "/v1/models"
         key_entry = selected_key_entry
         if key_entry is None and hasattr(router, "first_healthy_key_entry"):

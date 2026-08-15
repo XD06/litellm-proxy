@@ -6618,6 +6618,7 @@ import {
           ${isManual ? `<p class="model-map-hint">Empty name restores automatic mapping.</p>` : ""}
           <div class="model-map-actions">
             <button class="model-map-action secondary" type="button" data-model-map-cancel title="Cancel" aria-label="Cancel">${iconSvg("x")}</button>
+            ${isManual ? `<button class="model-map-action danger" type="button" data-model-map-reset title="Reset to automatic mapping" aria-label="Reset to automatic mapping">${iconSvg("trash")}</button>` : ""}
             <button class="model-map-action primary" type="submit" title="Save mapping" aria-label="Save mapping">${iconSvg("save")}</button>
           </div>
         </form>
@@ -6629,6 +6630,18 @@ import {
     form.elements.model?.focus();
     form.elements.model?.select();
     form.querySelector("[data-model-map-cancel]")?.addEventListener("click", closeFormModal);
+    form.querySelector("[data-model-map-reset]")?.addEventListener("click", async () => {
+      const resetBtn = form.querySelector("[data-model-map-reset]");
+      if (resetBtn) resetBtn.disabled = true;
+      const cleared = await updateProviderModelMapping(
+        provider,
+        providerModelMappingOldId({ label: oldModel, manual: isManual }),
+        rawModel,
+        "",
+      );
+      if (cleared) closeFormModal();
+      else if (resetBtn) resetBtn.disabled = false;
+    });
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       const input = form.elements.model;

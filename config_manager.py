@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import errno
 import json
+import logging
 import os
 import re
 import tempfile
@@ -173,7 +174,13 @@ class RuntimeConfigManager:
         self._require_provider(name)
         clean = self._validate_provider_patch(patch)
         with self._locked_overlay() as overlay:
-            current = self._overlay_provider_base(name)
+            # Merge the patch onto the overlay's own delta (not the full
+            # merged config) so we only persist the user's explicit overrides.
+            # Merging onto self.config here would freeze the full normalised
+            # provider — including runtime-injected fields and values derived
+            # from base — into the overlay, causing bloat and stale-value
+            # pollution across providers on subsequent edits.
+            current = self._overlay_provider_delta(name)
             overlay.setdefault("providers", {})[name] = _deep_merge(current, clean)
         return self.config
 
@@ -551,6 +558,26 @@ class RuntimeConfigManager:
                 else:
                     overlay_map.pop(old_model_id, None)
             if new_model:
+                # Warn if the same canonical id is already claimed by a
+                # different provider.  This is legal (two providers can both
+                # expose a model called "gpt-4"), but it frequently indicates
+                # an accidental cross-provider collision that the user did not
+                # intend.  We log rather than reject because legitimate
+                # same-name aliases across providers are a supported pattern.
+                merged_maps = _deep_merge(
+                    (self.base_config.get("models") or {}).get("provider_model_map") or {},
+                    overlay_maps,
+                )
+                for other_provider, other_map in merged_maps.items():
+                    if other_provider == provider or not isinstance(other_map, dict):
+                        continue
+                    if new_model in other_map:
+                        logging.getLogger(__name__).warning(
+                            "canonical model '%s' in provider '%s' also exists in provider '%s' — "
+                            "verify this is intentional, not a cross-provider collision",
+                            new_model, provider, other_provider,
+                        )
+                        break
                 overlay_map[new_model] = raw_model_id
             elif old_model_id:
                 if old_model_id in base_map:
@@ -671,7 +698,21 @@ class RuntimeConfigManager:
             return self.config
 
     def _overlay_provider_base(self, provider: str) -> Dict[str, Any]:
+        # Return the merged provider config (base + overlay).  Most callers
+        # (add_key, delete_key, update_key, update_format) need the full
+        # current state to do read-modify-write on keys/formats.
         return copy.deepcopy(((self.config.get("providers") or {}).get(provider) or {}))
+
+    def _overlay_provider_delta(self, provider: str) -> Dict[str, Any]:
+        # Return only the overlay's own delta for this provider.  Used by
+        # update_provider to avoid freezing the full normalised config
+        # (including runtime-injected fields and values derived from base)
+        # into the overlay on every save, which causes overlay bloat and
+        # stale-value pollution across providers.
+        overlay_entry = (self.overlay.get("providers") or {}).get(provider)
+        if overlay_entry is None or not isinstance(overlay_entry, dict):
+            return {}
+        return copy.deepcopy(overlay_entry)
 
     def _require_provider(self, provider: str) -> None:
         self._validate_provider_name(provider)

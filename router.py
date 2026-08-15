@@ -12,6 +12,7 @@ from typing import Any, Dict, Generator, List, Optional, Tuple
 
 import model_registry
 import scheduler_policy
+from config_loader import join_base_url
 from proxy_utils import key_proxy, key_value, resolve_proxy_url
 
 
@@ -1854,8 +1855,8 @@ class UpstreamRouter:
             return cached
 
         pcfg = (self.cfg.get("providers") or {}).get(provider) or {}
-        base_url = (pcfg.get("base_url") or "").rstrip("/")
-        url = base_url + self._format_path(provider, upstream_format)
+        base_url = pcfg.get("base_url") or ""
+        url = join_base_url(base_url, self._format_path(provider, upstream_format))
 
         headers = dict(pcfg.get("headers") or {})
         configured_ua = ""

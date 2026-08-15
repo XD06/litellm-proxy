@@ -10,6 +10,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import ProxyHandler, Request, build_opener
 import urllib3
 
+from config_loader import join_base_url
 from proxy_utils import normalize_proxy_url, is_socks_proxy
 
 
@@ -480,7 +481,7 @@ class OpenAIUpstreamClient:
         proxy_url: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         if self._use_urllib3():
-            url = base_url.rstrip("/") + (models_path if models_path.startswith("/") else ("/" + models_path))
+            url = join_base_url(base_url, models_path if models_path.startswith("/") else ("/" + models_path))
             pool = self._pool_manager_for(proxy_url)
             urllib3_timeout = urllib3.Timeout(connect=5, read=int(timeout_s))
 
@@ -504,7 +505,7 @@ class OpenAIUpstreamClient:
 
             return json.loads(resp.data.decode("utf-8", errors="replace"))
         else:
-            url = base_url.rstrip("/") + (models_path if models_path.startswith("/") else ("/" + models_path))
+            url = join_base_url(base_url, models_path if models_path.startswith("/") else ("/" + models_path))
             req = Request(url, headers=headers)
             opener = self._opener_for(proxy_url)
             try:

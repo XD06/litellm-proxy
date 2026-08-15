@@ -104,6 +104,23 @@ def _ensure_path(value: Any, default: str) -> str:
     return path
 
 
+def join_base_url(base_url: str, path: str) -> str:
+    """拼接 base_url 和格式路径。
+
+    base_url 末尾带 / 时触发前缀模式：path 去掉前导 / 和可选 v1/ 前缀后相对拼接，
+    得到 https://host/prefix/chat/completions 这种路径。
+    否则按惯例：base_url rstrip / + path（带前导 /）。
+    """
+    base_url = base_url or ""
+    path = path or ""
+    if base_url.endswith("/"):
+        rel = path.lstrip("/")
+        if rel.startswith("v1/"):
+            rel = rel[3:]
+        return base_url + rel
+    return base_url.rstrip("/") + path
+
+
 def _split_base_and_format_path(full_url: str) -> Tuple[str, Optional[str], Optional[str]]:
     p = urlparse(full_url)
     if not p.scheme or not p.netloc:
@@ -257,7 +274,11 @@ def _normalize_provider_entry(name: str, pcfg: Dict[str, Any]) -> Dict[str, Any]
             out["base_url"] = (base_url.rstrip("/")[:-3]).rstrip("/")  # remove trailing '/v1'
         else:
             # 普通 base_url（可能带路径但不带 /v1/chat/completions）
-            out["base_url"] = base_url.rstrip("/")
+            # 末尾带 / 视为路径前缀信号，保留单个尾斜杠供下游 join_base_url 识别
+            if base_url.endswith("/"):
+                out["base_url"] = base_url.rstrip("/") + "/"
+            else:
+                out["base_url"] = base_url.rstrip("/")
 
     out.setdefault("models_path", "/v1/models")
     out.setdefault("headers", {"User-Agent": "Mozilla/5.0"})

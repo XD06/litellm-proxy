@@ -153,7 +153,7 @@ def _safe_model_capabilities_for_state(config: Optional[dict] = None) -> dict:
     out = {}
     if not isinstance(caps, dict):
         return out
-    for provider, entry in caps.items():
+    for provider, entry in list(caps.items()):
         if provider not in providers_cfg or not isinstance(entry, dict):
             continue
         item = {
@@ -217,7 +217,7 @@ def _restore_model_capabilities(caps: dict, union_model_ids: Optional[List[str]]
     models_cfg = CONFIG.setdefault("models", {})
     dest = models_cfg.setdefault("provider_model_capabilities", {})
     restored_union_ids = set(str(mid) for mid in (union_model_ids or []) if str(mid or "").strip())
-    for provider, entry in caps.items():
+    for provider, entry in list(caps.items()):
         if provider not in providers_cfg or not isinstance(entry, dict):
             continue
         clean = {
@@ -284,7 +284,7 @@ def _restore_key_model_capabilities(caps: dict) -> None:
         return
     providers_cfg = CONFIG.get("providers") or {}
     destination = CONFIG.setdefault("models", {}).setdefault("provider_key_model_capabilities", {})
-    for provider, entries in caps.items():
+    for provider, entries in list(caps.items()):
         pcfg = providers_cfg.get(provider) or {}
         current_hints = {key_fingerprint(entry) for entry in (pcfg.get("keys") or []) if key_fingerprint(entry)}
         if not isinstance(entries, dict):
@@ -1939,7 +1939,7 @@ def _apply_runtime_config(new_config: dict, *, persist_state: bool = True) -> No
         providers_cfg = new_config.get("providers") or {}
         models_cfg = new_config.setdefault("models", {})
         caps = models_cfg.setdefault("provider_model_capabilities", {})
-        for prov, entry in old_caps.items():
+        for prov, entry in list(old_caps.items()):
             if prov in providers_cfg:
                 # Discovered capabilities are runtime state, not editable
                 # configuration.  A legacy runtime_config overlay may still
@@ -1951,7 +1951,7 @@ def _apply_runtime_config(new_config: dict, *, persist_state: bool = True) -> No
         providers_cfg = new_config.get("providers") or {}
         models_cfg = new_config.setdefault("models", {})
         key_caps = models_cfg.setdefault("provider_key_model_capabilities", {})
-        for prov, entries in old_key_caps.items():
+        for prov, entries in list(old_key_caps.items()):
             if prov not in providers_cfg or not isinstance(entries, dict):
                 continue
             current_hints = {
@@ -2184,9 +2184,12 @@ def _merge_provider_model_capability_from(source_config: dict, provider: str) ->
         providers_cfg = target.get("providers") or {}
         if provider not in providers_cfg:
             continue
+        # Use the thread-safe store_capability() to avoid the
+        # "dictionary changed size during iteration" race that occurs when
+        # an unsynchronized caps[provider] = ... runs concurrently with
+        # readers iterating caps.items().
+        model_registry.store_capability(target, provider, entry)
         models_cfg = target.setdefault("models", {})
-        caps = models_cfg.setdefault("provider_model_capabilities", {})
-        caps[provider] = copy.deepcopy(entry)
         source_key_caps = ((source_config.get("models") or {}).get("provider_key_model_capabilities") or {})
         provider_key_caps = source_key_caps.get(provider) if isinstance(source_key_caps, dict) else None
         if isinstance(provider_key_caps, dict):

@@ -1256,6 +1256,12 @@ class AdminRoutesMixin:
                     variants=variants,
                 )
                 _apply_runtime_config(CONFIG_MANAGER.config)
+                # Bump the models version so the next /v1/models request
+                # lazily rebuilds the union snapshot with the variant change.
+                # We don't rebuild inline because _apply_runtime_config already
+                # rebuilds with new_config, and a second rebuild with the final
+                # CONFIG can race with the snapshot just stored.
+                model_registry.bump_models_version()
                 self._audit_admin_event(
                     "provider_model_variants_updated",
                     target=f"{provider}/models/{model}",
@@ -1276,6 +1282,7 @@ class AdminRoutesMixin:
                 models = (body or {}).get("models") or {}
                 CONFIG_MANAGER.update_provider_models_disabled(provider, models)
                 _apply_runtime_config(CONFIG_MANAGER.config)
+                model_registry.bump_models_version()
                 self._audit_admin_event("provider_models_disabled_updated", target=f"{provider}/models", detail={"models": models})
                 return self._resp_json({"action": "provider_models_disabled_updated", "provider": provider, "config": CONFIG_MANAGER.snapshot()})
 
@@ -1285,6 +1292,7 @@ class AdminRoutesMixin:
                 disabled = bool((body or {}).get("disabled"))
                 CONFIG_MANAGER.update_provider_model_disabled(provider, model, disabled)
                 _apply_runtime_config(CONFIG_MANAGER.config)
+                model_registry.bump_models_version()
                 self._audit_admin_event(
                     "provider_model_disabled_updated",
                     target=f"{provider}/models/{model}",
@@ -1312,6 +1320,7 @@ class AdminRoutesMixin:
                     old_model=old_model,
                 )
                 _apply_runtime_config(CONFIG_MANAGER.config)
+                model_registry.bump_models_version()
                 self._audit_admin_event(
                     "provider_model_mapping_updated",
                     target=f"{provider}/models/{model or old_model}",
