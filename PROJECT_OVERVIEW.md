@@ -291,8 +291,9 @@ For specific architectural subsystems and operations, refer to the dedicated gui
 1. **[Model Routing & Lifecycle Guide](docs/MODEL_ROUTING_LIFECYCLE.md)** — Canonical vs Raw naming, resolution priority chain, auto-hide, discovery protection.
 2. **[Production Troubleshooting Guide](docs/TROUBLESHOOTING.md)** — Matrix of 503/502/404 errors, VPS diagnostics commands, recovery steps.
 3. **[API Reference](docs/API_REFERENCE.md)** — Complete specifications for client endpoints and Admin APIs.
-4. **[Format Routing Plan](docs/format-routing-plan.md)** — Detailed cross-protocol conversion specs (OpenAI ↔ Anthropic).
-5. **[VPS Migration Guide](docs/VPS_MIGRATION.md)** — Deployment and multi-engine Docker setup.
+4. **[Health Check Mechanism Overview](docs/HEALTH_CHECK_MECHANISM.md)** — Deep idle probe, patrol scanner, and health score updater architecture.
+5. **[Format Routing Plan](docs/format-routing-plan.md)** — Detailed cross-protocol conversion specs (OpenAI ↔ Anthropic).
+6. **[VPS Migration Guide](docs/VPS_MIGRATION.md)** — Deployment and multi-engine Docker setup.
 
 ---
 
