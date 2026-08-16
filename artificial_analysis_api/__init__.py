@@ -33,6 +33,10 @@ class ModelSummary:
         self._cache_dir = Path(cache_dir)
         self._index = ModelIndex(self._cache_dir)
         self._cache = ModelCache(self._cache_dir)
+        # 进程内标记索引是否已联网刷新过。旧内置索引（如 6 月的 500 模型）
+        # 会漏掉新模型，且模糊匹配可能把新模型误配到旧模型（kimi-k3 -> kimi-k2），
+        # 因此在首次"非精确命中"时联网刷新一次索引再重试。
+        self._index_fresh = False
 
     def get(
         self,
@@ -63,17 +67,28 @@ class ModelSummary:
         await self._ensure_index(proxy, connect_timeout_s, total_timeout_s)
         slug = self._index.resolve(name)
 
-        # 本地索引未匹配 → 可能是新模型，拉取最新索引重试
-        if not slug:
-            await self._fetch_index(proxy, connect_timeout_s, total_timeout_s)
+        # 本地索引未精确命中 → 可能是新模型或索引过期（模糊匹配可能假阳性，
+        # 如 kimi-k3 被误配到 kimi-k2、不存在的变体被误配到基础模型），
+        # 联网刷新索引后重试一次。
+        if (not slug or not self._index.is_exact_resolve(name, slug)) and not self._index_fresh:
+            try:
+                await self._fetch_index(proxy, connect_timeout_s, total_timeout_s)
+                self._index_fresh = True
+            except Exception:
+                pass  # 刷新失败：继续用旧索引，交由下方精确性判断兜底
             slug = self._index.resolve(name)
-            if not slug:
-                suggestions = self._index.search(name, limit=3)
-                return {
-                    "error": "Model not found",
-                    "query": name,
-                    "suggestion": suggestions[0] if suggestions else None,
-                }
+
+        # 无法精确命中 → 该模型不在 AA 上（或索引刷新失败）。宁可返回
+        # Model not found + 建议，也不能用模糊匹配的 slug 去抓相似模型的
+        # 数据（如 gemini-3.7-flash-high -> gemini-3-7-flash），也不能用
+        # None slug 去请求 /models/None。
+        if not slug or not self._index.is_exact_resolve(name, slug):
+            suggestions = self._index.search(name, limit=3)
+            return {
+                "error": "Model not found",
+                "query": name,
+                "suggestion": suggestions[0] if suggestions else None,
+            }
 
         if not refresh:
             cached = self._cache.get(slug)
@@ -150,6 +165,7 @@ class ModelSummary:
         html = await fetcher.fetch_index_html()
         self._index.build_from_html(html)
         self._index.save()
+        self._index_fresh = True
 
 
 # 全局单例 — 最简用法

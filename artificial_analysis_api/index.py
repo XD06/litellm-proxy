@@ -50,6 +50,14 @@ class ModelIndex:
     # ---- build from RSC ----
 
     def build_from_html(self, html: str):
+        """从 /models 页面的 RSC 数据流提取 (slug -> 显示名)。
+
+        AA 页面 2026 年改版后的结构：
+        - 完整模型对象形如 {"slug": "...", "name": "...", "deprecated": ...}；
+        - 只有 initialModels 里的极少数对象带 shortName 字段。
+        因此 shortName 从必选改为可选，缺失时用 name 兜底，
+        否则索引只能解析出 initialModels 的几个模型。
+        """
         pairs: dict[str, str] = {}
         pos = 0
         while True:
@@ -72,17 +80,23 @@ class ModelIndex:
                 continue
             ns = j2 + 9
             ne = html.find('\\"', ns)
+            name = html[ns:ne]
 
+            # shortName 仅存在于少数对象，缺失时回退到 name
+            display = name
             j3 = html.find('shortName\\":\\"', ne)
-            if j3 == -1 or j3 - ne > 300:
+            if j3 != -1 and j3 - ne <= 300:
+                ss = j3 + 14
+                se = html.find('\\"', ss)
+                display = html[ss:se]
+                pos = se + 2
+            else:
                 pos = ne + 2
-                continue
-            ss = j3 + 14
-            se = html.find('\\"', ss)
-            pairs[slug] = html[ss:se]
-            pos = se + 2
+            pairs[slug] = display
 
         self._models = pairs
+        # 索引重建后清空 resolve 结果缓存，避免进程内继续使用旧索引的匹配结果
+        self._resolve_cache.clear()
 
     @property
     def models(self) -> dict[str, str]:
@@ -105,6 +119,30 @@ class ModelIndex:
         result = self._resolve_uncached(query)
         self._resolve_cache[cache_key] = result
         return result
+
+    def is_exact_resolve(self, query: str, slug: Optional[str]) -> bool:
+        """判断 resolve() 的结果是否为"精确命中"（非模糊匹配兜底）。
+
+        用于区分：本地索引直接命中的模型 vs 靠 SequenceMatcher 猜出来的模型。
+        后者在索引过期时可能是假阳性（如 kimi-k3 被误配到 kimi-k2），
+        调用方应据此决定是否先联网刷新索引再重试。
+        """
+        if not slug:
+            return False
+        q = (query or "").strip().lower()
+        if q == slug:
+            return True
+        # 显示名精确命中（与 resolve 的 name_to_slug 分支一致）
+        for s, n in self._models.items():
+            if s == slug and n and n.lower() == q:
+                return True
+        # 尾段精确命中（与 resolve 的 parts 分支一致，递归复现其路径，
+        # 处理 "vendor/model.name" 形式：尾段再按归一化等规则精确命中）
+        last = re.split(r"[/\s]+", q)[-1]
+        if last != q and self.is_exact_resolve(last, slug):
+            return True
+        # 归一化精确命中（与 resolve 的 normalized 分支一致）
+        return _normalize(q) == slug
 
     def _resolve_uncached(self, query: str) -> Optional[str]:
         q = query.strip().lower()
