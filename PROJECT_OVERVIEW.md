@@ -292,8 +292,11 @@ For specific architectural subsystems and operations, refer to the dedicated gui
 2. **[Production Troubleshooting Guide](docs/TROUBLESHOOTING.md)** — Matrix of 503/502/404 errors, VPS diagnostics commands, recovery steps.
 3. **[API Reference](docs/API_REFERENCE.md)** — Complete specifications for client endpoints and Admin APIs.
 4. **[Health Check Mechanism Overview](docs/HEALTH_CHECK_MECHANISM.md)** — Deep idle probe, patrol scanner, and health score updater architecture.
-5. **[Format Routing Plan](docs/format-routing-plan.md)** — Detailed cross-protocol conversion specs (OpenAI ↔ Anthropic).
-6. **[VPS Migration Guide](docs/VPS_MIGRATION.md)** — Deployment and multi-engine Docker setup.
+5. **[Refactor Blueprint (Phase 1 & 2)](docs/REFACTOR_GUIDE_PHASE_1_2.md)** — Decoupling probe coordination and runtime state persistence.
+6. **[Refactor Blueprint (Phase 3 & 4)](docs/REFACTOR_GUIDE_PHASE_3_4.md)** — Unified model evaluator and self-contained Admin dispatcher.
+7. **[Refactor Blueprint (Phase 5)](docs/REFACTOR_GUIDE_PHASE_5.md)** — Core proxy pipeline slimming and gateway clean architecture.
+8. **[Format Routing Plan](docs/format-routing-plan.md)** — Detailed cross-protocol conversion specs (OpenAI ↔ Anthropic).
+9. **[VPS Migration Guide](docs/VPS_MIGRATION.md)** — Deployment and multi-engine Docker setup.
 
 ---
 
