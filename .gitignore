@@ -3,7 +3,7 @@ build/
 dist/
 *.egg-info/
 *.egg
-
+.catpaw/*
 # IDE and agent state
 .codegraph/
 .playwright-cli/
