@@ -1,6 +1,6 @@
 ﻿import morphdom from "morphdom";
 import { state } from "./state.js";
-import { timeRanges, REQUEST_PAGE_SIZE, PROVIDERS_PAGE_SIZE, CONFIG_PROVIDERS_PAGE_SIZE, MODEL_ROUTES_PAGE_SIZE, PROVIDER_MODEL_MAP_PAGE_SIZE, AUDIT_PAGE_SIZE, MODEL_USAGE_PAGE_SIZE, USAGE_STATISTICS_BREAKDOWN_PAGE_SIZE, OVERVIEW_PROVIDER_LIMIT, OVERVIEW_FAILURE_LIMIT, USAGE_MODEL_LIMIT, views } from "./constants.js";
+import { timeRanges, REQUEST_PAGE_SIZE, PROVIDERS_PAGE_SIZE, CONFIG_PROVIDERS_PAGE_SIZE, MODEL_ROUTES_PAGE_SIZE, PROVIDER_MODEL_MAP_PAGE_SIZE, AUDIT_PAGE_SIZE, MODEL_USAGE_PAGE_SIZE, USAGE_STATISTICS_BREAKDOWN_PAGE_SIZE, SETTINGS_PRICING_PAGE_SIZE, OVERVIEW_PROVIDER_LIMIT, OVERVIEW_FAILURE_LIMIT, USAGE_MODEL_LIMIT, views } from "./constants.js";
 import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessage } from "./api.js";
 import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.js";
 import { PROVIDER_CALL_BAR_SLOTS, recentProviderActivityEvents } from "./provider-activity-window.mjs";
@@ -754,6 +754,9 @@ import {
     "#modelRoutesPanel",
     "#providersTable",
     "#modelCapabilities",
+    "#settingsOpsGrid",
+    "#settingsPricingOverrides",
+    "#keyDrawerBody",
   ];
 
   function _markContainerDirty(e) {
@@ -2176,10 +2179,13 @@ import {
       renderConfig(); __mark("config");
     } else if (view === "playground") {
       renderPlayground(); __mark("playground");
+    } else if (view === "settings") {
+      renderSettings(); __mark("settings");
     }
     renderProviderDrawer(); __mark("providerDrawer");
     bindViewTargetButtons();
     bindConfigTabs();
+    bindSettingsTabs();
     bindProxyTestButtons();
     mutationBusyTracker.refresh();
     window.__perfMark && window.__perfMark("renderAll.total", performance.now() - __t0);
@@ -2254,6 +2260,836 @@ import {
     if (state.configTab !== "models") return;
     if (viewName === "models") loadModelUsage();
     else loadUsageStatistics();
+  }
+
+  // ---- Settings view: client keys / model pricing / system operations ----
+
+  const SETTINGS_TABS = new Set(["keys", "pricing", "ops"]);
+  let _settingsPricingLoadInFlight = false;
+  let _clientKeysLoadInFlight = false;
+
+  function switchSettingsTab(tabName, { persist = true } = {}) {
+    if (!SETTINGS_TABS.has(tabName)) return;
+    const nav = el("settingsTabNav");
+    nav?.querySelectorAll("[data-settings-tab]").forEach((button) => {
+      const active = button.dataset.settingsTab === tabName;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-selected", active ? "true" : "false");
+      button.tabIndex = active ? 0 : -1;
+    });
+    document.querySelectorAll("[data-settings-tab-panel]").forEach((panel) => {
+      panel.hidden = panel.dataset.settingsTabPanel !== tabName;
+    });
+    state.settingsTab = tabName;
+    if (persist) {
+      try { localStorage.setItem("proxyConsoleSettingsTab", tabName); } catch (_e) {}
+    }
+    loadSettingsTabData(tabName);
+  }
+
+  function bindSettingsTabs() {
+    const nav = el("settingsTabNav");
+    if (!nav) return;
+    nav.querySelectorAll("[data-settings-tab]").forEach((button) => {
+      if (button.dataset.boundSettingsTab) return;
+      button.dataset.boundSettingsTab = "1";
+      button.addEventListener("click", () => switchSettingsTab(button.dataset.settingsTab || "keys"));
+    });
+    const createButton = el("settingsCreateKeyButton");
+    if (createButton && !createButton.dataset.boundSettingsCreateKey) {
+      createButton.dataset.boundSettingsCreateKey = "1";
+      createButton.addEventListener("click", () => openKeyDrawer("new"));
+    }
+    const closeButton = el("closeKeyDrawerButton");
+    if (closeButton && !closeButton.dataset.boundSettingsKeyDrawerClose) {
+      closeButton.dataset.boundSettingsKeyDrawerClose = "1";
+      closeButton.addEventListener("click", closeKeyDrawer);
+    }
+    const refreshButton = el("settingsPricingRefresh");
+    if (refreshButton && !refreshButton.dataset.boundSettingsPricingRefresh) {
+      refreshButton.dataset.boundSettingsPricingRefresh = "1";
+      refreshButton.addEventListener("click", () => {
+        state.data.pricingCatalog = null;
+        state.settingsPricingPage = 0;
+        loadSettingsPricingCatalog();
+      });
+    }
+    const queryInput = el("settingsPricingQuery");
+    if (queryInput && !queryInput.dataset.boundSettingsPricingQuery) {
+      queryInput.dataset.boundSettingsPricingQuery = "1";
+      queryInput.addEventListener("input", () => {
+        state.settingsPricingQuery = String(queryInput.value || "").trim().toLowerCase();
+        state.settingsPricingPage = 0;
+        renderSettingsPricingCatalog();
+      });
+    }
+    if (nav.dataset.restoredSettingsTab) return;
+    nav.dataset.restoredSettingsTab = "1";
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && el("keyDrawer")?.classList.contains("is-open")) closeKeyDrawer();
+    });
+    let restored = state.settingsTab || "keys";
+    try { restored = localStorage.getItem("proxyConsoleSettingsTab") || restored; } catch (_e) {}
+    switchSettingsTab(restored, { persist: false });
+  }
+
+  function loadSettingsTabData(tabName) {
+    if (tabName === "keys") loadClientKeys();
+    else if (tabName === "pricing") loadSettingsPricingCatalog();
+  }
+
+  function renderSettings() {
+    renderSettingsKeys();
+    renderSettingsPricing();
+    renderSettingsOps();
+    renderKeyDrawer();
+  }
+
+  async function loadClientKeys() {
+    // Retry until a successful load: the first attempt often runs during the
+    // auth-checking phase (before the admin key is restored) and fails with
+    // 401/403 — that must not latch a permanent pending state.
+    if (_clientKeysLoadInFlight || state.clientKeysAvailable === true) return;
+    _clientKeysLoadInFlight = true;
+    try {
+      const data = await apiGet("/-/admin/client-keys");
+      state.data.clientKeys = Array.isArray(data?.keys) ? data.keys : [];
+      state.clientKeysAvailable = true;
+    } catch (err) {
+      state.data.clientKeys = [];
+      state.clientKeysAvailable = false;
+      setNotice(`client-keys load failed: ${err && err.message ? err.message : err}`, "bad", { key: "settings:keys-load", sticky: true });
+    } finally {
+      _clientKeysLoadInFlight = false;
+      if (state.view === "settings") renderSettingsKeys();
+    }
+  }
+
+  async function refreshClientKeys() {
+    state.data.clientKeys = null;
+    state.clientKeysAvailable = null;
+    loadClientKeys();
+  }
+
+  function renderSettingsKeys() {
+    const target = el("settingsKeysTable");
+    if (!target) return;
+    if (state.clientKeysAvailable === null) {
+      updateDOM(target, `<div class="empty pad">${escapeHtml(t("model_usage.loading"))}</div>`);
+      return;
+    }
+    if (state.clientKeysAvailable === false) {
+      updateDOM(target, `
+        <div class="usage-statistics-empty-state">
+          ${iconSvg("key-round")}
+          <span>
+            <strong>${escapeHtml(t("settings.keys.pending_title"))}</strong>
+            <small>${escapeHtml(t("settings.keys.pending_hint"))}</small>
+          </span>
+        </div>`);
+      return;
+    }
+    const keys = state.data.clientKeys || [];
+    if (!keys.length) {
+      updateDOM(target, `
+        <div class="usage-statistics-empty-state">
+          ${iconSvg("key")}
+          <span>
+            <strong>${escapeHtml(t("settings.keys.empty_title"))}</strong>
+            <small>${escapeHtml(t("settings.keys.empty_hint"))}</small>
+          </span>
+        </div>`);
+      return;
+    }
+    updateDOM(target, `
+      <table class="data-table settings-keys-table">
+        <thead><tr>
+          <th>${escapeHtml(t("settings.keys.col_name"))}</th>
+          <th>${escapeHtml(t("settings.keys.col_key"))}</th>
+          <th>${escapeHtml(t("settings.keys.col_quota"))}</th>
+          <th>${escapeHtml(t("settings.keys.col_models"))}</th>
+          <th>${escapeHtml(t("settings.keys.col_rpm"))}</th>
+          <th>${escapeHtml(t("settings.keys.col_status"))}</th>
+          <th></th>
+        </tr></thead>
+        <tbody>${keys.map(settingsKeyRow).join("")}</tbody>
+      </table>`);
+    bindSettingsKeyRows(target);
+  }
+
+  function settingsKeyRow(key) {
+    const entry = key || {};
+    const name = entry.name || entry.label || `#${entry.id ?? "-"}`;
+    const masked = entry.masked || "-";
+    const quota = Number(entry.quota_tokens || 0);
+    const consumed = Number(entry.consumed_tokens || 0);
+    const quotaText = quota > 0
+      ? `${fmtTokenCount(consumed)} / ${fmtTokenCount(quota)} (${Math.min(100, Math.round((consumed / quota) * 100))}%)`
+      : `${fmtTokenCount(consumed)} / ∞`;
+    const quotaPct = quota > 0 ? Math.min(100, (consumed / quota) * 100) : 0;
+    const quotaTone = quota > 0 && quotaPct >= 100 ? "is-bad" : quota > 0 && quotaPct >= 80 ? "is-warn" : "";
+    const rpm = entry.rpm;
+    const models = entry.models === "*" || !entry.models
+      ? t("settings.keys.f_models_all")
+      : (Array.isArray(entry.models) ? entry.models.join(", ") : String(entry.models));
+    const expired = Boolean(entry.expired);
+    const status = entry.enabled === false
+      ? `<span class="badge">${escapeHtml(t("settings.keys.status_disabled"))}</span>`
+      : expired
+        ? `<span class="badge">${escapeHtml(t("settings.keys.status_expired"))}</span>`
+        : `<span class="badge ok">${escapeHtml(t("settings.keys.status_active"))}</span>`;
+    return `
+      <tr>
+        <td>
+          <span class="settings-model-identity"><span class="settings-key-glyph">${iconSvg("key-round")}</span><strong>${escapeHtml(name)}</strong></span>
+          <div class="settings-key-meta mono">${escapeHtml(String(entry.requests_total ?? 0))} req · ${escapeHtml(fmtCost(entry.cost_usd || 0))}</div>
+        </td>
+        <td>
+          <span class="key-snippet-box mono">${escapeHtml(masked)}
+            <button class="key-snippet-btn" type="button" data-copy-key="${escapeHtml(entry.full_key || masked)}" title="${escapeHtml(t("settings.keys.copy"))}" aria-label="${escapeHtml(t("settings.keys.copy"))}">${iconSvg("copy")}</button>
+          </span>
+        </td>
+        <td style="min-width: 170px;">
+          <div style="display:flex; justify-content:space-between; font-size:11.5px; font-family:var(--mono);">
+            <strong>${escapeHtml(quotaText.split(" (")[0])}</strong>${quota > 0 ? `<span style="color:var(--muted);">(${escapeHtml(quotaText.match(/\((\d+%)\)$/)?.[1] || "")})</span>` : ""}
+          </div>
+          <div class="settings-quota-track">
+            <div class="settings-quota-fill ${quotaTone}" style="width:${quota > 0 ? quotaPct : 0}%;"></div>
+          </div>
+        </td>
+        <td>${escapeHtml(models)}</td>
+        <td class="mono">${rpm ? `${escapeHtml(String(rpm))} RPM` : "—"}</td>
+        <td>${status}</td>
+        <td class="cell-actions">
+          <button class="button secondary" type="button" data-edit-key-id="${escapeHtml(String(entry.id ?? ""))}">${escapeHtml(t("settings.keys.edit"))}</button>
+          <button class="button secondary" type="button" data-reset-key-id="${escapeHtml(String(entry.id ?? ""))}" title="${escapeHtml(t("settings.keys.reset_usage"))}">${iconSvg("rotate")}</button>
+          <button class="button secondary settings-danger-btn" type="button" data-delete-key-id="${escapeHtml(String(entry.id ?? ""))}" title="${escapeHtml(t("settings.keys.delete"))}">${iconSvg("trash")}</button>
+        </td>
+      </tr>`;
+  }
+
+  function bindSettingsKeyRows(target) {
+    target.querySelectorAll("[data-copy-key]").forEach((button) => {
+      if (button.dataset.boundSettingsCopyKey) return;
+      button.dataset.boundSettingsCopyKey = "1";
+      button.addEventListener("click", async () => {
+        const value = button.dataset.copyKey || "";
+        try {
+          await navigator.clipboard.writeText(value);
+          setNotice(t("settings.keys.copied"), "ok");
+        } catch (_e) {
+          setNotice(value, "info");
+        }
+      });
+    });
+    target.querySelectorAll("[data-edit-key-id]").forEach((button) => {
+      if (button.dataset.boundSettingsEditKey) return;
+      button.dataset.boundSettingsEditKey = "1";
+      button.addEventListener("click", () => {
+        const record = (state.data.clientKeys || []).find((item) => String(item.id) === button.dataset.editKeyId);
+        openKeyDrawer("edit", record);
+      });
+    });
+    target.querySelectorAll("[data-reset-key-id]").forEach((button) => {
+      if (button.dataset.boundSettingsResetKey) return;
+      button.dataset.boundSettingsResetKey = "1";
+      button.addEventListener("click", async () => {
+        button.disabled = true;
+        try {
+          await apiPost(`/-/admin/client-keys/${encodeURIComponent(button.dataset.resetKeyId)}/reset-usage`);
+          setNotice(t("settings.keys.reset_done"), "ok");
+          refreshClientKeys();
+        } catch (err) {
+          button.disabled = false;
+          setNotice(t("notice.config_update_failed", { error: err.message }), "bad");
+        }
+      });
+    });
+    target.querySelectorAll("[data-delete-key-id]").forEach((button) => {
+      if (button.dataset.boundSettingsDeleteKey) return;
+      button.dataset.boundSettingsDeleteKey = "1";
+      button.addEventListener("click", async () => {
+        const record = (state.data.clientKeys || []).find((item) => String(item.id) === button.dataset.deleteKeyId);
+        const accepted = await openConfirmDialog({
+          title: t("settings.keys.delete_confirm_title"),
+          message: t("settings.keys.delete_confirm_msg", { name: record?.name || `#${button.dataset.deleteKeyId}` }),
+          acceptLabel: t("settings.keys.delete"),
+        });
+        if (!accepted) return;
+        button.disabled = true;
+        try {
+          await apiPost(`/-/admin/client-keys/${encodeURIComponent(button.dataset.deleteKeyId)}/delete`);
+          setNotice(t("settings.keys.deleted"), "ok");
+          refreshClientKeys();
+        } catch (err) {
+          button.disabled = false;
+          setNotice(t("notice.config_update_failed", { error: err.message }), "bad");
+        }
+      });
+    });
+  }
+
+  async function loadSettingsPricingCatalog() {
+    if (_settingsPricingLoadInFlight) return;
+    if (state.data.pricingCatalog) { renderSettingsPricingCatalog(); return; }
+    _settingsPricingLoadInFlight = true;
+    state.settingsPricingLoading = true;
+    renderSettingsPricingCatalog();
+    try {
+      const data = await apiGet("/-/admin/model-pricing");
+      const pricing = (data || {}).pricing || {};
+      state.data.pricingCatalog = Object.entries(pricing)
+        .filter(([, value]) => value && value.available)
+        .map(([name, value]) => ({
+          name,
+          input: value.input,
+          output: value.output,
+          cache_hit: value.cache_hit ?? value.cache_read_per_million,
+        }))
+        .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    } catch (_err) {
+      state.data.pricingCatalog = [];
+    } finally {
+      state.settingsPricingLoading = false;
+      _settingsPricingLoadInFlight = false;
+      if (state.view === "settings") renderSettingsPricingCatalog();
+    }
+  }
+
+  function settingsPricingOverrides() {
+    const providers = (state.data.config || {}).providers || {};
+    const rows = [];
+    Object.entries(providers).forEach(([name, pcfg]) => {
+      const pricing = (pcfg || {}).pricing || {};
+      const models = pricing.models || {};
+      Object.entries(models).forEach(([model, mp]) => {
+        rows.push({
+          provider: name,
+          model,
+          input: mp?.input_per_million,
+          output: mp?.output_per_million,
+        });
+      });
+      if ((pricing.input_per_million || pricing.output_per_million) && !Object.keys(models).length) {
+        rows.push({ provider: name, model: "*", input: pricing.input_per_million, output: pricing.output_per_million });
+      }
+    });
+    rows.sort((a, b) => String(a.provider).localeCompare(String(b.provider)) || String(a.model).localeCompare(String(b.model)));
+    return rows;
+  }
+
+  function renderSettingsPricing() {
+    renderSettingsPricingOverrides();
+    renderSettingsPricingCatalog();
+  }
+
+  function settingsPriceText(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return "—";
+    return String(Number(num.toFixed(4)));
+  }
+
+  function renderSettingsPricingOverrides() {
+    const target = el("settingsPricingOverrides");
+    if (!target) return;
+    const rows = settingsPricingOverrides();
+    if (!rows.length) {
+      updateDOM(target, `
+        <div class="usage-statistics-empty-state">
+          ${iconSvg("dollar")}
+          <span>
+            <strong>${escapeHtml(t("settings.pricing.overrides_empty_title"))}</strong>
+            <small>${escapeHtml(t("settings.pricing.overrides_empty_hint"))}</small>
+          </span>
+        </div>`);
+      return;
+    }
+    if (shouldPreserveContainer("#settingsPricingOverrides")) return;
+    updateDOM(target, `
+      <table class="data-table settings-pricing-table">
+        <thead><tr>
+          <th>${escapeHtml(t("settings.pricing.col_provider"))}</th>
+          <th>${escapeHtml(t("settings.pricing.col_model"))}</th>
+          <th class="num">${escapeHtml(t("settings.pricing.col_input"))}</th>
+          <th class="num">${escapeHtml(t("settings.pricing.col_output"))}</th>
+          <th></th>
+        </tr></thead>
+        <tbody>
+          ${rows.map((row) => `
+            <tr>
+              <td><span class="settings-model-identity">${providerBrandIconMarkup(row.provider, iconSvg("server"))}<strong>${escapeHtml(row.provider)}</strong></span></td>
+              <td class="mono"><span class="settings-model-identity">${modelBrandIconMarkup(row.model, iconSvg("boxes"))}<strong>${escapeHtml(row.model)}</strong></span></td>
+              <td class="num"><input class="settings-price-input mono" type="number" step="any" min="0" value="${settingsPriceText(row.input) === "—" ? "" : settingsPriceText(row.input)}" data-price-provider="${escapeHtml(row.provider)}" data-price-model="${escapeHtml(row.model)}" data-price-field="input" aria-label="${escapeHtml(row.provider)} ${escapeHtml(row.model)} input" /></td>
+              <td class="num"><input class="settings-price-input mono" type="number" step="any" min="0" value="${settingsPriceText(row.output) === "—" ? "" : settingsPriceText(row.output)}" data-price-provider="${escapeHtml(row.provider)}" data-price-model="${escapeHtml(row.model)}" data-price-field="output" aria-label="${escapeHtml(row.provider)} ${escapeHtml(row.model)} output" /></td>
+              <td class="cell-actions"><button class="button secondary" type="button" data-price-save="${escapeHtml(row.provider)}">${escapeHtml(t("settings.pricing.save"))}</button></td>
+            </tr>`).join("")}
+        </tbody>
+      </table>`);
+    bindSettingsPricingOverrides(target);
+  }
+
+  function bindSettingsPricingOverrides(target) {
+    target.querySelectorAll("[data-price-save]").forEach((button) => {
+      if (button.dataset.boundPriceSave) return;
+      button.dataset.boundPriceSave = "1";
+      button.addEventListener("click", () => saveSettingsPricingOverrides(button.dataset.priceSave || "", button));
+    });
+  }
+
+  async function saveSettingsPricingOverrides(provider, button) {
+    const providerCfg = ((state.data.config || {}).providers || {})[provider] || {};
+    const inputs = document.querySelectorAll(
+      `[data-price-provider="${CSS.escape(provider)}"]`,
+    );
+    if (!inputs.length) return;
+    const updates = {};
+    inputs.forEach((input) => {
+      const model = input.dataset.priceModel || "*";
+      updates[model] = updates[model] || {};
+      updates[model][input.dataset.priceField] = Number(input.value || 0);
+    });
+    const pricing = JSON.parse(JSON.stringify(providerCfg.pricing || {}));
+    pricing.models = pricing.models || {};
+    Object.entries(updates).forEach(([model, fields]) => {
+      if (model === "*") {
+        if (fields.input != null) pricing.input_per_million = fields.input;
+        if (fields.output != null) pricing.output_per_million = fields.output;
+        return;
+      }
+      pricing.models[model] = {
+        ...(pricing.models[model] || {}),
+        input_per_million: fields.input ?? Number(pricing.models[model]?.input_per_million ?? 0),
+        output_per_million: fields.output ?? Number(pricing.models[model]?.output_per_million ?? 0),
+      };
+    });
+    button.disabled = true;
+    try {
+      const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { pricing });
+      applyMutationResult(result);
+      setNotice(t("notice.saved"), "ok");
+      scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
+    } catch (err) {
+      setNotice(t("notice.config_update_failed", { error: err.message }), "bad");
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  function renderSettingsPricingCatalog() {
+    const target = el("settingsPricingCatalog");
+    const meta = el("settingsPricingCatalogMeta");
+    if (!target) return;
+    if (state.settingsPricingLoading || state.data.pricingCatalog === null) {
+      if (meta) meta.textContent = t("settings.pricing.catalog_loading");
+      updateDOM(target, `<div class="empty pad">${escapeHtml(t("model_usage.loading"))}</div>`);
+      return;
+    }
+    const catalog = state.data.pricingCatalog || [];
+    const query = state.settingsPricingQuery;
+    const filteredCount = query
+      ? catalog.filter((item) => String(item.name).toLowerCase().includes(query)).length
+      : catalog.length;
+    if (meta) {
+      meta.textContent = query && filteredCount !== catalog.length
+        ? t("settings.pricing.catalog_filtered", { count: fmtInt(filteredCount), total: fmtInt(catalog.length) })
+        : t("settings.pricing.catalog_meta", { count: fmtInt(catalog.length) });
+    }
+    if (!catalog.length) {
+      updateDOM(target, `
+        <div class="usage-statistics-empty-state">
+          ${iconSvg("dollar")}
+          <span><strong>${escapeHtml(t("settings.pricing.catalog_empty"))}</strong></span>
+        </div>`);
+      return;
+    }
+    const filtered = query
+      ? catalog.filter((item) => String(item.name).toLowerCase().includes(query))
+      : catalog;
+    const total = filtered.length;
+    const pages = Math.max(1, Math.ceil(total / SETTINGS_PRICING_PAGE_SIZE));
+    const page = Math.min(pages, Math.max(1, Number(state.settingsPricingPage || 0) + 1));
+    state.settingsPricingPage = page - 1;
+    const offset = (page - 1) * SETTINGS_PRICING_PAGE_SIZE;
+    const rows = filtered.slice(offset, offset + SETTINGS_PRICING_PAGE_SIZE);
+    const pagination = pages <= 1 ? "" : `
+      <div class="usage-statistics-breakdown-pagination">
+        <span>${escapeHtml(t("usage_stats.page_of", { page: fmtInt(page), total: fmtInt(pages) }))}</span>
+        <span>
+          <button class="icon-button" type="button" data-settings-pricing-page="${page - 2}" aria-label="${escapeHtml(t("req.previous_page"))}" ${page <= 1 ? "disabled" : ""}>${iconSvg("chevron-left")}</button>
+          <button class="icon-button" type="button" data-settings-pricing-page="${page}" aria-label="${escapeHtml(t("req.next_page"))}" ${page >= pages ? "disabled" : ""}>${iconSvg("chevron-right")}</button>
+        </span>
+      </div>`;
+    updateDOM(target, `
+      <table class="data-table settings-pricing-table">
+        <thead><tr>
+          <th>#</th>
+          <th>${escapeHtml(t("settings.pricing.col_model"))}</th>
+          <th class="num">${escapeHtml(t("settings.pricing.col_input"))}</th>
+          <th class="num">${escapeHtml(t("settings.pricing.col_output"))}</th>
+          <th class="num">${escapeHtml(t("settings.pricing.col_cache_read"))}</th>
+        </tr></thead>
+        <tbody>
+          ${rows.map((item, index) => `
+            <tr>
+              <td class="mono settings-pricing-rank">${escapeHtml(String(offset + index + 1).padStart(2, "0"))}</td>
+              <td class="mono"><span class="settings-model-identity">${modelBrandIconMarkup(item.name, iconSvg("boxes"))}<strong>${escapeHtml(item.name)}</strong></span></td>
+              <td class="num mono">${escapeHtml(settingsPriceText(item.input))}</td>
+              <td class="num mono">${escapeHtml(settingsPriceText(item.output))}</td>
+              <td class="num mono">${escapeHtml(settingsPriceText(item.cache_hit))}</td>
+            </tr>`).join("")}
+        </tbody>
+      </table>
+      ${pagination}`);
+    target.querySelectorAll("[data-settings-pricing-page]").forEach((button) => {
+      if (button.dataset.boundSettingsPricingPage) return;
+      button.dataset.boundSettingsPricingPage = "1";
+      button.addEventListener("click", () => {
+        if (button.disabled) return;
+        state.settingsPricingPage = Math.max(0, Number(button.dataset.settingsPricingPage || 0));
+        renderSettingsPricingCatalog();
+      });
+    });
+  }
+
+  function settingsProxyToString(proxy) {
+    if (!proxy) return "";
+    if (typeof proxy === "string") return proxy;
+    return proxy.http || proxy.https || "";
+  }
+
+  function renderSettingsOps() {
+    const target = el("settingsOpsGrid");
+    if (!target) return;
+    if (shouldPreserveContainer("#settingsOpsGrid")) return;
+    const config = state.data.config || {};
+    updateDOM(target, `
+      ${settingsOpsProxyCard(config.proxy)}
+      ${settingsOpsRuntimeCard(config.routing, config.server)}
+      ${settingsOpsOverlayCard(config)}
+      ${settingsOpsSecurityCard(config.server)}
+    `);
+    bindSettingsOpsForms(target);
+  }
+
+  function settingsOpsProxyCard(proxy) {
+    return `
+      <section class="settings-ops-card">
+        <div class="settings-ops-card-head">
+          <h3>${iconSvg("radar")}<span>${escapeHtml(t("settings.ops.proxy_title"))}</span></h3>
+        </div>
+        <p class="settings-ops-desc">${escapeHtml(t("settings.ops.proxy_desc"))}</p>
+        <form id="settingsOpsProxyForm" class="settings-ops-form">
+          <label class="field">
+            <span>${escapeHtml(t("settings.ops.proxy_field"))}</span>
+            <input class="control mono" name="proxy" type="text" value="${escapeHtml(settingsProxyToString(proxy))}" placeholder="http://127.0.0.1:10808" />
+            <small>${escapeHtml(t("settings.ops.proxy_hint"))}</small>
+          </label>
+          <button class="button primary" type="submit">${escapeHtml(t("settings.ops.save"))}</button>
+        </form>
+      </section>`;
+  }
+
+  function settingsOpsRuntimeCard(routing, server) {
+    routing = routing || {};
+    const numberField = (name, labelKey, value) => `
+      <label class="field">
+        <span>${escapeHtml(t(labelKey))}</span>
+        <input class="control mono" name="${name}" type="number" min="0" step="1" value="${escapeHtml(String(value ?? 0))}" />
+      </label>`;
+    return `
+      <section class="settings-ops-card">
+        <div class="settings-ops-card-head">
+          <h3>${iconSvg("zap")}<span>${escapeHtml(t("settings.ops.runtime_title"))}</span></h3>
+        </div>
+        <p class="settings-ops-desc">${escapeHtml(t("settings.ops.runtime_desc"))}</p>
+        <div class="settings-kv-list">
+          <div class="settings-kv"><span>${escapeHtml(t("settings.ops.max_workers"))}</span><strong class="mono">${escapeHtml(String((server || {}).max_workers ?? "—"))}</strong></div>
+          <div class="settings-kv"><span>${escapeHtml(t("settings.ops.stream_mode"))}</span><strong class="mono">${escapeHtml(String(routing.native_stream_mode || "—"))}</strong></div>
+        </div>
+        <form id="settingsOpsRuntimeForm" class="settings-ops-form">
+          <div class="settings-ops-field-grid">
+            ${numberField("max_attempts", "settings.ops.max_attempts", routing.max_attempts)}
+            ${numberField("connect_timeout_s", "settings.ops.connect_timeout", routing.connect_timeout_s)}
+            ${numberField("read_timeout_s", "settings.ops.read_timeout", routing.read_timeout_s)}
+            ${numberField("first_token_timeout_s", "settings.ops.first_token_timeout", routing.first_token_timeout_s)}
+            ${numberField("agent_first_event_timeout_s", "settings.ops.agent_timeout", routing.agent_first_event_timeout_s)}
+          </div>
+          <button class="button primary" type="submit">${escapeHtml(t("settings.ops.save"))}</button>
+        </form>
+      </section>`;
+  }
+
+  function settingsOpsOverlayCard(config) {
+    const revision = Number(config.revision ?? 0);
+    const epoch = Number(config.revision_epoch_ms || 0);
+    const epochText = epoch ? new Date(epoch).toLocaleString() : "—";
+    return `
+      <section class="settings-ops-card">
+        <div class="settings-ops-card-head">
+          <h3>${iconSvg("layers")}<span>${escapeHtml(t("settings.ops.overlay_title"))}</span></h3>
+        </div>
+        <p class="settings-ops-desc">${escapeHtml(t("settings.ops.overlay_desc"))}</p>
+        <div class="settings-kv-list">
+          <div class="settings-kv"><span>${escapeHtml(t("settings.ops.overlay_revision"))}</span><strong class="mono">#${fmtInt(revision)} · ${escapeHtml(epochText)}</strong></div>
+          <div class="settings-kv"><span>${escapeHtml(t("settings.ops.overlay_state"))}</span><strong>${config.has_overlay ? escapeHtml(t("settings.ops.overlay_active")) : escapeHtml(t("settings.ops.overlay_empty"))}</strong></div>
+        </div>
+        <div class="settings-ops-actions">
+          <button class="button secondary" type="button" data-settings-export>${escapeHtml(t("settings.ops.export"))}</button>
+          <button class="button secondary settings-danger-btn" type="button" data-settings-reset>${escapeHtml(t("settings.ops.reset"))}</button>
+        </div>
+      </section>`;
+  }
+
+  function settingsOpsSecurityCard(server) {
+    server = server || {};
+    const cidrs = Array.isArray(server.trusted_proxy_cidrs) ? server.trusted_proxy_cidrs.join(", ") : "";
+    const headers = Array.isArray(server.trusted_proxy_headers) ? server.trusted_proxy_headers.join(", ") : "";
+    return `
+      <section class="settings-ops-card">
+        <div class="settings-ops-card-head">
+          <h3>${iconSvg("shield")}<span>${escapeHtml(t("settings.ops.security_title"))}</span></h3>
+        </div>
+        <p class="settings-ops-desc">${escapeHtml(t("settings.ops.security_desc"))}</p>
+        <div class="settings-kv-list">
+          <div class="settings-kv"><span>${escapeHtml(t("settings.ops.security_admin_key"))}</span><strong class="mono">${escapeHtml(server.admin_key || "—")}</strong></div>
+          <div class="settings-kv"><span>${escapeHtml(t("settings.ops.security_trusted"))}</span><strong class="mono">${escapeHtml(cidrs || t("settings.ops.not_set"))}</strong></div>
+          <div class="settings-kv"><span>${escapeHtml(t("settings.ops.security_headers"))}</span><strong class="mono">${escapeHtml(headers || t("settings.ops.not_set"))}</strong></div>
+          <div class="settings-kv"><span>${escapeHtml(t("settings.ops.security_query_key"))}</span><strong>${server.allow_query_admin_key ? "On" : "Off"}</strong></div>
+        </div>
+        <p class="settings-ops-note">${escapeHtml(t("settings.ops.security_admin_key_hint"))}</p>
+      </section>`;
+  }
+
+  function bindSettingsOpsForms(target) {
+    const proxyForm = target.querySelector("#settingsOpsProxyForm");
+    if (proxyForm && !proxyForm.dataset.boundSettingsOpsProxy) {
+      proxyForm.dataset.boundSettingsOpsProxy = "1";
+      proxyForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const proxy = String(proxyForm.elements.proxy.value || "").trim();
+        await runConfigMutation(proxyForm, async () => {
+          const result = await apiPatch("/-/admin/proxy", { proxy });
+          setNotice(t("notice.global_proxy_updated"), "ok");
+          return result;
+        }, {
+          resourceKey: "global-proxy",
+          apply: (config) => { config.proxy = proxy; },
+          drawer: false,
+        });
+      });
+    }
+    const runtimeForm = target.querySelector("#settingsOpsRuntimeForm");
+    if (runtimeForm && !runtimeForm.dataset.boundSettingsOpsRuntime) {
+      runtimeForm.dataset.boundSettingsOpsRuntime = "1";
+      runtimeForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const payload = {
+          max_attempts: Number(runtimeForm.elements.max_attempts.value || 0),
+          connect_timeout_s: Number(runtimeForm.elements.connect_timeout_s.value || 0),
+          read_timeout_s: Number(runtimeForm.elements.read_timeout_s.value || 0),
+          first_token_timeout_s: Number(runtimeForm.elements.first_token_timeout_s.value || 0),
+          agent_first_event_timeout_s: Number(runtimeForm.elements.agent_first_event_timeout_s.value || 0),
+        };
+        await runConfigMutation(runtimeForm, async () => {
+          const result = await apiPatch("/-/admin/routing", payload);
+          setNotice(t("notice.routing_updated"), "ok");
+          return result;
+        }, {
+          resourceKey: "routing",
+          apply: (config) => { Object.assign((config.routing = config.routing || {}), payload); },
+          drawer: false,
+        });
+      });
+    }
+    target.querySelectorAll("[data-settings-export]").forEach((button) => {
+      if (button.dataset.boundSettingsExport) return;
+      button.dataset.boundSettingsExport = "1";
+      button.addEventListener("click", exportSettingsConfig);
+    });
+    target.querySelectorAll("[data-settings-reset]").forEach((button) => {
+      if (button.dataset.boundSettingsReset) return;
+      button.dataset.boundSettingsReset = "1";
+      button.addEventListener("click", () => resetSettingsOverlay(button));
+    });
+  }
+
+  function exportSettingsConfig() {
+    const config = state.data.config;
+    if (!config) return;
+    try {
+      const blob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `proxy-config-rev${config.revision ?? 0}-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setNotice(t("settings.ops.export_done"), "ok");
+    } catch (_err) {
+      setNotice(t("notice.config_update_failed", { error: "export failed" }), "bad");
+    }
+  }
+
+  async function resetSettingsOverlay(button) {
+    const accepted = await openConfirmDialog({
+      title: t("settings.ops.reset_confirm_title"),
+      message: t("settings.ops.reset_confirm_msg"),
+      acceptLabel: t("settings.ops.reset"),
+    });
+    if (!accepted) return;
+    button.disabled = true;
+    try {
+      const result = await apiPost("/-/admin/config/overlay/clear", { confirm: "clear_runtime_overlay" });
+      applyMutationResult(result);
+      setNotice(t("settings.ops.reset_done"), "ok");
+      renderAll();
+      scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
+    } catch (err) {
+      setNotice(t("notice.config_update_failed", { error: err.message }), "bad");
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  function openKeyDrawer(mode, record = null) {
+    state.settingsKeyDrawerMode = mode === "edit" ? "edit" : "new";
+    state.settingsKeyEditId = mode === "edit" ? String(record?.id ?? "") : "";
+    state.settingsKeyEditRecord = mode === "edit" ? record : null;
+    state.settingsKeyCreated = null;
+    renderKeyDrawer();
+    const drawer = el("keyDrawer");
+    drawer?.classList.add("is-open");
+    drawer?.setAttribute("aria-hidden", "false");
+  }
+
+  function closeKeyDrawer() {
+    const drawer = el("keyDrawer");
+    if (!drawer) return;
+    drawer.classList.remove("is-open");
+    drawer.setAttribute("aria-hidden", "true");
+    state.settingsKeyDrawerMode = "";
+    state.settingsKeyEditId = "";
+    state.settingsKeyEditRecord = null;
+    state.settingsKeyCreated = null;
+  }
+
+  function renderKeyDrawer() {
+    const drawer = el("keyDrawer");
+    if (!drawer || !drawer.classList.contains("is-open")) return;
+    const title = el("keyDrawerTitle");
+    if (title) {
+      title.textContent = state.settingsKeyDrawerMode === "edit"
+        ? t("settings.keys.drawer_title_edit")
+        : t("settings.keys.drawer_title_new");
+    }
+    const body = el("keyDrawerBody");
+    if (!body) return;
+    if (state.settingsKeyCreated) {
+      const created = state.settingsKeyCreated;
+      updateDOM(body, `
+        <div class="settings-key-created">
+          <p class="settings-ops-desc">${escapeHtml(t("settings.keys.created_hint"))}</p>
+          <div class="settings-created-key-box">
+            <span class="mono">${escapeHtml(created.full_key)}</span>
+            <button class="button secondary" type="button" data-copy-created-key="${escapeHtml(created.full_key)}">${iconSvg("copy")} ${escapeHtml(t("settings.keys.copy"))}</button>
+          </div>
+          <p class="settings-ops-note">${escapeHtml(t("settings.keys.created_once_note"))}</p>
+          <div class="drawer-actions">
+            <button class="button primary" type="button" data-key-drawer-done>${escapeHtml(t("confirm.close"))}</button>
+          </div>
+        </div>`);
+      const copyBtn = body.querySelector("[data-copy-created-key]");
+      copyBtn?.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(created.full_key);
+          setNotice(t("settings.keys.copied"), "ok");
+        } catch (_e) {
+          setNotice(created.full_key, "info");
+        }
+      });
+      body.querySelector("[data-key-drawer-done]")?.addEventListener("click", () => {
+        closeKeyDrawer();
+        refreshClientKeys();
+      });
+      return;
+    }
+    if (shouldPreserveContainer("#keyDrawerBody")) return;
+    const editing = state.settingsKeyEditRecord || {};
+    const modelsValue = editing.models === "*" || !editing.models
+      ? ""
+      : (Array.isArray(editing.models) ? editing.models.join(", ") : String(editing.models));
+    updateDOM(body, `
+      <form id="settingsKeyForm" class="settings-key-form">
+        <label class="field">
+          <span>${escapeHtml(t("settings.keys.f_name"))}</span>
+          <input class="control" name="name" type="text" required value="${escapeHtml(editing.name || "")}" placeholder="${escapeHtml(t("settings.keys.f_name_ph"))}" />
+        </label>
+        <label class="field">
+          <span>${escapeHtml(t("settings.keys.f_quota"))}</span>
+          <input class="control mono" name="quota" type="text" value="${escapeHtml(editing.quota_tokens ? String(editing.quota_tokens) : "")}" placeholder="100M / 1.5B / 500000" />
+          <small>${escapeHtml(t("settings.keys.f_quota_hint"))}</small>
+        </label>
+        <label class="field">
+          <span>${escapeHtml(t("settings.keys.f_rpm"))}</span>
+          <input class="control mono" name="rpm" type="number" min="0" value="${escapeHtml(String(editing.rpm ?? 60))}" />
+        </label>
+        <label class="field">
+          <span>${escapeHtml(t("settings.keys.f_models"))}</span>
+          <input class="control mono" name="models" type="text" value="${escapeHtml(modelsValue)}" placeholder="${escapeHtml(t("settings.keys.f_models_ph"))}" />
+          <small>${escapeHtml(t("settings.keys.f_models_hint"))}</small>
+        </label>
+        <label class="field">
+          <span>${escapeHtml(t("settings.keys.f_expires"))}</span>
+          <select class="control" name="expires">
+            <option value="never">${escapeHtml(t("settings.keys.f_expires_never"))}</option>
+            <option value="30d">${escapeHtml(t("settings.keys.f_expires_30d"))}</option>
+            <option value="90d">${escapeHtml(t("settings.keys.f_expires_90d"))}</option>
+          </select>
+        </label>
+        <div class="drawer-actions">
+          <button class="button secondary" type="button" data-key-drawer-cancel>${escapeHtml(t("settings.keys.cancel"))}</button>
+          <button class="button primary" type="submit">${escapeHtml(state.settingsKeyDrawerMode === "edit" ? t("settings.ops.save") : t("settings.keys.submit"))}</button>
+        </div>
+      </form>`);
+    const form = el("settingsKeyForm");
+    if (form && !form.dataset.boundSettingsKeyForm) {
+      form.dataset.boundSettingsKeyForm = "1";
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const modelsRaw = String(form.elements.models.value || "").trim();
+        const payload = {
+          name: String(form.elements.name.value || "").trim(),
+          quota: String(form.elements.quota.value || "").trim(),
+          rpm: Number(form.elements.rpm.value || 0),
+          models: modelsRaw ? modelsRaw : "*",
+          expires: form.elements.expires.value,
+        };
+        if (!payload.name) return;
+        try {
+          if (state.settingsKeyDrawerMode === "edit" && state.settingsKeyEditId) {
+            await apiPatch(`/-/admin/client-keys/${encodeURIComponent(state.settingsKeyEditId)}`, payload);
+            setNotice(t("notice.saved"), "ok");
+            closeKeyDrawer();
+            refreshClientKeys();
+          } else {
+            const data = await apiPost("/-/admin/client-keys", payload);
+            state.settingsKeyCreated = { full_key: String(data?.full_key || "") };
+            setNotice(t("settings.keys.created_title"), "ok");
+            renderKeyDrawer();
+            refreshClientKeys();
+          }
+        } catch (err) {
+          setNotice(t("notice.config_update_failed", { error: err.message }), "bad");
+        }
+      });
+    }
+    const cancelButton = body.querySelector("[data-key-drawer-cancel]");
+    if (cancelButton && !cancelButton.dataset.boundSettingsKeyCancel) {
+      cancelButton.dataset.boundSettingsKeyCancel = "1";
+      cancelButton.addEventListener("click", closeKeyDrawer);
+    }
   }
 
   function usageStatisticsCustomTimestamp(value, endOfDay = false) {
@@ -6309,6 +7145,7 @@ import {
       pencil: `<path d="M4 20h4l10.5-10.5a2.8 2.8 0 0 0-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path>`,
       search: `<circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path>`,
       eye: `<path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"></path><circle cx="12" cy="12" r="3"></circle>`,
+      copy: `<rect width="14" height="14" x="8" y="8" rx="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>`,
       "eye-off": `<path d="M3 3l18 18"></path><path d="M10.6 10.6A3 3 0 0 0 13.4 13.4"></path><path d="M7.4 7.4C4.3 9 2.5 12 2.5 12s3.5 6 9.5 6c1.5 0 2.8-.4 4-1"></path><path d="M10 6.2A10.6 10.6 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-2.6 3.2"></path>`,
       save: `<path d="M5 3h12l2 2v16H5z"></path><path d="M8 3v6h8V3"></path><path d="M8 21v-7h8v7"></path>`,
       undo: `<path d="M9 7H4v5"></path><path d="M4 12a8 8 0 1 0 2.3-5.7L4 7"></path>`,
@@ -6594,7 +7431,13 @@ import {
         },
       },
       {
-        onSuccess: () => setNotice(nextModel ? t("notice.model_mapping_saved", { provider }) : t("notice.model_mapping_reset", { provider }), "ok"),
+        onSuccess: (result) => {
+          if (result?.warning) {
+            setNotice(String(result.warning), "warn", { duration: 8000, key: "mapping:warning" });
+          } else {
+            setNotice(nextModel ? t("notice.model_mapping_saved", { provider }) : t("notice.model_mapping_reset", { provider }), "ok");
+          }
+        },
         onError: (err) => setNotice(t("notice.model_mapping_failed", { error: err.message }), "bad"),
       },
     );
@@ -6607,6 +7450,14 @@ import {
       subtitle: provider,
       bodyHtml: `
         <form class="model-map-form" data-provider-model-map-form>
+          <div class="model-map-raw-hero">
+            <span class="model-map-raw-hero-icon">${modelBrandIconMarkup(rawModel, iconSvg("boxes"))}</span>
+            <div class="model-map-raw-hero-text">
+              <span class="model-map-raw-hero-label">${escapeHtml(t("prov.models.editing_mapping_for"))}</span>
+              <strong class="mono">${escapeHtml(rawModel)}</strong>
+              <small>${escapeHtml(t("prov.models.raw_hero_hint"))}</small>
+            </div>
+          </div>
           <label class="model-map-field">
             <span>Client model</span>
             <input name="model" value="${escapeHtml(oldModel)}" autocomplete="off" spellcheck="false" />
@@ -6654,6 +7505,30 @@ import {
       if (nextModel === oldModel) {
         closeFormModal();
         return;
+      }
+      // P1 protect: warn when the target canonical name is already used by a
+      // DIFFERENT raw model in this provider (cross-contamination source).
+      if (nextModel) {
+        const capability = state.data.status?.models?.providers?.[provider] || {};
+        const rows = providerModelItems(provider, capability);
+        const clash = rows.find((item) => {
+          const label = String(item.label || "").trim().toLowerCase();
+          const raw = String(item.raw || "").trim();
+          return label === String(nextModel).trim().toLowerCase()
+            && raw !== String(rawModel).trim()
+            && label !== String(oldModel || "").trim().toLowerCase();
+        });
+        if (clash) {
+          const accepted = await openConfirmDialog({
+            title: t("modal.mapping_clash_title"),
+            message: t("modal.mapping_clash_msg", { name: nextModel, raw: clash.raw || rawModel }),
+            acceptLabel: t("confirm.delete"),
+          });
+          if (!accepted) {
+            input?.focus();
+            return;
+          }
+        }
       }
       const submit = form.querySelector('button[type="submit"]');
       if (submit) submit.disabled = true;

@@ -469,6 +469,15 @@
 			selectedRequestIds: /* @__PURE__ */ new Set(),
 			allMatchingSelected: false,
 			trafficChartMode: "requests",
+			settingsTab: "keys",
+			settingsKeyDrawerMode: "",
+			settingsKeyEditId: "",
+			settingsKeyEditRecord: null,
+			settingsKeyCreated: null,
+			settingsPricingQuery: "",
+			settingsPricingPage: 0,
+			settingsPricingLoading: false,
+			clientKeysAvailable: null,
 			providersPage: 0,
 			configProvidersPage: 0,
 			modelRoutesPage: 0,
@@ -518,6 +527,8 @@
 				usageStatisticsDimensions: null,
 				modelUsage: null,
 				modelUsageDetail: null,
+				clientKeys: null,
+				pricingCatalog: null,
 				version: 0
 			}
 		};
@@ -664,6 +675,10 @@
 				en: "Playground",
 				zh: "测试场"
 			},
+			"nav.settings": {
+				en: "Settings",
+				zh: "系统设置"
+			},
 			"action.refresh": {
 				en: "Refresh",
 				zh: "刷新"
@@ -759,6 +774,454 @@
 			"view.playground.subtitle": {
 				en: "Test models with live routing feedback.",
 				zh: "测试模型并获取实时路由反馈。"
+			},
+			"view.settings.title": {
+				en: "Settings",
+				zh: "系统设置"
+			},
+			"view.settings.subtitle": {
+				en: "Client keys, model pricing, and runtime operations.",
+				zh: "客户端密钥分发、模型费率与运行时运维。"
+			},
+			"settings.tabs_label": {
+				en: "Settings sections",
+				zh: "设置分区"
+			},
+			"settings.tab_keys": {
+				en: "Client Keys",
+				zh: "API 密钥"
+			},
+			"settings.tab_pricing": {
+				en: "Model Pricing",
+				zh: "模型价格"
+			},
+			"settings.tab_ops": {
+				en: "System & Operations",
+				zh: "运维与系统"
+			},
+			"settings.keys.title": {
+				en: "Client API Keys",
+				zh: "客户端 API 密钥"
+			},
+			"settings.keys.title_tip": {
+				en: "Virtual keys distributed to downstream clients. Quota, rate limit, and model scope are enforced per key.",
+				zh: "分发给下游客户端的虚拟密钥，可按 Key 控制额度、速率与模型范围。"
+			},
+			"settings.keys.desc": {
+				en: "Issue virtual keys for downstream clients with per-key quota and model scope.",
+				zh: "为下游客户端签发虚拟密钥，按 Key 控制额度与模型范围。"
+			},
+			"settings.keys.create": {
+				en: "Create Key",
+				zh: "创建新密钥"
+			},
+			"settings.keys.pending_title": {
+				en: "Client key service pending",
+				zh: "客户端密钥服务待接入"
+			},
+			"settings.keys.pending_hint": {
+				en: "The /-/admin/client-keys endpoint is not deployed yet. The UI below is wired and will manage keys as soon as the backend ships.",
+				zh: "后端接口 /-/admin/client-keys 尚未部署。界面已就绪，接口上线后即可在此管理密钥。"
+			},
+			"settings.keys.empty_title": {
+				en: "No client keys yet",
+				zh: "暂无客户端密钥"
+			},
+			"settings.keys.empty_hint": {
+				en: "Create the first key to start distributing access.",
+				zh: "创建第一个密钥，开始对外分发访问。"
+			},
+			"settings.keys.backend_pending": {
+				en: "Client key backend is not available yet.",
+				zh: "客户端密钥后端接口尚未就绪。"
+			},
+			"settings.keys.col_name": {
+				en: "Name",
+				zh: "名称"
+			},
+			"settings.keys.col_key": {
+				en: "Key",
+				zh: "凭证"
+			},
+			"settings.keys.col_quota": {
+				en: "Quota",
+				zh: "额度上限"
+			},
+			"settings.keys.col_models": {
+				en: "Models",
+				zh: "模型范围"
+			},
+			"settings.keys.col_rpm": {
+				en: "Rate limit",
+				zh: "速率限制"
+			},
+			"settings.keys.col_status": {
+				en: "Status",
+				zh: "状态"
+			},
+			"settings.keys.status_active": {
+				en: "Active",
+				zh: "活跃"
+			},
+			"settings.keys.status_disabled": {
+				en: "Disabled",
+				zh: "已停用"
+			},
+			"settings.keys.col_actions": {
+				en: "Actions",
+				zh: "操作"
+			},
+			"settings.keys.edit": {
+				en: "Edit",
+				zh: "编辑"
+			},
+			"settings.keys.copy": {
+				en: "Copy full key",
+				zh: "复制完整 Key"
+			},
+			"settings.keys.copied": {
+				en: "Key copied to clipboard.",
+				zh: "已复制 Key 到剪贴板。"
+			},
+			"settings.keys.drawer_title_new": {
+				en: "Create Client Key",
+				zh: "创建客户端密钥"
+			},
+			"settings.keys.drawer_title_edit": {
+				en: "Edit Client Key",
+				zh: "编辑客户端密钥"
+			},
+			"settings.keys.drawer_subtitle": {
+				en: "Configure quota, rate limit, and model scope for the key.",
+				zh: "配置密钥的额度、速率与模型范围。"
+			},
+			"settings.keys.f_name": {
+				en: "Label",
+				zh: "备注名称"
+			},
+			"settings.keys.f_name_ph": {
+				en: "e.g. Cherry-Studio-TeamA",
+				zh: "例如：Cherry-Studio-TeamA"
+			},
+			"settings.keys.f_quota": {
+				en: "Token quota",
+				zh: "Token 额度上限"
+			},
+			"settings.keys.f_quota_hint": {
+				en: "Blank or 0 means unlimited. Blocked with 429 once exhausted.",
+				zh: "留空或 0 表示不限；耗尽后返回 429。"
+			},
+			"settings.keys.f_rpm": {
+				en: "Rate limit (requests/min)",
+				zh: "速率限制（请求/分钟）"
+			},
+			"settings.keys.f_models": {
+				en: "Model scope",
+				zh: "模型范围"
+			},
+			"settings.keys.f_models_all": {
+				en: "All models",
+				zh: "全部模型"
+			},
+			"settings.keys.f_expires": {
+				en: "Expires",
+				zh: "有效期限"
+			},
+			"settings.keys.f_expires_never": {
+				en: "Never expires",
+				zh: "永久有效"
+			},
+			"settings.keys.f_expires_30d": {
+				en: "In 30 days",
+				zh: "30 天后失效"
+			},
+			"settings.keys.f_expires_90d": {
+				en: "In 90 days",
+				zh: "90 天后失效"
+			},
+			"settings.keys.submit": {
+				en: "Generate & Activate",
+				zh: "生成并激活"
+			},
+			"settings.keys.status_expired": {
+				en: "Expired",
+				zh: "已过期"
+			},
+			"settings.keys.reset_usage": {
+				en: "Reset usage",
+				zh: "重置用量"
+			},
+			"settings.keys.reset_done": {
+				en: "Key usage counters reset.",
+				zh: "密钥用量计数已重置。"
+			},
+			"settings.keys.delete": {
+				en: "Delete",
+				zh: "删除"
+			},
+			"settings.keys.deleted": {
+				en: "Client key deleted.",
+				zh: "客户端密钥已删除。"
+			},
+			"settings.keys.delete_confirm_title": {
+				en: "Delete client key",
+				zh: "删除客户端密钥"
+			},
+			"settings.keys.delete_confirm_msg": {
+				en: "Delete key \"{name}\"? Clients using it will immediately lose access.",
+				zh: "确认删除密钥「{name}」？使用它的客户端将立即失去访问权限。"
+			},
+			"settings.keys.created_title": {
+				en: "Client key created.",
+				zh: "客户端密钥已创建。"
+			},
+			"settings.keys.created_hint": {
+				en: "Copy the key now and hand it to the client.",
+				zh: "请立即复制密钥并发送给客户端。"
+			},
+			"settings.keys.created_once_note": {
+				en: "For security the full key is shown only once; only its hash is stored.",
+				zh: "出于安全考虑，完整密钥仅显示一次，服务端只保存其哈希。"
+			},
+			"settings.keys.f_models_ph": {
+				en: "Empty = all models, or comma-separated allowlist",
+				zh: "留空 = 全部模型，或逗号分隔的白名单"
+			},
+			"settings.keys.f_models_hint": {
+				en: "Example: gpt-5.5, deepseek-v4-flash",
+				zh: "示例：gpt-5.5, deepseek-v4-flash"
+			},
+			"settings.keys.cancel": {
+				en: "Cancel",
+				zh: "取消"
+			},
+			"settings.pricing.overrides_title": {
+				en: "Custom Pricing Overrides",
+				zh: "自定义价格覆盖"
+			},
+			"settings.pricing.overrides_tip": {
+				en: "Manual per-provider prices in USD per 1M tokens. Overrides take priority over AA pricing.",
+				zh: "按供应商手动配置的单价（USD / 1M tokens），优先级高于 AA 价格。"
+			},
+			"settings.pricing.overrides_desc": {
+				en: "Manual per-provider prices; they win over AA estimates.",
+				zh: "按供应商手动配置的单价，优先级高于 AA 估算。"
+			},
+			"settings.pricing.overrides_empty_title": {
+				en: "No manual overrides",
+				zh: "暂无手动覆盖"
+			},
+			"settings.pricing.overrides_empty_hint": {
+				en: "Set provider pricing in the provider drawer, or edit a row below once overrides exist.",
+				zh: "可在提供商抽屉中配置价格；保存后的覆盖可在此直接修改。"
+			},
+			"settings.pricing.catalog_title": {
+				en: "Artificial Analysis Cache",
+				zh: "AA 官方价格缓存"
+			},
+			"settings.pricing.catalog_tip": {
+				en: "Read-only prices resolved from the local AA cache. Missing prices backfill automatically in the background.",
+				zh: "来自本地 AA 缓存的只读价格；缺失价格会在后台自动回填。"
+			},
+			"settings.pricing.catalog_loading": {
+				en: "Loading cached prices…",
+				zh: "正在加载缓存价格…"
+			},
+			"settings.pricing.catalog_meta": {
+				en: "{count} models · read-only",
+				zh: "{count} 个模型 · 只读"
+			},
+			"settings.pricing.catalog_filtered": {
+				en: "{count} of {total} models",
+				zh: "{count} / {total} 个模型"
+			},
+			"settings.pricing.catalog_empty": {
+				en: "No cached pricing yet. Prices appear after models resolve.",
+				zh: "暂无缓存价格；模型解析完成后会自动出现。"
+			},
+			"settings.pricing.refresh": {
+				en: "Refresh",
+				zh: "刷新"
+			},
+			"settings.pricing.filter_ph": {
+				en: "Filter models…",
+				zh: "筛选模型…"
+			},
+			"settings.pricing.col_model": {
+				en: "Model",
+				zh: "模型"
+			},
+			"settings.pricing.col_provider": {
+				en: "Provider",
+				zh: "供应商"
+			},
+			"settings.pricing.col_input": {
+				en: "Input $/1M",
+				zh: "输入 $/1M"
+			},
+			"settings.pricing.col_output": {
+				en: "Output $/1M",
+				zh: "输出 $/1M"
+			},
+			"settings.pricing.col_cache_read": {
+				en: "Cache read $/1M",
+				zh: "缓存读 $/1M"
+			},
+			"settings.pricing.col_actions": {
+				en: "Actions",
+				zh: "操作"
+			},
+			"settings.pricing.save": {
+				en: "Save",
+				zh: "保存"
+			},
+			"settings.ops.proxy_title": {
+				en: "Outbound Proxy",
+				zh: "全局出口代理"
+			},
+			"settings.ops.proxy_desc": {
+				en: "Default egress for providers and keys without their own proxy.",
+				zh: "未单独配置代理的供应商与密钥默认走此出口。"
+			},
+			"settings.ops.proxy_field": {
+				en: "HTTP/HTTPS proxy URL",
+				zh: "HTTP/HTTPS 代理地址"
+			},
+			"settings.ops.proxy_hint": {
+				en: "Leave empty for direct connections. Example: http://127.0.0.1:10808",
+				zh: "留空表示直连。示例：http://127.0.0.1:10808"
+			},
+			"settings.ops.runtime_title": {
+				en: "Runtime & Timeouts",
+				zh: "并发与超时预算"
+			},
+			"settings.ops.runtime_desc": {
+				en: "Attempt budget and per-stage timeout ceilings for upstream calls.",
+				zh: "上游调用的尝试预算与各阶段超时上限。"
+			},
+			"settings.ops.max_workers": {
+				en: "Worker threads",
+				zh: "Worker 线程数"
+			},
+			"settings.ops.max_workers_hint": {
+				en: "Fixed at startup; edit config.json server.max_workers and restart.",
+				zh: "启动时固定；需修改 config.json 的 server.max_workers 并重启。"
+			},
+			"settings.ops.max_attempts": {
+				en: "Max attempts",
+				zh: "最大尝试次数"
+			},
+			"settings.ops.connect_timeout": {
+				en: "Connect timeout (s)",
+				zh: "连接超时（秒）"
+			},
+			"settings.ops.read_timeout": {
+				en: "Read timeout (s)",
+				zh: "读取超时（秒）"
+			},
+			"settings.ops.first_token_timeout": {
+				en: "First token budget (s)",
+				zh: "首字响应预算（秒）"
+			},
+			"settings.ops.agent_timeout": {
+				en: "Agent thinking budget (s)",
+				zh: "Agent 思考宽限（秒）"
+			},
+			"settings.ops.stream_mode": {
+				en: "Native stream mode",
+				zh: "流式直通模式"
+			},
+			"settings.ops.stream_mode_guarded": {
+				en: "guarded — forward SSE headers immediately",
+				zh: "guarded — 立即透传 SSE 头，零延迟"
+			},
+			"settings.ops.stream_mode_safe": {
+				en: "safe — wait for first event before responding",
+				zh: "safe — 等待首个事件再响应，可透明重试"
+			},
+			"settings.ops.overlay_title": {
+				en: "Config Revision & Overlay",
+				zh: "配置版本与运行时覆盖"
+			},
+			"settings.ops.overlay_desc": {
+				en: "Runtime edits live in the overlay; config.json is never rewritten.",
+				zh: "运行时修改保存在覆盖层，config.json 永不改写。"
+			},
+			"settings.ops.overlay_revision": {
+				en: "Revision",
+				zh: "配置版本"
+			},
+			"settings.ops.overlay_state": {
+				en: "Overlay",
+				zh: "覆盖层"
+			},
+			"settings.ops.overlay_active": {
+				en: "Active",
+				zh: "已启用"
+			},
+			"settings.ops.overlay_empty": {
+				en: "No overlay",
+				zh: "无覆盖"
+			},
+			"settings.ops.export": {
+				en: "Export Config JSON",
+				zh: "导出配置 JSON"
+			},
+			"settings.ops.export_done": {
+				en: "Config snapshot exported.",
+				zh: "已导出配置快照。"
+			},
+			"settings.ops.reset": {
+				en: "Reset Overlay",
+				zh: "重置运行时覆盖"
+			},
+			"settings.ops.reset_confirm_title": {
+				en: "Reset runtime overlay",
+				zh: "重置运行时覆盖"
+			},
+			"settings.ops.reset_confirm_msg": {
+				en: "All unsaved runtime edits will be discarded and the base config.json takes effect. Continue?",
+				zh: "所有未固化的运行时修改将被丢弃，恢复为基础 config.json。确认继续？"
+			},
+			"settings.ops.reset_done": {
+				en: "Runtime overlay cleared; base config restored.",
+				zh: "运行时覆盖已清空，恢复为基础配置。"
+			},
+			"settings.ops.security_title": {
+				en: "Console Security",
+				zh: "控制台安全"
+			},
+			"settings.ops.security_desc": {
+				en: "Admin access and trusted-proxy posture (read-only here).",
+				zh: "管理访问与可信反代策略（此处只读）。"
+			},
+			"settings.ops.security_admin_key": {
+				en: "Admin key",
+				zh: "管理员密钥"
+			},
+			"settings.ops.security_admin_key_hint": {
+				en: "Masked by the API. Rotate by editing config.json server.admin_key.",
+				zh: "接口已脱敏；轮换需修改 config.json 的 server.admin_key。"
+			},
+			"settings.ops.security_trusted": {
+				en: "Trusted proxy CIDRs",
+				zh: "可信反代网段"
+			},
+			"settings.ops.security_query_key": {
+				en: "Allow ?admin_key query",
+				zh: "允许 ?admin_key 传参"
+			},
+			"settings.ops.security_headers": {
+				en: "Trusted IP headers",
+				zh: "可信 IP 请求头"
+			},
+			"settings.ops.save": {
+				en: "Save",
+				zh: "保存"
+			},
+			"settings.ops.not_set": {
+				en: "Not set",
+				zh: "未设置"
 			},
 			"ov.health_metrics": {
 				en: "Live health metrics and proxy request traffic monitoring.",
@@ -2031,6 +2494,14 @@
 			"prov.models.stage_enable": {
 				en: "Stage enable",
 				zh: "暂存启用"
+			},
+			"prov.models.editing_mapping_for": {
+				en: "Editing mapping for",
+				zh: "正在编辑映射"
+			},
+			"prov.models.raw_hero_hint": {
+				en: "This is the exact upstream model id the proxy sends to the provider.",
+				zh: "这是代理实际发往该供应商的上游真实模型 ID。"
 			},
 			"prov.models.edit_mapping": {
 				en: "Edit model mapping",
@@ -3428,6 +3899,14 @@
 				en: "Edit model mapping",
 				zh: "编辑模型映射"
 			},
+			"modal.mapping_clash_title": {
+				en: "Mapping name collision",
+				zh: "映射名称冲突"
+			},
+			"modal.mapping_clash_msg": {
+				en: "The name \"{name}\" is already used by a different model ({raw}) in this provider. Continue will overwrite that mapping. Are you sure?",
+				zh: "名称「{name}」已被本供应商的另一个模型（{raw}）使用。继续将覆盖该映射，确认继续？"
+			},
 			"modal.edit_format_title": {
 				en: "Edit format path",
 				zh: "编辑格式路径"
@@ -4676,6 +5155,14 @@
 				},
 				get subtitle() {
 					return t("view.playground.subtitle");
+				}
+			},
+			settings: {
+				get title() {
+					return t("view.settings.title");
+				},
+				get subtitle() {
+					return t("view.settings.subtitle");
 				}
 			}
 		};
@@ -6329,7 +6816,10 @@
 			"#providerDrawer",
 			"#modelRoutesPanel",
 			"#providersTable",
-			"#modelCapabilities"
+			"#modelCapabilities",
+			"#settingsOpsGrid",
+			"#settingsPricingOverrides",
+			"#keyDrawerBody"
 		];
 		function _markContainerDirty(e) {
 			const target = e.target;
@@ -7510,11 +8000,15 @@
 			} else if (view === "playground") {
 				renderPlayground();
 				__mark("playground");
+			} else if (view === "settings") {
+				renderSettings();
+				__mark("settings");
 			}
 			renderProviderDrawer();
 			__mark("providerDrawer");
 			bindViewTargetButtons();
 			bindConfigTabs();
+			bindSettingsTabs();
 			bindProxyTestButtons();
 			mutationBusyTracker.refresh();
 			window.__perfMark && window.__perfMark("renderAll.total", performance.now() - __t0);
@@ -7587,6 +8081,799 @@
 			if (state.configTab !== "models") return;
 			if (viewName === "models") loadModelUsage();
 			else loadUsageStatistics();
+		}
+		var SETTINGS_TABS = new Set([
+			"keys",
+			"pricing",
+			"ops"
+		]);
+		var _settingsPricingLoadInFlight = false;
+		var _clientKeysLoadInFlight = false;
+		function switchSettingsTab(tabName, { persist = true } = {}) {
+			if (!SETTINGS_TABS.has(tabName)) return;
+			el("settingsTabNav")?.querySelectorAll("[data-settings-tab]").forEach((button) => {
+				const active = button.dataset.settingsTab === tabName;
+				button.classList.toggle("is-active", active);
+				button.setAttribute("aria-selected", active ? "true" : "false");
+				button.tabIndex = active ? 0 : -1;
+			});
+			document.querySelectorAll("[data-settings-tab-panel]").forEach((panel) => {
+				panel.hidden = panel.dataset.settingsTabPanel !== tabName;
+			});
+			state.settingsTab = tabName;
+			if (persist) try {
+				localStorage.setItem("proxyConsoleSettingsTab", tabName);
+			} catch (_e) {}
+			loadSettingsTabData(tabName);
+		}
+		function bindSettingsTabs() {
+			const nav = el("settingsTabNav");
+			if (!nav) return;
+			nav.querySelectorAll("[data-settings-tab]").forEach((button) => {
+				if (button.dataset.boundSettingsTab) return;
+				button.dataset.boundSettingsTab = "1";
+				button.addEventListener("click", () => switchSettingsTab(button.dataset.settingsTab || "keys"));
+			});
+			const createButton = el("settingsCreateKeyButton");
+			if (createButton && !createButton.dataset.boundSettingsCreateKey) {
+				createButton.dataset.boundSettingsCreateKey = "1";
+				createButton.addEventListener("click", () => openKeyDrawer("new"));
+			}
+			const closeButton = el("closeKeyDrawerButton");
+			if (closeButton && !closeButton.dataset.boundSettingsKeyDrawerClose) {
+				closeButton.dataset.boundSettingsKeyDrawerClose = "1";
+				closeButton.addEventListener("click", closeKeyDrawer);
+			}
+			const refreshButton = el("settingsPricingRefresh");
+			if (refreshButton && !refreshButton.dataset.boundSettingsPricingRefresh) {
+				refreshButton.dataset.boundSettingsPricingRefresh = "1";
+				refreshButton.addEventListener("click", () => {
+					state.data.pricingCatalog = null;
+					state.settingsPricingPage = 0;
+					loadSettingsPricingCatalog();
+				});
+			}
+			const queryInput = el("settingsPricingQuery");
+			if (queryInput && !queryInput.dataset.boundSettingsPricingQuery) {
+				queryInput.dataset.boundSettingsPricingQuery = "1";
+				queryInput.addEventListener("input", () => {
+					state.settingsPricingQuery = String(queryInput.value || "").trim().toLowerCase();
+					state.settingsPricingPage = 0;
+					renderSettingsPricingCatalog();
+				});
+			}
+			if (nav.dataset.restoredSettingsTab) return;
+			nav.dataset.restoredSettingsTab = "1";
+			document.addEventListener("keydown", (event) => {
+				if (event.key === "Escape" && el("keyDrawer")?.classList.contains("is-open")) closeKeyDrawer();
+			});
+			let restored = state.settingsTab || "keys";
+			try {
+				restored = localStorage.getItem("proxyConsoleSettingsTab") || restored;
+			} catch (_e) {}
+			switchSettingsTab(restored, { persist: false });
+		}
+		function loadSettingsTabData(tabName) {
+			if (tabName === "keys") loadClientKeys();
+			else if (tabName === "pricing") loadSettingsPricingCatalog();
+		}
+		function renderSettings() {
+			renderSettingsKeys();
+			renderSettingsPricing();
+			renderSettingsOps();
+			renderKeyDrawer();
+		}
+		async function loadClientKeys() {
+			if (_clientKeysLoadInFlight || state.clientKeysAvailable === true) return;
+			_clientKeysLoadInFlight = true;
+			try {
+				const data = await apiGet("/-/admin/client-keys");
+				state.data.clientKeys = Array.isArray(data?.keys) ? data.keys : [];
+				state.clientKeysAvailable = true;
+			} catch (err) {
+				state.data.clientKeys = [];
+				state.clientKeysAvailable = false;
+				setNotice(`client-keys load failed: ${err && err.message ? err.message : err}`, "bad", {
+					key: "settings:keys-load",
+					sticky: true
+				});
+			} finally {
+				_clientKeysLoadInFlight = false;
+				if (state.view === "settings") renderSettingsKeys();
+			}
+		}
+		async function refreshClientKeys() {
+			state.data.clientKeys = null;
+			state.clientKeysAvailable = null;
+			loadClientKeys();
+		}
+		function renderSettingsKeys() {
+			const target = el("settingsKeysTable");
+			if (!target) return;
+			if (state.clientKeysAvailable === null) {
+				updateDOM(target, `<div class="empty pad">${escapeHtml(t("model_usage.loading"))}</div>`);
+				return;
+			}
+			if (state.clientKeysAvailable === false) {
+				updateDOM(target, `
+        <div class="usage-statistics-empty-state">
+          ${iconSvg("key-round")}
+          <span>
+            <strong>${escapeHtml(t("settings.keys.pending_title"))}</strong>
+            <small>${escapeHtml(t("settings.keys.pending_hint"))}</small>
+          </span>
+        </div>`);
+				return;
+			}
+			const keys = state.data.clientKeys || [];
+			if (!keys.length) {
+				updateDOM(target, `
+        <div class="usage-statistics-empty-state">
+          ${iconSvg("key")}
+          <span>
+            <strong>${escapeHtml(t("settings.keys.empty_title"))}</strong>
+            <small>${escapeHtml(t("settings.keys.empty_hint"))}</small>
+          </span>
+        </div>`);
+				return;
+			}
+			updateDOM(target, `
+      <table class="data-table settings-keys-table">
+        <thead><tr>
+          <th>${escapeHtml(t("settings.keys.col_name"))}</th>
+          <th>${escapeHtml(t("settings.keys.col_key"))}</th>
+          <th>${escapeHtml(t("settings.keys.col_quota"))}</th>
+          <th>${escapeHtml(t("settings.keys.col_models"))}</th>
+          <th>${escapeHtml(t("settings.keys.col_rpm"))}</th>
+          <th>${escapeHtml(t("settings.keys.col_status"))}</th>
+          <th></th>
+        </tr></thead>
+        <tbody>${keys.map(settingsKeyRow).join("")}</tbody>
+      </table>`);
+			bindSettingsKeyRows(target);
+		}
+		function settingsKeyRow(key) {
+			const entry = key || {};
+			const name = entry.name || entry.label || `#${entry.id ?? "-"}`;
+			const masked = entry.masked || "-";
+			const quota = Number(entry.quota_tokens || 0);
+			const consumed = Number(entry.consumed_tokens || 0);
+			const quotaText = quota > 0 ? `${fmtTokenCount(consumed)} / ${fmtTokenCount(quota)} (${Math.min(100, Math.round(consumed / quota * 100))}%)` : `${fmtTokenCount(consumed)} / ∞`;
+			const quotaPct = quota > 0 ? Math.min(100, consumed / quota * 100) : 0;
+			const quotaTone = quota > 0 && quotaPct >= 100 ? "is-bad" : quota > 0 && quotaPct >= 80 ? "is-warn" : "";
+			const rpm = entry.rpm;
+			const models = entry.models === "*" || !entry.models ? t("settings.keys.f_models_all") : Array.isArray(entry.models) ? entry.models.join(", ") : String(entry.models);
+			const expired = Boolean(entry.expired);
+			const status = entry.enabled === false ? `<span class="badge">${escapeHtml(t("settings.keys.status_disabled"))}</span>` : expired ? `<span class="badge">${escapeHtml(t("settings.keys.status_expired"))}</span>` : `<span class="badge ok">${escapeHtml(t("settings.keys.status_active"))}</span>`;
+			return `
+      <tr>
+        <td>
+          <span class="settings-model-identity"><span class="settings-key-glyph">${iconSvg("key-round")}</span><strong>${escapeHtml(name)}</strong></span>
+          <div class="settings-key-meta mono">${escapeHtml(String(entry.requests_total ?? 0))} req · ${escapeHtml(fmtCost(entry.cost_usd || 0))}</div>
+        </td>
+        <td>
+          <span class="key-snippet-box mono">${escapeHtml(masked)}
+            <button class="key-snippet-btn" type="button" data-copy-key="${escapeHtml(entry.full_key || masked)}" title="${escapeHtml(t("settings.keys.copy"))}" aria-label="${escapeHtml(t("settings.keys.copy"))}">${iconSvg("copy")}</button>
+          </span>
+        </td>
+        <td style="min-width: 170px;">
+          <div style="display:flex; justify-content:space-between; font-size:11.5px; font-family:var(--mono);">
+            <strong>${escapeHtml(quotaText.split(" (")[0])}</strong>${quota > 0 ? `<span style="color:var(--muted);">(${escapeHtml(quotaText.match(/\((\d+%)\)$/)?.[1] || "")})</span>` : ""}
+          </div>
+          <div class="settings-quota-track">
+            <div class="settings-quota-fill ${quotaTone}" style="width:${quota > 0 ? quotaPct : 0}%;"></div>
+          </div>
+        </td>
+        <td>${escapeHtml(models)}</td>
+        <td class="mono">${rpm ? `${escapeHtml(String(rpm))} RPM` : "—"}</td>
+        <td>${status}</td>
+        <td class="cell-actions">
+          <button class="button secondary" type="button" data-edit-key-id="${escapeHtml(String(entry.id ?? ""))}">${escapeHtml(t("settings.keys.edit"))}</button>
+          <button class="button secondary" type="button" data-reset-key-id="${escapeHtml(String(entry.id ?? ""))}" title="${escapeHtml(t("settings.keys.reset_usage"))}">${iconSvg("rotate")}</button>
+          <button class="button secondary settings-danger-btn" type="button" data-delete-key-id="${escapeHtml(String(entry.id ?? ""))}" title="${escapeHtml(t("settings.keys.delete"))}">${iconSvg("trash")}</button>
+        </td>
+      </tr>`;
+		}
+		function bindSettingsKeyRows(target) {
+			target.querySelectorAll("[data-copy-key]").forEach((button) => {
+				if (button.dataset.boundSettingsCopyKey) return;
+				button.dataset.boundSettingsCopyKey = "1";
+				button.addEventListener("click", async () => {
+					const value = button.dataset.copyKey || "";
+					try {
+						await navigator.clipboard.writeText(value);
+						setNotice(t("settings.keys.copied"), "ok");
+					} catch (_e) {
+						setNotice(value, "info");
+					}
+				});
+			});
+			target.querySelectorAll("[data-edit-key-id]").forEach((button) => {
+				if (button.dataset.boundSettingsEditKey) return;
+				button.dataset.boundSettingsEditKey = "1";
+				button.addEventListener("click", () => {
+					openKeyDrawer("edit", (state.data.clientKeys || []).find((item) => String(item.id) === button.dataset.editKeyId));
+				});
+			});
+			target.querySelectorAll("[data-reset-key-id]").forEach((button) => {
+				if (button.dataset.boundSettingsResetKey) return;
+				button.dataset.boundSettingsResetKey = "1";
+				button.addEventListener("click", async () => {
+					button.disabled = true;
+					try {
+						await apiPost(`/-/admin/client-keys/${encodeURIComponent(button.dataset.resetKeyId)}/reset-usage`);
+						setNotice(t("settings.keys.reset_done"), "ok");
+						refreshClientKeys();
+					} catch (err) {
+						button.disabled = false;
+						setNotice(t("notice.config_update_failed", { error: err.message }), "bad");
+					}
+				});
+			});
+			target.querySelectorAll("[data-delete-key-id]").forEach((button) => {
+				if (button.dataset.boundSettingsDeleteKey) return;
+				button.dataset.boundSettingsDeleteKey = "1";
+				button.addEventListener("click", async () => {
+					const record = (state.data.clientKeys || []).find((item) => String(item.id) === button.dataset.deleteKeyId);
+					if (!await openConfirmDialog({
+						title: t("settings.keys.delete_confirm_title"),
+						message: t("settings.keys.delete_confirm_msg", { name: record?.name || `#${button.dataset.deleteKeyId}` }),
+						acceptLabel: t("settings.keys.delete")
+					})) return;
+					button.disabled = true;
+					try {
+						await apiPost(`/-/admin/client-keys/${encodeURIComponent(button.dataset.deleteKeyId)}/delete`);
+						setNotice(t("settings.keys.deleted"), "ok");
+						refreshClientKeys();
+					} catch (err) {
+						button.disabled = false;
+						setNotice(t("notice.config_update_failed", { error: err.message }), "bad");
+					}
+				});
+			});
+		}
+		async function loadSettingsPricingCatalog() {
+			if (_settingsPricingLoadInFlight) return;
+			if (state.data.pricingCatalog) {
+				renderSettingsPricingCatalog();
+				return;
+			}
+			_settingsPricingLoadInFlight = true;
+			state.settingsPricingLoading = true;
+			renderSettingsPricingCatalog();
+			try {
+				const pricing = (await apiGet("/-/admin/model-pricing") || {}).pricing || {};
+				state.data.pricingCatalog = Object.entries(pricing).filter(([, value]) => value && value.available).map(([name, value]) => ({
+					name,
+					input: value.input,
+					output: value.output,
+					cache_hit: value.cache_hit ?? value.cache_read_per_million
+				})).sort((a, b) => String(a.name).localeCompare(String(b.name)));
+			} catch (_err) {
+				state.data.pricingCatalog = [];
+			} finally {
+				state.settingsPricingLoading = false;
+				_settingsPricingLoadInFlight = false;
+				if (state.view === "settings") renderSettingsPricingCatalog();
+			}
+		}
+		function settingsPricingOverrides() {
+			const providers = (state.data.config || {}).providers || {};
+			const rows = [];
+			Object.entries(providers).forEach(([name, pcfg]) => {
+				const pricing = (pcfg || {}).pricing || {};
+				const models = pricing.models || {};
+				Object.entries(models).forEach(([model, mp]) => {
+					rows.push({
+						provider: name,
+						model,
+						input: mp?.input_per_million,
+						output: mp?.output_per_million
+					});
+				});
+				if ((pricing.input_per_million || pricing.output_per_million) && !Object.keys(models).length) rows.push({
+					provider: name,
+					model: "*",
+					input: pricing.input_per_million,
+					output: pricing.output_per_million
+				});
+			});
+			rows.sort((a, b) => String(a.provider).localeCompare(String(b.provider)) || String(a.model).localeCompare(String(b.model)));
+			return rows;
+		}
+		function renderSettingsPricing() {
+			renderSettingsPricingOverrides();
+			renderSettingsPricingCatalog();
+		}
+		function settingsPriceText(value) {
+			const num = Number(value);
+			if (!Number.isFinite(num)) return "—";
+			return String(Number(num.toFixed(4)));
+		}
+		function renderSettingsPricingOverrides() {
+			const target = el("settingsPricingOverrides");
+			if (!target) return;
+			const rows = settingsPricingOverrides();
+			if (!rows.length) {
+				updateDOM(target, `
+        <div class="usage-statistics-empty-state">
+          ${iconSvg("dollar")}
+          <span>
+            <strong>${escapeHtml(t("settings.pricing.overrides_empty_title"))}</strong>
+            <small>${escapeHtml(t("settings.pricing.overrides_empty_hint"))}</small>
+          </span>
+        </div>`);
+				return;
+			}
+			if (shouldPreserveContainer("#settingsPricingOverrides")) return;
+			updateDOM(target, `
+      <table class="data-table settings-pricing-table">
+        <thead><tr>
+          <th>${escapeHtml(t("settings.pricing.col_provider"))}</th>
+          <th>${escapeHtml(t("settings.pricing.col_model"))}</th>
+          <th class="num">${escapeHtml(t("settings.pricing.col_input"))}</th>
+          <th class="num">${escapeHtml(t("settings.pricing.col_output"))}</th>
+          <th></th>
+        </tr></thead>
+        <tbody>
+          ${rows.map((row) => `
+            <tr>
+              <td><span class="settings-model-identity">${providerBrandIconMarkup(row.provider, iconSvg("server"))}<strong>${escapeHtml(row.provider)}</strong></span></td>
+              <td class="mono"><span class="settings-model-identity">${modelBrandIconMarkup(row.model, iconSvg("boxes"))}<strong>${escapeHtml(row.model)}</strong></span></td>
+              <td class="num"><input class="settings-price-input mono" type="number" step="any" min="0" value="${settingsPriceText(row.input) === "—" ? "" : settingsPriceText(row.input)}" data-price-provider="${escapeHtml(row.provider)}" data-price-model="${escapeHtml(row.model)}" data-price-field="input" aria-label="${escapeHtml(row.provider)} ${escapeHtml(row.model)} input" /></td>
+              <td class="num"><input class="settings-price-input mono" type="number" step="any" min="0" value="${settingsPriceText(row.output) === "—" ? "" : settingsPriceText(row.output)}" data-price-provider="${escapeHtml(row.provider)}" data-price-model="${escapeHtml(row.model)}" data-price-field="output" aria-label="${escapeHtml(row.provider)} ${escapeHtml(row.model)} output" /></td>
+              <td class="cell-actions"><button class="button secondary" type="button" data-price-save="${escapeHtml(row.provider)}">${escapeHtml(t("settings.pricing.save"))}</button></td>
+            </tr>`).join("")}
+        </tbody>
+      </table>`);
+			bindSettingsPricingOverrides(target);
+		}
+		function bindSettingsPricingOverrides(target) {
+			target.querySelectorAll("[data-price-save]").forEach((button) => {
+				if (button.dataset.boundPriceSave) return;
+				button.dataset.boundPriceSave = "1";
+				button.addEventListener("click", () => saveSettingsPricingOverrides(button.dataset.priceSave || "", button));
+			});
+		}
+		async function saveSettingsPricingOverrides(provider, button) {
+			const providerCfg = ((state.data.config || {}).providers || {})[provider] || {};
+			const inputs = document.querySelectorAll(`[data-price-provider="${CSS.escape(provider)}"]`);
+			if (!inputs.length) return;
+			const updates = {};
+			inputs.forEach((input) => {
+				const model = input.dataset.priceModel || "*";
+				updates[model] = updates[model] || {};
+				updates[model][input.dataset.priceField] = Number(input.value || 0);
+			});
+			const pricing = JSON.parse(JSON.stringify(providerCfg.pricing || {}));
+			pricing.models = pricing.models || {};
+			Object.entries(updates).forEach(([model, fields]) => {
+				if (model === "*") {
+					if (fields.input != null) pricing.input_per_million = fields.input;
+					if (fields.output != null) pricing.output_per_million = fields.output;
+					return;
+				}
+				pricing.models[model] = {
+					...pricing.models[model] || {},
+					input_per_million: fields.input ?? Number(pricing.models[model]?.input_per_million ?? 0),
+					output_per_million: fields.output ?? Number(pricing.models[model]?.output_per_million ?? 0)
+				};
+			});
+			button.disabled = true;
+			try {
+				applyMutationResult(await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { pricing }));
+				setNotice(t("notice.saved"), "ok");
+				scheduleBackgroundRefresh({
+					quiet: true,
+					preserveNotice: true,
+					staticData: true
+				});
+			} catch (err) {
+				setNotice(t("notice.config_update_failed", { error: err.message }), "bad");
+			} finally {
+				button.disabled = false;
+			}
+		}
+		function renderSettingsPricingCatalog() {
+			const target = el("settingsPricingCatalog");
+			const meta = el("settingsPricingCatalogMeta");
+			if (!target) return;
+			if (state.settingsPricingLoading || state.data.pricingCatalog === null) {
+				if (meta) meta.textContent = t("settings.pricing.catalog_loading");
+				updateDOM(target, `<div class="empty pad">${escapeHtml(t("model_usage.loading"))}</div>`);
+				return;
+			}
+			const catalog = state.data.pricingCatalog || [];
+			const query = state.settingsPricingQuery;
+			const filteredCount = query ? catalog.filter((item) => String(item.name).toLowerCase().includes(query)).length : catalog.length;
+			if (meta) meta.textContent = query && filteredCount !== catalog.length ? t("settings.pricing.catalog_filtered", {
+				count: fmtInt(filteredCount),
+				total: fmtInt(catalog.length)
+			}) : t("settings.pricing.catalog_meta", { count: fmtInt(catalog.length) });
+			if (!catalog.length) {
+				updateDOM(target, `
+        <div class="usage-statistics-empty-state">
+          ${iconSvg("dollar")}
+          <span><strong>${escapeHtml(t("settings.pricing.catalog_empty"))}</strong></span>
+        </div>`);
+				return;
+			}
+			const filtered = query ? catalog.filter((item) => String(item.name).toLowerCase().includes(query)) : catalog;
+			const total = filtered.length;
+			const pages = Math.max(1, Math.ceil(total / 10));
+			const page = Math.min(pages, Math.max(1, Number(state.settingsPricingPage || 0) + 1));
+			state.settingsPricingPage = page - 1;
+			const offset = (page - 1) * 10;
+			const rows = filtered.slice(offset, offset + 10);
+			const pagination = pages <= 1 ? "" : `
+      <div class="usage-statistics-breakdown-pagination">
+        <span>${escapeHtml(t("usage_stats.page_of", {
+				page: fmtInt(page),
+				total: fmtInt(pages)
+			}))}</span>
+        <span>
+          <button class="icon-button" type="button" data-settings-pricing-page="${page - 2}" aria-label="${escapeHtml(t("req.previous_page"))}" ${page <= 1 ? "disabled" : ""}>${iconSvg("chevron-left")}</button>
+          <button class="icon-button" type="button" data-settings-pricing-page="${page}" aria-label="${escapeHtml(t("req.next_page"))}" ${page >= pages ? "disabled" : ""}>${iconSvg("chevron-right")}</button>
+        </span>
+      </div>`;
+			updateDOM(target, `
+      <table class="data-table settings-pricing-table">
+        <thead><tr>
+          <th>#</th>
+          <th>${escapeHtml(t("settings.pricing.col_model"))}</th>
+          <th class="num">${escapeHtml(t("settings.pricing.col_input"))}</th>
+          <th class="num">${escapeHtml(t("settings.pricing.col_output"))}</th>
+          <th class="num">${escapeHtml(t("settings.pricing.col_cache_read"))}</th>
+        </tr></thead>
+        <tbody>
+          ${rows.map((item, index) => `
+            <tr>
+              <td class="mono settings-pricing-rank">${escapeHtml(String(offset + index + 1).padStart(2, "0"))}</td>
+              <td class="mono"><span class="settings-model-identity">${modelBrandIconMarkup(item.name, iconSvg("boxes"))}<strong>${escapeHtml(item.name)}</strong></span></td>
+              <td class="num mono">${escapeHtml(settingsPriceText(item.input))}</td>
+              <td class="num mono">${escapeHtml(settingsPriceText(item.output))}</td>
+              <td class="num mono">${escapeHtml(settingsPriceText(item.cache_hit))}</td>
+            </tr>`).join("")}
+        </tbody>
+      </table>
+      ${pagination}`);
+			target.querySelectorAll("[data-settings-pricing-page]").forEach((button) => {
+				if (button.dataset.boundSettingsPricingPage) return;
+				button.dataset.boundSettingsPricingPage = "1";
+				button.addEventListener("click", () => {
+					if (button.disabled) return;
+					state.settingsPricingPage = Math.max(0, Number(button.dataset.settingsPricingPage || 0));
+					renderSettingsPricingCatalog();
+				});
+			});
+		}
+		function settingsProxyToString(proxy) {
+			if (!proxy) return "";
+			if (typeof proxy === "string") return proxy;
+			return proxy.http || proxy.https || "";
+		}
+		function renderSettingsOps() {
+			const target = el("settingsOpsGrid");
+			if (!target) return;
+			if (shouldPreserveContainer("#settingsOpsGrid")) return;
+			const config = state.data.config || {};
+			updateDOM(target, `
+      ${settingsOpsProxyCard(config.proxy)}
+      ${settingsOpsRuntimeCard(config.routing, config.server)}
+      ${settingsOpsOverlayCard(config)}
+      ${settingsOpsSecurityCard(config.server)}
+    `);
+			bindSettingsOpsForms(target);
+		}
+		function settingsOpsProxyCard(proxy) {
+			return `
+      <section class="settings-ops-card">
+        <div class="settings-ops-card-head">
+          <h3>${iconSvg("radar")}<span>${escapeHtml(t("settings.ops.proxy_title"))}</span></h3>
+        </div>
+        <p class="settings-ops-desc">${escapeHtml(t("settings.ops.proxy_desc"))}</p>
+        <form id="settingsOpsProxyForm" class="settings-ops-form">
+          <label class="field">
+            <span>${escapeHtml(t("settings.ops.proxy_field"))}</span>
+            <input class="control mono" name="proxy" type="text" value="${escapeHtml(settingsProxyToString(proxy))}" placeholder="http://127.0.0.1:10808" />
+            <small>${escapeHtml(t("settings.ops.proxy_hint"))}</small>
+          </label>
+          <button class="button primary" type="submit">${escapeHtml(t("settings.ops.save"))}</button>
+        </form>
+      </section>`;
+		}
+		function settingsOpsRuntimeCard(routing, server) {
+			routing = routing || {};
+			const numberField = (name, labelKey, value) => `
+      <label class="field">
+        <span>${escapeHtml(t(labelKey))}</span>
+        <input class="control mono" name="${name}" type="number" min="0" step="1" value="${escapeHtml(String(value ?? 0))}" />
+      </label>`;
+			return `
+      <section class="settings-ops-card">
+        <div class="settings-ops-card-head">
+          <h3>${iconSvg("zap")}<span>${escapeHtml(t("settings.ops.runtime_title"))}</span></h3>
+        </div>
+        <p class="settings-ops-desc">${escapeHtml(t("settings.ops.runtime_desc"))}</p>
+        <div class="settings-kv-list">
+          <div class="settings-kv"><span>${escapeHtml(t("settings.ops.max_workers"))}</span><strong class="mono">${escapeHtml(String((server || {}).max_workers ?? "—"))}</strong></div>
+          <div class="settings-kv"><span>${escapeHtml(t("settings.ops.stream_mode"))}</span><strong class="mono">${escapeHtml(String(routing.native_stream_mode || "—"))}</strong></div>
+        </div>
+        <form id="settingsOpsRuntimeForm" class="settings-ops-form">
+          <div class="settings-ops-field-grid">
+            ${numberField("max_attempts", "settings.ops.max_attempts", routing.max_attempts)}
+            ${numberField("connect_timeout_s", "settings.ops.connect_timeout", routing.connect_timeout_s)}
+            ${numberField("read_timeout_s", "settings.ops.read_timeout", routing.read_timeout_s)}
+            ${numberField("first_token_timeout_s", "settings.ops.first_token_timeout", routing.first_token_timeout_s)}
+            ${numberField("agent_first_event_timeout_s", "settings.ops.agent_timeout", routing.agent_first_event_timeout_s)}
+          </div>
+          <button class="button primary" type="submit">${escapeHtml(t("settings.ops.save"))}</button>
+        </form>
+      </section>`;
+		}
+		function settingsOpsOverlayCard(config) {
+			const revision = Number(config.revision ?? 0);
+			const epoch = Number(config.revision_epoch_ms || 0);
+			const epochText = epoch ? new Date(epoch).toLocaleString() : "—";
+			return `
+      <section class="settings-ops-card">
+        <div class="settings-ops-card-head">
+          <h3>${iconSvg("layers")}<span>${escapeHtml(t("settings.ops.overlay_title"))}</span></h3>
+        </div>
+        <p class="settings-ops-desc">${escapeHtml(t("settings.ops.overlay_desc"))}</p>
+        <div class="settings-kv-list">
+          <div class="settings-kv"><span>${escapeHtml(t("settings.ops.overlay_revision"))}</span><strong class="mono">#${fmtInt(revision)} · ${escapeHtml(epochText)}</strong></div>
+          <div class="settings-kv"><span>${escapeHtml(t("settings.ops.overlay_state"))}</span><strong>${config.has_overlay ? escapeHtml(t("settings.ops.overlay_active")) : escapeHtml(t("settings.ops.overlay_empty"))}</strong></div>
+        </div>
+        <div class="settings-ops-actions">
+          <button class="button secondary" type="button" data-settings-export>${escapeHtml(t("settings.ops.export"))}</button>
+          <button class="button secondary settings-danger-btn" type="button" data-settings-reset>${escapeHtml(t("settings.ops.reset"))}</button>
+        </div>
+      </section>`;
+		}
+		function settingsOpsSecurityCard(server) {
+			server = server || {};
+			const cidrs = Array.isArray(server.trusted_proxy_cidrs) ? server.trusted_proxy_cidrs.join(", ") : "";
+			const headers = Array.isArray(server.trusted_proxy_headers) ? server.trusted_proxy_headers.join(", ") : "";
+			return `
+      <section class="settings-ops-card">
+        <div class="settings-ops-card-head">
+          <h3>${iconSvg("shield")}<span>${escapeHtml(t("settings.ops.security_title"))}</span></h3>
+        </div>
+        <p class="settings-ops-desc">${escapeHtml(t("settings.ops.security_desc"))}</p>
+        <div class="settings-kv-list">
+          <div class="settings-kv"><span>${escapeHtml(t("settings.ops.security_admin_key"))}</span><strong class="mono">${escapeHtml(server.admin_key || "—")}</strong></div>
+          <div class="settings-kv"><span>${escapeHtml(t("settings.ops.security_trusted"))}</span><strong class="mono">${escapeHtml(cidrs || t("settings.ops.not_set"))}</strong></div>
+          <div class="settings-kv"><span>${escapeHtml(t("settings.ops.security_headers"))}</span><strong class="mono">${escapeHtml(headers || t("settings.ops.not_set"))}</strong></div>
+          <div class="settings-kv"><span>${escapeHtml(t("settings.ops.security_query_key"))}</span><strong>${server.allow_query_admin_key ? "On" : "Off"}</strong></div>
+        </div>
+        <p class="settings-ops-note">${escapeHtml(t("settings.ops.security_admin_key_hint"))}</p>
+      </section>`;
+		}
+		function bindSettingsOpsForms(target) {
+			const proxyForm = target.querySelector("#settingsOpsProxyForm");
+			if (proxyForm && !proxyForm.dataset.boundSettingsOpsProxy) {
+				proxyForm.dataset.boundSettingsOpsProxy = "1";
+				proxyForm.addEventListener("submit", async (event) => {
+					event.preventDefault();
+					const proxy = String(proxyForm.elements.proxy.value || "").trim();
+					await runConfigMutation(proxyForm, async () => {
+						const result = await apiPatch("/-/admin/proxy", { proxy });
+						setNotice(t("notice.global_proxy_updated"), "ok");
+						return result;
+					}, {
+						resourceKey: "global-proxy",
+						apply: (config) => {
+							config.proxy = proxy;
+						},
+						drawer: false
+					});
+				});
+			}
+			const runtimeForm = target.querySelector("#settingsOpsRuntimeForm");
+			if (runtimeForm && !runtimeForm.dataset.boundSettingsOpsRuntime) {
+				runtimeForm.dataset.boundSettingsOpsRuntime = "1";
+				runtimeForm.addEventListener("submit", async (event) => {
+					event.preventDefault();
+					const payload = {
+						max_attempts: Number(runtimeForm.elements.max_attempts.value || 0),
+						connect_timeout_s: Number(runtimeForm.elements.connect_timeout_s.value || 0),
+						read_timeout_s: Number(runtimeForm.elements.read_timeout_s.value || 0),
+						first_token_timeout_s: Number(runtimeForm.elements.first_token_timeout_s.value || 0),
+						agent_first_event_timeout_s: Number(runtimeForm.elements.agent_first_event_timeout_s.value || 0)
+					};
+					await runConfigMutation(runtimeForm, async () => {
+						const result = await apiPatch("/-/admin/routing", payload);
+						setNotice(t("notice.routing_updated"), "ok");
+						return result;
+					}, {
+						resourceKey: "routing",
+						apply: (config) => {
+							Object.assign(config.routing = config.routing || {}, payload);
+						},
+						drawer: false
+					});
+				});
+			}
+			target.querySelectorAll("[data-settings-export]").forEach((button) => {
+				if (button.dataset.boundSettingsExport) return;
+				button.dataset.boundSettingsExport = "1";
+				button.addEventListener("click", exportSettingsConfig);
+			});
+			target.querySelectorAll("[data-settings-reset]").forEach((button) => {
+				if (button.dataset.boundSettingsReset) return;
+				button.dataset.boundSettingsReset = "1";
+				button.addEventListener("click", () => resetSettingsOverlay(button));
+			});
+		}
+		function exportSettingsConfig() {
+			const config = state.data.config;
+			if (!config) return;
+			try {
+				const blob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json" });
+				const url = URL.createObjectURL(blob);
+				const link = document.createElement("a");
+				link.href = url;
+				link.download = `proxy-config-rev${config.revision ?? 0}-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.json`;
+				document.body.appendChild(link);
+				link.click();
+				link.remove();
+				URL.revokeObjectURL(url);
+				setNotice(t("settings.ops.export_done"), "ok");
+			} catch (_err) {
+				setNotice(t("notice.config_update_failed", { error: "export failed" }), "bad");
+			}
+		}
+		async function resetSettingsOverlay(button) {
+			if (!await openConfirmDialog({
+				title: t("settings.ops.reset_confirm_title"),
+				message: t("settings.ops.reset_confirm_msg"),
+				acceptLabel: t("settings.ops.reset")
+			})) return;
+			button.disabled = true;
+			try {
+				applyMutationResult(await apiPost("/-/admin/config/overlay/clear", { confirm: "clear_runtime_overlay" }));
+				setNotice(t("settings.ops.reset_done"), "ok");
+				renderAll();
+				scheduleBackgroundRefresh({
+					quiet: true,
+					preserveNotice: true,
+					staticData: true
+				});
+			} catch (err) {
+				setNotice(t("notice.config_update_failed", { error: err.message }), "bad");
+			} finally {
+				button.disabled = false;
+			}
+		}
+		function openKeyDrawer(mode, record = null) {
+			state.settingsKeyDrawerMode = mode === "edit" ? "edit" : "new";
+			state.settingsKeyEditId = mode === "edit" ? String(record?.id ?? "") : "";
+			state.settingsKeyEditRecord = mode === "edit" ? record : null;
+			state.settingsKeyCreated = null;
+			renderKeyDrawer();
+			const drawer = el("keyDrawer");
+			drawer?.classList.add("is-open");
+			drawer?.setAttribute("aria-hidden", "false");
+		}
+		function closeKeyDrawer() {
+			const drawer = el("keyDrawer");
+			if (!drawer) return;
+			drawer.classList.remove("is-open");
+			drawer.setAttribute("aria-hidden", "true");
+			state.settingsKeyDrawerMode = "";
+			state.settingsKeyEditId = "";
+			state.settingsKeyEditRecord = null;
+			state.settingsKeyCreated = null;
+		}
+		function renderKeyDrawer() {
+			const drawer = el("keyDrawer");
+			if (!drawer || !drawer.classList.contains("is-open")) return;
+			const title = el("keyDrawerTitle");
+			if (title) title.textContent = state.settingsKeyDrawerMode === "edit" ? t("settings.keys.drawer_title_edit") : t("settings.keys.drawer_title_new");
+			const body = el("keyDrawerBody");
+			if (!body) return;
+			if (state.settingsKeyCreated) {
+				const created = state.settingsKeyCreated;
+				updateDOM(body, `
+        <div class="settings-key-created">
+          <p class="settings-ops-desc">${escapeHtml(t("settings.keys.created_hint"))}</p>
+          <div class="settings-created-key-box">
+            <span class="mono">${escapeHtml(created.full_key)}</span>
+            <button class="button secondary" type="button" data-copy-created-key="${escapeHtml(created.full_key)}">${iconSvg("copy")} ${escapeHtml(t("settings.keys.copy"))}</button>
+          </div>
+          <p class="settings-ops-note">${escapeHtml(t("settings.keys.created_once_note"))}</p>
+          <div class="drawer-actions">
+            <button class="button primary" type="button" data-key-drawer-done>${escapeHtml(t("confirm.close"))}</button>
+          </div>
+        </div>`);
+				body.querySelector("[data-copy-created-key]")?.addEventListener("click", async () => {
+					try {
+						await navigator.clipboard.writeText(created.full_key);
+						setNotice(t("settings.keys.copied"), "ok");
+					} catch (_e) {
+						setNotice(created.full_key, "info");
+					}
+				});
+				body.querySelector("[data-key-drawer-done]")?.addEventListener("click", () => {
+					closeKeyDrawer();
+					refreshClientKeys();
+				});
+				return;
+			}
+			if (shouldPreserveContainer("#keyDrawerBody")) return;
+			const editing = state.settingsKeyEditRecord || {};
+			const modelsValue = editing.models === "*" || !editing.models ? "" : Array.isArray(editing.models) ? editing.models.join(", ") : String(editing.models);
+			updateDOM(body, `
+      <form id="settingsKeyForm" class="settings-key-form">
+        <label class="field">
+          <span>${escapeHtml(t("settings.keys.f_name"))}</span>
+          <input class="control" name="name" type="text" required value="${escapeHtml(editing.name || "")}" placeholder="${escapeHtml(t("settings.keys.f_name_ph"))}" />
+        </label>
+        <label class="field">
+          <span>${escapeHtml(t("settings.keys.f_quota"))}</span>
+          <input class="control mono" name="quota" type="text" value="${escapeHtml(editing.quota_tokens ? String(editing.quota_tokens) : "")}" placeholder="100M / 1.5B / 500000" />
+          <small>${escapeHtml(t("settings.keys.f_quota_hint"))}</small>
+        </label>
+        <label class="field">
+          <span>${escapeHtml(t("settings.keys.f_rpm"))}</span>
+          <input class="control mono" name="rpm" type="number" min="0" value="${escapeHtml(String(editing.rpm ?? 60))}" />
+        </label>
+        <label class="field">
+          <span>${escapeHtml(t("settings.keys.f_models"))}</span>
+          <input class="control mono" name="models" type="text" value="${escapeHtml(modelsValue)}" placeholder="${escapeHtml(t("settings.keys.f_models_ph"))}" />
+          <small>${escapeHtml(t("settings.keys.f_models_hint"))}</small>
+        </label>
+        <label class="field">
+          <span>${escapeHtml(t("settings.keys.f_expires"))}</span>
+          <select class="control" name="expires">
+            <option value="never">${escapeHtml(t("settings.keys.f_expires_never"))}</option>
+            <option value="30d">${escapeHtml(t("settings.keys.f_expires_30d"))}</option>
+            <option value="90d">${escapeHtml(t("settings.keys.f_expires_90d"))}</option>
+          </select>
+        </label>
+        <div class="drawer-actions">
+          <button class="button secondary" type="button" data-key-drawer-cancel>${escapeHtml(t("settings.keys.cancel"))}</button>
+          <button class="button primary" type="submit">${escapeHtml(state.settingsKeyDrawerMode === "edit" ? t("settings.ops.save") : t("settings.keys.submit"))}</button>
+        </div>
+      </form>`);
+			const form = el("settingsKeyForm");
+			if (form && !form.dataset.boundSettingsKeyForm) {
+				form.dataset.boundSettingsKeyForm = "1";
+				form.addEventListener("submit", async (event) => {
+					event.preventDefault();
+					const modelsRaw = String(form.elements.models.value || "").trim();
+					const payload = {
+						name: String(form.elements.name.value || "").trim(),
+						quota: String(form.elements.quota.value || "").trim(),
+						rpm: Number(form.elements.rpm.value || 0),
+						models: modelsRaw ? modelsRaw : "*",
+						expires: form.elements.expires.value
+					};
+					if (!payload.name) return;
+					try {
+						if (state.settingsKeyDrawerMode === "edit" && state.settingsKeyEditId) {
+							await apiPatch(`/-/admin/client-keys/${encodeURIComponent(state.settingsKeyEditId)}`, payload);
+							setNotice(t("notice.saved"), "ok");
+							closeKeyDrawer();
+							refreshClientKeys();
+						} else {
+							const data = await apiPost("/-/admin/client-keys", payload);
+							state.settingsKeyCreated = { full_key: String(data?.full_key || "") };
+							setNotice(t("settings.keys.created_title"), "ok");
+							renderKeyDrawer();
+							refreshClientKeys();
+						}
+					} catch (err) {
+						setNotice(t("notice.config_update_failed", { error: err.message }), "bad");
+					}
+				});
+			}
+			const cancelButton = body.querySelector("[data-key-drawer-cancel]");
+			if (cancelButton && !cancelButton.dataset.boundSettingsKeyCancel) {
+				cancelButton.dataset.boundSettingsKeyCancel = "1";
+				cancelButton.addEventListener("click", closeKeyDrawer);
+			}
 		}
 		function usageStatisticsCustomTimestamp(value, endOfDay = false) {
 			const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -11143,6 +12430,7 @@
 				pencil: `<path d="M4 20h4l10.5-10.5a2.8 2.8 0 0 0-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path>`,
 				search: `<circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path>`,
 				eye: `<path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"></path><circle cx="12" cy="12" r="3"></circle>`,
+				copy: `<rect width="14" height="14" x="8" y="8" rx="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>`,
 				"eye-off": `<path d="M3 3l18 18"></path><path d="M10.6 10.6A3 3 0 0 0 13.4 13.4"></path><path d="M7.4 7.4C4.3 9 2.5 12 2.5 12s3.5 6 9.5 6c1.5 0 2.8-.4 4-1"></path><path d="M10 6.2A10.6 10.6 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-2.6 3.2"></path>`,
 				save: `<path d="M5 3h12l2 2v16H5z"></path><path d="M8 3v6h8V3"></path><path d="M8 21v-7h8v7"></path>`,
 				undo: `<path d="M9 7H4v5"></path><path d="M4 12a8 8 0 1 0 2.3-5.7L4 7"></path>`,
@@ -11430,7 +12718,13 @@
 					if (nextModel) providerMap[nextModel] = rawModel;
 				}
 			}, {
-				onSuccess: () => setNotice(nextModel ? t("notice.model_mapping_saved", { provider }) : t("notice.model_mapping_reset", { provider }), "ok"),
+				onSuccess: (result) => {
+					if (result?.warning) setNotice(String(result.warning), "warn", {
+						duration: 8e3,
+						key: "mapping:warning"
+					});
+					else setNotice(nextModel ? t("notice.model_mapping_saved", { provider }) : t("notice.model_mapping_reset", { provider }), "ok");
+				},
 				onError: (err) => setNotice(t("notice.model_mapping_failed", { error: err.message }), "bad")
 			});
 		}
@@ -11441,6 +12735,14 @@
 				subtitle: provider,
 				bodyHtml: `
         <form class="model-map-form" data-provider-model-map-form>
+          <div class="model-map-raw-hero">
+            <span class="model-map-raw-hero-icon">${modelBrandIconMarkup(rawModel, iconSvg("boxes"))}</span>
+            <div class="model-map-raw-hero-text">
+              <span class="model-map-raw-hero-label">${escapeHtml(t("prov.models.editing_mapping_for"))}</span>
+              <strong class="mono">${escapeHtml(rawModel)}</strong>
+              <small>${escapeHtml(t("prov.models.raw_hero_hint"))}</small>
+            </div>
+          </div>
           <label class="model-map-field">
             <span>Client model</span>
             <input name="model" value="${escapeHtml(oldModel)}" autocomplete="off" spellcheck="false" />
@@ -11485,6 +12787,26 @@
 				if (nextModel === oldModel) {
 					closeFormModal();
 					return;
+				}
+				if (nextModel) {
+					const clash = providerModelItems(provider, state.data.status?.models?.providers?.[provider] || {}).find((item) => {
+						const label = String(item.label || "").trim().toLowerCase();
+						const raw = String(item.raw || "").trim();
+						return label === String(nextModel).trim().toLowerCase() && raw !== String(rawModel).trim() && label !== String(oldModel || "").trim().toLowerCase();
+					});
+					if (clash) {
+						if (!await openConfirmDialog({
+							title: t("modal.mapping_clash_title"),
+							message: t("modal.mapping_clash_msg", {
+								name: nextModel,
+								raw: clash.raw || rawModel
+							}),
+							acceptLabel: t("confirm.delete")
+						})) {
+							input?.focus();
+							return;
+						}
+					}
 				}
 				const submit = form.querySelector("button[type=\"submit\"]");
 				if (submit) submit.disabled = true;

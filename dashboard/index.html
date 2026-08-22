@@ -12,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
-    <link rel="stylesheet" href="/-/dashboard/styles.css?v=20260803-chart-composer-01" />
+    <link rel="stylesheet" href="/-/dashboard/styles.css?v=20260822-settings-01" />
   </head>
   <body class="is-auth-checking">
     <a class="skip-link" href="#mainContent" data-i18n="a11y.skip_content">Skip to content</a>
@@ -59,6 +59,7 @@
           <button class="nav-item" data-view="policy" data-i18n="nav.policy">Routing Policy</button>
           <button class="nav-item" data-view="config" data-i18n="nav.config">Config</button>
           <button class="nav-item" data-view="playground" data-i18n="nav.playground">Playground</button>
+          <button class="nav-item" data-view="settings" data-i18n="nav.settings">Settings</button>
         </nav>
         <div id="sidebarActions" class="sidebar-actions" aria-label="Runtime controls">
           <button id="pauseButton" class="auto-refresh-toggle" type="button" title="Auto refresh" aria-label="Auto refresh" aria-pressed="true" data-i18n-attr="title:action.auto_refresh,aria-label:action.auto_refresh">
@@ -839,6 +840,60 @@
             </div>
           </div>
         </section>
+
+        <section id="settingsView" class="view settings-view">
+          <div class="settings-subnav" id="settingsTabNav" role="tablist" aria-label="Settings sections" data-i18n-attr="aria-label:settings.tabs_label">
+            <button id="settingsKeysTab" class="is-active" type="button" role="tab" aria-selected="true" aria-controls="settingsKeysPanel" tabindex="0" data-settings-tab="keys" data-i18n="settings.tab_keys">Client Keys</button>
+            <button id="settingsPricingTab" type="button" role="tab" aria-selected="false" aria-controls="settingsPricingPanel" tabindex="-1" data-settings-tab="pricing" data-i18n="settings.tab_pricing">Model Pricing</button>
+            <button id="settingsOpsTab" type="button" role="tab" aria-selected="false" aria-controls="settingsOpsPanel" tabindex="-1" data-settings-tab="ops" data-i18n="settings.tab_ops">System &amp; Operations</button>
+          </div>
+
+          <div id="settingsKeysPanel" class="settings-tab-panel" data-settings-tab-panel="keys" role="tabpanel" aria-labelledby="settingsKeysTab">
+            <section class="panel settings-panel settings-keys-panel">
+              <div class="panel-head">
+                <div>
+                  <h2 data-i18n="settings.keys.title">Client API Keys<span class="help-tip" data-tip="Virtual keys distributed to downstream clients. Quota, rate limit, and model scope are enforced per key." data-i18n-tip="settings.keys.title_tip">?</span></h2>
+                  <p data-i18n="settings.keys.desc">Issue virtual keys for downstream clients with per-key quota and model scope.</p>
+                </div>
+                <button id="settingsCreateKeyButton" class="button primary" type="button" data-i18n="settings.keys.create">Create Key</button>
+              </div>
+              <div id="settingsKeysTable" class="table-wrap"></div>
+            </section>
+          </div>
+
+          <div id="settingsPricingPanel" class="settings-tab-panel" data-settings-tab-panel="pricing" role="tabpanel" aria-labelledby="settingsPricingTab" hidden>
+            <section class="panel settings-panel settings-pricing-panel">
+              <div class="panel-head">
+                <div>
+                  <h2 data-i18n="settings.pricing.overrides_title">Custom Pricing Overrides<span class="help-tip" data-tip="Manual per-provider prices in USD per 1M tokens. Overrides take priority over AA pricing." data-i18n-tip="settings.pricing.overrides_tip">?</span></h2>
+                  <p data-i18n="settings.pricing.overrides_desc">Manual per-provider prices; they win over AA estimates.</p>
+                </div>
+              </div>
+              <div id="settingsPricingOverrides" class="table-wrap"></div>
+            </section>
+
+            <section class="panel settings-panel settings-pricing-panel">
+              <div class="panel-head">
+                <div>
+                  <h2 data-i18n="settings.pricing.catalog_title">Artificial Analysis Cache<span class="help-tip" data-tip="Read-only prices resolved from the local AA cache. Missing prices backfill automatically in the background." data-i18n-tip="settings.pricing.catalog_tip">?</span></h2>
+                  <p id="settingsPricingCatalogMeta" data-i18n="settings.pricing.catalog_loading">Loading cached prices…</p>
+                </div>
+                <button id="settingsPricingRefresh" class="button secondary" type="button" data-i18n="settings.pricing.refresh">Refresh</button>
+              </div>
+              <div class="settings-pricing-toolbar">
+                <label class="filter-search-box">
+                  <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+                  <input id="settingsPricingQuery" type="text" placeholder="Filter models…" data-i18n-attr="placeholder:settings.pricing.filter_ph" />
+                </label>
+              </div>
+              <div id="settingsPricingCatalog" class="table-wrap"></div>
+            </section>
+          </div>
+
+          <div id="settingsOpsPanel" class="settings-tab-panel" data-settings-tab-panel="ops" role="tabpanel" aria-labelledby="settingsOpsTab" hidden>
+            <div id="settingsOpsGrid" class="settings-ops-grid"></div>
+          </div>
+        </section>
       </main>
 
       <aside id="detailDrawer" class="drawer" aria-hidden="true">
@@ -872,6 +927,17 @@
           <button id="closeModelDrawerButton" class="icon-button" aria-label="Close" data-i18n-attr="aria-label:confirm.close">×</button>
         </div>
         <div id="modelDrawerBody" class="drawer-body"></div>
+      </aside>
+
+      <aside id="keyDrawer" class="drawer settings-key-drawer" aria-hidden="true">
+        <div class="drawer-head">
+          <div>
+            <h2 id="keyDrawerTitle" data-i18n="settings.keys.drawer_title_new">Create Client Key</h2>
+            <p id="keyDrawerSubtitle" data-i18n="settings.keys.drawer_subtitle">Configure quota, rate limit, and model scope for a new client key.</p>
+          </div>
+          <button id="closeKeyDrawerButton" class="icon-button" aria-label="Close" data-i18n-attr="aria-label:confirm.close">×</button>
+        </div>
+        <div id="keyDrawerBody" class="drawer-body"></div>
       </aside>
 
       <div id="confirmBackdrop" class="confirm-backdrop" hidden></div>
@@ -928,6 +994,6 @@
       </aside>
     </div>
 
-    <script src="/-/dashboard/app.js?v=20260803-chart-composer-01" defer></script>
+    <script src="/-/dashboard/app.js?v=20260822-settings-01" defer></script>
   </body>
 </html>

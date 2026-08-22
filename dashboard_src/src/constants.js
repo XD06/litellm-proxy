@@ -15,6 +15,7 @@ export const PROVIDER_MODEL_MAP_PAGE_SIZE = 6;
 export const AUDIT_PAGE_SIZE = 8;
 export const MODEL_USAGE_PAGE_SIZE = 10;
 export const USAGE_STATISTICS_BREAKDOWN_PAGE_SIZE = 6;
+export const SETTINGS_PRICING_PAGE_SIZE = 10;
 export const OVERVIEW_PROVIDER_LIMIT = 5;
 export const OVERVIEW_FAILURE_LIMIT = 5;
 export const USAGE_MODEL_LIMIT = 5;
@@ -43,5 +44,9 @@ export const views = {
   playground: {
     get title() { return t("view.playground.title"); },
     get subtitle() { return t("view.playground.subtitle"); },
+  },
+  settings: {
+    get title() { return t("view.settings.title"); },
+    get subtitle() { return t("view.settings.subtitle"); },
   },
 };

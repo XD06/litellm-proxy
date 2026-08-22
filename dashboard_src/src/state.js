@@ -34,6 +34,15 @@ export const state = {
   selectedRequestIds: new Set(),
   allMatchingSelected: false,
   trafficChartMode: "requests",
+  settingsTab: "keys",
+  settingsKeyDrawerMode: "",
+  settingsKeyEditId: "",
+  settingsKeyEditRecord: null,
+  settingsKeyCreated: null,
+  settingsPricingQuery: "",
+  settingsPricingPage: 0,
+  settingsPricingLoading: false,
+  clientKeysAvailable: null,
   providersPage: 0,
   configProvidersPage: 0,
   modelRoutesPage: 0,
@@ -83,6 +92,10 @@ export const state = {
     usageStatisticsDimensions: null,
     modelUsage: null,
     modelUsageDetail: null,
+    // Settings view: client virtual keys (null until first load attempt)
+    // and the full AA pricing catalog (null until first fetch).
+    clientKeys: null,
+    pricingCatalog: null,
     // Bumped on every successful refresh so derived caches (e.g. the model
     // capability items memo) can invalidate in O(1) without deep-comparing data.
     version: 0,
