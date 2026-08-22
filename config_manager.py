@@ -51,6 +51,9 @@ class RuntimeConfigManager:
         self._revision_epoch_ms = int(time.time() * 1000)
         self.base_config = copy.deepcopy(base_config or {})
         self.overlay = self._read_overlay()
+        # Human-readable warning from the most recent update_provider_model_mapping
+        # call (e.g. a blocked cascade deletion). Cleared at each call start.
+        self.last_model_mapping_warning = ""
         self.config = self._normalized_merged()
         # Process-level lock that serializes the full read-modify-write-persist
         # sequence in _commit_overlay. Without this, two concurrent admin
@@ -520,6 +523,7 @@ class RuntimeConfigManager:
         old_model: str = "",
     ) -> Dict[str, Any]:
         self._require_provider(provider)
+        self.last_model_mapping_warning = ""
         new_model = self._validate_model_id(model) if str(model or "").strip() else ""
         old_model_id = self._validate_model_id(old_model) if str(old_model or "").strip() else ""
         raw_model_id = self._validate_model_id(raw_model) if str(raw_model or "").strip() else ""
@@ -553,7 +557,26 @@ class RuntimeConfigManager:
             base_map = base_map if isinstance(base_map, dict) else {}
 
             if old_model_id and old_model_id != new_model:
-                if old_model_id in base_map:
+                # P0 guard against cascade deletion: only remove the old
+                # canonical when the entry it currently maps to IS this
+                # submission's raw model. When the row's display name was
+                # previously cross-contaminated (points at a different raw),
+                # deleting by name alone would silently destroy the other
+                # model's correct mapping — the exact corruption observed in
+                # production (renaming flash accidentally deleted pro).
+                merged_map = _deep_merge(base_map, overlay_map)
+                current_raw = merged_map.get(old_model_id)
+                if current_raw is not None and raw_model_id and current_raw != raw_model_id:
+                    self.last_model_mapping_warning = (
+                        f"refused to remove mapping '{old_model_id}': it currently points at "
+                        f"'{current_raw}', not this model's raw id '{raw_model_id}'"
+                    )
+                    logging.getLogger(__name__).warning(
+                        "provider_model_map cascade-delete blocked for %s: key '%s' -> '%s' "
+                        "does not match submitted raw '%s'",
+                        provider, old_model_id, current_raw, raw_model_id,
+                    )
+                elif old_model_id in base_map:
                     overlay_map[old_model_id] = None  # tombstone
                 else:
                     overlay_map.pop(old_model_id, None)

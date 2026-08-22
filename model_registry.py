@@ -349,6 +349,66 @@ def parse_provider_models(provider: str, upstream_data) -> Tuple[Dict[str, Dict[
     return union_map, canonical_map, raw_ids
 
 
+# P3 raw-drift migration hook. Registered by sse2json on startup; called with
+# (provider, migrations) after a successful discovery refresh. Migrations is a
+# list of (canonical, old_raw, new_raw) tuples. The hook is responsible for
+# persisting through the config manager, auditing, and rebuilding the runtime.
+model_mapping_migration_hook = None
+
+
+def _strip_vendor(mid: str) -> str:
+    best, _candidates = normalize_model_id("", str(mid or ""))
+    return str(best or "")
+
+
+def detect_mapping_drift(provider: str, manual_map, raw_ids) -> list:
+    """Detect manual-map raws that vanished from the fresh discovery list and
+    have a unique same-basename successor (e.g. ``...-0731`` -> ``...-0921``).
+
+    Returns a list of ``(canonical, old_raw, new_raw)`` migrations. Only a
+    UNIQUE best candidate triggers migration; ambiguous matches (several
+    vendor copies) are left untouched for the operator to resolve.
+    """
+    raw_set = {str(r or "").strip() for r in (raw_ids or []) if str(r or "").strip()}
+    if not isinstance(manual_map, dict) or not raw_set:
+        return []
+    migrations = []
+    for canonical, raw_old in manual_map.items():
+        if not isinstance(raw_old, str) or not raw_old.strip():
+            continue
+        raw_old = raw_old.strip()
+        if raw_old in raw_set:
+            continue
+        old_base = _strip_vendor(raw_old)
+        old_base_no_digits = re.sub(r"[\d.:;_-]+$", "", old_base)
+        best = None
+        best_score = 0
+        ambiguous = False
+        for cand in raw_set:
+            cand_base = _strip_vendor(cand)
+            score = 0
+            if cand_base == old_base:
+                score = 3
+            elif (
+                old_base_no_digits
+                and len(old_base_no_digits) >= 6
+                and cand_base != old_base
+                and re.sub(r"[\d.:;_-]+$", "", cand_base) == old_base_no_digits
+            ):
+                score = 1
+            if score <= 0:
+                continue
+            if score > best_score:
+                best = cand
+                best_score = score
+                ambiguous = False
+            elif score == best_score:
+                ambiguous = True
+        if best and not ambiguous:
+            migrations.append((str(canonical), raw_old, best))
+    return migrations
+
+
 def _store_provider_capabilities(
     config: Dict[str, Any],
     provider: str,
@@ -382,6 +442,20 @@ def _store_provider_capabilities(
     }
     if error:
         entry["error"] = error
+    # P3: after a successful refresh, detect manual-map raws that no longer
+    # exist upstream and have a unique successor (e.g. version bump
+    # 0731 -> 0921). The sse2json hook persists + audits the migration.
+    if status in ("ok", "stale") and callable(model_mapping_migration_hook):
+        manual_map = ((config.get("models") or {}).get("provider_model_map") or {}).get(provider)
+        if isinstance(manual_map, dict) and manual_map:
+            try:
+                migrations = detect_mapping_drift(provider, manual_map, models_list)
+                if migrations:
+                    model_mapping_migration_hook(provider, migrations)
+            except Exception:
+                logging.getLogger(__name__).exception(
+                    "mapping drift hook failed for provider %s", provider,
+                )
     # Write the capability entry and bump version atomically under the cache
     # lock.  Concurrent readers (rebuild_models_union_snapshot,
     # _rebuild_union_model_ids_from_capabilities) iterate caps without their
@@ -978,6 +1052,28 @@ def _key_discovered_raw_models(
 # falsely rejecting a renamed model, the dict-form lookup falls back to
 # searching by provider_model (raw) when the canonical key is not found.
 # ---------------------------------------------------------------------------
+def _normalized_variants(mid: str) -> set:
+    """Return the normalize-model-id variants (prefix-stripped, lower) as a set."""
+    _best, candidates = normalize_model_id("", str(mid or ""))
+    out = set()
+    for candidate in candidates:
+        out.add(str(candidate or "").lower())
+    if str(mid or "").strip():
+        out.add(str(mid or "").strip().lower())
+    return out
+
+
+def _normalized_intersection(value: str, candidates) -> bool:
+    """Whether any normalized variant of value appears in the candidate set."""
+    if not candidates:
+        return False
+    value_variants = _normalized_variants(value)
+    for candidate in candidates:
+        if value_variants & _normalized_variants(candidate):
+            return True
+    return False
+
+
 def key_supports_provider_model(
     config: Dict[str, Any],
     provider: str,
@@ -1027,11 +1123,31 @@ def key_supports_provider_model(
             if expected is None:
                 expected = models.get(str(provider_model or "").lower())
             if expected is None:
+                # P2: whitelist VALUES are the exact raw ids the key may see.
+                # If the current raw is explicitly listed (whatever the
+                # canonical key is now), the key supports it.
+                if _normalized_intersection(str(provider_model or ""), models.values()):
+                    return True
+                # P2: normalized match over whitelist keys too (prefix/case
+                # variants of the canonical, e.g. after a vendor-prefix rename).
+                if _normalized_intersection(canonical, models.keys()):
+                    expected = models.get(canonical)
+                    if expected is None:
+                        for k, v in models.items():
+                            if canonical.strip().lower() in _normalized_variants(k):
+                                expected = v
+                                break
+                    if expected is not None:
+                        return str(expected or "").strip() == str(provider_model or "").strip()
                 return False
             return str(expected or "").strip() == str(provider_model or "").strip()
         if isinstance(models, list) and models:
             known = {str(model or "").strip() for model in models}
-            return str(provider_model or "").strip() in known
+            if str(provider_model or "").strip() in known:
+                return True
+            # P2: prefix/case variants (e.g. whitelist stores short ids, the
+            # route resolved a vendor-prefixed raw).
+            return _normalized_intersection(str(provider_model or ""), known)
 
     fingerprint = key_fingerprint(entry)
     provider_caps = (
@@ -1044,15 +1160,22 @@ def key_supports_provider_model(
         }
         if str(provider_model or "").strip() in raw_models:
             return True
+        # P2: catalog variants may be stored as short ids while the route
+        # resolved a vendor-prefixed raw id (and vice versa).
+        if _normalized_intersection(str(provider_model or ""), raw_models):
+            return True
         canonical_map = capability.get("canonical_map") or {}
         expected = canonical_map.get(canonical_model)
         if expected is None:
             expected = canonical_map.get(str(canonical_model or "").lower())
         if expected is not None:
             return str(expected or "").strip() == str(provider_model or "").strip()
-        return str(provider_model or "").strip() in {
-            str(model or "").strip() for model in capability.get("models") or []
-        }
+        # P2: normalized canonical keys (prefix/case variants after renames).
+        if _normalized_intersection(canonical_model, canonical_map.keys()):
+            for k, v in canonical_map.items():
+                if str(canonical_model or "").lower() in _normalized_variants(k):
+                    return str(v or "").strip() == str(provider_model or "").strip()
+        return str(provider_model or "").strip() in raw_models
     return None
 
 
