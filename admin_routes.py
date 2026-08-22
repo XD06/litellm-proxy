@@ -289,6 +289,9 @@ class AdminRoutesMixin:
         if endpoint == "audit":
             params = self._query_params()
             return self._resp_json(AUDIT.list(limit=params.get("limit", 50)), etag=True)
+        if endpoint == "client-keys":
+            CLIENT_KEYS = sse.CLIENT_KEYS
+            return self._resp_json(CLIENT_KEYS.list_keys())
         if endpoint == "conversion-diagnostics":
             return self._resp_json(CONVERSION_DIAGNOSTICS.status())
         if endpoint == "conversion-diagnostics/export":
@@ -634,6 +637,51 @@ class AdminRoutesMixin:
         from urllib.parse import unquote
         parts = [unquote(p) for p in str(endpoint or "").strip("/").split("/") if p]
         body = None
+
+        CLIENT_KEYS = sse.CLIENT_KEYS
+        from client_key_store import ClientKeyError, parse_quota_tokens
+
+        if parts == ["client-keys"]:
+            body = self._read_json_body()
+            if isinstance(body, tuple):
+                return self._resp_json(body[0], body[1])
+            try:
+                raw_quota = (body or {}).get("quota_tokens")
+                if raw_quota is None:
+                    raw_quota = (body or {}).get("quota")
+                record, full_key = CLIENT_KEYS.create_key(
+                    name=(body or {}).get("name") or "",
+                    quota_tokens=parse_quota_tokens(raw_quota),
+                    rpm=int((body or {}).get("rpm") or 0),
+                    models=(body or {}).get("models", "*"),
+                    expires=(body or {}).get("expires"),
+                )
+            except (ClientKeyError, TypeError, ValueError) as e:
+                return self._resp_json({"error": {"message": str(e)}}, 400)
+            self._audit_admin_event(
+                "client_key_created",
+                target=str(record.get("name") or record.get("id")),
+                detail={"id": record.get("id"), "quota_tokens": record.get("quota_tokens"), "rpm": record.get("rpm")},
+            )
+            # The full key is returned exactly once; only its hash is stored.
+            return self._resp_json({"action": "client_key_created", "key": record, "full_key": full_key})
+
+        if len(parts) == 3 and parts[0] == "client-keys" and parts[2] in ("delete", "reset-usage"):
+            try:
+                key_id = int(parts[1])
+            except (TypeError, ValueError):
+                return self._resp_json({"error": {"message": f"invalid key id: {parts[1]}"}}, 400)
+            try:
+                if parts[2] == "delete":
+                    result = CLIENT_KEYS.delete_key(key_id)
+                    self._audit_admin_event("client_key_deleted", target=str(key_id), detail={})
+                else:
+                    result = CLIENT_KEYS.reset_usage(key_id)
+                    self._audit_admin_event("client_key_usage_reset", target=str(key_id), detail={})
+            except ClientKeyError as e:
+                return self._resp_json({"error": {"message": str(e)}}, e.status)
+            return self._resp_json(result)
+
         if parts == ["proxy", "test"]:
             body = self._read_json_body()
             if isinstance(body, tuple):
@@ -1219,7 +1267,26 @@ class AdminRoutesMixin:
         if isinstance(body, tuple):
             return self._resp_json(body[0], body[1])
 
+        CLIENT_KEYS = sse.CLIENT_KEYS
+        from client_key_store import ClientKeyError
+
         try:
+            if len(parts) == 2 and parts[0] == "client-keys":
+                try:
+                    key_id = int(parts[1])
+                except (TypeError, ValueError):
+                    return self._resp_json({"error": {"message": f"invalid key id: {parts[1]}"}}, 400)
+                try:
+                    record = CLIENT_KEYS.update_key(key_id, body or {})
+                except ClientKeyError as e:
+                    return self._resp_json({"error": {"message": str(e)}}, e.status)
+                self._audit_admin_event(
+                    "client_key_updated",
+                    target=str(key_id),
+                    detail={k: v for k, v in (body or {}).items() if k != "full_key"},
+                )
+                return self._resp_json({"action": "client_key_updated", "key": record})
+
             if parts == ["routing"]:
                 CONFIG_MANAGER.update_routing(body or {})
                 _apply_runtime_config(CONFIG_MANAGER.config)
@@ -1321,10 +1388,16 @@ class AdminRoutesMixin:
                 )
                 _apply_runtime_config(CONFIG_MANAGER.config)
                 model_registry.bump_models_version()
+                mapping_warning = str(getattr(CONFIG_MANAGER, "last_model_mapping_warning", "") or "")
                 self._audit_admin_event(
                     "provider_model_mapping_updated",
                     target=f"{provider}/models/{model or old_model}",
-                    detail={"model": model, "raw_model": raw_model, "old_model": old_model},
+                    detail={
+                        "model": model,
+                        "raw_model": raw_model,
+                        "old_model": old_model,
+                        **({"warning": mapping_warning} if mapping_warning else {}),
+                    },
                 )
                 return self._resp_json(
                     {
@@ -1333,6 +1406,7 @@ class AdminRoutesMixin:
                         "model": model,
                         "raw_model": raw_model,
                         "old_model": old_model,
+                        **({"warning": mapping_warning} if mapping_warning else {}),
                         "config": CONFIG_MANAGER.snapshot(),
                     }
                 )

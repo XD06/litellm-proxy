@@ -315,6 +315,15 @@ def _normalize_config(cfg: Dict[str, Any]) -> Dict[str, Any]:
     out.setdefault("observability", {})
     out.setdefault("proxy", {})  # global fallback proxy; provider/key can override it.
 
+    # Client virtual keys: when enabled and at least one key exists, client
+    # endpoints require a valid key. Store path follows the same
+    # relative-to-project convention as observability.history.
+    out.setdefault("client_keys", {})
+    if not isinstance(out["client_keys"], dict):
+        out["client_keys"] = {}
+    out["client_keys"].setdefault("enabled", True)
+    out["client_keys"].setdefault("store_path", "tmp/client_keys.sqlite3")
+
     # normalize global proxy: 支持字符串 "http://..." 或 dict {"http":"...","https":"..."}
     out["proxy"] = normalize_proxy_config(out.get("proxy"))
 

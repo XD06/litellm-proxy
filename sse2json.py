@@ -46,6 +46,7 @@ from parameter_compatibility import (
     upstream_format_eligibility,
 )
 from proxy_utils import key_fingerprint, key_proxy, key_value, mask_proxy_url, resolve_client_ip
+from client_key_store import ClientKeyStore
 from request_routes import classify_get, classify_post
 from router import UpstreamRouter, parse_retry_after_seconds
 from routing_trace import RoutingTrace
@@ -1883,6 +1884,90 @@ ROUTER = UpstreamRouter(CONFIG)
 UPSTREAM_CLIENT = OpenAIUpstreamClient(CONFIG)
 OBSERVABILITY = ProxyObservability(CONFIG)
 AUDIT = AdminAuditStore(CONFIG)
+CLIENT_KEYS = ClientKeyStore(CONFIG)
+
+# Per-request client-key context for usage accounting. Set at auth time in the
+# handler thread; read by the observability usage listener at request end.
+_client_key_tls = threading.local()
+
+
+def _client_key_usage_listener(recent_item):
+    ctx = getattr(_client_key_tls, "ctx", None)
+    if not ctx:
+        return
+    usage = recent_item.get("usage") or {}
+    tokens = int(usage.get("total_tokens") or 0)
+    if tokens <= 0:
+        tokens = int(usage.get("input_tokens") or 0) + int(usage.get("output_tokens") or 0)
+    status = int(recent_item.get("status_code") or 0)
+    try:
+        CLIENT_KEYS.add_usage(
+            int(ctx.get("id") or 0),
+            tokens,
+            float(recent_item.get("cost_usd") or 0.0),
+            status < 400,
+        )
+    except Exception:
+        # Quota accounting must never break the response path.
+        pass
+
+
+OBSERVABILITY.add_usage_listener(_client_key_usage_listener)
+
+
+def _apply_model_mapping_migrations(provider, migrations):
+    """Persist drift migrations (0731 -> 0921) through the config manager,
+    audit them, and rebuild the runtime so routing picks up the new raw id."""
+    if not migrations:
+        return
+    CONFIG_MANAGER = globals().get("CONFIG_MANAGER")
+    if CONFIG_MANAGER is None:
+        return
+    for canonical, old_raw, new_raw in migrations:
+        try:
+            CONFIG_MANAGER.update_provider_model_mapping(
+                provider,
+                model=canonical,
+                raw_model=new_raw,
+                old_model=canonical,
+            )
+            # Keep per-key whitelists in sync: any key whose models map value
+            # pointed at the old raw follows to the new raw.
+            keys = ((CONFIG_MANAGER.config.get("providers") or {}).get(provider) or {}).get("keys") or []
+            for index, entry in enumerate(keys):
+                if not isinstance(entry, dict):
+                    continue
+                models = entry.get("models")
+                if not isinstance(models, dict):
+                    continue
+                changed = False
+                for key_name, value in list(models.items()):
+                    if str(value or "").strip() == old_raw or str(value or "").strip() == f"v:{old_raw}":
+                        models[key_name] = new_raw
+                        changed = True
+                if changed:
+                    CONFIG_MANAGER.update_key(provider, index, {"models": models})
+            _apply_runtime_config(CONFIG_MANAGER.config)
+            model_registry.bump_models_version()
+            AUDIT.record(
+                "model_mapping_auto_migrated",
+                target=f"{provider}/models/{canonical}",
+                detail={"provider": provider, "model": canonical, "old_raw": old_raw, "new_raw": new_raw},
+            )
+            print(
+                f"[model-registry] auto-migrated mapping {provider}: {canonical} -> "
+                f"{old_raw} => {new_raw} (upstream id changed)",
+                flush=True,
+            )
+        except Exception as exc:
+            print(
+                f"[model-registry] migration failed for {provider}/{canonical}: "
+                f"{type(exc).__name__}: {exc}",
+                flush=True,
+            )
+
+
+model_registry.model_mapping_migration_hook = _apply_model_mapping_migrations
 CONVERSION_DIAGNOSTICS = ConversionDiagnosticStore(CONFIG)
 
 
@@ -4585,10 +4670,64 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             if body:
                 f.write(f"Body:\n{body[:5000]}\n")
 
+    # ---- Client virtual key auth (settings page: Client Keys) ----
+
+    @staticmethod
+    def _client_key_error(message, code, err_type="invalid_request_error"):
+        return {"error": {"message": message, "type": err_type, "code": code}}
+
+    def _bearer_token(self):
+        auth = self.headers.get("Authorization") or ""
+        if auth.lower().startswith("bearer "):
+            return auth[7:].strip()
+        return (
+            self.headers.get("X-Api-Key")
+            or self.headers.get("x-api-key")
+            or ""
+        ).strip()
+
+    def _enforce_client_key(self, route, model=None):
+        """Returns None when the request may proceed, else (payload, status).
+
+        Open behavior: no keys configured (or section disabled) keeps client
+        endpoints open for backward compatibility. The server admin key always
+        bypasses client-key checks but is not attributed to any key quota.
+        """
+        try:
+            if not CLIENT_KEYS.enabled or not CLIENT_KEYS.has_any_keys():
+                return None
+        except Exception:
+            return None
+        token = self._bearer_token()
+        if not token:
+            return (
+                self._client_key_error(
+                    "Missing API key. Provide a client key via Authorization: Bearer.",
+                    "invalid_api_key",
+                ),
+                401,
+            )
+        if token == _admin_key():
+            return None  # owner bypass; no key attribution
+        record = CLIENT_KEYS.authenticate(token)
+        if record is None:
+            return (
+                self._client_key_error("Invalid API key.", "invalid_api_key"),
+                401,
+            )
+        ok, status, code, message = CLIENT_KEYS.check_access(record, model=model)
+        if not ok:
+            err_type = "rate_limit_error" if status == 429 else "invalid_request_error"
+            return (self._client_key_error(message, code, err_type), status)
+        CLIENT_KEYS.stamp_rate_limit(record["id"])
+        _client_key_tls.ctx = {"id": record["id"], "name": record.get("name") or ""}
+        return None
+
     def do_GET(self):
         try:
             return self._do_GET_impl()
         finally:
+            _client_key_tls.ctx = None
             _clear_request_rt()
 
     def _do_GET_impl(self):
@@ -4605,6 +4744,9 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         elif route.family == "admin":
             self._resp_admin(route.endpoint)
         elif route.endpoint == "models" and route.implemented:
+            models_auth_error = self._enforce_client_key(route)
+            if models_auth_error is not None:
+                return self._resp_json(models_auth_error[0], models_auth_error[1])
             rt = _request_runtime()
             models_source = str((rt.config.get("models") or {}).get("models_source", "first_healthy_provider"))
             if models_source in ("first_healthy_provider", "union"):
@@ -5411,6 +5553,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         try:
             return self._do_POST_impl()
         finally:
+            _client_key_tls.ctx = None
             _clear_request_rt()
 
     def _do_POST_impl(self):
@@ -5426,6 +5569,9 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
 
         # Handle count_tokens endpoint (Claude Code calls this)
         if route.endpoint == "count_tokens" and route.implemented:
+            count_auth_error = self._enforce_client_key(route)
+            if count_auth_error is not None:
+                return self._resp_json(count_auth_error[0], count_auth_error[1])
             body, err = self._read_body_bounded()
             if err is not None:
                 return self._resp_json(err[0], err[1])
@@ -5454,6 +5600,10 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         except Exception as e:
             return self._resp_json({"error": {"message": str(e)}}, 400)
         self._request_body_bytes = len(body)
+
+        auth_error = self._enforce_client_key(route, model=req.get("model"))
+        if auth_error is not None:
+            return self._resp_json(auth_error[0], auth_error[1])
 
         client_format = CHAT if is_chat_completions else RESPONSES if is_responses else ANTHROPIC
         try:

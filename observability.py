@@ -7,7 +7,7 @@ import hashlib
 import threading
 import time
 from collections import deque
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from history_store import RequestHistoryStore
 from pricing_resolver import PricingResolver
@@ -76,6 +76,9 @@ class ProxyObservability:
         self._counters = self._new_counters()
         self._history = RequestHistoryStore(cfg)
         self._pricing = PricingResolver(cfg, self._history)
+        # Post-request usage listeners (e.g. client-key quota accounting).
+        # Called with the finished recent_item after every record_request_end.
+        self._usage_listeners: List[Any] = []
         self._first_event_stats_cache: Dict[tuple, tuple] = {}
         # Cache for failure_summary — invalidated whenever _recent changes.
         self._failure_summary_cache: Optional[Dict[str, Any]] = None
@@ -162,6 +165,11 @@ class ProxyObservability:
         # record_request_end on the OLD observability after the hot-swap
         # still updates _last_request_finished_at on the NEW one.
         old_obs._migrated_to = self
+        # Usage listeners (e.g. client-key quota accounting) must survive a
+        # config hot-swap, otherwise the newly built instance silently stops
+        # accounting keys until the next process restart.
+        for _listener in list(getattr(old_obs, "_usage_listeners", None) or []):
+            self.add_usage_listener(_listener)
         if hasattr(old_obs, "_history") and old_obs._history:
             try:
                 old_obs._history.shutdown()
@@ -553,6 +561,11 @@ class ProxyObservability:
                 first_byte_ms = int((now - float(active.get("started_at") or now)) * 1000)
             active["first_byte_ms"] = max(0, int(first_byte_ms or 0))
 
+    def add_usage_listener(self, listener) -> None:
+        """Register a callable(recent_item) invoked after each request ends."""
+        if callable(listener) and listener not in self._usage_listeners:
+            self._usage_listeners.append(listener)
+
     def record_request_end(
         self,
         request_id: str,
@@ -672,6 +685,14 @@ class ProxyObservability:
             else self._history
         )
         history_target.record_request(recent_item)
+        # Client-key quota accounting and other usage sinks run outside the
+        # counters lock; listener failures must never break the response path.
+        if self._usage_listeners:
+            for _listener in list(self._usage_listeners):
+                try:
+                    _listener(recent_item)
+                except Exception:
+                    pass
 
     def snapshot(self) -> Dict[str, Any]:
         # NH1: deep-copy the counters under the lock. The previous shallow
