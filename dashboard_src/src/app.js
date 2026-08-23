@@ -2346,6 +2346,9 @@ import {
       });
     }
     if (nav.dataset.restoredSettingsTab) return;
+    // Tab restore triggers data loads; running it pre-auth would 401 and latch
+    // empty results. The render pass calls bindSettingsTabs again after auth.
+    if (!state.adminKey) return;
     nav.dataset.restoredSettingsTab = "1";
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && el("keyDrawer")?.classList.contains("is-open")) closeKeyDrawer();
@@ -2570,7 +2573,8 @@ import {
         }))
         .sort((a, b) => String(a.name).localeCompare(String(b.name)));
     } catch (_err) {
-      state.data.pricingCatalog = [];
+      // Keep catalog null on failure (e.g. pre-auth 401) so the next open of
+      // the pricing tab retries instead of latching an empty list forever.
     } finally {
       state.settingsPricingLoading = false;
       _settingsPricingLoadInFlight = false;
@@ -7471,8 +7475,10 @@ import {
         onSuccess: (result) => {
           if (result?.warning) {
             setNotice(String(result.warning), "warn", { duration: 8000, key: "mapping:warning" });
+          } else if (nextModel) {
+            setNotice(t("notice.model_mapping_saved_detail", { name: nextModel, raw: rawModel }), "ok");
           } else {
-            setNotice(nextModel ? t("notice.model_mapping_saved", { provider }) : t("notice.model_mapping_reset", { provider }), "ok");
+            setNotice(t("notice.model_mapping_reset", { provider }), "ok");
           }
         },
         onError: (err) => setNotice(t("notice.model_mapping_failed", { error: err.message }), "bad"),
@@ -7490,7 +7496,7 @@ import {
           <div class="model-map-raw-hero">
             <span class="model-map-raw-hero-icon">${modelBrandIconMarkup(rawModel, iconSvg("boxes"))}</span>
             <div class="model-map-raw-hero-text">
-              <span class="model-map-raw-hero-label">${escapeHtml(t("prov.models.editing_mapping_for"))}</span>
+              <span class="model-map-raw-hero-label">${escapeHtml(t("prov.models.editing_mapping_for"))} · ${escapeHtml(oldModel)}</span>
               <strong class="mono">${escapeHtml(rawModel)}</strong>
               <small>${escapeHtml(t("prov.models.raw_hero_hint"))}</small>
             </div>
@@ -7530,8 +7536,10 @@ import {
       if (cleared) closeFormModal();
       else if (resetBtn) resetBtn.disabled = false;
     });
+    let mappingSubmitInFlight = false;
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
+      if (mappingSubmitInFlight) return;
       const input = form.elements.model;
       const nextModel = String(input?.value || "").trim();
       if (!nextModel && !isManual) {
@@ -7543,40 +7551,52 @@ import {
         closeFormModal();
         return;
       }
-      // P1 protect: warn when the target canonical name is already used by a
-      // DIFFERENT raw model in this provider (cross-contamination source).
-      if (nextModel) {
-        const capability = state.data.status?.models?.providers?.[provider] || {};
-        const rows = providerModelItems(provider, capability);
-        const clash = rows.find((item) => {
-          const label = String(item.label || "").trim().toLowerCase();
-          const raw = String(item.raw || "").trim();
-          return label === String(nextModel).trim().toLowerCase()
-            && raw !== String(rawModel).trim()
-            && label !== String(oldModel || "").trim().toLowerCase();
-        });
-        if (clash) {
-          const accepted = await openConfirmDialog({
-            title: t("modal.mapping_clash_title"),
-            message: t("modal.mapping_clash_msg", { name: nextModel, raw: clash.raw || rawModel }),
-            acceptLabel: t("confirm.delete"),
-          });
-          if (!accepted) {
-            input?.focus();
-            return;
-          }
-        }
-      }
+      // Disable immediately (before any await) so the clash confirmation
+      // dialog cannot be bypassed by a second click mid-flight.
+      mappingSubmitInFlight = true;
       const submit = form.querySelector('button[type="submit"]');
       if (submit) submit.disabled = true;
-      const saved = await updateProviderModelMapping(
-        provider,
-        providerModelMappingOldId({ label: oldModel, manual: isManual }),
-        rawModel,
-        nextModel,
-      );
-      if (saved) closeFormModal();
-      else if (submit) submit.disabled = false;
+      try {
+        // P1 protect: when the target name already belongs to a DIFFERENT raw
+        // model, spell out BOTH identities and the consequence — the user must
+        // know exactly which model they are renaming and which one loses the name.
+        if (nextModel) {
+          const capability = state.data.status?.models?.providers?.[provider] || {};
+          const rows = providerModelItems(provider, capability);
+          const clash = rows.find((item) => {
+            const label = String(item.label || "").trim().toLowerCase();
+            const raw = String(item.raw || "").trim();
+            return label === String(nextModel).trim().toLowerCase()
+              && raw !== String(rawModel).trim()
+              && label !== String(oldModel || "").trim().toLowerCase();
+          });
+          if (clash) {
+            const accepted = await openConfirmDialog({
+              title: t("modal.mapping_clash_title"),
+              message: t("modal.mapping_clash_msg", {
+                editingRaw: rawModel,
+                name: nextModel,
+                ownerRaw: clash.raw || rawModel,
+              }),
+              acceptLabel: t("modal.mapping_clash_accept"),
+            });
+            if (!accepted) {
+              input?.focus();
+              return;
+            }
+          }
+        }
+        const saved = await updateProviderModelMapping(
+          provider,
+          providerModelMappingOldId({ label: oldModel, manual: isManual }),
+          rawModel,
+          nextModel,
+        );
+        if (saved) closeFormModal();
+      } finally {
+        mappingSubmitInFlight = false;
+        if (submit) submit.disabled = false;
+      }
     });
   }
 
@@ -10726,6 +10746,11 @@ import {
     document.addEventListener("input", _markContainerDirty, true);
     document.addEventListener("change", _markContainerDirty, true);
     document.addEventListener("submit", _clearContainerDirtyOnSubmit, true);
+
+    // Bind the settings drawer/tab controls immediately: the elements live in
+    // static HTML, and waiting for the first data render left the "create key"
+    // button inert for seconds on slow networks (perceived as drawer lag).
+    bindSettingsTabs();
 
     window.addEventListener("hashchange", () => {
       const hashView = String(window.location.hash || "").replace(/^#/, "");

@@ -70,6 +70,33 @@ class CascadeDeletionGuardTests(unittest.TestCase):
         self.assertEqual(mgr.last_model_mapping_warning, "")
 
 
+class OverwriteWarningTests(unittest.TestCase):
+    def test_overwrite_different_raw_sets_warning(self):
+        mgr = make_manager()
+        mgr.update_provider_model_mapping(
+            "requesty", model="flash-plus", raw_model="deepseek/deepseek-v4-flash", old_model="",
+        )
+        # A different raw claims the same canonical name — must still write,
+        # but surface a warning telling the operator what was overwritten.
+        mgr.update_provider_model_mapping(
+            "requesty", model="flash-plus", raw_model="deepseek/deepseek-v4-flash-vision-exp", old_model="",
+        )
+        merged = mgr.snapshot()["models"]["provider_model_map"]["requesty"]
+        self.assertEqual(merged["flash-plus"], "deepseek/deepseek-v4-flash-vision-exp")
+        self.assertIn("overwrote mapping 'flash-plus'", mgr.last_model_mapping_warning)
+        self.assertIn("deepseek/deepseek-v4-flash", mgr.last_model_mapping_warning)
+
+    def test_same_raw_rewrite_no_warning(self):
+        mgr = make_manager()
+        mgr.update_provider_model_mapping(
+            "requesty", model="flash-plus", raw_model="deepseek/deepseek-v4-flash", old_model="",
+        )
+        mgr.update_provider_model_mapping(
+            "requesty", model="flash-plus", raw_model="deepseek/deepseek-v4-flash", old_model="",
+        )
+        self.assertEqual(mgr.last_model_mapping_warning, "")
+
+
 class KeySupportNormalizationTests(unittest.TestCase):
     def test_whitelist_raw_value_match_after_rename(self):
         cfg = {

@@ -3976,8 +3976,16 @@
 				zh: "映射名称冲突"
 			},
 			"modal.mapping_clash_msg": {
-				en: "The name \"{name}\" is already used by a different model ({raw}) in this provider. Continue will overwrite that mapping. Are you sure?",
-				zh: "名称「{name}」已被本供应商的另一个模型（{raw}）使用。继续将覆盖该映射，确认继续？"
+				en: "You are renaming {editingRaw} to \"{name}\", but that name currently belongs to {ownerRaw}. If you continue, \"{name}\" will point to {editingRaw} and {ownerRaw} will fall back to its original upstream id. Continue?",
+				zh: "你正在将 {editingRaw} 命名为「{name}」，但该名称当前属于 {ownerRaw}。继续后「{name}」将指向 {editingRaw}，{ownerRaw} 将恢复其原始上游 ID。确认继续？"
+			},
+			"modal.mapping_clash_accept": {
+				en: "Rename anyway",
+				zh: "仍要重命名"
+			},
+			"notice.model_mapping_saved_detail": {
+				en: "Saved: {name} → {raw}",
+				zh: "已保存映射：{name} → {raw}"
 			},
 			"modal.edit_format_title": {
 				en: "Edit format path",
@@ -8241,6 +8249,7 @@
 				});
 			}
 			if (nav.dataset.restoredSettingsTab) return;
+			if (!state.adminKey) return;
 			nav.dataset.restoredSettingsTab = "1";
 			document.addEventListener("keydown", (event) => {
 				if (event.key === "Escape" && el("keyDrawer")?.classList.contains("is-open")) closeKeyDrawer();
@@ -8447,9 +8456,7 @@
 					output: value.output,
 					cache_hit: value.cache_hit ?? value.cache_read_per_million
 				})).sort((a, b) => String(a.name).localeCompare(String(b.name)));
-			} catch (_err) {
-				state.data.pricingCatalog = [];
-			} finally {
+			} catch (_err) {} finally {
 				state.settingsPricingLoading = false;
 				_settingsPricingLoadInFlight = false;
 				if (state.view === "settings") renderSettingsPricingCatalog();
@@ -12838,7 +12845,11 @@
 						duration: 8e3,
 						key: "mapping:warning"
 					});
-					else setNotice(nextModel ? t("notice.model_mapping_saved", { provider }) : t("notice.model_mapping_reset", { provider }), "ok");
+					else if (nextModel) setNotice(t("notice.model_mapping_saved_detail", {
+						name: nextModel,
+						raw: rawModel
+					}), "ok");
+					else setNotice(t("notice.model_mapping_reset", { provider }), "ok");
 				},
 				onError: (err) => setNotice(t("notice.model_mapping_failed", { error: err.message }), "bad")
 			});
@@ -12853,7 +12864,7 @@
           <div class="model-map-raw-hero">
             <span class="model-map-raw-hero-icon">${modelBrandIconMarkup(rawModel, iconSvg("boxes"))}</span>
             <div class="model-map-raw-hero-text">
-              <span class="model-map-raw-hero-label">${escapeHtml(t("prov.models.editing_mapping_for"))}</span>
+              <span class="model-map-raw-hero-label">${escapeHtml(t("prov.models.editing_mapping_for"))} · ${escapeHtml(oldModel)}</span>
               <strong class="mono">${escapeHtml(rawModel)}</strong>
               <small>${escapeHtml(t("prov.models.raw_hero_hint"))}</small>
             </div>
@@ -12890,8 +12901,10 @@
 				}), rawModel, "")) closeFormModal();
 				else if (resetBtn) resetBtn.disabled = false;
 			});
+			let mappingSubmitInFlight = false;
 			form.addEventListener("submit", async (event) => {
 				event.preventDefault();
+				if (mappingSubmitInFlight) return;
 				const input = form.elements.model;
 				const nextModel = String(input?.value || "").trim();
 				if (!nextModel && !isManual) {
@@ -12903,33 +12916,39 @@
 					closeFormModal();
 					return;
 				}
-				if (nextModel) {
-					const clash = providerModelItems(provider, state.data.status?.models?.providers?.[provider] || {}).find((item) => {
-						const label = String(item.label || "").trim().toLowerCase();
-						const raw = String(item.raw || "").trim();
-						return label === String(nextModel).trim().toLowerCase() && raw !== String(rawModel).trim() && label !== String(oldModel || "").trim().toLowerCase();
-					});
-					if (clash) {
-						if (!await openConfirmDialog({
-							title: t("modal.mapping_clash_title"),
-							message: t("modal.mapping_clash_msg", {
-								name: nextModel,
-								raw: clash.raw || rawModel
-							}),
-							acceptLabel: t("confirm.delete")
-						})) {
-							input?.focus();
-							return;
-						}
-					}
-				}
+				mappingSubmitInFlight = true;
 				const submit = form.querySelector("button[type=\"submit\"]");
 				if (submit) submit.disabled = true;
-				if (await updateProviderModelMapping(provider, providerModelMappingOldId({
-					label: oldModel,
-					manual: isManual
-				}), rawModel, nextModel)) closeFormModal();
-				else if (submit) submit.disabled = false;
+				try {
+					if (nextModel) {
+						const clash = providerModelItems(provider, state.data.status?.models?.providers?.[provider] || {}).find((item) => {
+							const label = String(item.label || "").trim().toLowerCase();
+							const raw = String(item.raw || "").trim();
+							return label === String(nextModel).trim().toLowerCase() && raw !== String(rawModel).trim() && label !== String(oldModel || "").trim().toLowerCase();
+						});
+						if (clash) {
+							if (!await openConfirmDialog({
+								title: t("modal.mapping_clash_title"),
+								message: t("modal.mapping_clash_msg", {
+									editingRaw: rawModel,
+									name: nextModel,
+									ownerRaw: clash.raw || rawModel
+								}),
+								acceptLabel: t("modal.mapping_clash_accept")
+							})) {
+								input?.focus();
+								return;
+							}
+						}
+					}
+					if (await updateProviderModelMapping(provider, providerModelMappingOldId({
+						label: oldModel,
+						manual: isManual
+					}), rawModel, nextModel)) closeFormModal();
+				} finally {
+					mappingSubmitInFlight = false;
+					if (submit) submit.disabled = false;
+				}
 			});
 		}
 		function openProviderFormatPathModal({ provider, fmt, label, path, enabled, ownerCard }) {
@@ -15845,6 +15864,7 @@
 			document.addEventListener("input", _markContainerDirty, true);
 			document.addEventListener("change", _markContainerDirty, true);
 			document.addEventListener("submit", _clearContainerDirtyOnSubmit, true);
+			bindSettingsTabs();
 			window.addEventListener("hashchange", () => {
 				const hashView = String(window.location.hash || "").replace(/^#/, "");
 				if (views[hashView] && hashView !== state.view) setView(hashView);

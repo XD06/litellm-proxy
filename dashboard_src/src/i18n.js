@@ -910,7 +910,9 @@ const dict = {
   // ---- Edit modals ----
   "modal.edit_mapping_title": { en: "Edit model mapping", zh: "编辑模型映射" },
   "modal.mapping_clash_title": { en: "Mapping name collision", zh: "映射名称冲突" },
-  "modal.mapping_clash_msg": { en: "The name \"{name}\" is already used by a different model ({raw}) in this provider. Continue will overwrite that mapping. Are you sure?", zh: "名称「{name}」已被本供应商的另一个模型（{raw}）使用。继续将覆盖该映射，确认继续？" },
+  "modal.mapping_clash_msg": { en: "You are renaming {editingRaw} to \"{name}\", but that name currently belongs to {ownerRaw}. If you continue, \"{name}\" will point to {editingRaw} and {ownerRaw} will fall back to its original upstream id. Continue?", zh: "你正在将 {editingRaw} 命名为「{name}」，但该名称当前属于 {ownerRaw}。继续后「{name}」将指向 {editingRaw}，{ownerRaw} 将恢复其原始上游 ID。确认继续？" },
+  "modal.mapping_clash_accept": { en: "Rename anyway", zh: "仍要重命名" },
+  "notice.model_mapping_saved_detail": { en: "Saved: {name} → {raw}", zh: "已保存映射：{name} → {raw}" },
   "modal.edit_format_title": { en: "Edit format path", zh: "编辑格式路径" },
 
   // ---- Playground ----

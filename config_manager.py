@@ -666,6 +666,17 @@ class RuntimeConfigManager:
                             new_model, provider, other_provider,
                         )
                         break
+                current_merged_map = _deep_merge(base_map, overlay_map)
+                pre_existing = current_merged_map.get(new_model) if new_model else None
+                if pre_existing and pre_existing != raw_model_id:
+                    self.last_model_mapping_warning = (
+                        f"overwrote mapping '{new_model}': previously pointed at "
+                        f"'{pre_existing}', now points at '{raw_model_id}'"
+                    )
+                    logging.getLogger(__name__).warning(
+                        "provider_model_map overwrite for %s: '%s' previously '%s' -> now '%s'",
+                        provider, new_model, pre_existing, raw_model_id,
+                    )
                 overlay_map[new_model] = raw_model_id
             elif old_model_id:
                 if old_model_id in base_map:
