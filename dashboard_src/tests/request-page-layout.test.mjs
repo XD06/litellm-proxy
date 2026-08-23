@@ -47,6 +47,8 @@ assert.match(requestRender, /modelBrandIconMarkup\(r\.model/, "request rows must
 assert.match(requestRender, /providerBrandIconMarkup\(provider/, "request rows must preserve provider brand icons");
 assert.match(requestRender, /request-cell-provider[\s\S]*request-provider-chip[\s\S]*request-cell-route[\s\S]*request-route-chip/, "provider and routing outcome must use separate aligned columns");
 assert.match(requestRender, /requestFormatBadge\(r\)/, "request identity must retain client and upstream format");
+assert.match(requestRender, /request-reasoning-chip effort-\$\{escapeHtml\(reasoningEffortTone\(r\.reasoning_effort\)\)\}/, "reasoning effort must expose a stable intensity class");
+assert.match(app, /function reasoningEffortTone\(value\)[\s\S]*case "minimal"[\s\S]*case "low"[\s\S]*case "medium"[\s\S]*case "high"/, "all supported reasoning effort levels must map to a visual tone");
 assert.match(requestRender, /<th scope="col">\$\{escapeHtml\(t\("req\.meta_ip"\)\)\}<\/th>/, "request table must expose a dedicated client IP column");
 assert.match(requestRender, /request-cell-client-ip[\s\S]*r\.client_ip|r\.client_ip[\s\S]*request-cell-client-ip/, "client IP must render in its own table cell");
 assert.match(requestRender, /request-format-chip format-\$\{escapeHtml\(formatTone\)\}/, "request formats must expose a stable color class");
@@ -85,6 +87,10 @@ assert.match(requestDesktopStyles, /#requestsTable \.request-token-block\s*\{[\s
 assert.match(requestDesktopStyles, /\.request-format-chip\.format-chat\s*\{[\s\S]*color:\s*#047857/, "Chat format must use restrained green");
 assert.match(requestDesktopStyles, /\.request-format-chip\.format-responses\s*\{[\s\S]*color:\s*#2563eb/, "Responses format must use restrained blue");
 assert.match(requestDesktopStyles, /\.request-format-chip\.format-messages\s*\{[\s\S]*color:\s*#b45309/, "Messages format must use restrained amber");
+assert.match(requestDesktopStyles, /\.request-reasoning-chip\.effort-minimal\s*\{[\s\S]*color:\s*#0f766e/, "minimal reasoning must use its own readable tone");
+assert.match(requestDesktopStyles, /\.request-reasoning-chip\.effort-low\s*\{[\s\S]*color:\s*#2563eb/, "low reasoning must use its own readable tone");
+assert.match(requestDesktopStyles, /\.request-reasoning-chip\.effort-medium\s*\{[\s\S]*color:\s*#7c3aed/, "medium reasoning must use its own readable tone");
+assert.match(requestDesktopStyles, /\.request-reasoning-chip\.effort-high\s*\{[\s\S]*color:\s*#c2410c/, "high reasoning must use its own readable tone");
 assert.match(requestRender, /converted \? iconSvg\("arrow-right-left"\)/, "converted formats must use a compact conversion icon");
 assert.match(requestRender, /shortFormatLabel\(displayFormat\)/, "converted badges must display only the final format");
 assert.match(i18n, /"req\.page_desc"[^\n]+zh:/, "request page description must remain bilingual");

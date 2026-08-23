@@ -28275,3 +28275,25 @@ body.is-auth-checking {
   color: #64748b;
   font-size: 11px;
 }
+
+/* Request-log thinking intensity stays readable at every responsive breakpoint. */
+#requestsTable .request-reasoning-chip.effort-off,
+#requestsTable .request-reasoning-chip.effort-default {
+  color: #64748b;
+}
+
+#requestsTable .request-reasoning-chip.effort-minimal {
+  color: #0f766e;
+}
+
+#requestsTable .request-reasoning-chip.effort-low {
+  color: #2563eb;
+}
+
+#requestsTable .request-reasoning-chip.effort-medium {
+  color: #7c3aed;
+}
+
+#requestsTable .request-reasoning-chip.effort-high {
+  color: #c2410c;
+}

@@ -10515,7 +10515,7 @@
               <time datetime="${escapeHtml(requestTime.iso)}">${escapeHtml(requestTime.date)} ${escapeHtml(requestTime.time)}</time>
               ${requestFormatBadge(r)}
               ${r.stream ? `<span class="request-meta-chip request-stream-chip" data-tip="${escapeHtml(t("req.streaming"))}">${iconSvg("activity")}${escapeHtml(t("req.streaming"))}</span>` : ""}
-              ${r.reasoning_effort ? `<span class="request-meta-chip" data-tip="${escapeHtml(t("req.meta_effort"))}">${iconSvg("bolt")}${escapeHtml(r.reasoning_effort)}</span>` : ""}
+              ${r.reasoning_effort ? `<span class="request-meta-chip request-reasoning-chip effort-${escapeHtml(reasoningEffortTone(r.reasoning_effort))}" data-tip="${escapeHtml(t("req.meta_effort"))}">${iconSvg("bolt")}${escapeHtml(r.reasoning_effort)}</span>` : ""}
             </small>
           </span>
         </td>
@@ -10549,6 +10549,18 @@
 			const label = shortFormatLabel(displayFormat);
 			const tip = converted ? `${formatLabel(clientFormat)} → ${formatLabel(finalUpstreamFormat)}` : formatLabel(clientFormat);
 			return `<span class="request-meta-chip request-format-chip format-${escapeHtml(displayFormat === "chat_completions" ? "chat" : displayFormat === "responses" ? "responses" : displayFormat === "anthropic_messages" ? "messages" : "neutral")}${converted ? " is-converted" : ""}" data-tip="${escapeHtml(tip)}" aria-label="${escapeHtml(tip)}">${converted ? iconSvg("arrow-right-left") : ""}${escapeHtml(label)}</span>`;
+		}
+		function reasoningEffortTone(value) {
+			switch (String(value || "").trim().toLowerCase()) {
+				case "off": return "off";
+				case "minimal": return "minimal";
+				case "low": return "low";
+				case "medium": return "medium";
+				case "high":
+				case "xhigh":
+				case "extra_high": return "high";
+				default: return "default";
+			}
 		}
 		function requestTone(request) {
 			const code = Number(request?.status_code || 0);
