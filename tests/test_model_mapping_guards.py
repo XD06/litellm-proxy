@@ -164,3 +164,42 @@ class DriftDetectionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class UnionCollapseTests(unittest.TestCase):
+    def _cfg(self, status, models):
+        return {
+            "providers": {"deepseek": {"keys": ["k"], "formats": {"chat_completions": {"enabled": True, "path": "/v1/c"}}}},
+            "models": {
+                "provider_model_map": {"deepseek": {"deepseek-v4-flash-plus": "deepseek-v4-flash"}},
+                "provider_model_capabilities": {
+                    "deepseek": {
+                        "status": status,
+                        "models": models,
+                        "canonical_map": {m: m for m in models},
+                    }
+                },
+            },
+        }
+
+    def test_error_caps_with_data_does_not_collapse_union(self):
+        import model_registry as mr
+        mr.clear_cache()
+        cfg = self._cfg("error", ["deepseek-v4-flash", "deepseek-v4-pro", "deepseek-v4-flash-vision-exp"])
+        out = mr.rebuild_models_union_snapshot(cfg, router=None)
+        ids = [m["id"] for m in out["data"]]
+        self.assertIn("deepseek-v4-flash-plus", ids)
+        self.assertIn("deepseek-v4-pro", ids)
+        self.assertIn("deepseek-v4-flash-vision-exp", ids)
+        self.assertNotIn("deepseek-v4-flash", ids)  # hidden by manual alias
+        mr.clear_cache()
+
+    def test_ok_caps_union_normal(self):
+        import model_registry as mr
+        mr.clear_cache()
+        cfg = self._cfg("ok", ["deepseek-v4-flash", "deepseek-v4-pro"])
+        out = mr.rebuild_models_union_snapshot(cfg, router=None)
+        ids = [m["id"] for m in out["data"]]
+        self.assertEqual(sorted(ids), ["deepseek-v4-flash-plus", "deepseek-v4-pro"])
+        mr.clear_cache()
+

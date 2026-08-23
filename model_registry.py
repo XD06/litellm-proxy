@@ -729,8 +729,16 @@ def rebuild_models_union_snapshot(config: Dict[str, Any], router=None) -> Dict[s
                 pcfg = providers_cfg.get(provider_name) or {}
                 if not pcfg.get("enabled", True):
                     continue
-                if not isinstance(entry, dict) or entry.get("status") not in ("ok", "pending"):
+                if not isinstance(entry, dict):
                     continue
+                # ok/pending participate normally. An error-status entry whose
+                # models list survived (refresh failure keeps the last-known
+                # list) still contributes — dropping it would collapse the
+                # union down to manual aliases right after any rename that
+                # triggers a failed re-discovery.
+                if entry.get("status") not in ("ok", "pending"):
+                    if not (entry.get("status") == "error" and (entry.get("models") or entry.get("canonical_map"))):
+                        continue
                 canonical_map = entry.get("canonical_map") or {}
                 if isinstance(canonical_map, dict) and canonical_map:
                     model_ids.extend(
@@ -769,14 +777,20 @@ def rebuild_models_union_snapshot(config: Dict[str, Any], router=None) -> Dict[s
     if not provider:
         for pname, entry in (list(caps.items()) if isinstance(caps, dict) else []):
             pcfg = providers_cfg.get(str(pname)) or {}
-            if pcfg.get("enabled", True) and isinstance(entry, dict) and entry.get("status") == "ok":
+            if not (pcfg.get("enabled", True) and isinstance(entry, dict)):
+                continue
+            status = entry.get("status")
+            has_data = bool(entry.get("models") or entry.get("canonical_map"))
+            if status == "ok" or status == "stale" or (status == "error" and has_data):
                 provider = str(pname)
                 break
 
     model_ids = []
     if provider and isinstance(caps, dict):
         entry = caps.get(provider) or {}
-        if isinstance(entry, dict) and entry.get("status") == "ok":
+        _entry_status = entry.get("status") if isinstance(entry, dict) else ""
+        _entry_has_data = isinstance(entry, dict) and bool(entry.get("models") or entry.get("canonical_map"))
+        if isinstance(entry, dict) and (_entry_status in ("ok", "stale") or (_entry_status == "error" and _entry_has_data)):
             canonical_map = entry.get("canonical_map") or {}
             model_ids.extend(
                 str(mid)

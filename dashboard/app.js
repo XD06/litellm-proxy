@@ -10900,6 +10900,9 @@
 				fails: visibleKeys.reduce((sum, key) => sum + Number(key.fails || 0), 0)
 			};
 		}
+		function providerModelItemsCapability(provider) {
+			return state.data.status?.models?.providers?.[provider] || {};
+		}
 		function providerModelItems(name, capability) {
 			const items = mergeProviderModelCatalogItems(modelCapabilityItemsMemo(name, Array.isArray(capability.models) ? capability.models : [], capability.canonical_map || {}), state.data.config?.models?.provider_model_map?.[name] || {});
 			const visibleLabels = new Set(items.map((item) => String(item.label || "").trim().toLowerCase()));
@@ -12878,6 +12881,7 @@
             <code>${escapeHtml(rawModel)}</code>
           </div>
           ${isManual ? `<p class="model-map-hint">Empty name restores automatic mapping.</p>` : ""}
+          <div class="model-map-clash-warning" data-model-map-clash hidden></div>
           <div class="model-map-actions">
             <button class="model-map-action secondary" type="button" data-model-map-cancel title="Cancel" aria-label="Cancel">${iconSvg("x")}</button>
             ${isManual ? `<button class="model-map-action danger" type="button" data-model-map-reset title="Reset to automatic mapping" aria-label="Reset to automatic mapping">${iconSvg("trash")}</button>` : ""}
@@ -12902,10 +12906,31 @@
 				else if (resetBtn) resetBtn.disabled = false;
 			});
 			let mappingSubmitInFlight = false;
+			let clashAcknowledged = false;
+			const input = form.elements.model;
+			const submitBtn = form.querySelector("button[type=\"submit\"]");
+			const clashBox = form.querySelector("[data-model-map-clash]");
+			const defaultSubmitLabel = submitBtn?.innerHTML || "";
+			const findClash = (target) => {
+				if (!target) return null;
+				return providerModelItems(provider, providerModelItemsCapability(provider)).find((item) => {
+					const label = String(item.label || "").trim().toLowerCase();
+					const raw = String(item.raw || "").trim();
+					return label === String(target).trim().toLowerCase() && raw !== String(rawModel).trim() && label !== String(oldModel || "").trim().toLowerCase();
+				}) || null;
+			};
+			const resetClashUi = () => {
+				clashAcknowledged = false;
+				if (clashBox) clashBox.hidden = true;
+				if (submitBtn) {
+					submitBtn.innerHTML = defaultSubmitLabel;
+					submitBtn.classList.remove("is-danger");
+				}
+			};
+			input?.addEventListener("input", resetClashUi);
 			form.addEventListener("submit", async (event) => {
 				event.preventDefault();
 				if (mappingSubmitInFlight) return;
-				const input = form.elements.model;
 				const nextModel = String(input?.value || "").trim();
 				if (!nextModel && !isManual) {
 					setNotice(t("notice.model_mapping_required"), "bad");
@@ -12916,38 +12941,34 @@
 					closeFormModal();
 					return;
 				}
-				mappingSubmitInFlight = true;
-				const submit = form.querySelector("button[type=\"submit\"]");
-				if (submit) submit.disabled = true;
-				try {
-					if (nextModel) {
-						const clash = providerModelItems(provider, state.data.status?.models?.providers?.[provider] || {}).find((item) => {
-							const label = String(item.label || "").trim().toLowerCase();
-							const raw = String(item.raw || "").trim();
-							return label === String(nextModel).trim().toLowerCase() && raw !== String(rawModel).trim() && label !== String(oldModel || "").trim().toLowerCase();
-						});
-						if (clash) {
-							if (!await openConfirmDialog({
-								title: t("modal.mapping_clash_title"),
-								message: t("modal.mapping_clash_msg", {
-									editingRaw: rawModel,
-									name: nextModel,
-									ownerRaw: clash.raw || rawModel
-								}),
-								acceptLabel: t("modal.mapping_clash_accept")
-							})) {
-								input?.focus();
-								return;
-							}
-						}
+				const clash = findClash(nextModel);
+				if (clash && !clashAcknowledged) {
+					clashAcknowledged = true;
+					if (clashBox) {
+						clashBox.innerHTML = `${iconSvg("alert")}<div><strong>${escapeHtml(t("modal.mapping_clash_title"))}</strong><small>${escapeHtml(t("modal.mapping_clash_msg", {
+							editingRaw: rawModel,
+							name: nextModel,
+							ownerRaw: clash.raw || rawModel
+						}))}</small></div>`;
+						clashBox.hidden = false;
 					}
+					if (submitBtn) {
+						submitBtn.innerHTML = `${iconSvg("alert")} ${escapeHtml(t("modal.mapping_clash_accept"))}`;
+						submitBtn.classList.add("is-danger");
+					}
+					input?.focus();
+					return;
+				}
+				mappingSubmitInFlight = true;
+				if (submitBtn) submitBtn.disabled = true;
+				try {
 					if (await updateProviderModelMapping(provider, providerModelMappingOldId({
 						label: oldModel,
 						manual: isManual
 					}), rawModel, nextModel)) closeFormModal();
 				} finally {
 					mappingSubmitInFlight = false;
-					if (submit) submit.disabled = false;
+					if (submitBtn) submitBtn.disabled = false;
 				}
 			});
 		}

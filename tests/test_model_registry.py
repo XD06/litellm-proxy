@@ -577,10 +577,13 @@ class ModelRegistryTests(unittest.TestCase):
         result = model_registry.models_from_capabilities(cfg, FakeRouter())
 
         self.assertEqual(cfg["models"]["provider_model_capabilities"]["alpha"]["status"], "error")
-        # Error-status provider alpha should NOT contribute stale models.
+        # A failed refresh keeps the last-known model list (the chat endpoint
+        # may still work; discovery flakiness must not make models vanish from
+        # /v1/models — that was the root of "models disappear for no reason").
+        # The stale list is replaced by the next SUCCESSFUL discovery instead.
         model_ids = [m["id"] for m in result["data"]]
-        self.assertNotIn("alpha-model", model_ids)
-        # Healthy provider beta should still contribute its models.
+        self.assertIn("alpha-model", model_ids)
+        # Healthy provider beta still contributes its models.
         self.assertIn("beta-model", model_ids)
         self.assertNotIn("alpha-key", cfg["models"]["provider_model_capabilities"]["alpha"]["error"])
 

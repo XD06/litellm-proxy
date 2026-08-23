@@ -28297,3 +28297,43 @@ body.is-auth-checking {
 #requestsTable .request-reasoning-chip.effort-high {
   color: #c2410c;
 }
+
+/* Mapping modal: in-form clash warning (two-stage confirm) */
+.model-map-clash-warning {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border: 1px solid rgba(209, 67, 31, 0.4);
+  border-radius: 8px;
+  background: var(--warning-soft);
+}
+
+.model-map-clash-warning .icon-svg {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  color: var(--warning);
+}
+
+.model-map-clash-warning strong {
+  display: block;
+  color: var(--warning);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.model-map-clash-warning small {
+  display: block;
+  margin-top: 2px;
+  color: #7c2d12;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.model-map-actions .model-map-action.is-danger {
+  border-color: var(--warning);
+  color: var(--warning);
+}

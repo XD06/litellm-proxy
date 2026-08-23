@@ -5211,6 +5211,13 @@ import {
     return { total, usable, runtimeEnabled, cooldown, fails };
   }
 
+  function providerModelItemsCapability(provider) {
+    // Single source of truth for the capability snapshot used by the drawer
+    // catalog and the mapping clash guard (populated from
+    // /-/admin/models/capabilities via acceptModelCapabilities).
+    return state.data.status?.models?.providers?.[provider] || {};
+  }
+
   function providerModelItems(name, capability) {
     // modelCapabilityItemsMemo returns a shared cached array; copy it before
     // appending the provider-specific provider_model_map / route entries so the
@@ -7510,6 +7517,7 @@ import {
             <code>${escapeHtml(rawModel)}</code>
           </div>
           ${isManual ? `<p class="model-map-hint">Empty name restores automatic mapping.</p>` : ""}
+          <div class="model-map-clash-warning" data-model-map-clash hidden></div>
           <div class="model-map-actions">
             <button class="model-map-action secondary" type="button" data-model-map-cancel title="Cancel" aria-label="Cancel">${iconSvg("x")}</button>
             ${isManual ? `<button class="model-map-action danger" type="button" data-model-map-reset title="Reset to automatic mapping" aria-label="Reset to automatic mapping">${iconSvg("trash")}</button>` : ""}
@@ -7537,10 +7545,35 @@ import {
       else if (resetBtn) resetBtn.disabled = false;
     });
     let mappingSubmitInFlight = false;
+    let clashAcknowledged = false;
+    const input = form.elements.model;
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const clashBox = form.querySelector("[data-model-map-clash]");
+    const defaultSubmitLabel = submitBtn?.innerHTML || "";
+    const findClash = (target) => {
+      if (!target) return null;
+      const capability = providerModelItemsCapability(provider);
+      const rows = providerModelItems(provider, capability);
+      return rows.find((item) => {
+        const label = String(item.label || "").trim().toLowerCase();
+        const raw = String(item.raw || "").trim();
+        return label === String(target).trim().toLowerCase()
+          && raw !== String(rawModel).trim()
+          && label !== String(oldModel || "").trim().toLowerCase();
+      }) || null;
+    };
+    const resetClashUi = () => {
+      clashAcknowledged = false;
+      if (clashBox) clashBox.hidden = true;
+      if (submitBtn) {
+        submitBtn.innerHTML = defaultSubmitLabel;
+        submitBtn.classList.remove("is-danger");
+      }
+    };
+    input?.addEventListener("input", resetClashUi);
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       if (mappingSubmitInFlight) return;
-      const input = form.elements.model;
       const nextModel = String(input?.value || "").trim();
       if (!nextModel && !isManual) {
         setNotice(t("notice.model_mapping_required"), "bad");
@@ -7551,41 +7584,32 @@ import {
         closeFormModal();
         return;
       }
-      // Disable immediately (before any await) so the clash confirmation
-      // dialog cannot be bypassed by a second click mid-flight.
-      mappingSubmitInFlight = true;
-      const submit = form.querySelector('button[type="submit"]');
-      if (submit) submit.disabled = true;
-      try {
-        // P1 protect: when the target name already belongs to a DIFFERENT raw
-        // model, spell out BOTH identities and the consequence — the user must
-        // know exactly which model they are renaming and which one loses the name.
-        if (nextModel) {
-          const capability = state.data.status?.models?.providers?.[provider] || {};
-          const rows = providerModelItems(provider, capability);
-          const clash = rows.find((item) => {
-            const label = String(item.label || "").trim().toLowerCase();
-            const raw = String(item.raw || "").trim();
-            return label === String(nextModel).trim().toLowerCase()
-              && raw !== String(rawModel).trim()
-              && label !== String(oldModel || "").trim().toLowerCase();
-          });
-          if (clash) {
-            const accepted = await openConfirmDialog({
-              title: t("modal.mapping_clash_title"),
-              message: t("modal.mapping_clash_msg", {
-                editingRaw: rawModel,
-                name: nextModel,
-                ownerRaw: clash.raw || rawModel,
-              }),
-              acceptLabel: t("modal.mapping_clash_accept"),
-            });
-            if (!accepted) {
-              input?.focus();
-              return;
-            }
-          }
+      // Two-stage clash guard: the FIRST save click renders an in-form
+      // warning naming BOTH models (the one being edited and the current
+      // owner of the target name) and flips the button to an explicit
+      // "rename anyway" state; only the SECOND click submits. This keeps
+      // the confirmation in context, right next to the raw-model hero.
+      const clash = findClash(nextModel);
+      if (clash && !clashAcknowledged) {
+        clashAcknowledged = true;
+        if (clashBox) {
+          clashBox.innerHTML = `${iconSvg("alert")}<div><strong>${escapeHtml(t("modal.mapping_clash_title"))}</strong><small>${escapeHtml(t("modal.mapping_clash_msg", {
+            editingRaw: rawModel,
+            name: nextModel,
+            ownerRaw: clash.raw || rawModel,
+          }))}</small></div>`;
+          clashBox.hidden = false;
         }
+        if (submitBtn) {
+          submitBtn.innerHTML = `${iconSvg("alert")} ${escapeHtml(t("modal.mapping_clash_accept"))}`;
+          submitBtn.classList.add("is-danger");
+        }
+        input?.focus();
+        return;
+      }
+      mappingSubmitInFlight = true;
+      if (submitBtn) submitBtn.disabled = true;
+      try {
         const saved = await updateProviderModelMapping(
           provider,
           providerModelMappingOldId({ label: oldModel, manual: isManual }),
@@ -7595,7 +7619,7 @@ import {
         if (saved) closeFormModal();
       } finally {
         mappingSubmitInFlight = false;
-        if (submit) submit.disabled = false;
+        if (submitBtn) submitBtn.disabled = false;
       }
     });
   }
