@@ -314,6 +314,12 @@ def render_request(
                         },
                     }
                 )
+        if turn.role == "assistant" and not calls and not reasoning and not message.get("content"):
+            # The whole turn was dropped during conversion (e.g. opaque
+            # reasoning-only turn); emitting an empty assistant message would
+            # confuse upstream providers, so skip it entirely.
+            report.add(f"turns.role:{turn.role}", "safe_drop", detail="assistant turn omitted: no renderable content survived conversion")
+            continue
         messages.append(message)
 
     payload: Dict[str, Any] = {

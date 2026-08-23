@@ -91,7 +91,10 @@ def analyze_ir_compatibility(request: AgentRequest, target_format: str, report: 
                 elif meaningful:
                     report.add(field, "safe_drop", detail="opaque reasoning omitted while visible turn semantics remain")
                 else:
-                    report.add(field, "block", detail="opaque reasoning is the only content in this assistant turn")
+                    # Dropping the reasoning also empties the assistant turn, but the
+                    # renderers skip (Chat) or placeholder (Anthropic) empty turns, so
+                    # the conversion stays semantically safe instead of failing hard.
+                    report.add(field, "safe_drop", detail="opaque reasoning-only assistant turn omitted together with the emptied turn")
             elif block.kind == "opaque":
                 block_type = str(block.raw.get("type") or "unknown")
                 report.add(field, "block", detail=f"unsupported {request.source_format} content item: {block_type}")

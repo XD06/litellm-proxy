@@ -119,7 +119,9 @@ def prepare_request_conversion(
         )
     except ConversionError as exc:
         if exc.code == "conversion_blocked":
-            raise ParameterCompatibilityError(str(exc)) from exc
+            # Preserve the real code; a generic ParameterCompatibilityError would
+            # mislabel every blocked conversion as an output-token-limit problem.
+            raise ParameterCompatibilityError(str(exc), code=exc.code, field=exc.field) from exc
         raise
     converted = prepared.payload
 
