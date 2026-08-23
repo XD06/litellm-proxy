@@ -2551,6 +2551,10 @@
 				en: "Stage enable",
 				zh: "暂存启用"
 			},
+			"prov.models.legacy_route_notice": {
+				en: "Routes still reference legacy name(s) {names}, now replaced by alias {alias}. Update the route to use the alias.",
+				zh: "路由仍引用旧名称 {names}，已由别名 {alias} 取代。建议将路由更新为别名。"
+			},
 			"prov.models.editing_mapping_for": {
 				en: "Editing mapping for",
 				zh: "正在编辑映射"
@@ -7175,6 +7179,8 @@
 			state.formModalLastFocus = document.activeElement;
 			el("formModalTitle").textContent = title || "";
 			el("formModalSubtitle").textContent = subtitle || "";
+			body.replaceChildren();
+			_renderedHtmlByTarget.delete(body);
 			updateDOM(body, bodyHtml);
 			backdrop.hidden = false;
 			dialog.classList.add("is-open");
@@ -10904,11 +10910,25 @@
 			return state.data.status?.models?.providers?.[provider] || {};
 		}
 		function providerModelItems(name, capability) {
-			const items = mergeProviderModelCatalogItems(modelCapabilityItemsMemo(name, Array.isArray(capability.models) ? capability.models : [], capability.canonical_map || {}), state.data.config?.models?.provider_model_map?.[name] || {});
+			const base = modelCapabilityItemsMemo(name, Array.isArray(capability.models) ? capability.models : [], capability.canonical_map || {});
+			const configuredMap = state.data.config?.models?.provider_model_map?.[name] || {};
+			const items = mergeProviderModelCatalogItems(base, configuredMap);
 			const visibleLabels = new Set(items.map((item) => String(item.label || "").trim().toLowerCase()));
+			const claimedRaws = new Set(Object.values(configuredMap || {}).filter((raw) => String(raw || "").trim()).map((raw) => String(raw).trim().toLowerCase()));
+			const replacedLegacyNames = /* @__PURE__ */ new Set();
+			base.forEach((item) => {
+				const raw = String(item?.raw || item?.label || "").trim().toLowerCase();
+				const label = String(item?.label || "").trim().toLowerCase();
+				if (raw && claimedRaws.has(raw) && !visibleLabels.has(label)) replacedLegacyNames.add(String(item?.label || "").trim());
+			});
+			const legacyRouteRefs = [];
 			providerRouteModels(name).forEach((model) => {
 				const normalized = String(model || "").trim().toLowerCase();
 				if (!normalized || visibleLabels.has(normalized)) return;
+				if (replacedLegacyNames.has(String(model || "").trim())) {
+					legacyRouteRefs.push(String(model || "").trim());
+					return;
+				}
 				items.push({
 					label: model,
 					raw: "",
@@ -10917,7 +10937,7 @@
 				});
 				visibleLabels.add(normalized);
 			});
-			return items.map((item) => {
+			const mappedItems = items.map((item) => {
 				const sourceModel = providerModelSourceId(item);
 				return {
 					...item,
@@ -10926,6 +10946,8 @@
 					pending: Object.prototype.hasOwnProperty.call(providerModelDraft(name), sourceModel)
 				};
 			});
+			mappedItems.legacyRouteRefs = legacyRouteRefs;
+			return mappedItems;
 		}
 		function providerModelDisabledMap(provider) {
 			const disabled = state.data.config?.models?.provider_model_disabled?.[provider] || {};
@@ -11743,6 +11765,7 @@
 			const keyCapabilities = Array.isArray(capability.keys) ? capability.keys : [];
 			const configuredVariants = state.data.config?.models?.provider_model_variants?.[view.name] || {};
 			const modelItems = view.modelItems;
+			const legacyRouteRefs = Array.isArray(modelItems?.legacyRouteRefs) ? modelItems.legacyRouteRefs : [];
 			const visibleItems = filteredProviderModelItems(modelItems);
 			const largeCatalog = visibleItems.length > 24;
 			const disabledCount = modelItems.filter((item) => item.disabled).length;
@@ -11822,6 +11845,14 @@
               aria-label="${escapeHtml(t("prov.models.enable_shown"))}"
               ${visibleItems.length ? "" : "disabled"}>${iconSvg("eye")}</button>
           </div>
+          ${legacyRouteRefs.length ? `
+          <div class="provider-model-legacy-notice">
+            ${iconSvg("alert")}
+            <span>${escapeHtml(t("prov.models.legacy_route_notice", {
+				names: legacyRouteRefs.join(", "),
+				alias: Object.entries(state.data.config?.models?.provider_model_map?.[view.name] || {}).map(([c, r]) => [r, c]).filter(([r]) => legacyRouteRefs.some((n) => String(n).toLowerCase() === String(r).toLowerCase())).map(([, c]) => c).join(", ")
+			}))}</span>
+          </div>` : ""}
           <div class="model-chip-list provider-drawer-models" role="list" ${largeCatalog ? `aria-label="${escapeHtml(t("prov.models.visible_count", { count: fmtInt(visibleItems.length) }))}"` : ""}>
             ${visibleItems.length ? visibleItems.slice(0, 100).map((item) => `
               <span class="model-map-chip provider-model-chip ${item.disabled ? "is-disabled" : ""} ${item.pending ? "is-pending" : ""} ${item.manual ? "is-manual-map" : ""}" role="listitem">

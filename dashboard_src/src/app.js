@@ -1102,6 +1102,11 @@ import {
     state.formModalLastFocus = document.activeElement;
     el("formModalTitle").textContent = title || "";
     el("formModalSubtitle").textContent = subtitle || "";
+    // Modal forms attach direct event handlers which close over the current
+    // model/provider. Reusing their nodes through morphdom retains those old
+    // handlers, so every open must start with a fresh body subtree.
+    body.replaceChildren();
+    _renderedHtmlByTarget.delete(body);
     updateDOM(body, bodyHtml);
     backdrop.hidden = false;
     dialog.classList.add("is-open");
@@ -5230,13 +5235,36 @@ import {
     const configuredMap = state.data.config?.models?.provider_model_map?.[name] || {};
     const items = mergeProviderModelCatalogItems(base, configuredMap);
     const visibleLabels = new Set(items.map((item) => String(item.label || "").trim().toLowerCase()));
+    // Discovered canonicals whose raw is claimed by a manual alias are legacy
+    // names replaced by that alias. A route still referencing such a legacy
+    // name must surface as a migration hint, NOT resurrect the old row —
+    // resurrecting it was the root of "the original id still shows up after
+    // renaming" and offered yet another row to mis-click.
+    const claimedRaws = new Set(
+      Object.values(configuredMap || {})
+        .filter((raw) => String(raw || "").trim())
+        .map((raw) => String(raw).trim().toLowerCase()),
+    );
+    const replacedLegacyNames = new Set();
+    base.forEach((item) => {
+      const raw = String(item?.raw || item?.label || "").trim().toLowerCase();
+      const label = String(item?.label || "").trim().toLowerCase();
+      if (raw && claimedRaws.has(raw) && !visibleLabels.has(label)) {
+        replacedLegacyNames.add(String(item?.label || "").trim());
+      }
+    });
+    const legacyRouteRefs = [];
     providerRouteModels(name).forEach((model) => {
       const normalized = String(model || "").trim().toLowerCase();
       if (!normalized || visibleLabels.has(normalized)) return;
+      if (replacedLegacyNames.has(String(model || "").trim())) {
+        legacyRouteRefs.push(String(model || "").trim());
+        return;
+      }
       items.push({ label: model, raw: "", title: model, manual: false });
       visibleLabels.add(normalized);
     });
-    return items.map((item) => {
+    const mappedItems = items.map((item) => {
       const sourceModel = providerModelSourceId(item);
       return {
         ...item,
@@ -5245,6 +5273,9 @@ import {
         pending: Object.prototype.hasOwnProperty.call(providerModelDraft(name), sourceModel),
       };
     });
+    // Array#map drops custom properties — re-attach the legacy-route hint.
+    mappedItems.legacyRouteRefs = legacyRouteRefs;
+    return mappedItems;
   }
 
   function providerModelDisabledMap(provider) {
@@ -6312,6 +6343,7 @@ import {
     const keyCapabilities = Array.isArray(capability.keys) ? capability.keys : [];
     const configuredVariants = state.data.config?.models?.provider_model_variants?.[view.name] || {};
     const modelItems = view.modelItems;
+    const legacyRouteRefs = Array.isArray(modelItems?.legacyRouteRefs) ? modelItems.legacyRouteRefs : [];
     const visibleItems = filteredProviderModelItems(modelItems);
     const largeCatalog = visibleItems.length > 24;
     const disabledCount = modelItems.filter((item) => item.disabled).length;
@@ -6394,6 +6426,11 @@ import {
               aria-label="${escapeHtml(t("prov.models.enable_shown"))}"
               ${visibleItems.length ? "" : "disabled"}>${iconSvg("eye")}</button>
           </div>
+          ${legacyRouteRefs.length ? `
+          <div class="provider-model-legacy-notice">
+            ${iconSvg("alert")}
+            <span>${escapeHtml(t("prov.models.legacy_route_notice", { names: legacyRouteRefs.join(", "), alias: (Object.entries(state.data.config?.models?.provider_model_map?.[view.name] || {}).map(([c, r]) => [r, c])).filter(([r]) => legacyRouteRefs.some(n => String(n).toLowerCase() === String(r).toLowerCase())).map(([, c]) => c).join(", ") }))}</span>
+          </div>` : ""}
           <div class="model-chip-list provider-drawer-models" role="list" ${largeCatalog ? `aria-label="${escapeHtml(t("prov.models.visible_count", { count: fmtInt(visibleItems.length) }))}"` : ""}>
             ${visibleItems.length ? visibleItems.slice(0, 100).map((item) => `
               <span class="model-map-chip provider-model-chip ${item.disabled ? "is-disabled" : ""} ${item.pending ? "is-pending" : ""} ${item.manual ? "is-manual-map" : ""}" role="listitem">

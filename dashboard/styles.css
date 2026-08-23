@@ -28337,3 +28337,24 @@ body.is-auth-checking {
   border-color: var(--warning);
   color: var(--warning);
 }
+
+/* Provider drawer: legacy route name migration notice */
+.provider-model-legacy-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  border: 1px solid rgba(209, 67, 31, 0.35);
+  border-radius: 8px;
+  background: var(--warning-soft);
+  color: #7c2d12;
+  font-size: 12px;
+}
+
+.provider-model-legacy-notice .icon-svg {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  color: var(--warning);
+}

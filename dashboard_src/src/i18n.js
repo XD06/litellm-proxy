@@ -534,6 +534,7 @@ const dict = {
   "prov.models.enable_shown": { en: "Enable shown models", zh: "启用显示的模型" },
   "prov.models.stage_disable": { en: "Stage disable", zh: "暂存禁用" },
   "prov.models.stage_enable": { en: "Stage enable", zh: "暂存启用" },
+  "prov.models.legacy_route_notice": { en: "Routes still reference legacy name(s) {names}, now replaced by alias {alias}. Update the route to use the alias.", zh: "路由仍引用旧名称 {names}，已由别名 {alias} 取代。建议将路由更新为别名。" },
   "prov.models.editing_mapping_for": { en: "Editing mapping for", zh: "正在编辑映射" },
   "prov.models.raw_hero_hint": { en: "This is the exact upstream model id the proxy sends to the provider.", zh: "这是代理实际发往该供应商的上游真实模型 ID。" },
   "prov.models.edit_mapping": { en: "Edit model mapping", zh: "编辑模型映射" },
