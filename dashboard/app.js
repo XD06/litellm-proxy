@@ -8553,11 +8553,10 @@
 		}
 		function renderSettingsPricingCatalog() {
 			const target = el("settingsPricingCatalog");
-			const meta = el("settingsPricingCatalogMeta");
 			const paginationTarget = el("settingsPricingPagination");
 			if (!target) return;
+			bindSettingsPricingPagination(paginationTarget);
 			if (state.settingsPricingLoading || state.data.pricingCatalog === null) {
-				if (meta) meta.textContent = t("settings.pricing.catalog_loading");
 				updateDOM(target, `<div class="empty pad">${escapeHtml(t("model_usage.loading"))}</div>`);
 				updateDOM(paginationTarget, "");
 				return;
@@ -8575,11 +8574,6 @@
 				});
 			});
 			const query = state.settingsPricingQuery;
-			const filteredCount = query ? catalog.filter((item) => String(item.name).toLowerCase().includes(query)).length : catalog.length;
-			if (meta) meta.textContent = query && filteredCount !== catalog.length ? t("settings.pricing.catalog_filtered", {
-				count: fmtInt(filteredCount),
-				total: fmtInt(catalog.length)
-			}) : t("settings.pricing.catalog_meta", { count: fmtInt(catalog.length) });
 			if (!catalog.length) {
 				updateDOM(target, `
         <div class="usage-statistics-empty-state">
@@ -8641,15 +8635,6 @@
         </tbody>
       </table>`);
 			updateDOM(paginationTarget, pagination);
-			paginationTarget?.querySelectorAll("[data-settings-pricing-page]").forEach((button) => {
-				if (button.dataset.boundSettingsPricingPage) return;
-				button.dataset.boundSettingsPricingPage = "1";
-				button.addEventListener("click", () => {
-					if (button.disabled) return;
-					state.settingsPricingPage = Math.max(0, Number(button.dataset.settingsPricingPage || 0));
-					renderSettingsPricingCatalog();
-				});
-			});
 			target.querySelectorAll("[data-override-save]").forEach((button) => {
 				if (button.dataset.boundOverrideSave) return;
 				button.dataset.boundOverrideSave = "1";
@@ -8659,6 +8644,16 @@
 				if (button.dataset.boundOverrideClear) return;
 				button.dataset.boundOverrideClear = "1";
 				button.addEventListener("click", () => clearSettingsPricingOverride(button.dataset.overrideClear || "", button));
+			});
+		}
+		function bindSettingsPricingPagination(target) {
+			if (!target || target.dataset.boundSettingsPricingPagination) return;
+			target.dataset.boundSettingsPricingPagination = "1";
+			target.addEventListener("click", (event) => {
+				const button = event.target.closest?.("[data-settings-pricing-page]");
+				if (!button || !target.contains(button) || button.disabled) return;
+				state.settingsPricingPage = Math.max(0, Number(button.dataset.settingsPricingPage || 0));
+				renderSettingsPricingCatalog();
 			});
 		}
 		function settingsProxyToString(proxy) {
@@ -8699,7 +8694,9 @@
           <input class="control mono" name="proxy" type="text" value="${escapeHtml(settingsProxyToString(proxy))}" placeholder="http://127.0.0.1:10808" />
           <small>${escapeHtml(t("settings.ops.proxy_hint"))}</small>
         </label>
-        <button class="button primary" type="submit">${escapeHtml(t("settings.ops.save"))}</button>
+        <div class="settings-ops-form-actions">
+          <button class="button primary" type="submit">${escapeHtml(t("settings.ops.save"))}</button>
+        </div>
       </form>`, "proxy");
 		}
 		function settingsOpsRuntimeCard(routing, server) {
@@ -8722,7 +8719,9 @@
           ${numberField("first_token_timeout_s", "settings.ops.first_token_timeout", routing.first_token_timeout_s)}
           ${numberField("agent_first_event_timeout_s", "settings.ops.agent_timeout", routing.agent_first_event_timeout_s)}
         </div>
-        <button class="button primary" type="submit">${escapeHtml(t("settings.ops.save"))}</button>
+        <div class="settings-ops-form-actions">
+          <button class="button primary" type="submit">${escapeHtml(t("settings.ops.save"))}</button>
+        </div>
       </form>`, "runtime");
 		}
 		function settingsOpsOverlayCard(config) {

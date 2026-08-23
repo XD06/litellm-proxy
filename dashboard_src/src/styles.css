@@ -28009,14 +28009,26 @@ body.is-auth-checking {
   word-break: normal;
 }
 
+.settings-ops-form-actions,
 .settings-ops-actions {
   display: flex;
+  align-items: center;
+  justify-content: flex-end;
   gap: 8px;
+  margin-top: 4px;
+  flex-wrap: wrap;
 }
 
+.settings-ops-form-actions .button,
 .settings-ops-actions .button {
-  flex: 1;
-  justify-content: center;
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 124px;
+  min-height: 36px;
+  padding: 0 16px;
+  border-radius: 1rem;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .settings-danger-btn {
