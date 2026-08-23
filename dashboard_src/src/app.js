@@ -755,7 +755,7 @@ import {
     "#providersTable",
     "#modelCapabilities",
     "#settingsOpsGrid",
-    "#settingsPricingOverrides",
+    "#settingsPricingCatalog",
     "#keyDrawerBody",
   ];
 
@@ -2314,6 +2314,21 @@ import {
         loadSettingsPricingCatalog();
       });
     }
+    const fetchButton = el("settingsPricingFetch");
+    if (fetchButton && !fetchButton.dataset.boundSettingsPricingFetch) {
+      fetchButton.dataset.boundSettingsPricingFetch = "1";
+      fetchButton.addEventListener("click", () => fetchSettingsPricingModel());
+    }
+    const fetchInput = el("settingsPricingFetchModel");
+    if (fetchInput && !fetchInput.dataset.boundSettingsPricingFetchInput) {
+      fetchInput.dataset.boundSettingsPricingFetchInput = "1";
+      fetchInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          fetchSettingsPricingModel();
+        }
+      });
+    }
     const queryInput = el("settingsPricingQuery");
     if (queryInput && !queryInput.dataset.boundSettingsPricingQuery) {
       queryInput.dataset.boundSettingsPricingQuery = "1";
@@ -2557,29 +2572,11 @@ import {
   }
 
   function settingsPricingOverrides() {
-    const providers = (state.data.config || {}).providers || {};
-    const rows = [];
-    Object.entries(providers).forEach(([name, pcfg]) => {
-      const pricing = (pcfg || {}).pricing || {};
-      const models = pricing.models || {};
-      Object.entries(models).forEach(([model, mp]) => {
-        rows.push({
-          provider: name,
-          model,
-          input: mp?.input_per_million,
-          output: mp?.output_per_million,
-        });
-      });
-      if ((pricing.input_per_million || pricing.output_per_million) && !Object.keys(models).length) {
-        rows.push({ provider: name, model: "*", input: pricing.input_per_million, output: pricing.output_per_million });
-      }
-    });
-    rows.sort((a, b) => String(a.provider).localeCompare(String(b.provider)) || String(a.model).localeCompare(String(b.model)));
-    return rows;
+    const overrides = ((state.data.config || {}).models || {}).pricing_overrides || {};
+    return overrides;
   }
 
   function renderSettingsPricing() {
-    renderSettingsPricingOverrides();
     renderSettingsPricingCatalog();
   }
 
@@ -2589,89 +2586,87 @@ import {
     return String(Number(num.toFixed(4)));
   }
 
-  function renderSettingsPricingOverrides() {
-    const target = el("settingsPricingOverrides");
-    if (!target) return;
-    const rows = settingsPricingOverrides();
-    if (!rows.length) {
-      updateDOM(target, `
-        <div class="usage-statistics-empty-state">
-          ${iconSvg("dollar")}
-          <span>
-            <strong>${escapeHtml(t("settings.pricing.overrides_empty_title"))}</strong>
-            <small>${escapeHtml(t("settings.pricing.overrides_empty_hint"))}</small>
-          </span>
-        </div>`);
+  async function saveSettingsPricingOverride(model, button) {
+    const inputs = document.querySelectorAll(
+      `[data-override-model="${CSS.escape(model)}"]`,
+    );
+    const patch = { model };
+    let hasRate = false;
+    inputs.forEach((input) => {
+      const field = input.dataset.overrideField;
+      const raw = String(input.value || "").trim();
+      if (raw === "") return;
+      const value = Number(raw);
+      if (!Number.isFinite(value) || value < 0) return;
+      patch[field] = value;
+      hasRate = true;
+    });
+    if (!hasRate) {
+      setNotice(t("settings.pricing.override_empty"), "bad");
       return;
     }
-    if (shouldPreserveContainer("#settingsPricingOverrides")) return;
-    updateDOM(target, `
-      <table class="data-table settings-pricing-table">
-        <thead><tr>
-          <th>${escapeHtml(t("settings.pricing.col_provider"))}</th>
-          <th>${escapeHtml(t("settings.pricing.col_model"))}</th>
-          <th class="num">${escapeHtml(t("settings.pricing.col_input"))}</th>
-          <th class="num">${escapeHtml(t("settings.pricing.col_output"))}</th>
-          <th></th>
-        </tr></thead>
-        <tbody>
-          ${rows.map((row) => `
-            <tr>
-              <td><span class="settings-model-identity">${providerBrandIconMarkup(row.provider, iconSvg("server"))}<strong>${escapeHtml(row.provider)}</strong></span></td>
-              <td class="mono"><span class="settings-model-identity">${modelBrandIconMarkup(row.model, iconSvg("boxes"))}<strong>${escapeHtml(row.model)}</strong></span></td>
-              <td class="num"><input class="settings-price-input mono" type="number" step="any" min="0" value="${settingsPriceText(row.input) === "—" ? "" : settingsPriceText(row.input)}" data-price-provider="${escapeHtml(row.provider)}" data-price-model="${escapeHtml(row.model)}" data-price-field="input" aria-label="${escapeHtml(row.provider)} ${escapeHtml(row.model)} input" /></td>
-              <td class="num"><input class="settings-price-input mono" type="number" step="any" min="0" value="${settingsPriceText(row.output) === "—" ? "" : settingsPriceText(row.output)}" data-price-provider="${escapeHtml(row.provider)}" data-price-model="${escapeHtml(row.model)}" data-price-field="output" aria-label="${escapeHtml(row.provider)} ${escapeHtml(row.model)} output" /></td>
-              <td class="cell-actions"><button class="button secondary" type="button" data-price-save="${escapeHtml(row.provider)}">${escapeHtml(t("settings.pricing.save"))}</button></td>
-            </tr>`).join("")}
-        </tbody>
-      </table>`);
-    bindSettingsPricingOverrides(target);
-  }
-
-  function bindSettingsPricingOverrides(target) {
-    target.querySelectorAll("[data-price-save]").forEach((button) => {
-      if (button.dataset.boundPriceSave) return;
-      button.dataset.boundPriceSave = "1";
-      button.addEventListener("click", () => saveSettingsPricingOverrides(button.dataset.priceSave || "", button));
-    });
-  }
-
-  async function saveSettingsPricingOverrides(provider, button) {
-    const providerCfg = ((state.data.config || {}).providers || {})[provider] || {};
-    const inputs = document.querySelectorAll(
-      `[data-price-provider="${CSS.escape(provider)}"]`,
-    );
-    if (!inputs.length) return;
-    const updates = {};
-    inputs.forEach((input) => {
-      const model = input.dataset.priceModel || "*";
-      updates[model] = updates[model] || {};
-      updates[model][input.dataset.priceField] = Number(input.value || 0);
-    });
-    const pricing = JSON.parse(JSON.stringify(providerCfg.pricing || {}));
-    pricing.models = pricing.models || {};
-    Object.entries(updates).forEach(([model, fields]) => {
-      if (model === "*") {
-        if (fields.input != null) pricing.input_per_million = fields.input;
-        if (fields.output != null) pricing.output_per_million = fields.output;
-        return;
-      }
-      pricing.models[model] = {
-        ...(pricing.models[model] || {}),
-        input_per_million: fields.input ?? Number(pricing.models[model]?.input_per_million ?? 0),
-        output_per_million: fields.output ?? Number(pricing.models[model]?.output_per_million ?? 0),
-      };
-    });
     button.disabled = true;
     try {
-      const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { pricing });
+      const result = await apiPatch("/-/admin/models/pricing", patch);
       applyMutationResult(result);
-      setNotice(t("notice.saved"), "ok");
+      setNotice(t("settings.pricing.override_saved", { model }), "ok");
       scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
     } catch (err) {
       setNotice(t("notice.config_update_failed", { error: err.message }), "bad");
     } finally {
       button.disabled = false;
+    }
+  }
+
+  async function clearSettingsPricingOverride(model, button) {
+    button.disabled = true;
+    try {
+      const result = await apiPost("/-/admin/models/pricing/delete", { model });
+      applyMutationResult(result);
+      setNotice(t("settings.pricing.override_cleared", { model }), "ok");
+      scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
+    } catch (err) {
+      setNotice(t("notice.config_update_failed", { error: err.message }), "bad");
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  async function fetchSettingsPricingModel() {
+    const input = el("settingsPricingFetchModel");
+    const button = el("settingsPricingFetch");
+    const model = String(input?.value || "").trim();
+    if (!model) {
+      input?.focus();
+      return;
+    }
+    button.disabled = true;
+    const label = button.textContent;
+    button.textContent = t("settings.pricing.fetching");
+    try {
+      const response = await apiGet(`/-/admin/model-summary/${encodeURIComponent(model)}?refresh=true`);
+      const pricing = response?.summary?.pricing || response?.pricing || {};
+      const resolvedName = String(response?.model || response?.summary?.name || model);
+      if (pricing.input != null || pricing.output != null) {
+        setNotice(t("settings.pricing.fetched", {
+          model: resolvedName,
+          input: settingsPriceText(pricing.input),
+          output: settingsPriceText(pricing.output),
+        }), "ok");
+      } else {
+        setNotice(t("settings.pricing.fetched_no_price", { model: resolvedName }), "bad");
+      }
+      state.data.pricingCatalog = null;
+      state.settingsPricingPage = 0;
+      state.settingsPricingQuery = resolvedName.toLowerCase();
+      const filterInput = el("settingsPricingQuery");
+      if (filterInput) filterInput.value = resolvedName;
+      await loadSettingsPricingCatalog();
+    } catch (err) {
+      setNotice(t("settings.pricing.fetch_failed", { model, error: err.message }), "bad");
+    } finally {
+      button.disabled = false;
+      button.textContent = label;
     }
   }
 
@@ -2684,7 +2679,15 @@ import {
       updateDOM(target, `<div class="empty pad">${escapeHtml(t("model_usage.loading"))}</div>`);
       return;
     }
-    const catalog = state.data.pricingCatalog || [];
+    const catalog = [...(state.data.pricingCatalog || [])];
+    const overrides = settingsPricingOverrides();
+    // Manual overrides that are not in the cached catalog still deserve a row.
+    const catalogNames = new Set(catalog.map((item) => String(item.name).toLowerCase()));
+    Object.keys(overrides).forEach((model) => {
+      if (overrides[model] && typeof overrides[model] === "object" && !catalogNames.has(String(model).toLowerCase())) {
+        catalog.push({ name: model, input: null, output: null, cache_hit: null, manualOnly: true });
+      }
+    });
     const query = state.settingsPricingQuery;
     const filteredCount = query
       ? catalog.filter((item) => String(item.name).toLowerCase().includes(query)).length
@@ -2719,24 +2722,39 @@ import {
           <button class="icon-button" type="button" data-settings-pricing-page="${page}" aria-label="${escapeHtml(t("req.next_page"))}" ${page >= pages ? "disabled" : ""}>${iconSvg("chevron-right")}</button>
         </span>
       </div>`;
+    const overrideFor = (name) => {
+      const lowered = String(name).toLowerCase();
+      return Object.entries(overrides).find(([key]) => String(key).toLowerCase() === lowered)?.[1] || null;
+    };
     updateDOM(target, `
       <table class="data-table settings-pricing-table">
         <thead><tr>
-          <th>#</th>
           <th>${escapeHtml(t("settings.pricing.col_model"))}</th>
           <th class="num">${escapeHtml(t("settings.pricing.col_input"))}</th>
           <th class="num">${escapeHtml(t("settings.pricing.col_output"))}</th>
           <th class="num">${escapeHtml(t("settings.pricing.col_cache_read"))}</th>
+          <th class="num">${escapeHtml(t("settings.pricing.col_override_in"))}</th>
+          <th class="num">${escapeHtml(t("settings.pricing.col_override_out"))}</th>
+          <th></th>
         </tr></thead>
         <tbody>
-          ${rows.map((item, index) => `
-            <tr>
-              <td class="mono settings-pricing-rank">${escapeHtml(String(offset + index + 1).padStart(2, "0"))}</td>
-              <td class="mono"><span class="settings-model-identity">${modelBrandIconMarkup(item.name, iconSvg("boxes"))}<strong>${escapeHtml(item.name)}</strong></span></td>
+          ${rows.map((item) => {
+            const ov = overrideFor(item.name) || {};
+            const hasOverride = !!overrideFor(item.name);
+            return `
+            <tr class="${hasOverride ? "settings-pricing-overridden" : ""}">
+              <td class="mono"><span class="settings-model-identity">${modelBrandIconMarkup(item.name, iconSvg("boxes"))}<strong>${escapeHtml(item.name)}</strong>${hasOverride ? badge(t("settings.pricing.override_badge"), "info") : ""}${item.manualOnly ? badge(t("settings.pricing.manual_only"), "warn") : ""}</span></td>
               <td class="num mono">${escapeHtml(settingsPriceText(item.input))}</td>
               <td class="num mono">${escapeHtml(settingsPriceText(item.output))}</td>
               <td class="num mono">${escapeHtml(settingsPriceText(item.cache_hit))}</td>
-            </tr>`).join("")}
+              <td class="num"><input class="settings-price-input mono" type="number" step="any" min="0" value="${ov.input ?? ""}" data-override-model="${escapeHtml(item.name)}" data-override-field="input" aria-label="${escapeHtml(item.name)} override input" placeholder="—" /></td>
+              <td class="num"><input class="settings-price-input mono" type="number" step="any" min="0" value="${ov.output ?? ""}" data-override-model="${escapeHtml(item.name)}" data-override-field="output" aria-label="${escapeHtml(item.name)} override output" placeholder="—" /></td>
+              <td class="cell-actions">
+                <button class="button secondary compact-action" type="button" data-override-save="${escapeHtml(item.name)}">${escapeHtml(t("settings.pricing.save"))}</button>
+                ${hasOverride ? `<button class="button danger compact-action" type="button" data-override-clear="${escapeHtml(item.name)}">${escapeHtml(t("settings.pricing.clear"))}</button>` : ""}
+              </td>
+            </tr>`;
+          }).join("")}
         </tbody>
       </table>
       ${pagination}`);
@@ -2748,6 +2766,16 @@ import {
         state.settingsPricingPage = Math.max(0, Number(button.dataset.settingsPricingPage || 0));
         renderSettingsPricingCatalog();
       });
+    });
+    target.querySelectorAll("[data-override-save]").forEach((button) => {
+      if (button.dataset.boundOverrideSave) return;
+      button.dataset.boundOverrideSave = "1";
+      button.addEventListener("click", () => saveSettingsPricingOverride(button.dataset.overrideSave || "", button));
+    });
+    target.querySelectorAll("[data-override-clear]").forEach((button) => {
+      if (button.dataset.boundOverrideClear) return;
+      button.dataset.boundOverrideClear = "1";
+      button.addEventListener("click", () => clearSettingsPricingOverride(button.dataset.overrideClear || "", button));
     });
   }
 

@@ -865,26 +865,20 @@
             <section class="panel settings-panel settings-pricing-panel">
               <div class="panel-head">
                 <div>
-                  <h2 data-i18n="settings.pricing.overrides_title">Custom Pricing Overrides<span class="help-tip" data-tip="Manual per-provider prices in USD per 1M tokens. Overrides take priority over AA pricing." data-i18n-tip="settings.pricing.overrides_tip">?</span></h2>
-                  <p data-i18n="settings.pricing.overrides_desc">Manual per-provider prices; they win over AA estimates.</p>
-                </div>
-              </div>
-              <div id="settingsPricingOverrides" class="table-wrap"></div>
-            </section>
-
-            <section class="panel settings-panel settings-pricing-panel">
-              <div class="panel-head">
-                <div>
-                  <h2 data-i18n="settings.pricing.catalog_title">Artificial Analysis Cache<span class="help-tip" data-tip="Read-only prices resolved from the local AA cache. Missing prices backfill automatically in the background." data-i18n-tip="settings.pricing.catalog_tip">?</span></h2>
+                  <h2 data-i18n="settings.pricing.catalog_title">Model Pricing<span class="help-tip" data-tip="Prices from the local Artificial Analysis cache. Enter override values in a row to pin manual prices; overrides win over AA estimates." data-i18n-tip="settings.pricing.catalog_tip">?</span></h2>
                   <p id="settingsPricingCatalogMeta" data-i18n="settings.pricing.catalog_loading">Loading cached prices…</p>
                 </div>
-                <button id="settingsPricingRefresh" class="button secondary" type="button" data-i18n="settings.pricing.refresh">Refresh</button>
               </div>
               <div class="settings-pricing-toolbar">
                 <label class="filter-search-box">
                   <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
                   <input id="settingsPricingQuery" type="text" placeholder="Filter models…" data-i18n-attr="placeholder:settings.pricing.filter_ph" />
                 </label>
+                <div class="settings-pricing-query-box">
+                  <input id="settingsPricingFetchModel" class="control mono" type="text" placeholder="e.g. gpt-5.5" data-i18n-attr="placeholder:settings.pricing.fetch_ph" />
+                  <button id="settingsPricingFetch" class="button secondary" type="button" data-i18n="settings.pricing.fetch">Fetch &amp; Cache</button>
+                </div>
+                <button id="settingsPricingRefresh" class="button secondary" type="button" data-i18n="settings.pricing.refresh">Refresh</button>
               </div>
               <div id="settingsPricingCatalog" class="table-wrap"></div>
             </section>

@@ -850,6 +850,19 @@ class AdminRoutesMixin:
                 )
                 return self._resp_json({"error": {"message": str(e)}}, 400)
 
+        if parts == ["models", "pricing", "delete"]:
+            body = self._read_json_body()
+            if isinstance(body, tuple):
+                return self._resp_json(body[0], body[1])
+            try:
+                model = str((body or {}).get("model") or "").strip()
+                CONFIG_MANAGER.delete_model_pricing_override(model)
+                _apply_runtime_config(CONFIG_MANAGER.config)
+                self._audit_admin_event("model_pricing_override_deleted", target=model, detail={"model": model})
+                return self._resp_json({"action": "model_pricing_override_deleted", "model": model, "config": CONFIG_MANAGER.snapshot()})
+            except ConfigValidationError as e:
+                return self._resp_json({"error": {"message": str(e)}}, 400)
+
         if parts == ["models", "refresh"]:
             model_registry.clear_cache()
             if sse.MODEL_DISCOVERY_QUEUE is not None:
@@ -1312,6 +1325,13 @@ class AdminRoutesMixin:
                 model = str((body or {}).get("model") or "").strip()
                 self._audit_admin_event("model_route_updated", target=model, detail=body or {})
                 return self._resp_json({"action": "model_route_updated", "model": model, "config": CONFIG_MANAGER.snapshot()})
+
+            if parts == ["models", "pricing"]:
+                CONFIG_MANAGER.update_model_pricing_override(body or {})
+                _apply_runtime_config(CONFIG_MANAGER.config)
+                model = str((body or {}).get("model") or "").strip()
+                self._audit_admin_event("model_pricing_override_updated", target=model, detail=body or {})
+                return self._resp_json({"action": "model_pricing_override_updated", "model": model, "config": CONFIG_MANAGER.snapshot()})
 
             if len(parts) == 5 and parts[0] == "providers" and parts[2] == "models" and parts[4] == "variants":
                 provider = parts[1]

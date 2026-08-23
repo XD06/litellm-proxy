@@ -294,6 +294,56 @@ def _snapshot_from_rates(
     }
 
 
+def _manual_override_snapshot(cfg: Dict[str, Any], provider_model: str) -> Optional[Dict[str, Any]]:
+    """Model-level manual price override from models.pricing_overrides.
+
+    Highest pricing priority: manual override > provider config > AA cache.
+    Keys are matched leniently (lowercase, vendor-prefix and path stripped)
+    so a canonical name in the UI also covers provider-specific variants.
+    """
+    overrides = ((cfg or {}).get("models") or {}).get("pricing_overrides")
+    if not isinstance(overrides, dict) or not overrides:
+        return None
+    lookup_keys = _model_lookup_keys(provider_model)
+    if not lookup_keys:
+        return None
+    lowered = {
+        str(key).strip().lower(): value
+        for key, value in overrides.items()
+        if isinstance(value, dict)
+    }
+    entry = next((lowered[key] for key in lookup_keys if key in lowered), None)
+    if not isinstance(entry, dict):
+        return None
+
+    def rate(*names: str):
+        for name in names:
+            value = entry.get(name)
+            if isinstance(value, (int, float)) and value >= 0:
+                return float(value), True
+        return 0.0, False
+
+    input_rate, has_input = rate("input", "input_per_million")
+    output_rate, has_output = rate("output", "output_per_million")
+    cache_read_rate, has_cache_read = rate("cache_read", "cache_read_per_million", "cache_hit")
+    cache_write_rate, has_cache_write = rate("cache_write", "cache_write_per_million")
+    if not (has_input or has_output or has_cache_read or has_cache_write):
+        return None
+    if not has_cache_read:
+        cache_read_rate = input_rate
+    if not has_cache_write:
+        cache_write_rate = input_rate
+    return _snapshot_from_rates(
+        input_rate=input_rate,
+        cache_read_rate=cache_read_rate,
+        cache_write_rate=cache_write_rate,
+        output_rate=output_rate,
+        source="manual_override",
+        resolved_model=provider_model,
+        complete=has_input and has_output,
+    )
+
+
 def resolve_price_snapshot(
     cfg: Dict[str, Any],
     provider: str,
@@ -301,6 +351,9 @@ def resolve_price_snapshot(
     *,
     allow_aa_cache: bool = True,
 ) -> Optional[Dict[str, Any]]:
+    manual = _manual_override_snapshot(cfg, provider_model)
+    if manual is not None:
+        return manual
     providers = (cfg or {}).get("providers") or {}
     pcfg = providers.get(provider) if isinstance(providers, dict) else {}
     if isinstance(pcfg, dict):

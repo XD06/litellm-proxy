@@ -427,8 +427,71 @@ class RuntimeConfigManager:
             routes = models.setdefault("routes", {})
             if not isinstance(routes, dict):
                 routes = {}
+                models["routes"] = routes
             routes[model] = route
-            models["routes"] = routes
+        return self.config
+
+    _PRICING_RATE_FIELDS = ("input", "output", "cache_read", "cache_write")
+
+    def _validate_pricing_override_patch(self, patch: Dict[str, Any]) -> Tuple[str, Optional[Dict[str, Any]]]:
+        if not isinstance(patch, dict) or not patch:
+            raise ConfigValidationError("pricing override patch must be a non-empty object")
+        allowed = {"model", *self._PRICING_RATE_FIELDS}
+        for key in patch.keys():
+            if key not in allowed:
+                raise ConfigValidationError(f"unsupported pricing override field: {key}")
+        model = self._validate_model_id(patch.get("model"))
+        rates: Dict[str, float] = {}
+        for field in self._PRICING_RATE_FIELDS:
+            if field not in patch or patch.get(field) in (None, ""):
+                continue
+            try:
+                value = float(patch.get(field))
+            except (TypeError, ValueError):
+                raise ConfigValidationError(f"{field} must be a number") from None
+            if value < 0 or value > 1_000_000:
+                raise ConfigValidationError(f"{field} must be between 0 and 1000000")
+            rates[field] = value
+        if not rates:
+            # No rates supplied means "clear this override".
+            return model, None
+        return model, rates
+
+    def update_model_pricing_override(self, patch: Dict[str, Any]) -> Dict[str, Any]:
+        model, rates = self._validate_pricing_override_patch(patch)
+        with self._locked_overlay() as overlay:
+            models = overlay.setdefault("models", {})
+            if not isinstance(models, dict):
+                models = {}
+                overlay["models"] = models
+            overrides = models.setdefault("pricing_overrides", {})
+            if not isinstance(overrides, dict):
+                overrides = {}
+                models["pricing_overrides"] = overrides
+            if rates is None:
+                overrides.pop(model, None)
+                base = ((self.base_config.get("models") or {}).get("pricing_overrides") or {})
+                if isinstance(base, dict) and model in base:
+                    overrides[model] = None
+            else:
+                overrides[model] = rates
+        return self.config
+
+    def delete_model_pricing_override(self, model: str) -> Dict[str, Any]:
+        model_id = self._validate_model_id(model)
+        with self._locked_overlay() as overlay:
+            models = overlay.setdefault("models", {})
+            if not isinstance(models, dict):
+                models = {}
+                overlay["models"] = models
+            overrides = models.setdefault("pricing_overrides", {})
+            if not isinstance(overrides, dict):
+                overrides = {}
+                models["pricing_overrides"] = overrides
+            overrides.pop(model_id, None)
+            base = ((self.base_config.get("models") or {}).get("pricing_overrides") or {})
+            if isinstance(base, dict) and model_id in base:
+                overrides[model_id] = None
         return self.config
 
     def delete_model_route(self, model: str) -> Dict[str, Any]:
