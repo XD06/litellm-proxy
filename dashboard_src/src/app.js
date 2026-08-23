@@ -2680,10 +2680,12 @@ import {
   function renderSettingsPricingCatalog() {
     const target = el("settingsPricingCatalog");
     const meta = el("settingsPricingCatalogMeta");
+    const paginationTarget = el("settingsPricingPagination");
     if (!target) return;
     if (state.settingsPricingLoading || state.data.pricingCatalog === null) {
       if (meta) meta.textContent = t("settings.pricing.catalog_loading");
       updateDOM(target, `<div class="empty pad">${escapeHtml(t("model_usage.loading"))}</div>`);
+      updateDOM(paginationTarget, "");
       return;
     }
     const catalog = [...(state.data.pricingCatalog || [])];
@@ -2710,6 +2712,7 @@ import {
           ${iconSvg("dollar")}
           <span><strong>${escapeHtml(t("settings.pricing.catalog_empty"))}</strong></span>
         </div>`);
+      updateDOM(paginationTarget, "");
       return;
     }
     const filtered = query
@@ -2722,12 +2725,10 @@ import {
     const offset = (page - 1) * SETTINGS_PRICING_PAGE_SIZE;
     const rows = filtered.slice(offset, offset + SETTINGS_PRICING_PAGE_SIZE);
     const pagination = pages <= 1 ? "" : `
-      <div class="usage-statistics-breakdown-pagination">
-        <span>${escapeHtml(t("usage_stats.page_of", { page: fmtInt(page), total: fmtInt(pages) }))}</span>
-        <span>
-          <button class="icon-button" type="button" data-settings-pricing-page="${page - 2}" aria-label="${escapeHtml(t("req.previous_page"))}" ${page <= 1 ? "disabled" : ""}>${iconSvg("chevron-left")}</button>
-          <button class="icon-button" type="button" data-settings-pricing-page="${page}" aria-label="${escapeHtml(t("req.next_page"))}" ${page >= pages ? "disabled" : ""}>${iconSvg("chevron-right")}</button>
-        </span>
+      <div class="request-pagination" aria-label="${escapeHtml(t("req.request_pages"))}">
+        <button class="button secondary icon-action" type="button" data-settings-pricing-page="${page - 2}" data-tip="${escapeHtml(t("req.previous_page"))}" aria-label="${escapeHtml(t("req.previous_page"))}" ${page <= 1 ? "disabled" : ""}>${iconSvg("arrow-left")}</button>
+        <span class="request-page-indicator">${escapeHtml(t("usage_stats.page_of", { page: fmtInt(page), total: fmtInt(pages) }))}</span>
+        <button class="button secondary icon-action" type="button" data-settings-pricing-page="${page}" data-tip="${escapeHtml(t("req.next_page"))}" aria-label="${escapeHtml(t("req.next_page"))}" ${page >= pages ? "disabled" : ""}>${iconSvg("arrow-right")}</button>
       </div>`;
     const overrideFor = (name) => {
       const lowered = String(name).toLowerCase();
@@ -2763,9 +2764,9 @@ import {
             </tr>`;
           }).join("")}
         </tbody>
-      </table>
-      ${pagination}`);
-    target.querySelectorAll("[data-settings-pricing-page]").forEach((button) => {
+      </table>`);
+    updateDOM(paginationTarget, pagination);
+    paginationTarget?.querySelectorAll("[data-settings-pricing-page]").forEach((button) => {
       if (button.dataset.boundSettingsPricingPage) return;
       button.dataset.boundSettingsPricingPage = "1";
       button.addEventListener("click", () => {
@@ -2806,9 +2807,9 @@ import {
     bindSettingsOpsForms(target);
   }
 
-  function settingsOpsCardShell(titleKey, icon, descKey, body) {
+  function settingsOpsCardShell(titleKey, icon, descKey, body, modifier) {
     return `
-      <section class="panel settings-ops-card">
+      <section class="panel settings-ops-card settings-ops-card--${modifier}">
         <div class="panel-head">
           <div>
             <h3>${iconSvg(icon)}<span>${escapeHtml(t(titleKey))}</span></h3>
@@ -2828,7 +2829,7 @@ import {
           <small>${escapeHtml(t("settings.ops.proxy_hint"))}</small>
         </label>
         <button class="button primary" type="submit">${escapeHtml(t("settings.ops.save"))}</button>
-      </form>`);
+      </form>`, "proxy");
   }
 
   function settingsOpsRuntimeCard(routing, server) {
@@ -2852,7 +2853,7 @@ import {
           ${numberField("agent_first_event_timeout_s", "settings.ops.agent_timeout", routing.agent_first_event_timeout_s)}
         </div>
         <button class="button primary" type="submit">${escapeHtml(t("settings.ops.save"))}</button>
-      </form>`);
+      </form>`, "runtime");
   }
 
   function settingsOpsOverlayCard(config) {
@@ -2867,7 +2868,7 @@ import {
       <div class="settings-ops-actions">
         <button class="button secondary" type="button" data-settings-export>${escapeHtml(t("settings.ops.export"))}</button>
         <button class="button secondary settings-danger-btn" type="button" data-settings-reset>${escapeHtml(t("settings.ops.reset"))}</button>
-      </div>`);
+      </div>`, "overlay");
   }
 
   function settingsOpsSecurityCard(server) {
@@ -2881,7 +2882,7 @@ import {
         <div class="settings-kv"><span>${escapeHtml(t("settings.ops.security_headers"))}</span><strong class="mono">${escapeHtml(headers || t("settings.ops.not_set"))}</strong></div>
         <div class="settings-kv"><span>${escapeHtml(t("settings.ops.security_query_key"))}</span><strong>${server.allow_query_admin_key ? "On" : "Off"}</strong></div>
       </div>
-      <p class="settings-ops-note">${escapeHtml(t("settings.ops.security_admin_key_hint"))}</p>`);
+      <p class="settings-ops-note">${escapeHtml(t("settings.ops.security_admin_key_hint"))}</p>`, "security");
   }
 
   function bindSettingsOpsForms(target) {

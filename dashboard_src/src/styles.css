@@ -27807,6 +27807,26 @@ body.is-auth-checking {
   font-size: 12px;
 }
 
+.settings-pricing-pagination {
+  margin-left: auto;
+}
+
+.settings-pricing-pagination .request-pagination {
+  gap: 5px;
+}
+
+.settings-pricing-pagination .request-page-indicator {
+  font: 650 12px var(--mono);
+}
+
+.settings-pricing-pagination .icon-action {
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0;
+  border-radius: 8px;
+}
+
 .settings-pricing-table tr.settings-pricing-overridden td {
   background: color-mix(in srgb, #2563eb 4%, transparent);
 }
@@ -27841,13 +27861,22 @@ body.is-auth-checking {
   background: var(--surface);
 }
 
-/* Operations 2x2 card grid — cards ride on the shared .panel chrome */
+/* Operations cards give the editable runtime controls the wider visual weight. */
 .settings-ops-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  grid-template-areas:
+    "proxy runtime"
+    "overlay runtime"
+    "security security";
   gap: 16px;
   align-items: start;
 }
+
+.settings-ops-card--proxy { grid-area: proxy; }
+.settings-ops-card--runtime { grid-area: runtime; }
+.settings-ops-card--overlay { grid-area: overlay; }
+.settings-ops-card--security { grid-area: security; }
 
 .settings-ops-card {
   margin-bottom: 0;
@@ -27961,6 +27990,25 @@ body.is-auth-checking {
   word-break: break-all;
 }
 
+.settings-ops-card--security .settings-kv {
+  display: grid;
+  grid-template-columns: 124px minmax(0, 1fr);
+  align-items: start;
+  justify-content: initial;
+}
+
+.settings-ops-card--security .settings-kv > span {
+  white-space: nowrap;
+}
+
+.settings-ops-card--security .settings-kv > strong {
+  min-width: 0;
+  text-align: left;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
 .settings-ops-actions {
   display: flex;
   gap: 8px;
@@ -28025,12 +28073,29 @@ body.is-auth-checking {
 
   .settings-ops-grid {
     grid-template-columns: 1fr;
+    grid-template-areas: none;
+  }
+
+  .settings-ops-card--proxy,
+  .settings-ops-card--runtime,
+  .settings-ops-card--overlay,
+  .settings-ops-card--security {
+    grid-area: auto;
   }
 }
 
 @media (max-width: 720px) {
   .settings-ops-field-grid {
     grid-template-columns: 1fr;
+  }
+
+  .settings-ops-card--security .settings-kv {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .settings-ops-card--security .settings-kv > span {
+    white-space: normal;
   }
 
   .settings-subnav {
