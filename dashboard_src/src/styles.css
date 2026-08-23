@@ -24776,7 +24776,7 @@ body {
 
 /* Request logs desktop redesign: Demo hierarchy with the production data contract intact. */
 @media (min-width: 1181px) {
-  body:has(#requestsView.is-active) {
+  body:has(#requestsView.is-active, #settingsView.is-active) {
     --bg: #f4f6f8;
     --surface: #fff;
     --surface-raised: #fff;
@@ -24800,21 +24800,21 @@ body {
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
-  body:has(#requestsView.is-active) .shell {
+  body:has(#requestsView.is-active, #settingsView.is-active) .shell {
     grid-template-columns: 240px minmax(0, 1fr);
   }
 
-  body:has(#requestsView.is-active) .workspace {
+  body:has(#requestsView.is-active, #settingsView.is-active) .workspace {
     max-width: none;
     padding: 0;
     background: #f4f6f8;
   }
 
-  body:has(#requestsView.is-active) .topbar {
+  body:has(#requestsView.is-active, #settingsView.is-active) .topbar {
     display: none;
   }
 
-  body:has(#requestsView.is-active) .sidebar {
+  body:has(#requestsView.is-active, #settingsView.is-active) .sidebar {
     position: sticky;
     top: 0;
     height: 100vh;
@@ -24826,12 +24826,12 @@ body {
     -webkit-backdrop-filter: blur(12px);
   }
 
-  body:has(#requestsView.is-active) .sidebar::after,
-  body:has(#requestsView.is-active) .brand::after {
+  body:has(#requestsView.is-active, #settingsView.is-active) .sidebar::after,
+  body:has(#requestsView.is-active, #settingsView.is-active) .brand::after {
     display: none;
   }
 
-  body:has(#requestsView.is-active) .brand {
+  body:has(#requestsView.is-active, #settingsView.is-active) .brand {
     gap: 12px;
     margin: 0 0 24px;
     padding: 12px 8px;
@@ -24840,7 +24840,7 @@ body {
     box-shadow: none;
   }
 
-  body:has(#requestsView.is-active) .brand-mark {
+  body:has(#requestsView.is-active, #settingsView.is-active) .brand-mark {
     width: 32px;
     height: 32px;
     border: 0;
@@ -24852,26 +24852,26 @@ body {
     box-shadow: 0 1px 2px rgba(24, 24, 27, 0.12);
   }
 
-  body:has(#requestsView.is-active) .brand-title {
+  body:has(#requestsView.is-active, #settingsView.is-active) .brand-title {
     color: #18181b;
     font-size: 14px;
     font-weight: 600;
     line-height: 14px;
   }
 
-  body:has(#requestsView.is-active) .brand-subtitle {
+  body:has(#requestsView.is-active, #settingsView.is-active) .brand-subtitle {
     margin-top: 2px;
     color: #a1a1aa;
     font: 400 11px/16px var(--mono);
   }
 
-  body:has(#requestsView.is-active) .nav {
+  body:has(#requestsView.is-active, #settingsView.is-active) .nav {
     gap: 4px;
     margin: 0;
     padding: 0;
   }
 
-  body:has(#requestsView.is-active) .nav-item {
+  body:has(#requestsView.is-active, #settingsView.is-active) .nav-item {
     display: grid;
     grid-template-columns: 16px minmax(0, 1fr);
     gap: 12px;
@@ -24888,36 +24888,36 @@ body {
     line-height: 16px;
   }
 
-  body:has(#requestsView.is-active) .nav-item::before {
+  body:has(#requestsView.is-active, #settingsView.is-active) .nav-item::before {
     display: none;
   }
 
-  body:has(#requestsView.is-active) .nav-item::after {
+  body:has(#requestsView.is-active, #settingsView.is-active) .nav-item::after {
     width: 16px;
     height: 16px;
     opacity: 0.62;
   }
 
-  body:has(#requestsView.is-active) .nav-item:hover {
+  body:has(#requestsView.is-active, #settingsView.is-active) .nav-item:hover {
     background: rgba(244, 244, 245, 0.6);
     color: #18181b;
   }
 
-  body:has(#requestsView.is-active) .nav-item.is-active {
+  body:has(#requestsView.is-active, #settingsView.is-active) .nav-item.is-active {
     background: #f4f4f5;
     color: #18181b;
     font-weight: 600;
   }
 
-  body:has(#requestsView.is-active) .nav-item.is-active::after {
+  body:has(#requestsView.is-active, #settingsView.is-active) .nav-item.is-active::after {
     opacity: 1;
   }
 
-  body:has(#requestsView.is-active) .sidebar-actions {
+  body:has(#requestsView.is-active, #settingsView.is-active) .sidebar-actions {
     padding: 12px 0 8px;
   }
 
-  body:has(#requestsView.is-active) .sidebar-footer {
+  body:has(#requestsView.is-active, #settingsView.is-active) .sidebar-footer {
     padding: 10px 1px 0;
     border-top: 1px solid rgba(226, 232, 240, 0.9);
     color: #a1a1aa;
@@ -27543,39 +27543,39 @@ body.is-auth-checking {
 
 /* Keep desktop sidebar icons aligned with the overview reference. */
 @media (min-width: 1181px) {
-  body:has(#requestsView.is-active, #providersView.is-active, #policyView.is-active, #configView.is-active, #playgroundView.is-active) .nav-item {
+  body:has(#requestsView.is-active, #providersView.is-active, #policyView.is-active, #configView.is-active, #playgroundView.is-active, #settingsView.is-active) .nav-item {
     grid-template-columns: 16px minmax(0, 1fr);
     gap: 12px;
   }
 
-  body:has(#requestsView.is-active, #providersView.is-active, #policyView.is-active, #configView.is-active, #playgroundView.is-active) .nav-item::after {
+  body:has(#requestsView.is-active, #providersView.is-active, #policyView.is-active, #configView.is-active, #playgroundView.is-active, #settingsView.is-active) .nav-item::after {
     width: 16px;
     height: 16px;
     mask-size: 16px 16px;
     -webkit-mask-size: 16px 16px;
   }
 
-  body:has(#requestsView.is-active, #providersView.is-active, #policyView.is-active, #configView.is-active, #playgroundView.is-active) .nav-item[data-view="overview"] {
+  body:has(#requestsView.is-active, #providersView.is-active, #policyView.is-active, #configView.is-active, #playgroundView.is-active, #settingsView.is-active) .nav-item[data-view="overview"] {
     --nav-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='7' height='9' x='3' y='3' rx='1'/%3E%3Crect width='7' height='5' x='14' y='3' rx='1'/%3E%3Crect width='7' height='9' x='14' y='12' rx='1'/%3E%3Crect width='7' height='5' x='3' y='16' rx='1'/%3E%3C/svg%3E");
   }
 
-  body:has(#requestsView.is-active, #providersView.is-active, #policyView.is-active, #configView.is-active, #playgroundView.is-active) .nav-item[data-view="requests"] {
+  body:has(#requestsView.is-active, #providersView.is-active, #policyView.is-active, #configView.is-active, #playgroundView.is-active, #settingsView.is-active) .nav-item[data-view="requests"] {
     --nav-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 6h18'/%3E%3Cpath d='M7 12h10'/%3E%3Cpath d='M10 18h4'/%3E%3C/svg%3E");
   }
 
-  body:has(#requestsView.is-active, #providersView.is-active, #policyView.is-active, #configView.is-active, #playgroundView.is-active) .nav-item[data-view="providers"] {
+  body:has(#requestsView.is-active, #providersView.is-active, #policyView.is-active, #configView.is-active, #playgroundView.is-active, #settingsView.is-active) .nav-item[data-view="providers"] {
     --nav-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='20' height='8' x='2' y='2' rx='2' ry='2'/%3E%3Crect width='20' height='8' x='2' y='14' rx='2' ry='2'/%3E%3Cline x1='6' x2='6.01' y1='6' y2='6'/%3E%3Cline x1='6' x2='6.01' y1='18' y2='18'/%3E%3C/svg%3E");
   }
 
-  body:has(#requestsView.is-active, #providersView.is-active, #policyView.is-active, #configView.is-active, #playgroundView.is-active) .nav-item[data-view="policy"] {
+  body:has(#requestsView.is-active, #providersView.is-active, #policyView.is-active, #configView.is-active, #playgroundView.is-active, #settingsView.is-active) .nav-item[data-view="policy"] {
     --nav-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='18' r='3'/%3E%3Ccircle cx='6' cy='6' r='3'/%3E%3Ccircle cx='18' cy='6' r='3'/%3E%3Cpath d='M18 9v2c0 .6-.4 1-1 1H7c-.6 0-1-.4-1-1V9'/%3E%3Cpath d='M12 12v3'/%3E%3C/svg%3E");
   }
 
-  body:has(#requestsView.is-active, #providersView.is-active, #policyView.is-active, #configView.is-active, #playgroundView.is-active) .nav-item[data-view="config"] {
+  body:has(#requestsView.is-active, #providersView.is-active, #policyView.is-active, #configView.is-active, #playgroundView.is-active, #settingsView.is-active) .nav-item[data-view="config"] {
     --nav-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 21v-7'/%3E%3Cpath d='M4 10V3'/%3E%3Cpath d='M12 21v-9'/%3E%3Cpath d='M12 8V3'/%3E%3Cpath d='M20 21v-5'/%3E%3Cpath d='M20 12V3'/%3E%3Cpath d='M2 14h4'/%3E%3Cpath d='M10 8h4'/%3E%3Cpath d='M18 16h4'/%3E%3C/svg%3E");
   }
 
-  body:has(#requestsView.is-active, #providersView.is-active, #policyView.is-active, #configView.is-active, #playgroundView.is-active) .nav-item[data-view="playground"] {
+  body:has(#requestsView.is-active, #providersView.is-active, #policyView.is-active, #configView.is-active, #playgroundView.is-active, #settingsView.is-active) .nav-item[data-view="playground"] {
     --nav-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2v6a2 2 0 0 0 .245.96l5.51 10.08A2 2 0 0 1 18 22H6a2 2 0 0 1-1.755-2.96l5.51-10.08A2 2 0 0 0 10 8V2'/%3E%3Cpath d='M6.453 15h11.094'/%3E%3Cpath d='M8.5 2h7'/%3E%3C/svg%3E");
   }
 }
@@ -27592,39 +27592,30 @@ body.is-auth-checking {
 .settings-page-head h1 {
   margin: 0;
   color: var(--text);
-  font-size: 20px;
-  font-weight: 720;
+  font-size: 24px;
+  font-weight: 700;
   letter-spacing: 0;
-  line-height: 1.2;
+  line-height: 32px;
 }
 
 .settings-page-head p {
   margin: 4px 0 0;
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: 12px;
+  line-height: 16px;
 }
 
-/* Desktop shell alignment: same full-bleed workspace + centered 1550px column
-   as the requests/policy views, so switching tabs does not reflow the shell. */
+/* The desktop shell comes from the shared Requests rule above. Only the
+   settings content layout remains local to this view. */
 @media (min-width: 1181px) {
-  body:has(#settingsView.is-active) {
-    background: #fafafa;
-  }
-
-  body:has(#settingsView.is-active) .workspace {
-    width: 100%;
-    max-width: none;
-    margin: 0;
-    padding: 0;
-  }
-
   #settingsView.view.is-active {
-    display: grid;
     width: 100%;
     max-width: 1550px;
+    min-height: 100vh;
     margin: 0 auto;
-    padding: 28px 32px 40px;
-    gap: 18px;
+    padding: 24px;
+    gap: 24px;
+    animation: none;
   }
 }
 
@@ -27632,19 +27623,19 @@ body.is-auth-checking {
   display: inline-flex;
   width: max-content;
   max-width: 100%;
-  gap: 3px;
-  padding: 3px;
+  gap: 4px;
+  padding: 4px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--surface);
   box-shadow: 0 1px 2px rgba(18, 28, 45, 0.04);
 }
 
 .settings-subnav button {
-  min-height: 28px;
-  padding: 5px 14px;
+  min-height: 32px;
+  padding: 6px 14px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 7px;
   background: transparent;
   color: var(--muted);
   font-size: 12px;
@@ -27664,14 +27655,16 @@ body.is-auth-checking {
 }
 
 .settings-panel {
-  border-color: #dfe5ec;
-  border-radius: 10px;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.045);
+  overflow: hidden;
+  border-color: #e4e4e7;
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(24, 24, 27, 0.024), 0 10px 30px rgba(24, 24, 27, 0.035);
 }
 
 .settings-panel .panel-head {
-  background: #fbfcfd;
-  border-bottom-color: #e7ecf2;
+  padding: 19px 24px;
+  background: var(--surface);
+  border-bottom: 0;
 }
 
 .settings-pricing-panel + .settings-pricing-panel {
@@ -27785,8 +27778,8 @@ body.is-auth-checking {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  padding: 10px 18px;
-  border-bottom: 1px solid #e7ecf2;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--line);
   background: var(--surface);
 }
 
@@ -27860,11 +27853,16 @@ body.is-auth-checking {
   margin-bottom: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  border-color: #e4e4e7;
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(24, 24, 27, 0.024), 0 10px 30px rgba(24, 24, 27, 0.035);
 }
 
 .settings-ops-card .panel-head {
-  background: #fbfcfd;
-  border-bottom: 1px solid #e7ecf2;
+  padding: 19px 24px;
+  background: var(--surface);
+  border-bottom: 0;
 }
 
 .settings-ops-card .panel-head h3 {
@@ -27893,7 +27891,7 @@ body.is-auth-checking {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 16px 18px 18px;
+  padding: 0 24px 24px;
 }
 
 .settings-ops-note {
@@ -28021,6 +28019,10 @@ body.is-auth-checking {
 }
 
 @media (max-width: 1080px) {
+  .settings-page-head {
+    display: none;
+  }
+
   .settings-ops-grid {
     grid-template-columns: 1fr;
   }

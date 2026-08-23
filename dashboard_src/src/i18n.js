@@ -135,7 +135,7 @@ const dict = {
   "settings.pricing.overrides_desc": { en: "Manual per-provider prices; they win over AA estimates.", zh: "按供应商手动配置的单价，优先级高于 AA 估算。" },
   "settings.pricing.overrides_empty_title": { en: "No manual overrides", zh: "暂无手动覆盖" },
   "settings.pricing.overrides_empty_hint": { en: "Set provider pricing in the provider drawer, or edit a row below once overrides exist.", zh: "可在提供商抽屉中配置价格；保存后的覆盖可在此直接修改。" },
-  "settings.pricing.catalog_title": { en: "Artificial Analysis Cache", zh: "AA 官方价格缓存" },
+  "settings.pricing.catalog_title": { en: "Model Pricing", zh: "模型价格" },
   "settings.pricing.catalog_tip": { en: "Prices from the local Artificial Analysis cache. Enter override values in a row to pin manual prices; overrides win over AA estimates.", zh: "来自本地 AA 缓存的价格。在行内填写覆盖价即可手动定价，覆盖价优先于 AA 估算。" },
   "settings.pricing.catalog_loading": { en: "Loading cached prices…", zh: "正在加载缓存价格…" },
   "settings.pricing.catalog_meta": { en: "{count} models", zh: "{count} 个模型" },

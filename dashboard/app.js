@@ -1016,8 +1016,8 @@
 				zh: "可在提供商抽屉中配置价格；保存后的覆盖可在此直接修改。"
 			},
 			"settings.pricing.catalog_title": {
-				en: "Artificial Analysis Cache",
-				zh: "AA 官方价格缓存"
+				en: "Model Pricing",
+				zh: "模型价格"
 			},
 			"settings.pricing.catalog_tip": {
 				en: "Prices from the local Artificial Analysis cache. Enter override values in a row to pin manual prices; overrides win over AA estimates.",
@@ -15723,7 +15723,8 @@
 		}
 		function setView(view) {
 			const nextView = views[view] ? view : "overview";
-			if (nextView !== state.view) {
+			const viewChanged = nextView !== state.view;
+			if (viewChanged) {
 				clearAllDirty();
 				_runtimeViewAbortController?.abort();
 			}
@@ -15743,6 +15744,7 @@
 			});
 			qsa(".view").forEach((node) => node.classList.remove("is-active"));
 			el(`${nextView}View`)?.classList.add("is-active");
+			if (viewChanged) window.scrollTo(0, 0);
 			renderAll();
 			if (nextView === "overview" || nextView === "requests" || nextView === "providers") refreshRuntimeData({ forceViewData: true });
 			else if (nextView === "playground") pgLoadModels();

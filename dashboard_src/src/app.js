@@ -10567,9 +10567,10 @@ import {
 
   function setView(view) {
     const nextView = views[view] ? view : "overview";
+    const viewChanged = nextView !== state.view;
     // Clear dirty state when switching views — the user is leaving the current
     // form context, so unsaved input on the previous view is abandoned.
-    if (nextView !== state.view) {
+    if (viewChanged) {
       clearAllDirty();
       _runtimeViewAbortController?.abort();
     }
@@ -10595,6 +10596,9 @@ import {
     });
     qsa(".view").forEach((node) => node.classList.remove("is-active"));
     el(`${nextView}View`)?.classList.add("is-active");
+    // Views share document scroll. Reset it on primary navigation so a tall
+    // settings page never enters halfway down after switching from another view.
+    if (viewChanged) window.scrollTo(0, 0);
     renderAll();
     // When entering a view whose heavy data may be stale (not polled while the
     // user was elsewhere), force a one-shot fetch of that payload so the view
