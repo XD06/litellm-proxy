@@ -325,6 +325,7 @@ class RequestHistoryStore:
               user_agent TEXT NOT NULL DEFAULT '',
               request_bytes INTEGER NOT NULL DEFAULT 0,
               request_profile TEXT NOT NULL DEFAULT '',
+              reasoning_effort TEXT NOT NULL DEFAULT '',
               started_at INTEGER NOT NULL DEFAULT 0,
               finished_at INTEGER NOT NULL DEFAULT 0,
               error TEXT NOT NULL DEFAULT '',
@@ -405,6 +406,7 @@ class RequestHistoryStore:
                 "user_agent": "TEXT NOT NULL DEFAULT ''",
                 "request_bytes": "INTEGER NOT NULL DEFAULT 0",
                 "request_profile": "TEXT NOT NULL DEFAULT ''",
+                "reasoning_effort": "TEXT NOT NULL DEFAULT ''",
                 "first_byte_ms": "INTEGER NOT NULL DEFAULT 0",
                 "routing_trace": "TEXT NOT NULL DEFAULT ''",
             },
@@ -507,8 +509,8 @@ class RequestHistoryStore:
               uncached_input_tokens, cached_input_tokens, cache_write_tokens,
               output_tokens, reasoning_tokens, total_tokens, cost_usd, cost_status,
               pricing_source, pricing_snapshot, client_ip, client_ip_source, user_agent,
-              request_bytes, request_profile, started_at, finished_at, error, routing_trace
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              request_bytes, request_profile, reasoning_effort, started_at, finished_at, error, routing_trace
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 request_id,
@@ -537,6 +539,7 @@ class RequestHistoryStore:
                 str(item.get("user_agent") or "")[:500],
                 max(0, int(item.get("request_bytes") or 0)),
                 str(item.get("request_profile") or "")[:64],
+                str(item.get("reasoning_effort") or "")[:32],
                 started_at,
                 finished_at,
                 str(item.get("error") or "")[:500],
@@ -2001,6 +2004,8 @@ class RequestHistoryStore:
             "finished_at": int(row["finished_at"] or 0),
             "attempts": [],
         }
+        if "reasoning_effort" in row.keys():
+            out["reasoning_effort"] = str(row["reasoning_effort"] or "")
         if row["error"]:
             out["error"] = str(row["error"])[:500]
         if row["pricing_snapshot"]:
@@ -2157,6 +2162,7 @@ class RequestHistoryStore:
             "duration_ms": int(item.get("duration_ms") or 0),
             "first_byte_ms": int(item.get("first_byte_ms") or 0),
             "client_ip": str(item.get("client_ip") or ""),
+            "reasoning_effort": str(item.get("reasoning_effort") or ""),
             "cost_status": str(item.get("cost_status") or "legacy"),
             "finished_at": int(item.get("finished_at") or 0),
             "attempts_count": len(attempts),

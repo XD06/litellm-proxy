@@ -7778,6 +7778,65 @@ form.is-busy {
   color: var(--warning);
 }
 
+.conversion-diag-records-head {
+  margin: 14px 0 6px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.conversion-diag-record {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  font-size: 11px;
+  min-width: 0;
+}
+
+.conversion-diag-record + .conversion-diag-record {
+  margin-top: 4px;
+}
+
+.conversion-diag-time {
+  color: var(--muted);
+  white-space: nowrap;
+  font-size: 10px;
+}
+
+.conversion-diag-formats {
+  color: var(--text);
+  white-space: nowrap;
+  font-size: 10px;
+}
+
+.conversion-diag-provider {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.conversion-diag-model {
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.conversion-diag-message {
+  flex: 1;
+  min-width: 0;
+  color: var(--danger, #d05050);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .conversion-diagnostics-empty {
   display: flex;
   min-height: 46px;
@@ -27522,11 +27581,51 @@ body.is-auth-checking {
 }
 
 /* ---- Settings view: subnav, keys table, pricing, ops cards ---- */
-
-.settings-view {
+/* Must not set display on the bare class: .view{display:none} hides inactive
+   views, and an equally-specific later rule here would override it. */
+.view.settings-view.is-active {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.settings-page-head h1 {
+  margin: 0;
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 720;
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+
+.settings-page-head p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+/* Desktop shell alignment: same full-bleed workspace + centered 1550px column
+   as the requests/policy views, so switching tabs does not reflow the shell. */
+@media (min-width: 1181px) {
+  body:has(#settingsView.is-active) {
+    background: #fafafa;
+  }
+
+  body:has(#settingsView.is-active) .workspace {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  #settingsView.view.is-active {
+    display: grid;
+    width: 100%;
+    max-width: 1550px;
+    margin: 0 auto;
+    padding: 28px 32px 40px;
+    gap: 18px;
+  }
 }
 
 .settings-subnav {
@@ -27749,7 +27848,7 @@ body.is-auth-checking {
   background: var(--surface);
 }
 
-/* Operations 2x2 card grid */
+/* Operations 2x2 card grid — cards ride on the shared .panel chrome */
 .settings-ops-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -27758,36 +27857,43 @@ body.is-auth-checking {
 }
 
 .settings-ops-card {
+  margin-bottom: 0;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 18px 20px;
-  border: 1px solid #dfe5ec;
-  border-radius: 10px;
-  background: var(--surface);
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.045);
 }
 
-.settings-ops-card-head h3 {
+.settings-ops-card .panel-head {
+  background: #fbfcfd;
+  border-bottom: 1px solid #e7ecf2;
+}
+
+.settings-ops-card .panel-head h3 {
   display: flex;
   align-items: center;
   gap: 8px;
   margin: 0;
   color: var(--text);
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 13.5px;
+  font-weight: 720;
 }
 
-.settings-ops-card-head .icon-svg {
+.settings-ops-card .panel-head .icon-svg {
   width: 16px;
   height: 16px;
   color: var(--muted);
 }
 
-.settings-ops-desc {
-  margin: 0;
+.settings-ops-card .panel-head p {
+  margin: 3px 0 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11.5px;
+}
+
+.settings-ops-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px 18px;
 }
 
 .settings-ops-note {

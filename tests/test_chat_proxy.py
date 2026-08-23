@@ -562,6 +562,82 @@ class ChatProxyTests(unittest.TestCase):
         self.assertEqual(fake_router.failures[0][1]["http_status"], 200)
         self.assertEqual(fake_router.successes[0].provider, "deepseek")
 
+    def test_chat_empty_visible_output_all_candidates_falls_back_to_truncated_response(self):
+        first = self.named_attempt("opencode", "chat_completions", 1)
+        second = self.named_attempt("deepseek", "chat_completions", 2)
+        empty_reasoning_only = {
+            "id": "chatcmpl_empty",
+            "model": "provider-model",
+            "choices": [
+                {
+                    "finish_reason": "length",
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "reasoning_content": "long hidden reasoning",
+                    },
+                }
+            ],
+        }
+        fake_router = FakeRouter([first, second])
+        fake_client = SequenceFakeClient([empty_reasoning_only, empty_reasoning_only])
+
+        server = HTTPServer(("127.0.0.1", 0), sse2json.Handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        try:
+            req = Request(
+                f"http://127.0.0.1:{server.server_address[1]}/v1/chat/completions",
+                data=json.dumps({"model": "client-model", "messages": [{"role": "user", "content": "hi"}]}).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with patch.object(sse2json, "ROUTER", fake_router), patch.object(
+                sse2json, "UPSTREAM_CLIENT", fake_client
+            ), patch.object(sse2json, "DISABLE_MAP", True):
+                with urlopen(req, timeout=5) as resp:
+                    status = resp.status
+                    note = resp.headers.get("X-Route-Note")
+                    body = json.loads(resp.read())
+        finally:
+            server.shutdown()
+            server.server_close()
+
+        self.assertEqual(status, 200)
+        self.assertEqual(note, "empty-visible-output-fallback")
+        self.assertEqual(body["choices"][0]["finish_reason"], "length")
+        self.assertEqual(body["choices"][0]["message"]["reasoning_content"], "long hidden reasoning")
+        # Both attempts must have been tried and reported as failures.
+        self.assertEqual(len(fake_router.failures), 2)
+        self.assertEqual(fake_router.successes, [])
+
+    def test_chat_empty_visible_output_fallback_disabled_returns_502(self):
+        first = self.named_attempt("opencode", "chat_completions", 1)
+        fake_router = FakeRouter([first])
+        fake_client = FakeClient(
+            {
+                "id": "chatcmpl_empty",
+                "model": "provider-model",
+                "choices": [
+                    {
+                        "finish_reason": "length",
+                        "message": {"role": "assistant", "content": "", "reasoning_content": "reasoning"},
+                    }
+                ],
+            }
+        )
+        cfg = self.config_with(routing={"empty_visible_output_fallback": False})
+
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(sse2json, "ROUTER", fake_router), patch.object(
+            sse2json, "UPSTREAM_CLIENT", fake_client
+        ), patch.object(sse2json, "DISABLE_MAP", True):
+            status, body = self.run_server_post(
+                "/v1/chat/completions",
+                {"model": "client-model", "messages": [{"role": "user", "content": "hi"}]},
+            )
+
+        self.assertEqual(status, 502)
+        self.assertIn("request_id", body["error"])
+
     def test_chat_multiple_tool_results_can_fallback_to_anthropic_upstream(self):
         fake_router = FakeRouter([self.attempt("anthropic_messages")])
         fake_client = FakeClient(

@@ -294,6 +294,12 @@ class AdminRoutesMixin:
             return self._resp_json(CLIENT_KEYS.list_keys())
         if endpoint == "conversion-diagnostics":
             return self._resp_json(CONVERSION_DIAGNOSTICS.status())
+        if endpoint == "conversion-diagnostics/records":
+            try:
+                limit = int(self._query_params().get("limit", 20) or 20)
+            except (TypeError, ValueError):
+                limit = 20
+            return self._resp_json({"items": CONVERSION_DIAGNOSTICS.tail(limit=limit)})
         if endpoint == "conversion-diagnostics/export":
             payload = CONVERSION_DIAGNOSTICS.export_bytes()
             filename = time.strftime("conversion-errors-%Y%m%d-%H%M%S.jsonl", time.gmtime())

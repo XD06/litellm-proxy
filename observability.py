@@ -371,6 +371,7 @@ class ProxyObservability:
         user_agent: str = "",
         request_bytes: int = 0,
         request_profile: str = "",
+        reasoning_effort: str = "",
     ) -> None:
         now = time.time()
         with self._lock:
@@ -391,6 +392,7 @@ class ProxyObservability:
                 "user_agent": str(user_agent or "")[:500],
                 "request_bytes": max(0, int(request_bytes or 0)),
                 "request_profile": str(request_profile or "")[:64],
+                "reasoning_effort": str(reasoning_effort or "")[:32],
                 "started_at": now,
                 "attempts": [],
                 "_routing_trace": routing_trace,
@@ -627,6 +629,7 @@ class ProxyObservability:
                 "user_agent": active.get("user_agent", ""),
                 "request_bytes": max(0, int(active.get("request_bytes") or 0)),
                 "request_profile": active.get("request_profile", ""),
+                "reasoning_effort": active.get("reasoning_effort", ""),
                 "status_code": int(status_code or 0),
                 "duration_ms": max(0, duration_ms),
                 "first_byte_ms": max(0, int(active.get("first_byte_ms") or 0)),

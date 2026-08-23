@@ -36,6 +36,8 @@ _FAILURE_ERROR_TYPES = (
     "unknown",
 )
 
+REASONING_EFFORT_MODES = ("minimal", "low", "medium", "high", "off")
+
 
 def default_overlay_path() -> str:
     configured = os.environ.get("PROXY_RUNTIME_CONFIG_PATH")
@@ -1007,7 +1009,7 @@ class RuntimeConfigManager:
     def _validate_model_route_patch(self, patch: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
         if not isinstance(patch, dict) or not patch:
             raise ConfigValidationError("model route patch must be a non-empty object")
-        allowed = {"model", "providers", "provider_select", "format_preference"}
+        allowed = {"model", "providers", "provider_select", "format_preference", "reasoning_effort"}
         for key in patch.keys():
             if key not in allowed:
                 raise ConfigValidationError(f"unsupported model route field: {key}")
@@ -1031,6 +1033,19 @@ class RuntimeConfigManager:
             format_preference = str(existing.get("format_preference") or "").strip()
             if format_preference in FORMAT_PREFERENCE_MODES:
                 route["format_preference"] = format_preference
+        if "reasoning_effort" in patch:
+            reasoning_effort = str(patch.get("reasoning_effort") or "").strip().lower()
+            if reasoning_effort:
+                if reasoning_effort not in REASONING_EFFORT_MODES:
+                    raise ConfigValidationError(f"unsupported reasoning_effort: {reasoning_effort}")
+                route["reasoning_effort"] = reasoning_effort
+            else:
+                route["reasoning_effort"] = None
+        else:
+            existing = (((self.config.get("models") or {}).get("routes") or {}).get(model) or {})
+            reasoning_effort = str(existing.get("reasoning_effort") or "").strip().lower()
+            if reasoning_effort in REASONING_EFFORT_MODES:
+                route["reasoning_effort"] = reasoning_effort
         return model, route
 
     @staticmethod

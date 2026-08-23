@@ -6,7 +6,7 @@ import queue
 import re
 import threading
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from urllib.parse import urlsplit, urlunsplit
 
 
@@ -299,6 +299,43 @@ class ConversionDiagnosticStore:
                 except OSError:
                     continue
         return b"".join(chunks)
+
+    def tail(self, limit: int = 20) -> List[Dict[str, Any]]:
+        """Return the most recent records, newest first, for dashboard display.
+
+        Reads only the tail of the current file (newest records always land
+        there); rotated files only hold older history and are skipped to keep
+        the read bounded.
+        """
+        limit = max(1, min(100, int(limit or 20)))
+        if not self.enabled:
+            return []
+        self.flush(timeout=1.0)
+        max_bytes = 2 * 1024 * 1024
+        with self._file_lock:
+            try:
+                size = os.path.getsize(self.path)
+                with open(self.path, "rb") as handle:
+                    if size > max_bytes:
+                        handle.seek(-max_bytes, os.SEEK_END)
+                        handle.readline()  # drop the partial line at the seek point
+                    data = handle.read()
+            except OSError:
+                return []
+        out: List[Dict[str, Any]] = []
+        for raw in reversed(data.splitlines()):
+            line = raw.strip()
+            if not line:
+                continue
+            try:
+                item = json.loads(line)
+            except (ValueError, TypeError):
+                continue
+            if isinstance(item, dict):
+                out.append(item)
+                if len(out) >= limit:
+                    break
+        return out
 
     def status(self) -> Dict[str, Any]:
         files = 0

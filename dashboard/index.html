@@ -12,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
-    <link rel="stylesheet" href="/-/dashboard/styles.css?v=20260822-settings-01" />
+    <link rel="stylesheet" href="/-/dashboard/styles.css?v=20260823-fix-01" />
   </head>
   <body class="is-auth-checking">
     <a class="skip-link" href="#mainContent" data-i18n="a11y.skip_content">Skip to content</a>
@@ -425,6 +425,18 @@
                       </select>
                       <small class="field-help" data-i18n="cfg.format_preference_help">Controls whether provider priority or the client-native format wins for this model.</small>
                     </label>
+                    <label class="field">
+                      <span data-i18n="cfg.reasoning_effort">Reasoning effort</span>
+                      <select class="control" name="reasoning_effort">
+                        <option value="" data-i18n="cfg.reasoning_effort_inherit">Follow client request</option>
+                        <option value="minimal">minimal</option>
+                        <option value="low">low</option>
+                        <option value="medium">medium</option>
+                        <option value="high">high</option>
+                        <option value="off">off</option>
+                      </select>
+                      <small class="field-help" data-i18n="cfg.reasoning_effort_help">Overrides the thinking intensity the client asked for on every upstream attempt.</small>
+                    </label>
                     <div class="form-actions">
                       <button class="button primary" type="submit" data-i18n="cfg.save_route">Save route</button>
                       <button id="clearModelRouteFormButton" class="button ghost" type="button" data-i18n="req.clear">Clear</button>
@@ -725,6 +737,7 @@
                   </div>
                 </div>
                 <div id="conversionDiagnosticsStatus" class="conversion-diagnostics-status" aria-live="polite"></div>
+                <div id="conversionDiagnosticsRecords" class="conversion-diagnostics-records"></div>
               </section>
 
               <section id="overlaySafetyPanel" class="panel config-advanced-panel">
@@ -842,6 +855,12 @@
         </section>
 
         <section id="settingsView" class="view settings-view">
+          <header class="settings-page-head">
+            <div>
+              <h1 data-i18n="view.settings.title">System Settings</h1>
+              <p data-i18n="view.settings.subtitle">Client keys, model pricing, and runtime operations.</p>
+            </div>
+          </header>
           <div class="settings-subnav" id="settingsTabNav" role="tablist" aria-label="Settings sections" data-i18n-attr="aria-label:settings.tabs_label">
             <button id="settingsKeysTab" class="is-active" type="button" role="tab" aria-selected="true" aria-controls="settingsKeysPanel" tabindex="0" data-settings-tab="keys" data-i18n="settings.tab_keys">Client Keys</button>
             <button id="settingsPricingTab" type="button" role="tab" aria-selected="false" aria-controls="settingsPricingPanel" tabindex="-1" data-settings-tab="pricing" data-i18n="settings.tab_pricing">Model Pricing</button>

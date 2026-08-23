@@ -10,6 +10,7 @@ if __name__ == "__main__":
              tool call support with memory,
              count_tokens handler for Claude Code compatibility"""
 import copy, json, os, uuid, datetime, socket, concurrent.futures, time, re, threading, hmac, queue, errno, random
+import dataclasses
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 from typing import List, Optional
@@ -23,7 +24,7 @@ from conversion_core import ConversionError
 from conversion_diagnostics import ConversionDiagnosticStore
 from audit_store import AdminAuditStore
 from config_manager import ConfigValidationError, RuntimeConfigManager
-from config_loader import apply_env_overlays, load_base_config, load_config, ZERO_CONFIG_ACTIVE
+from config_loader import apply_env_overlays, load_base_config, load_config, join_base_url, ZERO_CONFIG_ACTIVE
 from format_adapters import (
     ANTHROPIC,
     CHAT,
@@ -4319,8 +4320,154 @@ def _is_empty_visible_output(client_format, client_response, *, upstream_format=
     )
 
 
-def _record_empty_visible_output_failure(request_id, attempt, attempt_errors):
+def _empty_output_fallback_enabled(config) -> bool:
+    routing = (config or {}).get("routing") or {}
+    return bool(routing.get("empty_visible_output_fallback", True))
+
+
+def _reasoning_effort_for_model(config, canonical_model: str) -> str:
+    routes = ((config or {}).get("models") or {}).get("routes") or {}
+    route = routes.get(canonical_model) if isinstance(routes, dict) else None
+    if not isinstance(route, dict):
+        return ""
+    return str(route.get("reasoning_effort") or "").strip().lower()
+
+
+_ANTHROPIC_EFFORT_BUDGETS = {"minimal": 1024, "low": 4096, "medium": 10000, "high": 20000}
+
+
+def _client_reasoning_effort(req, client_format: str) -> str:
+    """Best-effort extraction of the client-requested thinking intensity."""
+    if not isinstance(req, dict):
+        return ""
+    try:
+        if client_format == CHAT:
+            value = req.get("reasoning_effort")
+            if isinstance(value, str) and value.strip():
+                return value.strip().lower()[:32]
+            reasoning = req.get("reasoning")
+            if isinstance(reasoning, dict):
+                effort = reasoning.get("effort")
+                if isinstance(effort, str) and effort.strip():
+                    return effort.strip().lower()[:32]
+                enabled = reasoning.get("enabled")
+                if enabled is False:
+                    return "off"
+            return ""
+        if client_format == RESPONSES:
+            reasoning = req.get("reasoning")
+            if isinstance(reasoning, str) and reasoning.strip():
+                return reasoning.strip().lower()[:32]
+            if isinstance(reasoning, dict):
+                effort = reasoning.get("effort")
+                if isinstance(effort, str) and effort.strip():
+                    return effort.strip().lower()[:32]
+            return ""
+        if client_format == ANTHROPIC:
+            thinking = req.get("thinking")
+            if not isinstance(thinking, dict):
+                return ""
+            if str(thinking.get("type") or "") == "disabled":
+                return "off"
+            budget = thinking.get("budget_tokens")
+            if isinstance(budget, (int, float)) and budget > 0:
+                return f"budget:{int(budget)}"
+            return "on"
+    except Exception:
+        return ""
+    return ""
+
+
+def _apply_reasoning_effort_override(payload, upstream_format: str, canonical_model: str, config):
+    """Replace the client's thinking intensity with the model-route override.
+
+    Returns an adaptation entry when an override was applied, else None.
+    """
+    value = _reasoning_effort_for_model(config, canonical_model)
+    if not value or value in ("client", "default"):
+        return None
+    if upstream_format == CHAT:
+        client_value = payload.get("reasoning_effort")
+        if value == "off":
+            for key in ("reasoning_effort", "reasoning", "enable_thinking", "thinking"):
+                payload.pop(key, None)
+        else:
+            for key in ("reasoning", "enable_thinking", "thinking"):
+                payload.pop(key, None)
+            payload["reasoning_effort"] = value
+    elif upstream_format == RESPONSES:
+        reasoning = payload.get("reasoning")
+        client_value = reasoning.get("effort") if isinstance(reasoning, dict) else reasoning
+        if value == "off":
+            payload.pop("reasoning", None)
+        else:
+            payload["reasoning"] = {"effort": value}
+    elif upstream_format == ANTHROPIC:
+        thinking = payload.get("thinking")
+        client_value = f"budget:{int(thinking['budget_tokens'])}" if isinstance(thinking, dict) and thinking.get("budget_tokens") else ""
+        if value == "off":
+            payload.pop("thinking", None)
+        else:
+            budget = int(_ANTHROPIC_EFFORT_BUDGETS.get(value, _ANTHROPIC_EFFORT_BUDGETS["medium"]))
+            max_tokens = 0
+            for key in ("max_tokens", "max_output_tokens", "max_completion_tokens"):
+                raw = payload.get(key)
+                if isinstance(raw, (int, float)) and raw > 0:
+                    max_tokens = int(raw)
+                    break
+            # Anthropic requires max_tokens > thinking.budget_tokens; clamp so
+            # the override can never push a valid request into a 400.
+            if max_tokens > 0:
+                budget = min(budget, max(1024, max_tokens - 512))
+                if budget >= max_tokens:
+                    payload.pop("thinking", None)
+                    return {"field": "reasoning_effort", "action": "drop", "from": client_value, "to": "off", "reason": "max_tokens_too_small"}
+            payload["thinking"] = {"type": "enabled", "budget_tokens": budget}
+    else:
+        return None
+    return {
+        "field": "reasoning_effort",
+        "action": "override",
+        "from": str(client_value if client_value is not None else "")[:32],
+        "to": value,
+    }
+
+
+def _record_empty_visible_output_failure(
+    request_id,
+    attempt,
+    attempt_errors,
+    *,
+    client_format=None,
+    client_response=None,
+    upstream_format=None,
+    upstream_response=None,
+    request_payload=None,
+):
     _current_rt().router.report_failure(attempt, error_type="empty_visible_output", http_status=200)
+    flags = {}
+    try:
+        if client_format:
+            flags = _visible_output_status(
+                client_format,
+                client_response,
+                upstream_format=upstream_format,
+                upstream_response=upstream_response,
+            )
+    except Exception:
+        flags = {}
+    conversion_details = {
+        "visibility": flags,
+        "upstream_format": str(upstream_format or ""),
+        "max_tokens": next(
+            (
+                request_payload.get(key)
+                for key in ("max_tokens", "max_output_tokens", "max_completion_tokens")
+                if isinstance(request_payload, dict) and isinstance(request_payload.get(key), int)
+            ),
+            None,
+        ),
+    }
     _record_failed_attempt(
         request_id,
         attempt,
@@ -4330,8 +4477,32 @@ def _record_empty_visible_output_failure(request_id, attempt, attempt_errors):
         diagnostics={
             "diagnostic_stage": "conversion_empty_output",
             "upstream_error_summary": "Converted response contained reasoning/truncation but no visible client text; retrying next candidate.",
+            "conversion_details": conversion_details,
         },
     )
+    try:
+        error = ConversionError(
+            "upstream returned reasoning but no visible client output before truncation",
+            code="empty_visible_output",
+            source_format=str(upstream_format or ""),
+            target_format=str(client_format or ""),
+            details=conversion_details,
+        )
+        _record_conversion_diagnostic(
+            request_id,
+            attempt,
+            error,
+            stage="response",
+            source_format=str(upstream_format or ""),
+            target_format=str(client_format or ""),
+            context={
+                "client_request": request_payload,
+                "upstream_response": upstream_response,
+                "client_response": client_response,
+            },
+        )
+    except Exception:
+        pass
     attempt_errors.append(f"{attempt.provider}:200:empty_visible_output")
     print(
         f"[proxy] EMPTY VISIBLE OUTPUT req={request_id} {_h(attempt.provider)}: retrying next provider",
@@ -4784,6 +4955,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             stream=is_stream,
             path="/v1/chat/completions",
             routing_trace=routing_trace,
+            reasoning_effort=_client_reasoning_effort(req, CHAT),
             **_observability_request_meta(
                 self,
                 CONFIG,
@@ -4816,6 +4988,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         if blocked_formats and log_each:
             print(f"[proxy] req={request_id} format exclusions={blocked_formats}", flush=True)
         prepared_payloads = {}
+        last_empty_output = None
 
         for attempt in ROUTER.iter_attempts(
             canonical_model,
@@ -4868,6 +5041,9 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             _force_anthropic_thinking_if_needed(attempt, payload, log_each=log_each)
             actual_token_field = next((field for field in ("max_output_tokens", "max_completion_tokens", "max_tokens") if field in payload), output_token_field)
             attempt_parameter_adaptations = parameter_adaptations(req, client_format=CHAT, target_format=fmt, output_token_field=actual_token_field, anthropic_default_max_tokens=anthropic_default_max_tokens, semantic_conversion_mode=semantic_conversion_mode)
+            effort_adaptation = _apply_reasoning_effort_override(payload, fmt, canonical_model, CONFIG)
+            if effort_adaptation:
+                attempt_parameter_adaptations.append(effort_adaptation)
             response_started = False
             upstream_conn = None
             stream_conversion_recorder = None
@@ -5013,7 +5189,17 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                     upstream_format=attempt.upstream_format,
                     upstream_response=upstream_data,
                 ):
-                    _record_empty_visible_output_failure(request_id, attempt, attempt_errors)
+                    _record_empty_visible_output_failure(
+                        request_id,
+                        attempt,
+                        attempt_errors,
+                        client_format=CHAT,
+                        client_response=client_response,
+                        upstream_format=attempt.upstream_format,
+                        upstream_response=upstream_data,
+                        request_payload=payload,
+                    )
+                    last_empty_output = (attempt, raw_response, client_response, key_masked)
                     continue
                 ROUTER.report_success(attempt)
                 OBSERVABILITY.record_attempt(
@@ -5137,6 +5323,26 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             OBSERVABILITY.record_request_end(request_id, status_code=400, error=payload["error"]["message"])
             return self._resp_json(payload, 400)
 
+        if last_empty_output is not None and _empty_output_fallback_enabled(CONFIG):
+            fb_attempt, fb_raw, fb_client_resp, fb_key_masked = last_empty_output
+            print(
+                f"[proxy] EMPTY OUTPUT FALLBACK req={request_id} {_h(fb_attempt.provider)}: "
+                "all candidates empty, returning truncated upstream response",
+                flush=True,
+            )
+            OBSERVABILITY.record_request_end(request_id, status_code=200)
+            fb_hdrs = {
+                "X-Route-Provider": str(fb_attempt.provider),
+                "X-Route-Key": str(fb_key_masked or ""),
+                "X-Route-Format": str(fb_attempt.upstream_format),
+                "X-Route-Model": str(getattr(fb_attempt, "provider_model", "")),
+                "X-Route-Attempt": str(fb_attempt.attempt_no),
+                "X-Route-Note": "empty-visible-output-fallback",
+            }
+            if fb_raw is not None:
+                return self._resp_bytes(fb_raw, content_type="application/json", extra_headers=fb_hdrs)
+            return self._resp_json(fb_client_resp, extra_headers=fb_hdrs)
+
         dur_ms = int((time.time() - start_ts) * 1000)
         detail_log = "; ".join(attempt_errors[-10:])
         print(f"[proxy] ALL ATTEMPTS FAILED req={request_id} {dur_ms}ms: {detail_log}", flush=True)
@@ -5167,6 +5373,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             stream=is_stream,
             path=path,
             routing_trace=routing_trace,
+            reasoning_effort=_client_reasoning_effort(req, RESPONSES),
             **_observability_request_meta(
                 self,
                 CONFIG,
@@ -5198,6 +5405,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         max_attempts = int(routing_cfg.get("max_attempts", 6))
         max_budget = (connect_t + read_t) * min(3, max(1, max_attempts))
         prepared_payloads = {}
+        last_empty_output = None
 
         for attempt in ROUTER.iter_attempts(
             canonical_model,
@@ -5250,6 +5458,9 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             _force_anthropic_thinking_if_needed(attempt, payload, log_each=log_each)
             actual_token_field = next((field for field in ("max_output_tokens", "max_completion_tokens", "max_tokens") if field in payload), output_token_field)
             attempt_parameter_adaptations = parameter_adaptations(req, client_format=RESPONSES, target_format=fmt, output_token_field=actual_token_field, anthropic_default_max_tokens=anthropic_default_max_tokens, semantic_conversion_mode=semantic_conversion_mode)
+            effort_adaptation = _apply_reasoning_effort_override(payload, fmt, canonical_model, CONFIG)
+            if effort_adaptation:
+                attempt_parameter_adaptations.append(effort_adaptation)
 
             response_started = False
             upstream_conn = None
@@ -5400,7 +5611,17 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                     upstream_format=attempt.upstream_format,
                     upstream_response=upstream_data,
                 ):
-                    _record_empty_visible_output_failure(request_id, attempt, attempt_errors)
+                    _record_empty_visible_output_failure(
+                        request_id,
+                        attempt,
+                        attempt_errors,
+                        client_format=RESPONSES,
+                        client_response=client_response,
+                        upstream_format=attempt.upstream_format,
+                        upstream_response=upstream_data,
+                        request_payload=payload,
+                    )
+                    last_empty_output = (attempt, raw_response, client_response, key_masked)
                     continue
                 ROUTER.report_success(attempt)
                 OBSERVABILITY.record_attempt(
@@ -5524,6 +5745,26 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             OBSERVABILITY.record_request_end(request_id, status_code=400, error=payload["error"]["message"])
             return self._resp_json(payload, 400)
 
+        if last_empty_output is not None and _empty_output_fallback_enabled(CONFIG):
+            fb_attempt, fb_raw, fb_client_resp, fb_key_masked = last_empty_output
+            print(
+                f"[proxy] EMPTY OUTPUT FALLBACK req={request_id} {_h(fb_attempt.provider)}: "
+                "all candidates empty, returning truncated upstream response",
+                flush=True,
+            )
+            OBSERVABILITY.record_request_end(request_id, status_code=200)
+            fb_hdrs = {
+                "X-Route-Provider": str(fb_attempt.provider),
+                "X-Route-Key": str(fb_key_masked or ""),
+                "X-Route-Format": str(fb_attempt.upstream_format),
+                "X-Route-Model": str(getattr(fb_attempt, "provider_model", "")),
+                "X-Route-Attempt": str(fb_attempt.attempt_no),
+                "X-Route-Note": "empty-visible-output-fallback",
+            }
+            if fb_raw is not None:
+                return self._resp_bytes(fb_raw, content_type="application/json", extra_headers=fb_hdrs)
+            return self._resp_json(fb_client_resp, extra_headers=fb_hdrs)
+
         dur_ms = int((time.time() - start_ts) * 1000)
         detail_log = "; ".join(attempt_errors[-10:])
         print(f"[proxy] ALL ATTEMPTS FAILED req={request_id} {dur_ms}ms: {detail_log}", flush=True)
@@ -5531,6 +5772,174 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         final_status = 504 if attempt_errors and all(":first_event_timeout:" in item for item in attempt_errors) else 502
         OBSERVABILITY.record_request_end(request_id, status_code=final_status, error=detail_log)
         return self._resp_json({"error": {"message": err_msg, "request_id": request_id}}, final_status)
+
+    def _proxy_openai_aux(self, req, request_id, start_ts, *, endpoint: str, upstream_path: str, client_format: str):
+        """Non-streaming passthrough for OpenAI-compatible auxiliary endpoints
+        (embeddings, image generations): same routing/failover/observability as
+        chat, but no format conversion and no stream handling."""
+        rt = _request_runtime()
+        _set_request_rt(rt)
+        CONFIG = rt.config
+        ROUTER = rt.router
+        UPSTREAM_CLIENT = rt.upstream_client
+        OBSERVABILITY = rt.observability
+        original_model = req.get("model", "")
+        resolved_model = resolve_model(original_model or "", rt.config)
+        canonical_model = resolved_model
+        routing_trace = RoutingTrace()
+        OBSERVABILITY.record_request_start(
+            request_id,
+            client_format=client_format,
+            endpoint=endpoint,
+            model=canonical_model,
+            stream=False,
+            path=upstream_path,
+            routing_trace=routing_trace,
+            **_observability_request_meta(self, CONFIG),
+        )
+        attempt_errors = []
+        has_attempt = False
+        routing_cfg = CONFIG.get("routing") or {}
+        connect_t = int(routing_cfg.get("connect_timeout_s", 15))
+        # Image generation can take far longer than a chat turn; keep the full
+        # configured read budget per attempt instead of the chat-style budget.
+        read_t = int(routing_cfg.get("read_timeout_s", 120))
+        max_attempts = int(routing_cfg.get("max_attempts", 6))
+        total_start = time.time()
+        max_budget = (connect_t + read_t) * min(3, max(1, max_attempts))
+        if original_model != resolved_model:
+            print(f"[proxy] model alias: {original_model} -> {resolved_model}", flush=True)
+
+        for attempt in ROUTER.iter_attempts(
+            canonical_model,
+            False,
+            request_id,
+            client_headers=self.headers,
+            client_format=CHAT,
+            allowed_upstream_formats=[CHAT],
+            routing_trace=routing_trace,
+        ):
+            has_attempt = True
+            remaining = max(connect_t, int(max_budget - (time.time() - total_start)))
+            key_masked = ROUTER.masked_key(attempt.key)
+            attempt_started = time.time()
+            base_url = str(((CONFIG.get("providers") or {}).get(attempt.provider) or {}).get("base_url") or "")
+            aux_attempt = (
+                dataclasses.replace(attempt, url=join_base_url(base_url, upstream_path))
+                if base_url
+                else attempt
+            )
+            payload = dict(req)
+            payload["model"] = attempt.provider_model
+            payload.pop("stream", None)
+            payload.pop("reasoning_effort", None)
+            payload.pop("reasoning", None)
+
+            try:
+                upstream_data, first_byte_ms = _request_json_once_with_timing(
+                    aux_attempt,
+                    payload,
+                    proxy_url=attempt.proxy_url,
+                    remaining_timeout_s=remaining,
+                )
+                OBSERVABILITY.record_first_byte(request_id, first_byte_ms)
+                ROUTER.report_success(attempt)
+                OBSERVABILITY.record_attempt(
+                    request_id,
+                    attempt,
+                    outcome="success",
+                    usage=_response_usage(upstream_data),
+                    duration_ms=_attempt_duration_ms(attempt_started),
+                    first_byte_ms=first_byte_ms,
+                )
+                OBSERVABILITY.record_request_end(request_id, status_code=200)
+                _route_hdrs = {
+                    "X-Route-Provider": str(attempt.provider),
+                    "X-Route-Key": str(key_masked or ""),
+                    "X-Route-Format": str(attempt.upstream_format),
+                    "X-Route-Model": str(getattr(attempt, "provider_model", "")),
+                    "X-Route-Attempt": str(attempt.attempt_no),
+                }
+                return self._resp_json(upstream_data, extra_headers=_route_hdrs)
+
+            except (HTTPError, CachedHTTPError) as e:
+                status, error_body, headers = _http_error_details(e)
+                retry_after_s = parse_retry_after_seconds(headers.get("Retry-After"))
+                decision = scheduler_policy.classify_http_error(
+                    CONFIG,
+                    int(status),
+                    error_body=error_body,
+                    model_name=str(payload.get("model", "")),
+                )
+                _record_upstream_http_failure(
+                    request_id,
+                    attempt,
+                    status,
+                    error_body,
+                    decision,
+                    retry_after_s,
+                    attempt_errors,
+                    duration_ms=_attempt_duration_ms(attempt_started),
+                )
+                if decision.stop_attempts:
+                    break
+                continue
+
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError) as e:
+                _record_transport_failure(
+                    request_id,
+                    attempt,
+                    e,
+                    attempt_errors,
+                    stage="client_disconnected",
+                    duration_ms=_attempt_duration_ms(attempt_started),
+                )
+                OBSERVABILITY.record_request_end(request_id, status_code=499, error=type(e).__name__)
+                return
+
+            except (URLError, socket.timeout) as e:
+                err_label = "timeout" if isinstance(e, socket.timeout) else "network_error"
+                _record_transport_failure(
+                    request_id,
+                    attempt,
+                    e,
+                    attempt_errors,
+                    reason=err_label,
+                    stage=_transport_stage_for_exception(e),
+                    duration_ms=_attempt_duration_ms(attempt_started),
+                )
+                continue
+
+            except Exception as e:
+                _record_proxy_exception(
+                    request_id,
+                    attempt,
+                    e,
+                    attempt_errors,
+                    duration_ms=_attempt_duration_ms(attempt_started),
+                    conversion_target=client_format,
+                    context={"client_request": req},
+                )
+                continue
+
+        if not has_attempt:
+            routing_trace.record(
+                "no_candidate",
+                stage="routing",
+                owner="proxy_routing",
+                canonical_model=canonical_model,
+            )
+            payload = _no_candidate_error(routing_trace, canonical_model)
+            payload["error"]["request_id"] = request_id
+            OBSERVABILITY.record_request_end(request_id, status_code=503, error=payload["error"]["message"])
+            return self._resp_json(payload, 503)
+
+        dur_ms = int((time.time() - start_ts) * 1000)
+        detail_log = "; ".join(attempt_errors[-10:])
+        print(f"[proxy] ALL ATTEMPTS FAILED req={request_id} {dur_ms}ms: {detail_log}", flush=True)
+        err_msg = f"All upstream providers are currently unavailable (req={request_id}, {dur_ms}ms)"
+        OBSERVABILITY.record_request_end(request_id, status_code=502, error=detail_log)
+        return self._resp_json({"error": {"message": err_msg, "request_id": request_id}}, 502)
 
     def do_PATCH(self):
         try:
@@ -5588,7 +5997,12 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         is_responses = route.endpoint == "responses" and route.family == "responses" and route.implemented
         is_anthropic_messages = route.endpoint == "messages" and route.family == "anthropic" and route.implemented
         is_chat_completions = route.endpoint == "chat_completions" and route.family == "chat_completions" and route.implemented
-        if not (is_anthropic_messages or is_chat_completions or is_responses):
+        aux_endpoints = {
+            "embeddings": ("embeddings", "/v1/embeddings", "embeddings"),
+            "images_generations": ("images_generations", "/v1/images/generations", "images"),
+        }
+        aux_spec = aux_endpoints.get(route.endpoint) if route.implemented else None
+        if not (is_anthropic_messages or is_chat_completions or is_responses or aux_spec):
             print(f"[proxy] UNKNOWN POST path: {self.path}", flush=True)
             return self._resp_json({"error": {"message": f"unknown endpoint: {self.path}"}}, 404)
 
@@ -5604,6 +6018,19 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         auth_error = self._enforce_client_key(route, model=req.get("model"))
         if auth_error is not None:
             return self._resp_json(auth_error[0], auth_error[1])
+
+        if aux_spec:
+            aux_endpoint, aux_path, aux_format = aux_spec
+            request_id = self.headers.get("X-Request-Id") or self.headers.get("X-Request-ID") or uuid.uuid4().hex
+            start_ts = time.time()
+            return self._proxy_openai_aux(
+                req,
+                request_id,
+                start_ts,
+                endpoint=aux_endpoint,
+                upstream_path=aux_path,
+                client_format=aux_format,
+            )
 
         client_format = CHAT if is_chat_completions else RESPONSES if is_responses else ANTHROPIC
         try:
@@ -5659,6 +6086,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                 stream=bool(is_stream),
                 path="/anthropic/v1/messages" if not route.legacy else "/v1/messages",
                 routing_trace=routing_trace,
+                reasoning_effort=_client_reasoning_effort(req, ANTHROPIC),
                 **_observability_request_meta(
                     self,
                     CONFIG,
@@ -5708,6 +6136,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             if blocked_formats and log_each:
                 print(f"[proxy] req={request_id} format exclusions={blocked_formats}", flush=True)
             prepared_payloads = {}
+            last_empty_output = None
             for attempt in ROUTER.iter_attempts(
                 canonical_model,
                 bool(is_stream),
@@ -5761,6 +6190,9 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                 _force_anthropic_thinking_if_needed(attempt, payload, log_each=log_each)
                 actual_token_field = next((field for field in ("max_output_tokens", "max_completion_tokens", "max_tokens") if field in payload), output_token_field)
                 attempt_parameter_adaptations = parameter_adaptations(req, client_format=ANTHROPIC, target_format=fmt, output_token_field=actual_token_field, anthropic_default_max_tokens=anthropic_default_max_tokens, semantic_conversion_mode=semantic_conversion_mode)
+                effort_adaptation = _apply_reasoning_effort_override(payload, fmt, canonical_model, CONFIG)
+                if effort_adaptation:
+                    attempt_parameter_adaptations.append(effort_adaptation)
 
                 response_started = False
                 upstream_conn = None
@@ -5901,7 +6333,17 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                         upstream_format=attempt.upstream_format,
                         upstream_response=upstream_data,
                     ):
-                        _record_empty_visible_output_failure(request_id, attempt, attempt_errors)
+                        _record_empty_visible_output_failure(
+                            request_id,
+                            attempt,
+                            attempt_errors,
+                            client_format=ANTHROPIC,
+                            client_response=anth_resp,
+                            upstream_format=attempt.upstream_format,
+                            upstream_response=upstream_data,
+                            request_payload=payload,
+                        )
+                        last_empty_output = (attempt, raw_response, anth_resp, key_masked)
                         continue
                     ROUTER.report_success(attempt)
                     OBSERVABILITY.record_attempt(
@@ -6070,6 +6512,28 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                 payload = _conversion_failure_payload(conversion_failures[-1], request_id, client_format=ANTHROPIC)
                 OBSERVABILITY.record_request_end(request_id, status_code=400, error=payload["error"]["message"])
                 return self._resp_json(payload, 400)
+
+            if last_empty_output is not None and _empty_output_fallback_enabled(CONFIG):
+                fb_attempt, fb_raw, fb_client_resp, fb_key_masked = last_empty_output
+                print(
+                    f"[proxy] EMPTY OUTPUT FALLBACK req={request_id} {_h(fb_attempt.provider)}: "
+                    "all candidates empty, returning truncated upstream response",
+                    flush=True,
+                )
+                OBSERVABILITY.record_request_end(request_id, status_code=200)
+                fb_hdrs = {
+                    "X-Route-Provider": str(fb_attempt.provider),
+                    "X-Route-Key": str(fb_key_masked or ""),
+                    "X-Route-Format": str(fb_attempt.upstream_format),
+                    "X-Route-Model": str(getattr(fb_attempt, "provider_model", "")),
+                    "X-Route-Attempt": str(fb_attempt.attempt_no),
+                    "X-Route-Note": "empty-visible-output-fallback",
+                }
+                if fb_raw is not None:
+                    self._resp_bytes(fb_raw, content_type="application/json", extra_headers=fb_hdrs)
+                else:
+                    self._resp_json(fb_client_resp, extra_headers=fb_hdrs)
+                return
 
             dur_ms = int((time.time() - start_ts) * 1000)
             detail_log = "; ".join(attempt_errors[-10:])

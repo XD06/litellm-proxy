@@ -62,6 +62,30 @@ class ConversionDiagnosticStoreTests(unittest.TestCase):
             self.assertEqual(record["context"]["Authorization"], "[REDACTED]")
             self.assertEqual(record["context"]["api_key"], "[REDACTED]")
 
+    def test_tail_returns_recent_records_newest_first(self):
+        with tempfile.TemporaryDirectory() as root:
+            store = ConversionDiagnosticStore(self.config(root))
+            try:
+                for index in range(4):
+                    self.assertTrue(store.record(
+                        request_id=f"req-{index}",
+                        stage="response",
+                        source_format="chat_completions",
+                        target_format="anthropic_messages",
+                        provider="alpha",
+                        error=ConversionError(f"boom {index}", code="empty_visible_output"),
+                    ), f"record {index} failed")
+                store.flush()
+                items = store.tail(limit=3)
+                self.assertEqual(len(items), 3)
+                # Newest first ordering.
+                self.assertEqual(items[0]["request_id"], "req-3")
+                self.assertEqual(items[-1]["request_id"], "req-1")
+                self.assertEqual(items[0]["error"]["code"], "empty_visible_output")
+                self.assertEqual(store.tail(limit=100)[0]["request_id"], "req-3")
+            finally:
+                store.close()
+
     def test_rotation_is_bounded_and_clear_removes_all_files(self):
         with tempfile.TemporaryDirectory() as root:
             store = ConversionDiagnosticStore(self.config(

@@ -508,6 +508,8 @@ import {
         maximumFractionDigits: maxDigits,
       })}${suffix}`;
     };
+    if (abs >= 1_000_000_000_000) return compact(1_000_000_000_000, "T");
+    if (abs >= 1_000_000_000) return compact(1_000_000_000, "B");
     if (abs >= 1_000_000) return compact(1_000_000, "M");
     if (abs >= 1_000) return compact(1_000, "K");
     return fmtInt(n);
@@ -551,7 +553,8 @@ import {
   function fmtCost(value) {
     const n = Number(value || 0);
     if (!Number.isFinite(n) || n <= 0) return "$0";
-    if (n < 0.0001) return `$${n.toFixed(8)}`;
+    if (n < 0.000001) return "<$0.000001";
+    if (n < 0.0001) return `$${n.toFixed(6)}`;
     return `$${n.toLocaleString(getLang() === "zh" ? "zh-CN" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })}`;
   }
 
@@ -1579,6 +1582,7 @@ import {
         ["overlay", () => apiGet("/-/admin/config/overlay", { cache: true })],
         ["audit", () => apiGet("/-/admin/audit?limit=12", { cache: true })],
         ["conversionDiagnostics", () => apiGet("/-/admin/conversion-diagnostics")],
+        ["conversionDiagRecords", () => apiGet("/-/admin/conversion-diagnostics/records?limit=20", { cache: true })],
       ];
       const selectedEntries = (domains ? entries.filter(([name]) => domains.includes(name)) : entries)
         .filter(([name]) => !(protectedAtStart && STATIC_CONFIG_DOMAINS.has(name)));
@@ -1605,6 +1609,7 @@ import {
       if (allowConfigApply && result.overlay !== undefined) state.data.overlay = result.overlay;
       if (result.audit !== undefined) state.data.audit = result.audit;
       if (result.conversionDiagnostics !== undefined) state.data.conversionDiagnostics = result.conversionDiagnostics;
+      if (result.conversionDiagRecords !== undefined) state.data.conversionDiagRecords = result.conversionDiagRecords;
       state.data.version = Number(state.data.version || 0) + 1;
       if (allowConfigApply) {
         state.forceConfigRender = true;
@@ -1867,6 +1872,7 @@ import {
         fetches.overlay = apiGet("/-/admin/config/overlay");
         fetches.audit = apiGet("/-/admin/audit?limit=12");
         fetches.conversionDiagnostics = apiGet("/-/admin/conversion-diagnostics");
+        fetches.conversionDiagRecords = apiGet("/-/admin/conversion-diagnostics/records?limit=20");
       }
       if (needRecentRing) fetches.metricsFull = apiGet("/-/admin/metrics/full");
       if (needTimeseries) fetches.timeseries = apiGet(timeseriesPath());
@@ -1899,6 +1905,7 @@ import {
       if (result.overlay !== undefined) state.data.overlay = result.overlay;
       if (result.audit !== undefined) state.data.audit = result.audit;
       if (result.conversionDiagnostics !== undefined) state.data.conversionDiagnostics = result.conversionDiagnostics;
+      if (result.conversionDiagRecords !== undefined) state.data.conversionDiagRecords = result.conversionDiagRecords;
 
       // Check models_version from the metrics or status payload. When the
       // backend bumps this counter, provider_model_capabilities changed
@@ -2799,22 +2806,29 @@ import {
     bindSettingsOpsForms(target);
   }
 
-  function settingsOpsProxyCard(proxy) {
+  function settingsOpsCardShell(titleKey, icon, descKey, body) {
     return `
-      <section class="settings-ops-card">
-        <div class="settings-ops-card-head">
-          <h3>${iconSvg("radar")}<span>${escapeHtml(t("settings.ops.proxy_title"))}</span></h3>
+      <section class="panel settings-ops-card">
+        <div class="panel-head">
+          <div>
+            <h3>${iconSvg(icon)}<span>${escapeHtml(t(titleKey))}</span></h3>
+            <p>${escapeHtml(t(descKey))}</p>
+          </div>
         </div>
-        <p class="settings-ops-desc">${escapeHtml(t("settings.ops.proxy_desc"))}</p>
-        <form id="settingsOpsProxyForm" class="settings-ops-form">
-          <label class="field">
-            <span>${escapeHtml(t("settings.ops.proxy_field"))}</span>
-            <input class="control mono" name="proxy" type="text" value="${escapeHtml(settingsProxyToString(proxy))}" placeholder="http://127.0.0.1:10808" />
-            <small>${escapeHtml(t("settings.ops.proxy_hint"))}</small>
-          </label>
-          <button class="button primary" type="submit">${escapeHtml(t("settings.ops.save"))}</button>
-        </form>
+        <div class="settings-ops-body">${body}</div>
       </section>`;
+  }
+
+  function settingsOpsProxyCard(proxy) {
+    return settingsOpsCardShell("settings.ops.proxy_title", "radar", "settings.ops.proxy_desc", `
+      <form id="settingsOpsProxyForm" class="settings-ops-form">
+        <label class="field">
+          <span>${escapeHtml(t("settings.ops.proxy_field"))}</span>
+          <input class="control mono" name="proxy" type="text" value="${escapeHtml(settingsProxyToString(proxy))}" placeholder="http://127.0.0.1:10808" />
+          <small>${escapeHtml(t("settings.ops.proxy_hint"))}</small>
+        </label>
+        <button class="button primary" type="submit">${escapeHtml(t("settings.ops.save"))}</button>
+      </form>`);
   }
 
   function settingsOpsRuntimeCard(routing, server) {
@@ -2824,68 +2838,50 @@ import {
         <span>${escapeHtml(t(labelKey))}</span>
         <input class="control mono" name="${name}" type="number" min="0" step="1" value="${escapeHtml(String(value ?? 0))}" />
       </label>`;
-    return `
-      <section class="settings-ops-card">
-        <div class="settings-ops-card-head">
-          <h3>${iconSvg("zap")}<span>${escapeHtml(t("settings.ops.runtime_title"))}</span></h3>
+    return settingsOpsCardShell("settings.ops.runtime_title", "zap", "settings.ops.runtime_desc", `
+      <div class="settings-kv-list">
+        <div class="settings-kv"><span>${escapeHtml(t("settings.ops.max_workers"))}</span><strong class="mono">${escapeHtml(String((server || {}).max_workers ?? "—"))}</strong></div>
+        <div class="settings-kv"><span>${escapeHtml(t("settings.ops.stream_mode"))}</span><strong class="mono">${escapeHtml(String(routing.native_stream_mode || "—"))}</strong></div>
+      </div>
+      <form id="settingsOpsRuntimeForm" class="settings-ops-form">
+        <div class="settings-ops-field-grid">
+          ${numberField("max_attempts", "settings.ops.max_attempts", routing.max_attempts)}
+          ${numberField("connect_timeout_s", "settings.ops.connect_timeout", routing.connect_timeout_s)}
+          ${numberField("read_timeout_s", "settings.ops.read_timeout", routing.read_timeout_s)}
+          ${numberField("first_token_timeout_s", "settings.ops.first_token_timeout", routing.first_token_timeout_s)}
+          ${numberField("agent_first_event_timeout_s", "settings.ops.agent_timeout", routing.agent_first_event_timeout_s)}
         </div>
-        <p class="settings-ops-desc">${escapeHtml(t("settings.ops.runtime_desc"))}</p>
-        <div class="settings-kv-list">
-          <div class="settings-kv"><span>${escapeHtml(t("settings.ops.max_workers"))}</span><strong class="mono">${escapeHtml(String((server || {}).max_workers ?? "—"))}</strong></div>
-          <div class="settings-kv"><span>${escapeHtml(t("settings.ops.stream_mode"))}</span><strong class="mono">${escapeHtml(String(routing.native_stream_mode || "—"))}</strong></div>
-        </div>
-        <form id="settingsOpsRuntimeForm" class="settings-ops-form">
-          <div class="settings-ops-field-grid">
-            ${numberField("max_attempts", "settings.ops.max_attempts", routing.max_attempts)}
-            ${numberField("connect_timeout_s", "settings.ops.connect_timeout", routing.connect_timeout_s)}
-            ${numberField("read_timeout_s", "settings.ops.read_timeout", routing.read_timeout_s)}
-            ${numberField("first_token_timeout_s", "settings.ops.first_token_timeout", routing.first_token_timeout_s)}
-            ${numberField("agent_first_event_timeout_s", "settings.ops.agent_timeout", routing.agent_first_event_timeout_s)}
-          </div>
-          <button class="button primary" type="submit">${escapeHtml(t("settings.ops.save"))}</button>
-        </form>
-      </section>`;
+        <button class="button primary" type="submit">${escapeHtml(t("settings.ops.save"))}</button>
+      </form>`);
   }
 
   function settingsOpsOverlayCard(config) {
     const revision = Number(config.revision ?? 0);
     const epoch = Number(config.revision_epoch_ms || 0);
     const epochText = epoch ? new Date(epoch).toLocaleString() : "—";
-    return `
-      <section class="settings-ops-card">
-        <div class="settings-ops-card-head">
-          <h3>${iconSvg("layers")}<span>${escapeHtml(t("settings.ops.overlay_title"))}</span></h3>
-        </div>
-        <p class="settings-ops-desc">${escapeHtml(t("settings.ops.overlay_desc"))}</p>
-        <div class="settings-kv-list">
-          <div class="settings-kv"><span>${escapeHtml(t("settings.ops.overlay_revision"))}</span><strong class="mono">#${fmtInt(revision)} · ${escapeHtml(epochText)}</strong></div>
-          <div class="settings-kv"><span>${escapeHtml(t("settings.ops.overlay_state"))}</span><strong>${config.has_overlay ? escapeHtml(t("settings.ops.overlay_active")) : escapeHtml(t("settings.ops.overlay_empty"))}</strong></div>
-        </div>
-        <div class="settings-ops-actions">
-          <button class="button secondary" type="button" data-settings-export>${escapeHtml(t("settings.ops.export"))}</button>
-          <button class="button secondary settings-danger-btn" type="button" data-settings-reset>${escapeHtml(t("settings.ops.reset"))}</button>
-        </div>
-      </section>`;
+    return settingsOpsCardShell("settings.ops.overlay_title", "layers", "settings.ops.overlay_desc", `
+      <div class="settings-kv-list">
+        <div class="settings-kv"><span>${escapeHtml(t("settings.ops.overlay_revision"))}</span><strong class="mono">#${fmtInt(revision)} · ${escapeHtml(epochText)}</strong></div>
+        <div class="settings-kv"><span>${escapeHtml(t("settings.ops.overlay_state"))}</span><strong>${config.has_overlay ? escapeHtml(t("settings.ops.overlay_active")) : escapeHtml(t("settings.ops.overlay_empty"))}</strong></div>
+      </div>
+      <div class="settings-ops-actions">
+        <button class="button secondary" type="button" data-settings-export>${escapeHtml(t("settings.ops.export"))}</button>
+        <button class="button secondary settings-danger-btn" type="button" data-settings-reset>${escapeHtml(t("settings.ops.reset"))}</button>
+      </div>`);
   }
 
   function settingsOpsSecurityCard(server) {
     server = server || {};
     const cidrs = Array.isArray(server.trusted_proxy_cidrs) ? server.trusted_proxy_cidrs.join(", ") : "";
     const headers = Array.isArray(server.trusted_proxy_headers) ? server.trusted_proxy_headers.join(", ") : "";
-    return `
-      <section class="settings-ops-card">
-        <div class="settings-ops-card-head">
-          <h3>${iconSvg("shield")}<span>${escapeHtml(t("settings.ops.security_title"))}</span></h3>
-        </div>
-        <p class="settings-ops-desc">${escapeHtml(t("settings.ops.security_desc"))}</p>
-        <div class="settings-kv-list">
-          <div class="settings-kv"><span>${escapeHtml(t("settings.ops.security_admin_key"))}</span><strong class="mono">${escapeHtml(server.admin_key || "—")}</strong></div>
-          <div class="settings-kv"><span>${escapeHtml(t("settings.ops.security_trusted"))}</span><strong class="mono">${escapeHtml(cidrs || t("settings.ops.not_set"))}</strong></div>
-          <div class="settings-kv"><span>${escapeHtml(t("settings.ops.security_headers"))}</span><strong class="mono">${escapeHtml(headers || t("settings.ops.not_set"))}</strong></div>
-          <div class="settings-kv"><span>${escapeHtml(t("settings.ops.security_query_key"))}</span><strong>${server.allow_query_admin_key ? "On" : "Off"}</strong></div>
-        </div>
-        <p class="settings-ops-note">${escapeHtml(t("settings.ops.security_admin_key_hint"))}</p>
-      </section>`;
+    return settingsOpsCardShell("settings.ops.security_title", "shield", "settings.ops.security_desc", `
+      <div class="settings-kv-list">
+        <div class="settings-kv"><span>${escapeHtml(t("settings.ops.security_admin_key"))}</span><strong class="mono">${escapeHtml(server.admin_key || "—")}</strong></div>
+        <div class="settings-kv"><span>${escapeHtml(t("settings.ops.security_trusted"))}</span><strong class="mono">${escapeHtml(cidrs || t("settings.ops.not_set"))}</strong></div>
+        <div class="settings-kv"><span>${escapeHtml(t("settings.ops.security_headers"))}</span><strong class="mono">${escapeHtml(headers || t("settings.ops.not_set"))}</strong></div>
+        <div class="settings-kv"><span>${escapeHtml(t("settings.ops.security_query_key"))}</span><strong>${server.allow_query_admin_key ? "On" : "Off"}</strong></div>
+      </div>
+      <p class="settings-ops-note">${escapeHtml(t("settings.ops.security_admin_key_hint"))}</p>`);
   }
 
   function bindSettingsOpsForms(target) {
@@ -4749,6 +4745,7 @@ import {
       `${t("tokens.cache_write")}: ${fmtInt(usage.cache_write_tokens)}`,
       `${t("tokens.output")}: ${fmtInt(usage.output_tokens)}`,
       `${t("tokens.reasoning")}: ${fmtInt(usage.reasoning_tokens)}`,
+      ...(r.reasoning_effort ? [`${t("req.meta_effort")}: ${r.reasoning_effort}`] : []),
     ].join(" · ");
     const recoveryText = failedAttempts > 0 && code < 400
       ? t("req.recovered_count", { count: fmtInt(failedAttempts) })
@@ -4765,6 +4762,7 @@ import {
               <time datetime="${escapeHtml(requestTime.iso)}">${escapeHtml(requestTime.date)} ${escapeHtml(requestTime.time)}</time>
               ${requestFormatBadge(r)}
               ${r.stream ? `<span class="request-meta-chip request-stream-chip" data-tip="${escapeHtml(t("req.streaming"))}">${iconSvg("activity")}${escapeHtml(t("req.streaming"))}</span>` : ""}
+              ${r.reasoning_effort ? `<span class="request-meta-chip" data-tip="${escapeHtml(t("req.meta_effort"))}">${iconSvg("bolt")}${escapeHtml(r.reasoning_effort)}</span>` : ""}
             </small>
           </span>
         </td>
@@ -8611,10 +8609,12 @@ import {
     const data = state.data.conversionDiagnostics;
     if (!data) {
       updateDOM(target, `<span class="conversion-diagnostics-empty">${iconSvg("rotate")}<span>${escapeHtml(t("model_usage.loading"))}</span></span>`);
+      renderConversionDiagRecords();
       return;
     }
     if (!data.enabled) {
       updateDOM(target, `<span class="conversion-diagnostics-empty">${iconSvg("alert")}<span>${escapeHtml(t("cfg.diagnostics_disabled"))}</span></span>`);
+      renderConversionDiagRecords();
       return;
     }
     const records = Math.max(0, Number(data.records || 0));
@@ -8624,6 +8624,38 @@ import {
       <span><small>${escapeHtml(t("cfg.diagnostics_size"))}</small><strong>${escapeHtml(fmtFileSize(data.bytes || 0))}</strong></span>
       <span class="${Number(data.dropped || 0) ? "tone-warning" : ""}"><small>${escapeHtml(t("cfg.diagnostics_dropped"))}</small><strong>${fmtInt(data.dropped || 0)}</strong></span>
     ` : `<span class="conversion-diagnostics-empty">${iconSvg("check")}<span>${escapeHtml(t("cfg.diagnostics_empty"))}</span></span>`);
+    renderConversionDiagRecords();
+  }
+
+  function renderConversionDiagRecords() {
+    const target = el("conversionDiagnosticsRecords");
+    if (!target) return;
+    const items = Array.isArray(state.data.conversionDiagRecords?.items) ? state.data.conversionDiagRecords.items : [];
+    if (!items.length) {
+      updateDOM(target, "");
+      return;
+    }
+    const rows = items.slice(0, 20).map((item) => {
+      const error = item.error || {};
+      const time = Number(item.timestamp || 0)
+        ? new Date(Number(item.timestamp) * 1000).toLocaleString(getLang() === "zh" ? "zh-CN" : "en-US", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })
+        : "-";
+      const formats = [item.source_format, item.target_format].filter(Boolean).join(" → ");
+      const message = String(error.message || error.code || "-");
+      const model = String(item.provider_model || (item.context && item.context.model) || "");
+      const tip = escapeHtml(`${String(error.code || "")} ${message}`.trim().slice(0, 300));
+      return `
+        <div class="conversion-diag-record" data-tip="${tip}" tabindex="0">
+          <span class="conversion-diag-time mono">${escapeHtml(time)}</span>
+          ${badge(String(item.stage || "-"), item.stage === "request" ? "warn" : "info")}
+          <span class="conversion-diag-formats mono">${escapeHtml(formats || "-")}</span>
+          <span class="conversion-diag-provider">${escapeHtml(String(item.provider || "-"))}</span>
+          <span class="conversion-diag-model mono">${escapeHtml(model || "-")}</span>
+          <span class="conversion-diag-message">${escapeHtml(message.slice(0, 120))}</span>
+        </div>
+      `;
+    }).join("");
+    updateDOM(target, `<div class="conversion-diag-records-head">${escapeHtml(t("cfg.diagnostics_recent"))}</div>${rows}`);
   }
 
   async function loadModelUsage({ force = false } = {}) {
@@ -9012,6 +9044,7 @@ import {
         <div class="model-route-side">
           ${badge(providerSelect, providerSelect === "random" ? "warn" : providerSelect === "weighted_rr" ? "info" : "ok")}
           ${badge(formatPreference ? (formatPreference === "native_first" ? t("policy.format_native") : t("policy.format_priority")) : t("cfg.format_inherit"), formatPreference ? "info" : "neutral")}
+          ${route.reasoning_effort ? badge(`${t("cfg.reasoning_effort")}: ${route.reasoning_effort}`, route.reasoning_effort === "off" ? "warn" : "info") : ""}
           <div class="actions tight">
             <button class="button secondary compact-action icon-action" type="button" data-model-route-edit="${escapeHtml(model)}" title="Edit route" aria-label="Edit route">${iconSvg("pencil")}</button>
             <button class="button danger compact-action icon-action" type="button" data-model-route-delete="${escapeHtml(model)}" title="Delete route" aria-label="Delete route">${iconSvg("trash")}</button>
@@ -10050,6 +10083,27 @@ import {
     return t("req.key_number", { index: fmtInt(index + 1) });
   }
 
+  function reasoningEffortText(detail) {
+    const clientEffort = String(detail?.reasoning_effort || "");
+    let overrideTo = "";
+    let overrideFrom = "";
+    const attempts = Array.isArray(detail?.attempts) ? detail.attempts : [];
+    for (const attempt of attempts) {
+      const adaptations = Array.isArray(attempt?.parameter_adaptations) ? attempt.parameter_adaptations : [];
+      for (const item of adaptations) {
+        if (item?.field === "reasoning_effort" && item.to) {
+          overrideTo = String(item.to);
+          overrideFrom = String(item.from || "");
+        }
+      }
+    }
+    if (overrideTo) {
+      const from = overrideFrom || clientEffort;
+      return from ? `${from} → ${overrideTo}` : overrideTo;
+    }
+    return clientEffort || "-";
+  }
+
   function renderRequestMetadata(detail) {
     const rows = [
       [t("req.meta_ip"), detail.client_ip || "-"],
@@ -10058,6 +10112,7 @@ import {
       ["Path", detail.path || "-"],
       [t("req.meta_size"), detail.request_bytes ? `${fmtInt(detail.request_bytes)} B` : "-"],
       [t("req.meta_profile"), detail.request_profile || "plain"],
+      [t("req.meta_effort"), reasoningEffortText(detail)],
       [t("req.meta_started"), fmtDate(detail.started_at)],
       [t("req.meta_finished"), fmtDate(detail.finished_at)],
     ];
@@ -11266,6 +11321,7 @@ import {
         providers: String(form.elements.providers.value || "").trim(),
         provider_select: String(form.elements.provider_select.value || "priority_failover").trim(),
         format_preference: String(form.elements.format_preference.value || "").trim(),
+        reasoning_effort: String(form.elements.reasoning_effort?.value || "").trim(),
       };
       await runConfigMutation(form, async () => {
         const result = await apiPatch("/-/admin/models/routes", payload);
@@ -11279,6 +11335,7 @@ import {
             providers: parseRouteProvidersInput(payload.providers),
             provider_select: payload.provider_select,
             ...(payload.format_preference ? { format_preference: payload.format_preference } : {}),
+            ...(payload.reasoning_effort ? { reasoning_effort: payload.reasoning_effort } : {}),
           };
         },
         drawer: false,
@@ -11319,6 +11376,7 @@ import {
           providers,
           provider_select: "priority_failover",
           format_preference: String(route.format_preference || ""),
+          reasoning_effort: String(route.reasoning_effort || ""),
         };
         await runOptimisticConfigAction(
           priorityButton,
@@ -11331,6 +11389,7 @@ import {
                 providers: structuredClone(providers),
                 provider_select: "priority_failover",
                 ...(requestPayload.format_preference ? { format_preference: requestPayload.format_preference } : {}),
+                ...(requestPayload.reasoning_effort ? { reasoning_effort: requestPayload.reasoning_effort } : {}),
               };
             },
           },
@@ -11373,6 +11432,7 @@ import {
         form.elements.providers.value = routeProvidersText(route.providers);
         form.elements.provider_select.value = route.provider_select || "priority_failover";
         form.elements.format_preference.value = route.format_preference || "";
+        if (form.elements.reasoning_effort) form.elements.reasoning_effort.value = route.reasoning_effort || "";
         (editor || form).scrollIntoView({ block: "nearest" });
         form.elements.providers.focus();
         return;

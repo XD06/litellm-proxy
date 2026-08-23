@@ -71,6 +71,12 @@ def classify_post(clean_path: str) -> Route:
     if namespace == "legacy" and path == "/v1/chat/completions":
         return Route("chat_completions", "chat_completions", clean_path, "/v1/chat/completions")
 
+    if namespace == "legacy" and path == "/v1/embeddings":
+        return Route("chat_completions", "embeddings", clean_path, "/v1/embeddings")
+
+    if namespace == "legacy" and path == "/v1/images/generations":
+        return Route("chat_completions", "images_generations", clean_path, "/v1/images/generations")
+
     if namespace == "legacy" and path == "/v1/responses":
         return Route("responses", "responses", clean_path, "/v1/responses")
 

@@ -91,7 +91,13 @@
     // - safe: 旧行为，先等首个 SSE data 事件，失败时还能在写响应前换路由
     // - guarded: 默认。上游 HTTP 状态 OK 后立即给客户端发 SSE headers，不等首事件，降低首 token 代理等待；
     //            代价是 headers 发出后首事件超时不能再透明 failover
-    "native_stream_mode": "safe"
+    "native_stream_mode": "safe",
+
+    // 非流式“空可见输出”兜底（默认 true）：
+    // 推理模型在 max_tokens 耗尽时可能只返回思考、没有正文（finish_reason=length）。
+    // 所有候选都如此时，与其返回 502，不如把最后一次上游 200 响应原样返回给客户端
+    // （带 X-Route-Note: empty-visible-output-fallback 头），由客户端自行判断截断。
+    "empty_visible_output_fallback": true
   },
 
   // 错误分类、可重试状态码与冷却时间
@@ -187,6 +193,19 @@
           { "name": "rawchat", "weight": 1, "priority": 80 }
         ],
         "provider_select": "priority_failover"
+      },
+
+      // reasoning_effort: 模型级思考强度覆盖（可选）
+      // - 不设置 / 设为空：跟随客户端请求中的思考强度（默认行为）
+      // - minimal | low | medium | high：强制替换客户端请求的思考强度
+      // - off：关闭思考（移除 thinking / reasoning 参数）
+      // 例：客户端请求 low，但该模型配置了 high，则上游收到 high
+      "claude-opus-4.6": {
+        "providers": [
+          { "name": "anthropic", "weight": 1, "priority": 100 }
+        ],
+        "provider_select": "priority_failover",
+        "reasoning_effort": "high"
       }
     },
 
