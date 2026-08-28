@@ -474,6 +474,7 @@
 			settingsKeyEditId: "",
 			settingsKeyEditRecord: null,
 			settingsKeyCreated: null,
+			settingsKeySubmitting: false,
 			settingsPricingQuery: "",
 			settingsPricingPage: 0,
 			settingsPricingLoading: false,
@@ -815,6 +816,10 @@
 				en: "Create Key",
 				zh: "创建新密钥"
 			},
+			"settings.keys.count_badge": {
+				en: "{count} keys",
+				zh: "{count} 个密钥"
+			},
 			"settings.keys.pending_title": {
 				en: "Client key service pending",
 				zh: "客户端密钥服务待接入"
@@ -882,6 +887,18 @@
 			"settings.keys.copied": {
 				en: "Key copied to clipboard.",
 				zh: "已复制 Key 到剪贴板。"
+			},
+			"settings.keys.copy_masked_tip": {
+				en: "Full key is shown only once at creation",
+				zh: "完整 Key 仅在创建时显示一次"
+			},
+			"settings.keys.copy_masked_notice": {
+				en: "The server only keeps a masked preview. Copy the full key right after creating it — this masked value cannot authenticate.",
+				zh: "服务端只保留脱敏预览，此值无法用于鉴权。请在创建密钥时立即复制完整 Key。"
+			},
+			"settings.keys.created_close_note": {
+				en: "Create another key",
+				zh: "再创建一个密钥"
 			},
 			"settings.keys.drawer_title_new": {
 				en: "Create Client Key",
@@ -8303,6 +8320,12 @@
 		function renderSettingsKeys() {
 			const target = el("settingsKeysTable");
 			if (!target) return;
+			const countBadge = el("settingsKeysCountBadge");
+			if (countBadge) {
+				const showCount = state.clientKeysAvailable === true;
+				countBadge.hidden = !showCount;
+				countBadge.textContent = showCount ? t("settings.keys.count_badge", { count: (state.data.clientKeys || []).length }) : "";
+			}
 			if (state.clientKeysAvailable === null) {
 				updateDOM(target, `<div class="empty pad">${escapeHtml(t("model_usage.loading"))}</div>`);
 				return;
@@ -8358,6 +8381,9 @@
 			const models = entry.models === "*" || !entry.models ? t("settings.keys.f_models_all") : Array.isArray(entry.models) ? entry.models.join(", ") : String(entry.models);
 			const expired = Boolean(entry.expired);
 			const status = entry.enabled === false ? `<span class="badge">${escapeHtml(t("settings.keys.status_disabled"))}</span>` : expired ? `<span class="badge">${escapeHtml(t("settings.keys.status_expired"))}</span>` : `<span class="badge ok">${escapeHtml(t("settings.keys.status_active"))}</span>`;
+			const hasFullKey = Boolean(entry.full_key);
+			const copyAttrs = hasFullKey ? `data-copy-key="${escapeHtml(entry.full_key)}"` : `data-copy-masked-key="1"`;
+			const copyTip = hasFullKey ? t("settings.keys.copy") : t("settings.keys.copy_masked_tip");
 			return `
       <tr>
         <td>
@@ -8366,7 +8392,7 @@
         </td>
         <td>
           <span class="key-snippet-box mono">${escapeHtml(masked)}
-            <button class="key-snippet-btn" type="button" data-copy-key="${escapeHtml(entry.full_key || masked)}" title="${escapeHtml(t("settings.keys.copy"))}" aria-label="${escapeHtml(t("settings.keys.copy"))}">${iconSvg("copy")}</button>
+            <button class="key-snippet-btn" type="button" ${copyAttrs} title="${escapeHtml(copyTip)}" aria-label="${escapeHtml(copyTip)}">${iconSvg("copy")}</button>
           </span>
         </td>
         <td style="min-width: 170px;">
@@ -8388,6 +8414,13 @@
       </tr>`;
 		}
 		function bindSettingsKeyRows(target) {
+			target.querySelectorAll("[data-copy-masked-key]").forEach((button) => {
+				if (button.dataset.boundSettingsCopyMaskedKey) return;
+				button.dataset.boundSettingsCopyMaskedKey = "1";
+				button.addEventListener("click", () => {
+					setNotice(t("settings.keys.copy_masked_notice"), "info");
+				});
+			});
 			target.querySelectorAll("[data-copy-key]").forEach((button) => {
 				if (button.dataset.boundSettingsCopyKey) return;
 				button.dataset.boundSettingsCopyKey = "1";
@@ -8865,10 +8898,11 @@
 			state.settingsKeyEditId = mode === "edit" ? String(record?.id ?? "") : "";
 			state.settingsKeyEditRecord = mode === "edit" ? record : null;
 			state.settingsKeyCreated = null;
-			renderKeyDrawer();
+			clearDirty("#keyDrawerBody");
 			const drawer = el("keyDrawer");
 			drawer?.classList.add("is-open");
 			drawer?.setAttribute("aria-hidden", "false");
+			renderKeyDrawer({ force: true });
 		}
 		function closeKeyDrawer() {
 			const drawer = el("keyDrawer");
@@ -8879,8 +8913,9 @@
 			state.settingsKeyEditId = "";
 			state.settingsKeyEditRecord = null;
 			state.settingsKeyCreated = null;
+			clearDirty("#keyDrawerBody");
 		}
-		function renderKeyDrawer() {
+		function renderKeyDrawer({ force = false } = {}) {
 			const drawer = el("keyDrawer");
 			if (!drawer || !drawer.classList.contains("is-open")) return;
 			const title = el("keyDrawerTitle");
@@ -8891,13 +8926,20 @@
 				const created = state.settingsKeyCreated;
 				updateDOM(body, `
         <div class="settings-key-created">
-          <p class="settings-ops-desc">${escapeHtml(t("settings.keys.created_hint"))}</p>
+          <div class="settings-key-created-head">
+            <span class="settings-key-created-glyph">${iconSvg("check-circle")}</span>
+            <div>
+              <strong>${escapeHtml(t("settings.keys.created_title"))}</strong>
+              <p class="settings-ops-desc">${escapeHtml(t("settings.keys.created_hint"))}</p>
+            </div>
+          </div>
           <div class="settings-created-key-box">
             <span class="mono">${escapeHtml(created.full_key)}</span>
-            <button class="button secondary" type="button" data-copy-created-key="${escapeHtml(created.full_key)}">${iconSvg("copy")} ${escapeHtml(t("settings.keys.copy"))}</button>
+            <button class="button secondary icon-action" type="button" data-copy-created-key="${escapeHtml(created.full_key)}" title="${escapeHtml(t("settings.keys.copy"))}" aria-label="${escapeHtml(t("settings.keys.copy"))}">${iconSvg("copy")}</button>
           </div>
           <p class="settings-ops-note">${escapeHtml(t("settings.keys.created_once_note"))}</p>
           <div class="drawer-actions">
+            <button class="button secondary" type="button" data-key-drawer-create-another>${escapeHtml(t("settings.keys.created_close_note"))}</button>
             <button class="button primary" type="button" data-key-drawer-done>${escapeHtml(t("confirm.close"))}</button>
           </div>
         </div>`);
@@ -8909,13 +8951,18 @@
 						setNotice(created.full_key, "info");
 					}
 				});
+				body.querySelector("[data-key-drawer-create-another]")?.addEventListener("click", () => {
+					state.settingsKeyCreated = null;
+					clearDirty("#keyDrawerBody");
+					renderKeyDrawer({ force: true });
+				});
 				body.querySelector("[data-key-drawer-done]")?.addEventListener("click", () => {
 					closeKeyDrawer();
 					refreshClientKeys();
 				});
 				return;
 			}
-			if (shouldPreserveContainer("#keyDrawerBody")) return;
+			if (!force && shouldPreserveContainer("#keyDrawerBody")) return;
 			const editing = state.settingsKeyEditRecord || {};
 			const modelsValue = editing.models === "*" || !editing.models ? "" : Array.isArray(editing.models) ? editing.models.join(", ") : String(editing.models);
 			updateDOM(body, `
@@ -8956,6 +9003,7 @@
 				form.dataset.boundSettingsKeyForm = "1";
 				form.addEventListener("submit", async (event) => {
 					event.preventDefault();
+					if (state.settingsKeySubmitting) return;
 					const modelsRaw = String(form.elements.models.value || "").trim();
 					const payload = {
 						name: String(form.elements.name.value || "").trim(),
@@ -8965,6 +9013,9 @@
 						expires: form.elements.expires.value
 					};
 					if (!payload.name) return;
+					const submitButton = form.querySelector("button[type=\"submit\"]");
+					if (submitButton) submitButton.disabled = true;
+					state.settingsKeySubmitting = true;
 					try {
 						if (state.settingsKeyDrawerMode === "edit" && state.settingsKeyEditId) {
 							await apiPatch(`/-/admin/client-keys/${encodeURIComponent(state.settingsKeyEditId)}`, payload);
@@ -8975,11 +9026,15 @@
 							const data = await apiPost("/-/admin/client-keys", payload);
 							state.settingsKeyCreated = { full_key: String(data?.full_key || "") };
 							setNotice(t("settings.keys.created_title"), "ok");
-							renderKeyDrawer();
+							clearDirty("#keyDrawerBody");
+							renderKeyDrawer({ force: true });
 							refreshClientKeys();
 						}
 					} catch (err) {
 						setNotice(t("notice.config_update_failed", { error: err.message }), "bad");
+						if (submitButton) submitButton.disabled = false;
+					} finally {
+						state.settingsKeySubmitting = false;
 					}
 				});
 			}
