@@ -39,6 +39,7 @@ export const state = {
   settingsKeyEditId: "",
   settingsKeyEditRecord: null,
   settingsKeyCreated: null,
+  settingsKeySubmitting: false,
   settingsPricingQuery: "",
   settingsPricingPage: 0,
   settingsPricingLoading: false,

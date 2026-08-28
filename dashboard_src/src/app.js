@@ -2404,6 +2404,14 @@ import {
   function renderSettingsKeys() {
     const target = el("settingsKeysTable");
     if (!target) return;
+    const countBadge = el("settingsKeysCountBadge");
+    if (countBadge) {
+      const showCount = state.clientKeysAvailable === true;
+      countBadge.hidden = !showCount;
+      countBadge.textContent = showCount
+        ? t("settings.keys.count_badge", { count: (state.data.clientKeys || []).length })
+        : "";
+    }
     if (state.clientKeysAvailable === null) {
       updateDOM(target, `<div class="empty pad">${escapeHtml(t("model_usage.loading"))}</div>`);
       return;
@@ -2468,6 +2476,11 @@ import {
       : expired
         ? `<span class="badge">${escapeHtml(t("settings.keys.status_expired"))}</span>`
         : `<span class="badge ok">${escapeHtml(t("settings.keys.status_active"))}</span>`;
+    const hasFullKey = Boolean(entry.full_key);
+    const copyAttrs = hasFullKey
+      ? `data-copy-key="${escapeHtml(entry.full_key)}"`
+      : `data-copy-masked-key="1"`;
+    const copyTip = hasFullKey ? t("settings.keys.copy") : t("settings.keys.copy_masked_tip");
     return `
       <tr>
         <td>
@@ -2476,7 +2489,7 @@ import {
         </td>
         <td>
           <span class="key-snippet-box mono">${escapeHtml(masked)}
-            <button class="key-snippet-btn" type="button" data-copy-key="${escapeHtml(entry.full_key || masked)}" title="${escapeHtml(t("settings.keys.copy"))}" aria-label="${escapeHtml(t("settings.keys.copy"))}">${iconSvg("copy")}</button>
+            <button class="key-snippet-btn" type="button" ${copyAttrs} title="${escapeHtml(copyTip)}" aria-label="${escapeHtml(copyTip)}">${iconSvg("copy")}</button>
           </span>
         </td>
         <td style="min-width: 170px;">
@@ -2499,6 +2512,15 @@ import {
   }
 
   function bindSettingsKeyRows(target) {
+    target.querySelectorAll("[data-copy-masked-key]").forEach((button) => {
+      if (button.dataset.boundSettingsCopyMaskedKey) return;
+      button.dataset.boundSettingsCopyMaskedKey = "1";
+      button.addEventListener("click", () => {
+        // The list endpoint only returns a masked preview; copying it hands the
+        // client a key that can never authenticate.
+        setNotice(t("settings.keys.copy_masked_notice"), "info");
+      });
+    });
     target.querySelectorAll("[data-copy-key]").forEach((button) => {
       if (button.dataset.boundSettingsCopyKey) return;
       button.dataset.boundSettingsCopyKey = "1";
@@ -2989,10 +3011,14 @@ import {
     state.settingsKeyEditId = mode === "edit" ? String(record?.id ?? "") : "";
     state.settingsKeyEditRecord = mode === "edit" ? record : null;
     state.settingsKeyCreated = null;
-    renderKeyDrawer();
+    clearDirty("#keyDrawerBody");
     const drawer = el("keyDrawer");
     drawer?.classList.add("is-open");
     drawer?.setAttribute("aria-hidden", "false");
+    // Render only after the drawer is marked open: renderKeyDrawer early-returns
+    // while closed, and leaving the body to the next polling re-render kept the
+    // drawer blank (or stuck on the previous "key created" panel) for seconds.
+    renderKeyDrawer({ force: true });
   }
 
   function closeKeyDrawer() {
@@ -3004,9 +3030,12 @@ import {
     state.settingsKeyEditId = "";
     state.settingsKeyEditRecord = null;
     state.settingsKeyCreated = null;
+    // Drop the dirty flag so the next open renders a fresh form instead of
+    // being permanently blocked by shouldPreserveContainer.
+    clearDirty("#keyDrawerBody");
   }
 
-  function renderKeyDrawer() {
+  function renderKeyDrawer({ force = false } = {}) {
     const drawer = el("keyDrawer");
     if (!drawer || !drawer.classList.contains("is-open")) return;
     const title = el("keyDrawerTitle");
@@ -3021,13 +3050,20 @@ import {
       const created = state.settingsKeyCreated;
       updateDOM(body, `
         <div class="settings-key-created">
-          <p class="settings-ops-desc">${escapeHtml(t("settings.keys.created_hint"))}</p>
+          <div class="settings-key-created-head">
+            <span class="settings-key-created-glyph">${iconSvg("check-circle")}</span>
+            <div>
+              <strong>${escapeHtml(t("settings.keys.created_title"))}</strong>
+              <p class="settings-ops-desc">${escapeHtml(t("settings.keys.created_hint"))}</p>
+            </div>
+          </div>
           <div class="settings-created-key-box">
             <span class="mono">${escapeHtml(created.full_key)}</span>
-            <button class="button secondary" type="button" data-copy-created-key="${escapeHtml(created.full_key)}">${iconSvg("copy")} ${escapeHtml(t("settings.keys.copy"))}</button>
+            <button class="button secondary icon-action" type="button" data-copy-created-key="${escapeHtml(created.full_key)}" title="${escapeHtml(t("settings.keys.copy"))}" aria-label="${escapeHtml(t("settings.keys.copy"))}">${iconSvg("copy")}</button>
           </div>
           <p class="settings-ops-note">${escapeHtml(t("settings.keys.created_once_note"))}</p>
           <div class="drawer-actions">
+            <button class="button secondary" type="button" data-key-drawer-create-another>${escapeHtml(t("settings.keys.created_close_note"))}</button>
             <button class="button primary" type="button" data-key-drawer-done>${escapeHtml(t("confirm.close"))}</button>
           </div>
         </div>`);
@@ -3040,13 +3076,18 @@ import {
           setNotice(created.full_key, "info");
         }
       });
+      body.querySelector("[data-key-drawer-create-another]")?.addEventListener("click", () => {
+        state.settingsKeyCreated = null;
+        clearDirty("#keyDrawerBody");
+        renderKeyDrawer({ force: true });
+      });
       body.querySelector("[data-key-drawer-done]")?.addEventListener("click", () => {
         closeKeyDrawer();
         refreshClientKeys();
       });
       return;
     }
-    if (shouldPreserveContainer("#keyDrawerBody")) return;
+    if (!force && shouldPreserveContainer("#keyDrawerBody")) return;
     const editing = state.settingsKeyEditRecord || {};
     const modelsValue = editing.models === "*" || !editing.models
       ? ""
@@ -3089,6 +3130,10 @@ import {
       form.dataset.boundSettingsKeyForm = "1";
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
+        // Re-entrancy guard: implicit submissions (e.g. held Enter) and any
+        // future listener stacking must never fire the create POST twice —
+        // duplicates are real keys and only surfaced after the fact.
+        if (state.settingsKeySubmitting) return;
         const modelsRaw = String(form.elements.models.value || "").trim();
         const payload = {
           name: String(form.elements.name.value || "").trim(),
@@ -3098,6 +3143,9 @@ import {
           expires: form.elements.expires.value,
         };
         if (!payload.name) return;
+        const submitButton = form.querySelector('button[type="submit"]');
+        if (submitButton) submitButton.disabled = true;
+        state.settingsKeySubmitting = true;
         try {
           if (state.settingsKeyDrawerMode === "edit" && state.settingsKeyEditId) {
             await apiPatch(`/-/admin/client-keys/${encodeURIComponent(state.settingsKeyEditId)}`, payload);
@@ -3108,11 +3156,17 @@ import {
             const data = await apiPost("/-/admin/client-keys", payload);
             state.settingsKeyCreated = { full_key: String(data?.full_key || "") };
             setNotice(t("settings.keys.created_title"), "ok");
-            renderKeyDrawer();
+            // Typing in the form marked this container dirty; force past
+            // shouldPreserveContainer so the once-only full key shows at once.
+            clearDirty("#keyDrawerBody");
+            renderKeyDrawer({ force: true });
             refreshClientKeys();
           }
         } catch (err) {
           setNotice(t("notice.config_update_failed", { error: err.message }), "bad");
+          if (submitButton) submitButton.disabled = false;
+        } finally {
+          state.settingsKeySubmitting = false;
         }
       });
     }
