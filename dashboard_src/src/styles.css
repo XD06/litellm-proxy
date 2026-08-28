@@ -27874,7 +27874,9 @@ body.is-auth-checking {
 }
 
 .settings-ops-card--proxy { grid-area: proxy; }
-.settings-ops-card--runtime { grid-area: runtime; }
+/* Stretch across the proxy + overlay rows so its bottom edge lines up with
+   the left column's combined height instead of stopping at content height. */
+.settings-ops-card--runtime { grid-area: runtime; align-self: stretch; }
 .settings-ops-card--overlay { grid-area: overlay; }
 .settings-ops-card--security { grid-area: security; }
 
@@ -28041,33 +28043,134 @@ body.is-auth-checking {
   border-color: var(--danger);
 }
 
+/* Client API keys panel: accent head + table polish */
+.settings-keys-panel {
+  --panel-accent: var(--accent);
+}
+
+.settings-keys-panel .panel-head {
+  align-items: center;
+  padding: 16px 20px;
+}
+
+.settings-keys-head-main {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-width: 0;
+}
+
+.settings-keys-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.settings-keys-glyph .icon-svg {
+  width: 17px;
+  height: 17px;
+}
+
+.settings-keys-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-keys-count {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font: 700 10.5px var(--mono);
+  white-space: nowrap;
+}
+
+.settings-keys-create {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-keys-create .icon-svg {
+  width: 14px;
+  height: 14px;
+}
+
+.settings-keys-table th {
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--line);
+  color: var(--faint);
+}
+
+.settings-keys-table td {
+  padding: 13px 16px;
+}
+
+.settings-keys-table tbody tr:hover {
+  background: color-mix(in srgb, var(--accent-soft) 40%, var(--surface));
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.settings-keys-table .badge {
+  position: relative;
+  padding-left: 19px;
+}
+
+.settings-keys-table .badge::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: currentColor;
+  transform: translateY(-50%);
+}
+
+.settings-keys-table .badge.ok::before {
+  background: var(--success);
+}
+
 /* Client key drawer */
 .settings-key-drawer {
-  width: min(460px, 100vw);
+  width: min(480px, 100vw);
   z-index: 38;
 }
 
 .settings-key-form {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
 }
 
 .settings-key-form .field {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
 }
 
 .settings-key-form .field span {
-  color: #334155;
+  color: var(--text);
   font-size: 12px;
   font-weight: 600;
 }
 
 .settings-key-form .field small {
-  color: #64748b;
+  color: var(--muted);
   font-size: 11px;
+  line-height: 1.45;
 }
 
 .drawer-actions {
@@ -28124,9 +28227,9 @@ body.is-auth-checking {
 }
 
 .settings-quota-track {
-  width: 140px;
-  height: 5px;
-  margin-top: 4px;
+  width: 160px;
+  height: 6px;
+  margin-top: 5px;
   border-radius: 999px;
   background: var(--surface-strong);
   overflow: hidden;
@@ -28149,25 +28252,64 @@ body.is-auth-checking {
 .settings-created-key-box {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 10px;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #f8fafc;
-  word-break: break-all;
+  padding: 13px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--line));
+  border-radius: 10px;
+  background: var(--accent-soft);
 }
 
 .settings-created-key-box .mono {
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: 12.5px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.settings-created-key-box .button {
+  flex: none;
+  white-space: nowrap;
 }
 
 .settings-key-created {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.settings-key-created-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 13px 14px;
+  border: 1px solid color-mix(in srgb, var(--success) 26%, transparent);
+  border-radius: 10px;
+  background: var(--success-soft);
+}
+
+.settings-key-created-head strong {
+  display: block;
+  font-size: 13.5px;
+  color: var(--text);
+}
+
+.settings-key-created-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--success);
+  color: #ffffff;
+}
+
+.settings-key-created-glyph .icon-svg {
+  width: 14px;
+  height: 14px;
 }
 
 #settingsKeysPanel .cell-actions .button {

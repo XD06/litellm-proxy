@@ -869,12 +869,24 @@
 
           <div id="settingsKeysPanel" class="settings-tab-panel" data-settings-tab-panel="keys" role="tabpanel" aria-labelledby="settingsKeysTab">
             <section class="panel settings-panel settings-keys-panel">
-              <div class="panel-head">
-                <div>
-                  <h2 data-i18n="settings.keys.title">Client API Keys<span class="help-tip" data-tip="Virtual keys distributed to downstream clients. Quota, rate limit, and model scope are enforced per key." data-i18n-tip="settings.keys.title_tip">?</span></h2>
-                  <p data-i18n="settings.keys.desc">Issue virtual keys for downstream clients with per-key quota and model scope.</p>
+              <div class="panel-head settings-keys-head">
+                <div class="settings-keys-head-main">
+                  <span class="settings-keys-glyph" aria-hidden="true">
+                    <svg class="icon-svg" viewBox="0 0 24 24" focusable="false"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"></path><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"></circle></svg>
+                  </span>
+                  <div>
+                    <h2 class="settings-keys-title">
+                      <span data-i18n="settings.keys.title">Client API Keys</span>
+                      <span id="settingsKeysCountBadge" class="settings-keys-count" hidden></span>
+                      <span class="help-tip" data-tip="Virtual keys distributed to downstream clients. Quota, rate limit, and model scope are enforced per key." data-i18n-tip="settings.keys.title_tip">?</span>
+                    </h2>
+                    <p data-i18n="settings.keys.desc">Issue virtual keys for downstream clients with per-key quota and model scope.</p>
+                  </div>
                 </div>
-                <button id="settingsCreateKeyButton" class="button primary" type="button" data-i18n="settings.keys.create">Create Key</button>
+                <button id="settingsCreateKeyButton" class="button primary settings-keys-create" type="button">
+                  <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+                  <span data-i18n="settings.keys.create">Create Key</span>
+                </button>
               </div>
               <div id="settingsKeysTable" class="table-wrap"></div>
             </section>
