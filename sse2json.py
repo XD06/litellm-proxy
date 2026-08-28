@@ -4854,6 +4854,11 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         return (
             self.headers.get("X-Api-Key")
             or self.headers.get("x-api-key")
+            # The admin console authenticates with X-Admin-Key; honoring it here
+            # lets console traffic (playground, model list) ride the admin-key
+            # bypass in _enforce_client_key instead of needing a client key.
+            or self.headers.get("X-Admin-Key")
+            or self.headers.get("x-admin-key")
             or ""
         ).strip()
 
