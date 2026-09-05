@@ -8,7 +8,7 @@
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-3776AB.svg?style=flat-square&logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![CI](https://github.com/XD06/litellm-proxy/actions/workflows/ci.yml/badge.svg?style=flat-square)](https://github.com/XD06/litellm-proxy/actions/workflows/ci.yml)
 [![Docker Pulls](https://img.shields.io/docker/pulls/dsk3/litellm-proxy.svg?style=flat-square&logo=docker&logoColor=white)](https://hub.docker.com/r/dsk3/litellm-proxy)
-[![Tests](https://img.shields.io/badge/tests-459%20passed-brightgreen.svg?style=flat-square)](https://github.com/XD06/litellm-proxy/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-886%20passed-brightgreen.svg?style=flat-square)](https://github.com/XD06/litellm-proxy/actions/workflows/ci.yml)
 [![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-ff69b4.svg?style=flat-square)](https://github.com/XD06/litellm-proxy/pulls)
 
 [![Platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macOS%20%7C%20Windows-blue.svg?style=flat-square)]()
@@ -17,7 +17,7 @@
 [![Last Commit](https://img.shields.io/github/last-commit/XD06/litellm-proxy?style=flat-square)](https://github.com/XD06/litellm-proxy)
 [![Repo Size](https://img.shields.io/github/repo-size/XD06/litellm-proxy?style=flat-square)](https://github.com/XD06/litellm-proxy)
 
-[English](README.md) · **中文** · [架构文档](PROJECT_OVERVIEW.md) · [贡献指南](CONTRIBUTING.md)
+[English](../README.md) · **中文** · [架构文档](../ARCHITECTURE.md) · [贡献指南](CONTRIBUTING.md)
 
 </div>
 
@@ -171,7 +171,7 @@ curl http://127.0.0.1:4894/v1/models
 
 > `docker-compose.yml` 默认绑定 `127.0.0.1:4894`。使用 Nginx/Caddy 反向代理实现 HTTPS。
 >
-> 完整迁移说明：[docs/VPS_MIGRATION.md](docs/VPS_MIGRATION.md)
+> 完整迁移说明：[docs/VPS_MIGRATION.md](VPS_MIGRATION.md)
 
 ---
 
@@ -388,20 +388,20 @@ sequenceDiagram
 | 🖥️ 控制台运行时 | `dashboard/` | 构建后的静态资源，由代理服务 |
 | 🎨 控制台源码 | `dashboard_src/` | Vite + 原生 JS 源码，含 i18n、morphdom |
 | 🐳 部署 | `Dockerfile`, `docker-compose.yml`, `deploy/` | Docker、systemd、Nginx 反向代理配置 |
-| 🧪 测试 | `tests/`（30+ 个文件，821+ 测试） | 覆盖路由、转换、配置、流式、Admin API 的 pytest |
+| 🧪 测试 | `tests/`（51 个文件，886 测试）+ `dashboard_src/tests/`（32 个 Node 测试，`npm test` 实跑） | 覆盖路由、转换、配置、流式、Admin API 的 pytest；控制台 UI 的 Node 测试 |
 
 > **📚 进阶架构与排障指南**：
-> - **[架构全景概览 (PROJECT_OVERVIEW.md)](PROJECT_OVERVIEW.md)**
-> - **[模型生命周期与路由决策指南 (docs/MODEL_ROUTING_LIFECYCLE.md)](docs/MODEL_ROUTING_LIFECYCLE.md)**
-> - **[生产故障排查与诊断手册 (docs/TROUBLESHOOTING.md)](docs/TROUBLESHOOTING.md)**
-> - **[系统 API 规范手册 (docs/API_REFERENCE.md)](docs/API_REFERENCE.md)**
+> - **[架构全景（克制版）](../ARCHITECTURE.md)**
+> - **[模型生命周期与路由决策指南 (docs/MODEL_ROUTING_LIFECYCLE.md)](MODEL_ROUTING_LIFECYCLE.md)**
+> - **[生产故障排查与诊断手册 (docs/TROUBLESHOOTING.md)](TROUBLESHOOTING.md)**
+> - **[系统 API 规范手册 (docs/API_REFERENCE.md)](API_REFERENCE.md)**
 
 ---
 
 ## 🛠️ 开发
 
 ```bash
-# 运行测试（821+ 测试）
+# 运行测试（886 测试，51 个文件）
 python -m pytest tests/ -q
 
 # 编译检查核心文件
@@ -436,6 +436,19 @@ cd dashboard_src && npm run dev
 - 🎭 Admin API 响应和历史记录始终对密钥脱敏
 - 🧹 登录成功后通过 `history.replaceState` 自动从 URL 中移除 `admin_key`
 - ⏱️ 管理员认证使用 `hmac.compare_digest`（时序安全）
+
+---
+
+## 📚 相关文档
+
+| 文档 | 说明 |
+| --- | --- |
+| [ARCHITECTURE.md](../ARCHITECTURE.md) | 收敛版架构全景：模块边界、核心链路与已知取舍 |
+| [docs/PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) | 深度架构讲解与新人入口 |
+| [CHANGELOG.md](../CHANGELOG.md) | 版本历史 |
+| [docs/API_REFERENCE.md](API_REFERENCE.md) | 客户端端点与管理 API 参考 |
+| [docs/CONTRIBUTING.md](CONTRIBUTING.md) | 开发环境、代码规范、PR 流程 |
+| [AGENTS.md](../AGENTS.md) | AI 协作规范（仅本地，不随仓库提交） |
 
 ---
 

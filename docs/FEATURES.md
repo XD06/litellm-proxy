@@ -769,7 +769,7 @@ OPENAI_API_KEY=sk-... DEEPSEEK_API_KEY=sk-... python sse2json.py
 
 ### 17.1 测试规模
 
-- **459+ 测试用例**，28 个测试文件
+- **886 个测试用例**（51 个测试文件，`python -m pytest tests/ --collect-only` 实测）
 - 覆盖路由、转换、配置、流式、Admin API、可观测性、基础设施、模型管理
 
 ### 17.2 测试分类

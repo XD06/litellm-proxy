@@ -3,6 +3,9 @@
 > This document is the primary onboarding guide for developers new to the project.
 > It explains the architecture, module responsibilities, data flow, and key design
 > decisions so you can become productive without reading every source file.
+>
+> Prefer a restrained architecture overview (module boundaries, core data flows,
+> known tradeoffs)? See **[ARCHITECTURE.md](../ARCHITECTURE.md)** at the repository root.
 
 ## What Is This Project?
 
@@ -288,21 +291,23 @@ This allows `pip install litellm-proxy && litellm-proxy` to work with zero confi
 
 For specific architectural subsystems and operations, refer to the dedicated guides in `docs/`:
 
-1. **[Model Routing & Lifecycle Guide](docs/MODEL_ROUTING_LIFECYCLE.md)** — Canonical vs Raw naming, resolution priority chain, auto-hide, discovery protection.
-2. **[Production Troubleshooting Guide](docs/TROUBLESHOOTING.md)** — Matrix of 503/502/404 errors, VPS diagnostics commands, recovery steps.
-3. **[API Reference](docs/API_REFERENCE.md)** — Complete specifications for client endpoints and Admin APIs.
-4. **[Health Check Mechanism Overview](docs/HEALTH_CHECK_MECHANISM.md)** — Deep idle probe, patrol scanner, and health score updater architecture.
-5. **[Refactor Blueprint (Phase 1 & 2)](docs/REFACTOR_GUIDE_PHASE_1_2.md)** — Decoupling probe coordination and runtime state persistence.
-6. **[Refactor Blueprint (Phase 3 & 4)](docs/REFACTOR_GUIDE_PHASE_3_4.md)** — Unified model evaluator and self-contained Admin dispatcher.
-7. **[Refactor Blueprint (Phase 5)](docs/REFACTOR_GUIDE_PHASE_5.md)** — Core proxy pipeline slimming and gateway clean architecture.
-8. **[Format Routing Plan](docs/format-routing-plan.md)** — Detailed cross-protocol conversion specs (OpenAI ↔ Anthropic).
-9. **[VPS Migration Guide](docs/VPS_MIGRATION.md)** — Deployment and multi-engine Docker setup.
+1. **[Model Routing & Lifecycle Guide](MODEL_ROUTING_LIFECYCLE.md)** — Canonical vs Raw naming, resolution priority chain, auto-hide, discovery protection.
+2. **[Production Troubleshooting Guide](TROUBLESHOOTING.md)** — Matrix of 503/502/404 errors, VPS diagnostics commands, recovery steps.
+3. **[API Reference](API_REFERENCE.md)** — Complete specifications for client endpoints and Admin APIs.
+4. **[Health Check Mechanism Overview](HEALTH_CHECK_MECHANISM.md)** — Deep idle probe, patrol scanner, and health score updater architecture.
+5. **[Refactor Blueprint (Phase 1 & 2)](REFACTOR_GUIDE_PHASE_1_2.md)** — Decoupling probe coordination and runtime state persistence.
+6. **[Refactor Blueprint (Phase 3 & 4)](REFACTOR_GUIDE_PHASE_3_4.md)** — Unified model evaluator and self-contained Admin dispatcher.
+7. **[Refactor Blueprint (Phase 5)](REFACTOR_GUIDE_PHASE_5.md)** — Core proxy pipeline slimming and gateway clean architecture.
+8. **[Format Coupling & Conversion Notes (archived)](../docs/archive/2026-09-05/format-routing-plan.md)** — Historical cross-protocol conversion specs (OpenAI ↔ Anthropic).
+9. **[VPS Migration Guide](VPS_MIGRATION.md)** — Deployment and multi-engine Docker setup.
 
 ---
 
 ## Testing
 
-### Test Suite (821+ tests, 547+ subtests)
+### Test Suite (886 tests / 51 files — current measured value; earlier "821", "459" were historical)
+
+> Trust source: `python -m pytest tests/ --collect-only`. Dashboard UI adds 32 Node tests via `npm test` (`dashboard_src/tests/` contains 33 files; `operation-guard.test.mjs` is not in the npm script).
 
 | Category | Key Test Files |
 | --- | --- |
@@ -372,4 +377,4 @@ python -m py_compile sse2json.py config_loader.py config_manager.py router.py up
 1. Read `Dockerfile` and `docker-compose.yml` — container setup
 2. Read `deploy/nginx/litellm-proxy.conf` — reverse proxy with SSE support
 3. Read `deploy/systemd/litellm-proxy.service` — bare metal deployment
-4. Full VPS migration: `docs/VPS_MIGRATION.md`
+4. Full VPS migration: [`docs/VPS_MIGRATION.md`](VPS_MIGRATION.md)

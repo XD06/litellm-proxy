@@ -2,7 +2,7 @@
 
 Thanks for your interest in contributing! This guide will help you get started quickly.
 
-> **New here?** Read `PROJECT_OVERVIEW.md` first — it's the definitive architecture guide
+> **New here?** Read [`PROJECT_OVERVIEW.md`](PROJECT_OVERVIEW.md) first (same directory), or the restrained [ARCHITECTURE.md](../ARCHITECTURE.md) for the system overview.
 > that explains module responsibilities, data flow, and key design decisions.
 
 ---
@@ -88,7 +88,7 @@ litellm-proxy/
 │   ├── src/api.js           # API client with admin key auth
 │   └── src/styles.css       # Dashboard styles
 ├── dashboard/               # Built Dashboard (served by the proxy)
-├── tests/                   # Test suite (459 tests, 28 files)
+├── tests/                   # Test suite (886 tests, 51 files)
 ├── docs/                    # Documentation
 ├── deploy/                  # Deployment configs (nginx, systemd)
 ├── Dockerfile               # Container image definition
@@ -96,7 +96,7 @@ litellm-proxy/
 └── config.example.jsonc     # Annotated config example
 ```
 
-For a deeper architectural overview, see `PROJECT_OVERVIEW.md`.
+For a deeper architectural overview, see [ARCHITECTURE.md](../ARCHITECTURE.md) or [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md).
 
 ---
 
@@ -105,7 +105,7 @@ For a deeper architectural overview, see `PROJECT_OVERVIEW.md`.
 ### Running Tests
 
 ```bash
-# Full suite (459 tests)
+# Full suite (886 tests, 51 files)
 python -m pytest tests/ -q
 
 # Specific module
@@ -191,7 +191,7 @@ Example: `feat: add auto routing mode with health-score-based priority adjustmen
 3. **Run tests locally** — ensure `python -m pytest tests/ -q` passes
 4. **Build the Dashboard** — if you changed `dashboard_src/`, run `npm run build` in `dashboard_src/`
 5. **Keep PRs focused** — one feature/fix per PR makes review faster
-6. **Update docs** — if you added a feature, update relevant docs (`README.md`, `PROJECT_OVERVIEW.md`, `config.example.jsonc`)
+6. **Update docs** — if you added a feature, update relevant docs (`README.md`, `ARCHITECTURE.md`, `docs/PROJECT_OVERVIEW.md`, `config.example.jsonc`)
 
 ### PR Checklist
 

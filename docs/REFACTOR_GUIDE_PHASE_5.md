@@ -138,7 +138,7 @@ class ProxyPipeline:
 ## 5. 终极验收标准 (Final Verification)
 
 1. **测试全量跑绿**：
-   - 821 个本地 pytest 测试 100% 通过（零断代）。
+   - 886 个本地 pytest 测试 100% 通过（零断代，`python -m pytest tests/ --collect-only` 实测值）。
 2. **三大协议双向转码基准测试**：
    - OpenAI SDK 请求 $\rightarrow$ Anthropic 上游
    - Claude Code / Cursor 请求 $\rightarrow$ OpenAI 上游

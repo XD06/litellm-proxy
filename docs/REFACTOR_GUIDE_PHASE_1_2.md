@@ -191,7 +191,7 @@ class RouterStateStore:
 
 1. **单元测试回归（本地）**：
    - 运行 `python -m pytest tests/test_probe_coordinator.py tests/test_auto_routing.py`。
-   - 运行本地全量测试（821 tests），确保 100% 通过。
+   - 运行本地全量测试（886 tests / 51 files，`python -m pytest tests/ --collect-only` 实测），确保 100% 通过。
 2. **端到端契约校验（本地/VPS）**：
    - 调用 `POST /-/admin/health/patrol/trigger`，验证手动巡检是否返回正确 summary。
    - 调用 `GET /-/admin/health/patrol/schedule`，比对 JSON 字段完整性。

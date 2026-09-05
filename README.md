@@ -8,7 +8,7 @@
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-3776AB.svg?style=flat-square&logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![CI](https://github.com/XD06/litellm-proxy/actions/workflows/ci.yml/badge.svg?style=flat-square)](https://github.com/XD06/litellm-proxy/actions/workflows/ci.yml)
 [![Docker Pulls](https://img.shields.io/docker/pulls/dsk3/litellm-proxy.svg?style=flat-square&logo=docker&logoColor=white)](https://hub.docker.com/r/dsk3/litellm-proxy)
-[![Tests](https://img.shields.io/badge/tests-459%20passed-brightgreen.svg?style=flat-square)](https://github.com/XD06/litellm-proxy/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-886%20passed-brightgreen.svg?style=flat-square)](https://github.com/XD06/litellm-proxy/actions/workflows/ci.yml)
 [![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-ff69b4.svg?style=flat-square)](https://github.com/XD06/litellm-proxy/pulls)
 
 [![Platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macOS%20%7C%20Windows-blue.svg?style=flat-square)]()
@@ -17,7 +17,7 @@
 [![Last Commit](https://img.shields.io/github/last-commit/XD06/litellm-proxy?style=flat-square)](https://github.com/XD06/litellm-proxy)
 [![Repo Size](https://img.shields.io/github/repo-size/XD06/litellm-proxy?style=flat-square)](https://github.com/XD06/litellm-proxy)
 
-**English** · [中文](README_CN.md) · [Architecture](PROJECT_OVERVIEW.md) · [Contributing](CONTRIBUTING.md)
+**English** · [中文](docs/README_CN.md) · [Architecture](ARCHITECTURE.md) · [Contributing](docs/CONTRIBUTING.md)
 
 </div>
 
@@ -388,16 +388,16 @@ Proxy priority: `key proxy → provider proxy → global proxy → direct connec
 | 🖥️ Dashboard runtime | `dashboard/` | Built static assets served by the proxy |
 | 🎨 Dashboard source | `dashboard_src/` | Vite + vanilla JS source with i18n, morphdom |
 | 🐳 Deployment | `Dockerfile`, `docker-compose.yml`, `deploy/` | Docker, systemd, Nginx reverse proxy configs |
-| 🧪 Tests | `tests/` (28 files, 459+ tests) | pytest covering routing, conversion, config, streaming, admin API |
+| 🧪 Tests | `tests/` (51 files, 886 tests) + `dashboard_src/tests/` (32 Node tests via `npm test`) | pytest covering routing, conversion, config, streaming, admin API; Node tests for dashboard UI |
 
-> **For a deep architecture walkthrough, see [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md).**
+> **For a restrained system overview, see [ARCHITECTURE.md](ARCHITECTURE.md); for a deep module-by-module walkthrough, see [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md).**
 
 ---
 
 ## 🛠️ Development
 
 ```bash
-# Run tests (459+ tests)
+# Run tests (886 tests, 51 files)
 python -m pytest tests/ -q
 
 # Compile-check core files
@@ -435,9 +435,22 @@ cd dashboard_src && npm run dev
 
 ---
 
+## 📚 Related Documents
+
+| Document | Description |
+| --- | --- |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Restrained architecture overview: module boundaries, core data flows, tradeoffs |
+| [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md) | Deep-dive architecture & onboarding guide |
+| [CHANGELOG.md](CHANGELOG.md) | Version history |
+| [docs/API_REFERENCE.md](docs/API_REFERENCE.md) | Client endpoints & Admin API reference |
+| [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) | Development environment, code style, PR process |
+| [AGENTS.md](AGENTS.md) | AI agent working rules (local only, not tracked by git) |
+
+---
+
 ## 🤝 Contributing
 
-Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, code style, and PR process.
+Contributions are welcome! See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for setup, code style, and PR process.
 
 ---
 

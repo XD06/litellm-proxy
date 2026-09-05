@@ -155,4 +155,4 @@ if path.startswith("/-/admin/"):
 2. **Admin API 完整回归**：
    - 运行 `python -m pytest tests/test_admin_api.py`，确保所有 CRUD 端点（Provider, Key, Model Mapping, Variants, Stats）无任何属性或状态丢失。
 3. **全量回归验收**：
-   - 本地 821 个测试全部跑绿。
+   - 本地 886 个测试全部跑绿（当前实测数，51 文件）。

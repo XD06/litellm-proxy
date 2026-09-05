@@ -33,3 +33,7 @@ nul
 temp.py
 # Backup copies
 *副本*
+
+# Local-only docs: never commit or push
+AGENTS.md
+docs/archive/
