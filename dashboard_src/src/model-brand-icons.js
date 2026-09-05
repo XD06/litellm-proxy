@@ -1,4 +1,9 @@
-import { getLobeIconCDN } from "@lobehub/icons/es/features/getLobeIconCDN/index.js";
+// 图标走本代理 /-/icons/ 本地缓存（内存 LRU + 磁盘，上游 npmmirror/unpkg
+// 按需拉取一次），不再让浏览器直连 unpkg CDN。type 规则（color/mono）
+// 与后端 icon_cache 保持一致；slug 均来自下方常量表，无注入风险。
+function iconSrc(slug, type) {
+  return "/-/icons/" + slug + ".svg?type=" + type;
+}
 
 // Keep matching deliberately conservative: unknown or custom names use the local marker.
 const MODEL_ICON_RULES = [
@@ -80,7 +85,7 @@ export function modelBrandIconMarkup(model, fallbackMarkup = "") {
     return "<span class=\"model-brand-mark is-fallback\" aria-hidden=\"true\">" + fallbackMarkup + "</span>";
   }
   const type = COLOR_ICON_SLUGS.has(slug) ? "color" : "mono";
-  const src = getLobeIconCDN(slug, { format: "svg", type, cdn: "unpkg" });
+  const src = iconSrc(slug, type);
   return "<span class=\"model-brand-mark\" aria-hidden=\"true\"><img class=\"model-brand-icon\" src=\"" + src + "\" alt=\"\" loading=\"lazy\" decoding=\"async\" /><span class=\"model-brand-fallback\">" + fallbackMarkup + "</span></span>";
 }
 
@@ -98,9 +103,11 @@ export function providerBrandIconMarkup(provider, fallbackMarkup = "") {
   if (!slug) {
     return "<span class=\"model-brand-mark provider-brand-mark is-fallback\" aria-hidden=\"true\">" + fallbackMarkup + "</span>";
   }
-  const type = COLOR_ICON_SLUGS.has(slug) || ["anthropic", "google", "groq", "nvidia", "openrouter", "modelscope", "together"].includes(slug)
+  // 注意：anthropic / groq 上游没有 color 版（实测 404），只能用 mono；
+  // google / nvidia / openrouter / modelscope / together 有 color 版。
+  const type = COLOR_ICON_SLUGS.has(slug) || ["google", "nvidia", "openrouter", "modelscope", "together"].includes(slug)
     ? "color"
     : "mono";
-  const src = getLobeIconCDN(slug, { format: "svg", type, cdn: "unpkg" });
+  const src = iconSrc(slug, type);
   return "<span class=\"model-brand-mark provider-brand-mark\" aria-hidden=\"true\"><img class=\"model-brand-icon\" src=\"" + src + "\" alt=\"\" loading=\"lazy\" decoding=\"async\" /><span class=\"model-brand-fallback\">" + fallbackMarkup + "</span></span>";
 }

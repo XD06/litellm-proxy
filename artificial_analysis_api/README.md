@@ -28,7 +28,7 @@ aa.get("gpt-5.5")                     # 点号
 # 代理 + 强制刷新
 aa.get("deepseek-v4-flash", proxy="http://127.0.0.1:8005", refresh=True)
 
-# 模型列表（500个）
+# 模型列表（634个）
 models = aa.list_models()
 print(f"共 {models['total']} 个模型")
 
@@ -83,6 +83,14 @@ GET /api/model-summary/{model}
 | `model` | 路径 | **是** | 模型名称，支持智能匹配 |
 | `proxy` | 查询 | 否 | HTTP 代理 |
 | `refresh` | 查询 | 否 | `true` 时强制拉取并更新缓存 |
+
+**智能匹配（分级映射，能中则中）：** `qwen-3.8-flash`、`gpt-5.6-sol`、
+`claude opus 4.8`、`Pro/Qwen/Qwen3-32B` 等写法都会自动归一到 AA 的
+实际 slug（厂商前缀横杠、点号/空格分隔、显示名、去括号名、单家族默认
+变体、唯一子串逐级尝试）。实在无法命中才返回 `Model not found` + 建议；
+拼写错误等近似命中会正常返回数据，但带 `"match": {"kind": "approximate",
+"approximate": true}` 标记（近似级同样守两条红线：首 token 厂商前缀不可变、
+数字顺序不可转置，如 `grok-4.5` 不会命中 `gpt-4-5`）。批量定价接口只用确定性级别（不错配价格）。
 
 **请求示例：**
 
@@ -160,7 +168,7 @@ curl "http://localhost:8898/api/models?refresh=true"
 
 ```json
 {
-  "total": 500,
+  "total": 634,
   "models": [
     { "slug": "deepseek-v4-flash",       "name": "DeepSeek V4 Flash (Max)" },
     { "slug": "gpt-5-5",                 "name": "GPT-5.5 (xhigh)" },
@@ -239,7 +247,7 @@ aa.get("gpt-5.5", proxy="http://127.0.0.1:8014")
 
 - **不设 TTL** — 缓存永不过期，除非明确 `refresh=true`
 - **直接覆盖** — 不比对、不增量，新数据直接替换旧文件
-- **预置索引** — 内置 500 个模型的索引文件，首次使用无需拉取 AA 模型列表
+- **预置索引** — 内置 634 个模型的索引文件，首次使用无需拉取 AA 模型列表
 - **内存上限** — 最多缓存 200 个模型摘要（~400KB）
 
 ---

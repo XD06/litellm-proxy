@@ -5881,43 +5881,10 @@
 		};
 	}));
 	//#endregion
-	//#region node_modules/@lobehub/icons/es/features/getLobeIconCDN/index.js
-	var GITHUB_ICON_CDN, ALIYUN_ICON_CDN, UNPKG_ICON_CDN, getLobeIconCDN;
-	var init_getLobeIconCDN = __esmMin((() => {
-		GITHUB_ICON_CDN = function GITHUB_ICON_CDN(type) {
-			return "https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-".concat(type);
-		};
-		ALIYUN_ICON_CDN = function ALIYUN_ICON_CDN(type) {
-			return "https://registry.npmmirror.com/@lobehub/icons-static-".concat(type, "/latest/files");
-		};
-		UNPKG_ICON_CDN = function UNPKG_ICON_CDN(type) {
-			return "https://unpkg.com/@lobehub/icons-static-".concat(type, "@latest");
-		};
-		getLobeIconCDN = function getLobeIconCDN(id, config) {
-			var _ref = config || {}, _ref$format = _ref.format, format = _ref$format === void 0 ? "png" : _ref$format, _ref$isDarkMode = _ref.isDarkMode, isDarkMode = _ref$isDarkMode === void 0 ? false : _ref$isDarkMode, _ref$type = _ref.type, type = _ref$type === void 0 ? "color" : _ref$type, _ref$cdn = _ref.cdn, cdn = _ref$cdn === void 0 ? "github" : _ref$cdn;
-			var baseUrl = "";
-			switch (cdn) {
-				case "github":
-					baseUrl = GITHUB_ICON_CDN(format);
-					break;
-				case "unpkg":
-					baseUrl = UNPKG_ICON_CDN(format);
-					break;
-				case "aliyun": baseUrl = ALIYUN_ICON_CDN(format);
-			}
-			if (format === "avatar") return "".concat(baseUrl, "/avatars/").concat(id.toLowerCase(), ".webp");
-			else {
-				var addon = type === "mono" ? "" : "-".concat(type);
-				switch (format) {
-					case "svg": return "".concat(baseUrl, "/icons/").concat(id.toLowerCase() + addon, ".svg");
-					case "webp": return "".concat(baseUrl, "/").concat(isDarkMode ? "dark" : "light", "/").concat(id.toLowerCase() + addon, ".webp");
-					default: return "".concat(baseUrl, "/").concat(isDarkMode ? "dark" : "light", "/").concat(id.toLowerCase() + addon, ".png");
-				}
-			}
-		};
-	}));
-	//#endregion
 	//#region src/model-brand-icons.js
+	function iconSrc(slug, type) {
+		return "/-/icons/" + slug + ".svg?type=" + type;
+	}
 	function modelBrandSlug(model) {
 		const value = String(model || "").trim();
 		if (!value) return "";
@@ -5926,11 +5893,7 @@
 	function modelBrandIconMarkup(model, fallbackMarkup = "") {
 		const slug = modelBrandSlug(model);
 		if (!slug) return "<span class=\"model-brand-mark is-fallback\" aria-hidden=\"true\">" + fallbackMarkup + "</span>";
-		return "<span class=\"model-brand-mark\" aria-hidden=\"true\"><img class=\"model-brand-icon\" src=\"" + getLobeIconCDN(slug, {
-			format: "svg",
-			type: COLOR_ICON_SLUGS.has(slug) ? "color" : "mono",
-			cdn: "unpkg"
-		}) + "\" alt=\"\" loading=\"lazy\" decoding=\"async\" /><span class=\"model-brand-fallback\">" + fallbackMarkup + "</span></span>";
+		return "<span class=\"model-brand-mark\" aria-hidden=\"true\"><img class=\"model-brand-icon\" src=\"" + iconSrc(slug, COLOR_ICON_SLUGS.has(slug) ? "color" : "mono") + "\" alt=\"\" loading=\"lazy\" decoding=\"async\" /><span class=\"model-brand-fallback\">" + fallbackMarkup + "</span></span>";
 	}
 	function providerBrandSlug(provider) {
 		const value = String(provider || "").trim().toLowerCase();
@@ -5943,23 +5906,16 @@
 	function providerBrandIconMarkup(provider, fallbackMarkup = "") {
 		const slug = providerBrandSlug(provider);
 		if (!slug) return "<span class=\"model-brand-mark provider-brand-mark is-fallback\" aria-hidden=\"true\">" + fallbackMarkup + "</span>";
-		return "<span class=\"model-brand-mark provider-brand-mark\" aria-hidden=\"true\"><img class=\"model-brand-icon\" src=\"" + getLobeIconCDN(slug, {
-			format: "svg",
-			type: COLOR_ICON_SLUGS.has(slug) || [
-				"anthropic",
-				"google",
-				"groq",
-				"nvidia",
-				"openrouter",
-				"modelscope",
-				"together"
-			].includes(slug) ? "color" : "mono",
-			cdn: "unpkg"
-		}) + "\" alt=\"\" loading=\"lazy\" decoding=\"async\" /><span class=\"model-brand-fallback\">" + fallbackMarkup + "</span></span>";
+		return "<span class=\"model-brand-mark provider-brand-mark\" aria-hidden=\"true\"><img class=\"model-brand-icon\" src=\"" + iconSrc(slug, COLOR_ICON_SLUGS.has(slug) || [
+			"google",
+			"nvidia",
+			"openrouter",
+			"modelscope",
+			"together"
+		].includes(slug) ? "color" : "mono") + "\" alt=\"\" loading=\"lazy\" decoding=\"async\" /><span class=\"model-brand-fallback\">" + fallbackMarkup + "</span></span>";
 	}
 	var MODEL_ICON_RULES, COLOR_ICON_SLUGS, PROVIDER_ICON_ALIASES;
 	var init_model_brand_icons = __esmMin((() => {
-		init_getLobeIconCDN();
 		MODEL_ICON_RULES = [
 			[/deepseek/i, "deepseek"],
 			[/\b(glm|chatglm)/i, "zai"],
@@ -16469,16 +16425,19 @@
 			try {
 				const result = await apiGet(`/-/admin/model-summary/${encodeURIComponent(modelName)}`);
 				if (result.error) {
+					const sugRaw = result.suggestion;
+					const sugSlug = sugRaw && typeof sugRaw === "object" ? sugRaw.slug || "" : sugRaw || "";
+					const sugLabel = sugRaw && typeof sugRaw === "object" ? sugRaw.name || sugSlug : sugSlug;
 					updateDOM(body, `
           <div style="padding: 24px; text-align: center;">
             <div style="font-size: 32px; margin-bottom: 12px;">🔍</div>
             <strong style="display: block; font-size: 15px; color: var(--text); margin-bottom: 8px;">Model Not Found</strong>
             <p style="color: var(--muted); font-size: 13px; margin-bottom: 16px;">${escapeHtml(result.error)}</p>
-            ${result.suggestion ? `
+            ${sugSlug ? `
               <div style="border-top: 1px solid var(--line-soft); padding-top: 16px; margin-top: 16px;">
                 <span style="font-size: 12px; color: var(--muted); display: block; margin-bottom: 8px;">Did you mean?</span>
-                <button class="button secondary pill-toggle" style="padding: 6px 12px; font-size: 12px; font-weight: bold;" onclick="window.LP_openModelDrawer('${escapeHtml(result.suggestion)}')">
-                  ${escapeHtml(result.suggestion)}
+                <button class="button secondary pill-toggle" style="padding: 6px 12px; font-size: 12px; font-weight: bold;" onclick="window.LP_openModelDrawer('${escapeHtml(sugSlug)}')">
+                  ${escapeHtml(sugLabel)}
                 </button>
               </div>
             ` : ""}
@@ -16488,7 +16447,9 @@
 				} else {
 					const summary = result.summary || {};
 					const url = result.source_url || `https://artificialanalysis.ai/models/${encodeURIComponent(result.model)}`;
-					subtitle.textContent = result.model;
+					const approx = result.match && result.match.approximate;
+					subtitle.textContent = (approx ? "≈ " : "") + result.model;
+					if (approx) subtitle.title = `Approximate match for "${modelName}" (${result.match.kind})`;
 					const fmtRank = (item) => item && item.rank ? `#${item.rank} of ${item.total}` : "-";
 					updateDOM(body, `
           <div class="model-summary-details">

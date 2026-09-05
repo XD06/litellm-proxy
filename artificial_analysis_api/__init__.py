@@ -42,9 +42,9 @@ class ModelSummary:
         self._cache_dir = Path(cache_dir)
         self._index = ModelIndex(self._cache_dir)
         self._cache = ModelCache(self._cache_dir)
-        # 本地索引可能过期（如 6 月的 500 模型会漏掉新模型，且模糊匹配可能
-        # 把新模型误配到旧模型，kimi-k3 -> kimi-k2），因此在首次"非精确命中"
-        # 时联网刷新一次索引再重试；此后按 TTL 周期性再刷新。
+        # 本地索引可能过期（会漏掉新模型），因此在"非确定性命中"
+        # （approximate/none）时联网刷新一次索引再重试；此后按 TTL
+        # 周期性再刷新。
         self._index_refreshed_at = 0.0
 
     def _index_refresh_due(self) -> bool:
@@ -81,13 +81,12 @@ class ModelSummary:
             )
         except Exception:
             pass  # 索引不可用：继续用本地/内置索引兜底
-        slug = self._index.resolve(name)
+        slug, kind = self._index.resolve_kind(name)
 
-        # 本地索引未精确命中 → 可能是新模型或索引过期（模糊匹配可能假阳性，
-        # 如 kimi-k3 被误配到 kimi-k2、不存在的变体被误配到基础模型），
-        # 联网刷新索引后重试一次；刷新按 TTL 周期性允许，保证新发布模型
-        # 无需重启进程即可被解析。
-        if (not slug or not self._index.is_exact_resolve(name, slug)) and self._index_refresh_due():
+        # 分级映射：确定性命中（exact..substring）直接用；approximate/none
+        # 说明本地索引可能过期（如新模型刚上架），联网刷新一次再重试。
+        # 刷新按 TTL 周期性允许，保证新发布模型无需重启进程即可被解析。
+        if kind not in ModelIndex.DETERMINISTIC_KINDS and self._index_refresh_due():
             try:
                 await asyncio.wait_for(
                     self._fetch_index(proxy, 10.0, 30.0),
@@ -95,29 +94,29 @@ class ModelSummary:
                 )
                 self._index_refreshed_at = time.time()
             except Exception:
-                pass  # 刷新失败：继续用旧索引，交由下方精确性判断兜底
-            slug = self._index.resolve(name)
+                pass  # 刷新失败：继续用旧索引，交由下方兜底
+            slug, kind = self._index.resolve_kind(name)
         else:
             self._index_refreshed_at = self._index_refreshed_at or time.time()
 
-        # 无法精确命中 → 该模型不在 AA 上（或索引刷新失败）。宁可返回
-        # Model not found + 建议，也不能用模糊匹配的 slug 去抓相似模型的
-        # 数据（如 gemini-3.7-flash-high -> gemini-3-7-flash），也不能用
-        # None slug 去请求 /models/None。
-        if not slug or not self._index.is_exact_resolve(name, slug):
+        # 实在无法命中 → 该模型不在 AA 上。返回 Model not found + 建议，
+        # 不抓取，避免把毫不相干模型的数据张冠李戴。
+        if not slug or kind == "none":
             suggestions = self._index.search(name, limit=3)
             return {
                 "error": "Model not found",
                 "query": name,
                 "suggestion": suggestions[0] if suggestions else None,
             }
+        approximate = kind == "approximate"
 
         # Phase 2 — model summary fetch: the caller's tight budget applies.
         async def _fetch_phase() -> dict:
             if not refresh:
                 cached = self._cache.get(slug)
                 if cached:
-                    return {"model": slug, "summary": cached, "cached": True}
+                    return {"model": slug, "summary": cached, "cached": True,
+                            "match": {"kind": kind, "approximate": approximate}}
 
             fetcher = ModelFetcher(
                 proxy,
@@ -131,6 +130,7 @@ class ModelSummary:
 
             self._cache.set(slug, result["summary"])
             result["cached"] = False
+            result["match"] = {"kind": kind, "approximate": approximate}
             return result
 
         return await asyncio.wait_for(

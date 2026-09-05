@@ -4771,7 +4771,9 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             self.send_response(status)
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(data)))
-            self.send_header("Cache-Control", "no-store")
+            overridden = {str(k).lower() for k in (extra_headers or {})}
+            if "cache-control" not in overridden:
+                self.send_header("Cache-Control", "no-store")
             if extra_headers:
                 for k, v in extra_headers.items():
                     self.send_header(k, v)
@@ -4779,6 +4781,33 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             self.wfile.write(data)
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, OSError):
             pass
+
+    def _resp_icons(self, endpoint: str):
+        """品牌图标本地代理：/-/icons/<slug>.svg?type=color|mono（免鉴权）。
+
+        图标是公开静态资源，<img> 发不出鉴权头，故不走 admin 鉴权；
+        slug 经 icon_cache.normalize 严格校验，仅返回校验过的 SVG 字节。
+        """
+        from urllib.parse import unquote
+
+        import icon_cache
+
+        name = unquote(str(endpoint or "")).strip("/").lower()
+        slug = name[:-4] if name.endswith(".svg") else name
+        try:
+            from urllib.parse import parse_qs, urlparse
+
+            typ = (parse_qs(urlparse(self.path).query or "").get("type") or ["mono"])[0]
+        except Exception:
+            typ = "mono"
+        data = icon_cache.get_icon(slug, typ)
+        if data is None:
+            return self._resp_json({"error": {"message": f"unknown icon: {endpoint}"}}, 404)
+        return self._resp_bytes(
+            data,
+            content_type="image/svg+xml; charset=utf-8",
+            extra_headers={"Cache-Control": "public, max-age=86400"},
+        )
 
     def _resp_dashboard(self, endpoint: str):
         allowed = {
@@ -4922,6 +4951,8 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         self.log_request_detail("GET", self.path, self.headers)
         if route.endpoint == "health":
             self._resp_json({"status": "ok"})
+        elif route.family == "icons":
+            self._resp_icons(route.endpoint)
         elif route.family == "dashboard":
             self._resp_dashboard(route.endpoint)
         elif route.family == "admin":
@@ -6737,11 +6768,14 @@ def _prefetch_model_summaries():
             # Warm the resolve cache for every known model name FIRST, before
             # the sleep, so it is ready by the time the first dashboard pricing
             # query arrives. This is pure local index work, no network.
+            # warm() 只做确定性级别：未知模型跳过 SequenceMatcher 慢路径
+            # （单个 ~126ms，几百个即烧满 GIL 约一分钟，拖慢启动后的管理
+            # 接口），且不污染缓存语义（按需 resolve() 仍走完整管线）。
             try:
                 aa._index.load_local()
                 for m in sorted(list(models)):
                     try:
-                        aa._index.resolve(m)
+                        aa._index.warm(m)
                     except Exception:
                         pass
                 print(f"[proxy] Resolve cache warmed for {len(models)} models.", flush=True)

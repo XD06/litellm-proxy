@@ -535,11 +535,24 @@ class AdminRoutesMixin:
                         last_norm = re.sub(r"[^a-z0-9]+", "-", last).strip("-")
                         if last_norm and last_norm != norm and last_norm in fast_lookup:
                             return fast_lookup[last_norm]
-                        # Unknown to the local index: do NOT fall back to the full
-                        # fuzzy resolver here. That path is O(n) per call (~80ms)
-                        # and for non-chat models (embeddings, vision, TTS) that are
-                        # absent from the AA index it wasted 8-16s per poll. The
-                        # resolver is still used by the explicit model-summary flow.
+                        # 确定性分级映射兜底（别名/单家族默认/子串唯一，如
+                        # qwen-3.8-flash -> qwen3-8-flash-next、Qwen3-32B ->
+                        # qwen3-32b-instruct），与 model-summary 同一管线。
+                        # 注意：这里故意只用确定性级，不含 SequenceMatcher
+                        # 近似级——价格错配比缺价格危害大，且慢路径会让每次
+                        # 轮询退化回秒级。近似查询请走 model-summary（带标记）。
+                        try:
+                            from artificial_analysis_api.index import (
+                                resolve_deterministic as _aa_resolve_det,
+                            )
+                            _pool = dict(models_map)
+                            for _s in cached_slugs:
+                                _pool.setdefault(_s, "")
+                            _slug, _kind = _aa_resolve_det(_pool, query)
+                            if _slug:
+                                return _slug
+                        except Exception:
+                            pass
                         return None
 
                     for model in candidates:

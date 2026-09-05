@@ -69,6 +69,7 @@
 * **`POST /-/admin/models/pricing/delete`**：删除价格覆盖，同样触发历史成本重算。
 * **`GET /-/admin/model-pricing?models=...`**：批量读取本地 AA 缓存定价（只读，不触发网络）。
 * **`GET /-/admin/model-summary/{slug}?refresh=true`**：拉取/刷新单个模型的 AA 评测摘要。
+* **`GET /-/icons/{slug}.svg?type=color|mono`**：品牌图标本地代理（免鉴权）。内存 LRU + `data/icon_cache/` 磁盘缓存，上游 npmmirror 优先、unpkg 兜底，按需拉取一次；`Cache-Control: public, max-age=86400`；失败 404，前端自动降级为字母 fallback。
 
 ### 2.6 监控与审计 (Observability & Stats)
 * **`GET /-/admin/stats`**：获取系统全局及各供应商的请求成功率、延迟百分位数、Token 消耗与费用统计。

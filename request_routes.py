@@ -48,6 +48,9 @@ def classify_get(clean_path: str) -> Route:
     if namespace == "legacy" and (path == "/-/dashboard" or path.startswith("/-/dashboard/")):
         endpoint = path[len("/-/dashboard") :].strip("/") or "index.html"
         return Route("dashboard", endpoint, clean_path, path)
+    if namespace == "legacy" and path.startswith("/-/icons/"):
+        endpoint = path[len("/-/icons/") :].strip("/")
+        return Route("icons", endpoint, clean_path, path)
     if namespace == "legacy" and path.startswith("/-/admin/"):
         return Route("admin", path[len("/-/admin/") :], clean_path, path)
     if namespace in ("legacy", "anthropic", "openai") and path == "/v1/models":

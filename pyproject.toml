@@ -79,6 +79,7 @@ py-modules = [
     "routing_trace",
     "responses",
     "chat",
+    "icon_cache",
 ]
 
 [tool.setuptools.packages.find]

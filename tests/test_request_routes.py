@@ -98,6 +98,16 @@ class RequestRouteTests(unittest.TestCase):
         self.assertEqual(route.endpoint, "providers/alpha/disable")
         self.assertTrue(route.implemented)
 
+    def test_classifies_icon_proxy_routes(self):
+        route = classify_get("/-/icons/openai.svg")
+        self.assertEqual(route.family, "icons")
+        self.assertEqual(route.endpoint, "openai.svg")
+        self.assertTrue(route.implemented)
+
+        route = classify_get("/-/icons/qwen-color.svg")
+        self.assertEqual(route.family, "icons")
+        self.assertEqual(route.endpoint, "qwen-color.svg")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -115,12 +115,13 @@ assert.match(styles, /#configView\.is-model-data \.model-usage-panel\s*\{[\s\S]*
 assert.match(styles, /#configView\.is-model-data \.model-usage-workspace\s*\{[\s\S]*?border:\s*1px solid #cbd5e1/, "model data controls and table need one visible inner boundary");
 assert.match(styles, /#configView\.is-model-data \.model-usage-table-scroll\s*\{[\s\S]*?overscroll-behavior-y:\s*auto/, "horizontal model table scrolling must pass vertical wheel input to the page");
 assert.match(styles, /#modelDrawer \.attempt-table-scroll\s*\{[\s\S]*?overscroll-behavior-y:\s*auto/, "model provider details must pass vertical wheel input to the drawer");
-assert.match(modelIcons, /getLobeIconCDN/, "model icons must use the official Lobe icon CDN helper");
-assert.match(modelIcons, /format: "svg"/, "model icons must use official static SVG assets");
+assert.match(modelIcons, /\/-\/icons\//, "brand artwork must load through the local icon proxy, not a remote CDN");
+assert.match(modelIcons, /\.svg\?type=/, "brand artwork must request versioned static SVG assets from the local proxy");
+assert.doesNotMatch(modelIcons, /https:\/\/unpkg|unpkg\.com|jsdelivr|getLobeIconCDN\s*\(/, "brand artwork must not depend on a remote CDN at render time");
 assert.match(modelIcons, /function providerBrandIconMarkup/, "the shared icon registry must expose provider artwork");
 assert.match(modelIcons, /PROVIDER_ICON_ALIASES/, "provider icons must use explicit aliases rather than arbitrary substrings");
-assert.match(modelIcons, /model-brand-fallback/, "CDN artwork must retain a local fallback marker");
-assert.match(app, /model-brand-icon[\s\S]*classList\.add\("is-broken"\)/, "failed CDN artwork must activate the local fallback without disturbing layout");
+assert.match(modelIcons, /model-brand-fallback/, "brand artwork must retain a local fallback marker");
+assert.match(app, /model-brand-icon[\s\S]*classList\.add\("is-broken"\)/, "failed brand artwork must activate the local fallback without disturbing layout");
 assert.match(modelIcons, /COLOR_ICON_SLUGS\.has\(slug\) \? "color" : "mono"/, "recognized models should use color artwork only when LobeHub publishes it");
 assert.match(styles, /\.model-brand-mark\s*\{[\s\S]*?width:\s*22px[\s\S]*?height:\s*22px/, "model names need a compact, aligned icon marker");
 assert.match(styles, /#configView\.is-model-data \.model-usage-open-button\s*\{[\s\S]*?width:\s*28px[\s\S]*?height:\s*28px/, "row and pagination chevrons need the same control geometry");
