@@ -18,6 +18,7 @@ artificial_analysis_api — LLM 模型评测摘要库
     summary = ms.get("claude-opus-4-8")
 """
 import asyncio
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -27,16 +28,29 @@ from .index import ModelIndex
 
 __all__ = ["ModelSummary", "aa"]
 
+# The packed index page is large and slow behind proxies; give the index phase
+# its own generous budget instead of letting the tight per-model timeout kill
+# it (which made first-time auto-fetches of brand-new models always fail).
+_INDEX_PHASE_TIMEOUT_S = 45.0
+# Re-fetch the index at most once per TTL so models released after startup
+# become resolvable without a process restart or manual refresh.
+_INDEX_REFRESH_TTL_S = 6 * 3600.0
+
 
 class ModelSummary:
     def __init__(self, cache_dir: str | Path = "./data/aa_cache"):
         self._cache_dir = Path(cache_dir)
         self._index = ModelIndex(self._cache_dir)
         self._cache = ModelCache(self._cache_dir)
-        # 进程内标记索引是否已联网刷新过。旧内置索引（如 6 月的 500 模型）
-        # 会漏掉新模型，且模糊匹配可能把新模型误配到旧模型（kimi-k3 -> kimi-k2），
-        # 因此在首次"非精确命中"时联网刷新一次索引再重试。
-        self._index_fresh = False
+        # 本地索引可能过期（如 6 月的 500 模型会漏掉新模型，且模糊匹配可能
+        # 把新模型误配到旧模型，kimi-k3 -> kimi-k2），因此在首次"非精确命中"
+        # 时联网刷新一次索引再重试；此后按 TTL 周期性再刷新。
+        self._index_refreshed_at = 0.0
+
+    def _index_refresh_due(self) -> bool:
+        if self._index_refreshed_at <= 0:
+            return True
+        return (time.time() - self._index_refreshed_at) > _INDEX_REFRESH_TTL_S
 
     def get(
         self,
@@ -48,13 +62,7 @@ class ModelSummary:
         total_timeout_s: float = 30.0,
     ) -> dict:
         """获取模型摘要。"""
-        async def resolve():
-            return await asyncio.wait_for(
-                self._get(name, proxy, refresh, connect_timeout_s, total_timeout_s),
-                timeout=max(float(total_timeout_s), float(connect_timeout_s)),
-            )
-
-        return asyncio.run(resolve())
+        return asyncio.run(self._get(name, proxy, refresh, connect_timeout_s, total_timeout_s))
 
     async def _get(
         self,
@@ -64,19 +72,33 @@ class ModelSummary:
         connect_timeout_s: float = 10.0,
         total_timeout_s: float = 30.0,
     ) -> dict:
-        await self._ensure_index(proxy, connect_timeout_s, total_timeout_s)
+        # Phase 1 — index bootstrap/refresh: generous fixed budget, exempt
+        # from the caller's per-model timeout.
+        try:
+            await asyncio.wait_for(
+                self._ensure_index(proxy, 10.0, 30.0),
+                timeout=_INDEX_PHASE_TIMEOUT_S,
+            )
+        except Exception:
+            pass  # 索引不可用：继续用本地/内置索引兜底
         slug = self._index.resolve(name)
 
         # 本地索引未精确命中 → 可能是新模型或索引过期（模糊匹配可能假阳性，
         # 如 kimi-k3 被误配到 kimi-k2、不存在的变体被误配到基础模型），
-        # 联网刷新索引后重试一次。
-        if (not slug or not self._index.is_exact_resolve(name, slug)) and not self._index_fresh:
+        # 联网刷新索引后重试一次；刷新按 TTL 周期性允许，保证新发布模型
+        # 无需重启进程即可被解析。
+        if (not slug or not self._index.is_exact_resolve(name, slug)) and self._index_refresh_due():
             try:
-                await self._fetch_index(proxy, connect_timeout_s, total_timeout_s)
-                self._index_fresh = True
+                await asyncio.wait_for(
+                    self._fetch_index(proxy, 10.0, 30.0),
+                    timeout=_INDEX_PHASE_TIMEOUT_S,
+                )
+                self._index_refreshed_at = time.time()
             except Exception:
                 pass  # 刷新失败：继续用旧索引，交由下方精确性判断兜底
             slug = self._index.resolve(name)
+        else:
+            self._index_refreshed_at = self._index_refreshed_at or time.time()
 
         # 无法精确命中 → 该模型不在 AA 上（或索引刷新失败）。宁可返回
         # Model not found + 建议，也不能用模糊匹配的 slug 去抓相似模型的
@@ -90,24 +112,31 @@ class ModelSummary:
                 "suggestion": suggestions[0] if suggestions else None,
             }
 
-        if not refresh:
-            cached = self._cache.get(slug)
-            if cached:
-                return {"model": slug, "summary": cached, "cached": True}
+        # Phase 2 — model summary fetch: the caller's tight budget applies.
+        async def _fetch_phase() -> dict:
+            if not refresh:
+                cached = self._cache.get(slug)
+                if cached:
+                    return {"model": slug, "summary": cached, "cached": True}
 
-        fetcher = ModelFetcher(
-            proxy,
-            connect_timeout_s=connect_timeout_s,
-            total_timeout_s=total_timeout_s,
+            fetcher = ModelFetcher(
+                proxy,
+                connect_timeout_s=connect_timeout_s,
+                total_timeout_s=total_timeout_s,
+            )
+            try:
+                result = await fetcher.fetch_and_parse(slug)
+            except Exception as e:
+                return {"error": str(e), "model_slug": slug}
+
+            self._cache.set(slug, result["summary"])
+            result["cached"] = False
+            return result
+
+        return await asyncio.wait_for(
+            _fetch_phase(),
+            timeout=max(float(total_timeout_s), float(connect_timeout_s)),
         )
-        try:
-            result = await fetcher.fetch_and_parse(slug)
-        except Exception as e:
-            return {"error": str(e), "model_slug": slug}
-
-        self._cache.set(slug, result["summary"])
-        result["cached"] = False
-        return result
 
     def list_models(self, proxy: Optional[str] = None, refresh: bool = False) -> dict:
         """获取模型列表。"""
@@ -165,7 +194,7 @@ class ModelSummary:
         html = await fetcher.fetch_index_html()
         self._index.build_from_html(html)
         self._index.save()
-        self._index_fresh = True
+        self._index_refreshed_at = time.time()
 
 
 # 全局单例 — 最简用法

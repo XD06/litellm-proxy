@@ -2219,7 +2219,7 @@ class AdminApiTests(unittest.TestCase):
         self.assertIn(b"Routing path", js_body)
         self.assertIn(b"Diagnostic events", js_body)
         self.assertIn(b"Routing exceptions", js_body)
-        self.assertIn(b"Models by key", js_body)
+        self.assertNotIn(b"Models by key", js_body)
         self.assertIn(b"Canonical aliases", js_body)
         self.assertIn(b"parseKeyModelsText", js_body)
         self.assertIn(b"parseModelVariants", js_body)
@@ -2303,6 +2303,43 @@ class AdminApiTests(unittest.TestCase):
         self.assertEqual(body["result"]["model"], "chosen-model")
         self.assertEqual(body["result"]["requested_model"], "chosen-model")
         self.assertEqual(body["result"]["upstream_model"], "provider-chosen-model")
+
+    def test_model_test_endpoint_reuses_probe_pipeline(self):
+        cfg = self._probe_cfg()
+        router = sse2json.UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"recent_requests_limit": 20}})
+
+        class OkClient:
+            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
+                return {"id": "x", "choices": [{"message": {"content": "ok"}}]}, 33
+
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(sse2json, "ROUTER", router), patch.object(
+            sse2json, "UPSTREAM_CLIENT", OkClient()
+        ), patch.object(sse2json, "OBSERVABILITY", obs):
+            with sse2json._KEY_PROBE_LOCK:
+                sse2json._KEY_PROBE_INFLIGHT.clear()
+            status, body = self.post_json(
+                "/-/admin/models/test",
+                {"provider": "alpha", "model": "provider-chosen-model"},
+                headers={"Content-Type": "application/json", "X-Admin-Key": "admin-secret"},
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(body["action"], "model_tested")
+        self.assertTrue(body["result"]["ok"])
+        self.assertEqual(body["result"]["latency_ms"], 33)
+        snap = obs.snapshot()
+        self.assertEqual(snap["counters"]["requests_total"], 1)
+
+    def test_model_test_endpoint_requires_provider_and_model(self):
+        with patch.object(sse2json, "CONFIG", self._probe_cfg()):
+            status, body = self.post_json(
+                "/-/admin/models/test",
+                {"provider": "alpha"},
+                headers={"Content-Type": "application/json", "X-Admin-Key": "admin-secret"},
+            )
+        self.assertEqual(status, 400)
+        self.assertIn("error", body)
 
     def test_key_probe_concurrent_duplicates_share_one_upstream_request(self):
         cfg = self._probe_cfg()

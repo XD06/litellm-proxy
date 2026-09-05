@@ -684,6 +684,63 @@ class RequestHistoryStoreTests(unittest.TestCase):
             [{"source": "max_token", "target": "max_tokens", "value": 64}],
         )
 
+    def test_backfill_reprices_unpriced_rows(self):
+        store = self.store()
+        item = sample_request("req-unpriced")
+        item["attempts"][0]["cost_status"] = "unpriced"
+        item["cost_status"] = "unpriced"
+        store.record_request(item)
+
+        snapshot = {
+            "input_per_million": 1.0,
+            "cache_read_per_million": 0.5,
+            "cache_write_per_million": 1.0,
+            "output_per_million": 2.0,
+            "source": "aa_cache",
+            "resolved_model": "provider-model",
+            "resolved_at": 1,
+            "complete": True,
+        }
+        result = store.backfill_pending_pricing("alpha", "provider-model", snapshot)
+
+        self.assertEqual(result["attempts_updated"], 1)
+        detail = store.get_request("req-unpriced")
+        self.assertEqual(detail["attempts"][0]["cost_status"], "priced")
+        self.assertEqual(detail["cost_status"], "priced")
+        self.assertGreater(float(detail["cost_usd"]), 0.0)
+
+    def test_recalculate_model_costs_follows_override_changes(self):
+        store = self.store()
+        item = sample_request("req-recalc")
+        item["attempts"][0]["cost_status"] = "priced"
+        item["cost_status"] = "priced"
+        store.record_request(item)
+
+        # New manual override must reprice the stored rows.
+        cfg = {"models": {"pricing_overrides": {"provider-model": {"input": 2.0, "output": 4.0}}}}
+        result = store.recalculate_model_costs(cfg, [("alpha", "provider-model")])
+        self.assertEqual(result["attempts_updated"], 1)
+        detail = store.get_request("req-recalc")
+        self.assertEqual(detail["attempts"][0]["pricing_source"], "manual_override")
+        self.assertEqual(detail["attempts"][0]["cost_status"], "priced")
+        # 4 uncached input * 2.0 + 6 output * 4.0, per million.
+        self.assertAlmostEqual(float(detail["cost_usd"]), 4 * 2.0 / 1e6 + 6 * 4.0 / 1e6, places=12)
+
+        # Override removed and no AA fallback: rows flip back to pending and
+        # the key is reported unresolved so the resolver can re-enqueue it.
+        result = store.recalculate_model_costs({}, [("alpha", "provider-model")])
+        self.assertEqual(result["unresolved"], [["alpha", "provider-model"]])
+        detail = store.get_request("req-recalc")
+        self.assertEqual(detail["attempts"][0]["cost_status"], "pending")
+
+    def test_distinct_model_keys_lists_provider_model_pairs(self):
+        store = self.store()
+        store.record_request(sample_request("req-a", provider="alpha"))
+        store.record_request(sample_request("req-b", provider="beta"))
+        keys = store.distinct_model_keys()
+        self.assertIn(("alpha", "provider-model"), keys)
+        self.assertIn(("beta", "provider-model"), keys)
+
 
 if __name__ == "__main__":
     unittest.main()

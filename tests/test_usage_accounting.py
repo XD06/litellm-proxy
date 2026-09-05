@@ -175,6 +175,55 @@ class UsageAccountingTests(unittest.TestCase):
 
         self.assertEqual(len(load_calls), 1)
 
+    def test_variant_base_names_strip_effort_and_routing_suffixes(self):
+        self.assertEqual(accounting._variant_base_names("grok-3-mini:high"), ["grok-3-mini"])
+        self.assertEqual(accounting._variant_base_names("deepinfra/deepseek-v4-flash-0731:flex"), ["deepinfra/deepseek-v4-flash-0731"])
+        self.assertEqual(accounting._variant_base_names("gemini-3.8-flash-high"), ["gemini-3.8-flash"])
+        self.assertEqual(accounting._variant_base_names("glm-Xhigh"), ["glm"])
+        # Plan suffixes change pricing and must never be stripped.
+        self.assertEqual(accounting._variant_base_names("coding-glm-5.3-free"), [])
+        self.assertEqual(accounting._variant_base_names("kimi-k2.6"), [])
+
+    def test_variant_suffix_inherits_base_price_as_estimated(self):
+        fake_aa = SimpleNamespace(
+            _index=SimpleNamespace(
+                load_local=lambda: False,
+                resolve=lambda query: "grok-3-mini" if query == "grok-3-mini" else None,
+            ),
+            _cache=SimpleNamespace(
+                get=lambda slug: {
+                    "pricing": {"input": 0.2, "output": 2.0, "cache_hit": 0.02}
+                } if slug == "grok-3-mini" else None,
+                list_slugs=lambda: [],
+            ),
+        )
+        with patch.object(accounting, "_aa", fake_aa):
+            snapshot = accounting.resolve_price_snapshot({}, "alpha", "grok-3-mini:high")
+            self.assertIsNotNone(snapshot)
+            self.assertEqual(snapshot["source"], "aa_variant")
+            self.assertEqual(snapshot["resolved_model"], "grok-3-mini")
+            self.assertFalse(snapshot["complete"])
+
+            priced = accounting.price_usage({}, "alpha", "grok-3-mini:high", {"input_tokens": 10, "output_tokens": 10})
+            self.assertEqual(priced["cost_status"], "estimated")
+            self.assertGreater(priced["cost_usd"], 0.0)
+
+    def test_free_plan_suffix_does_not_inherit_base_price(self):
+        fake_aa = SimpleNamespace(
+            _index=SimpleNamespace(
+                load_local=lambda: False,
+                resolve=lambda query: "glm-5.3" if query == "glm-5.3" else None,
+            ),
+            _cache=SimpleNamespace(
+                get=lambda slug: {"pricing": {"input": 0.2, "output": 2.0, "cache_hit": 0.02}} if slug == "glm-5.3" else None,
+                list_slugs=lambda: [],
+            ),
+        )
+        with patch.object(accounting, "_aa", fake_aa):
+            snapshot = accounting.resolve_price_snapshot({}, "alpha", "coding-glm-5.3-free")
+
+        self.assertIsNone(snapshot)
+
 
 if __name__ == "__main__":
     unittest.main()

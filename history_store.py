@@ -9,7 +9,7 @@ import threading
 import time
 import queue
 from contextlib import contextmanager
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from routing_explain import enrich_request, summarize_request
 from usage_accounting import (
@@ -18,6 +18,7 @@ from usage_accounting import (
     empty_usage,
     has_usage,
     normalize_usage,
+    resolve_price_snapshot,
     safe_float,
 )
 from usage_statistics import UsageStatisticsStore
@@ -780,7 +781,8 @@ class RequestHistoryStore:
                     rows = conn.execute(
                         """
                         SELECT * FROM attempts
-                        WHERE provider = ? AND provider_model = ? AND cost_status = 'pending'
+                        WHERE provider = ? AND provider_model = ?
+                          AND cost_status IN ('pending', 'unpriced')
                         """,
                         (str(provider or ""), str(provider_model or "")),
                     ).fetchall()
@@ -803,7 +805,8 @@ class RequestHistoryStore:
                             UPDATE attempts
                             SET cost_usd = ?, cost_status = ?, pricing_source = ?, pricing_snapshot = ?
                             WHERE request_id = ? AND attempt_no = ? AND provider = ?
-                              AND key_index = ? AND upstream_format = ? AND cost_status = 'pending'
+                              AND key_index = ? AND upstream_format = ?
+                              AND cost_status IN ('pending', 'unpriced')
                             """,
                             (
                                 cost,
@@ -831,7 +834,8 @@ class RequestHistoryStore:
                             """
                             UPDATE requests
                             SET cost_usd = ?, cost_status = ?, pricing_source = ?, pricing_snapshot = ?
-                            WHERE request_id = ? AND cost_status = 'pending'
+                            WHERE request_id = ?
+                              AND cost_status IN ('pending', 'unpriced')
                             """,
                             (
                                 total_cost,
@@ -893,6 +897,133 @@ class RequestHistoryStore:
                         )
                         self._reconcile_usage_statistics_safely(conn, request_id)
                         result["requests_updated"] += 1
+        except Exception:
+            return result
+        return result
+
+    def distinct_model_keys(self) -> List[Tuple[str, str]]:
+        """All (provider, provider_model) pairs that ever produced an attempt."""
+        keys: List[Tuple[str, str]] = []
+        if not self.enabled:
+            return keys
+        try:
+            self._ensure_ready()
+            with self._lock:
+                with self._connection() as conn:
+                    rows = conn.execute(
+                        """
+                        SELECT DISTINCT provider, provider_model FROM attempts
+                        WHERE provider != '' AND provider_model != ''
+                        """
+                    ).fetchall()
+                    keys = [(str(row[0]), str(row[1])) for row in rows]
+        except Exception:
+            return []
+        return keys
+
+    def recalculate_model_costs(
+        self,
+        cfg: Dict[str, Any],
+        model_keys: List[Tuple[str, str]],
+    ) -> Dict[str, Any]:
+        """Recompute stored costs for the given (provider, provider_model) keys.
+
+        Used when pricing data changes out-of-band (manual override edited or
+        removed, AA summary updated): historical rows follow the new price
+        instead of keeping a stale snapshot forever. Keys whose pricing no
+        longer resolves get their rows flipped back to 'pending' so the next
+        successful fetch backfills them.
+        """
+        result = {"attempts_updated": 0, "requests_updated": 0, "unresolved": []}
+        if not self.enabled or not model_keys:
+            return result
+        try:
+            self._ensure_ready()
+            with self._lock:
+                with self._connection() as conn:
+                    for provider, provider_model in model_keys:
+                        provider = str(provider or "")
+                        provider_model = str(provider_model or "")
+                        rows = conn.execute(
+                            """
+                            SELECT * FROM attempts
+                            WHERE provider = ? AND provider_model = ? AND cost_status != 'legacy'
+                            """,
+                            (provider, provider_model),
+                        ).fetchall()
+                        if not rows:
+                            continue
+                        snapshot = resolve_price_snapshot(cfg, provider, provider_model)
+                        request_ids = {str(row["request_id"]) for row in rows}
+                        if not isinstance(snapshot, dict):
+                            # Price disappeared (override removed, AA not
+                            # resolved yet): park rows as pending for the
+                            # resolver to pick up again.
+                            conn.execute(
+                                """
+                                UPDATE attempts SET cost_status = 'pending'
+                                WHERE provider = ? AND provider_model = ? AND cost_status != 'legacy'
+                                """,
+                                (provider, provider_model),
+                            )
+                            result["unresolved"].append([provider, provider_model])
+                        else:
+                            status = "priced" if snapshot.get("complete") else "estimated"
+                            snapshot_text = json.dumps(snapshot, ensure_ascii=False)
+                            for row in rows:
+                                usage = {
+                                    "input_tokens": int(row["input_tokens"] or 0),
+                                    "uncached_input_tokens": int(row["uncached_input_tokens"] or 0),
+                                    "cached_input_tokens": int(row["cached_input_tokens"] or 0),
+                                    "cache_write_tokens": int(row["cache_write_tokens"] or 0),
+                                    "output_tokens": int(row["output_tokens"] or 0),
+                                    "reasoning_tokens": int(row["reasoning_tokens"] or 0),
+                                    "total_tokens": int(row["total_tokens"] or 0),
+                                }
+                                cost = calculate_cost_usd(usage, snapshot)
+                                conn.execute(
+                                    """
+                                    UPDATE attempts
+                                    SET cost_usd = ?, cost_status = ?, pricing_source = ?, pricing_snapshot = ?
+                                    WHERE request_id = ? AND attempt_no = ? AND provider = ?
+                                      AND key_index = ? AND upstream_format = ?
+                                    """,
+                                    (
+                                        cost,
+                                        status,
+                                        str(snapshot.get("source") or ""),
+                                        snapshot_text,
+                                        row["request_id"],
+                                        row["attempt_no"],
+                                        row["provider"],
+                                        row["key_index"],
+                                        row["upstream_format"],
+                                    ),
+                                )
+                                result["attempts_updated"] += 1
+                        for request_id in request_ids:
+                            attempt_rows = conn.execute(
+                                "SELECT * FROM attempts WHERE request_id = ?",
+                                (request_id,),
+                            ).fetchall()
+                            total_cost = round(sum(float(row["cost_usd"] or 0) for row in attempt_rows), 10)
+                            request_status, request_source, request_snapshot = self._combined_cost_state(attempt_rows)
+                            conn.execute(
+                                """
+                                UPDATE requests
+                                SET cost_usd = ?, cost_status = ?, pricing_source = ?, pricing_snapshot = ?
+                                WHERE request_id = ? AND cost_status != 'legacy'
+                                """,
+                                (
+                                    total_cost,
+                                    request_status,
+                                    request_source,
+                                    json.dumps(request_snapshot, ensure_ascii=False),
+                                    request_id,
+                                ),
+                            )
+                            self._reconcile_usage_statistics_safely(conn, request_id)
+                            result["requests_updated"] += 1
         except Exception:
             return result
         return result

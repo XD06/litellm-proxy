@@ -706,6 +706,39 @@ class AdminRoutesMixin:
             )
             return self._resp_json({"action": "proxy_tested", "result": result})
 
+        if parts == ["models", "test"]:
+            body = self._read_json_body()
+            if isinstance(body, tuple):
+                return self._resp_json(body[0], body[1])
+            provider = str((body or {}).get("provider") or "").strip()
+            model = str((body or {}).get("model") or "").strip()
+            raw_key_index = (body or {}).get("key_index")
+            try:
+                key_index = int(raw_key_index) if raw_key_index is not None else 0
+            except (TypeError, ValueError):
+                key_index = 0
+            if not provider or not model:
+                return self._resp_json({"error": {"message": "provider and model are required"}}, 400)
+            # Reuses the deduplicated key-probe machinery: minimal real request,
+            # 15s budget, sanitized errors, observability records kept out of
+            # the client request history noise via endpoint="key_test".
+            result = probe_provider_key(provider, key_index, model=model)
+            self._audit_admin_event(
+                "model_tested",
+                target=f"{provider}/{model}",
+                status="ok" if result.get("ok") else "failed",
+                detail={
+                    "ok": bool(result.get("ok")),
+                    "format": result.get("format"),
+                    "upstream_model": result.get("upstream_model"),
+                    "latency_ms": result.get("latency_ms"),
+                    "http_status": result.get("http_status"),
+                    "error_type": result.get("error_type"),
+                },
+                error=str(result.get("error") or ""),
+            )
+            return self._resp_json({"action": "model_tested", "provider": provider, "model": model, "result": result})
+
         if parts == ["requests", "clear"]:
             body = self._read_json_body()
             if isinstance(body, tuple):
@@ -864,8 +897,15 @@ class AdminRoutesMixin:
                 model = str((body or {}).get("model") or "").strip()
                 CONFIG_MANAGER.delete_model_pricing_override(model)
                 _apply_runtime_config(CONFIG_MANAGER.config)
-                self._audit_admin_event("model_pricing_override_deleted", target=model, detail={"model": model})
-                return self._resp_json({"action": "model_pricing_override_deleted", "model": model, "config": CONFIG_MANAGER.snapshot()})
+                # Historical rows priced by the removed override must follow
+                # the new best-known price instead of keeping it forever.
+                recalc = OBSERVABILITY.recalculate_model_costs(OBSERVABILITY.model_keys_matching(model))
+                self._audit_admin_event(
+                    "model_pricing_override_deleted",
+                    target=model,
+                    detail={"model": model, "recalculated_attempts": recalc.get("attempts_updated", 0)},
+                )
+                return self._resp_json({"action": "model_pricing_override_deleted", "model": model, "recalculated": recalc, "config": CONFIG_MANAGER.snapshot()})
             except ConfigValidationError as e:
                 return self._resp_json({"error": {"message": str(e)}}, 400)
 
@@ -1336,8 +1376,15 @@ class AdminRoutesMixin:
                 CONFIG_MANAGER.update_model_pricing_override(body or {})
                 _apply_runtime_config(CONFIG_MANAGER.config)
                 model = str((body or {}).get("model") or "").strip()
-                self._audit_admin_event("model_pricing_override_updated", target=model, detail=body or {})
-                return self._resp_json({"action": "model_pricing_override_updated", "model": model, "config": CONFIG_MANAGER.snapshot()})
+                # Reprice history for every provider model this override now
+                # covers (previously pending/unpriced rows included).
+                recalc = OBSERVABILITY.recalculate_model_costs(OBSERVABILITY.model_keys_matching(model))
+                self._audit_admin_event(
+                    "model_pricing_override_updated",
+                    target=model,
+                    detail={**(body or {}), "recalculated_attempts": recalc.get("attempts_updated", 0)},
+                )
+                return self._resp_json({"action": "model_pricing_override_updated", "model": model, "recalculated": recalc, "config": CONFIG_MANAGER.snapshot()})
 
             if len(parts) == 5 and parts[0] == "providers" and parts[2] == "models" and parts[4] == "variants":
                 provider = parts[1]

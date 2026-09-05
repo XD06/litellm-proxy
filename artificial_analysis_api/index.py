@@ -36,10 +36,21 @@ class ModelIndex:
         if self._cache_file.exists():
             try:
                 self._models = json.loads(self._cache_file.read_text()).get("models", {})
+                if self._models:
+                    self.invalidate_resolve_cache()
                 return bool(self._models)
             except (json.JSONDecodeError, KeyError):
                 pass
         return False
+
+    def invalidate_resolve_cache(self) -> None:
+        """Drop memoized resolve() results.
+
+        The cache is only valid for one snapshot of ``_models``; a refreshed
+        index must invalidate it, otherwise newly added models stay unresolvable
+        (and stale fuzzy mismatches persist) until process restart.
+        """
+        self._resolve_cache.clear()
 
     def save(self):
         self._cache_file.parent.mkdir(parents=True, exist_ok=True)

@@ -344,6 +344,58 @@ def _manual_override_snapshot(cfg: Dict[str, Any], provider_model: str) -> Optio
     )
 
 
+_VARIANT_EFFORT_SUFFIX_RE = re.compile(r"(?:^|[-_.])(minimal|low|medium|high|xhigh|extra[-_]?high)$", re.IGNORECASE)
+
+
+def _variant_base_names(provider_model: str) -> list:
+    """Strip effort/routing suffixes from a model id, most specific first.
+
+    Aggregators expose per-effort variants of one base model (``grok-3-mini:high``,
+    ``deepseek-v4-flash-0731:flex``, ``gemini-3.8-flash-high``). AA lists the
+    base model only, so an unmatched variant can still inherit the base price —
+    recorded as an incomplete ("estimated") snapshot, never "priced".
+    Deliberately excludes plan suffixes like "-free"/"-pro" that change pricing.
+    """
+    text = str(provider_model or "").strip()
+    if not text:
+        return []
+    bases: list = []
+    colon_base = text.split(":", 1)[0].strip()
+    if colon_base and colon_base != text:
+        bases.append(colon_base)
+    segment = colon_base.rsplit("/", 1)[-1]
+    match = _VARIANT_EFFORT_SUFFIX_RE.search(segment)
+    if match and match.start(1) >= 4:
+        stripped = colon_base[: match.start(1)].rstrip("-.").strip()
+        if stripped and stripped not in bases:
+            bases.append(stripped)
+    return bases
+
+
+def _aa_exact_pricing(aa: Any, name: str, *, allow_lenient_cache: bool = True):
+    """Exact-resolve ``name`` against the AA index and return (slug, pricing).
+
+    ``pricing`` is None unless the resolved slug has a cached summary. The
+    lenient cached-slug fallback (basename intersection) only applies to the
+    original provider_model — never to derived variant bases, which must stay
+    strictly exact to avoid compounding wrong-model guesses.
+    """
+    slug = aa._index.resolve(name)
+    cached = aa._cache.get(slug) if slug else None
+    if not isinstance(cached, dict) and allow_lenient_cache:
+        # The summary cache is durable and can be populated before the model
+        # index is refreshed. Do not turn a valid cached price into a pending
+        # lookup just because the index is temporarily stale.
+        cached_slug = _cached_model_slug(aa, name)
+        if cached_slug:
+            slug = cached_slug
+            cached = aa._cache.get(slug)
+    pricing = cached.get("pricing") if isinstance(cached, dict) else None
+    if not isinstance(pricing, dict):
+        return slug, None
+    return slug, pricing
+
+
 def resolve_price_snapshot(
     cfg: Dict[str, Any],
     provider: str,
@@ -383,18 +435,15 @@ def resolve_price_snapshot(
         return None
     try:
         _ensure_aa_index_loaded()
-        slug = _aa._index.resolve(provider_model)
-        cached = _aa._cache.get(slug) if slug else None
-        # The summary cache is durable and can be populated before the model
-        # index is refreshed. Do not turn a valid cached price into a pending
-        # lookup just because the index is temporarily stale.
-        if not isinstance(cached, dict):
-            cached_slug = _cached_model_slug(_aa, provider_model)
-            if cached_slug:
-                slug = cached_slug
-                cached = _aa._cache.get(slug)
-        pricing = cached.get("pricing") if isinstance(cached, dict) else None
-        if not isinstance(pricing, dict):
+        slug, pricing = _aa_exact_pricing(_aa, provider_model)
+        variant_of_base = False
+        if pricing is None:
+            for base in _variant_base_names(provider_model):
+                slug, pricing = _aa_exact_pricing(_aa, base, allow_lenient_cache=False)
+                if pricing is not None:
+                    variant_of_base = True
+                    break
+        if pricing is None:
             return None
         input_rate, has_input = _first_rate_with_presence(pricing, ("input",))
         output_rate, has_output = _first_rate_with_presence(pricing, ("output",))
@@ -408,9 +457,9 @@ def resolve_price_snapshot(
             cache_read_rate=cache_read_rate,
             cache_write_rate=input_rate,
             output_rate=output_rate,
-            source="aa_cache",
+            source="aa_variant" if variant_of_base else "aa_cache",
             resolved_model=slug or provider_model,
-            complete=has_input and has_output and has_cache_read,
+            complete=(has_input and has_output and has_cache_read) and not variant_of_base,
         )
     except Exception:
         return None

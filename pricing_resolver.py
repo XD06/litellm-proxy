@@ -143,6 +143,7 @@ class PricingResolver:
     def _fetch(self, provider: str, provider_model: str) -> Optional[Dict[str, Any]]:
         try:
             from artificial_analysis_api import aa
+            from usage_accounting import _variant_base_names
 
             result = aa.get(
                 provider_model,
@@ -150,6 +151,19 @@ class PricingResolver:
                 connect_timeout_s=self.connect_timeout_s,
                 total_timeout_s=self.total_timeout_s,
             )
+            if isinstance(result, dict) and result.get("error") == "Model not found":
+                # Effort/routing variants (":high", "-flex", …) are not listed
+                # on AA themselves; warm the base model's summary so the
+                # variant fallback in resolve_price_snapshot can price it.
+                for base in _variant_base_names(provider_model):
+                    warmed = aa.get(
+                        base,
+                        proxy=self.proxy,
+                        connect_timeout_s=self.connect_timeout_s,
+                        total_timeout_s=self.total_timeout_s,
+                    )
+                    if isinstance(warmed, dict) and not warmed.get("error"):
+                        break
             if not isinstance(result, dict) or result.get("error"):
                 return None
             return resolve_price_snapshot(self.cfg, provider, provider_model)
