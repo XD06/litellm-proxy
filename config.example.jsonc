@@ -68,14 +68,19 @@
     // 只会在“向客户端写响应前”重试；一旦开始写 SSE，就不会透明重试
     "max_attempts": 6,
 
-    // 连接/读取超时；stream 首个可输出事件前按 first_token_timeout_s 总预算换路由。
+    // 连接/读取超时；stream 首个可输出事件前按首事件预算换路由：
+    // - first_event_timeout_s / agent_first_event_timeout_s：单次尝试预算
+    //   （后者用于带 tools/vision/reasoning 特征的请求，即推理模型场景）
+    // - first_event_total_timeout_s / agent_first_event_total_timeout_s：跨尝试总预算
+    // 运行期会按该 provider+model 的近期 p95 首事件延迟自适应上调（有上限）；
+    // 总预算将耗尽时，后续尝试仍保底获得单次预算的 60%，避免被切到几秒就超时。
     "connect_timeout_s": 15,
     "read_timeout_s": 120,
     "first_token_timeout_s": 30,
-    "first_event_timeout_s": 15,
-    "agent_first_event_timeout_s": 30,
-    "first_event_total_timeout_s": 45,
-    "agent_first_event_total_timeout_s": 75,
+    "first_event_timeout_s": 25,
+    "agent_first_event_timeout_s": 45,
+    "first_event_total_timeout_s": 90,
+    "agent_first_event_total_timeout_s": 150,
 
     // 跨格式参数语义策略：
     // - safe：映射可安全转换的字段，丢弃 cache_control 等非语义提示，并在请求详情记录决定

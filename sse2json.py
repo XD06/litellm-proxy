@@ -2934,8 +2934,8 @@ def _first_event_budgets(config: dict, compatibility_profile: str) -> tuple[floa
     extended = bool(features.intersection({"tools", "vision", "reasoning"}))
     candidate_key = "agent_first_event_timeout_s" if extended else "first_event_timeout_s"
     total_key = "agent_first_event_total_timeout_s" if extended else "first_event_total_timeout_s"
-    candidate_default = 30.0 if extended else 15.0
-    total_default = 75.0 if extended else 45.0
+    candidate_default = 45.0 if extended else 25.0
+    total_default = 150.0 if extended else 90.0
     try:
         candidate = max(0.1, float(routing.get(candidate_key, candidate_default)))
     except Exception:
@@ -2957,7 +2957,10 @@ def _adaptive_first_event_budget(
 ) -> float:
     features = set(str(compatibility_profile or "plain").split("+"))
     extended = bool(features.intersection({"tools", "vision", "reasoning"}))
-    minimum_s, maximum_s = (30.0, 60.0) if extended else (15.0, 30.0)
+    # Reasoning models routinely queue 30s+ before their first token; the
+    # adaptive budget must be able to follow the observed p95 instead of
+    # clamping it back down to the plain ceiling.
+    minimum_s, maximum_s = (30.0, 90.0) if extended else (20.0, 45.0)
     try:
         stats = observability.first_event_latency_stats(
             provider,
@@ -2987,7 +2990,11 @@ def _candidate_first_event_budget(deadline: float, per_attempt_s: float) -> floa
     remaining = float(deadline) - time.time()
     if remaining <= 0:
         raise socket.timeout("overall first stream event budget exhausted")
-    return max(0.001, min(float(per_attempt_s), remaining))
+    # Never strangle a late attempt with the sliver of total budget left after
+    # earlier attempts overspent: grant at least 60% of this attempt's own
+    # adaptive budget so slow-but-healthy providers still get a fair chance.
+    budget = min(float(per_attempt_s), max(remaining, float(per_attempt_s) * 0.6))
+    return max(0.001, budget)
 
 
 def _native_stream_usage_mode(config: dict = None) -> str:
@@ -3417,7 +3424,7 @@ def _remaining_first_event_timeout(started_at, timeout_s):
     elapsed = time.time() - float(started_at)
     remaining = float(timeout_s) - elapsed
     if remaining <= 0:
-        raise socket.timeout(f"first stream event timeout after {timeout_s}s")
+        raise socket.timeout(f"first stream event timeout after {float(timeout_s):.1f}s")
     return max(0.001, remaining)
 
 
@@ -5049,6 +5056,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             effort_adaptation = _apply_reasoning_effort_override(payload, fmt, canonical_model, CONFIG)
             if effort_adaptation:
                 attempt_parameter_adaptations.append(effort_adaptation)
+                OBSERVABILITY.update_reasoning_effort(request_id, str(effort_adaptation.get("to") or ""))
             response_started = False
             upstream_conn = None
             stream_conversion_recorder = None
@@ -5466,6 +5474,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             effort_adaptation = _apply_reasoning_effort_override(payload, fmt, canonical_model, CONFIG)
             if effort_adaptation:
                 attempt_parameter_adaptations.append(effort_adaptation)
+                OBSERVABILITY.update_reasoning_effort(request_id, str(effort_adaptation.get("to") or ""))
 
             response_started = False
             upstream_conn = None
@@ -6198,6 +6207,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                 effort_adaptation = _apply_reasoning_effort_override(payload, fmt, canonical_model, CONFIG)
                 if effort_adaptation:
                     attempt_parameter_adaptations.append(effort_adaptation)
+                    OBSERVABILITY.update_reasoning_effort(request_id, str(effort_adaptation.get("to") or ""))
 
                 response_started = False
                 upstream_conn = None

@@ -381,10 +381,10 @@ def _default_config() -> Dict[str, Any]:
             "connect_timeout_s": 15,
             "read_timeout_s": 120,
             "first_token_timeout_s": 30,
-            "first_event_timeout_s": 15,
-            "agent_first_event_timeout_s": 30,
-            "first_event_total_timeout_s": 45,
-            "agent_first_event_total_timeout_s": 75,
+            "first_event_timeout_s": 25,
+            "agent_first_event_timeout_s": 45,
+            "first_event_total_timeout_s": 90,
+            "agent_first_event_total_timeout_s": 150,
             # Bounds for the SSE prelude buffered before client headers are sent.
             # Protects against pathological upstreams that emit infinite
             # comments/keepalives without a data event. 0 disables a bound.

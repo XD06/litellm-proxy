@@ -65,6 +65,30 @@ class TimeoutBudgetTests(unittest.TestCase):
             with self.assertRaises(socket.timeout):
                 sse2json._remaining_first_event_timeout(100.0, 30)
 
+    def test_first_event_timeout_message_is_human_readable(self):
+        with patch.object(sse2json.time, "time", return_value=131.0):
+            with self.assertRaises(socket.timeout) as ctx:
+                sse2json._remaining_first_event_timeout(100.0, 9.60425329208374)
+        self.assertEqual(str(ctx.exception), "first stream event timeout after 9.6s")
+
+    def test_candidate_first_event_budget_keeps_floor_for_late_attempts(self):
+        # Remaining total budget (5s) is below 60% of the attempt budget (25s):
+        # the late attempt must still get the 15s floor instead of a doomed
+        # single-digit slice.
+        with patch.object(sse2json.time, "time", return_value=195.0):
+            budget = sse2json._candidate_first_event_budget(200.0, 25.0)
+        self.assertAlmostEqual(budget, 15.0)
+
+        # A fresh request gets the full adaptive budget, not more.
+        with patch.object(sse2json.time, "time", return_value=0.0):
+            budget = sse2json._candidate_first_event_budget(200.0, 25.0)
+        self.assertAlmostEqual(budget, 25.0)
+
+    def test_candidate_first_event_budget_raises_when_total_exhausted(self):
+        with patch.object(sse2json.time, "time", return_value=201.0):
+            with self.assertRaises(socket.timeout):
+                sse2json._candidate_first_event_budget(200.0, 25.0)
+
     def test_stream_open_uses_smaller_of_connect_and_first_event_budget(self):
         sock = _FakeSock()
         opener = _FakeOpener(_FakeResponse(sock))
@@ -80,18 +104,18 @@ class TimeoutBudgetTests(unittest.TestCase):
 
     def test_adaptive_first_event_budget_uses_p95_after_twenty_samples(self):
         normal = sse2json._adaptive_first_event_budget(
-            {}, "plain", "alpha", "model-a", self.Stats(20, 12000), 15
+            {}, "plain", "alpha", "model-a", self.Stats(20, 12000), 25
         )
         slow_normal = sse2json._adaptive_first_event_budget(
-            {}, "plain", "alpha", "model-a", self.Stats(20, 40000), 15
+            {}, "plain", "alpha", "model-a", self.Stats(20, 40000), 25
         )
         agent = sse2json._adaptive_first_event_budget(
-            {}, "tools+reasoning", "alpha", "model-a", self.Stats(20, 25000), 30
+            {}, "tools+reasoning", "alpha", "model-a", self.Stats(20, 50000), 45
         )
 
-        self.assertEqual(normal, 18.0)
-        self.assertEqual(slow_normal, 30.0)
-        self.assertEqual(agent, 37.5)
+        self.assertEqual(normal, 25.0)
+        self.assertEqual(slow_normal, 45.0)
+        self.assertEqual(agent, 75.0)
 
     def test_adaptive_first_event_budget_keeps_configured_fallback_for_small_samples(self):
         budget = sse2json._adaptive_first_event_budget(

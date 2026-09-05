@@ -7,12 +7,20 @@ import hashlib
 import threading
 import time
 from collections import deque
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from history_store import RequestHistoryStore
 from pricing_resolver import PricingResolver
 from routing_explain import enrich_request
-from usage_accounting import add_usage_totals, empty_usage, has_usage, normalize_usage, price_usage, safe_float
+from usage_accounting import (
+    _model_lookup_keys,
+    add_usage_totals,
+    empty_usage,
+    has_usage,
+    normalize_usage,
+    price_usage,
+    safe_float,
+)
 
 
 def empty_usage_with_cost() -> Dict[str, Any]:
@@ -562,6 +570,67 @@ class ProxyObservability:
             if first_byte_ms is None:
                 first_byte_ms = int((now - float(active.get("started_at") or now)) * 1000)
             active["first_byte_ms"] = max(0, int(first_byte_ms or 0))
+
+    def update_reasoning_effort(self, request_id: str, effort: str) -> None:
+        """Overwrite the request's displayed thinking intensity.
+
+        The field is captured from the client payload at request start; when a
+        model-route override replaces it upstream, the effective value is what
+        the request log should show.
+        """
+        rid = str(request_id or "")
+        if not rid:
+            return
+        with self._lock:
+            active = self._active.get(rid)
+            if active is None:
+                return
+            active["reasoning_effort"] = str(effort or "")[:32]
+
+    def model_keys_matching(self, model: str) -> List[Tuple[str, str]]:
+        """Historical (provider, provider_model) keys whose lookup keys intersect
+        the given model name (used to scope pricing recalculations)."""
+        target = set(_model_lookup_keys(model))
+        if not target:
+            return []
+        try:
+            keys = self._history.distinct_model_keys()
+        except Exception:
+            return []
+        return [
+            (provider, provider_model)
+            for provider, provider_model in keys
+            if target.intersection(_model_lookup_keys(provider_model))
+        ]
+
+    def recalculate_model_costs(self, model_keys: List[Tuple[str, str]]) -> Dict[str, Any]:
+        """Reprice stored history rows after an out-of-band pricing change.
+
+        Manual overrides edited in the dashboard (or AA summaries refreshed)
+        must reach already-recorded requests, not only future ones; keys whose
+        price no longer resolves are re-enqueued with the background resolver.
+        """
+        keys = [
+            (str(provider or ""), str(provider_model or ""))
+            for provider, provider_model in (model_keys or [])
+            if str(provider or "") and str(provider_model or "")
+        ]
+        result: Dict[str, Any] = {"attempts_updated": 0, "requests_updated": 0, "unresolved": [], "enqueued": 0}
+        if not keys:
+            return result
+        try:
+            result.update(self._history.recalculate_model_costs(self.cfg, keys))
+        except Exception:
+            return result
+        enqueued = 0
+        for provider, provider_model in result.get("unresolved") or []:
+            try:
+                if self._pricing.enqueue(provider, provider_model):
+                    enqueued += 1
+            except Exception:
+                continue
+        result["enqueued"] = enqueued
+        return result
 
     def add_usage_listener(self, listener) -> None:
         """Register a callable(recent_item) invoked after each request ends."""
