@@ -84,7 +84,7 @@ POST /v1/chat/completions 或 /v1/responses 或 /anthropic/v1/messages
 Dashboard / Admin 写入 → `config_manager` 合并 overlay（tombstone = `null` 表示删除基配置条目）→ 下一个请求的 `RuntimeContext` 快照即生效，无需重启。
 
 ### 3.3 模型发现
-provider/keys/format 变更或后台触发 → `model_discovery_queue` → 拉取各 provider `/v1/models` → `model_registry` 归一为 canonical 模型表；发现失败时保留 last-known 模型，不静默清空。
+provider/keys/format 变更或后台触发 → `model_discovery_queue` → 拉取各 provider `/v1/models` → `model_registry` 归一为 canonical 模型表；发现失败时保留 last-known 模型，不静默清空。聚合供应商的厂商副本（`sail/...`、`runware/...` 同一基础模型）归一为单一 canonical 并记录 1 对多 `variant_map`：任一副本未被禁用 canonical 即对 `/v1/models` 可见，路由按副本顺序故障转移。
 
 ### 3.4 健康探测与自动路由
 自适应空闲健康检查（频率 30s~6h） + 巡逻扫描 → `observability` 健康分 → `router` 在 `auto` 模式下按健康分动态调整 provider 优先级（`provider_select` 共 5 种模式：`priority_failover` / `round_robin` / `weighted_rr` / `random` / `auto`）。

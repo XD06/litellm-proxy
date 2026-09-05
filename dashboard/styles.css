@@ -4602,40 +4602,6 @@ tr.clickable:hover {
     display: block;
   }
 
-  .request-data-table tr {
-    display: grid;
-    grid-template-columns: 28px 58px minmax(0, 1fr) auto;
-    grid-template-areas:
-      "select status model open"
-      "select time time time"
-      "select route token cost"
-      "select source protocol latency";
-    gap: 6px 8px;
-    padding: 10px 8px;
-    border-bottom: 1px solid var(--line-soft);
-  }
-
-  .request-data-table td {
-    display: block;
-    width: auto;
-    height: auto;
-    min-width: 0;
-    padding: 0;
-    border: 0;
-  }
-
-  .request-row-select { grid-area: select; align-self: start; }
-  .request-cell-status { grid-area: status; }
-  .request-cell-time { grid-area: time; color: var(--muted); font-size: 10px; }
-  .request-cell-model { grid-area: model; font-weight: 700; }
-  .request-cell-source { grid-area: source; font-size: 10px; }
-  .request-cell-protocol { grid-area: protocol; font-size: 10px; }
-  .request-cell-route { grid-area: route; }
-  .request-cell-token { grid-area: token; text-align: right; }
-  .request-cell-cost { grid-area: cost; }
-  .request-cell-latency { grid-area: latency; }
-  .request-row-open { grid-area: open; }
-
   .request-result-band {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -7285,23 +7251,44 @@ form.is-busy {
 
 .model-map-actions {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 8px;
   padding-top: 12px;
   border-top: 1px solid var(--line-soft);
 }
 
+/* Icon-first actions, but they must survive text labels (e.g. the two-stage
+   "rename anyway" confirm) without collapsing into one-character columns. */
 .model-map-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
+  gap: 6px;
+  width: auto;
+  min-width: 36px;
   height: 36px;
+  padding: 0 9px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
   color: var(--muted);
   cursor: pointer;
+  white-space: nowrap;
+}
+
+.model-map-action .icon-svg {
+  flex: 0 0 auto;
+}
+
+.model-map-test-button {
+  margin-right: auto;
+}
+
+.model-map-action:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 .model-map-action:hover {
@@ -7318,6 +7305,46 @@ form.is-busy {
 .model-map-action.primary:hover {
   background: color-mix(in srgb, var(--text) 88%, var(--info));
 }
+
+/* In-modal model test result line (mapping editor test button). */
+.model-map-test-result {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  word-break: break-word;
+  white-space: normal;
+}
+
+.model-map-test-result[hidden] {
+  display: none;
+}
+
+.model-map-test-result .icon-svg,
+.model-map-test-result .spinner {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.model-map-test-result.is-running {
+  color: var(--muted);
+  background: var(--surface-muted);
+}
+
+.model-map-test-result.is-ok {
+  color: #15803d;
+  background: color-mix(in srgb, #22c55e 12%, transparent);
+}
+
+.model-map-test-result.is-bad {
+  color: #b91c1c;
+  background: color-mix(in srgb, #ef4444 10%, transparent);
+}
+
 
 .mobile-settings-body {
   display: grid;
@@ -10415,9 +10442,15 @@ body {
   }
 
   .provider-drawer-tabs {
-    grid-template-columns: repeat(6, minmax(94px, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px;
     overflow-x: auto;
+    scrollbar-width: none;
     padding-bottom: 8px;
+  }
+
+  .provider-drawer-tabs::-webkit-scrollbar {
+    display: none;
   }
 
   .provider-activity-row {
@@ -18440,10 +18473,6 @@ body {
   grid-template-columns: minmax(0, 1fr) auto 30px;
 }
 
-.provider-model-key-error {
-  color: var(--danger) !important;
-}
-
 .provider-model-inline-editor {
   min-width: 0;
 }
@@ -19889,6 +19918,11 @@ body {
 
 #detailDrawer .drawer-body {
   min-height: 0;
+  min-width: 0;
+  max-width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
@@ -21890,13 +21924,12 @@ body {
 
   #requestsTable .request-data-table tr {
     display: grid;
-    grid-template-columns: 24px minmax(0, 1fr) 28px;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     grid-template-areas:
-      "select request open"
-      ". result result"
-      ". provider provider"
-      ". route route"
-      ". usage performance";
+      "request request open"
+      "result result result"
+      "provider provider route"
+      "usage cost performance";
     gap: 7px 8px;
     min-height: 0;
     padding: 10px 8px;
@@ -21912,12 +21945,16 @@ body {
     border: 0;
   }
 
-  #requestsTable .request-row-select { grid-area: select; }
   #requestsTable .request-cell-request { grid-area: request; }
+  /* The client IP stays available via the row tooltip and the detail drawer;
+     a dedicated cell cannot fit a 390px row. Specificity must exceed the
+     generic `#requestsTable .request-data-table td` reset above. */
+  #requestsTable .request-data-table .request-cell-client-ip { display: none; }
   #requestsTable .request-cell-result { grid-area: result; }
   #requestsTable .request-cell-provider { grid-area: provider; }
-  #requestsTable .request-cell-route { grid-area: route; }
+  #requestsTable .request-cell-route { grid-area: route; justify-self: end; }
   #requestsTable .request-cell-usage { grid-area: usage; }
+  #requestsTable .request-cell-cost { grid-area: cost; justify-self: end; }
   #requestsTable .request-cell-performance { grid-area: performance; justify-self: end; }
   #requestsTable .request-row-open { grid-area: open; }
 
@@ -28418,8 +28455,12 @@ body.is-auth-checking {
   font-size: 11px;
 }
 
-/* Request-log thinking intensity stays readable at every responsive breakpoint. */
-#requestsTable .request-reasoning-chip.effort-off,
+/* Request-log thinking intensity: one distinct hue per level, ordered from
+   quiet (off) to hot (xhigh) so intensity reads at a glance. */
+#requestsTable .request-reasoning-chip.effort-off {
+  color: #94a3b8;
+}
+
 #requestsTable .request-reasoning-chip.effort-default {
   color: #64748b;
 }
@@ -28438,6 +28479,10 @@ body.is-auth-checking {
 
 #requestsTable .request-reasoning-chip.effort-high {
   color: #c2410c;
+}
+
+#requestsTable .request-reasoning-chip.effort-xhigh {
+  color: #dc2626;
 }
 
 /* Mapping modal: in-form clash warning (two-stage confirm) */

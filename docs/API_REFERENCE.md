@@ -57,8 +57,18 @@
 * **`PATCH /-/admin/models/variants`**：更新供应商模型多变体回退列表（`provider_model_variants`）。
 * **`PATCH /-/admin/models/disabled`**：启用/禁用指定供应商下的特定模型。
 * **`POST /-/admin/models/refresh`**：强制立即触发后台供应商 `/v1/models` 自动发现。
+* **`POST /-/admin/models/test`**：对指定供应商模型发起一次真实的最小测试请求（复用 key 探测管道，15s 预算，去重并发，结果记入请求历史）。
+  * Payload：`{"provider": "requesty", "model": "runware/deepseek-v4-flash-0731", "key_index": 0}`（`key_index` 可选，默认 0）
+  * 返回：`{"action": "model_tested", "result": {"ok": true, "format": "...", "upstream_model": "...", "latency_ms": 42}}`；失败时含 `http_status` / `error_type` / `error`（脱敏）。
+* **模型目录可见性**：聚合供应商（如 requesty）同一基础模型的多个厂商副本归一为 1 个 canonical id，并记录 1 对多 `variant_map`；只要任一副本未被禁用，canonical 即出现在 `/v1/models`，且路由按 副本优先级 依次故障转移。
 
-### 2.5 监控与审计 (Observability & Stats)
+### 2.5 模型定价 (Model Pricing)
+* **`PATCH /-/admin/models/pricing`**：设置人工模型价格覆盖（`models.pricing_overrides`）。保存后会自动重算历史请求中匹配该模型的价格记录（含此前 pending/unpriced 的记录），无法定价的键自动重新排队抓取。
+* **`POST /-/admin/models/pricing/delete`**：删除价格覆盖，同样触发历史成本重算。
+* **`GET /-/admin/model-pricing?models=...`**：批量读取本地 AA 缓存定价（只读，不触发网络）。
+* **`GET /-/admin/model-summary/{slug}?refresh=true`**：拉取/刷新单个模型的 AA 评测摘要。
+
+### 2.6 监控与审计 (Observability & Stats)
 * **`GET /-/admin/stats`**：获取系统全局及各供应商的请求成功率、延迟百分位数、Token 消耗与费用统计。
 * **`GET /-/admin/history`**：获取近期请求的详细调用链追踪记录（包含每轮 Attempt、上游响应时延、状态码）。
 * **`GET /-/admin/health`**：获取各供应商节点的实时探针健康度与冷却剩余时间。

@@ -93,9 +93,8 @@ assert.match(source, /if \(!enabled\) return \{ id: "disabled", label: "disabled
 assert.match(source, /return \{ id: "unavailable", label: "unavailable", tone: "is-unavailable", badge: "bad" \}/, "Unavailable providers must use the red badge color");
 assert.match(drawerRender, /providerDrawerIconSlot/, "Provider drawer title must preserve the fixed server icon");
 const catalogIndex = modelsPanel.indexOf('t("prov.models.catalog")');
-const discoveryIndex = modelsPanel.indexOf('t("prov.models.by_key")');
 assert.ok(catalogIndex >= 0, "Models must expose the model catalog as the primary task");
-assert.ok(discoveryIndex > catalogIndex, "per-key discovery must follow the primary model catalog");
+assert.doesNotMatch(modelsPanel, /t\("prov\.models\.by_key"\)/, "per-key catalog testing must stay removed from the models workspace");
 assert.match(modelsPanel, /<details class="provider-model-disclosure/, "advanced model tasks must use progressive disclosure");
 assert.match(modelsPanel, /t\("prov\.models\.canonical_aliases"\)/, "canonical variants must be presented as aliases");
 assert.match(modelsPanel, /data-provider-variant-model/, "alias editor must offer discovered models as selectable variants");
@@ -116,7 +115,7 @@ const modelTranslationKeys = [...modelsPanel.matchAll(/t\("(prov\.models\.[^"]+)
 for (const key of new Set(modelTranslationKeys)) {
   assert.ok(translations.includes(`"${key}":`), `missing provider model translation: ${key}`);
 }
-assert.match(translations, /"prov\.models\.by_key": \{ en: "Models by key", zh: "按密钥查看模型" \}/);
+assert.doesNotMatch(translations, /"prov\.models\.by_key"/, "cancelled per-key catalog feature must not keep drawer translations");
 
 assert.match(styles, /\.provider-drawer-models\s*\{[\s\S]*grid-template-columns: repeat\(auto-fill, minmax\(118px, 1fr\)\)/, "all model catalogs must use dense responsive columns by default");
 assert.match(styles, /\.provider-drawer-models \.provider-model-chip\s*\{[\s\S]*min-height: 29px/, "default model chips must stay compact");

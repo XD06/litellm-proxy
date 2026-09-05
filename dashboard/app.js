@@ -2500,18 +2500,6 @@
 				en: "{count} disabled",
 				zh: "{count} 个已禁用"
 			},
-			"prov.models.key_coverage": {
-				en: "Key coverage",
-				zh: "密钥覆盖"
-			},
-			"prov.models.need_attention": {
-				en: "{count} need attention",
-				zh: "{count} 个需关注"
-			},
-			"prov.models.catalogs_usable": {
-				en: "catalogs usable",
-				zh: "目录可用"
-			},
 			"prov.models.refresh": {
 				en: "Refresh models",
 				zh: "刷新模型"
@@ -2631,42 +2619,6 @@
 			"prov.models.apply_label": {
 				en: "Apply changes",
 				zh: "应用变更"
-			},
-			"prov.models.by_key": {
-				en: "Models by key",
-				zh: "按密钥查看模型"
-			},
-			"prov.models.by_key_desc": {
-				en: "Compare the catalogs returned for each configured key.",
-				zh: "比较每个已配置密钥返回的模型目录。"
-			},
-			"prov.models.usable": {
-				en: "{count} usable",
-				zh: "{count} 个可用"
-			},
-			"prov.models.usable_suffix": {
-				en: "usable",
-				zh: "个可用"
-			},
-			"prov.models.differ": {
-				en: "differ",
-				zh: "存在差异"
-			},
-			"prov.models.key_label": {
-				en: "key {index} · {id}",
-				zh: "密钥 {index} · {id}"
-			},
-			"prov.models.no_models": {
-				en: "No models",
-				zh: "暂无模型"
-			},
-			"prov.models.more_short": {
-				en: "+{count} more",
-				zh: "另有 {count} 个"
-			},
-			"prov.models.no_key_catalogs": {
-				en: "No per-key model catalogs yet.",
-				zh: "暂无按密钥划分的模型目录。"
 			},
 			"prov.models.canonical_aliases": {
 				en: "Canonical aliases",
@@ -4003,6 +3955,22 @@
 			"modal.mapping_clash_accept": {
 				en: "Rename anyway",
 				zh: "仍要重命名"
+			},
+			"modal.mapping_test": {
+				en: "Test model",
+				zh: "测试模型"
+			},
+			"modal.mapping_test_running": {
+				en: "Testing…",
+				zh: "测试中…"
+			},
+			"modal.mapping_test_ok": {
+				en: "OK · {ms} ms",
+				zh: "可用 · {ms} ms"
+			},
+			"modal.mapping_test_failed": {
+				en: "Failed: {error}",
+				zh: "失败：{error}"
 			},
 			"notice.model_mapping_saved_detail": {
 				en: "Saved: {name} → {raw}",
@@ -10568,7 +10536,7 @@
 				`${t("tokens.cache_write")}: ${fmtInt(usage.cache_write_tokens)}`,
 				`${t("tokens.output")}: ${fmtInt(usage.output_tokens)}`,
 				`${t("tokens.reasoning")}: ${fmtInt(usage.reasoning_tokens)}`,
-				...r.reasoning_effort ? [`${t("req.meta_effort")}: ${r.reasoning_effort}`] : []
+				`${t("req.meta_effort")}: ${reasoningEffortLabel(r.reasoning_effort)}`
 			].join(" · ");
 			const recoveryText = failedAttempts > 0 && code < 400 ? t("req.recovered_count", { count: fmtInt(failedAttempts) }) : routeOutcomeLabel(route);
 			const firstEventTone = firstByte >= 3e4 ? "is-danger" : firstByte >= 15e3 ? "is-warning" : "";
@@ -10583,7 +10551,7 @@
               <time datetime="${escapeHtml(requestTime.iso)}">${escapeHtml(requestTime.date)} ${escapeHtml(requestTime.time)}</time>
               ${requestFormatBadge(r)}
               ${r.stream ? `<span class="request-meta-chip request-stream-chip" data-tip="${escapeHtml(t("req.streaming"))}">${iconSvg("activity")}${escapeHtml(t("req.streaming"))}</span>` : ""}
-              ${r.reasoning_effort ? `<span class="request-meta-chip request-reasoning-chip effort-${escapeHtml(reasoningEffortTone(r.reasoning_effort))}" data-tip="${escapeHtml(t("req.meta_effort"))}">${iconSvg("bolt")}${escapeHtml(r.reasoning_effort)}</span>` : ""}
+              <span class="request-meta-chip request-reasoning-chip effort-${escapeHtml(reasoningEffortTone(r.reasoning_effort))}" data-tip="${escapeHtml(reasoningEffortTip(r.reasoning_effort))}">${iconSvg("bolt")}${escapeHtml(reasoningEffortLabel(r.reasoning_effort))}</span>
             </small>
           </span>
         </td>
@@ -10618,17 +10586,42 @@
 			const tip = converted ? `${formatLabel(clientFormat)} → ${formatLabel(finalUpstreamFormat)}` : formatLabel(clientFormat);
 			return `<span class="request-meta-chip request-format-chip format-${escapeHtml(displayFormat === "chat_completions" ? "chat" : displayFormat === "responses" ? "responses" : displayFormat === "anthropic_messages" ? "messages" : "neutral")}${converted ? " is-converted" : ""}" data-tip="${escapeHtml(tip)}" aria-label="${escapeHtml(tip)}">${converted ? iconSvg("arrow-right-left") : ""}${escapeHtml(label)}</span>`;
 		}
+		var REASONING_EFFORT_BUDGET_STEPS = [
+			[1024, "minimal"],
+			[2048, "low"],
+			[4096, "medium"],
+			[8192, "high"],
+			[16384, "xhigh"]
+		];
+		function reasoningEffortLabel(value) {
+			const raw = String(value || "").trim().toLowerCase();
+			if (!raw || raw === "on" || raw === "default") return "default";
+			const budgetMatch = raw.match(/^budget:(\d+)$/);
+			if (budgetMatch) {
+				const budget = Number(budgetMatch[1]);
+				for (const [limit, label] of REASONING_EFFORT_BUDGET_STEPS) if (budget <= limit) return label;
+				return "xhigh";
+			}
+			return raw;
+		}
 		function reasoningEffortTone(value) {
-			switch (String(value || "").trim().toLowerCase()) {
+			switch (reasoningEffortLabel(value)) {
 				case "off": return "off";
 				case "minimal": return "minimal";
 				case "low": return "low";
 				case "medium": return "medium";
-				case "high":
+				case "high": return "high";
 				case "xhigh":
-				case "extra_high": return "high";
+				case "max":
+				case "extra_high": return "xhigh";
 				default: return "default";
 			}
+		}
+		function reasoningEffortTip(value) {
+			const raw = String(value || "").trim().toLowerCase();
+			const label = reasoningEffortLabel(raw);
+			const base = t("req.meta_effort");
+			return raw && raw !== label ? `${base}: ${raw}` : base;
 		}
 		function requestTone(request) {
 			const code = Number(request?.status_code || 0);
@@ -11817,7 +11810,6 @@
 		}
 		function providerDrawerModels(view) {
 			const capability = view.capability || {};
-			const keyCapabilities = Array.isArray(capability.keys) ? capability.keys : [];
 			const configuredVariants = state.data.config?.models?.provider_model_variants?.[view.name] || {};
 			const modelItems = view.modelItems;
 			const legacyRouteRefs = Array.isArray(modelItems?.legacyRouteRefs) ? modelItems.legacyRouteRefs : [];
@@ -11826,10 +11818,6 @@
 			const disabledCount = modelItems.filter((item) => item.disabled).length;
 			const modelFilters = state.providerModelFilters || {};
 			const draftCount = providerModelDraftCount(view.name);
-			const usableKeyCatalogs = keyCapabilities.filter((entry) => entry.status === "ok" || entry.status === "stale").length;
-			const keyIssueCount = keyCapabilities.filter((entry) => entry.error || !["ok", "stale"].includes(entry.status)).length;
-			const keyCatalogsDiffer = new Set(keyCapabilities.filter((entry) => entry.status === "ok" || entry.status === "stale").map((entry) => [...entry.models || []].map(String).sort().join("\n"))).size > 1;
-			const openKeyDiscovery = keyIssueCount > 0 || keyCatalogsDiffer;
 			const staticModels = normalizeStaticModelIds(view.config.static_models);
 			const variantChoices = [];
 			const seenVariantChoices = /* @__PURE__ */ new Set();
@@ -11854,11 +11842,6 @@
             <span>${iconSvg("boxes")} ${escapeHtml(t("prov.models.models"))}</span>
             <strong>${escapeHtml(fmtInt(modelItems.length))}</strong>
             <small>${escapeHtml(t("prov.models.disabled_count", { count: fmtInt(disabledCount) }))}</small>
-          </div>
-          <div class="provider-model-status-item">
-            <span>${iconSvg("key")} ${escapeHtml(t("prov.models.key_coverage"))}</span>
-            <strong>${escapeHtml(`${fmtInt(usableKeyCatalogs)}/${fmtInt(keyCapabilities.length)}`)}</strong>
-            <small>${escapeHtml(keyIssueCount ? t("prov.models.need_attention", { count: fmtInt(keyIssueCount) }) : t("prov.models.catalogs_usable"))}</small>
           </div>
           <button class="button secondary compact-action provider-model-refresh-action" type="button"
             data-provider-models-refresh="${escapeHtml(view.name)}">
@@ -11945,28 +11928,6 @@
             </div>
           ` : ""}
         </section>
-
-        <details class="provider-model-disclosure provider-model-key-discovery" ${openKeyDiscovery ? "open" : ""}>
-          <summary>
-            <span><strong>${iconSvg("key")} ${escapeHtml(t("prov.models.by_key"))}</strong><small>${escapeHtml(t("prov.models.by_key_desc"))}</small></span>
-            <span class="provider-model-disclosure-meta">${escapeHtml(`${fmtInt(usableKeyCatalogs)}/${fmtInt(keyCapabilities.length)} ${t("prov.models.usable_suffix")}`)}${keyCatalogsDiffer ? ` · ${escapeHtml(t("prov.models.differ"))}` : ""}</span>
-          </summary>
-          <div class="provider-model-disclosure-body provider-route-list">
-            ${keyCapabilities.length ? keyCapabilities.map((entry) => `
-              <article class="provider-route-card provider-model-key-card">
-                <div>
-                  <strong class="mono">${escapeHtml(t("prov.models.key_label", {
-				index: entry.key_index ?? "-",
-				id: entry.key_id || "-"
-			}))}</strong>
-                  <small>${escapeHtml((entry.models || []).slice(0, 12).join(", ") || t("prov.models.no_models"))}${(entry.models || []).length > 12 ? ` · ${escapeHtml(t("prov.models.more_short", { count: fmtInt(entry.models.length - 12) }))}` : ""}</small>
-                  ${entry.error ? `<small class="provider-model-key-error">${messageMarkup(entry.error)}</small>` : ""}
-                </div>
-                ${badge(providerModelStatusLabel(entry.status), entry.status === "ok" ? "ok" : entry.status === "stale" ? "warn" : "bad")}
-              </article>
-            `).join("") : `<div class="empty pad-slim">${escapeHtml(t("prov.models.no_key_catalogs"))}</div>`}
-          </div>
-        </details>
 
         <details class="provider-model-disclosure provider-model-aliases">
           <summary>
@@ -12968,7 +12929,9 @@
           </div>
           ${isManual ? `<p class="model-map-hint">Empty name restores automatic mapping.</p>` : ""}
           <div class="model-map-clash-warning" data-model-map-clash hidden></div>
+          <div class="model-map-test-result" data-model-map-test-result hidden></div>
           <div class="model-map-actions">
+            <button class="model-map-action secondary model-map-test-button" type="button" data-model-map-test title="${escapeHtml(t("modal.mapping_test"))}" aria-label="${escapeHtml(t("modal.mapping_test"))}">${iconSvg("activity")}</button>
             <button class="model-map-action secondary" type="button" data-model-map-cancel title="Cancel" aria-label="Cancel">${iconSvg("x")}</button>
             ${isManual ? `<button class="model-map-action danger" type="button" data-model-map-reset title="Reset to automatic mapping" aria-label="Reset to automatic mapping">${iconSvg("trash")}</button>` : ""}
             <button class="model-map-action primary" type="submit" title="Save mapping" aria-label="Save mapping">${iconSvg("save")}</button>
@@ -12982,6 +12945,42 @@
 			form.elements.model?.focus();
 			form.elements.model?.select();
 			form.querySelector("[data-model-map-cancel]")?.addEventListener("click", closeFormModal);
+			const testButton = form.querySelector("[data-model-map-test]");
+			const testResult = form.querySelector("[data-model-map-test-result]");
+			testButton?.addEventListener("click", async () => {
+				if (testButton.disabled) return;
+				testButton.disabled = true;
+				if (testResult) {
+					testResult.hidden = false;
+					testResult.className = "model-map-test-result is-running";
+					testResult.innerHTML = `${refreshSpinner()}<span>${escapeHtml(t("modal.mapping_test_running"))}</span>`;
+				}
+				try {
+					const result = (await apiPost("/-/admin/models/test", {
+						provider,
+						model: rawModel
+					}))?.result || {};
+					if (testResult) if (result.ok) {
+						testResult.className = "model-map-test-result is-ok";
+						testResult.innerHTML = `${iconSvg("check")}<span>${escapeHtml(t("modal.mapping_test_ok", { ms: fmtInt(result.latency_ms || 0) }))}</span>`;
+					} else {
+						const errText = [
+							result.error_type || "",
+							result.http_status ? `HTTP ${result.http_status}` : "",
+							result.error || ""
+						].filter(Boolean).join(" · ");
+						testResult.className = "model-map-test-result is-bad";
+						testResult.innerHTML = `${iconSvg("alert")}<span>${escapeHtml(t("modal.mapping_test_failed", { error: errText || "unknown" }))}</span>`;
+					}
+				} catch (err) {
+					if (testResult) {
+						testResult.className = "model-map-test-result is-bad";
+						testResult.innerHTML = `${iconSvg("alert")}<span>${escapeHtml(t("modal.mapping_test_failed", { error: errorMessage(err) }))}</span>`;
+					}
+				} finally {
+					testButton.disabled = false;
+				}
+			});
 			form.querySelector("[data-model-map-reset]")?.addEventListener("click", async () => {
 				const resetBtn = form.querySelector("[data-model-map-reset]");
 				if (resetBtn) resetBtn.disabled = true;
@@ -15507,9 +15506,9 @@
 			}
 			if (overrideTo) {
 				const from = overrideFrom || clientEffort;
-				return from ? `${from} → ${overrideTo}` : overrideTo;
+				return from ? `${reasoningEffortLabel(from)} → ${reasoningEffortLabel(overrideTo)}` : reasoningEffortLabel(overrideTo);
 			}
-			return clientEffort || "-";
+			return reasoningEffortLabel(clientEffort);
 		}
 		function renderRequestMetadata(detail) {
 			const rows = [
