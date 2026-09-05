@@ -82,7 +82,7 @@ assert.match(requestDesktopStyles, /#requestsTable \.request-data-table td\s*\{[
 assert.match(requestDesktopStyles, /#requestsTable \.request-data-table\.is-full-page\s*\{[\s\S]*height:\s*100%/, "full request pages must fill the available panel height");
 assert.match(requestDesktopStyles, /#requestsTable \.request-identity\s*\{[\s\S]*display:\s*inline-flex/, "request identity must keep a compact flex layout");
 assert.match(requestDesktopStyles, /#requestsTable \.request-cell-client-ip\s*\{[\s\S]*white-space:\s*nowrap/, "client IP column must remain compact");
-assert.match(requestDesktopStyles, /#requestsTable \.request-data-table th:nth-child\(2\)\s*\{\s*width:\s*12%/, "client IP column must reserve enough width for a complete IPv4 address");
+assert.match(requestDesktopStyles, /#requestsTable \.request-data-table th:nth-child\(2\)\s*\{\s*width:\s*10%/, "client IP column must still fit a complete IPv4 address on the 960px minimum table");
 assert.match(requestDesktopStyles, /#requestsTable \.request-identity\s*\{[\s\S]*flex-direction:\s*column/, "request metadata must sit below the model name");
 assert.match(requestDesktopStyles, /#requestsTable \.request-identity > strong\s*\{[\s\S]*flex:\s*0 0 auto/, "model names must not shrink before secondary metadata");
 assert.match(requestDesktopStyles, /#requestsTable \.request-model-mark\s*\{[\s\S]*border:\s*1px solid/, "model brand marks must retain a compact framed treatment");
@@ -98,6 +98,8 @@ assert.match(requestDesktopStyles, /\.request-reasoning-chip\.effort-high\s*\{[\
 assert.match(requestDesktopStyles, /\.request-reasoning-chip\.effort-xhigh\s*\{[\s\S]*color:\s*#dc2626/, "xhigh reasoning must use its own readable tone");
 assert.match(requestDesktopStyles, /\.request-reasoning-chip\.effort-off\s*\{[\s\S]*color:\s*#94a3b8/, "off reasoning must render quieter than the default level");
 assert.match(requestDesktopStyles, /\.request-reasoning-chip\.effort-default\s*\{[\s\S]*color:\s*#64748b/, "default reasoning must keep its neutral tone");
+assert.match(styles, /#requestsTable \.request-reasoning-chip \.icon-svg\s*\{[\s\S]*?width:\s*9px/, "reasoning bolt must match the stream chip icon size");
+assert.match(styles, /#requestsTable \.request-reasoning-chip\s*\{[\s\S]*?gap:\s*3px/, "reasoning chip must keep the stream chip icon-text gap");
 assert.match(requestRender, /converted \? iconSvg\("arrow-right-left"\)/, "converted formats must use a compact conversion icon");
 assert.match(requestRender, /shortFormatLabel\(displayFormat\)/, "converted badges must display only the final format");
 assert.match(i18n, /"req\.page_desc"[^\n]+zh:/, "request page description must remain bilingual");

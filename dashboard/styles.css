@@ -19501,8 +19501,8 @@ body {
   text-align: center;
 }
 
-#requestsTable .request-data-table th:nth-child(1) { width: 31%; }
-#requestsTable .request-data-table th:nth-child(2) { width: 11%; }
+#requestsTable .request-data-table th:nth-child(1) { width: 33%; }
+#requestsTable .request-data-table th:nth-child(2) { width: 9%; }
 #requestsTable .request-data-table th:nth-child(3) { width: 13%; }
 #requestsTable .request-data-table th:nth-child(4) { width: 9%; }
 #requestsTable .request-data-table th:nth-child(5) { width: 13%; }
@@ -19628,6 +19628,18 @@ body {
 }
 
 #requestsTable .request-stream-chip .icon-svg {
+  width: 9px;
+  height: 9px;
+}
+
+/* The reasoning chip must visually match the stream chip beside it: without a
+   size override the bolt falls back to the 16px global icon and dwarfs the row. */
+#requestsTable .request-reasoning-chip {
+  gap: 3px;
+  font-weight: 720;
+}
+
+#requestsTable .request-reasoning-chip .icon-svg {
   width: 9px;
   height: 9px;
 }
@@ -25385,8 +25397,8 @@ body {
     padding-inline: 4px 10px;
   }
 
-  #requestsTable .request-data-table th:nth-child(1) { width: 24%; }
-  #requestsTable .request-data-table th:nth-child(2) { width: 12%; }
+  #requestsTable .request-data-table th:nth-child(1) { width: 26%; }
+  #requestsTable .request-data-table th:nth-child(2) { width: 10%; }
   #requestsTable .request-data-table th:nth-child(3) { width: 10%; }
   #requestsTable .request-data-table th:nth-child(4) { width: 12%; }
   #requestsTable .request-data-table th:nth-child(5) { width: 10%; }
