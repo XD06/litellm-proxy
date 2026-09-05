@@ -174,6 +174,40 @@ def provider_model_auto_hidden_by_manual_map(
     return bool(manual_canonical and manual_canonical != str(canonical_model or "").strip())
 
 
+def canonical_model_visible(
+    config: Dict[str, Any],
+    provider: str,
+    canonical_model: str,
+    canonical_map: Optional[Dict[str, str]] = None,
+    variant_map: Optional[Dict[str, List[str]]] = None,
+) -> bool:
+    """Whether a discovered canonical id should appear in the client catalog.
+
+    Aggregator providers keep several live vendor copies per canonical; the
+    canonical only disappears when the canonical id itself is disabled or
+    EVERY copy is disabled — a disabled primary copy alone (the historical
+    behavior) used to hide models that still had healthy siblings.
+    """
+    if provider_model_disabled(config, provider, canonical_model):
+        return False
+    raw_model = ""
+    if isinstance(canonical_map, dict):
+        raw_model = str(
+            canonical_map.get(str(canonical_model or ""))
+            or canonical_map.get(str(canonical_model or "").lower())
+            or ""
+        ).strip()
+    if not raw_model or not provider_model_disabled(config, provider, raw_model):
+        return True
+    for raw in (variant_map or {}).get(str(canonical_model or "")) or (variant_map or {}).get(
+        str(canonical_model or "").lower()
+    ) or []:
+        raw = str(raw or "").strip()
+        if raw and not provider_model_disabled(config, provider, raw):
+            return True
+    return False
+
+
 def has_cached_models(cache_key: str) -> bool:
     return cache_key in _cached_models_by_provider
 
@@ -315,10 +349,23 @@ def provider_config_signature(config: Dict[str, Any], provider: str) -> str:
     return sig
 
 
-def parse_provider_models(provider: str, upstream_data) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, str], List[str]]:
+def parse_provider_models(
+    provider: str,
+    upstream_data,
+) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, str], List[str], Dict[str, List[str]]]:
+    """Parse an upstream /v1/models payload.
+
+    Returns (union_map, canonical_map, raw_ids, variant_map). Aggregator
+    providers expose the same base model once per vendor copy
+    (``sail/deepseek-v4-flash-0731``, ``runware/deepseek-v4-flash-0731``, …);
+    all copies collapse into one canonical id and ``variant_map`` records the
+    1-to-many canonical → [raw copies] mapping (primary/shortest first) so
+    routing can fail over between sibling copies.
+    """
     union_map: Dict[str, Dict[str, Any]] = {}
     canonical_map: Dict[str, str] = {}
     raw_ids: List[str] = []
+    variant_map: Dict[str, List[str]] = {}
 
     for m in _extract_model_items(upstream_data):
         mid = m.get("id") or m.get("model") or m.get("name") or ""
@@ -345,8 +392,18 @@ def parse_provider_models(provider: str, upstream_data) -> Tuple[Dict[str, Dict[
         prev = canonical_map.get(matched)
         if not prev or (len(raw_mid) < len(str(prev))):
             canonical_map[matched] = raw_mid
+        bucket = variant_map.setdefault(matched, [])
+        if raw_mid not in bucket:
+            bucket.append(raw_mid)
 
-    return union_map, canonical_map, raw_ids
+    # Deterministic order: the canonical_map primary (shortest raw) first,
+    # then remaining copies by (length, id).
+    for canonical, raws in variant_map.items():
+        primary = canonical_map.get(canonical) or ""
+        ordered = [raw for raw in sorted(raws, key=lambda item: (len(item), item)) if raw != primary]
+        variant_map[canonical] = ([primary] if primary else []) + ordered
+
+    return union_map, canonical_map, raw_ids, variant_map
 
 
 # P3 raw-drift migration hook. Registered by sse2json on startup; called with
@@ -416,6 +473,7 @@ def _store_provider_capabilities(
     status: str,
     canonical_map: Optional[Dict[str, str]] = None,
     raw_ids: Optional[List[str]] = None,
+    variant_map: Optional[Dict[str, List[str]]] = None,
     error: str = "",
 ) -> None:
     models_cfg = config.setdefault("models", {})
@@ -428,15 +486,18 @@ def _store_provider_capabilities(
     if status == "error":
         models_list = list(raw_ids) if raw_ids else list(existing.get("models") or [])
         cmap = dict(canonical_map) if canonical_map else dict(existing.get("canonical_map") or {})
+        vmap = dict(variant_map) if variant_map else dict(existing.get("variant_map") or {})
     else:
         models_list = list(raw_ids or [])
         cmap = dict(canonical_map or {})
+        vmap = dict(variant_map or {})
 
     entry = {
         "status": status,
         "fetched_at": int(time.time()),
         "models": models_list,
         "canonical_map": cmap,
+        "variant_map": vmap,
         "formats": _provider_enabled_formats(pcfg),
         "config_signature": provider_config_signature(config, provider),
     }
@@ -495,12 +556,14 @@ def _rebuild_union_model_ids_from_capabilities(config: Dict[str, Any]) -> None:
         for provider, entry in list(caps.items()):
             if not isinstance(entry, dict) or entry.get("status") not in ("ok", "error", "pending"):
                 continue
-            for mid in (entry.get("canonical_map") or {}).keys():
+            canonical_map = entry.get("canonical_map") or {}
+            variant_map = entry.get("variant_map") or {}
+            for mid in canonical_map.keys():
                 model_id = str(mid or "").strip()
-                if model_id and not provider_model_id_disabled(
-                    config, str(provider), model_id, entry.get("canonical_map") or {}
-                ) and not provider_model_auto_hidden_by_manual_map(
-                    config, str(provider), model_id, entry.get("canonical_map") or {}
+                if (
+                    model_id
+                    and canonical_model_visible(config, str(provider), model_id, canonical_map, variant_map)
+                    and not provider_model_auto_hidden_by_manual_map(config, str(provider), model_id, canonical_map)
                 ):
                     model_ids.add(model_id)
     _union_model_id_set = model_ids
@@ -740,12 +803,13 @@ def rebuild_models_union_snapshot(config: Dict[str, Any], router=None) -> Dict[s
                     if not (entry.get("status") == "error" and (entry.get("models") or entry.get("canonical_map"))):
                         continue
                 canonical_map = entry.get("canonical_map") or {}
+                variant_map = entry.get("variant_map") or {}
                 if isinstance(canonical_map, dict) and canonical_map:
                     model_ids.extend(
                         str(mid)
                         for mid in canonical_map.keys()
                         if str(mid or "").strip()
-                        and not provider_model_id_disabled(config, provider_name, str(mid), canonical_map)
+                        and canonical_model_visible(config, provider_name, str(mid), canonical_map, variant_map)
                         and not provider_model_auto_hidden_by_manual_map(config, provider_name, str(mid), canonical_map)
                     )
                 else:
@@ -800,11 +864,12 @@ def rebuild_models_union_snapshot(config: Dict[str, Any], router=None) -> Dict[s
                 and not provider_model_auto_hidden_by_manual_map(config, provider, str(mid), canonical_map)
             )
             if not model_ids and isinstance(canonical_map, dict) and canonical_map:
+                variant_map = entry.get("variant_map") or {}
                 model_ids.extend(
                     str(mid)
                     for mid in canonical_map.keys()
                     if str(mid or "").strip()
-                    and not provider_model_id_disabled(config, provider, str(mid), canonical_map)
+                    and canonical_model_visible(config, provider, str(mid), canonical_map, variant_map)
                     and not provider_model_auto_hidden_by_manual_map(config, provider, str(mid), canonical_map)
                 )
 
@@ -1003,11 +1068,29 @@ def resolve_provider_model_candidates(
     caps = ((config.get("models") or {}).get("provider_model_capabilities") or {}).get(provider) or {}
     if isinstance(caps, dict):
         canonical_map = caps.get("canonical_map") or {}
+        variant_map = caps.get("variant_map") or {}
+        primary = ""
         if canonical_model in canonical_map:
-            return [str(canonical_map[canonical_model])]
-        lower_model = str(canonical_model or "").lower()
-        if lower_model in canonical_map:
-            return [str(canonical_map[lower_model])]
+            primary = str(canonical_map[canonical_model])
+        else:
+            lower_model = str(canonical_model or "").lower()
+            if lower_model in canonical_map:
+                primary = str(canonical_map[lower_model])
+        candidates: List[str] = []
+        if primary:
+            candidates.append(primary)
+        # Aggregator vendor copies of the same base model: after the primary,
+        # every still-enabled sibling becomes a failover candidate (1-to-many).
+        raws = variant_map.get(str(canonical_model or "")) or variant_map.get(
+            str(canonical_model or "").lower()
+        ) or []
+        for raw in raws:
+            raw = str(raw or "").strip()
+            if raw and raw not in candidates:
+                candidates.append(raw)
+        candidates = [raw for raw in candidates if not provider_model_disabled(config, provider, raw)]
+        if candidates:
+            return candidates
 
     return [canonical_model]
 
@@ -1361,7 +1444,9 @@ def provider_supports_model(
             config, provider, canonical_model, canonical_map
         )
 
-    if provider_model_id_disabled(config, provider, canonical_model, canonical_map):
+    if isinstance(caps, dict) and not canonical_model_visible(
+        config, provider, canonical_model, canonical_map or {}, caps.get("variant_map") or {}
+    ):
         return False
 
     variants = (models_cfg.get("provider_model_variants") or {}).get(provider) or {}
@@ -1394,7 +1479,11 @@ def provider_supports_model(
         lower_model = str(canonical_model).lower()
         if provider_model_auto_hidden_by_manual_map(config, provider, canonical_model, canonical_map):
             return False
-        return canonical_model in canonical_map or lower_model in canonical_map
+        if canonical_model in canonical_map or lower_model in canonical_map:
+            return canonical_model_visible(
+                config, provider, canonical_model, canonical_map, caps.get("variant_map") or {}
+            )
+        return False
 
     if "assume_supports_unknown_models" in pcfg:
         return bool(pcfg.get("assume_supports_unknown_models"))
@@ -1546,6 +1635,7 @@ def fetch_upstream_models(
             next_key_caps = {}
             provider_union: Dict[str, Dict[str, Any]] = {}
             canonical_map: Dict[str, str] = {}
+            variant_map: Dict[str, List[str]] = {}
             raw_ids: List[str] = []
             errors = []
             for key_index, key_entry in enumerate(configured_keys):
@@ -1554,7 +1644,7 @@ def fetch_upstream_models(
                     upstream_data = fetch_one(provider, key_entry)
                     if not upstream_data:
                         raise RuntimeError("empty upstream models")
-                    key_union, key_map, key_raw_ids = parse_provider_models(provider, upstream_data)
+                    key_union, key_map, key_raw_ids, key_variants = parse_provider_models(provider, upstream_data)
                     if not key_raw_ids:
                         raise RuntimeError("empty upstream models")
                     fallback_error = (
@@ -1568,6 +1658,7 @@ def fetch_upstream_models(
                         "fetched_at": int(time.time()),
                         "models": list(key_raw_ids),
                         "canonical_map": dict(key_map),
+                        "variant_map": {k: list(v) for k, v in key_variants.items()},
                     }
                     if fallback_error:
                         key_capability["error"] = fallback_error
@@ -1577,6 +1668,11 @@ def fetch_upstream_models(
                         provider_union.setdefault(model_id, model_info)
                     for model_id, raw_model in key_map.items():
                         canonical_map.setdefault(model_id, raw_model)
+                    for model_id, key_raws in key_variants.items():
+                        bucket = variant_map.setdefault(model_id, [])
+                        for raw_model in key_raws:
+                            if raw_model not in bucket:
+                                bucket.append(raw_model)
                     raw_ids.extend(key_raw_ids)
                 except Exception as exc:
                     error = _sanitize_error(exc, configured_keys)
@@ -1590,6 +1686,11 @@ def fetch_upstream_models(
                         next_key_caps[fingerprint] = retained
                         for model_id, raw_model in (retained.get("canonical_map") or {}).items():
                             canonical_map.setdefault(model_id, raw_model)
+                        for model_id, retained_raws in (retained.get("variant_map") or {}).items():
+                            bucket = variant_map.setdefault(model_id, [])
+                            for raw_model in retained_raws:
+                                if raw_model not in bucket:
+                                    bucket.append(raw_model)
                         raw_ids.extend(retained.get("models") or [])
                     else:
                         next_key_caps[fingerprint] = {
@@ -1598,10 +1699,17 @@ def fetch_upstream_models(
                             "fetched_at": int(time.time()),
                             "models": [],
                             "canonical_map": {},
+                            "variant_map": {},
                             "error": error,
                         }
             if not raw_ids:
                 raise RuntimeError("; ".join(errors) or "empty upstream models")
+            # Deterministic variant order per canonical: primary (canonical_map
+            # pick) first, remaining copies by (length, id).
+            for canonical, raws in variant_map.items():
+                primary = canonical_map.get(canonical) or ""
+                ordered = [raw for raw in sorted(raws, key=lambda item: (len(item), item)) if raw != primary]
+                variant_map[canonical] = ([primary] if primary else []) + ordered
             models_cfg = config.setdefault("models", {})
             all_key_caps = models_cfg.setdefault("provider_key_model_capabilities", {})
             all_key_caps[provider] = next_key_caps
@@ -1613,6 +1721,7 @@ def fetch_upstream_models(
                 status="ok",
                 canonical_map=canonical_map,
                 raw_ids=raw_ids,
+                variant_map=variant_map,
                 error="; ".join(errors),
             )
             with _cache_lock:

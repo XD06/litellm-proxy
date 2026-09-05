@@ -270,6 +270,108 @@ class ModelRegistryTests(unittest.TestCase):
             "deepseek-ai/DeepSeek-V4-Flash",
         )
 
+    def test_union_fetch_records_vendor_variant_map(self):
+        cfg = registry_config("union")
+        client = FakeUpstreamClient(
+            {
+                "https://alpha.example": {
+                    "data": [
+                        {"id": "runware/deepseek-v4-flash-0731"},
+                        {"id": "sail/deepseek-v4-flash-0731"},
+                        {"id": "deepinfra/deepseek-v4-flash-0731"},
+                    ]
+                },
+                "https://beta.example": {"data": [{"id": "beta-model"}]},
+            }
+        )
+
+        result = model_registry.fetch_upstream_models(cfg, FakeRouter(), client)
+
+        # Vendor copies collapse into ONE canonical catalog entry ...
+        self.assertEqual([m["id"] for m in result["data"]].count("deepseek-v4-flash-0731"), 1)
+        # ... while every sibling copy is recorded 1-to-many for failover
+        # (primary/shortest first, then by length).
+        self.assertEqual(
+            cfg["models"]["provider_model_capabilities"]["alpha"]["variant_map"]["deepseek-v4-flash-0731"],
+            [
+                "sail/deepseek-v4-flash-0731",
+                "runware/deepseek-v4-flash-0731",
+                "deepinfra/deepseek-v4-flash-0731",
+            ],
+        )
+
+    def test_variant_candidates_add_sibling_copies_after_primary(self):
+        cfg = registry_config("union")
+        cfg["models"]["provider_model_capabilities"] = {
+            "alpha": {
+                "status": "ok",
+                "models": ["sail/deepseek-v4-flash-0731", "runware/deepseek-v4-flash-0731"],
+                "canonical_map": {"deepseek-v4-flash-0731": "sail/deepseek-v4-flash-0731"},
+                "variant_map": {
+                    "deepseek-v4-flash-0731": [
+                        "sail/deepseek-v4-flash-0731",
+                        "runware/deepseek-v4-flash-0731",
+                    ]
+                },
+            },
+        }
+
+        self.assertEqual(
+            model_registry.resolve_provider_model_candidates(cfg, "alpha", "deepseek-v4-flash-0731"),
+            ["sail/deepseek-v4-flash-0731", "runware/deepseek-v4-flash-0731"],
+        )
+
+    def test_canonical_stays_visible_when_only_primary_copy_is_disabled(self):
+        cfg = registry_config("union")
+        cfg["models"]["provider_model_capabilities"] = {
+            "alpha": {
+                "status": "ok",
+                "models": ["sail/deepseek-v4-flash-0731", "runware/deepseek-v4-flash-0731"],
+                "canonical_map": {"deepseek-v4-flash-0731": "sail/deepseek-v4-flash-0731"},
+                "variant_map": {
+                    "deepseek-v4-flash-0731": [
+                        "sail/deepseek-v4-flash-0731",
+                        "runware/deepseek-v4-flash-0731",
+                    ]
+                },
+            },
+        }
+        cfg["models"]["provider_model_disabled"] = {"alpha": {"sail/deepseek-v4-flash-0731": True}}
+
+        payload = model_registry.rebuild_models_union_snapshot(cfg)
+        ids = [item["id"] for item in payload["data"]]
+        self.assertIn("deepseek-v4-flash-0731", ids)
+        self.assertEqual(
+            model_registry.resolve_provider_model_candidates(cfg, "alpha", "deepseek-v4-flash-0731"),
+            ["runware/deepseek-v4-flash-0731"],
+        )
+
+    def test_canonical_hidden_when_canonical_or_all_copies_disabled(self):
+        cfg = registry_config("union")
+        cfg["models"]["provider_model_capabilities"] = {
+            "alpha": {
+                "status": "ok",
+                "models": ["sail/deepseek-v4-flash-0731", "runware/deepseek-v4-flash-0731"],
+                "canonical_map": {"deepseek-v4-flash-0731": "sail/deepseek-v4-flash-0731"},
+                "variant_map": {
+                    "deepseek-v4-flash-0731": [
+                        "sail/deepseek-v4-flash-0731",
+                        "runware/deepseek-v4-flash-0731",
+                    ]
+                },
+            },
+        }
+
+        cfg["models"]["provider_model_disabled"] = {"alpha": {"deepseek-v4-flash-0731": True}}
+        ids = [item["id"] for item in model_registry.rebuild_models_union_snapshot(cfg)["data"]]
+        self.assertNotIn("deepseek-v4-flash-0731", ids)
+
+        cfg["models"]["provider_model_disabled"] = {
+            "alpha": {"sail/deepseek-v4-flash-0731": True, "runware/deepseek-v4-flash-0731": True}
+        }
+        ids = [item["id"] for item in model_registry.rebuild_models_union_snapshot(cfg)["data"]]
+        self.assertNotIn("deepseek-v4-flash-0731", ids)
+
     def test_union_fetch_normalizes_safe_case_and_separator_variants(self):
         cfg = registry_config("union")
         client = FakeUpstreamClient(
