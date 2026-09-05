@@ -6073,8 +6073,6 @@ import {
       });
     }
     bindKeyDeleteButtons(root);
-    bindProbeModelPickers(root);
-    bindKeyTestButtons(root);
     bindCompatibilityClearButtons(root);
     bindActionButtons(root);
     bindConfigProviderForms(root);
@@ -6403,7 +6401,11 @@ import {
         <div class="provider-key-list drawer-key-list" id="${escapeHtml(keyListId)}">
           ${view.keys.length ? view.keys.map((key) => keyCard(view.name, key, view.keyStats.total)).join("") : `<div class="empty pad-slim">${escapeHtml(t("prov.no_keys_configured"))}</div>`}
         </div>
-        ${providerKeyConfiguration(view.name, view.configKeys)}
+        <form class="config-key-form provider-key-add-form" data-provider="${escapeHtml(view.name)}">
+          <label class="field"><span>${escapeHtml(t("prov.api_key"))}</span><input class="control" name="key" type="password" autocomplete="off" spellcheck="false" placeholder="${escapeHtml(t("prov.api_key_ph"))}" required /></label>
+          <label class="field"><span>${escapeHtml(t("form.proxy"))}</span>${proxyControlInput("proxy", "", "http://host:port / socks5://host:port")}</label>
+          <button class="button secondary" type="submit">${escapeHtml(t("prov.add_key"))}</button>
+        </form>
       </section>
     `;
   }
@@ -6962,24 +6964,6 @@ import {
     `;
   }
 
-  function providerKeyConfiguration(name, keys) {
-    return `
-      <section class="provider-tab-section provider-key-configuration">
-        <div class="provider-tab-section-head">
-          <div><strong>${escapeHtml(t("prov.key_configuration"))}</strong><small>${escapeHtml(t("prov.key_configuration_tip"))}</small></div>
-        </div>
-        <div class="key-proxy-list">
-          ${keys.length ? keys.map((key) => keyProxyRow(name, key)).join("") : `<span class="muted">${escapeHtml(t("prov.no_config_keys"))}</span>`}
-        </div>
-        <form class="config-key-form provider-key-add-form" data-provider="${escapeHtml(name)}">
-          <label class="field"><span>${escapeHtml(t("prov.api_key"))}</span><input class="control" name="key" type="password" autocomplete="off" spellcheck="false" placeholder="${escapeHtml(t("prov.api_key_ph"))}" required /></label>
-          <label class="field"><span>${escapeHtml(t("form.proxy"))}</span>${proxyControlInput("proxy", "", "http://host:port / socks5://host:port")}</label>
-          <button class="button secondary" type="submit">${escapeHtml(t("prov.add_key"))}</button>
-        </form>
-      </section>
-    `;
-  }
-
   function providerFormatConfiguration(name, formats) {
     return `
       <section class="provider-tab-section provider-formats-group">
@@ -6990,28 +6974,6 @@ import {
           ${formatRouteItems(formats, name)}
         </div>
       </section>
-    `;
-  }
-
-  function keyProxyRow(provider, key) {
-    const proxy = proxyText(key.proxy);
-    const models = keyModelsText(key.models);
-    return `
-      <form class="key-proxy-row" data-provider="${escapeHtml(provider)}" data-key-index="${escapeHtml(key.index)}">
-        <div class="key-proxy-id">
-          <strong class="mono">key ${escapeHtml(key.index)}</strong>
-          <span title="${escapeHtml(key.key_id || "")}">${escapeHtml(key.masked || key.key_id || "-")}</span>
-        </div>
-        <label class="field key-proxy-field">
-          <span>${escapeHtml(t("form.proxy"))}</span>
-          ${proxyControlInput("proxy", proxy, t("prov.inherit"))}
-        </label>
-        <label class="field key-proxy-field">
-          <span>${escapeHtml(t("prov.models"))}</span>
-          <input class="control" name="models" value="${escapeHtml(models)}" placeholder="${escapeHtml(t("prov.models_ph"))}" />
-        </label>
-        <button class="button secondary compact-action" type="submit">${escapeHtml(t("form.save"))}</button>
-      </form>
     `;
   }
 
@@ -7114,71 +7076,12 @@ import {
     return parts.join(" ");
   }
 
-  function probeBadge(provider, keyIndex) {
-    const probe = state.keyProbes[`${provider}#${keyIndex}`];
-    if (!probe) return "";
-    if (probe.pending) return badge("testing", "info");
-    if (probe.ok) {
-      const lat = probe.latency_ms != null ? ` ${fmtInt(probe.latency_ms)}ms` : "";
-      return badge(`probe ok${lat}`, "ok");
-    }
-    const detail = probe.http_status ? ` ${fmtInt(probe.http_status)}` : probe.error_type ? ` ${probe.error_type}` : "";
-    return badge(`probe fail${detail}`, "bad");
-  }
-
-  function providerProbeModelOptions(provider) {
-    const values = [];
-    const seen = new Set();
-    const add = (value) => {
-      const text = String(value || "").trim();
-      if (!text || seen.has(text)) return;
-      seen.add(text);
-      values.push(text);
-    };
-    const caps = state.data.status?.models?.providers?.[provider] || state.data.status?.models?.providers?.[String(provider)] || {};
-    Object.keys(caps.canonical_map || {}).forEach(add);
-    (caps.models || []).forEach(add);
-    const configProvider = state.data.config?.providers?.[provider] || {};
-    (configProvider.static_models || []).forEach(add);
-    const providerModelMap = state.data.config?.models?.provider_model_map?.[provider] || {};
-    Object.keys(providerModelMap || {}).forEach(add);
-    providerRouteModels(provider).forEach(add);
-    return values.sort((a, b) => a.localeCompare(b));
-  }
-
-  function probeModelSelect(provider, keyIndex) {
-    const options = providerProbeModelOptions(provider);
-    const probeKey = `${provider}#${keyIndex}`;
-    const selected = options[0] || "";
-    const optionHtml = options.length
-      ? options.map((model, index) => `
-        <button class="key-probe-option ${index === 0 ? "is-selected" : ""}" type="button" data-probe-model-option="${escapeHtml(model)}" title="${escapeHtml(model)}">
-          <span>${escapeHtml(model)}</span>
-        </button>
-      `).join("")
-      : `<div class="key-probe-empty">No discovered models</div>`;
-    return `
-      <div class="key-probe-model" data-probe-model-picker>
-        <button class="control compact-control key-probe-trigger" type="button" data-probe-model-trigger title="${escapeHtml(selected || "No discovered models")}" ${options.length ? "" : "disabled"}>
-          <span data-probe-model-label>${escapeHtml(selected || "No discovered models")}</span>
-        </button>
-        <input type="hidden" data-key-test-model="${escapeHtml(probeKey)}" value="${escapeHtml(selected)}" />
-        <div class="key-probe-menu" data-probe-model-menu hidden>
-          <input class="control key-probe-search" type="search" data-probe-model-search placeholder="Filter models" autocomplete="off" />
-          <div class="key-probe-option-list" data-probe-model-options>
-            ${optionHtml}
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
   function keyCard(provider, key, totalKeys = 0) {
     const available = key.available && key.runtime_enabled;
     const tone = available ? "ok" : key.runtime_enabled ? "warn" : "bad";
-    const probeKey = `${provider}#${key.index}`;
-    const probePending = Boolean(state.keyProbeInFlight[probeKey] || state.keyProbes[probeKey]?.pending);
     const keyId = `key-${provider}-${key.index}`;
+    const proxy = proxyText(key.proxy);
+    const models = keyModelsText(key.models);
     return `
       <article class="provider-key-card" data-key="${escapeHtml(keyId)}" data-key-total="${escapeHtml(totalKeys)}">
         <div class="key-card-head">
@@ -7187,38 +7090,40 @@ import {
             <div class="provider-meta" title="${escapeHtml(key.key_id || "")}">${escapeHtml(key.masked || key.key_id || "-")}</div>
           </div>
           <div class="key-card-badges">
-            ${probeBadge(provider, key.index)}
             ${badge(available ? "available" : key.runtime_enabled ? "cooldown" : "disabled", tone)}
           </div>
         </div>
-        <div class="key-card-grid">
-          <span>fails</span><strong>${fmtInt(key.fails)}</strong>
-          <span>cooldown</span><strong>${fmtInt(key.cooldown_remaining_s)}s</strong>
-          <span>disabled</span><strong>${fmtInt(key.disabled_remaining_s)}s</strong>
-        </div>
-        <div class="actions key-actions">
-          ${probeModelSelect(provider, key.index)}
-          <button
-            class="button secondary icon-action"
-            type="button"
-            data-key-test-provider="${escapeHtml(provider)}"
-            data-key-test-index="${escapeHtml(key.index)}"
-            title="Test key"
-            aria-label="Test key"
-            ${providerProbeModelOptions(provider).length && !probePending ? "" : "disabled"}
-          >${iconSvg("bolt")}</button>
-          ${actionButton(key.runtime_enabled ? "Disable key" : "Enable key", `/providers/${encodeURIComponent(provider)}/keys/${key.index}/${key.runtime_enabled ? "disable" : "enable"}`, key.runtime_enabled ? "danger" : "secondary", { iconOnly: true })}
-          ${actionButton("Clear key state", `/providers/${encodeURIComponent(provider)}/keys/${key.index}/state/clear`, "secondary", { iconOnly: true })}
-          <button
-            class="button danger icon-action"
-            type="button"
-            data-key-delete-provider="${escapeHtml(provider)}"
-            data-key-delete-index="${escapeHtml(key.index)}"
-            data-key-delete-total="${escapeHtml(totalKeys)}"
-            data-key-delete-label="${escapeHtml(key.masked || key.key_id || `key ${key.index}`)}"
-            title="Delete key"
-            aria-label="Delete key"
-          >${iconSvg("trash")}</button>
+        <form class="key-proxy-row" data-provider="${escapeHtml(provider)}" data-key-index="${escapeHtml(key.index)}">
+          <label class="field key-proxy-field">
+            <span>${escapeHtml(t("form.proxy"))}</span>
+            ${proxyControlInput("proxy", proxy, t("prov.inherit"))}
+          </label>
+          <label class="field key-proxy-field">
+            <span>${escapeHtml(t("prov.models"))}</span>
+            <input class="control" name="models" value="${escapeHtml(models)}" placeholder="${escapeHtml(t("prov.models_ph"))}" />
+          </label>
+          <button class="button secondary compact-action" type="submit">${escapeHtml(t("form.save"))}</button>
+        </form>
+        <div class="key-card-foot">
+          <div class="key-card-stats mono">
+            <span>fails <strong>${fmtInt(key.fails)}</strong></span>
+            <span>cooldown <strong>${fmtInt(key.cooldown_remaining_s)}s</strong></span>
+            <span>disabled <strong>${fmtInt(key.disabled_remaining_s)}s</strong></span>
+          </div>
+          <div class="actions key-actions">
+            ${actionButton(key.runtime_enabled ? "Disable key" : "Enable key", `/providers/${encodeURIComponent(provider)}/keys/${key.index}/${key.runtime_enabled ? "disable" : "enable"}`, key.runtime_enabled ? "danger" : "secondary", { iconOnly: true })}
+            ${actionButton("Clear key state", `/providers/${encodeURIComponent(provider)}/keys/${key.index}/state/clear`, "secondary", { iconOnly: true })}
+            <button
+              class="button danger icon-action"
+              type="button"
+              data-key-delete-provider="${escapeHtml(provider)}"
+              data-key-delete-index="${escapeHtml(key.index)}"
+              data-key-delete-total="${escapeHtml(totalKeys)}"
+              data-key-delete-label="${escapeHtml(key.masked || key.key_id || `key ${key.index}`)}"
+              title="Delete key"
+              aria-label="Delete key"
+            >${iconSvg("trash")}</button>
+          </div>
         </div>
       </article>
     `;
@@ -7323,83 +7228,6 @@ import {
     });
   }
 
-  function bindProbeModelPickers(root) {
-    const closePicker = (picker) => {
-      const menu = picker?.querySelector?.("[data-probe-model-menu]");
-      const trigger = picker?.querySelector?.("[data-probe-model-trigger]");
-      if (!menu || !trigger) return;
-      menu.hidden = true;
-      picker.classList.remove("is-open");
-      trigger.setAttribute("aria-expanded", "false");
-    };
-    const closeOthers = (activePicker) => {
-      root.querySelectorAll("[data-probe-model-picker].is-open").forEach((picker) => {
-      if (picker.dataset.bounddataprobemodelpickerisopen) return;
-      picker.dataset.bounddataprobemodelpickerisopen = "1";
-        if (picker !== activePicker) closePicker(picker);
-      });
-    };
-
-    root.querySelectorAll("[data-probe-model-picker]").forEach((picker) => {
-      if (picker.dataset.bounddataprobemodelpicker) return;
-      picker.dataset.bounddataprobemodelpicker = "1";
-      const trigger = picker.querySelector("[data-probe-model-trigger]");
-      const menu = picker.querySelector("[data-probe-model-menu]");
-      const search = picker.querySelector("[data-probe-model-search]");
-      const hidden = picker.querySelector("[data-key-test-model]");
-      const label = picker.querySelector("[data-probe-model-label]");
-      if (!trigger || !menu || !hidden || !label) return;
-      trigger.setAttribute("aria-haspopup", "listbox");
-      trigger.setAttribute("aria-expanded", "false");
-
-      trigger.addEventListener("click", (event) => {
-        event.stopPropagation();
-        const nextOpen = menu.hidden;
-        closeOthers(picker);
-        menu.hidden = !nextOpen;
-        picker.classList.toggle("is-open", nextOpen);
-        trigger.setAttribute("aria-expanded", nextOpen ? "true" : "false");
-        if (nextOpen && search) {
-          search.value = "";
-          picker.querySelectorAll("[data-probe-model-option]").forEach((option) => { option.hidden = false; });
-          search.focus();
-        }
-      });
-
-      search?.addEventListener("input", () => {
-        const needle = String(search.value || "").trim().toLowerCase();
-        picker.querySelectorAll("[data-probe-model-option]").forEach((option) => {
-          const model = String(option.dataset.probeModelOption || "").toLowerCase();
-          option.hidden = needle ? !model.includes(needle) : false;
-        });
-      });
-
-      picker.querySelectorAll("[data-probe-model-option]").forEach((option) => {
-        option.addEventListener("click", (event) => {
-          event.stopPropagation();
-          const model = String(option.dataset.probeModelOption || "").trim();
-          if (!model) return;
-          hidden.value = model;
-          label.textContent = model;
-          trigger.title = model;
-          picker.querySelectorAll("[data-probe-model-option]").forEach((item) => {
-            item.classList.toggle("is-selected", item === option);
-          });
-          closePicker(picker);
-          trigger.focus();
-        });
-      });
-
-      picker.addEventListener("keydown", (event) => {
-        if (event.key === "Escape") {
-          event.stopPropagation();
-          closePicker(picker);
-          trigger.focus();
-        }
-      });
-    });
-  }
-
   function bindKeyDeleteButtons(root) {
     root.querySelectorAll("[data-key-delete-provider]").forEach((button) => {
       if (button.dataset.bounddatakeydeleteprovider) return;
@@ -7437,52 +7265,6 @@ import {
             onError: (err) => setNotice(t("notice.delete_key_failed", { error: err.message })),
           },
         );
-      });
-    });
-  }
-
-  function bindKeyTestButtons(root) {
-    root.querySelectorAll("[data-key-test-provider]").forEach((button) => {
-      if (button.dataset.bounddatakeytestprovider) return;
-      button.dataset.bounddatakeytestprovider = "1";
-      button.addEventListener("click", async () => {
-        const provider = button.dataset.keyTestProvider || "";
-        const keyIndex = button.dataset.keyTestIndex || "";
-        if (!provider || keyIndex === "") return;
-        const probeKey = `${provider}#${keyIndex}`;
-        const toastKey = `probe:${probeKey}`;
-        const modelSelect = root.querySelector(`[data-key-test-model="${CSS.escape(probeKey)}"]`);
-        const model = String(modelSelect?.value || "").trim();
-        if (!model) {
-          setNotice(t("notice.refresh_before_test"), "info");
-          return;
-        }
-        if (state.keyProbeInFlight[probeKey]) return;
-        state.keyProbeInFlight[probeKey] = true;
-        state.keyProbes[probeKey] = { pending: true };
-        button.disabled = true;
-        setNotice(t("notice.testing_key", { index: keyIndex, provider, model }), "info", { key: toastKey, sticky: true });
-        try {
-          const resp = await apiPost(`/-/admin/providers/${encodeURIComponent(provider)}/keys/${encodeURIComponent(keyIndex)}/test`, { model });
-          const result = resp.result || {};
-          state.keyProbes[probeKey] = result;
-          if (result.ok) {
-            const shownModel = result.requested_model || model;
-            const upstreamModel = result.upstream_model && result.upstream_model !== shownModel ? result.upstream_model : "";
-            const upstreamText = upstreamModel ? `, upstream ${upstreamModel}` : "";
-            setNotice(t("notice.key_works", { index: keyIndex, provider, model: shownModel, format: result.format, upstream: upstreamText, latency: fmtInt(result.latency_ms) }), "ok", { key: toastKey });
-          } else {
-            const detail = result.http_status ? `HTTP ${result.http_status}` : result.error_type || "failed";
-            setNotice(t("notice.key_failed", { index: keyIndex, provider, detail }), "bad", { key: toastKey });
-          }
-          scheduleBackgroundRefresh({ quiet: true, preserveNotice: true, staticData: true });
-        } catch (err) {
-          state.keyProbes[probeKey] = { ok: false, error_type: "request_error" };
-          setNotice(t("notice.test_key_failed", { error: err.message }), "bad", { key: toastKey });
-        } finally {
-          delete state.keyProbeInFlight[probeKey];
-          button.disabled = false;
-        }
       });
     });
   }

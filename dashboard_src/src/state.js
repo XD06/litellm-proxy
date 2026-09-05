@@ -76,8 +76,6 @@ export const state = {
   providerModelDrafts: {},
   confirmResolve: null,
   confirmLastFocus: null,
-  keyProbes: {},
-  keyProbeInFlight: {},
   data: {
     metrics: null,
     metricsFull: null,

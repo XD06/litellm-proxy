@@ -30,8 +30,18 @@ for (const [name, region] of [["drawer render", drawerRender], ["drawer tab swit
 
 assert.match(
   keysPanel,
-  /providerKeyConfiguration\(view\.name, view\.configKeys\)/,
+  /providerKeyConfiguration\(view\.name, view\.configKeys\)|view\.keys\.map\(\(key\) => keyCard\(view\.name, key, view\.keyStats\.total\)\)/,
   "the Keys tab must own configured key metadata and key creation",
+);
+assert.match(
+  keysPanel,
+  /config-key-form provider-key-add-form/,
+  "the Keys tab must keep a dedicated add-key form",
+);
+assert.doesNotMatch(
+  keysPanel,
+  /data-key-test-provider|probeModelSelect|providerKeyConfiguration/,
+  "per-key model testing and the probe model dropdown must stay removed",
 );
 assert.match(
   routingPanel,
@@ -75,7 +85,7 @@ for (const key of [
   assert.ok(translations.includes(`"${key}":`), `missing provider overview translation: ${key}`);
 }
 
-const inspector = bodyBetween("function providerConfigInspector", "function providerKeyConfiguration");
+const inspector = bodyBetween("function providerConfigInspector", "function providerFormatConfiguration");
 for (const fieldName of ["base_url", "site_url", "user_agent", "priority", "enabled"]) {
   assert.match(inspector, new RegExp(`name=["']${fieldName}["']`), `Config must preserve ${fieldName}`);
 }
