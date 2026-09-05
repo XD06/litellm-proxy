@@ -50,6 +50,8 @@
 * **`POST /-/admin/providers/{provider}/keys`**：为供应商新增一个或多个 API Key。
 * **`PATCH /-/admin/providers/{provider}/keys/{index}`**：更新指定索引的 Key 或其模型白名单。
 * **`DELETE /-/admin/providers/{provider}/keys/{index}`**：删除指定 Key。
+* **`POST /-/admin/providers/{provider}/keys/{index}/test`**：按 key 发起最小真实请求探测（去重并发、15s 预算、结果记入请求历史）。控制台已不提供独立入口，由 `POST /-/admin/models/test` 复用其管道；另有 `.../disable|enable|state/clear` 用于运行态控制。
+* 控制台"密钥"页签：每个 key 一张统一卡片（身份 + 状态徽标 + 代理/模型映射编辑 + fails/cooldown/disabled 指标 + 启用/禁用/清除/删除），底部为全宽"添加密钥"表单。
 
 ### 2.4 模型路由与映射管理 (Models & Routes)
 * **`PATCH /-/admin/models/mapping`**：更新供应商模型重命名映射（`provider_model_map`）。
