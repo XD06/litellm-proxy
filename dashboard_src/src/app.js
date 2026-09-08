@@ -5936,6 +5936,7 @@ import {
     drawer.classList.remove("is-open");
     drawer.setAttribute("aria-hidden", "true");
     state.providerDrawerName = "";
+    _lastDrawerRenderSignature = "";
     resetProviderActivityEventsCache("");
     clearDirty("#providerDrawer");
   }
@@ -5951,6 +5952,31 @@ import {
     return meta[tab] || { label: capitalize(tab), icon: "dot" };
   }
 
+  // Provider-scoped render signature for the drawer. The 5s runtime poll bumps
+  // global data versions on nearly every tick on a busy instance (key cooldowns
+  // are bucketed to 5s, per-provider activity moves with traffic), so the
+  // drawer used to pay providerViewModel + full markup build + morphdom on
+  // every poll — long enough to freeze hover/click hit-testing on the drawer
+  // header controls. The signature covers ONLY the inputs this provider's view
+  // model reads, so unrelated churn elsewhere still allows a skip.
+  let _lastDrawerRenderSignature = "";
+  function providerDrawerRenderSignature(name) {
+    try {
+      return JSON.stringify([
+        name,
+        state.providerDrawerTab,
+        getLang(),
+        state.data.config?.providers?.[name] ?? null,
+        state.data.status?.router?.providers?.[name] ?? null,
+        state.data.status?.models?.providers?.[name] ?? null,
+        state.data.status?.router?.compatibility_circuits ?? null,
+        state.data.providerActivity?.[name] ?? null,
+      ]);
+    } catch (_err) {
+      return "";
+    }
+  }
+
   function renderProviderDrawer({ force = false } = {}) {
     const drawer = el("providerDrawer");
     const body = el("providerDrawerBody");
@@ -5960,6 +5986,19 @@ import {
     // (forms, tab buttons, refresh buttons) to preserve focus and in-progress
     // input during auto-refresh.
     if (!force && shouldPreserveContainer("#providerDrawer")) return;
+    const signature = providerDrawerRenderSignature(name);
+    // Skip the whole viewmodel + markup + morphdom chain when nothing this
+    // drawer displays has changed since the last render.
+    if (!force && signature === _lastDrawerRenderSignature) return;
+    // Defer while the pointer rests over the drawer: the user is aiming at
+    // controls (e.g. the close button) and a re-render would freeze hover and
+    // click hit-testing for its full duration. Dropping the cached signature
+    // forces a fresh render on the next poll after the pointer leaves.
+    if (!force && drawer.matches(":hover")) {
+      _lastDrawerRenderSignature = "";
+      return;
+    }
+    _lastDrawerRenderSignature = signature;
     const view = providerViewModel(name);
     const tabs = ["overview", "keys", "models", "routing", "config"];
     if (!tabs.includes(state.providerDrawerTab)) state.providerDrawerTab = "overview";
@@ -6048,6 +6087,7 @@ import {
       ${providerDrawerPanel(view)}
     `);
     bindProviderDrawerEvents(body);
+    _lastDrawerRenderSignature = providerDrawerRenderSignature(name);
     if (state.providerDrawerTab === "overview") {
       loadProviderActivityEvents(name);
     }

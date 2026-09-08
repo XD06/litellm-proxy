@@ -11290,6 +11290,7 @@
 			drawer.classList.remove("is-open");
 			drawer.setAttribute("aria-hidden", "true");
 			state.providerDrawerName = "";
+			_lastDrawerRenderSignature = "";
 			resetProviderActivityEventsCache("");
 			clearDirty("#providerDrawer");
 		}
@@ -11320,12 +11321,36 @@
 				icon: "dot"
 			};
 		}
+		var _lastDrawerRenderSignature = "";
+		function providerDrawerRenderSignature(name) {
+			try {
+				return JSON.stringify([
+					name,
+					state.providerDrawerTab,
+					getLang(),
+					state.data.config?.providers?.[name] ?? null,
+					state.data.status?.router?.providers?.[name] ?? null,
+					state.data.status?.models?.providers?.[name] ?? null,
+					state.data.status?.router?.compatibility_circuits ?? null,
+					state.data.providerActivity?.[name] ?? null
+				]);
+			} catch (_err) {
+				return "";
+			}
+		}
 		function renderProviderDrawer({ force = false } = {}) {
 			const drawer = el("providerDrawer");
 			const body = el("providerDrawerBody");
 			const name = state.providerDrawerName;
 			if (!drawer || !body || !name || !drawer.classList.contains("is-open")) return;
 			if (!force && shouldPreserveContainer("#providerDrawer")) return;
+			const signature = providerDrawerRenderSignature(name);
+			if (!force && signature === _lastDrawerRenderSignature) return;
+			if (!force && drawer.matches(":hover")) {
+				_lastDrawerRenderSignature = "";
+				return;
+			}
+			_lastDrawerRenderSignature = signature;
 			const view = providerViewModel(name);
 			const tabs = [
 				"overview",
@@ -11403,6 +11428,7 @@
       ${providerDrawerPanel(view)}
     `);
 			bindProviderDrawerEvents(body);
+			_lastDrawerRenderSignature = providerDrawerRenderSignature(name);
 			if (state.providerDrawerTab === "overview") loadProviderActivityEvents(name);
 			mutationBusyTracker.refresh();
 		}
