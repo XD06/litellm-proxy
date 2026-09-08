@@ -6239,7 +6239,7 @@
 			state.forceModelCapsRender = true;
 			state.forcePolicyRender = true;
 			state.forceFailurePoliciesRender = true;
-			renderAll();
+			renderAll({ force: true });
 			if (drawer && state.providerDrawerName) renderProviderDrawer({ force: true });
 		}
 		function beginOptimisticConfigMutation(resourceKey, apply, options = {}) {
@@ -6437,7 +6437,7 @@
 				state.forceFailurePoliciesRender = true;
 			}
 			if (result.status !== void 0 || result.router !== void 0) state.forceProvidersRender = true;
-			if (render) renderAll();
+			if (render) renderAll({ force: true });
 			if (drawer) renderProviderDrawer({ force: true });
 			return true;
 		}
@@ -7960,7 +7960,12 @@
 			});
 			return out;
 		}
-		function renderAll() {
+		function pointerOverOpenDrawer() {
+			if (document.hidden) return false;
+			return Boolean(document.querySelector(".drawer.is-open:hover, .mobile-settings-drawer.is-open:hover"));
+		}
+		function renderAll({ force = false } = {}) {
+			if (!force && pointerOverOpenDrawer()) return;
 			const __t0 = performance.now();
 			renderTimeRangeControl();
 			const view = state.view || "overview";
@@ -16409,6 +16414,19 @@
 					closeMobileSettings();
 				}
 			});
+			document.addEventListener("pointerdown", (event) => {
+				if (event.button !== 0) return;
+				const target = event.target;
+				if (!target || typeof target.closest !== "function") return;
+				if (target.closest(".drawer.is-open, .mobile-settings-drawer.is-open, .form-modal.is-open, .confirm-dialog.is-open")) return;
+				if (el("formModal")?.classList.contains("is-open")) return;
+				if (el("confirmDialog")?.classList.contains("is-open")) return;
+				if (el("providerDrawer")?.classList.contains("is-open")) closeProviderDrawer();
+				if (el("detailDrawer")?.classList.contains("is-open")) closeDrawer(false);
+				if (el("modelDrawer")?.classList.contains("is-open")) closeModelDrawer();
+				if (el("keyDrawer")?.classList.contains("is-open")) closeKeyDrawer();
+				if (el("mobileSettingsDrawer")?.classList.contains("is-open")) closeMobileSettings();
+			}, true);
 		}
 		function updatePauseButtonState() {
 			const button = el("pauseButton");
