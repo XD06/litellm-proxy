@@ -542,6 +542,12 @@ h2 {
   box-shadow: none;
 }
 
+/* Proxy-test buttons wait for the lazily-loaded static config; the disabled
+   grey-out is augmented so the waiting state reads as "not yet", not "broken". */
+.proxy-test-button.is-waiting-config {
+  filter: grayscale(0.6);
+}
+
 .button.primary {
   border-color: var(--accent);
   border-radius: 7px;

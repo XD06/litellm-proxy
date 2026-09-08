@@ -845,6 +845,7 @@ const dict = {
   "notice.action_done": { en: "Action completed.", zh: "操作已完成。" },
   "notice.action_failed": { en: "Action failed: {error}", zh: "操作失败：{error}" },
   "notice.proxy_empty": { en: "Proxy is empty; this field will use direct or inherited routing.", zh: "代理为空；该字段将使用直连或继承代理。" },
+  "notice.config_loading": { en: "Configuration is still loading; try again in a moment.", zh: "配置尚未加载完成，请稍候再试。" },
   "notice.proxy_connected": { en: "Proxy connected in {latency}.", zh: "代理已连接，用时 {latency}。" },
   "notice.proxy_failed": { en: "Proxy test failed: {detail}", zh: "代理测试失败：{detail}" },
   "notice.health_monitor_saved": { en: "Health monitor settings saved.", zh: "健康检查设置已保存。" },

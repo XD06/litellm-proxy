@@ -3722,6 +3722,10 @@
 				en: "Proxy is empty; this field will use direct or inherited routing.",
 				zh: "代理为空；该字段将使用直连或继承代理。"
 			},
+			"notice.config_loading": {
+				en: "Configuration is still loading; try again in a moment.",
+				zh: "配置尚未加载完成，请稍候再试。"
+			},
 			"notice.proxy_connected": {
 				en: "Proxy connected in {latency}.",
 				zh: "代理已连接，用时 {latency}。"
@@ -9107,9 +9111,16 @@
 		function bindProxyTestButtons(root = document) {
 			root.querySelectorAll("[data-proxy-test]").forEach((button) => {
 				if (!button.innerHTML.trim()) updateDOM(button, iconSvg("activity"));
+				const configReady = state.staticDataState === "ready";
+				button.disabled = !configReady;
+				button.classList.toggle("is-waiting-config", !configReady);
 				if (button.dataset.boundProxyTest) return;
 				button.dataset.boundProxyTest = "1";
 				button.addEventListener("click", async () => {
+					if (state.staticDataState !== "ready") {
+						setNotice(t("notice.config_loading"), "info");
+						return;
+					}
 					const input = (button.closest(".proxy-control-row") || button.parentElement)?.querySelector?.("input[name='proxy'], input[name='key_proxy']");
 					const proxy = String(input?.value || "").trim();
 					if (!proxy) {

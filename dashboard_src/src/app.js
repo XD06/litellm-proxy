@@ -3367,9 +3367,20 @@ import {
   function bindProxyTestButtons(root = document) {
     root.querySelectorAll("[data-proxy-test]").forEach((button) => {
       if (!button.innerHTML.trim()) updateDOM(button, iconSvg("activity"));
+      // Static config loads lazily; until it arrives the proxy inputs render
+      // empty and a test click would silently no-op. Grey the buttons out
+      // instead. bindProxyTestButtons runs on every renderAll, so once the
+      // config lands the next render re-enables the button.
+      const configReady = state.staticDataState === "ready";
+      button.disabled = !configReady;
+      button.classList.toggle("is-waiting-config", !configReady);
       if (button.dataset.boundProxyTest) return;
       button.dataset.boundProxyTest = "1";
       button.addEventListener("click", async () => {
+        if (state.staticDataState !== "ready") {
+          setNotice(t("notice.config_loading"), "info");
+          return;
+        }
         const row = button.closest(".proxy-control-row") || button.parentElement;
         const input = row?.querySelector?.("input[name='proxy'], input[name='key_proxy']");
         const proxy = String(input?.value || "").trim();
