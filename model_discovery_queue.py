@@ -58,6 +58,9 @@ class ModelDiscoveryQueue:
         retry_interval_s: int = RETRY_INTERVAL_S,
         inter_fetch_pause_s: float = INTER_FETCH_PAUSE_S,
         worker_count: int = DEFAULT_WORKER_COUNT,
+        network_busy_fn: Optional[Callable[[], bool]] = None,
+        defer_interval_s: float = 15.0,
+        max_defer_s: float = 1800.0,
     ):
         self._fetch_provider = fetch_provider_fn
         self._get_snapshot = get_snapshot_fn
@@ -67,6 +70,15 @@ class ModelDiscoveryQueue:
         self._retry_interval = retry_interval_s
         self._pause = inter_fetch_pause_s
         self._worker_count = max(1, min(int(worker_count or 1), 4))
+        # Yield to live traffic: when network_busy_fn() reports real requests
+        # are in flight or just finished, due providers are put back on a short
+        # defer cadence instead of competing for bandwidth. Urgent fetches
+        # (enqueued with force=True, i.e. user-triggered) bypass the check.
+        # max_defer_s is the starvation cap: a provider deferred longer than
+        # that is fetched anyway so 24/7 traffic cannot starve discovery.
+        self._network_busy_fn = network_busy_fn
+        self._defer_interval = max(1.0, float(defer_interval_s))
+        self._max_defer_s = max(0.0, float(max_defer_s))
 
         self._lock = threading.Lock()
         self._queue: List[str] = []
@@ -76,6 +88,11 @@ class ModelDiscoveryQueue:
         # future (TTL); errors/missing keep it near (retry interval).
         self._next_eligible: Dict[str, float] = {}
         self._active: set = set()
+        # force-enqueued providers (manual refresh / config change): fetched
+        # immediately regardless of background network yielding.
+        self._urgent: set = set()
+        # provider -> first defer wall-clock time (starvation cap bookkeeping).
+        self._deferred_since: Dict[str, float] = {}
         self._recent_results: List[Dict[str, Any]] = []
         self._wake = threading.Event()
         self._running = False
@@ -116,6 +133,9 @@ class ModelDiscoveryQueue:
         if not provider:
             return
         with self._lock:
+            if force:
+                self._urgent.add(provider)
+                self._deferred_since.pop(provider, None)
             if not force and provider not in self._next_eligible:
                 try:
                     snap = self._get_snapshot(provider) or {}
@@ -133,6 +153,10 @@ class ModelDiscoveryQueue:
                 if force:
                     self._queue = [p for p in self._queue if p != provider]
                     self._queue.insert(0, provider)
+                    # The provider is already due (cooldown popped above), so
+                    # the worker may be sleeping until its old cooldown. Wake
+                    # it now or a user-triggered refresh waits the full defer.
+                    self._wake.set()
                 return
             self._queued.add(provider)
             if force:
@@ -193,6 +217,7 @@ class ModelDiscoveryQueue:
             "ok_ttl_s": self._ok_ttl,
             "retry_interval_s": self._retry_interval,
             "worker_count": self._worker_count,
+            "deferred": sorted(str(p) for p in self._deferred_since),
         }
 
     # ------------------------------------------------------------------
@@ -213,6 +238,10 @@ class ModelDiscoveryQueue:
             try:
                 if not self._enabled():
                     continue
+                if self._should_defer(provider):
+                    status = "deferred"
+                    self._requeue_deferred(provider)
+                    continue
                 self._fetch_provider(provider)
                 status = self._record_outcome(provider)
             except Exception:
@@ -222,6 +251,9 @@ class ModelDiscoveryQueue:
             finally:
                 with self._lock:
                     self._active.discard(provider)
+                    if status != "deferred":
+                        self._urgent.discard(provider)
+                        self._deferred_since.pop(provider, None)
                     self._recent_results.insert(
                         0,
                         {
@@ -236,6 +268,50 @@ class ModelDiscoveryQueue:
             # Polite pause between fetches.
             if self._pause > 0:
                 time.sleep(self._pause)
+
+    def _should_defer(self, provider: str) -> bool:
+        """True = put this fetch back; real traffic owns the network right now.
+
+        Urgent (force-enqueued) fetches never defer. Non-urgent fetches defer
+        while network_busy_fn() reports traffic, unless the provider has
+        already been starved past max_defer_s (then it goes through anyway).
+        """
+        if self._network_busy_fn is None:
+            return False
+        if self._max_defer_s <= 0:
+            return False
+        try:
+            urgent = provider in self._urgent
+        except Exception:
+            urgent = False
+        if urgent:
+            return False
+        now = time.time()
+        with self._lock:
+            try:
+                busy = bool(self._network_busy_fn())
+            except Exception:
+                busy = False
+            if not busy:
+                self._deferred_since.pop(provider, None)
+                return False
+            first = self._deferred_since.get(provider)
+            if first is None:
+                self._deferred_since[provider] = now
+                return True
+            if now - first >= self._max_defer_s:
+                self._deferred_since.pop(provider, None)
+                return False
+            return True
+
+    def _requeue_deferred(self, provider: str) -> None:
+        """Put a traffic-yielded provider back on a short retry cadence."""
+        with self._lock:
+            self._next_eligible[provider] = time.time() + self._defer_interval
+            if provider not in self._queued:
+                self._queued.add(provider)
+                self._queue.append(provider)
+        self._wake.set()
 
     def _pop_due(self) -> Optional[str]:
         """Return the next provider that is eligible to be fetched now."""

@@ -372,6 +372,17 @@ Proxy priority: `key proxy → provider proxy → global proxy → direct connec
 
 > See [config.example.jsonc](config.example.jsonc) for the full annotated configuration reference.
 
+#### Background network yielding (QoS)
+
+Instant requests always come first. While a real request is in flight — or within `background.quiet_window_s` (default 120s) after the last one finished — background network tasks (model discovery, Artificial Analysis price fetches, the optional startup AA prefetch) automatically defer and retry on a short cadence until the network is idle. Health probes already had their own in-flight avoidance. User-triggered actions (manual model refresh, test buttons) bypass the window entirely. A task deferred continuously beyond `background.max_defer_s` (default 1800s) runs anyway so 24/7 traffic cannot starve it.
+
+```jsonc
+"background": {
+  "quiet_window_s": 120,
+  "max_defer_s": 1800
+}
+```
+
 ---
 
 ## 🗺️ Project Map

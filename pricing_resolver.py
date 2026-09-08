@@ -6,17 +6,39 @@ import heapq
 import queue
 import threading
 import time
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from usage_accounting import resolve_price_snapshot
 
 
 class PricingResolver:
-    def __init__(self, cfg: Dict[str, Any], history: Any):
+    def __init__(
+        self,
+        cfg: Dict[str, Any],
+        history: Any,
+        *,
+        network_clear_fn: Optional[Callable[[], bool]] = None,
+        defer_interval_s: float = 5.0,
+        max_defer_s: float = 1800.0,
+    ):
         self.cfg = cfg or {}
         self.history = history
         pricing_cfg = ((self.cfg.get("observability") or {}).get("pricing") or {})
         self.enabled = bool(pricing_cfg.get("resolve_missing_prices", True))
+        # Yield to live traffic: when network_clear_fn() reports the network
+        # is busy with real requests, pending AA fetches are pushed back onto
+        # the retry heap on a short cadence instead of competing for bandwidth.
+        # max_defer_s (config: background.max_defer_s) is the starvation cap —
+        # an item deferred longer than that goes through anyway so 24/7
+        # traffic cannot starve price resolution forever.
+        self._network_clear_fn = network_clear_fn
+        self._defer_interval_s = max(0.5, float(defer_interval_s))
+        background_cfg = (self.cfg.get("background") or {})
+        try:
+            self._max_defer_s = max(0.0, float(background_cfg.get("max_defer_s", max_defer_s)))
+        except (TypeError, ValueError):
+            self._max_defer_s = max_defer_s
+        self._deferred_since: Dict[Tuple[str, str], float] = {}
         self.proxy = str(pricing_cfg.get("proxy") or "") or None
         self.max_retries = max(0, min(5, int(pricing_cfg.get("max_retries", 2))))
         self.retry_backoff_s = max(0.0, min(30.0, float(pricing_cfg.get("retry_backoff_s", 1.0))))
@@ -94,11 +116,22 @@ class PricingResolver:
 
             provider, provider_model = key
             try:
+                if self._should_defer(key):
+                    sequence += 1
+                    heapq.heappush(
+                        retries,
+                        (time.monotonic() + self._defer_interval_s, sequence, key, retry),
+                    )
+                    if queued_item:
+                        self._queue.task_done()
+                        queued_item = False
+                    continue
                 snapshot = self._fetch(provider, provider_model)
                 if snapshot:
                     with self._lock:
                         self._resolved[key] = snapshot
                         self._queued.discard(key)
+                        self._deferred_since.pop(key, None)
                     try:
                         self.history.backfill_pending_pricing(provider, provider_model, snapshot)
                     except Exception as exc:
@@ -110,6 +143,7 @@ class PricingResolver:
                 else:
                     with self._lock:
                         self._queued.discard(key)
+                        self._deferred_since.pop(key, None)
                         self.failures += 1
                     try:
                         self.history.mark_pending_unpriced(provider, provider_model)
@@ -135,10 +169,33 @@ class PricingResolver:
             return {
                 "queued": len(self._queued),
                 "resolved": len(self._resolved),
+                "deferred": len(self._deferred_since),
                 "dropped": int(self.dropped),
                 "failures": int(self.failures),
                 "backfill_failures": int(self.backfill_failures),
             }
+
+    def _should_defer(self, key: Tuple[str, str]) -> bool:
+        """True = push this fetch back; the network belongs to real traffic."""
+        if self._network_clear_fn is None:
+            return False
+        now = time.monotonic()
+        with self._lock:
+            try:
+                busy = not bool(self._network_clear_fn())
+            except Exception:
+                busy = False
+            if not busy:
+                self._deferred_since.pop(key, None)
+                return False
+            first = self._deferred_since.get(key)
+            if first is None:
+                self._deferred_since[key] = now
+                return True
+            if now - first >= self._max_defer_s:
+                self._deferred_since.pop(key, None)
+                return False
+            return True
 
     def _fetch(self, provider: str, provider_model: str) -> Optional[Dict[str, Any]]:
         try:

@@ -86,6 +86,9 @@ Dashboard / Admin 写入 → `config_manager` 合并 overlay（tombstone = `null
 ### 3.3 模型发现
 provider/keys/format 变更或后台触发 → `model_discovery_queue` → 拉取各 provider `/v1/models` → `model_registry` 归一为 canonical 模型表；发现失败时保留 last-known 模型，不静默清空。聚合供应商的厂商副本（`sail/...`、`runware/...` 同一基础模型）归一为单一 canonical 并记录 1 对多 `variant_map`：任一副本未被禁用 canonical 即对 `/v1/models` 可见，路由按副本顺序故障转移。
 
+### 3.3.1 后台网络让路（QoS）
+即时请求永远优先：有真实请求在途、或最后一个请求结束后 `background.quiet_window_s` 秒内，后台网络任务（模型发现、AA 价格抓取、启动 AA 预取）自动推迟并按短间隔重试，网络空闲后才执行（健康探测另有 in_flight 避让与代数熔断）。手动触发的操作（刷新模型、测试按钮）走紧急通道不受窗口限制；被连续推迟超过 `background.max_defer_s` 的任务会执行一次防饿死。即时请求处理路径本身无任何同步网络操作。
+
 ### 3.4 健康探测与自动路由
 自适应空闲健康检查（频率 30s~6h） + 巡逻扫描 → `observability` 健康分 → `router` 在 `auto` 模式下按健康分动态调整 provider 优先级（`provider_select` 共 5 种模式：`priority_failover` / `round_robin` / `weighted_rr` / `random` / `auto`）。
 

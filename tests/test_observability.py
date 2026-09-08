@@ -618,5 +618,46 @@ class ObservabilityTests(unittest.TestCase):
         self.assertEqual(series["buckets"][0]["first_byte_ms_min"], 100)
 
 
+class BackgroundNetworkClearTests(unittest.TestCase):
+    """background_network_clear() gates background upstream fetches (QoS)."""
+
+    def _obs(self, background=None):
+        cfg = {"observability": {"history": {"enabled": False}}}
+        if background is not None:
+            cfg["background"] = background
+        return ProxyObservability(cfg)
+
+    def _start(self, obs, req_id):
+        obs.record_request_start(
+            req_id,
+            client_format="chat_completions",
+            endpoint="/v1/chat/completions",
+            model="m",
+            stream=False,
+            path="/v1/chat/completions",
+        )
+
+    def test_clear_when_never_used(self):
+        self.assertTrue(self._obs().background_network_clear())
+
+    def test_busy_while_request_in_flight(self):
+        obs = self._obs()
+        self._start(obs, "r1")
+        self.assertFalse(obs.background_network_clear())
+        obs.record_request_end("r1", status_code=200)
+        # Within the quiet window after the request finishes: still busy.
+        self.assertFalse(obs.background_network_clear())
+
+    def test_clear_after_quiet_window(self):
+        obs = self._obs(background={"quiet_window_s": 0})
+        self._start(obs, "r1")
+        obs.record_request_end("r1", status_code=200)
+        self.assertTrue(obs.background_network_clear())
+
+    def test_bad_quiet_window_falls_back_to_default(self):
+        obs = self._obs(background={"quiet_window_s": "not-a-number"})
+        self.assertIsInstance(obs.background_network_clear(), bool)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -112,6 +112,50 @@ class PricingResolverTests(unittest.TestCase):
             total_timeout_s=5.0,
         )
 
+    # ------------------------------------------------------------------
+    # background network yielding (QoS)
+    # ------------------------------------------------------------------
+    def test_defers_fetch_while_network_busy(self):
+        clear = {"flag": False}
+        resolver = PricingResolver(
+            self.config(retry_backoff_s=0.01),
+            FakeHistory(),
+            network_clear_fn=lambda: clear["flag"],
+            defer_interval_s=0.5,
+        )
+        snapshot = {"input_per_million": 1, "output_per_million": 2, "source": "aa_cache"}
+        calls = []
+
+        with patch.object(resolver, "_fetch", side_effect=lambda p, m: calls.append(p) or snapshot):
+            self.assertTrue(resolver.enqueue("alpha", "model-a"))
+            time.sleep(0.4)
+            self.assertEqual(calls, [], "no AA fetch may start while traffic is busy")
+            self.assertEqual(resolver.snapshot()["deferred"], 1)
+            clear["flag"] = True
+            self.assertTrue(wait_until(lambda: bool(calls)))
+
+        resolver.shutdown()
+        self.assertEqual(resolver.snapshot()["deferred"], 0)
+
+    def test_starved_price_fetch_eventually_runs(self):
+        # max_defer_s=0.5 with defer_interval 0.5: the first defer records the
+        # starvation clock; the next retry is past the cap and must go through
+        # even though the network never clears.
+        resolver = PricingResolver(
+            self.config(),
+            FakeHistory(),
+            network_clear_fn=lambda: True,
+            defer_interval_s=0.5,
+            max_defer_s=0.3,
+        )
+        snapshot = {"input_per_million": 1, "output_per_million": 2, "source": "aa_cache"}
+        with patch.object(resolver, "_fetch", return_value=snapshot):
+            self.assertTrue(resolver.enqueue("alpha", "model-a"))
+            self.assertTrue(
+                wait_until(lambda: resolver.local_snapshot("alpha", "model-a") is not None, timeout=5)
+            )
+        resolver.shutdown()
+
 
 if __name__ == "__main__":
     unittest.main()

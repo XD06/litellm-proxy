@@ -2840,6 +2840,25 @@ def _discovery_fetch_provider(provider: str) -> None:
 MODEL_DISCOVERY_QUEUE: Optional[model_discovery_queue.ModelDiscoveryQueue] = None
 
 
+def _background_network_busy() -> bool:
+    """True while real traffic owns the network: a request is in flight or one
+    finished within background.quiet_window_s. Background upstream fetches
+    (model discovery, AA pricing, startup summary prefetch) consult this and
+    defer; urgent user-triggered fetches bypass it entirely."""
+    try:
+        return not _request_runtime().observability.background_network_clear()
+    except Exception:
+        return False
+
+
+def _background_max_defer_s() -> float:
+    try:
+        raw = ((CONFIG.get("background") or {}).get("max_defer_s"))
+        return max(0.0, float(raw)) if raw is not None else 1800.0
+    except (TypeError, ValueError):
+        return 1800.0
+
+
 def _start_model_discovery_queue() -> None:
     global MODEL_DISCOVERY_QUEUE
     models_source = str((CONFIG.get("models") or {}).get("models_source", "first_healthy_provider"))
@@ -2852,6 +2871,8 @@ def _start_model_discovery_queue() -> None:
         get_snapshot_fn=_provider_capability_snapshot,
         providers_fn=_enabled_provider_names,
         enabled_fn=lambda: True,
+        network_busy_fn=_background_network_busy,
+        max_defer_s=_background_max_defer_s(),
     )
     MODEL_DISCOVERY_QUEUE.start()
 
@@ -6801,6 +6822,13 @@ def _prefetch_model_summaries():
                 pass
             for m in sorted(list(models)):
                 try:
+                    # Yield to live traffic: if a real request arrives (or just
+                    # finished within the quiet window), wait instead of
+                    # competing for bandwidth with instant requests.
+                    waited = 0.0
+                    while _background_network_busy() and waited < 600:
+                        time.sleep(3)
+                        waited += 3
                     # aa.get performs a resolved check; if cached locally, it returns immediately.
                     # Otherwise it fetches & parses (through aa_proxy if configured).
                     res = aa.get(m, proxy=aa_proxy or None)

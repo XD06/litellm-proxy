@@ -209,6 +209,94 @@ class ModelDiscoveryQueueTests(unittest.TestCase):
             self.assertIn("beta", store.fetched)
         self.assertIn("alpha", status["active_providers"])
 
+    # ------------------------------------------------------------------
+    # background network yielding (QoS)
+    # ------------------------------------------------------------------
+    def test_defers_fetch_while_network_busy(self):
+        store = _FakeStore()
+        store.set_status("alpha", "ok")
+        busy = {"flag": True}
+        q = _make_queue(store, ["alpha"], ok_ttl_s=60, retry_interval_s=60, worker_count=1)
+        q._network_busy_fn = lambda: busy["flag"]
+        q._defer_interval = 0.5  # test-only: short defer cadence
+        q.start()
+        # While traffic is "busy", no fetch may start.
+        time.sleep(0.8)
+        with store.lock:
+            self.assertEqual(store.fetched, [])
+        status_busy = q.snapshot_status()
+        # Traffic clears -> the deferred provider is fetched.
+        busy["flag"] = False
+        deadline = time.time() + 5
+        while time.time() < deadline:
+            with store.lock:
+                if store.fetched:
+                    break
+            time.sleep(0.02)
+        q.stop()
+        with store.lock:
+            self.assertEqual(store.fetched, ["alpha"])
+        self.assertIn("alpha", status_busy["deferred"])
+
+    def test_urgent_enqueue_bypasses_deferral(self):
+        store = _FakeStore()
+        store.set_status("alpha", "ok")
+        q = ModelDiscoveryQueue(
+            fetch_provider_fn=store.fetch,
+            get_snapshot_fn=store.get_snapshot,
+            providers_fn=lambda: ["alpha"],
+            enabled_fn=lambda: True,
+            ok_ttl_s=60,
+            retry_interval_s=60,
+            inter_fetch_pause_s=0,
+            worker_count=1,
+            network_busy_fn=lambda: True,
+        )
+        q.start()
+        # User-triggered manual refresh arrives as force=True while traffic
+        # is busy — it must be fetched immediately.
+        q.enqueue("alpha", force=True)
+        deadline = time.time() + 5
+        while time.time() < deadline:
+            with store.lock:
+                if store.fetched:
+                    break
+            time.sleep(0.01)
+        q.stop()
+        with store.lock:
+            self.assertEqual(store.fetched, ["alpha"],
+                             "force-enqueued (user-triggered) fetch must not defer")
+
+    def test_starved_provider_eventually_fetched(self):
+        store = _FakeStore()
+        store.set_status("alpha", "ok")
+        # max_defer_s=0.5 with defer_interval floor 1.0: first pop defers, the
+        # requeue lands past the starvation cap and must go through.
+        q = ModelDiscoveryQueue(
+            fetch_provider_fn=store.fetch,
+            get_snapshot_fn=store.get_snapshot,
+            providers_fn=lambda: ["alpha"],
+            enabled_fn=lambda: True,
+            ok_ttl_s=60,
+            retry_interval_s=60,
+            inter_fetch_pause_s=0,
+            worker_count=1,
+            network_busy_fn=lambda: True,
+            defer_interval_s=1.0,
+            max_defer_s=0.5,
+        )
+        q.start()
+        deadline = time.time() + 5
+        while time.time() < deadline:
+            with store.lock:
+                if store.fetched:
+                    break
+            time.sleep(0.01)
+        q.stop()
+        with store.lock:
+            self.assertEqual(store.fetched, ["alpha"],
+                             "starved provider must be fetched despite busy network")
+
 
 if __name__ == "__main__":
     unittest.main()

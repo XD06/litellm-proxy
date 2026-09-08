@@ -83,7 +83,11 @@ class ProxyObservability:
         self._health_probe_events = deque(maxlen=self._health_probe_limit())
         self._counters = self._new_counters()
         self._history = RequestHistoryStore(cfg)
-        self._pricing = PricingResolver(cfg, self._history)
+        self._pricing = PricingResolver(
+            cfg,
+            self._history,
+            network_clear_fn=self.background_network_clear,
+        )
         # Post-request usage listeners (e.g. client-key quota accounting).
         # Called with the finished recent_item after every record_request_end.
         self._usage_listeners: List[Any] = []
@@ -298,6 +302,37 @@ class ProxyObservability:
                 except (IndexError, TypeError, ValueError):
                     pass
             return 0.0
+
+    def background_network_clear(self) -> bool:
+        """True when background upstream fetches may use the network.
+
+        Background-only tasks (model discovery, AA price resolution) poll this
+        before each network call and defer while it returns False, so they
+        never compete with live traffic for bandwidth or upstream rate limits.
+        The network counts as busy while any real request is in flight and for
+        background.quiet_window_s afterwards (burst protection). Urgent,
+        user-triggered fetches bypass this check entirely.
+        """
+        try:
+            with self._lock:
+                in_flight = int(self._counters.get("requests_in_flight") or 0)
+                last = self._last_request_finished_at
+                if not last and self._recent:
+                    try:
+                        last = float(self._recent[0].get("finished_at") or 0)
+                    except (IndexError, TypeError, ValueError):
+                        last = 0.0
+            if in_flight > 0:
+                return False
+            try:
+                quiet = float((self.cfg.get("background") or {}).get("quiet_window_s", 120.0))
+            except (TypeError, ValueError):
+                quiet = 120.0
+            if quiet <= 0:
+                return True
+            return not (last > 0 and (time.time() - last) < quiet)
+        except Exception:
+            return True
 
     def clear_history(self) -> Dict[str, Any]:
         history_result = self._history.clear()
