@@ -6794,12 +6794,19 @@ def _prefetch_model_summaries():
             # 接口），且不污染缓存语义（按需 resolve() 仍走完整管线）。
             try:
                 aa._index.load_local()
+                warmed = 0
                 for m in sorted(list(models)):
                     try:
                         aa._index.warm(m)
                     except Exception:
                         pass
-                print(f"[proxy] Resolve cache warmed for {len(models)} models.", flush=True)
+                    # Yield the GIL periodically: 3000+ warm() calls in one
+                    # tight loop burned the GIL for ~4s right after bind and
+                    # made the first dashboard interactions crawl.
+                    warmed += 1
+                    if warmed % 200 == 0:
+                        time.sleep(0.05)
+                print(f"[proxy] Resolve cache warmed for {warmed} models.", flush=True)
             except Exception:
                 pass
             # Pricing enrichment is optional and already fetched on demand by

@@ -8,10 +8,31 @@ import re
 from typing import Any, Dict, Optional, Tuple
 
 _aa = None
-try:
-    from artificial_analysis_api import aa as _aa
-except Exception:
-    _aa = None
+_aa_import_tried = False
+_aa_import_lock = threading.Lock()
+
+
+def _get_aa():
+    """Resolve the AA module lazily on first use.
+
+    Keeping this import out of module scope cuts ~0.4s off process startup:
+    the aa package pulls asyncio + httpx, which nothing on the request path
+    needs until a missing price actually has to be resolved. Returns None
+    when the AA package is unavailable.
+    """
+    global _aa, _aa_import_tried
+    if _aa is not None or _aa_import_tried:
+        return _aa
+    with _aa_import_lock:
+        if not _aa_import_tried:
+            try:
+                from artificial_analysis_api import aa as _aa_mod
+
+                _aa = _aa_mod
+            except Exception:
+                _aa = None
+            _aa_import_tried = True
+    return _aa
 
 
 _aa_index_lock = threading.Lock()
@@ -23,7 +44,8 @@ _aa_index_last_attempt = 0.0
 def _ensure_aa_index_loaded() -> None:
     """Try local index loading once, then back off when the file is absent."""
     global _aa_index_owner, _aa_index_loaded, _aa_index_last_attempt
-    index = getattr(_aa, "_index", None) if _aa is not None else None
+    aa = _get_aa()
+    index = getattr(aa, "_index", None) if aa is not None else None
     if index is None:
         return
     owner = id(index)
@@ -431,15 +453,16 @@ def resolve_price_snapshot(
                     complete=has_input and has_output and has_cache_read and has_cache_write,
                 )
 
-    if not allow_aa_cache or _aa is None:
+    aa = _get_aa()
+    if not allow_aa_cache or aa is None:
         return None
     try:
         _ensure_aa_index_loaded()
-        slug, pricing = _aa_exact_pricing(_aa, provider_model)
+        slug, pricing = _aa_exact_pricing(aa, provider_model)
         variant_of_base = False
         if pricing is None:
             for base in _variant_base_names(provider_model):
-                slug, pricing = _aa_exact_pricing(_aa, base, allow_lenient_cache=False)
+                slug, pricing = _aa_exact_pricing(aa, base, allow_lenient_cache=False)
                 if pricing is not None:
                     variant_of_base = True
                     break

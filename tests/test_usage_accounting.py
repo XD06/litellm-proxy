@@ -126,7 +126,7 @@ class UsageAccountingTests(unittest.TestCase):
         self.assertEqual(result["pricing_snapshot"]["cache_write_per_million"], 2)
 
     def test_missing_price_is_not_reported_as_known_zero(self):
-        with patch.object(accounting, "_aa", None):
+        with patch.object(accounting, "_get_aa", lambda: None):
             pending = accounting.price_usage({}, "alpha", "unknown", {"input_tokens": 1})
             unpriced = accounting.price_usage(
                 {}, "alpha", "unknown", {"input_tokens": 1}, resolve_missing=False
@@ -149,7 +149,7 @@ class UsageAccountingTests(unittest.TestCase):
                 list_slugs=lambda: ["deepseek-v4-flash"],
             ),
         )
-        with patch.object(accounting, "_aa", fake_aa):
+        with patch.object(accounting, "_get_aa", lambda: fake_aa):
             snapshot = accounting.resolve_price_snapshot({}, "alpha", "DeepSeek V4 Flash")
 
         self.assertIsNotNone(snapshot)
@@ -166,7 +166,7 @@ class UsageAccountingTests(unittest.TestCase):
             ),
             _cache=SimpleNamespace(get=lambda _slug: None, list_slugs=lambda: []),
         )
-        with patch.object(accounting, "_aa", fake_aa), \
+        with patch.object(accounting, "_get_aa", lambda: fake_aa), \
              patch.object(accounting, "_aa_index_owner", None), \
              patch.object(accounting, "_aa_index_loaded", False), \
              patch.object(accounting, "_aa_index_last_attempt", 0.0):
@@ -197,7 +197,7 @@ class UsageAccountingTests(unittest.TestCase):
                 list_slugs=lambda: [],
             ),
         )
-        with patch.object(accounting, "_aa", fake_aa):
+        with patch.object(accounting, "_get_aa", lambda: fake_aa):
             snapshot = accounting.resolve_price_snapshot({}, "alpha", "grok-3-mini:high")
             self.assertIsNotNone(snapshot)
             self.assertEqual(snapshot["source"], "aa_variant")
@@ -219,7 +219,7 @@ class UsageAccountingTests(unittest.TestCase):
                 list_slugs=lambda: [],
             ),
         )
-        with patch.object(accounting, "_aa", fake_aa):
+        with patch.object(accounting, "_get_aa", lambda: fake_aa):
             snapshot = accounting.resolve_price_snapshot({}, "alpha", "coding-glm-5.3-free")
 
         self.assertIsNone(snapshot)
