@@ -12,7 +12,7 @@ cd /d "%~dp0"
 ::    set PROXY_DEBUG=true
 :: ============================================================
 
-set PROXY_CONFIG_PATH=%~dp0config.json
+set PROXY_CONFIG_PATH=%~dp0..\config.json
 
 echo.
 echo  === Anthropic Messages - OpenAI Proxy (config.json) ===
@@ -26,5 +26,5 @@ echo.
 echo  Close this window to stop the proxy
 echo.
 
-python3 sse2json.py
+python3 ../sse2json.py
 pause
