@@ -23,9 +23,25 @@ function bodyBetween(start, end) {
   return source.slice(startAt, endAt);
 }
 
-// Static config loads lazily; proxy-test buttons must be disabled and greyed
-// until staticDataState turns "ready", otherwise a fresh-page click reads the
-// still-empty proxy input and silently no-ops.
+// Proxy-test clicks are delegated on the document: re-renders swap button
+// nodes between renderAll passes, so per-button listeners miss clicks on
+// fresh nodes (clicks silently no-op until the next bind pass).
+assert.match(
+  source,
+  /document\.addEventListener\("click", \(event\) => \{[\s\S]*?closest\("\[data-proxy-test\]"\)[\s\S]*?handleProxyTestRequest\(button\)/,
+  "proxy-test clicks must be handled by the document-level delegation",
+);
+
+// Static config loads lazily; the delegated handler must explain the loading
+// window instead of silently doing nothing.
+const handler = bodyBetween("async function handleProxyTestRequest", "function bindProxyTestButtons");
+assert.match(
+  handler,
+  /if \(state\.staticDataState !== "ready"\) \{\s*setNotice\(t\("notice\.config_loading"\), "info"\);/,
+  "a click during the loading window must explain itself instead of no-op",
+);
+
+// Buttons are disabled/greyed while the static config is still loading.
 const binder = bodyBetween("function bindProxyTestButtons", "const modelUsageRange");
 assert.match(
   binder,
@@ -36,11 +52,6 @@ assert.match(
   binder,
   /classList\.toggle\("is-waiting-config",\s*!configReady\)/,
   "waiting proxy-test buttons must carry the is-waiting-config marker",
-);
-assert.match(
-  binder,
-  /if \(state\.staticDataState !== "ready"\) \{\s*setNotice\(t\("notice\.config_loading"\), "info"\);/,
-  "a click during the loading window must explain itself instead of no-op",
 );
 
 assert.match(

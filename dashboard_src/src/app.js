@@ -3364,6 +3364,50 @@ import {
     }
   }
 
+  async function handleProxyTestRequest(button) {
+    // Clicks are handled via a single delegated document-level listener (see
+    // installEvents), not per-button listeners: drawer/key-card re-renders
+    // swap in fresh button nodes between renderAll passes, and a click on an
+    // unbound replacement node used to silently no-op until the next bind.
+    if (state.staticDataState !== "ready") {
+      setNotice(t("notice.config_loading"), "info");
+      return;
+    }
+    const row = button.closest(".proxy-control-row") || button.parentElement;
+    const input = row?.querySelector?.("input[name='proxy'], input[name='key_proxy']");
+    const proxy = String(input?.value || "").trim();
+    if (!proxy) {
+      button.classList.remove("is-ok", "is-bad", "is-testing");
+      setNotice(t("notice.proxy_empty"), "info");
+      return;
+    }
+    await runExclusiveUiAction(`proxy-test:${proxy}`, async () => {
+      button.disabled = true;
+      button.classList.remove("is-ok", "is-bad");
+      button.classList.add("is-testing");
+      updateDOM(button, refreshSpinner());
+      try {
+        const resp = await apiPost("/-/admin/proxy/test", { proxy });
+        const result = resp.result || {};
+        button.classList.toggle("is-ok", Boolean(result.ok));
+        button.classList.toggle("is-bad", !result.ok);
+        updateDOM(button, iconSvg(result.ok ? "check" : "alert"));
+        if (result.ok) {
+          setNotice(t("notice.proxy_connected", { latency: fmtCompactMs(result.elapsed_ms || 0) }), "ok");
+        } else {
+          setNotice(t("notice.proxy_failed", { detail: result.error || `HTTP ${result.status || "-"}` }));
+        }
+      } catch (err) {
+        button.classList.add("is-bad");
+        updateDOM(button, iconSvg("alert"));
+        setNotice(t("notice.proxy_failed", { detail: err.message }));
+      } finally {
+        button.classList.remove("is-testing");
+        button.disabled = false;
+      }
+    }, { duplicateNotice: t("notice.action_already_running") });
+  }
+
   function bindProxyTestButtons(root = document) {
     root.querySelectorAll("[data-proxy-test]").forEach((button) => {
       if (!button.innerHTML.trim()) updateDOM(button, iconSvg("activity"));
@@ -3374,47 +3418,6 @@ import {
       const configReady = state.staticDataState === "ready";
       button.disabled = !configReady;
       button.classList.toggle("is-waiting-config", !configReady);
-      if (button.dataset.boundProxyTest) return;
-      button.dataset.boundProxyTest = "1";
-      button.addEventListener("click", async () => {
-        if (state.staticDataState !== "ready") {
-          setNotice(t("notice.config_loading"), "info");
-          return;
-        }
-        const row = button.closest(".proxy-control-row") || button.parentElement;
-        const input = row?.querySelector?.("input[name='proxy'], input[name='key_proxy']");
-        const proxy = String(input?.value || "").trim();
-        if (!proxy) {
-          button.classList.remove("is-ok", "is-bad", "is-testing");
-          setNotice(t("notice.proxy_empty"), "info");
-          return;
-        }
-        await runExclusiveUiAction(`proxy-test:${proxy}`, async () => {
-          button.disabled = true;
-          button.classList.remove("is-ok", "is-bad");
-          button.classList.add("is-testing");
-          updateDOM(button, refreshSpinner());
-          try {
-            const resp = await apiPost("/-/admin/proxy/test", { proxy });
-            const result = resp.result || {};
-            button.classList.toggle("is-ok", Boolean(result.ok));
-            button.classList.toggle("is-bad", !result.ok);
-            updateDOM(button, iconSvg(result.ok ? "check" : "alert"));
-            if (result.ok) {
-              setNotice(t("notice.proxy_connected", { latency: fmtCompactMs(result.elapsed_ms || 0) }), "ok");
-            } else {
-              setNotice(t("notice.proxy_failed", { detail: result.error || `HTTP ${result.status || "-"}` }));
-            }
-          } catch (err) {
-            button.classList.add("is-bad");
-            updateDOM(button, iconSvg("alert"));
-            setNotice(t("notice.proxy_failed", { detail: err.message }));
-          } finally {
-            button.classList.remove("is-testing");
-            button.disabled = false;
-          }
-        }, { duplicateNotice: t("notice.action_already_running") });
-      });
     });
     const modelUsageRange = el("modelUsageRange");
     if (modelUsageRange && !modelUsageRange.dataset.boundModelUsageRange) {
@@ -11543,6 +11546,18 @@ import {
       if (el("keyDrawer")?.classList.contains("is-open")) closeKeyDrawer();
       if (el("mobileSettingsDrawer")?.classList.contains("is-open")) closeMobileSettings();
     }, true);
+
+    // Proxy-test buttons are delegated on the document instead of bound per
+    // node: re-renders (drawer bodies, key cards) replace button nodes
+    // between renderAll passes, and a per-button listener on the old node
+    // made clicks on the replacement silently no-op.
+    document.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!target || typeof target.closest !== "function") return;
+      const button = target.closest("[data-proxy-test]");
+      if (!button || button.disabled) return;
+      handleProxyTestRequest(button);
+    });
   }
 
   function updatePauseButtonState() {
