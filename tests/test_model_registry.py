@@ -91,6 +91,22 @@ class ModelRegistryTests(unittest.TestCase):
     def tearDown(self):
         model_registry.clear_cache()
 
+    def test_created_at_handles_millisecond_epochs_and_never_raises(self):
+        # A provider (senseaudio) once returned millisecond `created` values;
+        # fromtimestamp() blew past datetime's year 9999 limit and aborted the
+        # whole provider's model discovery with "year 58409 is out of range".
+        self.assertEqual(
+            model_registry._created_at_from_model({"created": 1_843_000_000_000}),
+            "2028-05-27T08:26:40Z",
+        )
+        self.assertEqual(
+            model_registry._created_at_from_model({"created": 1_788_902_206}),
+            "2026-09-09T05:16:46Z",
+        )
+        self.assertEqual(model_registry._created_at_from_model({"created": 1e17}), "")
+        self.assertEqual(model_registry._created_at_from_model({"created": "abc"}), "")
+        self.assertEqual(model_registry._created_at_from_model({}), "")
+
     def test_empty_key_model_filter_is_unrestricted_and_uses_discovery(self):
         cfg = registry_config("union")
         cfg["providers"]["alpha"]["keys"] = [

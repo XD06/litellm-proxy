@@ -295,7 +295,19 @@ def _extract_model_items(data) -> List[Dict[str, Any]]:
 def _created_at_from_model(m: Dict[str, Any]) -> str:
     created_ts = m.get("created", 0)
     if created_ts and isinstance(created_ts, (int, float)):
-        return datetime.datetime.fromtimestamp(created_ts).strftime("%Y-%m-%dT%H:%M:%SZ")
+        try:
+            ts = float(created_ts)
+            # Some providers emit millisecond epochs; anything beyond the
+            # datetime-supported year range (9999-12-31) is downscaled before
+            # conversion so one malformed entry cannot abort the whole
+            # provider's model discovery.
+            if ts > 253402300799:
+                ts /= 1000.0
+            if ts > 253402300799:
+                return ""
+            return datetime.datetime.fromtimestamp(ts).strftime("%Y-%m-%dT%H:%M:%SZ")
+        except (OverflowError, OSError, ValueError):
+            return ""
     return ""
 
 
