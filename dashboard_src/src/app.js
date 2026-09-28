@@ -5535,7 +5535,7 @@ import {
           <span class="provider-signal-item model-count" title="${escapeHtml(`${fmtInt(modelCount)} available models`)}">${iconSvg("boxes")}<strong>${escapeHtml(view.capability.status === "pending" ? "..." : fmtInt(modelCount))}</strong><small>models</small></span>
           <span class="provider-signal-item ${escapeHtml(latencyTone)}" title="Latest first byte latency">${iconSvg("clock")}<strong>${escapeHtml(latencyText)}</strong><small>ttfb</small></span>
         </div>
-        ${providerProbeSummary(view.activity.lastProbe)}
+        ${providerProbeSummary(view.activity.lastProbe, view.activity.probeCount24h)}
         ${providerSparkline(view.activity, view.name)}
 
         <div class="provider-card-footer">
@@ -5588,11 +5588,11 @@ import {
 
   function idleTierLabel(tier) {
     const labels = {
-      cold_start: { text: "cold start", title: "No request has ever completed — 45s cadence", tone: "neutral" },
-      recent: { text: "recent", title: "Last request < 2 min ago — 30s cadence", tone: "ok" },
-      medium: { text: "medium", title: "Last request 2-10 min ago — 60s cadence", tone: "ok" },
-      long: { text: "long", title: "Last request 10-30 min ago — 5 min cadence", tone: "warn" },
-      deep: { text: "deep", title: "Last request 30+ min ago — 3-6h random cadence", tone: "soft" },
+      cold_start: { text: "cold start", title: t("prov.tier.cold_start_title"), tone: "neutral" },
+      recent: { text: "recent", title: t("prov.tier.recent_title"), tone: "ok" },
+      medium: { text: "medium", title: t("prov.tier.medium_title"), tone: "ok" },
+      long: { text: "long", title: t("prov.tier.long_title"), tone: "warn" },
+      deep: { text: "deep", title: t("prov.tier.deep_title"), tone: "soft" },
     };
     return labels[tier] || null;
   }
@@ -5635,20 +5635,20 @@ import {
     return `${mm}/${dd} ${hh}:${mi}`;
   }
 
-  function providerProbeSummary(probe) {
+  function providerProbeSummary(probe, probeCount24h) {
     if (!probe) {
-      return `<div class="provider-probe-summary empty" title="No background health probe yet">${iconSvg("radar")}<span>No health probe yet</span></div>`;
+      return `<div class="provider-probe-summary empty" title="${escapeHtml(t("prov.probe_none_title"))}">${iconSvg("radar")}<span>${escapeHtml(t("prov.probe_none"))}</span></div>`;
     }
     const tone = probeTone(probe);
     const reason = probe.reason || probe.error_type || probe.outcome || "probe";
     const isPatrol = String(probe.idle_tier || "") === "patrol";
-    const baseLabel = tone === "ok" ? "Probe OK" : tone === "bad" ? "Probe failed" : "Probe observed";
-    const label = isPatrol ? `Patrol · ${baseLabel}` : baseLabel;
-    const detail = probe.latency_ms != null
-      ? fmtCompactMs(probe.latency_ms)
-      : probe.http_status
-        ? `HTTP ${fmtInt(probe.http_status)}`
-        : "";
+    const baseLabel = tone === "ok" ? t("prov.probe_ok") : tone === "bad" ? t("prov.probe_failed") : t("prov.probe_observed");
+    const label = isPatrol ? `${t("prov.probe_patrol_prefix")}${baseLabel}` : baseLabel;
+    const details = [];
+    if (probe.latency_ms != null) details.push(fmtCompactMs(probe.latency_ms));
+    else if (probe.http_status) details.push(`HTTP ${fmtInt(probe.http_status)}`);
+    if (Number(probeCount24h) > 0) details.push(t("prov.probe_count_short", { count: fmtInt(probeCount24h) }));
+    const detail = details.join(" · ");
     return `
       <div class="provider-probe-summary tone-${escapeHtml(tone)}${isPatrol ? " patrol-probe" : ""}" title="${escapeHtml(reason)}">
         ${iconSvg(isPatrol ? "shield" : "radar")}
@@ -5665,7 +5665,7 @@ import {
     const model = probe.model || "-";
     const isPatrol = String(probe.idle_tier || "") === "patrol";
     const tierInfo = idleTierLabel(probe.idle_tier);
-    const tierLabel = isPatrol ? { text: "patrol", title: "Patrol health checker — full sweep every 6–12h", tone: "info" } : tierInfo;
+    const tierLabel = isPatrol ? { text: "patrol", title: t("prov.tier_patrol_title"), tone: "info" } : tierInfo;
     const meta = [
       probe.format || "",
       probe.model_source ? `source:${probe.model_source}` : "",

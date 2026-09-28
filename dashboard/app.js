@@ -2163,20 +2163,72 @@
 				zh: "自动恢复检查"
 			},
 			"prov.skip_idle_probes": {
-				en: "Skip idle probes",
-				zh: "跳过空闲探测"
+				en: "Skip readiness probes",
+				zh: "跳过预检"
 			},
 			"prov.skip_idle_probes_tip": {
-				en: "Do not check this provider after an idle period",
-				zh: "空闲后不主动检查该提供商"
+				en: "Idle readiness checks do not probe this provider",
+				zh: "空闲预检不主动探测该提供商"
 			},
 			"prov.skip_patrol_probes": {
-				en: "Skip patrol probes",
-				zh: "跳过巡检探测"
+				en: "Skip patrol sweeps",
+				zh: "跳过巡检"
 			},
 			"prov.skip_patrol_probes_tip": {
-				en: "Exclude this provider from periodic patrol checks",
-				zh: "从定期巡检中排除该提供商"
+				en: "Exclude this provider from periodic full sweeps",
+				zh: "全量巡检时排除该提供商"
+			},
+			"prov.probe_none": {
+				en: "No health probe yet",
+				zh: "暂无健康探测"
+			},
+			"prov.probe_none_title": {
+				en: "No background health probe yet",
+				zh: "后台尚未执行过健康探测"
+			},
+			"prov.probe_ok": {
+				en: "Probe OK",
+				zh: "探测正常"
+			},
+			"prov.probe_failed": {
+				en: "Probe failed",
+				zh: "探测失败"
+			},
+			"prov.probe_observed": {
+				en: "Probe observed",
+				zh: "探测观察"
+			},
+			"prov.probe_patrol_prefix": {
+				en: "Sweep · ",
+				zh: "巡检 · "
+			},
+			"prov.tier_patrol_title": {
+				en: "Full sweep — every provider × every key",
+				zh: "全量巡检——覆盖所有供应商与所有密钥"
+			},
+			"prov.probe_count_short": {
+				en: "{count} probes/24h",
+				zh: "24h {count} 次探测"
+			},
+			"prov.tier.cold_start_title": {
+				en: "No request has ever completed — 45s cadence",
+				zh: "尚无完成过的请求——45 秒节奏"
+			},
+			"prov.tier.recent_title": {
+				en: "Last request < 2 min ago — 30s cadence",
+				zh: "最后一次请求在 2 分钟内——30 秒节奏"
+			},
+			"prov.tier.medium_title": {
+				en: "Last request 2-10 min ago — 60s cadence",
+				zh: "最后一次请求在 2-10 分钟前——60 秒节奏"
+			},
+			"prov.tier.long_title": {
+				en: "Last request 10-30 min ago — 5 min cadence",
+				zh: "最后一次请求在 10-30 分钟前——5 分钟节奏"
+			},
+			"prov.tier.deep_title": {
+				en: "Last request 30+ min ago — 3-6h random cadence",
+				zh: "最后一次请求在 30 分钟以上——3-6 小时随机节奏"
 			},
 			"prov.config_runtime_save": {
 				en: "Changes save to runtime configuration",
@@ -3408,7 +3460,159 @@
 			},
 			"cfg.save_health": {
 				en: "Save health",
-				zh: "保存健康检查"
+				zh: "保存健康检测"
+			},
+			"cfg.health_monitor": {
+				en: "Health checks",
+				zh: "健康检测"
+			},
+			"cfg.health_tip": {
+				en: "Configure the readiness probe and the full sweep.",
+				zh: "配置预检与巡检两套健康检测。"
+			},
+			"cfg.idle_check": {
+				en: "Readiness probe (idle check)",
+				zh: "预检（空闲探测）"
+			},
+			"cfg.idle_check_desc": {
+				en: "While idle, pre-verifies the provider your NEXT request will use: probes in routing-priority order and stops at the first healthy one. Runs only in priority_failover / auto modes.",
+				zh: "空闲时预验证“下一个请求会用到的供应商”：按路由优先级探测，测到第一个健康即停。仅在 priority_failover / auto 路由模式下运行。"
+			},
+			"cfg.interval_recent": {
+				en: "Interval after recent traffic (s)",
+				zh: "刚有请求后的间隔（秒，<2 分钟）"
+			},
+			"cfg.interval_medium": {
+				en: "Short-idle interval (s)",
+				zh: "短空闲间隔（秒，2-10 分钟）"
+			},
+			"cfg.interval_long": {
+				en: "Idle interval (s)",
+				zh: "较长空闲间隔（秒，10-30 分钟）"
+			},
+			"cfg.interval_deep_min": {
+				en: "Deep-idle min interval (s)",
+				zh: "深度空闲最短间隔（秒，30 分钟+）"
+			},
+			"cfg.interval_deep_max": {
+				en: "Deep-idle max interval (s)",
+				zh: "深度空闲最长间隔（秒，30 分钟+）"
+			},
+			"cfg.patrol_check": {
+				en: "Full sweep (patrol)",
+				zh: "巡检（全量扫描）"
+			},
+			"cfg.patrol_check_desc": {
+				en: "Periodically checks EVERY key of every provider (several candidate models per key) to revive cooled-down or disabled keys and find dead ones. Runs in all routing modes.",
+				zh: "周期性检查所有供应商的每一把密钥（每把尝试多个候选模型），用于恢复冷却/禁用的密钥并发现失效密钥。所有路由模式均运行。"
+			},
+			"cfg.patrol_interval_min": {
+				en: "Sweep interval min (s)",
+				zh: "巡检最短间隔（秒）"
+			},
+			"cfg.patrol_interval_max": {
+				en: "Sweep interval max (s)",
+				zh: "巡检最长间隔（秒）"
+			},
+			"cfg.patrol_delay": {
+				en: "Delay between probes (s)",
+				zh: "两次探测间隔（秒）"
+			},
+			"cfg.patrol_jitter": {
+				en: "Delay jitter (s)",
+				zh: "间隔抖动（秒）"
+			},
+			"cfg.patrol_timeout": {
+				en: "First-byte timeout floor (s)",
+				zh: "首字节超时兜底（秒，实测样本充足时预算会自适应放宽）"
+			},
+			"cfg.hm_compare_title": {
+				en: "How they differ",
+				zh: "两者区别"
+			},
+			"cfg.hm_cmp_idle": {
+				en: "Readiness probe",
+				zh: "预检"
+			},
+			"cfg.hm_cmp_patrol": {
+				en: "Full sweep",
+				zh: "巡检"
+			},
+			"cfg.hm_cmp_purpose": {
+				en: "Purpose",
+				zh: "目的"
+			},
+			"cfg.hm_cmp_purpose_idle": {
+				en: "Pre-verify the provider the next request will use",
+				zh: "下一个请求前，预验证首选供应商可用"
+			},
+			"cfg.hm_cmp_purpose_patrol": {
+				en: "Revive cooled/disabled keys, find dead keys",
+				zh: "恢复冷却/禁用的密钥，发现失效密钥"
+			},
+			"cfg.hm_cmp_cadence": {
+				en: "Cadence",
+				zh: "节奏"
+			},
+			"cfg.hm_cmp_cadence_idle": {
+				en: "Adaptive 30s – 6h, only while idle",
+				zh: "自适应 30 秒~6 小时，仅空闲时"
+			},
+			"cfg.hm_cmp_cadence_patrol": {
+				en: "Fixed 6-12h random (configurable)",
+				zh: "固定 6-12 小时随机（可配置）"
+			},
+			"cfg.hm_cmp_scope": {
+				en: "Scope",
+				zh: "范围"
+			},
+			"cfg.hm_cmp_scope_idle": {
+				en: "Priority order, stops at first healthy provider",
+				zh: "按优先级，测到第一个健康即停"
+			},
+			"cfg.hm_cmp_scope_patrol": {
+				en: "Every provider × every key",
+				zh: "所有供应商 × 所有密钥"
+			},
+			"cfg.hm_cmp_modes": {
+				en: "Routing modes",
+				zh: "适用模式"
+			},
+			"cfg.hm_cmp_modes_idle": {
+				en: "priority_failover / auto",
+				zh: "priority_failover / auto"
+			},
+			"cfg.hm_cmp_modes_patrol": {
+				en: "All modes",
+				zh: "全部模式"
+			},
+			"cfg.hm_idle_card": {
+				en: "Readiness probe",
+				zh: "预检"
+			},
+			"cfg.hm_patrol_card": {
+				en: "Full sweep",
+				zh: "巡检"
+			},
+			"cfg.hm_next_probe": {
+				en: "Next probe",
+				zh: "下次探测"
+			},
+			"cfg.hm_tier": {
+				en: "Tier",
+				zh: "档位"
+			},
+			"cfg.hm_last_run": {
+				en: "Last run",
+				zh: "上次运行"
+			},
+			"cfg.hm_result": {
+				en: "Result",
+				zh: "结果"
+			},
+			"cfg.hm_next_run": {
+				en: "Next run",
+				zh: "下次运行"
 			},
 			"cfg.run_now": {
 				en: "Run now",
@@ -11039,7 +11243,7 @@
           <span class="provider-signal-item model-count" title="${escapeHtml(`${fmtInt(modelCount)} available models`)}">${iconSvg("boxes")}<strong>${escapeHtml(view.capability.status === "pending" ? "..." : fmtInt(modelCount))}</strong><small>models</small></span>
           <span class="provider-signal-item ${escapeHtml(latencyTone)}" title="Latest first byte latency">${iconSvg("clock")}<strong>${escapeHtml(latencyText)}</strong><small>ttfb</small></span>
         </div>
-        ${providerProbeSummary(view.activity.lastProbe)}
+        ${providerProbeSummary(view.activity.lastProbe, view.activity.probeCount24h)}
         ${providerSparkline(view.activity, view.name)}
 
         <div class="provider-card-footer">
@@ -11087,27 +11291,27 @@
 			return {
 				cold_start: {
 					text: "cold start",
-					title: "No request has ever completed — 45s cadence",
+					title: t("prov.tier.cold_start_title"),
 					tone: "neutral"
 				},
 				recent: {
 					text: "recent",
-					title: "Last request < 2 min ago — 30s cadence",
+					title: t("prov.tier.recent_title"),
 					tone: "ok"
 				},
 				medium: {
 					text: "medium",
-					title: "Last request 2-10 min ago — 60s cadence",
+					title: t("prov.tier.medium_title"),
 					tone: "ok"
 				},
 				long: {
 					text: "long",
-					title: "Last request 10-30 min ago — 5 min cadence",
+					title: t("prov.tier.long_title"),
 					tone: "warn"
 				},
 				deep: {
 					text: "deep",
-					title: "Last request 30+ min ago — 3-6h random cadence",
+					title: t("prov.tier.deep_title"),
 					tone: "soft"
 				}
 			}[tier] || null;
@@ -11141,14 +11345,18 @@
 			const d = /* @__PURE__ */ new Date(n * 1e3);
 			return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 		}
-		function providerProbeSummary(probe) {
-			if (!probe) return `<div class="provider-probe-summary empty" title="No background health probe yet">${iconSvg("radar")}<span>No health probe yet</span></div>`;
+		function providerProbeSummary(probe, probeCount24h) {
+			if (!probe) return `<div class="provider-probe-summary empty" title="${escapeHtml(t("prov.probe_none_title"))}">${iconSvg("radar")}<span>${escapeHtml(t("prov.probe_none"))}</span></div>`;
 			const tone = probeTone(probe);
 			const reason = probe.reason || probe.error_type || probe.outcome || "probe";
 			const isPatrol = String(probe.idle_tier || "") === "patrol";
-			const baseLabel = tone === "ok" ? "Probe OK" : tone === "bad" ? "Probe failed" : "Probe observed";
-			const label = isPatrol ? `Patrol · ${baseLabel}` : baseLabel;
-			const detail = probe.latency_ms != null ? fmtCompactMs(probe.latency_ms) : probe.http_status ? `HTTP ${fmtInt(probe.http_status)}` : "";
+			const baseLabel = tone === "ok" ? t("prov.probe_ok") : tone === "bad" ? t("prov.probe_failed") : t("prov.probe_observed");
+			const label = isPatrol ? `${t("prov.probe_patrol_prefix")}${baseLabel}` : baseLabel;
+			const details = [];
+			if (probe.latency_ms != null) details.push(fmtCompactMs(probe.latency_ms));
+			else if (probe.http_status) details.push(`HTTP ${fmtInt(probe.http_status)}`);
+			if (Number(probeCount24h) > 0) details.push(t("prov.probe_count_short", { count: fmtInt(probeCount24h) }));
+			const detail = details.join(" · ");
 			return `
       <div class="provider-probe-summary tone-${escapeHtml(tone)}${isPatrol ? " patrol-probe" : ""}" title="${escapeHtml(reason)}">
         ${iconSvg(isPatrol ? "shield" : "radar")}
@@ -11166,7 +11374,7 @@
 			const tierInfo = idleTierLabel(probe.idle_tier);
 			const tierLabel = isPatrol ? {
 				text: "patrol",
-				title: "Patrol health checker — full sweep every 6–12h",
+				title: t("prov.tier_patrol_title"),
 				tone: "info"
 			} : tierInfo;
 			const meta = [

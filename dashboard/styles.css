@@ -17043,6 +17043,69 @@ body {
   gap: 12px;
 }
 
+/* ---- Readiness vs full-sweep comparison table ---- */
+.hm-compare {
+  margin-top: 14px;
+  border: 1px solid #e0e5ec;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.hm-compare-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7785;
+  padding: 8px 12px;
+  background: #f7f9fc;
+  border-bottom: 1px solid #e0e5ec;
+}
+
+.hm-compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.hm-compare-table th,
+.hm-compare-table td {
+  padding: 7px 12px;
+  text-align: left;
+  vertical-align: top;
+  border-top: 1px solid #eef1f5;
+}
+
+.hm-compare-table thead th {
+  border-top: none;
+  font-size: 11px;
+  font-weight: 600;
+  color: #1a2332;
+  background: #fbfcfe;
+}
+
+.hm-compare-table tbody th {
+  font-weight: 500;
+  color: #6b7785;
+  white-space: nowrap;
+  width: 1%;
+}
+
+.hm-compare-table td {
+  color: #3d4a5c;
+}
+
+@media (max-width: 700px) {
+  .hm-compare-table tbody th {
+    white-space: normal;
+  }
+  .hm-compare-table th,
+  .hm-compare-table td {
+    padding: 6px 8px;
+  }
+}
+
+
 @media (max-width: 700px) {
   .hm-runtime-row {
     grid-template-columns: 1fr;
