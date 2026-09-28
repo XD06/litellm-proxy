@@ -1598,7 +1598,7 @@ def _patrol_probe_one_key(rt, provider: str, key_index: int, *, canonical_model:
     return bool(result)
 
 
-def _collect_patrol_models(provider: str, observability=None, config=None) -> list[tuple[str, str]]:
+def _collect_patrol_models(provider: str, observability=None, config=None, key_index=None) -> list[tuple[str, str]]:
     """Collect multiple candidate models for patrol probing.
 
     Unlike the idle checker (which picks one model), the patrol tries
@@ -1606,14 +1606,30 @@ def _collect_patrol_models(provider: str, observability=None, config=None) -> li
     just because the chosen model happens to be unavailable.  If ANY
     model works, the key is healthy.
 
+    When key_index is given, the model that THIS key last succeeded with
+    is preferred first (keys of one provider can differ via per-key model
+    maps / permissions); provider-level candidates follow.
+
     Returns a list of (canonical_model, model_source) tuples, deduplicated,
-    ordered by preference: recent_success → capability → manual_map →
-    static → route → route_fallback.  Capped at 5 candidates to limit
+    ordered by preference: key_recent_success → recent_success → capability
+    → manual_map → static → route.  Capped at 5 candidates to limit
     token consumption.
     """
     cfg = config if config is not None else CONFIG
     candidates: list[tuple[str, str]] = []
     seen: set[str] = set()
+
+    # 0. Model that this specific key last succeeded with (if key_index given)
+    if observability is not None and key_index is not None:
+        try:
+            key_model = observability.latest_successful_model_for_key(provider, int(key_index))
+            if key_model:
+                mid = str(key_model)
+                if mid not in seen and not model_registry.provider_model_disabled(cfg, provider, mid):
+                    candidates.append((mid, "key_recent_success"))
+                    seen.add(mid)
+        except Exception:
+            pass
 
     # 1. Recent success model (if any)
     #    If a model was recently used successfully on this provider, it is
@@ -1766,15 +1782,14 @@ def _patrol_health_check_round(*, manual: bool = False) -> None:
                 })
                 continue
 
-            # Collect multiple candidate models for this provider so we
-            # don't unfairly penalise a key just because the single chosen
-            # model happens to be unavailable.  We try models in order and
-            # stop at the first success — if ANY model works, the key is
-            # healthy.
-            candidate_models = _collect_patrol_models(
+            # Discover the model catalog once per provider (with the
+            # fetch-on-the-fly fallback), but pick candidates per key inside
+            # the loop below so each key prefers the model it last
+            # succeeded with.
+            provider_has_models = bool(_collect_patrol_models(
                 provider_name, observability=observability, config=config
-            )
-            if not candidate_models:
+            ))
+            if not provider_has_models:
                 # No models known for this provider — try to discover them
                 # on the fly so the patrol can still probe the keys.
                 print(f"[proxy] {_hprov(provider_name)} patrol: no probe model, fetching models...", flush=True)
@@ -1785,11 +1800,11 @@ def _patrol_health_check_round(*, manual: bool = False) -> None:
                     )
                     # fetch_upstream_models writes directly into config, so
                     # _collect_patrol_models should now see the results.
-                    candidate_models = _collect_patrol_models(
+                    provider_has_models = bool(_collect_patrol_models(
                         provider_name, observability=observability, config=config
-                    )
-                    if candidate_models:
-                        print(f"[proxy] {_hprov(provider_name)} patrol: fetched {len(candidate_models)} models, proceeding", flush=True)
+                    ))
+                    if provider_has_models:
+                        print(f"[proxy] {_hprov(provider_name)} patrol: fetched models, proceeding", flush=True)
                     else:
                         # fetch succeeded but produced no usable models
                         # (e.g. /v1/models returned empty or all disabled).
@@ -1800,7 +1815,7 @@ def _patrol_health_check_round(*, manual: bool = False) -> None:
                         print(f"[proxy] {_hprov(provider_name)} patrol: fetch done but no models (status={cap_status}, error={cap_error})", flush=True)
                 except Exception as e:
                     print(f"[proxy] {_hprov(provider_name)} patrol: model fetch failed: {type(e).__name__}: {e}", flush=True)
-            if not candidate_models:
+            if not provider_has_models:
                 observability.record_health_probe({
                     "provider": provider_name,
                     "idle_tier": "patrol",
@@ -1839,6 +1854,14 @@ def _patrol_health_check_round(*, manual: bool = False) -> None:
                     delay = base_delay + random.uniform(0, max(0, jitter))
                     time.sleep(delay)
 
+                # Per-key candidate list: prefer the model this key last
+                # succeeded with (keys can differ via per-key model maps /
+                # permissions), then provider-level candidates.
+                candidate_models = _collect_patrol_models(
+                    provider_name, observability=observability, config=config, key_index=key_index
+                )
+                if not candidate_models:
+                    continue
                 total_probes += 1
                 # Try each candidate model until one succeeds.
                 key_healthy = False

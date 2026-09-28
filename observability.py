@@ -964,6 +964,43 @@ class ProxyObservability:
                 return provider_model or request_model or None
         return None
 
+    def latest_successful_model_for_key(self, provider: str, key_index: int) -> Optional[str]:
+        """Return the provider_model from the most recent successful attempt
+        made with a *specific key* of a provider.
+
+        Keys of one provider can behave differently (per-key model maps,
+        per-key quotas/permissions), so the patrol prefers the model that
+        THIS key last succeeded with before falling back to provider-level
+        recent successes.
+        """
+        name = str(provider or "")
+        try:
+            index = int(key_index)
+        except (TypeError, ValueError):
+            return None
+        if not name or index < 0:
+            return None
+        with self._lock:
+            recent = list(self._recent)
+        for item in recent:
+            if int(item.get("status_code") or 0) >= 400:
+                continue
+            request_model = str(item.get("model") or "").strip()
+            for attempt in item.get("attempts") or []:
+                if str(attempt.get("provider") or "") != name:
+                    continue
+                try:
+                    attempt_key_index = int(attempt.get("key_index"))
+                except (TypeError, ValueError):
+                    continue
+                if attempt_key_index != index:
+                    continue
+                if str(attempt.get("outcome") or "") != "success":
+                    continue
+                provider_model = str(attempt.get("provider_model") or "").strip()
+                return provider_model or request_model or None
+        return None
+
     def latest_successful_model_global(self) -> Optional[str]:
         """Return the model from the most recent successful request across ALL providers.
 

@@ -86,7 +86,7 @@ def _idle_cfg(provider="alpha", key_count=1):
     }
 
 
-def _record_plain_success(obs, provider, model, first_event_ms, seq):
+def _record_plain_success(obs, provider, model, first_event_ms, seq, key_index=0):
     request_id = f"req-{seq}"
     obs.record_request_start(
         request_id,
@@ -101,8 +101,8 @@ def _record_plain_success(obs, provider, model, first_event_ms, seq):
         request_id=request_id,
         attempt_no=1,
         provider=provider,
-        key_index=0,
-        key=f"raw-{provider}-key-0",
+        key_index=key_index,
+        key=f"raw-{provider}-key-{key_index}",
         url=f"https://{provider}.example/v1/chat/completions",
         headers={},
         provider_model=model,
@@ -439,6 +439,35 @@ class PatrolInterruptRescheduleTests(unittest.TestCase):
             sse2json._PATROL_RESCHEDULE_AFTER_INTERRUPT_S + 1,
             "interrupted patrol must retry within minutes, not 6-12h",
         )
+
+
+class PatrolKeyModelPreferenceTests(unittest.TestCase):
+    """Patrol prefers the model this specific key last succeeded with."""
+
+    def test_key_recent_success_ranks_first_for_that_key(self):
+        cfg = _idle_cfg("alpha", 2)
+        cfg["models"]["provider_model_capabilities"]["alpha"]["models"] = ["model-a", "model-b", "alpha-model"]
+        cfg["models"]["provider_model_capabilities"]["alpha"]["canonical_map"] = {
+            "model-a": "model-a",
+            "model-b": "model-b",
+            "alpha-model": "alpha-model",
+        }
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+        # key 0 (older) and key 1 (newer) succeeded with different models.
+        _record_plain_success(obs, "alpha", "model-a", 100, seq=1, key_index=0)
+        _record_plain_success(obs, "alpha", "model-b", 100, seq=2, key_index=1)
+
+        per_key = sse2json._collect_patrol_models("alpha", observability=obs, config=cfg, key_index=1)
+        self.assertEqual(per_key[0], ("model-b", "key_recent_success"))
+        # Provider-level newest success is model-b too (deduped); model-a
+        # still appears as a capability candidate.
+        self.assertIn(("model-a", "capability"), per_key)
+
+        provider_level = sse2json._collect_patrol_models("alpha", observability=obs, config=cfg)
+        self.assertEqual(provider_level[0], ("model-b", "recent_success"))
+
+        other_key = sse2json._collect_patrol_models("alpha", observability=obs, config=cfg, key_index=0)
+        self.assertEqual(other_key[0], ("model-a", "key_recent_success"))
 
 
 class ProbeCountVisibilityTests(unittest.TestCase):
