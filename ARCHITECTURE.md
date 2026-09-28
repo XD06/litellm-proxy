@@ -90,7 +90,7 @@ provider/keys/format 变更或后台触发 → `model_discovery_queue` → 拉�
 即时请求永远优先：有真实请求在途、或最后一个请求结束后 `background.quiet_window_s` 秒内，后台网络任务（模型发现、AA 价格抓取、启动 AA 预取）自动推迟并按短间隔重试，网络空闲后才执行（健康探测另有 in_flight 避让与代数熔断）。手动触发的操作（刷新模型、测试按钮）走紧急通道不受窗口限制；被连续推迟超过 `background.max_defer_s` 的任务会执行一次防饿死。即时请求处理路径本身无任何同步网络操作。
 
 ### 3.4 健康探测与自动路由
-自适应空闲健康检查（频率 30s~6h） + 巡逻扫描 → `observability` 健康分 → `router` 在 `auto` 模式下按健康分动态调整 provider 优先级（`provider_select` 共 5 种模式：`priority_failover` / `round_robin` / `weighted_rr` / `random` / `auto`）。
+预检（Readiness Probe，配置键 `idle_*`，自适应 30s~6h，按档位缩广度、失败轮退避） + 巡检（Full Sweep，配置键 `patrol_*`，6-12h 随机全量扫描，被真实请求打断后 ~10min 就近重排） → `observability` 健康分 → `router` 在 `auto` 模式下按健康分动态调整 provider 优先级（`provider_select` 共 5 种模式：`priority_failover` / `round_robin` / `weighted_rr` / `random` / `auto`）。探测首字节预算按实测 p95 自适应；探测产生的"流打开但无首事件"只开平坦 120s 兼容性熔断（`probe_first_event_timeout`），不爬升级阶梯，避免毒化慢思考模型的路由；冷却未到期 key 不被重复探测，失败计数带时间衰减。详见 `docs/HEALTH_CHECK_MECHANISM.md`。
 
 ## 4. 核心抽象与设计模式
 

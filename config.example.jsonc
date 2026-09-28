@@ -134,10 +134,11 @@
 
     // 可配置失败策略。未配置的字段会使用代码默认值。
     // cooldown_scope:
-    // - none         只记录失败，不冷却 key/provider
-    // - key          冷却当前 key
-    // - provider     冷却当前 provider
-    // - key_provider 同时冷却 key 和 provider
+    // - none          只记录失败，不冷却 key/provider
+    // - key           冷却当前 key
+    // - provider      冷却当前 provider
+    // - key_provider  同时冷却 key 和 provider
+    // - compatibility 打开该 key+model+format 组合的兼容性熔断（不影响 key 本身）
     // provider_cooldown_s 会被限制到合理范围，避免误配置导致 provider 长时间不可用。
     "failure_policies": {
       "key_invalid": { "cooldown_scope": "key", "cooldown_s": 3600, "disables_key": true },
@@ -151,6 +152,10 @@
         "disables_key": false
       },
       "provider_compat": { "cooldown_scope": "none", "cooldown_s": 0, "disables_key": false },
+      // 仅由健康探测产生：流已打开但超时未收到首事件。平坦冷却（不随失败
+      // 次数升级），下一次探测成功即清除——避免把首字节较慢的思考型模型
+      // 误伤进长时间熔断。
+      "probe_first_event_timeout": { "cooldown_scope": "compatibility", "cooldown_s": 120, "disables_key": false },
       "empty_visible_output": { "cooldown_scope": "none", "cooldown_s": 0, "disables_key": false },
       "client_error": { "cooldown_scope": "none", "cooldown_s": 0, "disables_key": false },
       "unknown": { "cooldown_scope": "key", "cooldown_s": 10, "disables_key": false }

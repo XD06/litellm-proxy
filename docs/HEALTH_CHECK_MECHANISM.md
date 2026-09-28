@@ -1,95 +1,112 @@
 # 健康检测机制 Overview
 
-> 生成于 2026-07-06。梳理 LiteLLM Proxy 用于"保活"的三层健康机制。
+> 更新于 2026-09-28。梳理 LiteLLM Proxy 的两套健康探测器 + 健康分数体系。
+> 控制台命名：**预检（Readiness Probe，配置键 `idle_*`）** 与 **巡检（Full Sweep，配置键 `patrol_*`）**。
+> 注意：配置键与 Admin API 字段沿用 `idle`/`patrol` 历史名，仅界面文案使用新名。
 
 ## 项目定位
 
 LiteLLM Proxy（入口 `sse2json.py`，默认端口 4894）是位于 LLM 客户端与多个上游 Provider 之间的格式感知代理。核心职责：OpenAI Chat Completions / Responses / Anthropic Messages 三种 API 格式互转 + 多 Provider/多 key 路由、熔断、重试。
 
-"保活"目标：在空闲期主动探测上游 key 是否仍可用，让空闲期过后的第一个真实请求能一次命中健康 provider，同时给 `auto` 路由模式提供健康分数。
+"保活"目标：空闲期主动探测上游 key 是否仍可用，让空闲期过后的第一个真实请求一次命中健康 provider，同时给 `auto` 路由模式提供健康分数。
 
-## 三层健康机制（全部为 daemon 线程，定义于 `sse2json.py`）
+## 两套探测器（均为 daemon 线程，定义于 `sse2json.py`）
 
-### 1. Idle Health Checker（空闲自适应检查器）— L311~1015
-
-- **目标**：空闲时主动探测，让空闲期后的第一个请求一次命中。
-- **自适应节奏**（`_idle_tier_info`，按"距上次请求完成时间"分档）：
-  - `cold_start` 45s / `recent` 30s(<2min) / `medium` 60s(2-10min) / `long` 5min(10-30min) / `deep` 3-6h 随机(30min+)
-- **关键设计**：
-  - 优先级有序 + 遇健康即停（`_idle_probe_one_provider` 试该 provider 所有 key，任一健康即 break）
-  - 分块睡眠（≤30s chunk）：deep idle 期间有真实请求到来时 30s 内提前唤醒重算间隔
-  - 复用 `router.report_failure()` 的 cooldown 阶梯，无新状态管理
-  - 有 `requests_in_flight` 时跳过本轮
-  - 仅 `priority_failover` / `auto` 模式运行
-- **状态**：`_idle_probe_schedule = {interval_s, computed_at}`
-
-### 2. Patrol Health Checker（全量巡检保活）— L1018~1650
-
-- **目标**：补充 idle 在 deep idle 期间的盲区，全量扫描每个 provider × 每个 key。
-- **关键设计**：
-  - 固定长间隔 1-3h 随机（`_PATROL_INTERVAL_S`）
-  - 全量扫描（不像 idle 遇到第一个健康就停）
-  - 流式探测省 token：`stream=true, max_tokens=1`，读首字节即关（`_patrol_probe_one_key`）
-  - 多候选模型（`_collect_patrol_models`），任一成功即健康
-  - 探测间 3-5s 随机延迟，跨 provider 也延迟
-  - 手动触发 `_trigger_patrol_now()`，带 `_PATROL_TRIGGER_LOCK` 防并发重叠
-  - 每探测一把 key 前检查 in_flight，有真实请求则中断
-  - 每 provider 可配 `skip_patrol_probe`（idle 对应 `skip_idle_probe`）
-- **状态**：`_patrol_probe_schedule = {last_run_at, last_run_duration_s, last_result, last_summary, next_run_at, interval_s, running, manual_trigger}`
-
-### 3. Health Score Updater（健康分数更新器）— L299~307
-
-- 辅助层（算分器，非探测器）：每 15s 调用 `observability.provider_health_scores()` 算 0-100 分，喂给 router 的 `auto` 模式。
-- **分数构成**（`observability.py` L655）：
-  - 成功率 0-50 / 延迟 0-20 / key 可用性 0-20 / 可用性状态 0-10
-- **影响 auto 路由**（`router._auto_adjusted_priority`）：≥75 不罚，50-74 罚 -5，25-49 罚 -10，<25 罚 -20
-
-## 两套检查器对比
-
-| 维度 | Idle Health Checker | Patrol Health Checker |
+| 维度 | 预检 Readiness Probe（`idle_*`） | 巡检 Full Sweep（`patrol_*`） |
 |---|---|---|
-| 定位 | 空闲期前置准备 | 周期性全量体检 |
-| 节奏 | 自适应 30s~6h | 固定 1-3h 随机 |
-| 扫描范围 | 按优先级探到第一个健康即停 | 所有 provider × 所有 key |
-| 触发 | 仅自动 | 自动 + 手动 |
-| 适用模式 | priority_failover / auto | 全部 |
+| 目的 | 预验证"下一个请求会用到的 provider" | 周期性体检：恢复冷却/禁用 key、发现死 key |
+| 节奏 | 自适应分档 30s~6h（见下） | 固定 6-12h 随机（可配 `patrol_interval_min/max_s`） |
+| 范围 | 按路由优先级，测到第一个健康即停 | 所有 provider × 所有 key（每 key 最多 5 个候选模型） |
+| 广度 | 按档位缩放：`recent` 只测 plan[0]，`medium` 前 3，更深档全量 | 全量 |
+| 触发 | 仅自动 | 自动 + 手动（`POST /-/admin/health/patrol/trigger`） |
+| 适用模式 | 仅 `priority_failover` / `auto` | 全部模式 |
 | 事件标记 | idle_tier = cold_start/recent/medium/long/deep | idle_tier = patrol |
-| 并发保护 | 线程内串行 | `_PATROL_TRIGGER_LOCK` |
 
-**共同点**：streaming probe + 读首字节即关；复用 `router.report_failure/success` 的 cooldown；都通过 `observability.record_health_probe()` 记录；都用 `RuntimeContext` 快照保证一致性；有真实请求时都让路。
+### 1. 预检（Idle Health Checker）
+
+- **自适应节奏**（`_idle_tier_info`，按"距上次请求完成时间"分档）：
+  - `cold_start` 45s / `recent` 30s(<2min) / `medium` 60s(2-10min) / `long` 5min(10-30min) / `deep` 3-6h 随机(30min+)。全部可经 `health_monitor.*` 配置覆盖。
+- **失败轮退避**：连续整轮无健康 provider 时，下轮间隔 ×2/×4（封顶 max(档位间隔, 30min)，deep 档不受影响）；发现健康即复位。
+- **分块睡眠**（≤30s chunk）：deep idle 期间有真实请求到来时 30s 内提前唤醒重算间隔。
+- **失败反噬防护**：
+  - **冷却中的 key 不再每轮补测**——冷却到期后自动回到可用池，下一轮作为可用 key 验证（最多晚一个 tick）；
+  - **禁用 key 每轮最多补测 1 把**（唯一恢复通道，但要限频）；
+  - 同一 provider 连续 key 探测之间 1.5s 间隔，避免每轮连击。
+- **复用 `router.report_failure()` 的冷却策略**，无新状态管理。
+- 有 `requests_in_flight` 时跳过本轮；仅 `priority_failover` / `auto` 模式运行。
+- 状态：`_idle_probe_schedule = {interval_s, computed_at}` + `_idle_failed_round_streak`。
+
+### 2. 巡检（Patrol Health Checker）
+
+- **固定 6-12h 随机间隔**（历史文档写的 1-3h 已过期），全量扫描每个 provider × 每个 key。
+- **流式探测省 token**：`stream=true, max_tokens=16`（payload 为 `"Hi"`，历史教训：空 content 会被上游 400 误伤健康 key），读首个非 `[DONE]` 的 `data:` 事件即关连接。
+- **多候选模型**（`_collect_patrol_models`，来源优先级 recent_success → capability → manual_map → static → route，上限 5 个），任一成功即健康；无候选模型时现场拉取 `/v1/models` 补救。
+- **探测间 3-5s 随机延迟**（`patrol_delay_s` + `patrol_delay_jitter_s`），跨 provider 也延迟。
+- **中断就近重排**：被真实请求打断的轮次在 ~10min 后重试（`_PATROL_RESCHEDULE_AFTER_INTERRUPT_S`），不再等下一个完整 6-12h 间隔——巡检是禁用 key 的主要恢复通道，不能被一个 in-flight 请求推迟半天。
+- **手动触发** `_trigger_patrol_now()`，`_PATROL_TRIGGER_LOCK` 防并发重叠。
+- 每 provider 可配 `skip_patrol_probe`（预检对应 `skip_idle_probe`）。
+- 状态：`_patrol_probe_schedule = {last_run_at, last_run_duration_s, last_result, last_summary, next_run_at, interval_s, running, manual_trigger}`。
+
+### 3. 健康分数更新器（算分器，非探测器）
+
+每 15s 调用 `observability.provider_health_scores()` 计算 0-100 分，喂给 router 的 `auto` 模式：
+
+- 成功率 0-50 / 延迟 0-20 / key 可用性 0-20 / 可用性状态 0-10（无数据按健康计）。
+- 影响 auto 路由（`router._auto_adjusted_priority`）：≥75 不罚，50-74 罚 -5，25-49 罚 -10，<25 罚 -20。
+
+## 探测公共机制
+
+### 探测载荷与首字节预算（自适应）
+
+- 载荷：`content="Hi"` + `max_tokens=16`（`health_monitor.probe_max_tokens` 可覆盖）+ `stream=true`，并应用与真实请求相同的 provider 特殊变换（reasoning content / anthropic thinking）。
+- **首字节预算自适应**（`_probe_first_event_budget` → `_adaptive_first_event_budget`）：以该 provider+model 的 plain 档实测首事件 p95×1.5 动态放宽（≥20 样本，下限 20s、上限 45s），无样本时回退 `health_monitor.patrol_first_byte_timeout_s`（默认 15s）。思考型模型排队 30s+ 不会再被固定超时误判。
+- 探测本身 payload 很小；真实请求的长上下文首字节延迟（可达 60s+）由真实请求自身的自适应预算（25-90s）处理，与探测预算相互独立。
+
+### 失败上报：防毒化设计
+
+- **"流已打开但无首事件"（`first_event_timeout`）**：上报为 `probe_first_event_timeout` → **平坦 120s 兼容性熔断**（`scheduler_policy.PROBE_FIRST_EVENT_CIRCUIT_S`，可经 `retry.failure_policies.probe_first_event_timeout` 覆盖），**不爬** `provider_compat` 的 10/60/3600s 阶梯。理由：探测证据是连续的（每轮重测），短冷却 + 成功即清零已足够；升级阶梯只会把首字节慢的健康模型挡在路由外。下一次探测成功时 `report_success` 会清除该熔断。
+- **ProbeCoordinator（`probe_coordinator.py`）**：
+  - `run_auto`：串行化自动探测（同一时刻只跑一个）；执行前记录真实请求代数，若期间有真实请求到来则放弃；`probe_recent_success_s`（默认 600s）内该 provider+model 有真实成功则跳过。
+  - `should_apply_failure`：同一 scope（provider+key+model+format）**连续窗口内 2 次失败**才上报 router；失败计数带 **600s 时间衰减**（`failure_decay_s`，陈旧证据不再武装处罚）；`key_invalid`/`quota_or_balance` 一次即上报。
+- **HTTP 错误**走 `_probe_error_type` 分类（401/403→key_invalid、429→rate_limited、402→quota_or_balance、5xx→server_error、4xx→client_error），按 `scheduler_policy.failure_policy_for_error_type` 冷却；模型级 404 只记录不惩罚 key。
+
+### 探测压力可见性
+
+- `observability` 聚合每 provider 的 `probeCount24h`（24h 探测次数，受探测事件 deque 上限约束，是下界），控制台 provider 卡片的探测摘要 chip 会显示。
+- 巡检轮次结果 `X/Y keys healthy` 同时是本轮探测请求数。
 
 ## 数据流
 
 ```
-三个 daemon 线程
+两个探测 daemon 线程 + 健康分数线程
    │  通过 _request_runtime() 获取 RuntimeContext 快照
    ▼
 RuntimeContext（router / observability / upstream_client / config）
-   │  upstream_client 发起 streaming probe
+   │  upstream_client 发起 streaming probe（自适应首字节预算）
    ▼
 上游 Providers（读首个 SSE data 事件即关连接）
+   │  ProbeCoordinator 门控（2 连击 + 时间衰减 + 真实请求让路）
    │  observability.record_health_probe() 记录事件
    ▼
-observability（探测事件 deque + provider_health_scores 计算）
+observability（探测事件 deque + probeCount24h + provider_health_scores）
    │  router.update_health_scores() 喂给 auto 路由
    │  Admin API 读取
    ▼
-Dashboard（idle/patrol 状态 · 健康分数环 · 手动触发 · 配置表单）
+Dashboard（预检/巡检运行时卡 · 健康分数环 · 手动触发 · 配置表单 · 对照表）
 ```
 
 ## Admin API 端点（`admin_routes.py`，`/-/admin/*`）
 
-- `GET /-/admin/metrics` — 附带 `idle_state`（tier + 下次探测倒计时）+ `patrol_state`
+- `GET /-/admin/metrics` — 附带 `idle_state`（tier + 下次探测稳定倒计时）+ `patrol_state`
 - `GET /-/admin/health/scores` — provider 健康分数（0-100 + grade）
 - `POST /-/admin/health/patrol/trigger` — 手动触发巡检
 - `POST /-/admin/config/health-monitor` — 更新 health_monitor 配置（热生效）
 
-## 前端关键函数（`dashboard_src/src/app.js`）
+## 前端关键位置
 
-- `loadHealthMonitorForm()` / `collectHealthMonitorPatch()` — 配置表单读写
-- `updateHealthMonitorRuntime()` — 实时运行时状态显示
-- `renderHealthOverview()` — 健康分数环 + 等级 + 进度条
-- `hmPatrolRunBtn` click → `POST /-/admin/health/patrol/trigger`
+- 设置页 `panel health-monitor-panel`（`dashboard/index.html`）：配置表单 + 预检/巡检对照表 + 两张运行时状态卡；文案键 `cfg.*`（`dashboard_src/src/i18n.js`）。
+- provider 抽屉 `provider-inspector-section`：`skip_idle_probe` / `skip_patrol_probe` 跳过开关（跳过预检 / 跳过巡检）。
+- `renderHealthOverview` / `renderIdleStateBar` / `providerProbeSummary` / `providerProbeRow`（`dashboard_src/src/app.js`）：健康分数环、idle 状态条、探测摘要 chip（含 probes/24h）、探测事件列表。
 
 ## 配置项（`health_monitor`）
 
@@ -102,23 +119,30 @@ Dashboard（idle/patrol 状态 · 健康分数环 · 手动触发 · 配置表�
   "idle_check_interval_deep_min_s": 10800,
   "idle_check_interval_deep_max_s": 21600,
   "patrol_check_enabled": true,
-  "patrol_interval_min_s": 3600,
-  "patrol_interval_max_s": 10800,
+  "patrol_interval_min_s": 21600,
+  "patrol_interval_max_s": 43200,
   "patrol_delay_s": 3,
   "patrol_delay_jitter_s": 2,
-  "patrol_first_byte_timeout_s": 15
+  "patrol_first_byte_timeout_s": 15,
+  "probe_recent_success_s": 600,
+  "probe_max_tokens": 16
 }
 ```
 
+> `patrol_first_byte_timeout_s` 现在是自适应首字节预算的**兜底值**（无实测样本时使用）。
+
 ## 关键代码索引
 
-| 机制 | 位置 |
+| 机制 | 位置（函数名，行号会漂移，以 grep 为准） |
 |---|---|
-| 健康分数后台更新 | `sse2json.py` L270~307 |
-| Idle 检查器 | `sse2json.py` L311~1015 |
-| Patrol 检查器 | `sse2json.py` L1018~1650 |
-| 健康分数计算 | `observability.py` L655~772 |
-| 探测事件记录 | `observability.py` L530~580 |
-| auto 路由优先级调整 | `router.py` L706~726 |
-| Admin 端点 | `admin_routes.py` L193~227, L258~265, L648~665 |
-| 前端 UI | `dashboard_src/src/app.js` L6665~6879, L2259~2310 |
+| 健康分数后台更新 | `sse2json.py` `_update_health_scores` / `_start_health_score_updater` |
+| 预检检查器 | `sse2json.py` `_idle_tier_info` / `_build_probe_plan` / `_idle_probe_one_provider_impl` / `_idle_health_check_round` / `_start_idle_health_checker` |
+| 巡检检查器 | `sse2json.py` `_patrol_probe_one_key_impl` / `_collect_patrol_models` / `_patrol_health_check_round` / `_start_patrol_health_checker` / `_trigger_patrol_now` / `_patrol_schedule_snapshot` |
+| 探测协调 + 失败衰减 | `probe_coordinator.py` |
+| 平坦超时熔断 | `scheduler_policy.py` `PROBE_FIRST_EVENT_CIRCUIT_S` / `router.py report_failure` 兼容性分支 |
+| 自适应探测预算 | `sse2json.py` `_probe_first_event_budget`（复用 `_adaptive_first_event_budget`） |
+| 健康分数计算 | `observability.py` `provider_health_scores` |
+| 探测事件记录/聚合 | `observability.py` `record_health_probe` / `_merge_health_probe_summary`（probeCount24h） |
+| auto 路由优先级调整 | `router.py` `_auto_adjusted_priority` |
+| Admin 端点 | `admin_routes.py`（metrics 的 idle_state/patrol_state、health/scores、health/patrol/trigger、config/health-monitor） |
+| 相关测试 | `tests/test_health_check_optimizations.py`、`tests/test_probe_coordinator.py`、`tests/test_admin_api.py`（Idle/Patrol 测试类） |
