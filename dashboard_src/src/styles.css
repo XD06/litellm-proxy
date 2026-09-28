@@ -16911,7 +16911,7 @@ body {
   border: 1px solid var(--line-soft);
   border-radius: 8px;
   padding: 14px;
-  background: var(--surface-soft);
+  /*background: var(--surface-soft);*/
 }
 
 .health-monitor-section-head {
