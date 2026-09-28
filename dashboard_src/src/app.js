@@ -5586,6 +5586,42 @@ import {
     return "neutral";
   }
 
+  const PROBE_REASON_KEYS = {
+    "skip_patrol_probe": "prov.probe_reason.skip_patrol_probe",
+    "skip_idle_probe": "prov.probe_reason.skip_patrol_probe",
+    "provider disabled": "prov.probe_reason.provider_disabled",
+    "no keys configured": "prov.probe_reason.no_keys",
+    "no available key": "prov.probe_reason.no_available_key",
+    "keys cooling down or disabled": "prov.probe_reason.keys_cooling",
+    "no probe model": "prov.probe_reason.no_probe_model",
+    "no probe model (fetch failed or empty)": "prov.probe_reason.no_probe_model_fetch",
+    "request conversion failed": "prov.probe_reason.conversion_failed",
+    "no supported format": "prov.probe_reason.no_format",
+    "recent real success": "prov.probe_reason.recent_success",
+    "probe coordinator busy": "prov.probe_reason.coordinator_busy",
+    "fallback probe model rejected": "prov.probe_reason.fallback_rejected",
+    "patrol model rejected": "prov.probe_reason.patrol_rejected",
+    "idle stream opened but no data event": "prov.probe_reason.no_data",
+    "patrol stream opened but no data event": "prov.probe_reason.no_data",
+  };
+
+  function probeReasonText(probe) {
+    const reason = String((probe || {}).reason || "");
+    const key = PROBE_REASON_KEYS[reason];
+    return key ? t(key) : reason;
+  }
+
+  function probeActionText(action) {
+    const map = {
+      "none": "prov.probe_action.none",
+      "observed_only": "prov.probe_action.observed_only",
+      "reported_failure": "prov.probe_action.reported_failure",
+      "reported_success": "prov.probe_action.reported_success",
+    };
+    const key = map[String(action || "")];
+    return key ? t(key) : String(action || "");
+  }
+
   function idleTierLabel(tier) {
     const labels = {
       cold_start: { text: "cold start", title: t("prov.tier.cold_start_title"), tone: "neutral" },
@@ -5649,8 +5685,9 @@ import {
     else if (probe.http_status) details.push(`HTTP ${fmtInt(probe.http_status)}`);
     if (Number(probeCount24h) > 0) details.push(t("prov.probe_count_short", { count: fmtInt(probeCount24h) }));
     const detail = details.join(" · ");
+    const chipTitle = [probeReasonText(probe), probeActionText(probe.action)].filter(Boolean).join(" · ");
     return `
-      <div class="provider-probe-summary tone-${escapeHtml(tone)}${isPatrol ? " patrol-probe" : ""}" title="${escapeHtml(reason)}">
+      <div class="provider-probe-summary tone-${escapeHtml(tone)}${isPatrol ? " patrol-probe" : ""}" title="${escapeHtml(chipTitle)}">
         ${iconSvg(isPatrol ? "shield" : "radar")}
         <span>${escapeHtml(label)}</span>
         ${detail ? `<small>${escapeHtml(detail)}</small>` : ""}
@@ -5660,9 +5697,11 @@ import {
 
   function providerProbeRow(probe) {
     const tone = probeTone(probe);
-    const reason = probe.reason || probe.error_type || probe.outcome || "probe";
-    const action = probe.action || "none";
-    const model = probe.model || "-";
+    const reasonRaw = String(probe.reason || probe.error_type || probe.outcome || "probe");
+    const reason = probeReasonText(probe) || reasonRaw;
+    const actionRaw = String(probe.action || "none");
+    const action = probeActionText(actionRaw);
+    const model = probe.model || "—";
     const isPatrol = String(probe.idle_tier || "") === "patrol";
     const tierInfo = idleTierLabel(probe.idle_tier);
     const tierLabel = isPatrol ? { text: "patrol", title: t("prov.tier_patrol_title"), tone: "info" } : tierInfo;
@@ -5673,7 +5712,7 @@ import {
       tierInfo ? `tier:${tierInfo.text}` : "",
       probe.next_probe_in_s ? `next:${fmtNextProbe(probe.next_probe_in_s)}` : "",
     ].filter(Boolean).join(" · ");
-    const timing = probe.latency_ms != null ? fmtMs(probe.latency_ms) : probe.http_status ? `HTTP ${fmtInt(probe.http_status)}` : "-";
+    const timing = probe.latency_ms != null ? fmtMs(probe.latency_ms) : probe.http_status ? `HTTP ${fmtInt(probe.http_status)}` : "—";
     const tierBadge = tierLabel ? `<span class="probe-tier-badge tone-${escapeHtml(tierLabel.tone)}${isPatrol ? " patrol-badge" : ""}" title="${escapeHtml(tierLabel.title)}">${escapeHtml(tierLabel.text)}</span>` : "";
     const nextBadge = probe.next_probe_in_s ? `<span class="probe-next-badge" title="Next probe in ~${fmtNextProbe(probe.next_probe_in_s)}">→ ${escapeHtml(fmtNextProbe(probe.next_probe_in_s))}</span>` : "";
     const timeStr = fmtProbeTime(probe.ts);
@@ -5681,10 +5720,10 @@ import {
     return `
       <div class="provider-probe-row tone-${escapeHtml(tone)}">
         <span class="provider-status-dot ${tone === "bad" ? "bad" : tone === "warn" ? "warn" : tone === "ok" ? "ok" : ""}"></span>
-        <strong title="${escapeHtml(reason)}">${escapeHtml(reason)}</strong>
+        <strong title="${escapeHtml(reasonRaw)}">${escapeHtml(reason)}</strong>
         <span title="${escapeHtml(model)}">${escapeHtml(model)}</span>
-        <small title="${escapeHtml(meta)}">${escapeHtml(meta || "-")}</small>
-        <em title="${escapeHtml(action)}">${escapeHtml(action)}</em>
+        <small title="${escapeHtml(meta)}">${escapeHtml(meta || "—")}</small>
+        <em title="${escapeHtml(actionRaw)}">${escapeHtml(action)}</em>
         <b>${escapeHtml(timing)}</b>
         ${tierBadge}
         ${nextBadge}
@@ -6375,6 +6414,7 @@ import {
           </summary>
           <div class="provider-overview-disclosure-body">
             ${renderIdleStateBar()}
+            <div class="provider-probe-legend">${escapeHtml(t("prov.probe_legend"))}</div>
             <div class="provider-probe-list" data-provider-probe-list="${escapeHtml(view.name)}">
               ${recentProbes.length ? recentProbes.map(providerProbeRow).join("") : `<div class="empty pad-slim">${escapeHtml(t("prov.overview_probe_empty"))}</div>`}
               ${probeOverflow ? `<div class="probe-list-more" data-probe-list-more="${escapeHtml(view.name)}">${escapeHtml(t("prov.overview_more_probes", { count: fmtInt(probeOverflow) }))}</div>` : ""}

@@ -6537,6 +6537,15 @@ form.is-busy {
   text-align: right;
 }
 
+.provider-probe-legend {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+  padding: 4px 2px 8px;
+  border-bottom: 1px dashed var(--line-soft);
+  margin-bottom: 8px;
+}
+
 .provider-probe-row {
   display: grid;
   grid-template-columns: 10px minmax(118px, 1.1fr) minmax(128px, 1fr) minmax(64px, auto);
@@ -13134,6 +13143,14 @@ body {
 .config-side-column .config-tab-nav {
   width: 100%;
   max-width: 100%;
+  /* The narrow side column cannot fit all seven tabs on one row; wrap
+     instead of clipping the last tabs beyond the hidden-scrollbar edge
+     (高级/Advanced used to disappear entirely). */
+  flex-wrap: wrap;
+}
+
+.config-side-column .config-tab-nav button {
+  padding: 9px 12px;
 }
 
 .config-side-column .config-tab-panel {
@@ -16883,12 +16900,6 @@ body {
 }
 
 /* ---- Health Monitor panel ---- */
-.health-monitor-panel {
-  border-color: #dfe5ec;
-  border-radius: 10px;
-  background: #fff;
-}
-
 .health-monitor-form {
   display: flex;
   flex-direction: column;
@@ -16897,10 +16908,10 @@ body {
 }
 
 .health-monitor-section {
-  border: 1px solid #e8edf3;
+  border: 1px solid var(--line-soft);
   border-radius: 8px;
   padding: 14px;
-  background: #fafbfc;
+  background: var(--surface-soft);
 }
 
 .health-monitor-section-head {
@@ -16919,14 +16930,14 @@ body {
   display: block;
   font-size: 13px;
   font-weight: 600;
-  color: #1a2332;
+  color: var(--text);
   margin-bottom: 2px;
 }
 
 .health-monitor-section-head small {
   display: block;
   font-size: 11px;
-  color: #6b7785;
+  color: var(--muted);
   line-height: 1.4;
 }
 
@@ -16944,23 +16955,8 @@ body {
 
 .health-monitor-fields .field span {
   font-size: 11px;
-  color: #6b7785;
+  color: var(--muted);
   font-weight: 500;
-}
-
-.health-monitor-fields .field input {
-  width: 100%;
-  padding: 6px 8px;
-  font-size: 12px;
-  border: 1px solid #d1d9e0;
-  border-radius: 6px;
-  background: #fff;
-}
-
-.health-monitor-fields .field input:focus {
-  border-color: var(--accent, #4a6cf7);
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(74, 108, 247, 0.1);
 }
 
 /* Capsule switch */
@@ -16984,7 +16980,7 @@ body {
   width: 36px;
   height: 20px;
   border-radius: 20px;
-  background: #c5cdd6;
+  background: var(--line-strong);
   transition: background 0.2s ease;
   position: relative;
 }
@@ -16997,7 +16993,7 @@ body {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--surface);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   transition: transform 0.2s ease;
 }
@@ -17016,20 +17012,20 @@ body {
   min-height: 20px;
 }
 
-.health-monitor-status.info { color: #4a6cf7; }
-.health-monitor-status.ok { color: #1a8754; }
-.health-monitor-status.bad { color: #d93026; }
+.health-monitor-status.info { color: var(--route-info); }
+.health-monitor-status.ok { color: var(--success); }
+.health-monitor-status.bad { color: var(--danger); }
 
 /* ---- Patrol probe visual distinction ---- */
 .provider-probe-summary.patrol-probe {
-  border-color: rgba(74, 108, 247, 0.25);
-  background: rgba(74, 108, 247, 0.04);
+  border-color: color-mix(in srgb, var(--route-info) 25%, transparent);
+  background: var(--route-info-soft);
 }
 
 .probe-tier-badge.patrol-badge {
-  background: rgba(74, 108, 247, 0.12);
-  color: #4a6cf7;
-  border-color: rgba(74, 108, 247, 0.2);
+  background: var(--route-info-soft);
+  color: var(--route-info);
+  border-color: color-mix(in srgb, var(--route-info) 20%, transparent);
 }
 
 /* ---- Health Monitor runtime status cards ---- */
@@ -17046,7 +17042,7 @@ body {
 /* ---- Readiness vs full-sweep comparison table ---- */
 .hm-compare {
   margin-top: 14px;
-  border: 1px solid #e0e5ec;
+  border: 1px solid var(--line);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -17056,10 +17052,10 @@ body {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #6b7785;
+  color: var(--muted);
   padding: 8px 12px;
-  background: #f7f9fc;
-  border-bottom: 1px solid #e0e5ec;
+  background: var(--surface-soft);
+  border-bottom: 1px solid var(--line);
 }
 
 .hm-compare-table {
@@ -17073,26 +17069,26 @@ body {
   padding: 7px 12px;
   text-align: left;
   vertical-align: top;
-  border-top: 1px solid #eef1f5;
+  border-top: 1px solid var(--line-soft);
 }
 
 .hm-compare-table thead th {
   border-top: none;
   font-size: 11px;
   font-weight: 600;
-  color: #1a2332;
-  background: #fbfcfe;
+  color: var(--text);
+  background: var(--surface-raised);
 }
 
 .hm-compare-table tbody th {
   font-weight: 500;
-  color: #6b7785;
+  color: var(--muted);
   white-space: nowrap;
   width: 1%;
 }
 
 .hm-compare-table td {
-  color: #3d4a5c;
+  color: var(--text);
 }
 
 @media (max-width: 700px) {
@@ -17113,10 +17109,10 @@ body {
 }
 
 .hm-runtime-card {
-  border: 1px solid #e0e5ec;
+  border: 1px solid var(--line);
   border-radius: 8px;
   padding: 12px 14px;
-  background: #fff;
+  background: var(--surface);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -17131,7 +17127,7 @@ body {
 .hm-runtime-card-head strong {
   font-size: 12px;
   font-weight: 600;
-  color: #1a2332;
+  color: var(--text);
   flex: 1;
 }
 
@@ -17145,34 +17141,34 @@ body {
   font-weight: 600;
   padding: 2px 8px;
   border-radius: 10px;
-  background: #eef1f5;
-  color: #6b7785;
+  background: var(--surface-strong);
+  color: var(--muted);
   white-space: nowrap;
 }
 
 .hm-runtime-status.ok {
-  background: #e6f7ee;
-  color: #1a8754;
+  background: var(--success-soft);
+  color: var(--success);
 }
 
 .hm-runtime-status.warn {
-  background: #fff4e6;
-  color: #b8730d;
+  background: var(--warning-soft);
+  color: var(--warning);
 }
 
 .hm-runtime-status.bad {
-  background: #fde8e8;
-  color: #d93026;
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 .hm-runtime-status.off {
-  background: #f0f0f0;
-  color: #999;
+  background: var(--surface-soft);
+  color: var(--muted);
 }
 
 .hm-runtime-status.running {
-  background: #e8f0fe;
-  color: #4a6cf7;
+  background: var(--accent-soft);
+  color: var(--accent);
   animation: hm-pulse 1.5s ease-in-out infinite;
 }
 

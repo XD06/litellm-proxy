@@ -2210,6 +2210,82 @@
 				en: "{count} probes/24h",
 				zh: "24h {count} 次探测"
 			},
+			"prov.probe_legend": {
+				en: "Green: probe OK · Amber: failed, observed only (no routing impact) · Red: failed and reported (cooldown/circuit applied) · Grey: skipped",
+				zh: "绿＝探测成功 · 黄＝失败但仅观察（不影响路由） · 红＝失败已上报（进入冷却/熔断） · 灰＝跳过"
+			},
+			"prov.probe_action.none": {
+				en: "no action",
+				zh: "无动作"
+			},
+			"prov.probe_action.observed_only": {
+				en: "observed only, no routing impact",
+				zh: "仅观察，未影响路由"
+			},
+			"prov.probe_action.reported_failure": {
+				en: "failure reported (cooldown/circuit)",
+				zh: "失败已上报（冷却/熔断）"
+			},
+			"prov.probe_action.reported_success": {
+				en: "success reported (state cleared)",
+				zh: "成功已上报（清除冷却）"
+			},
+			"prov.probe_reason.skip_patrol_probe": {
+				en: "Patrol skipped for this provider (setting)",
+				zh: "巡检对该供应商已停用（设置）"
+			},
+			"prov.probe_reason.provider_disabled": {
+				en: "Provider disabled",
+				zh: "供应商已禁用"
+			},
+			"prov.probe_reason.no_keys": {
+				en: "No keys configured",
+				zh: "未配置密钥"
+			},
+			"prov.probe_reason.no_available_key": {
+				en: "No available key",
+				zh: "无可用密钥"
+			},
+			"prov.probe_reason.keys_cooling": {
+				en: "Keys cooling down or disabled",
+				zh: "密钥冷却中或已禁用"
+			},
+			"prov.probe_reason.no_probe_model": {
+				en: "No probe model",
+				zh: "无可用探测模型"
+			},
+			"prov.probe_reason.no_probe_model_fetch": {
+				en: "No probe model (discovery failed or empty)",
+				zh: "无可用探测模型（发现失败或为空）"
+			},
+			"prov.probe_reason.conversion_failed": {
+				en: "Probe payload conversion failed",
+				zh: "探测载荷转换失败"
+			},
+			"prov.probe_reason.no_format": {
+				en: "No supported format",
+				zh: "无支持的上游格式"
+			},
+			"prov.probe_reason.recent_success": {
+				en: "Recent real success — probe skipped",
+				zh: "近期有真实成功——跳过探测"
+			},
+			"prov.probe_reason.coordinator_busy": {
+				en: "Another probe in progress — skipped",
+				zh: "其他探测进行中——跳过"
+			},
+			"prov.probe_reason.fallback_rejected": {
+				en: "Fallback model rejected by provider",
+				zh: "回退模型被供应商拒绝"
+			},
+			"prov.probe_reason.patrol_rejected": {
+				en: "Model rejected by provider",
+				zh: "模型被供应商拒绝"
+			},
+			"prov.probe_reason.no_data": {
+				en: "Stream opened but no first event in budget",
+				zh: "流已打开但预算内未收到首事件"
+			},
 			"prov.tier.cold_start_title": {
 				en: "No request has ever completed — 45s cadence",
 				zh: "尚无完成过的请求——45 秒节奏"
@@ -11287,6 +11363,38 @@
 			if (outcome === "failed") return "bad";
 			return "neutral";
 		}
+		var PROBE_REASON_KEYS = {
+			"skip_patrol_probe": "prov.probe_reason.skip_patrol_probe",
+			"skip_idle_probe": "prov.probe_reason.skip_patrol_probe",
+			"provider disabled": "prov.probe_reason.provider_disabled",
+			"no keys configured": "prov.probe_reason.no_keys",
+			"no available key": "prov.probe_reason.no_available_key",
+			"keys cooling down or disabled": "prov.probe_reason.keys_cooling",
+			"no probe model": "prov.probe_reason.no_probe_model",
+			"no probe model (fetch failed or empty)": "prov.probe_reason.no_probe_model_fetch",
+			"request conversion failed": "prov.probe_reason.conversion_failed",
+			"no supported format": "prov.probe_reason.no_format",
+			"recent real success": "prov.probe_reason.recent_success",
+			"probe coordinator busy": "prov.probe_reason.coordinator_busy",
+			"fallback probe model rejected": "prov.probe_reason.fallback_rejected",
+			"patrol model rejected": "prov.probe_reason.patrol_rejected",
+			"idle stream opened but no data event": "prov.probe_reason.no_data",
+			"patrol stream opened but no data event": "prov.probe_reason.no_data"
+		};
+		function probeReasonText(probe) {
+			const reason = String((probe || {}).reason || "");
+			const key = PROBE_REASON_KEYS[reason];
+			return key ? t(key) : reason;
+		}
+		function probeActionText(action) {
+			const key = {
+				"none": "prov.probe_action.none",
+				"observed_only": "prov.probe_action.observed_only",
+				"reported_failure": "prov.probe_action.reported_failure",
+				"reported_success": "prov.probe_action.reported_success"
+			}[String(action || "")];
+			return key ? t(key) : String(action || "");
+		}
 		function idleTierLabel(tier) {
 			return {
 				cold_start: {
@@ -11348,7 +11456,7 @@
 		function providerProbeSummary(probe, probeCount24h) {
 			if (!probe) return `<div class="provider-probe-summary empty" title="${escapeHtml(t("prov.probe_none_title"))}">${iconSvg("radar")}<span>${escapeHtml(t("prov.probe_none"))}</span></div>`;
 			const tone = probeTone(probe);
-			const reason = probe.reason || probe.error_type || probe.outcome || "probe";
+			probe.reason || probe.error_type || probe.outcome;
 			const isPatrol = String(probe.idle_tier || "") === "patrol";
 			const baseLabel = tone === "ok" ? t("prov.probe_ok") : tone === "bad" ? t("prov.probe_failed") : t("prov.probe_observed");
 			const label = isPatrol ? `${t("prov.probe_patrol_prefix")}${baseLabel}` : baseLabel;
@@ -11357,8 +11465,9 @@
 			else if (probe.http_status) details.push(`HTTP ${fmtInt(probe.http_status)}`);
 			if (Number(probeCount24h) > 0) details.push(t("prov.probe_count_short", { count: fmtInt(probeCount24h) }));
 			const detail = details.join(" · ");
+			const chipTitle = [probeReasonText(probe), probeActionText(probe.action)].filter(Boolean).join(" · ");
 			return `
-      <div class="provider-probe-summary tone-${escapeHtml(tone)}${isPatrol ? " patrol-probe" : ""}" title="${escapeHtml(reason)}">
+      <div class="provider-probe-summary tone-${escapeHtml(tone)}${isPatrol ? " patrol-probe" : ""}" title="${escapeHtml(chipTitle)}">
         ${iconSvg(isPatrol ? "shield" : "radar")}
         <span>${escapeHtml(label)}</span>
         ${detail ? `<small>${escapeHtml(detail)}</small>` : ""}
@@ -11367,9 +11476,11 @@
 		}
 		function providerProbeRow(probe) {
 			const tone = probeTone(probe);
-			const reason = probe.reason || probe.error_type || probe.outcome || "probe";
-			const action = probe.action || "none";
-			const model = probe.model || "-";
+			const reasonRaw = String(probe.reason || probe.error_type || probe.outcome || "probe");
+			const reason = probeReasonText(probe) || reasonRaw;
+			const actionRaw = String(probe.action || "none");
+			const action = probeActionText(actionRaw);
+			const model = probe.model || "—";
 			const isPatrol = String(probe.idle_tier || "") === "patrol";
 			const tierInfo = idleTierLabel(probe.idle_tier);
 			const tierLabel = isPatrol ? {
@@ -11384,7 +11495,7 @@
 				tierInfo ? `tier:${tierInfo.text}` : "",
 				probe.next_probe_in_s ? `next:${fmtNextProbe(probe.next_probe_in_s)}` : ""
 			].filter(Boolean).join(" · ");
-			const timing = probe.latency_ms != null ? fmtMs(probe.latency_ms) : probe.http_status ? `HTTP ${fmtInt(probe.http_status)}` : "-";
+			const timing = probe.latency_ms != null ? fmtMs(probe.latency_ms) : probe.http_status ? `HTTP ${fmtInt(probe.http_status)}` : "—";
 			const tierBadge = tierLabel ? `<span class="probe-tier-badge tone-${escapeHtml(tierLabel.tone)}${isPatrol ? " patrol-badge" : ""}" title="${escapeHtml(tierLabel.title)}">${escapeHtml(tierLabel.text)}</span>` : "";
 			const nextBadge = probe.next_probe_in_s ? `<span class="probe-next-badge" title="Next probe in ~${fmtNextProbe(probe.next_probe_in_s)}">→ ${escapeHtml(fmtNextProbe(probe.next_probe_in_s))}</span>` : "";
 			const timeStr = fmtProbeTime(probe.ts);
@@ -11392,10 +11503,10 @@
 			return `
       <div class="provider-probe-row tone-${escapeHtml(tone)}">
         <span class="provider-status-dot ${tone === "bad" ? "bad" : tone === "warn" ? "warn" : tone === "ok" ? "ok" : ""}"></span>
-        <strong title="${escapeHtml(reason)}">${escapeHtml(reason)}</strong>
+        <strong title="${escapeHtml(reasonRaw)}">${escapeHtml(reason)}</strong>
         <span title="${escapeHtml(model)}">${escapeHtml(model)}</span>
-        <small title="${escapeHtml(meta)}">${escapeHtml(meta || "-")}</small>
-        <em title="${escapeHtml(action)}">${escapeHtml(action)}</em>
+        <small title="${escapeHtml(meta)}">${escapeHtml(meta || "—")}</small>
+        <em title="${escapeHtml(actionRaw)}">${escapeHtml(action)}</em>
         <b>${escapeHtml(timing)}</b>
         ${tierBadge}
         ${nextBadge}
@@ -11889,6 +12000,7 @@
           </summary>
           <div class="provider-overview-disclosure-body">
             ${renderIdleStateBar()}
+            <div class="provider-probe-legend">${escapeHtml(t("prov.probe_legend"))}</div>
             <div class="provider-probe-list" data-provider-probe-list="${escapeHtml(view.name)}">
               ${recentProbes.length ? recentProbes.map(providerProbeRow).join("") : `<div class="empty pad-slim">${escapeHtml(t("prov.overview_probe_empty"))}</div>`}
               ${probeOverflow ? `<div class="probe-list-more" data-probe-list-more="${escapeHtml(view.name)}">${escapeHtml(t("prov.overview_more_probes", { count: fmtInt(probeOverflow) }))}</div>` : ""}
