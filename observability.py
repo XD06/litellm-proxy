@@ -1213,6 +1213,12 @@ class ProxyObservability:
                 },
             )
             bucket["lastProbe"] = cls._copy_value(clipped[0]) if clipped else None
+            # Probe-pressure visibility: probes this provider attracted in the
+            # last 24h. Bounded by the probe-event deque, so for very chatty
+            # providers it is a lower bound — good enough to make probe load
+            # visible in the dashboard.
+            cutoff = time.time() - 86400
+            bucket["probeCount24h"] = sum(1 for event in events if int(event.get("ts") or 0) >= cutoff)
             if include_events:
                 bucket["probeEvents"] = [cls._copy_value(event) for event in clipped]
 

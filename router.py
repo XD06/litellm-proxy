@@ -377,12 +377,21 @@ class UpstreamRouter:
         error_type: key_invalid | rate_limited | server_error | network_error | client_error | provider_compat | empty_visible_output | unknown
         """
         now = time.time()
-        if error_type in ("client_error", "provider_compat", "empty_visible_output"):
+        if error_type in ("client_error", "provider_compat", "empty_visible_output", "probe_first_event_timeout"):
             with self._lock:
                 key = self._compatibility_key(attempt)
                 state = self._compatibility_state.setdefault(key, _CompatibilityState())
                 state.fails += 1
-                cooldown_s = self._compatibility_ladder_seconds(state.fails)
+                if error_type == "probe_first_event_timeout":
+                    # Probe-originated "stream opened but no first event".
+                    # Flat cooldown on purpose: probes re-test continuously,
+                    # so the next probe either refreshes the circuit (still
+                    # slow) or clears it via report_success — escalating to
+                    # the hour-long ladder would poison routing for
+                    # slow-but-healthy models with no upside.
+                    cooldown_s = scheduler_policy.PROBE_FIRST_EVENT_CIRCUIT_S
+                else:
+                    cooldown_s = self._compatibility_ladder_seconds(state.fails)
                 state.cooldown_until = max(
                     state.cooldown_until,
                     now + cooldown_s,

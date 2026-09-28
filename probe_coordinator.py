@@ -10,14 +10,25 @@ from typing import Any, Callable, Hashable, Optional, Tuple
 class ProbeCoordinator:
     """Serialize active probes and keep their health effects scoped."""
 
-    def __init__(self, min_interval_s: float = 1.0, max_failure_scopes: int = 4096):
+    def __init__(
+        self,
+        min_interval_s: float = 1.0,
+        max_failure_scopes: int = 4096,
+        failure_decay_s: float = 600.0,
+    ):
         self.min_interval_s = max(0.0, float(min_interval_s))
         self.max_failure_scopes = max(1, int(max_failure_scopes))
+        # Probe failure counts decay: a scope whose last failure is older than
+        # this window starts counting from 1 again. Without decay, one failure
+        # at 9am plus one at 3pm would arm the 2-strike gate — stale evidence
+        # must not punish a scope that has been quiet for hours.
+        self.failure_decay_s = max(0.0, float(failure_decay_s))
         self._condition = threading.Condition()
         self._active: Optional[Hashable] = None
         self._last_finished = 0.0
         self._real_request_generation = 0
-        self._failure_counts: dict[Tuple[Hashable, str], int] = {}
+        # scope -> (failure count, last failure monotonic ts)
+        self._failure_counts: dict[Tuple[Hashable, str], Tuple[int, float]] = {}
         self._failure_types_by_key: dict[Hashable, set[str]] = {}
 
     def note_real_request(self) -> None:
@@ -69,11 +80,15 @@ class ProbeCoordinator:
         if error in ("key_invalid", "quota_or_balance"):
             return True
         failure_key = (key, error)
+        now = time.monotonic()
         with self._condition:
-            count = int(self._failure_counts.get(failure_key) or 0) + 1
+            count, last_ts = self._failure_counts.get(failure_key, (0, 0.0))
+            if last_ts and self.failure_decay_s and now - last_ts > self.failure_decay_s:
+                count = 0
+            count = int(count) + 1
             if failure_key in self._failure_counts:
                 self._failure_counts.pop(failure_key, None)
-            self._failure_counts[failure_key] = count
+            self._failure_counts[failure_key] = (count, now)
             self._failure_types_by_key.setdefault(key, set()).add(error)
             while len(self._failure_counts) > self.max_failure_scopes:
                 expired_key = next(iter(self._failure_counts))

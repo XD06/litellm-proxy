@@ -6,9 +6,15 @@ import json
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
-VALID_COOLDOWN_SCOPES = ("none", "key", "provider", "key_provider")
+VALID_COOLDOWN_SCOPES = ("none", "key", "provider", "key_provider", "compatibility")
 MAX_CONFIGURED_COOLDOWN_S = 86400
 MAX_PROVIDER_COOLDOWN_S = 300
+# Probe-originated "stream opened but no first event" circuits. Flat by
+# design: probe evidence renews every round, so escalation to the hour-long
+# compatibility ladder (meant for *rare* real-traffic evidence) would only
+# poison routing for slow-but-healthy models (reasoning TTFB routinely
+# exceeds a short probe budget).
+PROBE_FIRST_EVENT_CIRCUIT_S = 120
 
 
 @dataclass(frozen=True)
@@ -142,6 +148,19 @@ def failure_policy_for_error_type(
             "error_type": error_type,
             "cooldown_scope": "none",
             "cooldown_s": 0,
+            "disables_key": False,
+            "provider_cooldown_s": 0,
+        }
+        return _apply_failure_policy_override(base, override, allow_retry_after=True)
+    if error_type == "probe_first_event_timeout":
+        # Emitted only by idle/patrol probes when a stream opened but no SSE
+        # data event arrived in budget. Router maps this to a compatibility
+        # circuit with a flat cooldown (no ladder escalation) — see
+        # UpstreamRouter.report_failure.
+        base = {
+            "error_type": error_type,
+            "cooldown_scope": "compatibility",
+            "cooldown_s": PROBE_FIRST_EVENT_CIRCUIT_S,
             "disables_key": False,
             "provider_cooldown_s": 0,
         }

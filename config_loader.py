@@ -420,6 +420,15 @@ def _default_config() -> Dict[str, Any]:
                     "disables_key": False,
                 },
                 "provider_compat": {"cooldown_scope": "none", "cooldown_s": 0, "disables_key": False},
+                # Probe-only: "stream opened but no first event" from idle/patrol
+                # probes. Router opens a compatibility circuit with this FLAT
+                # cooldown (no ladder escalation) so slow-but-healthy models are
+                # not poisoned; the next successful probe clears it.
+                "probe_first_event_timeout": {
+                    "cooldown_scope": "compatibility",
+                    "cooldown_s": 120,
+                    "disables_key": False,
+                },
                 "empty_visible_output": {"cooldown_scope": "none", "cooldown_s": 0, "disables_key": False},
                 "client_error": {"cooldown_scope": "none", "cooldown_s": 0, "disables_key": False},
                 "unknown": {"cooldown_scope": "key", "cooldown_s": 10, "disables_key": False},

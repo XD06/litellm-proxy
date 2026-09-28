@@ -457,6 +457,11 @@ _IDLE_TIER_MEDIUM_S = 600        # < 10 min → "medium" (60s cadence)
 #                               # >= 30 min → "deep" (3-6h random cadence)
 _IDLE_TIER_DEEP_S = 1800         # 30 min
 
+# Pause between probing consecutive keys of the same provider in one idle
+# round (mirrors patrol's inter-probe delay) so a provider with several
+# failing keys is not hit with a back-to-back burst every round.
+_IDLE_KEY_PROBE_DELAY_S = 1.5
+
 # ---------------------------------------------------------------------------
 # Idle probe schedule — shared state for metrics display
 # ---------------------------------------------------------------------------
@@ -470,6 +475,11 @@ _IDLE_TIER_DEEP_S = 1800         # 30 min
 # atomic, so a simple dict is sufficient for display purposes.  The worst
 # case is reading a stale value for one poll cycle, which is harmless.
 _idle_probe_schedule = {"interval_s": 0.0, "computed_at": 0.0}
+
+# Consecutive idle rounds that executed probes and found no healthy provider.
+# Drives failed-round backoff in the idle checker loop; display-grade state
+# (GIL-atomic int, same tolerance as _idle_probe_schedule).
+_idle_failed_round_streak = 0
 
 # Patrol probe schedule — shared state for metrics display.
 # Tracks last run time, next scheduled run, and running state so the
@@ -608,6 +618,24 @@ def _build_probe_payload(provider_model: str, *, stream: bool, fmt: str, attempt
     return payload
 
 
+def _probe_first_event_budget(config, provider: str, canonical_model: str, observability, fallback_s: float) -> float:
+    """First-event budget for a streaming probe, adaptive to observed traffic.
+
+    The probe payload is plain chat, so plain-profile first-event stats are
+    the matching reference: a model whose p95 exceeds the fixed probe timeout
+    is exactly the one the timeout would falsely fail (reasoning models
+    routinely queue 30s+ before their first token even on a tiny prompt).
+    Falls back to the configured health_monitor.patrol_first_byte_timeout_s
+    until enough samples exist.
+    """
+    try:
+        return float(_adaptive_first_event_budget(
+            config, "plain", provider, str(canonical_model or ""), observability, float(fallback_s)
+        ))
+    except Exception:
+        return float(fallback_s)
+
+
 def _idle_probe_one_provider_impl(rt, provider: str, *, idle_tier: str = "", next_probe_in_s: float = 0, suggested_model: str = "", model_source: str = "") -> bool:
     """Probe a single provider, trying all available keys before giving up.
 
@@ -654,28 +682,36 @@ def _idle_probe_one_provider_impl(rt, provider: str, *, idle_tier: str = "", nex
         return False
 
     # Build the ordered list of key indices to try:
-    # 1. Available keys first (not in cooldown, not disabled)
-    # 2. Then cooled-down keys as fallback — the whole point of the idle
-    #    probe is to check whether a cooled-down key has recovered.
+    # 1. Available keys (not cooling down, not disabled)
+    # 2. At most ONE disabled key — disabled keys have no other recovery
+    #    path, so a single re-verification per round keeps recovery detection
+    #    alive without hammering a dead key every tick.
+    # Cooled-down keys are deliberately NOT probed: when their cooldown
+    # expires they rejoin the available pool and the next round verifies
+    # them then. Re-probing them every round would re-report the same
+    # failure, refresh the cooldown that failure just created, and keep a
+    # struggling provider pinned ("probe-sustained cooldown").
     now = time.time()
     available_key_indices: list[int] = []
-    cooldown_key_indices: list[int] = []
+    disabled_key_indices: list[int] = []
     with router._lock:
         for i in range(len(keys)):
             ks = router._keys_state.get((provider, i))
             if ks is None or ks.available(now):
                 available_key_indices.append(i)
+            elif ks.disabled_until > now:
+                disabled_key_indices.append(i)
+            elif ks.cooldown_until > now:
+                continue  # cooling down — retry after expiry, not every round
             else:
-                cooldown_key_indices.append(i)
+                # Unavailable for another reason (e.g. runtime-disabled);
+                # treat like disabled: at most one re-check per round.
+                disabled_key_indices.append(i)
 
-    # If no keys are available, fall back to probing all keys anyway.
-    # The idle probe exists to check recovery, so we should still try.
-    key_indices_to_try = available_key_indices + cooldown_key_indices
-    if not key_indices_to_try:
-        key_indices_to_try = list(range(len(keys)))
+    key_indices_to_try = available_key_indices + disabled_key_indices[:1]
 
     if not key_indices_to_try:
-        _record_probe(outcome="skipped", reason="no available key", action="none")
+        _record_probe(outcome="skipped", reason="keys cooling down or disabled", action="none")
         return False
 
     # --- Setup that doesn't change per-key: model, format, payload ---
@@ -750,6 +786,8 @@ def _idle_probe_one_provider_impl(rt, provider: str, *, idle_tier: str = "", nex
     # --- Try each key in order ---
     stream_conn = None
     for attempt_no, key_index in enumerate(key_indices_to_try, start=1):
+        if attempt_no > 1:
+            time.sleep(_IDLE_KEY_PROBE_DELAY_S)
         raw_key = key_value(keys[key_index])
         url, headers, key_provider_model, proxy_url = router._build_attempt_details(
             provider, canonical_model, raw_key, key_index=key_index, upstream_format=fmt
@@ -787,12 +825,13 @@ def _idle_probe_one_provider_impl(rt, provider: str, *, idle_tier: str = "", nex
         started_at = time.time()
         hm = _health_monitor_cfg(config)
         fb_timeout = int(hm.get("patrol_first_byte_timeout_s", _PATROL_FIRST_BYTE_TIMEOUT_S))
+        probe_budget = _probe_first_event_budget(config, provider, canonical_model, observability, fb_timeout)
         try:
             stream_conn = upstream_client.open_stream(
                 url, headers, payload,
                 proxy_url=proxy_url,
-                remaining_timeout_s=fb_timeout,
-                first_byte_timeout_s=fb_timeout,
+                remaining_timeout_s=probe_budget,
+                first_byte_timeout_s=probe_budget,
             )
             # Read lines until we find the first SSE "data:" event.
             # A valid data line means the provider accepted the request and
@@ -832,12 +871,17 @@ def _idle_probe_one_provider_impl(rt, provider: str, *, idle_tier: str = "", nex
                 return True
             else:
                 # Stream opened but no data event within the read bound.
+                # Reported as probe_first_event_timeout: a flat compatibility
+                # circuit instead of the escalating provider_compat ladder —
+                # reasoning models routinely exceed a short probe budget on
+                # first token, and hour-long circuits would poison routing
+                # for slow-but-healthy model+key pairs.
                 apply_failure = PROBE_COORDINATOR.should_apply_failure(health_scope, "first_event_timeout")
                 state_action = None
                 if apply_failure:
                     state_action = router.report_failure(
                         probe_attempt,
-                        error_type="provider_compat",
+                        error_type="probe_first_event_timeout",
                     )
                 _record_probe(
                     **probe_base,
@@ -1058,7 +1102,7 @@ def _build_probe_plan(observability, config, router) -> list[tuple[str, str, str
     return plan
 
 
-def _idle_health_check_round() -> None:
+def _idle_health_check_round() -> Optional[bool]:
     """Run one round of idle health checking.
 
     Uses a probe plan that combines global model selection with
@@ -1073,7 +1117,13 @@ def _idle_health_check_round() -> None:
 
     Only runs for priority_failover and auto modes (the only modes with a
     meaningful "highest priority" concept).
+
+    Returns True when a healthy provider was found, False when the round ran
+    and found none, and None when the round did not run (requests in flight,
+    non-priority routing mode, or empty plan). The idle checker loop uses
+    this for failed-round backoff.
     """
+    global _idle_failed_round_streak
     try:
         rt = _request_runtime()
         router = rt.router
@@ -1084,12 +1134,12 @@ def _idle_health_check_round() -> None:
         with observability._lock:
             in_flight = int(observability._counters.get("requests_in_flight") or 0)
         if in_flight > 0:
-            return
+            return None
 
         # Only run for priority-ordered modes.
         provider_select = str((config.get("routing") or {}).get("provider_select") or "priority_failover").strip()
         if provider_select not in ("priority_failover", "auto"):
-            return
+            return None
 
         # Compute the current idle tier so each probe event carries it.
         last_finished = observability.last_request_finished_at()
@@ -1100,7 +1150,15 @@ def _idle_health_check_round() -> None:
         plan = _build_probe_plan(observability, config, router)
 
         if not plan:
-            return
+            return None
+
+        # Scale probe breadth by idle tier: right after activity only the
+        # provider the next request would use needs pre-verification, so the
+        # "recent" tier probes just plan[0] and "medium" the top three.
+        # Deeper tiers can afford the full plan.
+        tier_limit = {"recent": 1, "medium": 3}.get(idle_tier)
+        if tier_limit is not None:
+            plan = plan[:tier_limit]
 
         # Probe in priority order.  Stop at the first healthy provider —
         # that is the one the next real request will use, so there is no
@@ -1114,10 +1172,18 @@ def _idle_health_check_round() -> None:
                 model_source=source,
             )
             if healthy:
-                break
+                _idle_failed_round_streak = 0
+                return True
+
+        # Every executed probe failed — count the streak so the loop can
+        # stretch the next interval (a fully-down fleet gains nothing from
+        # being re-probed at full cadence).
+        _idle_failed_round_streak += 1
+        return False
 
     except Exception as e:
         print(f"[proxy] idle health check round error: {type(e).__name__}: {e}", flush=True)
+        return None
 
 
 _IDLE_SLEEP_CHUNK_S = 30  # Max sleep before re-checking last_finished_at
@@ -1146,6 +1212,13 @@ def _start_idle_health_checker() -> None:
                 last_finished = observability.last_request_finished_at()
                 now = time.time()
                 interval = _idle_tier_info(last_finished, now, config)[1]
+                # Failed-round backoff: stretch the interval after consecutive
+                # rounds that found nothing healthy (x2 per failure, capped).
+                # Deep-idle intervals are already long, so the cap keeps the
+                # multiplier from inflating them meaningfully.
+                if _idle_failed_round_streak > 0:
+                    multiplier = 2 ** min(_idle_failed_round_streak, 2)
+                    interval = min(interval * multiplier, max(interval, 1800.0))
                 # Store for /admin/metrics display (countdown).
                 _idle_probe_schedule["interval_s"] = interval
                 _idle_probe_schedule["computed_at"] = now
@@ -1209,6 +1282,11 @@ def _start_idle_health_checker() -> None:
 _PATROL_INTERVAL_S = (6 * 3600, 12 * 3600)   # 6-12 hours random between rounds
 _PATROL_DELAY_S = (3, 5)                 # 3-5 seconds random between probes
 _PATROL_FIRST_BYTE_TIMEOUT_S = 15         # Max wait for first SSE event
+# When a patrol round is interrupted by real traffic, reschedule the next
+# attempt soon instead of waiting another full 6-12h interval — the patrol
+# is the main recovery path for disabled keys, and one stray in-flight
+# request must not postpone it by half a day.
+_PATROL_RESCHEDULE_AFTER_INTERRUPT_S = 600
 
 
 def _patrol_probe_one_key_impl(rt, provider: str, key_index: int, *, canonical_model: str = "", model_source: str = "") -> bool:
@@ -1326,12 +1404,13 @@ def _patrol_probe_one_key_impl(rt, provider: str, key_index: int, *, canonical_m
     started_at = time.time()
     hm = _health_monitor_cfg(config)
     fb_timeout = int(hm.get("patrol_first_byte_timeout_s", _PATROL_FIRST_BYTE_TIMEOUT_S))
+    probe_budget = _probe_first_event_budget(config, provider, canonical_model, observability, fb_timeout)
     try:
         stream_conn = upstream_client.open_stream(
             url, headers, payload,
             proxy_url=proxy_url,
-            remaining_timeout_s=fb_timeout,
-            first_byte_timeout_s=fb_timeout,
+            remaining_timeout_s=probe_budget,
+            first_byte_timeout_s=probe_budget,
         )
         # Read lines until we find the first SSE "data:" event.
         # A valid data line means the provider accepted the request and
@@ -1379,12 +1458,15 @@ def _patrol_probe_one_key_impl(rt, provider: str, key_index: int, *, canonical_m
             return True
         else:
             # Stream opened but no data event within the read bound.
+            # probe_first_event_timeout → flat compatibility circuit (see idle
+            # probe); the escalating provider_compat ladder is reserved for
+            # rare real-traffic evidence.
             apply_failure = PROBE_COORDINATOR.should_apply_failure(health_scope, "first_event_timeout")
             state_action = None
             if apply_failure:
                 state_action = router.report_failure(
                     probe_attempt,
-                    error_type="provider_compat",
+                    error_type="probe_first_event_timeout",
                 )
             _record_probe(
                 **probe_base,
@@ -1742,6 +1824,11 @@ def _patrol_health_check_round(*, manual: bool = False) -> None:
                     _patrol_probe_schedule["last_result"] = "interrupted"
                     _patrol_probe_schedule["last_summary"] = "interrupted: request in flight"
                     _patrol_probe_schedule["last_run_duration_s"] = round(time.time() - _round_start, 1)
+                    # Reschedule soon — the checker loop honours this instead
+                    # of rolling a fresh 6-12h interval (see
+                    # _start_patrol_health_checker).
+                    _patrol_probe_schedule["interval_s"] = _PATROL_RESCHEDULE_AFTER_INTERRUPT_S
+                    _patrol_probe_schedule["next_run_at"] = time.time() + _PATROL_RESCHEDULE_AFTER_INTERRUPT_S
                     return
 
                 # Random delay between probes, even across providers.
@@ -1814,6 +1901,14 @@ def _start_patrol_health_checker() -> None:
                 pmin = float(hm.get("patrol_interval_min_s", _PATROL_INTERVAL_S[0]))
                 pmax = float(hm.get("patrol_interval_max_s", _PATROL_INTERVAL_S[1]))
                 interval = random.uniform(min(pmin, pmax), max(pmin, pmax))
+                if _patrol_probe_schedule.get("last_result") == "interrupted":
+                    # The previous round was cut short by real traffic (or the
+                    # round budget); retry within minutes instead of waiting
+                    # another full 6-12h interval.
+                    interval = min(
+                        interval,
+                        _PATROL_RESCHEDULE_AFTER_INTERRUPT_S + random.uniform(0, 300),
+                    )
                 _patrol_probe_schedule["interval_s"] = interval
                 _patrol_probe_schedule["next_run_at"] = time.time() + interval
                 # Chunk the sleep so we can exit cleanly on shutdown.
