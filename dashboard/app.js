@@ -4474,6 +4474,30 @@
 				en: "Output",
 				zh: "输出"
 			},
+			"tokens.price_in": {
+				en: "in",
+				zh: "输入"
+			},
+			"tokens.price_cache": {
+				en: "cache",
+				zh: "缓存"
+			},
+			"tokens.price_cache_write": {
+				en: "cache write",
+				zh: "缓存写"
+			},
+			"tokens.price_out": {
+				en: "out",
+				zh: "输出"
+			},
+			"tokens.pricing_unit": {
+				en: "/ 1M tokens",
+				zh: "/ 百万 tokens"
+			},
+			"tokens.pricing_title": {
+				en: "Price snapshot applied when the request was served (per 1M tokens) · source: {source}",
+				zh: "本次请求下单时应用的费率快照（每百万 tokens）· 来源：{source}"
+			},
 			"tokens.reasoning": {
 				en: "Reasoning",
 				zh: "推理"
@@ -15467,6 +15491,27 @@
 			if (Number(action.provider_cooldown_s || 0) > 0) parts.push(`provider ${fmtInt(action.provider_cooldown_s)}s`);
 			return parts.join(" · ");
 		}
+		function fmtPriceRate(value) {
+			const n = Number(value) || 0;
+			if (n <= 0) return "$0";
+			const digits = n >= 100 ? 0 : n >= 10 ? 1 : 2;
+			return `$${n.toFixed(digits).replace(/\.0+$/, "")}`;
+		}
+		function renderTokenLegendPrices(value) {
+			const pricing = value && typeof value.pricing_snapshot === "object" && value.pricing_snapshot || null;
+			if (!pricing) return "";
+			const usage = usageFrom(value);
+			const parts = [`${t("tokens.price_in")} ${fmtPriceRate(pricing.input_per_million)}`];
+			if (Number(pricing.cache_read_per_million) > 0 || usage.cached_input_tokens > 0) parts.push(`${t("tokens.price_cache")} ${fmtPriceRate(pricing.cache_read_per_million)}`);
+			if (Number(pricing.cache_write_per_million) > 0 || usage.cache_write_tokens > 0) parts.push(`${t("tokens.price_cache_write")} ${fmtPriceRate(pricing.cache_write_per_million)}`);
+			parts.push(`${t("tokens.price_out")} ${fmtPriceRate(pricing.output_per_million)}`);
+			return `
+      <span class="token-legend-prices" data-tip="${escapeHtml(t("tokens.pricing_title", { source: pricing.source || "-" }))}" tabindex="0">
+        ${parts.map((part) => `<b>${escapeHtml(part)}</b>`).join("")}
+        <small>${escapeHtml(t("tokens.pricing_unit"))}</small>
+      </span>
+    `;
+		}
 		function renderUsageComposition(value) {
 			const usage = usageFrom(value);
 			if (usage.total_tokens <= 0 && Number(usage.cost_usd || 0) <= 0) return `
@@ -15513,6 +15558,7 @@
         <div class="token-composition-legend">
           ${segments.map(([tone, count, label]) => `<span><i class="token-dot token-${tone}" aria-hidden="true"></i><small>${escapeHtml(label)}</small><strong>${escapeHtml(fmtTokenCount(count))}</strong></span>`).join("")}
           ${usage.reasoning_tokens ? `<span data-tip="${escapeHtml(t("tokens.reasoning_subset"))}" tabindex="0"><i class="token-dot token-reasoning" aria-hidden="true"></i><small>${escapeHtml(t("tokens.reasoning"))}</small><strong>${escapeHtml(fmtTokenCount(usage.reasoning_tokens))}</strong></span>` : ""}
+          ${renderTokenLegendPrices(value)}
         </div>
       </section>
     `;

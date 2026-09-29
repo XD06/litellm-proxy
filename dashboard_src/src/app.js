@@ -10086,6 +10086,34 @@ import {
     return parts.join(" · ");
   }
 
+  function fmtPriceRate(value) {
+    const n = Number(value) || 0;
+    if (n <= 0) return "$0";
+    const digits = n >= 100 ? 0 : n >= 10 ? 1 : 2;
+    return `$${n.toFixed(digits).replace(/\.0+$/, "")}`;
+  }
+
+  function renderTokenLegendPrices(value) {
+    const pricing = (value && typeof value.pricing_snapshot === "object" && value.pricing_snapshot) || null;
+    if (!pricing) return "";
+    const usage = usageFrom(value);
+    const parts = [`${t("tokens.price_in")} ${fmtPriceRate(pricing.input_per_million)}`];
+    if (Number(pricing.cache_read_per_million) > 0 || usage.cached_input_tokens > 0) {
+      parts.push(`${t("tokens.price_cache")} ${fmtPriceRate(pricing.cache_read_per_million)}`);
+    }
+    if (Number(pricing.cache_write_per_million) > 0 || usage.cache_write_tokens > 0) {
+      parts.push(`${t("tokens.price_cache_write")} ${fmtPriceRate(pricing.cache_write_per_million)}`);
+    }
+    parts.push(`${t("tokens.price_out")} ${fmtPriceRate(pricing.output_per_million)}`);
+    const title = t("tokens.pricing_title", { source: pricing.source || "-" });
+    return `
+      <span class="token-legend-prices" data-tip="${escapeHtml(title)}" tabindex="0">
+        ${parts.map((part) => `<b>${escapeHtml(part)}</b>`).join("")}
+        <small>${escapeHtml(t("tokens.pricing_unit"))}</small>
+      </span>
+    `;
+  }
+
   function renderUsageComposition(value) {
     const usage = usageFrom(value);
     if (usage.total_tokens <= 0 && Number(usage.cost_usd || 0) <= 0) {
@@ -10112,6 +10140,7 @@ import {
         <div class="token-composition-legend">
           ${segments.map(([tone, count, label]) => `<span><i class="token-dot token-${tone}" aria-hidden="true"></i><small>${escapeHtml(label)}</small><strong>${escapeHtml(fmtTokenCount(count))}</strong></span>`).join("")}
           ${usage.reasoning_tokens ? `<span data-tip="${escapeHtml(t("tokens.reasoning_subset"))}" tabindex="0"><i class="token-dot token-reasoning" aria-hidden="true"></i><small>${escapeHtml(t("tokens.reasoning"))}</small><strong>${escapeHtml(fmtTokenCount(usage.reasoning_tokens))}</strong></span>` : ""}
+          ${renderTokenLegendPrices(value)}
         </div>
       </section>
     `;

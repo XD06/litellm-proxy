@@ -4386,6 +4386,37 @@ tr.clickable:hover {
   margin-top: 9px;
 }
 
+.token-legend-prices,
+#detailDrawer .token-composition-legend .token-legend-prices,
+#modelDrawer .token-composition-legend .token-legend-prices {
+  margin-left: 0;
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 4px 14px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 11px;
+  color: var(--muted);
+  cursor: help;
+}
+
+.token-legend-prices b {
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.token-legend-prices small {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
 .token-composition-legend span {
   display: grid;
   grid-template-columns: 8px auto;
