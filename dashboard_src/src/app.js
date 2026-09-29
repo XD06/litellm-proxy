@@ -10089,8 +10089,11 @@ import {
   function fmtPriceRate(value) {
     const n = Number(value) || 0;
     if (n <= 0) return "$0";
-    const digits = n >= 100 ? 0 : n >= 10 ? 1 : 2;
-    return `$${n.toFixed(digits).replace(/\.0+$/, "")}`;
+    // Small per-million rates (cache-hit can be $0.0028) must not round to $0.
+    if (n >= 100) return `$${Math.round(n)}`;
+    if (n >= 10) return `$${parseFloat(n.toFixed(1))}`;
+    if (n >= 1) return `$${parseFloat(n.toFixed(2))}`;
+    return `$${parseFloat(n.toFixed(4))}`;
   }
 
   function renderTokenLegendPrices(value) {
