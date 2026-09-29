@@ -4389,13 +4389,13 @@ tr.clickable:hover {
 .token-legend-prices,
 #detailDrawer .token-composition-legend .token-legend-prices,
 #modelDrawer .token-composition-legend .token-legend-prices {
-  margin-left: 0;
-  flex-basis: 100%;
-  display: flex;
-  flex-wrap: wrap;
+  margin-left: auto;
+  flex-basis: auto;
+  display: inline-flex;
+  flex-wrap: nowrap;
   align-items: baseline;
   justify-content: flex-end;
-  gap: 4px 14px;
+  gap: 4px 10px;
   min-height: 0;
   padding: 0;
   border: 0;

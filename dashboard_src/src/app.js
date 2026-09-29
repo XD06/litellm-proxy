@@ -10096,16 +10096,15 @@ import {
   function renderTokenLegendPrices(value) {
     const pricing = (value && typeof value.pricing_snapshot === "object" && value.pricing_snapshot) || null;
     if (!pricing) return "";
-    const usage = usageFrom(value);
-    const parts = [`${t("tokens.price_in")} ${fmtPriceRate(pricing.input_per_million)}`];
-    if (Number(pricing.cache_read_per_million) > 0 || usage.cached_input_tokens > 0) {
-      parts.push(`${t("tokens.price_cache")} ${fmtPriceRate(pricing.cache_read_per_million)}`);
+    const parts = [
+      `${t("tokens.price_in")} ${fmtPriceRate(pricing.input_per_million)}`,
+      `${t("tokens.price_cache")} ${fmtPriceRate(pricing.cache_read_per_million)}`,
+      `${t("tokens.price_out")} ${fmtPriceRate(pricing.output_per_million)}`,
+    ];
+    let title = t("tokens.pricing_title", { source: pricing.source || "-" });
+    if (Number(pricing.cache_write_per_million) > 0) {
+      title += ` · ${t("tokens.price_cache_write")} ${fmtPriceRate(pricing.cache_write_per_million)}/M`;
     }
-    if (Number(pricing.cache_write_per_million) > 0 || usage.cache_write_tokens > 0) {
-      parts.push(`${t("tokens.price_cache_write")} ${fmtPriceRate(pricing.cache_write_per_million)}`);
-    }
-    parts.push(`${t("tokens.price_out")} ${fmtPriceRate(pricing.output_per_million)}`);
-    const title = t("tokens.pricing_title", { source: pricing.source || "-" });
     return `
       <span class="token-legend-prices" data-tip="${escapeHtml(title)}" tabindex="0">
         ${parts.map((part) => `<b>${escapeHtml(part)}</b>`).join("")}

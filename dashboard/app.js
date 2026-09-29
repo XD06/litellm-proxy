@@ -4475,7 +4475,7 @@
 				zh: "输出"
 			},
 			"tokens.price_in": {
-				en: "in",
+				en: "input",
 				zh: "输入"
 			},
 			"tokens.price_cache": {
@@ -4487,12 +4487,12 @@
 				zh: "缓存写"
 			},
 			"tokens.price_out": {
-				en: "out",
+				en: "output",
 				zh: "输出"
 			},
 			"tokens.pricing_unit": {
-				en: "/ 1M tokens",
-				zh: "/ 百万 tokens"
+				en: "/M tokens",
+				zh: "/M tokens"
 			},
 			"tokens.pricing_title": {
 				en: "Price snapshot applied when the request was served (per 1M tokens) · source: {source}",
@@ -15500,13 +15500,15 @@
 		function renderTokenLegendPrices(value) {
 			const pricing = value && typeof value.pricing_snapshot === "object" && value.pricing_snapshot || null;
 			if (!pricing) return "";
-			const usage = usageFrom(value);
-			const parts = [`${t("tokens.price_in")} ${fmtPriceRate(pricing.input_per_million)}`];
-			if (Number(pricing.cache_read_per_million) > 0 || usage.cached_input_tokens > 0) parts.push(`${t("tokens.price_cache")} ${fmtPriceRate(pricing.cache_read_per_million)}`);
-			if (Number(pricing.cache_write_per_million) > 0 || usage.cache_write_tokens > 0) parts.push(`${t("tokens.price_cache_write")} ${fmtPriceRate(pricing.cache_write_per_million)}`);
-			parts.push(`${t("tokens.price_out")} ${fmtPriceRate(pricing.output_per_million)}`);
+			const parts = [
+				`${t("tokens.price_in")} ${fmtPriceRate(pricing.input_per_million)}`,
+				`${t("tokens.price_cache")} ${fmtPriceRate(pricing.cache_read_per_million)}`,
+				`${t("tokens.price_out")} ${fmtPriceRate(pricing.output_per_million)}`
+			];
+			let title = t("tokens.pricing_title", { source: pricing.source || "-" });
+			if (Number(pricing.cache_write_per_million) > 0) title += ` · ${t("tokens.price_cache_write")} ${fmtPriceRate(pricing.cache_write_per_million)}/M`;
 			return `
-      <span class="token-legend-prices" data-tip="${escapeHtml(t("tokens.pricing_title", { source: pricing.source || "-" }))}" tabindex="0">
+      <span class="token-legend-prices" data-tip="${escapeHtml(title)}" tabindex="0">
         ${parts.map((part) => `<b>${escapeHtml(part)}</b>`).join("")}
         <small>${escapeHtml(t("tokens.pricing_unit"))}</small>
       </span>
