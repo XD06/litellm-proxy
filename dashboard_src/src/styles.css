@@ -4391,9 +4391,10 @@ tr.clickable:hover {
 #modelDrawer .token-composition-legend .token-legend-prices {
   margin-left: auto;
   flex-basis: auto;
+  align-self: center;
   display: inline-flex;
   flex-wrap: nowrap;
-  align-items: baseline;
+  align-items: center;
   justify-content: flex-end;
   gap: 4px 10px;
   min-height: 0;

@@ -15505,12 +15505,11 @@
 			const parts = [
 				`${t("tokens.price_in")} ${fmtPriceRate(pricing.input_per_million)}`,
 				`${t("tokens.price_cache")} ${fmtPriceRate(pricing.cache_read_per_million)}`,
+				`${t("tokens.price_cache_write")} ${fmtPriceRate(pricing.cache_write_per_million)}`,
 				`${t("tokens.price_out")} ${fmtPriceRate(pricing.output_per_million)}`
 			];
-			let title = t("tokens.pricing_title", { source: pricing.source || "-" });
-			if (Number(pricing.cache_write_per_million) > 0) title += ` · ${t("tokens.price_cache_write")} ${fmtPriceRate(pricing.cache_write_per_million)}/M`;
 			return `
-      <span class="token-legend-prices" data-tip="${escapeHtml(title)}" tabindex="0">
+      <span class="token-legend-prices" data-tip="${escapeHtml(t("tokens.pricing_title", { source: pricing.source || "-" }))}" tabindex="0">
         ${parts.map((part) => `<b>${escapeHtml(part)}</b>`).join("")}
         <small>${escapeHtml(t("tokens.pricing_unit"))}</small>
       </span>
