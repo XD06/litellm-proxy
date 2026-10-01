@@ -132,6 +132,48 @@ assert.match(
   "provider table must own scroll shell and list table styles",
 );
 
+// --- Cards: unified KPI anatomy shared with the table view ---
+assert.match(
+  app,
+  /function providerRuntimeCard\(view\)[\s\S]*?class="provider-kpi-card \$\{view\.runtimeState\.tone\}[\s\S]*?data-provider-card="\$\{escapeHtml\(view\.name\)\}"[\s\S]*?data-provider-open="\$\{escapeHtml\(view\.name\)\}"/,
+  "provider cards must use the KPI anatomy with the whole card opening the drawer",
+);
+assert.match(
+  app,
+  /function providerRuntimeCard\(view\)[\s\S]*?providerBrandIconMarkup\(view\.name, iconSvg\("server"\)\)[\s\S]*?providerHealthPill\(view\)/,
+  "provider cards must reuse the shared brand icon and health pill helpers",
+);
+assert.match(
+  app,
+  /function providerRuntimeCard\(view\)[\s\S]*?provider-kpi-stats[\s\S]*?view\.activity\.successRate[\s\S]*?view\.activity\.latestLatency/,
+  "provider card stats must read the same activity viewmodel fields as the table rows",
+);
+assert.match(
+  app,
+  /function providerRuntimeCard\(view\)[\s\S]*?data-action-path="\/providers\/\$\{encodeURIComponent\(view\.name\)\}\/\$\{isDisabled \? "enable" : "disable"\}"/,
+  "card footer ops must reuse the existing enable/disable endpoint",
+);
+assert.match(
+  app,
+  /function providerRuntimeCard\(view\)[\s\S]*?providerSparkline\(view\.activity, view\.name\)/,
+  "card must render the recent-call strip only through the shared sparkline helper",
+);
+assert.match(
+  app,
+  /const height = bad \? 13 : 4\.5 \+ 8\.5 \* Math\.min\(1, latency \/ maxLatency\);/,
+  "sparkline bars must encode per-call latency as height",
+);
+assert.match(
+  app,
+  /function bindProviderCards\(target\)[\s\S]*?event\.target !== button && event\.target\.closest\("button, a, input, select, label"\)/,
+  "card-level drawer open must yield to nested buttons and links",
+);
+assert.match(
+  styles,
+  /#providersView \.provider-kpi-card\s*\{/,
+  "KPI card must own its card-level styles",
+);
+
 // --- i18n: en/zh both present for the new surface ---
 for (const key of [
   "prov.view_toggle_label",

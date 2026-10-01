@@ -5513,54 +5513,61 @@ import {
     return haystack.includes(search);
   }
 
+  // KPI card anatomy (matches the overview language): brand identity + single
+  // health pill up top, three big-number stats, recent-call strip only when
+  // data exists, quiet footer. The whole card opens the provider drawer; the
+  // footer ops keep their own endpoints.
   function providerRuntimeCard(view) {
     const keyUsable = view.keyStats.usable;
     const keyTotal = view.keyStats.total;
-    const keyTone = keyUsable === 0 && keyTotal > 0 ? "bad" : keyUsable < keyTotal ? "warn" : "ok";
     const successRate = view.activity.successRate;
     const successText = successRate === null ? "—" : fmtPct(successRate);
+    const successTone = successRate === null ? "mute" : successRate >= 0.9 ? "ok" : successRate >= 0.5 ? "warn" : "bad";
     const latencyText = view.activity.latestLatency ? fmtCompactMs(view.activity.latestLatency) : "—";
+    const latencyTone = view.activity.latestLatency
+      ? (view.activity.latestLatency <= 800 ? "ok" : view.activity.latestLatency <= 2500 ? "warn" : "bad")
+      : "mute";
     const modelCount = view.modelItems.length;
     const sparkStats = providerSparklineStats(view.activity);
     const isDisabled = view.runtimeState.id === "disabled";
-    const successTone = successRate === null ? "neutral" : successRate >= 0.9 ? "ok" : successRate >= 0.5 ? "warn" : "bad";
-    const latencyTone = view.activity.latestLatency ? (view.activity.latestLatency <= 800 ? "ok" : view.activity.latestLatency <= 2500 ? "warn" : "bad") : "neutral";
+    const modelText = view.capability.status === "pending" ? "…" : fmtInt(modelCount);
     return `
-      <article class="provider-runtime-card provider-health-tile ${view.runtimeState.tone}" data-provider-card="${escapeHtml(view.name)}">
-        <div class="provider-card-topline">
-          ${providerServerIconMarkup(view.config, view.name)}
-          <div class="provider-title-block">
-            <div class="provider-name name-${view.runtimeState.badge}" title="${escapeHtml(view.name)}">${escapeHtml(view.name)}</div>
-          </div>
-          <button class="provider-card-settings-btn" type="button" data-provider-open="${escapeHtml(view.name)}" title="Settings" aria-label="Provider settings">${iconSvg("settings")}</button>
-          <div class="provider-meta">${view.formatNames.length ? view.formatNames.map(formatChip).join("") : `<span class="muted">No formats</span>`}<span class="priority-chip prio-${view.priority >= 10 ? "hi" : view.priority >= 5 ? "mid" : "lo"}" title="Priority ${view.priority}">P${view.priority}</span><span class="provider-state-badge provider-state-badge-inline tone-${view.runtimeState.badge}">${escapeHtml(view.runtimeState.label)}</span></div>
+      <article class="provider-kpi-card ${view.runtimeState.tone}${isDisabled ? " is-disabled" : ""}" data-provider-card="${escapeHtml(view.name)}" data-provider-open="${escapeHtml(view.name)}" tabindex="0" role="button" aria-label="${escapeHtml(t("prov.open_details", { name: view.name }))}">
+        <div class="provider-kpi-head">
+          ${providerBrandIconMarkup(view.name, iconSvg("server"))}
+          <strong class="provider-kpi-name" title="${escapeHtml(view.name)}">${escapeHtml(view.name)}</strong>
+          ${providerHealthPill(view)}
         </div>
-        <div class="provider-card-signal">
-          <span class="provider-signal-item ${escapeHtml(successTone)}" title="Success rate">${iconSvg("activity")}<strong>${escapeHtml(successText)}</strong><small>success</small></span>
-          <span class="provider-signal-item model-count" title="${escapeHtml(`${fmtInt(modelCount)} available models`)}">${iconSvg("boxes")}<strong>${escapeHtml(view.capability.status === "pending" ? "..." : fmtInt(modelCount))}</strong><small>models</small></span>
-          <span class="provider-signal-item ${escapeHtml(latencyTone)}" title="Latest first byte latency">${iconSvg("clock")}<strong>${escapeHtml(latencyText)}</strong><small>ttfb</small></span>
+        <div class="provider-kpi-meta">
+          ${view.formatNames.length ? view.formatNames.map(formatChip).join("") : `<span class="provider-kpi-muted">${escapeHtml(t("prov.no_formats"))}</span>`}
+          <span class="provider-kpi-sep">·</span>
+          <span title="Priority ${view.priority}">P${view.priority}</span>
+          <span class="provider-kpi-sep">·</span>
+          <span>${escapeHtml(t("prov.meta_models", { count: modelText }))}</span>
+          <span class="provider-kpi-sep">·</span>
+          <span title="${escapeHtml(t("prov.keys"))}">${escapeHtml(t("prov.meta_keys", { usable: fmtInt(keyUsable), total: fmtInt(keyTotal) }))}</span>
         </div>
+        <div class="provider-kpi-stats">
+          <div class="provider-kpi-cell"><b class="${successTone}">${escapeHtml(successText)}</b><small>${escapeHtml(t("prov.col_success"))}</small></div>
+          <div class="provider-kpi-cell"><b class="${latencyTone}">${escapeHtml(latencyText)}</b><small>${escapeHtml(t("prov.stat_first_byte"))}</small></div>
+          <div class="provider-kpi-cell"><b>${escapeHtml(fmtInt(sparkStats.calls))}</b><small>${escapeHtml(t("prov.col_calls"))}</small></div>
+        </div>
+        ${sparkStats.calls
+          ? `<div class="provider-kpi-activity">
+              ${providerSparkline(view.activity, view.name)}
+              <div class="provider-kpi-activity-cap"><span>${escapeHtml(t("prov.col_calls"))}</span><b>${escapeHtml(t("prov.activity_summary", { avg: fmtCompactMs(sparkStats.avg), failed: fmtInt(sparkStats.failed) }))}</b></div>
+            </div>`
+          : `<div class="provider-kpi-empty">${escapeHtml(t("prov.no_recent_calls"))}</div>`}
         ${providerProbeSummary(view.activity.lastProbe, view.activity.probeCount24h)}
-        ${providerSparkline(view.activity, view.name)}
-
-        <div class="provider-card-footer">
-          <div class="provider-card-stats">
-            ${compactStatInline("key", `${fmtInt(keyUsable)}/${fmtInt(keyTotal)}`, keyTone)}
-            ${compactStatInline("activity", `${fmtInt(sparkStats.calls)}x`, sparkStats.calls ? "neutral" : "neutral")}
-            ${compactStatInline("clock", sparkStats.avg === null ? "—" : fmtCompactMs(sparkStats.avg), sparkStats.avg === null ? "neutral" : sparkStats.avg <= 800 ? "ok" : sparkStats.avg <= 2500 ? "warn" : "bad")}
+        <div class="provider-kpi-foot">
+          <div class="provider-kpi-ops">
+            <button class="provider-kpi-op${isDisabled ? "" : " danger"}" type="button" data-action-path="/providers/${encodeURIComponent(view.name)}/${isDisabled ? "enable" : "disable"}">${escapeHtml(t(isDisabled ? "prov.enable" : "prov.disable"))}</button>
+            <button class="provider-kpi-op" type="button" data-action-path="/providers/${encodeURIComponent(view.name)}/cooldown/clear">${escapeHtml(t("prov.clear_cooldown"))}</button>
           </div>
-          <div class="provider-runtime-actions">
-            <button class="button primary compact-action icon-action" type="button" data-provider-open="${escapeHtml(view.name)}" title="Details" aria-label="Details">${iconSvg("info")}</button>
-            ${actionButton(view.runtime.runtime_enabled !== false ? "Disable" : "Enable", `/providers/${encodeURIComponent(view.name)}/${view.runtime.runtime_enabled !== false ? "disable" : "enable"}`, view.runtime.runtime_enabled !== false ? "danger" : "secondary", { iconOnly: true })}
-            ${actionButton("Clear cooldown", `/providers/${encodeURIComponent(view.name)}/cooldown/clear`, "secondary", { iconOnly: true })}
-          </div>
+          <span class="provider-kpi-detail" aria-hidden="true">${escapeHtml(t("prov.details_short"))} →</span>
         </div>
       </article>
     `;
-  }
-
-  function compactStatInline(iconName, value, tone) {
-    return `<span class="provider-stat ${tone || ""}" title="${escapeHtml(value)}">${iconSvg(iconName)}<strong>${escapeHtml(value)}</strong></span>`;
   }
 
   // Health pill shared by the providers table rows: prefers the aggregated
@@ -5637,7 +5644,7 @@ import {
           ${providerBrandIconMarkup(view.name, iconSvg("server"))}
           <div class="provider-list-name-text">
             <strong title="${escapeHtml(view.name)}">${escapeHtml(view.name)}</strong>
-            <small>${view.formatNames.length ? view.formatNames.map(formatChip).join("") : `<span class="provider-list-muted">No formats</span>`}<span class="priority-chip prio-${view.priority >= 10 ? "hi" : view.priority >= 5 ? "mid" : "lo"}" title="Priority ${view.priority}">P${view.priority}</span></small>
+            <small>${view.formatNames.length ? view.formatNames.map(formatChip).join("") : `<span class="provider-list-muted">${escapeHtml(t("prov.no_formats"))}</span>`}<span class="priority-chip prio-${view.priority >= 10 ? "hi" : view.priority >= 5 ? "mid" : "lo"}" title="Priority ${view.priority}">P${view.priority}</span></small>
           </div>
         </td>
         <td>${providerHealthPill(view)}</td>
@@ -5861,26 +5868,22 @@ import {
   function providerSparkline(activity, providerName) {
     const stats = providerSparklineStats(activity);
     const events = stats.events;
+    if (!events.length) return "";
     const slotCount = PROVIDER_CALL_BAR_SLOTS;
     const barW = 3.4;
     const gap = 6;
     const svgPad = 0.5;
     const svgW = slotCount * gap - (gap - barW) + svgPad * 2;
-    const emptyBars = Array.from({ length: slotCount }, (_, index) => (
-      `<rect class="is-empty-slot" x="${svgPad + index * gap}" y="0.5" width="${barW}" height="13" rx="1.7"></rect>`
-    )).join("");
-    if (!events.length) {
-      return `
-        <div class="provider-sparkline provider-call-strip is-empty" title="No recent provider activity">
-          <svg class="provider-call-bars" viewBox="0 0 ${svgW} 14" preserveAspectRatio="none" aria-hidden="true">${emptyBars}</svg>
-          <div class="provider-call-axis"><span>PAST</span><span>NOW</span></div>
-        </div>
-      `;
-    }
     const failed = stats.failed;
     const slow = events.filter((event) => Number(event.latencyMs || 0) > 5000).length;
     const tone = failed ? "bad" : slow ? "warn" : "ok";
     const avg = stats.avg || 0;
+    // Bar height encodes per-call latency (failed calls render full height);
+    // empty slots stay as short baseline dashes so the strip reads as data.
+    const maxLatency = Math.max(1, ...events.map((event) => Math.max(0, Number(event.latencyMs) || 0)));
+    const emptyBars = Array.from({ length: slotCount }, (_, index) => (
+      `<rect class="is-empty-slot" x="${svgPad + index * gap}" y="10.9" width="${barW}" height="2.6" rx="1.3"></rect>`
+    )).join("");
     const start = Math.max(0, slotCount - events.length);
     const eventBars = events.map((event, index) => {
       const latency = Math.max(0, Number(event.latencyMs) || 0);
@@ -5888,35 +5891,17 @@ import {
       const warn = !bad && latency > 5000;
       const label = `${bad ? "failed" : warn ? "slow" : "ok"} / ${fmtCompactMs(latency || avg)}`;
       const slot = Math.min(slotCount - 1, start + index);
-      return `<rect class="${bad ? "is-bad" : warn ? "is-warn" : "is-ok"}" x="${svgPad + slot * gap}" y="0.5" width="${barW}" height="13" rx="1.7"><title>${escapeHtml(label)}</title></rect>`;
+      const height = bad ? 13 : 4.5 + 8.5 * Math.min(1, latency / maxLatency);
+      const y = 13.5 - height;
+      return `<rect class="${bad ? "is-bad" : warn ? "is-warn" : "is-ok"}" x="${svgPad + slot * gap}" y="${y.toFixed(2)}" width="${barW}" height="${height.toFixed(2)}" rx="1.7"><title>${escapeHtml(label)}</title></rect>`;
     }).join("");
     return `
       <div class="provider-sparkline provider-call-strip tone-${escapeHtml(tone)}" title="${escapeHtml(`${providerName}: ${events.length} recent calls / avg ${fmtCompactMs(avg)} / ${failed} failed`)}">
         <svg class="provider-call-bars" viewBox="0 0 ${svgW} 14" preserveAspectRatio="none" aria-hidden="true">${emptyBars}${eventBars}</svg>
-        <div class="provider-call-axis"><span>PAST</span><span>NOW</span></div>
       </div>
     `;
   }
 
-  function providerMetric(label, value, hint) {
-    return `
-      <span class="provider-card-metric" title="${escapeHtml(`${label}: ${value} / ${hint}`)}">
-        <b>${iconSvg(metricIcon(label))}</b>
-        <strong>${escapeHtml(value)}</strong>
-        <small>${escapeHtml(hint)}</small>
-      </span>
-    `;
-  }
-
-  function metricIcon(label) {
-    const text = String(label || "").toLowerCase();
-    if (text.includes("key")) return "key";
-    if (text.includes("priority")) return "arrow-up";
-    if (text.includes("model")) return "boxes";
-    if (text.includes("success")) return "activity";
-    if (text.includes("latency")) return "clock";
-    return "dot";
-  }
 
   function formatChip(fmt) {
     return `<span class="format-chip tone-${escapeHtml(toneForText(fmt))}" title="${escapeHtml(formatLabel(fmt))}">${escapeHtml(shortFormatLabel(fmt))}</span>`;
@@ -6072,10 +6057,24 @@ import {
     target.querySelectorAll("[data-provider-open]").forEach((button) => {
       if (button.dataset.bounddataprovideropen) return;
       button.dataset.bounddataprovideropen = "1";
+      const open = () => openProviderDrawer(button.dataset.providerOpen || "");
       button.addEventListener("click", (event) => {
+        // Whole-card open: nested action buttons and links keep their own
+        // behavior; only clicks on the bound element itself (or its non-
+        // interactive content) open the drawer.
+        if (event.target !== button && event.target.closest("button, a, input, select, label")) return;
         event.stopPropagation();
-        openProviderDrawer(button.dataset.providerOpen || "");
+        open();
       });
+      if (button.getAttribute("role") === "button") {
+        button.addEventListener("keydown", (event) => {
+          if (event.target !== button) return;
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            open();
+          }
+        });
+      }
     });
   }
 

@@ -18,7 +18,7 @@ const modelsPanel = bodyBetween("function providerDrawerModels", "function provi
 const routingPanel = bodyBetween("function providerDrawerRouting", "function providerDrawerConfig");
 const configPanel = bodyBetween("function providerDrawerConfig", "function providerRoutingRows");
 const overviewPanel = bodyBetween("function providerDrawerOverview", "const _providerActivityEventsState");
-const providerCard = bodyBetween("function providerRuntimeCard", "function compactStatInline");
+const providerCard = bodyBetween("function providerRuntimeCard", "function providerHealthPill");
 const drawerRender = bodyBetween("function renderProviderDrawer", "let _tabSwitchRaf");
 const drawerTabSwitch = bodyBetween("function _renderProviderDrawerTabSwitchNow", "function bindProviderDrawerEvents");
 
@@ -94,8 +94,8 @@ assert.match(inspector, /data-skip-idle-toggle/, "Config must preserve the idle 
 assert.match(inspector, /data-skip-patrol-toggle/, "Config must preserve the patrol probe toggle");
 assert.match(inspector, /type="reset"/, "Config must offer a reset action in the sticky footer");
 assert.match(inspector, /type="submit"/, "Config must preserve one provider save action");
-assert.match(providerCard, /providerServerIconMarkup\(view\.config, view\.name\)/, "Provider cards must use the fixed server icon helper");
-assert.match(providerCard, /provider-title-block[\s\S]*provider-name[\s\S]*<\/div>\s*<\/div>\s*<button class="provider-card-settings-btn"[\s\S]*<div class="provider-meta">/, "Provider metadata must be a second grid row aligned to the card edge");
+assert.match(providerCard, /providerBrandIconMarkup\(view\.name, iconSvg\("server"\)\)/, "Provider cards must use the shared brand icon helper with the server fallback");
+assert.match(providerCard, /provider-kpi-head[\s\S]*provider-kpi-name[\s\S]*providerHealthPill\(view\)[\s\S]*provider-kpi-meta[\s\S]*provider-kpi-stats/, "Provider card must follow the KPI anatomy (identity, health pill, meta line, big-number stats)");
 assert.match(source, /function providerServerIconMarkup[\s\S]*iconSvg\("server"\)/, "Provider cards must render the fixed server SVG");
 assert.match(source, /providerServerIconMarkup[\s\S]*noopener noreferrer/, "Provider site links must be safe for a new tab");
 assert.match(source, /function providerSiteUrl[\s\S]*\["http:", "https:"\]\.includes\(parsed\.protocol\)/, "Provider site links must only allow HTTP(S)");
@@ -139,6 +139,6 @@ assert.match(styles, /\.provider-overview-kpis/, "provider overview must provide
 assert.match(styles, /\.provider-overview-disclosure > summary:focus-visible/, "probe disclosure must keep keyboard focus feedback");
 assert.match(styles, /\.provider-compatibility-clear/, "compatibility clear action must have a distinct visual treatment");
 assert.match(source, /providerCompatibilityToolbar/, "providers view must expose a global compatibility-circuit summary and clear action");
-assert.match(styles, /#providersView \.provider-card-topline > \.provider-meta[\s\S]*grid-column: 1 \/ -1/, "provider metadata must align to the card left edge");
+assert.match(styles, /#providersView \.provider-kpi-card\s*\{/, "provider cards must use the unified KPI anatomy");
 
 console.log("provider drawer layout tests passed");

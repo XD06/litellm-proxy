@@ -16379,6 +16379,216 @@ body {
   margin-left: 4px;
 }
 
+/* Providers KPI card: the overview language applied to provider cards —
+   brand identity + single health pill, big-number stats, quiet footer. */
+#providersView .provider-kpi-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow: hidden;
+  padding: 15px 15px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 15px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transition: box-shadow 160ms ease, transform 160ms ease, opacity 160ms ease;
+}
+
+#providersView .provider-kpi-card:hover,
+#providersView .provider-kpi-card:focus-visible {
+  border-color: rgba(0, 0, 0, 0.18);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.06);
+  outline: none;
+  transform: translateY(-2px);
+}
+
+#providersView .provider-kpi-card.is-disabled {
+  opacity: 0.62;
+}
+
+.provider-kpi-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+.provider-kpi-head .model-brand-mark {
+  flex: 0 0 auto;
+}
+
+.provider-kpi-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font: 650 14px var(--mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.provider-kpi-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: -6px;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.provider-kpi-sep {
+  color: var(--faint);
+}
+
+.provider-kpi-muted {
+  color: var(--muted);
+}
+
+.provider-kpi-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 11px 0 3px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.provider-kpi-cell {
+  min-width: 0;
+}
+
+.provider-kpi-cell b {
+  display: block;
+  overflow: hidden;
+  font: 700 19px/1.15 var(--mono);
+  letter-spacing: -0.01em;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.provider-kpi-cell b.ok {
+  color: var(--success);
+}
+
+.provider-kpi-cell b.warn {
+  color: var(--warning);
+}
+
+.provider-kpi-cell b.bad {
+  color: var(--danger);
+}
+
+.provider-kpi-cell b.mute {
+  color: var(--muted);
+}
+
+.provider-kpi-cell small {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
+.provider-kpi-activity {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.provider-kpi-activity .provider-sparkline {
+  min-height: 0;
+}
+
+.provider-kpi-activity .provider-call-bars {
+  height: 22px;
+}
+
+.provider-kpi-activity-cap {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  justify-content: space-between;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.provider-kpi-activity-cap b {
+  overflow: hidden;
+  font: 650 10px var(--mono);
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.provider-kpi-empty {
+  padding: 9px 11px;
+  border-radius: 9px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+/* Probe summary reads as a quiet line inside the KPI card. */
+#providersView .provider-kpi-card .provider-probe-summary {
+  min-height: 0;
+  padding: 0 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.provider-kpi-foot {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.provider-kpi-ops {
+  display: flex;
+  gap: 4px;
+}
+
+.provider-kpi-op {
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font: 600 11.5px var(--sans);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.provider-kpi-op:hover {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.provider-kpi-op.danger {
+  color: var(--danger);
+}
+
+.provider-kpi-op.danger:hover {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.provider-kpi-detail {
+  flex: 0 0 auto;
+  color: var(--pmc-accent, #0071e3);
+  font: 650 12px var(--sans);
+  white-space: nowrap;
+}
+
 #providersView .provider-runtime-card {
   display: flex;
   flex-direction: column;
