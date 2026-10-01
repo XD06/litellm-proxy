@@ -16084,7 +16084,40 @@ body {
 
 #providersView.view.is-active {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
   min-height: calc(100dvh - 24px);
+}
+
+/* Page head on the shared background, mirroring the requests view. */
+#providersView .providers-page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+#providersView .providers-page-head h1 {
+  margin: 0;
+  color: #18181b;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 32px;
+  letter-spacing: 0;
+}
+
+#providersView .providers-page-head p {
+  margin: 4px 0 0;
+  color: #71717a;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+@media (max-width: 760px) {
+  #providersView .providers-page-head {
+    flex-direction: column;
+    gap: 12px;
+  }
 }
 
 #providersView .providers-panel {
@@ -17223,7 +17256,7 @@ body {
 
 /* Provider cards use a neutral three-level surface hierarchy; status owns color. */
 #providersView {
-  --provider-page-surface: #f3f4f2;
+  --provider-page-surface: #ffffff;
   --provider-card-border: #e1e5e8;
   --provider-inset-surface: #f7f8f9;
   --provider-inset-border: #e8ebee;
