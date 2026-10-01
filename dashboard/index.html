@@ -286,50 +286,33 @@
               <button id="openAddProviderModal" class="button primary" type="button" data-i18n="prov.add">Add Provider</button>
             </div>
           </header>
-          <section class="panel providers-panel">
-            <div class="providers-tools">
-              <div id="providerToolbar" class="provider-toolbar">
-                <label class="field provider-search-field">
-                  <span data-i18n="prov.search">Search</span>
-                  <input id="providerSearchInput" class="control" placeholder="provider, model, base url" data-i18n-attr="placeholder:prov.search_ph" />
-                </label>
-                <label class="field">
-                  <span data-i18n="prov.format">Format</span>
-                  <select id="providerFormatFilter" class="control">
-                    <option value="" data-i18n="prov.all_formats">All formats</option>
-                    <option value="chat_completions">OpenAI Chat</option>
-                    <option value="responses">Responses</option>
-                    <option value="anthropic_messages">Anthropic</option>
-                  </select>
-                </label>
-                <label class="field">
-                  <span data-i18n="prov.status">Status</span>
-                  <select id="providerStatusFilter" class="control">
-                    <option value="" data-i18n="prov.all_status">All status</option>
-                    <option value="normal" data-i18n="prov.normal">Normal</option>
-                    <option value="degraded" data-i18n="prov.degraded">Degraded</option>
-                    <option value="cooldown" data-i18n="prov.cooldown">Cooldown</option>
-                    <option value="unavailable" data-i18n="prov.unavailable">Unavailable</option>
-                    <option value="disabled" data-i18n="prov.disabled">Disabled</option>
-                  </select>
-                </label>
-                <label class="field">
-                  <span data-i18n="prov.keys">Keys</span>
-                  <select id="providerKeyFilter" class="control">
-                    <option value="" data-i18n="prov.all_keys">All keys</option>
-                    <option value="usable" data-i18n="prov.has_usable">Has usable key</option>
-                    <option value="partial" data-i18n="prov.partial_usable">Partial usable</option>
-                    <option value="none" data-i18n="prov.no_usable">No usable keys</option>
-                    <option value="cooldown" data-i18n="prov.key_cooldown">Key cooldown</option>
-                  </select>
-                </label>
-                <button id="clearProviderFiltersButton" class="button secondary" type="button" data-i18n="req.clear">Clear</button>
-              </div>
-              <div id="providerCompatibilityToolbar" class="provider-compatibility-toolbar" hidden></div>
-            </div>
-            <div id="providersTable" class="provider-table"></div>
-            <div id="modelCapabilities" class="provider-model-list empty" hidden data-i18n="prov.no_capabilities">No model capabilities loaded</div>
-          </section>
+          <div id="providerToolbar" class="provider-toolbar providers-filter-bar">
+            <input id="providerSearchInput" class="control" placeholder="provider, model, base url" data-i18n-attr="placeholder:prov.search_ph,aria-label:prov.search" />
+            <select id="providerFormatFilter" class="control" data-i18n-attr="aria-label:prov.format">
+              <option value="" data-i18n="prov.all_formats">All formats</option>
+              <option value="chat_completions">OpenAI Chat</option>
+              <option value="responses">Responses</option>
+              <option value="anthropic_messages">Anthropic</option>
+            </select>
+            <select id="providerStatusFilter" class="control" data-i18n-attr="aria-label:prov.status">
+              <option value="" data-i18n="prov.all_status">All status</option>
+              <option value="normal" data-i18n="prov.normal">Normal</option>
+              <option value="degraded" data-i18n="prov.degraded">Degraded</option>
+              <option value="cooldown" data-i18n="prov.cooldown">Cooldown</option>
+              <option value="unavailable" data-i18n="prov.unavailable">Unavailable</option>
+              <option value="disabled" data-i18n="prov.disabled">Disabled</option>
+            </select>
+            <select id="providerKeyFilter" class="control" data-i18n-attr="aria-label:prov.keys">
+              <option value="" data-i18n="prov.all_keys">All keys</option>
+              <option value="usable" data-i18n="prov.has_usable">Has usable key</option>
+              <option value="partial" data-i18n="prov.partial_usable">Partial usable</option>
+              <option value="none" data-i18n="prov.no_usable">No usable keys</option>
+              <option value="cooldown" data-i18n="prov.key_cooldown">Key cooldown</option>
+            </select>
+          </div>
+          <div id="providerCompatibilityToolbar" class="provider-compatibility-toolbar" hidden></div>
+          <div id="providersTable" class="provider-table"></div>
+          <div id="modelCapabilities" class="provider-model-list empty" hidden data-i18n="prov.no_capabilities">No model capabilities loaded</div>
         </section>
 
         <section id="policyView" class="view">

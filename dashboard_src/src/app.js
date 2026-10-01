@@ -5529,6 +5529,7 @@ import {
       : "mute";
     const modelCount = view.modelItems.length;
     const sparkStats = providerSparklineStats(view.activity);
+    const stripStats = providerSparklineStats(view.activity, PROVIDER_SPARK_SLOTS);
     const isDisabled = view.runtimeState.id === "disabled";
     const modelText = view.capability.status === "pending" ? "…" : fmtInt(modelCount);
     return `
@@ -5555,7 +5556,7 @@ import {
         ${sparkStats.calls
           ? `<div class="provider-kpi-activity">
               ${providerSparkline(view.activity, view.name)}
-              <div class="provider-kpi-activity-cap"><span>${escapeHtml(t("prov.col_calls"))}</span><b>${escapeHtml(t("prov.activity_summary", { avg: fmtCompactMs(sparkStats.avg), failed: fmtInt(sparkStats.failed) }))}</b></div>
+              <div class="provider-kpi-activity-cap"><span>${escapeHtml(t("prov.col_calls"))}</span><b>${escapeHtml(t("prov.activity_summary", { avg: fmtCompactMs(stripStats.avg), failed: fmtInt(stripStats.failed) }))}</b></div>
             </div>`
           : `<div class="provider-kpi-empty">${escapeHtml(t("prov.no_recent_calls"))}</div>`}
         ${providerProbeSummary(view.activity.lastProbe, view.activity.probeCount24h)}
@@ -5857,8 +5858,12 @@ import {
     `;
   }
 
-  function providerSparklineStats(activity) {
-    const events = recentProviderActivityEvents(activity?.events);
+  // The card strip visualizes the most recent calls only (demo-style chunky
+  // bars); counts elsewhere keep the full activity window.
+  const PROVIDER_SPARK_SLOTS = 14;
+
+  function providerSparklineStats(activity, window = PROVIDER_CALL_BAR_SLOTS) {
+    const events = recentProviderActivityEvents(activity?.events).slice(-window);
     const latencies = events.map((event) => Math.max(0, Number(event.latencyMs) || 0));
     const avg = latencies.length ? Math.round(latencies.reduce((sum, value) => sum + value, 0) / latencies.length) : null;
     const failed = events.filter((event) => event.ok === false || event.status === "failed").length;
@@ -5866,40 +5871,21 @@ import {
   }
 
   function providerSparkline(activity, providerName) {
-    const stats = providerSparklineStats(activity);
+    const stats = providerSparklineStats(activity, PROVIDER_SPARK_SLOTS);
     const events = stats.events;
     if (!events.length) return "";
-    const slotCount = PROVIDER_CALL_BAR_SLOTS;
-    const barW = 3.4;
-    const gap = 6;
-    const svgPad = 0.5;
-    const svgW = slotCount * gap - (gap - barW) + svgPad * 2;
-    const failed = stats.failed;
-    const slow = events.filter((event) => Number(event.latencyMs || 0) > 5000).length;
-    const tone = failed ? "bad" : slow ? "warn" : "ok";
-    const avg = stats.avg || 0;
-    // Bar height encodes per-call latency (failed calls render full height);
-    // empty slots stay as short baseline dashes so the strip reads as data.
+    // Demo-style strip: capsule bars for the recent calls only (no filler
+    // slots), height encodes per-call latency, failed calls render full height.
     const maxLatency = Math.max(1, ...events.map((event) => Math.max(0, Number(event.latencyMs) || 0)));
-    const emptyBars = Array.from({ length: slotCount }, (_, index) => (
-      `<rect class="is-empty-slot" x="${svgPad + index * gap}" y="10.9" width="${barW}" height="2.6" rx="1.3"></rect>`
-    )).join("");
-    const start = Math.max(0, slotCount - events.length);
-    const eventBars = events.map((event, index) => {
+    const bars = events.map((event) => {
       const latency = Math.max(0, Number(event.latencyMs) || 0);
       const bad = event.ok === false || event.status === "failed";
       const warn = !bad && latency > 5000;
-      const label = `${bad ? "failed" : warn ? "slow" : "ok"} / ${fmtCompactMs(latency || avg)}`;
-      const slot = Math.min(slotCount - 1, start + index);
-      const height = bad ? 13 : 4.5 + 8.5 * Math.min(1, latency / maxLatency);
-      const y = 13.5 - height;
-      return `<rect class="${bad ? "is-bad" : warn ? "is-warn" : "is-ok"}" x="${svgPad + slot * gap}" y="${y.toFixed(2)}" width="${barW}" height="${height.toFixed(2)}" rx="1.7"><title>${escapeHtml(label)}</title></rect>`;
+      const label = `${bad ? "failed" : warn ? "slow" : "ok"} / ${fmtCompactMs(latency || stats.avg)}`;
+      const height = bad ? 100 : Math.round(30 + 70 * Math.min(1, latency / maxLatency));
+      return `<i class="${bad ? "is-bad" : warn ? "is-warn" : "is-ok"}" style="height:${height}%" title="${escapeHtml(label)}"></i>`;
     }).join("");
-    return `
-      <div class="provider-sparkline provider-call-strip tone-${escapeHtml(tone)}" title="${escapeHtml(`${providerName}: ${events.length} recent calls / avg ${fmtCompactMs(avg)} / ${failed} failed`)}">
-        <svg class="provider-call-bars" viewBox="0 0 ${svgW} 14" preserveAspectRatio="none" aria-hidden="true">${emptyBars}${eventBars}</svg>
-      </div>
-    `;
+    return `<div class="provider-kpi-bars" title="${escapeHtml(`${providerName}: ${events.length} recent calls / avg ${fmtCompactMs(stats.avg)} / ${stats.failed} failed`)}" aria-hidden="true">${bars}</div>`;
   }
 
 

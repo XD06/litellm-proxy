@@ -160,8 +160,13 @@ assert.match(
 );
 assert.match(
   app,
-  /const height = bad \? 13 : 4\.5 \+ 8\.5 \* Math\.min\(1, latency \/ maxLatency\);/,
+  /const height = bad \? 100 : Math\.round\(30 \+ 70 \* Math\.min\(1, latency \/ maxLatency\)\);/,
   "sparkline bars must encode per-call latency as height",
+);
+assert.match(
+  app,
+  /class="provider-kpi-bars"/,
+  "the call strip must render as capsule bars matching the demo",
 );
 assert.match(
   app,
