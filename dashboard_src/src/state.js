@@ -45,6 +45,8 @@ export const state = {
   settingsPricingLoading: false,
   clientKeysAvailable: null,
   providersPage: 0,
+  // Providers list presentation: "cards" (default) or "table".
+  providersViewMode: "cards",
   configProvidersPage: 0,
   modelRoutesPage: 0,
   providerModelMapPage: 0,

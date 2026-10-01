@@ -435,6 +435,7 @@ import {
         if (node.id) return `id:${node.id}`;
         for (const attr of [
           "data-provider-card",
+          "data-provider-row",
           "data-request-row",
           "data-model-usage-row",
           "data-provider-activity-list",
@@ -5137,14 +5138,18 @@ import {
 
     const page = paginate(filtered, "providersPage", PROVIDERS_PAGE_SIZE);
     const visibleCards = page.items.map((view) => providerViewModel(view.name));
+    const listMarkup = state.providersViewMode === "table"
+      ? providerRuntimeTable(visibleCards)
+      : `<div class="provider-card-grid">${visibleCards.map(providerRuntimeCard).join("")}</div>`;
     updateDOM(target, `
       ${panelPagination("providersPage", page, "providers")}
-      <div class="provider-card-grid">${visibleCards.map(providerRuntimeCard).join("")}</div>
+      ${listMarkup}
     `);
 
     bindPanelPagination(target);
     bindActionButtons(target);
     bindProviderCards(target);
+    if (state.providersViewMode === "table") bindProviderRows(target);
   }
 
   function providerCompatibilityToolbar() {
@@ -5558,6 +5563,119 @@ import {
     return `<span class="provider-stat ${tone || ""}" title="${escapeHtml(value)}">${iconSvg(iconName)}<strong>${escapeHtml(value)}</strong></span>`;
   }
 
+  // Health pill shared by the providers table rows: prefers the aggregated
+  // health score (same source as the overview health list) and falls back to
+  // the runtime state label when no score has been computed yet.
+  function providerHealthPill(view) {
+    if (view.runtimeState.id === "disabled") {
+      return `<span class="provider-health-pill tone-muted">${escapeHtml(t("prov.disabled"))}</span>`;
+    }
+    const entry = state.data.healthScores?.providers?.[view.name];
+    const score = entry ? Number(entry.score) : NaN;
+    if (Number.isFinite(score)) {
+      const rounded = Math.max(0, Math.min(100, Math.round(score)));
+      const tone = rounded >= 75 ? "ok" : rounded >= 50 ? "warn" : "bad";
+      const grade = String(entry.grade || "").toLowerCase();
+      const gradeKey = `health.grade.${grade}`;
+      const gradeLabel = t(gradeKey) === gradeKey ? "" : t(gradeKey);
+      return `<span class="provider-health-pill tone-${tone}" title="${escapeHtml(t("prov.health_score_title", { score: fmtInt(rounded) }))}">${gradeLabel ? `${escapeHtml(gradeLabel)} ` : ""}<b>${fmtInt(rounded)}</b></span>`;
+    }
+    const labelKey = `prov.${view.runtimeState.id}`;
+    const label = t(labelKey) === labelKey ? view.runtimeState.label : t(labelKey);
+    const tone = { ok: "ok", warn: "warn", bad: "bad" }[view.runtimeState.badge] || "muted";
+    return `<span class="provider-health-pill tone-${tone}">${escapeHtml(label)}</span>`;
+  }
+
+  // Table presentation of the same providerViewModel objects the cards use —
+  // identical fields, identical formatters, only the markup differs.
+  function providerRuntimeTable(views) {
+    return `
+      <div class="provider-table-scroll">
+        <table class="provider-list-table">
+          <thead>
+            <tr>
+              <th scope="col">${escapeHtml(t("prov.col_provider"))}</th>
+              <th scope="col">${escapeHtml(t("prov.status"))}</th>
+              <th scope="col">${escapeHtml(t("prov.keys"))}</th>
+              <th scope="col">${escapeHtml(t("prov.col_models"))}</th>
+              <th scope="col">${escapeHtml(t("prov.col_success"))}</th>
+              <th scope="col">${escapeHtml(t("prov.col_ttfb"))}</th>
+              <th scope="col">${escapeHtml(t("prov.col_calls"))}</th>
+              <th scope="col"><span class="sr-only">${escapeHtml(t("prov.col_actions"))}</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${views.map(providerRuntimeRow).join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function providerRuntimeRow(view) {
+    const keyUsable = view.keyStats.usable;
+    const keyTotal = view.keyStats.total;
+    const keyTone = keyTotal === 0 ? "mute" : keyUsable === 0 ? "bad" : keyUsable < keyTotal ? "warn" : "ok";
+    const successRate = view.activity.successRate;
+    const successText = successRate === null ? "—" : fmtPct(successRate);
+    const successTone = successRate === null ? "mute" : successRate >= 0.9 ? "ok" : successRate >= 0.5 ? "warn" : "bad";
+    const latencyText = view.activity.latestLatency ? fmtCompactMs(view.activity.latestLatency) : "—";
+    const latencyTone = view.activity.latestLatency
+      ? (view.activity.latestLatency <= 800 ? "ok" : view.activity.latestLatency <= 2500 ? "warn" : "bad")
+      : "mute";
+    const sparkStats = providerSparklineStats(view.activity);
+    const modelCount = view.capability.status === "pending" ? "..." : fmtInt(view.modelItems.length);
+    const callsText = sparkStats.calls
+      ? escapeHtml(t("prov.calls_summary", { calls: fmtInt(sparkStats.calls), avg: fmtCompactMs(sparkStats.avg) }))
+      : `<span class="provider-list-muted">—</span>`;
+    const callsTitle = sparkStats.calls
+      ? t("prov.calls_summary", { calls: fmtInt(sparkStats.calls), avg: fmtCompactMs(sparkStats.avg) })
+      : t("prov.no_recent_calls");
+    return `
+      <tr class="provider-list-row ${view.runtimeState.tone}" data-provider-row="${escapeHtml(view.name)}" tabindex="0" aria-label="${escapeHtml(t("prov.open_details", { name: view.name }))}">
+        <td class="provider-list-name">
+          ${providerBrandIconMarkup(view.name, iconSvg("server"))}
+          <div class="provider-list-name-text">
+            <strong title="${escapeHtml(view.name)}">${escapeHtml(view.name)}</strong>
+            <small>${view.formatNames.length ? view.formatNames.map(formatChip).join("") : `<span class="provider-list-muted">No formats</span>`}<span class="priority-chip prio-${view.priority >= 10 ? "hi" : view.priority >= 5 ? "mid" : "lo"}" title="Priority ${view.priority}">P${view.priority}</span></small>
+          </div>
+        </td>
+        <td>${providerHealthPill(view)}</td>
+        <td class="provider-list-num ${keyTone}">${fmtInt(keyUsable)}/${fmtInt(keyTotal)}</td>
+        <td class="provider-list-num">${escapeHtml(modelCount)}</td>
+        <td class="provider-list-num ${successTone}">${escapeHtml(successText)}</td>
+        <td class="provider-list-num ${latencyTone}">${escapeHtml(latencyText)}</td>
+        <td class="provider-list-num provider-list-calls" title="${escapeHtml(callsTitle)}">${callsText}</td>
+        <td class="provider-list-actions">
+          <button class="button secondary compact-action icon-action" type="button" data-provider-open="${escapeHtml(view.name)}" title="${escapeHtml(t("prov.row_details"))}" aria-label="${escapeHtml(t("prov.open_details", { name: view.name }))}">${iconSvg("info")}</button>
+          ${actionButton(view.runtime.runtime_enabled !== false ? "Disable" : "Enable", `/providers/${encodeURIComponent(view.name)}/${view.runtime.runtime_enabled !== false ? "disable" : "enable"}`, view.runtime.runtime_enabled !== false ? "danger" : "secondary", { iconOnly: true })}
+          ${actionButton("Clear cooldown", `/providers/${encodeURIComponent(view.name)}/cooldown/clear`, "secondary", { iconOnly: true })}
+        </td>
+      </tr>
+    `;
+  }
+
+  // Rows open the same drawer as the cards; button clicks inside a row keep
+  // their own action and must not bubble into the drawer open.
+  function bindProviderRows(target) {
+    target.querySelectorAll("[data-provider-row]").forEach((row) => {
+      if (row.dataset.boundproviderrow) return;
+      row.dataset.boundproviderrow = "1";
+      const open = () => openProviderDrawer(row.dataset.providerRow || "");
+      row.addEventListener("click", (event) => {
+        if (event.target.closest("button, a, input, select, label")) return;
+        open();
+      });
+      row.addEventListener("keydown", (event) => {
+        if (event.target !== row) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          open();
+        }
+      });
+    });
+  }
+
   function providerSiteUrl(value) {
     const raw = String(value || "").trim();
     if (!raw) return "";
@@ -5958,6 +6076,23 @@ import {
         event.stopPropagation();
         openProviderDrawer(button.dataset.providerOpen || "");
       });
+    });
+  }
+
+  function setProvidersViewMode(mode) {
+    if (mode !== "cards" && mode !== "table") return;
+    if (state.providersViewMode === mode) return;
+    state.providersViewMode = mode;
+    try { localStorage.setItem("proxyConsoleProvidersView", mode); } catch (_err) {}
+    state.providersPage = 0;
+    state.forceProvidersRender = true;
+    syncProvidersViewToggle();
+    renderProvidersTable();
+  }
+
+  function syncProvidersViewToggle() {
+    document.querySelectorAll("[data-providers-view]").forEach((button) => {
+      button.classList.toggle("is-active", (button.dataset.providersView || "") === state.providersViewMode);
     });
   }
 
@@ -11030,6 +11165,19 @@ import {
       el(id)?.addEventListener("change", syncProviderFiltersFromControls);
     });
     el("clearProviderFiltersButton")?.addEventListener("click", clearProviderFilters);
+
+    // Providers cards/table toggle: restore the persisted mode once, bind the
+    // static segmented control, then let renderProvidersTable follow state.
+    try {
+      const savedProvidersView = localStorage.getItem("proxyConsoleProvidersView");
+      if (savedProvidersView === "cards" || savedProvidersView === "table") {
+        state.providersViewMode = savedProvidersView;
+      }
+    } catch (_err) {}
+    document.querySelectorAll("[data-providers-view]").forEach((button) => {
+      button.addEventListener("click", () => setProvidersViewMode(button.dataset.providersView || "cards"));
+    });
+    syncProvidersViewToggle();
 
     el("reloadConfigButton").addEventListener("click", async () => {
       try {

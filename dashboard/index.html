@@ -280,7 +280,13 @@
                   <h2 data-i18n="prov.title">Providers</h2>
                   <p data-i18n="prov.desc">Runtime health, model coverage, key state, and routing readiness.</p>
                 </div>
-                <button id="openAddProviderModal" class="button primary" type="button" data-i18n="prov.add">Add Provider</button>
+                <div class="providers-head-actions">
+                  <div class="providers-view-toggle" role="group" aria-label="Provider view mode" data-i18n-attr="aria-label:prov.view_toggle_label">
+                    <button class="providers-view-btn is-active" type="button" data-providers-view="cards" data-i18n="prov.view_cards">Cards</button>
+                    <button class="providers-view-btn" type="button" data-providers-view="table" data-i18n="prov.view_table">Table</button>
+                  </div>
+                  <button id="openAddProviderModal" class="button primary" type="button" data-i18n="prov.add">Add Provider</button>
+                </div>
               </div>
               <div id="providerToolbar" class="provider-toolbar">
                 <label class="field provider-search-field">

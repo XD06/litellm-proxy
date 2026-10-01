@@ -16190,6 +16190,195 @@ body {
   overflow: hidden;
 }
 
+/* Providers cards/table view toggle (shared head, segmented control). */
+.providers-head-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.providers-view-toggle {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line-soft);
+  border-radius: 9px;
+  background: var(--surface-soft);
+}
+
+.providers-view-btn {
+  min-height: 26px;
+  padding: 3px 12px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font: 650 11.5px/1.4 var(--sans);
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease;
+}
+
+.providers-view-btn:hover {
+  color: var(--text);
+}
+
+.providers-view-btn.is-active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+
+/* Health score pill: same grammar as the overview health list. */
+.provider-health-pill {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font: 650 11px/1.4 var(--mono);
+  white-space: nowrap;
+}
+
+.provider-health-pill b {
+  font-weight: 700;
+}
+
+.provider-health-pill.tone-ok {
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 10%, var(--surface-raised));
+}
+
+.provider-health-pill.tone-warn {
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 12%, var(--surface-raised));
+}
+
+.provider-health-pill.tone-bad {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface-raised));
+}
+
+.provider-health-pill.tone-muted {
+  color: var(--muted);
+  background: var(--surface-raised);
+}
+
+/* Providers table view: same fields as the cards, row presentation. */
+.provider-table-scroll {
+  overflow-x: auto;
+  padding: 4px 18px 18px;
+}
+
+.provider-list-table {
+  width: 100%;
+  min-width: 880px;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.provider-list-table thead th {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--muted);
+  font: 650 10.5px/1.4 var(--sans);
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.provider-list-table tbody td {
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--line-soft);
+  vertical-align: middle;
+}
+
+.provider-list-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.provider-list-table tbody tr {
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.provider-list-table tbody tr:hover,
+.provider-list-table tbody tr:focus-visible {
+  background: var(--surface-soft);
+  outline: none;
+}
+
+.provider-list-name {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  min-width: 0;
+}
+
+.provider-list-name .model-brand-mark {
+  flex: 0 0 auto;
+}
+
+.provider-list-name-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.provider-list-name-text strong {
+  overflow: hidden;
+  font: 650 13px var(--mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.provider-list-name-text small {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.provider-list-num {
+  font: 650 12.5px var(--mono);
+  white-space: nowrap;
+}
+
+.provider-list-num.ok {
+  color: var(--success);
+}
+
+.provider-list-num.warn {
+  color: var(--warning);
+}
+
+.provider-list-num.bad {
+  color: var(--danger);
+}
+
+.provider-list-num.mute,
+.provider-list-muted {
+  color: var(--muted);
+}
+
+.provider-list-calls small {
+  margin-left: 6px;
+  color: var(--muted);
+  font: 500 10.5px var(--mono);
+}
+
+.provider-list-actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.provider-list-actions .button + .button {
+  margin-left: 4px;
+}
+
 #providersView .provider-runtime-card {
   display: flex;
   flex-direction: column;
