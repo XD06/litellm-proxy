@@ -16563,8 +16563,10 @@ body {
   font-size: 11.5px;
 }
 
-/* Probe summary reads as a quiet line inside the KPI card. */
+/* Probe summary pairs with the footer: every card's bottom reads as one
+   status + actions zone regardless of whether the activity strip renders. */
 #providersView .provider-kpi-card .provider-probe-summary {
+  margin-top: auto;
   min-height: 0;
   padding: 0 2px;
   border: 0;
@@ -16580,7 +16582,7 @@ body {
   gap: 8px;
   align-items: center;
   justify-content: space-between;
-  margin-top: auto;
+  margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid var(--line-soft);
 }
@@ -16607,7 +16609,7 @@ body {
 }
 
 .provider-kpi-op.danger {
-  color: var(--danger);
+  color: var(--muted);
 }
 
 .provider-kpi-op.danger:hover {

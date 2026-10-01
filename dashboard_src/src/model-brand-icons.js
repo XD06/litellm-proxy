@@ -71,7 +71,23 @@ const PROVIDER_ICON_ALIASES = new Map([
   ["together", "together"],
   ["perplexity", "perplexity"],
   ["cohere", "cohere"],
+  ["ollama", "ollama"],
+  ["opencode", "opencode"],
+  ["siliconflow", "siliconcloud"],
+  ["siliconcloud", "siliconcloud"],
+  ["grok", "grok"],
+  ["xai", "xai"],
 ]);
+
+// Conservative name-pattern fallbacks for providers whose display names carry
+// decorations (e.g. "grok公益", "硅基流动"). Slugs verified against the
+// /-/icons/ upstream; unknown names keep the server-icon fallback.
+const PROVIDER_ICON_RULES = [
+  [/^ollama/i, "ollama"],
+  [/^opencode/i, "opencode"],
+  [/^grok|^xai\b/i, "grok"],
+  [/硅基流动|siliconflow|siliconcloud/i, "siliconcloud"],
+];
 
 export function modelBrandSlug(model) {
   const value = String(model || "").trim();
@@ -90,12 +106,13 @@ export function modelBrandIconMarkup(model, fallbackMarkup = "") {
 }
 
 export function providerBrandSlug(provider) {
-  const value = String(provider || "").trim().toLowerCase();
+  const value = String(provider || "").trim();
   if (!value) return "";
-  const normalized = value.replace(/[._\s]+/g, "-");
+  const normalized = value.toLowerCase().replace(/[._\s]+/g, "-");
   if (PROVIDER_ICON_ALIASES.has(normalized)) return PROVIDER_ICON_ALIASES.get(normalized) || "";
   const namespace = normalized.split(/[\/:]/, 1)[0];
-  return PROVIDER_ICON_ALIASES.get(namespace) || "";
+  if (PROVIDER_ICON_ALIASES.has(namespace)) return PROVIDER_ICON_ALIASES.get(namespace) || "";
+  return PROVIDER_ICON_RULES.find(([pattern]) => pattern.test(value))?.[1] || "";
 }
 
 export function providerBrandIconMarkup(provider, fallbackMarkup = "") {

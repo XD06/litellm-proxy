@@ -6285,12 +6285,13 @@
 		return "<span class=\"model-brand-mark\" aria-hidden=\"true\"><img class=\"model-brand-icon\" src=\"" + iconSrc(slug, COLOR_ICON_SLUGS.has(slug) ? "color" : "mono") + "\" alt=\"\" loading=\"lazy\" decoding=\"async\" /><span class=\"model-brand-fallback\">" + fallbackMarkup + "</span></span>";
 	}
 	function providerBrandSlug(provider) {
-		const value = String(provider || "").trim().toLowerCase();
+		const value = String(provider || "").trim();
 		if (!value) return "";
-		const normalized = value.replace(/[._\s]+/g, "-");
+		const normalized = value.toLowerCase().replace(/[._\s]+/g, "-");
 		if (PROVIDER_ICON_ALIASES.has(normalized)) return PROVIDER_ICON_ALIASES.get(normalized) || "";
 		const namespace = normalized.split(/[\/:]/, 1)[0];
-		return PROVIDER_ICON_ALIASES.get(namespace) || "";
+		if (PROVIDER_ICON_ALIASES.has(namespace)) return PROVIDER_ICON_ALIASES.get(namespace) || "";
+		return PROVIDER_ICON_RULES.find(([pattern]) => pattern.test(value))?.[1] || "";
 	}
 	function providerBrandIconMarkup(provider, fallbackMarkup = "") {
 		const slug = providerBrandSlug(provider);
@@ -6303,7 +6304,7 @@
 			"together"
 		].includes(slug) ? "color" : "mono") + "\" alt=\"\" loading=\"lazy\" decoding=\"async\" /><span class=\"model-brand-fallback\">" + fallbackMarkup + "</span></span>";
 	}
-	var MODEL_ICON_RULES, COLOR_ICON_SLUGS, PROVIDER_ICON_ALIASES;
+	var MODEL_ICON_RULES, COLOR_ICON_SLUGS, PROVIDER_ICON_ALIASES, PROVIDER_ICON_RULES;
 	var init_model_brand_icons = __esmMin((() => {
 		MODEL_ICON_RULES = [
 			[/deepseek/i, "deepseek"],
@@ -6366,8 +6367,20 @@
 			["qwen", "qwen"],
 			["together", "together"],
 			["perplexity", "perplexity"],
-			["cohere", "cohere"]
+			["cohere", "cohere"],
+			["ollama", "ollama"],
+			["opencode", "opencode"],
+			["siliconflow", "siliconcloud"],
+			["siliconcloud", "siliconcloud"],
+			["grok", "grok"],
+			["xai", "xai"]
 		]);
+		PROVIDER_ICON_RULES = [
+			[/^ollama/i, "ollama"],
+			[/^opencode/i, "opencode"],
+			[/^grok|^xai\b/i, "grok"],
+			[/硅基流动|siliconflow|siliconcloud/i, "siliconcloud"]
+		];
 	}));
 	//#endregion
 	//#region src/provider-model-config.mjs
