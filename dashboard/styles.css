@@ -16255,39 +16255,53 @@ body {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
 }
 
-/* Health score pill: same grammar as the overview health list. */.provider-health-pill {
+/* Health score pill: same grammar as the overview health list. */
+.provider-health-pill {
   display: inline-flex;
-  gap: 4px;
+  gap: 5px;
   align-items: center;
   min-height: 22px;
   padding: 2px 9px;
   border-radius: 999px;
-  font: 650 11px/1.4 var(--mono);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.5;
   white-space: nowrap;
 }
 
+.provider-health-pill::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
 .provider-health-pill b {
+  font-family: var(--mono);
   font-weight: 700;
 }
 
 .provider-health-pill.tone-ok {
-  color: var(--success);
-  background: color-mix(in srgb, var(--success) 10%, var(--surface-raised));
+  color: #1e8e3e;
+  background: var(--success-soft);
 }
 
 .provider-health-pill.tone-warn {
-  color: var(--warning);
-  background: color-mix(in srgb, var(--warning) 12%, var(--surface-raised));
+  color: #b25000;
+  background: var(--warning-soft);
 }
 
-.provider-health-pill.tone-bad {
-  color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 10%, var(--surface-raised));
+.provider-health-pill.tone-bad,
+.provider-health-pill.tone-disabled {
+  color: #d70015;
+  background: var(--danger-soft);
 }
 
 .provider-health-pill.tone-muted {
   color: var(--muted);
-  background: var(--surface-raised);
+  background: rgba(0, 0, 0, 0.05);
 }
 
 /* Providers table view: same fields as the cards, row presentation. */
@@ -16451,8 +16465,27 @@ body {
   transform: translateY(-2px);
 }
 
+#providersView .provider-kpi-card.is-available {
+  border-color: var(--line-soft);
+  background: var(--surface);
+}
+
+#providersView .provider-kpi-card.is-available:hover {
+  border-color: rgba(0, 0, 0, 0.16);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.09), 0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+
+#providersView .provider-kpi-card.is-degraded {
+  border-color: color-mix(in srgb, var(--warning) 30%, var(--line-soft));
+}
+
+#providersView .provider-kpi-card.is-unavailable {
+  border-color: color-mix(in srgb, var(--danger) 30%, var(--line-soft));
+}
+
 #providersView .provider-kpi-card.is-disabled {
   opacity: 0.62;
+  border-color: var(--line-soft);
 }
 
 .provider-kpi-head {
@@ -16491,6 +16524,16 @@ body {
 
 .provider-kpi-muted {
   color: var(--muted);
+}
+
+.provider-kpi-key-stat.warn {
+  color: #b25000;
+  font-weight: 650;
+}
+
+.provider-kpi-key-stat.bad {
+  color: #d70015;
+  font-weight: 650;
 }
 
 .provider-kpi-stats {
@@ -16551,18 +16594,20 @@ body {
    height encodes per-call latency; empty history renders no filler. */
 .provider-kpi-bars {
   display: flex;
-  gap: 5px;
+  gap: 3px;
   align-items: flex-end;
   justify-content: flex-start;
-  height: 26px;
+  height: 22px;
 }
 
 .provider-kpi-bars i {
-  flex: 1 1 0;
-  max-width: 22px;
-  min-height: 6px;
-  border-radius: 999px;
+  flex: 0 0 6px;
+  width: 6px;
+  max-width: 7px;
+  min-height: 4px;
+  border-radius: 2px;
   background: var(--success);
+  opacity: 0.88;
 }
 
 .provider-kpi-bars i.is-warn {
@@ -16571,6 +16616,12 @@ body {
 
 .provider-kpi-bars i.is-bad {
   background: var(--danger);
+  opacity: 1;
+}
+
+.provider-kpi-bars i.is-empty {
+  background: var(--faint);
+  opacity: 0.45;
 }
 
 .provider-kpi-activity-cap {
@@ -16597,11 +16648,15 @@ body {
   background: var(--surface-soft);
   color: var(--muted);
   font-size: 11.5px;
+  line-height: 1.4;
 }
 
 /* Probe summary pairs with the footer: every card's bottom reads as one
    status + actions zone regardless of whether the activity strip renders. */
 #providersView .provider-kpi-card .provider-probe-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin-top: auto;
   min-height: 0;
   padding: 0 2px;
@@ -16611,6 +16666,36 @@ body {
   box-shadow: none;
   color: var(--muted);
   font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#providersView .provider-kpi-card .provider-probe-summary .dot2 {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+  flex-shrink: 0;
+}
+
+#providersView .provider-kpi-card .provider-probe-summary .dot2.bad {
+  background: var(--danger);
+}
+
+#providersView .provider-kpi-card .provider-probe-summary .dot2.warn {
+  background: var(--warning);
+}
+
+#providersView .provider-kpi-card .provider-probe-summary .dot2.mute {
+  background: var(--faint);
+}
+
+#providersView .provider-kpi-card .provider-probe-summary.tone-bad,
+#providersView .provider-kpi-card .provider-probe-summary.tone-bad span,
+#providersView .provider-kpi-card .provider-probe-summary.tone-bad small {
+  color: #d70015;
 }
 
 .provider-kpi-foot {

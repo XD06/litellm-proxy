@@ -2135,6 +2135,26 @@
 				en: "No recent calls",
 				zh: "近期无调用"
 			},
+			"prov.empty_idle": {
+				en: "No recent calls · Idle probe cadence",
+				zh: "近期无调用 · 已按空闲策略降频探测"
+			},
+			"prov.empty_disabled": {
+				en: "Provider disabled · Excluded from routing",
+				zh: "供应商已停用 · 不参与路由"
+			},
+			"prov.probe_paused": {
+				en: "Probe paused",
+				zh: "探测已暂停"
+			},
+			"prov.probe_waiting": {
+				en: "awaiting first probe",
+				zh: "等待首次探测"
+			},
+			"prov.in_cooldown": {
+				en: "in cooldown",
+				zh: "已进入冷却"
+			},
 			"prov.no_formats": {
 				en: "No formats",
 				zh: "无格式"
@@ -11416,11 +11436,12 @@
 		function providerRuntimeCard(view) {
 			const keyUsable = view.keyStats.usable;
 			const keyTotal = view.keyStats.total;
+			const keyTone = keyTotal === 0 ? "mute" : keyUsable === 0 ? "bad" : keyUsable < keyTotal ? "warn" : "ok";
 			const successRate = view.activity.successRate;
 			const successText = successRate === null ? "—" : fmtPct(successRate);
 			const successTone = successRate === null ? "mute" : successRate >= .9 ? "ok" : successRate >= .5 ? "warn" : "bad";
 			const latencyText = view.activity.latestLatency ? fmtCompactMs(view.activity.latestLatency) : "—";
-			const latencyTone = view.activity.latestLatency ? view.activity.latestLatency <= 800 ? "ok" : view.activity.latestLatency <= 2500 ? "warn" : "bad" : "mute";
+			const latencyTone = view.activity.latestLatency ? view.activity.latestLatency <= 1200 ? "ok" : view.activity.latestLatency <= 8e3 ? "warn" : "bad" : "mute";
 			const modelCount = view.modelItems.length;
 			const sparkStats = providerSparklineStats(view.activity);
 			const stripStats = providerSparklineStats(view.activity, PROVIDER_SPARK_SLOTS);
@@ -11440,7 +11461,7 @@
           <span class="provider-kpi-sep">·</span>
           <span>${escapeHtml(t("prov.meta_models", { count: modelText }))}</span>
           <span class="provider-kpi-sep">·</span>
-          <span title="${escapeHtml(t("prov.keys"))}">${escapeHtml(t("prov.meta_keys", {
+          <span class="provider-kpi-key-stat ${keyTone}" title="${escapeHtml(t("prov.keys"))}">${escapeHtml(t("prov.meta_keys", {
 				usable: fmtInt(keyUsable),
 				total: fmtInt(keyTotal)
 			}))}</span>
@@ -11456,8 +11477,8 @@
 				avg: fmtCompactMs(stripStats.avg),
 				failed: fmtInt(stripStats.failed)
 			}))}</b></div>
-            </div>` : `<div class="provider-kpi-empty">${escapeHtml(t("prov.no_recent_calls"))}</div>`}
-        ${providerProbeSummary(view.activity.lastProbe, view.activity.probeCount24h)}
+            </div>` : `<div class="provider-kpi-empty">${escapeHtml(isDisabled ? t("prov.empty_disabled") : t("prov.empty_idle"))}</div>`}
+        ${providerProbeSummary(view.activity.lastProbe, view.activity.probeCount24h, isDisabled)}
         <div class="provider-kpi-foot">
           <div class="provider-kpi-ops">
             <button class="provider-kpi-op${isDisabled ? "" : " danger"}" type="button" data-action-path="/providers/${encodeURIComponent(view.name)}/${isDisabled ? "enable" : "disable"}">${escapeHtml(t(isDisabled ? "prov.enable" : "prov.disable"))}</button>
@@ -11469,7 +11490,7 @@
     `;
 		}
 		function providerHealthPill(view) {
-			if (view.runtimeState.id === "disabled") return `<span class="provider-health-pill tone-muted">${escapeHtml(t("prov.disabled"))}</span>`;
+			if (view.runtimeState.id === "disabled") return `<span class="provider-health-pill tone-disabled">${escapeHtml(t("prov.disabled"))}</span>`;
 			const entry = state.data.healthScores?.providers?.[view.name];
 			const score = entry ? Number(entry.score) : NaN;
 			if (Number.isFinite(score)) {
@@ -11518,7 +11539,7 @@
 			const successText = successRate === null ? "—" : fmtPct(successRate);
 			const successTone = successRate === null ? "mute" : successRate >= .9 ? "ok" : successRate >= .5 ? "warn" : "bad";
 			const latencyText = view.activity.latestLatency ? fmtCompactMs(view.activity.latestLatency) : "—";
-			const latencyTone = view.activity.latestLatency ? view.activity.latestLatency <= 800 ? "ok" : view.activity.latestLatency <= 2500 ? "warn" : "bad" : "mute";
+			const latencyTone = view.activity.latestLatency ? view.activity.latestLatency <= 1200 ? "ok" : view.activity.latestLatency <= 8e3 ? "warn" : "bad" : "mute";
 			const sparkStats = providerSparklineStats(view.activity);
 			const modelCount = view.capability.status === "pending" ? "..." : fmtInt(view.modelItems.length);
 			const callsText = sparkStats.calls ? escapeHtml(t("prov.calls_summary", {
@@ -11683,24 +11704,27 @@
 			const d = /* @__PURE__ */ new Date(n * 1e3);
 			return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 		}
-		function providerProbeSummary(probe, probeCount24h) {
-			if (!probe) return `<div class="provider-probe-summary empty" title="${escapeHtml(t("prov.probe_none_title"))}">${iconSvg("radar")}<span>${escapeHtml(t("prov.probe_none"))}</span></div>`;
+		function providerProbeSummary(probe, probeCount24h, isDisabled = false) {
+			if (isDisabled) return `<div class="provider-probe-summary empty"><span class="dot2 mute"></span><span>${escapeHtml(t("prov.probe_paused"))}</span></div>`;
+			if (!probe) return `<div class="provider-probe-summary empty" title="${escapeHtml(t("prov.probe_none_title"))}"><span class="dot2 mute"></span><span>${escapeHtml(t("prov.probe_none"))} · ${escapeHtml(t("prov.probe_waiting"))}</span></div>`;
 			const tone = probeTone(probe);
-			probe.reason || probe.error_type || probe.outcome;
 			const isPatrol = String(probe.idle_tier || "") === "patrol";
 			const baseLabel = tone === "ok" ? t("prov.probe_ok") : tone === "bad" ? t("prov.probe_failed") : t("prov.probe_observed");
 			const label = isPatrol ? `${t("prov.probe_patrol_prefix")}${baseLabel}` : baseLabel;
 			const details = [];
-			if (probe.latency_ms != null) details.push(fmtCompactMs(probe.latency_ms));
-			else if (probe.http_status) details.push(`HTTP ${fmtInt(probe.http_status)}`);
+			if (probe.http_status && tone === "bad") details.push(`${fmtInt(probe.http_status)}`);
+			if (tone === "bad" && (probe.action === "cooldown" || probe.action === "reported_failure" || probe.error_type === "cooldown")) details.push(t("prov.in_cooldown"));
+			if (probe.latency_ms != null && tone !== "bad") details.push(fmtCompactMs(probe.latency_ms));
+			else if (probe.http_status && tone !== "bad") details.push(`HTTP ${fmtInt(probe.http_status)}`);
 			if (Number(probeCount24h) > 0) details.push(t("prov.probe_count_short", { count: fmtInt(probeCount24h) }));
 			const detail = details.join(" · ");
 			const chipTitle = [probeReasonText(probe), probeActionText(probe.action)].filter(Boolean).join(" · ");
+			const dotTone = tone === "ok" ? "" : tone === "bad" ? "bad" : "warn";
 			return `
       <div class="provider-probe-summary tone-${escapeHtml(tone)}${isPatrol ? " patrol-probe" : ""}" title="${escapeHtml(chipTitle)}">
-        ${iconSvg(isPatrol ? "shield" : "radar")}
+        <span class="dot2 ${escapeHtml(dotTone)}"></span>
         <span>${escapeHtml(label)}</span>
-        ${detail ? `<small>${escapeHtml(detail)}</small>` : ""}
+        ${detail ? `<span class="provider-kpi-sep">·</span><small>${escapeHtml(detail)}</small>` : ""}
       </div>
     `;
 		}
@@ -11763,7 +11787,7 @@
 			const events = stats.events;
 			if (!events.length) return "";
 			const maxLatency = Math.max(1, ...events.map((event) => Math.max(0, Number(event.latencyMs) || 0)));
-			const bars = events.map((event) => {
+			const activeBars = events.map((event) => {
 				const latency = Math.max(0, Number(event.latencyMs) || 0);
 				const bad = event.ok === false || event.status === "failed";
 				const warn = !bad && latency > 5e3;
@@ -11771,7 +11795,9 @@
 				const height = bad ? 100 : Math.round(30 + 70 * Math.min(1, latency / maxLatency));
 				return `<i class="${bad ? "is-bad" : warn ? "is-warn" : "is-ok"}" style="height:${height}%" title="${escapeHtml(label)}"></i>`;
 			}).join("");
-			return `<div class="provider-kpi-bars" title="${escapeHtml(`${providerName}: ${events.length} recent calls / avg ${fmtCompactMs(stats.avg)} / ${stats.failed} failed`)}" aria-hidden="true">${bars}</div>`;
+			const emptyCount = Math.max(0, PROVIDER_SPARK_SLOTS - events.length);
+			const emptyBars = emptyCount > 0 ? Array.from({ length: emptyCount }, () => `<i class="is-empty" style="height:28%"></i>`).join("") : "";
+			return `<div class="provider-kpi-bars" title="${escapeHtml(`${providerName}: ${events.length} recent calls / avg ${fmtCompactMs(stats.avg)} / ${stats.failed} failed`)}" aria-hidden="true">${activeBars}${emptyBars}</div>`;
 		}
 		function formatChip(fmt) {
 			return `<span class="format-chip tone-${escapeHtml(toneForText(fmt))}" title="${escapeHtml(formatLabel(fmt))}">${escapeHtml(shortFormatLabel(fmt))}</span>`;
