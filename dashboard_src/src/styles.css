@@ -16157,6 +16157,7 @@ body {
   grid-template-columns: minmax(240px, 1.6fr) repeat(3, minmax(130px, 0.75fr));
   gap: 9px;
   align-items: center;
+  margin: 0;
   padding: 12px 14px;
 }
 
@@ -16181,6 +16182,7 @@ body {
   grid-template-rows: auto auto;
   gap: 8px;
   min-height: 0;
+  padding: 0;
 }
 
 #providersView .panel-pagination {
@@ -16395,12 +16397,33 @@ body {
 }
 
 .provider-list-actions {
-  text-align: right;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: flex-end;
   white-space: nowrap;
 }
 
-.provider-list-actions .button + .button {
-  margin-left: 4px;
+.provider-list-actions .provider-row-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+
+.provider-list-actions .provider-row-link:hover {
+  color: var(--text);
+}
+
+.provider-list-actions .provider-row-link.is-danger {
+  color: var(--danger);
+}
+
+.provider-list-actions .provider-row-link.is-danger:hover {
+  color: color-mix(in srgb, var(--danger) 78%, #000);
 }
 
 /* Providers KPI card: the overview language applied to provider cards —
@@ -16524,20 +16547,20 @@ body {
   min-height: 0;
 }
 
-/* Demo-style call strip: capsule bars, recent calls right-aligned, height
-   encodes per-call latency; empty history renders no filler. */
+/* Demo-style call strip: capsule bars spread across the full card width,
+   height encodes per-call latency; empty history renders no filler. */
 .provider-kpi-bars {
   display: flex;
-  gap: 4px;
+  gap: 5px;
   align-items: flex-end;
-  justify-content: flex-end;
+  justify-content: flex-start;
   height: 26px;
 }
 
 .provider-kpi-bars i {
   flex: 1 1 0;
-  max-width: 18px;
-  min-height: 5px;
+  max-width: 22px;
+  min-height: 6px;
   border-radius: 999px;
   background: var(--success);
 }

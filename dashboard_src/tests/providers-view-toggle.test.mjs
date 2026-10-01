@@ -89,8 +89,8 @@ assert.match(
 );
 assert.match(
   app,
-  /function providerRuntimeRow\(view\)[\s\S]*?data-provider-open="\$\{escapeHtml\(view\.name\)\}"[\s\S]*?actionButton\(view\.runtime\.runtime_enabled !== false \? "Disable" : "Enable"/,
-  "row actions must reuse the existing drawer-open and enable/disable endpoints",
+  /function providerRuntimeRow\(view\)[\s\S]*?data-provider-open="\$\{escapeHtml\(view\.name\)\}"[\s\S]*?data-action-path="\/providers\/\$\{encodeURIComponent\(view\.name\)\}\/\$\{view\.runtime\.runtime_enabled !== false \? "disable" : "enable"\}"/,
+  "row actions must stay text links wired to the drawer-open and enable/disable endpoints",
 );
 assert.match(
   app,

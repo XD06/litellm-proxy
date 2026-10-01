@@ -5655,9 +5655,9 @@ import {
         <td class="provider-list-num ${latencyTone}">${escapeHtml(latencyText)}</td>
         <td class="provider-list-num provider-list-calls" title="${escapeHtml(callsTitle)}">${callsText}</td>
         <td class="provider-list-actions">
-          <button class="button secondary compact-action icon-action" type="button" data-provider-open="${escapeHtml(view.name)}" title="${escapeHtml(t("prov.row_details"))}" aria-label="${escapeHtml(t("prov.open_details", { name: view.name }))}">${iconSvg("info")}</button>
-          ${actionButton(view.runtime.runtime_enabled !== false ? "Disable" : "Enable", `/providers/${encodeURIComponent(view.name)}/${view.runtime.runtime_enabled !== false ? "disable" : "enable"}`, view.runtime.runtime_enabled !== false ? "danger" : "secondary", { iconOnly: true })}
-          ${actionButton("Clear cooldown", `/providers/${encodeURIComponent(view.name)}/cooldown/clear`, "secondary", { iconOnly: true })}
+          <button class="provider-row-link" type="button" data-provider-open="${escapeHtml(view.name)}" title="${escapeHtml(t("prov.row_details"))}" aria-label="${escapeHtml(t("prov.open_details", { name: view.name }))}">${escapeHtml(t("prov.details_short"))}</button>
+          <button class="provider-row-link" type="button" data-action-path="/providers/${encodeURIComponent(view.name)}/cooldown/clear">${escapeHtml(t("prov.clear_cooldown"))}</button>
+          <button class="provider-row-link${view.runtime.runtime_enabled !== false ? " is-danger" : ""}" type="button" data-action-path="/providers/${encodeURIComponent(view.name)}/${view.runtime.runtime_enabled !== false ? "disable" : "enable"}">${escapeHtml(t(view.runtime.runtime_enabled !== false ? "prov.disable" : "prov.enable"))}</button>
         </td>
       </tr>
     `;
