@@ -20,7 +20,7 @@ assert.match(
 );
 assert.match(
   styles,
-  /#settingsView\.view\.is-active\s*\{[^}]*min-height:\s*100vh[^}]*padding:\s*24px[^}]*animation:\s*none/,
+  /#settingsView\.view\.is-active\s*\{[^}]*min-height:\s*100vh[^}]*padding:\s*32px[^}]*animation:\s*none/,
   "settings content must use the stable Requests page frame",
 );
 assert.match(

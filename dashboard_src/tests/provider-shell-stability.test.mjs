@@ -23,8 +23,13 @@ assert.match(
 );
 assert.match(
   styles,
-  /#providersView\.view\.is-active\s*\{[^}]*width:\s*calc\(100% - 80px\)[^}]*max-width:\s*1120px[^}]*margin:\s*12px auto 48px[^}]*animation:\s*none/,
-  "providers content must retain its existing desktop geometry without a page-entry shift",
+  /#providersView\.view\.is-active\s*\{[^}]*width:\s*100%[^}]*max-width:\s*1550px[^}]*margin:\s*0 auto[^}]*padding:\s*32px[^}]*min-height:\s*calc\(100dvh - 64px\)[^}]*animation:\s*none/,
+  "providers content must share the requests view's unified desktop container",
+);
+assert.doesNotMatch(
+  styles,
+  /#providersView\.view\.is-active\s*\{[^}]*max-width:\s*1120px/,
+  "providers content must not fall back to the legacy narrow 1120px container",
 );
 
 console.log("provider shell stability tests passed");

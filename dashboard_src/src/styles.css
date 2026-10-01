@@ -25805,7 +25805,7 @@ body {
     width: 100%;
     max-width: 1550px;
     margin: 0 auto;
-    padding: 28px 32px 40px;
+    padding: 32px;
     gap: 22px;
   }
 
@@ -27168,9 +27168,10 @@ body {
   }
 
   #configView.view.is-active {
-    width: calc(100% - 80px);
-    max-width: 1120px;
-    margin: 12px auto 48px;
+    width: 100%;
+    max-width: 1550px;
+    margin: 0 auto;
+    padding: 32px;
     animation: none;
   }
 }
@@ -27309,9 +27310,11 @@ body {
   }
 
   #providersView.view.is-active {
-    width: calc(100% - 80px);
-    max-width: 1120px;
-    margin: 12px auto 48px;
+    width: 100%;
+    max-width: 1550px;
+    margin: 0 auto;
+    padding: 32px;
+    min-height: calc(100dvh - 64px);
     animation: none;
   }
 }
@@ -27581,9 +27584,26 @@ body.is-auth-checking {
     max-width: 1550px;
     min-height: 100vh;
     margin: 0 auto;
-    padding: 24px;
+    padding: 32px;
     gap: 24px;
     animation: none;
+  }
+}
+
+/* Shared desktop shell: match the requests view's 24px gutter on mid widths.
+   Must stay after every per-view container rule above so 24px wins at 1181-1450px. */
+@media (min-width: 1181px) and (max-width: 1450px) {
+  #overviewView.view.is-active,
+  #providersView.view.is-active,
+  #policyView.view.is-active,
+  #configView.view.is-active,
+  #playgroundView.view.is-active,
+  #settingsView.view.is-active {
+    padding: 24px;
+  }
+
+  #providersView.view.is-active {
+    min-height: calc(100dvh - 48px);
   }
 }
 
