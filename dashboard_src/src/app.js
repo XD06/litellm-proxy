@@ -6481,10 +6481,16 @@ import {
     const hasFailedProbe = recentProbes.some((probe) => probeTone(probe) === "bad");
     const endpoint = String(view.config.base_url || "").trim();
     const successRate = view.activity.successRate;
-    // Small samples render neutral instead of a confident green/red value.
-    const successTone = successRate === null || view.activity.total < 5
+    // Same value-driven coloring as the provider cards row: tone follows the
+    // number itself (no small-sample neutral pass), the hint line keeps
+    // disclosing the sample size.
+    const successTone = successRate === null
       ? "neutral"
       : successRate >= 0.9 ? "ok" : successRate >= 0.5 ? "warn" : "bad";
+    const avgLatency = Number(view.activity.avgLatency || 0);
+    const latencyTone = avgLatency
+      ? avgLatency <= 1200 ? "ok" : avgLatency <= 8000 ? "warn" : "bad"
+      : "neutral";
     const dotTone = view.runtimeState.id === "normal"
       ? "ok"
       : view.runtimeState.id === "disabled" ? "mute" : view.runtimeState.id === "unavailable" ? "bad" : "warn";
@@ -6566,7 +6572,7 @@ import {
           ${providerOverviewMetric("key", t("prov.overview_key_coverage"), `${fmtInt(view.keyStats.usable)}/${fmtInt(view.keyStats.total)}`, keyHint, keyTone)}
           ${providerOverviewMetric("boxes", t("prov.overview_models"), fmtInt(view.modelItems.length), t("prov.overview_models_available"), "neutral")}
           ${providerOverviewMetric("activity", t("prov.overview_recent_success"), successRate === null ? "—" : fmtPct(successRate), t("prov.overview_recent_requests", { count: fmtInt(view.activity.total) }), successTone)}
-          ${providerOverviewMetric("clock", t("prov.overview_avg_first_byte"), view.activity.avgLatency ? fmtMs(view.activity.avgLatency) : "—", t("prov.overview_successful_calls"), "neutral")}
+          ${providerOverviewMetric("clock", t("prov.overview_avg_first_byte"), view.activity.avgLatency ? fmtMs(view.activity.avgLatency) : "—", t("prov.overview_successful_calls"), latencyTone)}
         </div>
 
         <section class="provider-overview-section provider-overview-activity-card">

@@ -12270,7 +12270,9 @@
 			const hasFailedProbe = recentProbes.some((probe) => probeTone(probe) === "bad");
 			const endpoint = String(view.config.base_url || "").trim();
 			const successRate = view.activity.successRate;
-			const successTone = successRate === null || view.activity.total < 5 ? "neutral" : successRate >= .9 ? "ok" : successRate >= .5 ? "warn" : "bad";
+			const successTone = successRate === null ? "neutral" : successRate >= .9 ? "ok" : successRate >= .5 ? "warn" : "bad";
+			const avgLatency = Number(view.activity.avgLatency || 0);
+			const latencyTone = avgLatency ? avgLatency <= 1200 ? "ok" : avgLatency <= 8e3 ? "warn" : "bad" : "neutral";
 			const dotTone = view.runtimeState.id === "normal" ? "ok" : view.runtimeState.id === "disabled" ? "mute" : view.runtimeState.id === "unavailable" ? "bad" : "warn";
 			let readinessSummary;
 			if (view.runtimeState.id === "normal") readinessSummary = t("prov.overview_summary_ready");
@@ -12349,7 +12351,7 @@
           ${providerOverviewMetric("key", t("prov.overview_key_coverage"), `${fmtInt(view.keyStats.usable)}/${fmtInt(view.keyStats.total)}`, keyHint, keyTone)}
           ${providerOverviewMetric("boxes", t("prov.overview_models"), fmtInt(view.modelItems.length), t("prov.overview_models_available"), "neutral")}
           ${providerOverviewMetric("activity", t("prov.overview_recent_success"), successRate === null ? "—" : fmtPct(successRate), t("prov.overview_recent_requests", { count: fmtInt(view.activity.total) }), successTone)}
-          ${providerOverviewMetric("clock", t("prov.overview_avg_first_byte"), view.activity.avgLatency ? fmtMs(view.activity.avgLatency) : "—", t("prov.overview_successful_calls"), "neutral")}
+          ${providerOverviewMetric("clock", t("prov.overview_avg_first_byte"), view.activity.avgLatency ? fmtMs(view.activity.avgLatency) : "—", t("prov.overview_successful_calls"), latencyTone)}
         </div>
 
         <section class="provider-overview-section provider-overview-activity-card">
