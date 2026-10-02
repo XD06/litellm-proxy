@@ -4709,8 +4709,22 @@ form.is-busy {
 .key-card-ops {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 5px;
   margin-left: auto;
+}
+
+/* Icon-only per-key ops: slightly slimmer than the global 32px icon buttons
+   so three of them sit quietly on the card head row. */
+.key-card-ops .key-op-btn {
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
+}
+
+.key-card-ops .key-op-btn .icon-svg {
+  width: 13px;
+  height: 13px;
 }
 
 .key-card-stats {
@@ -16448,8 +16462,7 @@ body {
 
 .provider-list-actions .provider-row-link,
 .provider-overview-readiness-ops .provider-row-link,
-.provider-overview-viewall .provider-row-link,
-.key-card-ops .provider-row-link {
+.provider-overview-viewall .provider-row-link {
   padding: 0;
   border: 0;
   background: none;
@@ -16461,27 +16474,23 @@ body {
 
 .provider-list-actions .provider-row-link:hover,
 .provider-overview-readiness-ops .provider-row-link:hover,
-.provider-overview-viewall .provider-row-link:hover,
-.key-card-ops .provider-row-link:hover {
+.provider-overview-viewall .provider-row-link:hover {
   color: var(--text);
 }
 
 .provider-list-actions .provider-row-link.is-danger,
-.provider-overview-readiness-ops .provider-row-link.is-danger,
-.key-card-ops .provider-row-link.is-danger {
+.provider-overview-readiness-ops .provider-row-link.is-danger {
   color: var(--danger);
 }
 
 .provider-list-actions .provider-row-link.is-danger:hover,
-.provider-overview-readiness-ops .provider-row-link.is-danger:hover,
-.key-card-ops .provider-row-link.is-danger:hover {
+.provider-overview-readiness-ops .provider-row-link.is-danger:hover {
   color: color-mix(in srgb, var(--danger) 78%, #000);
 }
 
 .provider-list-actions .provider-row-link:focus-visible,
 .provider-overview-readiness-ops .provider-row-link:focus-visible,
-.provider-overview-viewall .provider-row-link:focus-visible,
-.key-card-ops .provider-row-link:focus-visible {
+.provider-overview-viewall .provider-row-link:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--info) 62%, transparent);
   outline-offset: 2px;
   border-radius: 4px;

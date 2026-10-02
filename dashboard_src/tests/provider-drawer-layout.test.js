@@ -57,9 +57,14 @@ assert.match(
 assert.match(
   keyCardRegion,
   /key-card-ops/,
-  "per-key actions must be labeled text links, not icon-only buttons",
+  "per-key actions must live in a dedicated ops container",
 );
-assert.doesNotMatch(keyCardRegion, /iconOnly: true/, "per-key actions must show labels instead of bare icons");
+assert.match(
+  keyCardRegion,
+  /aria-label=/,
+  "per-key icon buttons must carry accessible names",
+);
+assert.doesNotMatch(keyCardRegion, /iconOnly: true/, "per-key ops must not rely on English actionButton labels");
 assert.doesNotMatch(keysPanel, /miniMetric\("Usable"/, "keys tab must not use untranslated mini metrics");
 const keyTranslationKeys = [
   ...keysPanel.matchAll(/t\("(prov\.[^"]+)"/g),
@@ -174,7 +179,7 @@ assert.match(styles, /\.provider-overview-kpis/, "provider overview must provide
 assert.match(styles, /\.provider-activity-tab:focus-visible/, "activity sub-tabs must keep keyboard focus feedback");
 assert.match(styles, /\.provider-compatibility-clear/, "compatibility clear action must have a distinct visual treatment");
 assert.match(styles, /\.key-card-details\[open\] \.key-card-chev/, "the overrides disclosure must rotate its chevron when open");
-assert.match(styles, /\.key-card-ops \.provider-row-link:focus-visible/, "per-key ops links must keep keyboard focus feedback");
+assert.match(styles, /\.key-card-ops \.key-op-btn\s*\{/, "per-key icon ops must get slimmer sizing so the head row stays quiet");
 assert.match(styles, /\.provider-key-add-form\s*\{[\s\S]*?border: 1\.5px dashed/, "the add-key form must read as a distinct drop-zone card");
 assert.match(source, /providerCompatibilityToolbar/, "providers view must expose a global compatibility-circuit summary and clear action");
 assert.match(styles, /#providersView \.provider-kpi-card\s*\{/, "provider cards must use the unified KPI anatomy");

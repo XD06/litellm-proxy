@@ -7449,16 +7449,18 @@ import {
           <span class="key-card-index mono">#${escapeHtml(key.index)}</span>
           ${badge(available ? t("prov.key_available") : key.runtime_enabled ? t("prov.key_cooldown_label") : t("prov.key_disabled_label"), tone)}
           <div class="key-card-ops">
-            <button class="provider-row-link${key.runtime_enabled ? " is-danger" : ""}" type="button" data-action-path="/providers/${encodeURIComponent(provider)}/keys/${encodeURIComponent(key.index)}/${key.runtime_enabled ? "disable" : "enable"}">${escapeHtml(t(key.runtime_enabled ? "prov.disable" : "prov.enable"))}</button>
-            <button class="provider-row-link" type="button" data-action-path="/providers/${encodeURIComponent(provider)}/keys/${encodeURIComponent(key.index)}/state/clear">${escapeHtml(t("prov.key_clear_state"))}</button>
+            <button class="button secondary icon-action key-op-btn" type="button" data-action-path="/providers/${encodeURIComponent(provider)}/keys/${encodeURIComponent(key.index)}/${key.runtime_enabled ? "disable" : "enable"}" title="${escapeHtml(t(key.runtime_enabled ? "prov.disable_key" : "prov.enable_key"))}" aria-label="${escapeHtml(t(key.runtime_enabled ? "prov.disable_key" : "prov.enable_key"))}">${iconSvg(key.runtime_enabled ? "power-off" : "power")}</button>
+            <button class="button secondary icon-action key-op-btn" type="button" data-action-path="/providers/${encodeURIComponent(provider)}/keys/${encodeURIComponent(key.index)}/state/clear" title="${escapeHtml(t("prov.key_clear_state"))}" aria-label="${escapeHtml(t("prov.key_clear_state"))}">${iconSvg("rotate")}</button>
             <button
-              class="provider-row-link is-danger"
+              class="button danger icon-action key-op-btn"
               type="button"
               data-key-delete-provider="${escapeHtml(provider)}"
               data-key-delete-index="${escapeHtml(key.index)}"
               data-key-delete-total="${escapeHtml(totalKeys)}"
               data-key-delete-label="${escapeHtml(key.masked || key.key_id || `key ${key.index}`)}"
-            >${escapeHtml(t("prov.key_delete"))}</button>
+              title="${escapeHtml(t("prov.key_delete"))}"
+              aria-label="${escapeHtml(t("prov.key_delete"))}"
+            >${iconSvg("trash")}</button>
           </div>
         </div>
         <div class="key-card-stats mono">
