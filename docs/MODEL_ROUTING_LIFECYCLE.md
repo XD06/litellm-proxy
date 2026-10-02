@@ -103,6 +103,14 @@ config.json / runtime_config.json
           └─ 异常/报错 ──► 触发 Scheduler Policy 冷却阶梯，尝试下一个候选 Key/Provider
 ```
 
+### 探测/巡检路径的 key 级模型解析（与真实路由对齐）
+
+真实路由按 `key_supports_provider_model` 逐 key 过滤（阶段 3）；探测与巡检路径必须对齐同一语义，否则同一 provider 下目录不同的 key 会被测错模型：
+
+* **手动测试**（`POST /-/admin/models/test`，控制台映射弹窗入口）：按所选 `key_index` 用 `resolve_key_provider_model` 解析该 key 自身的 raw（key `models` dict → `provider_key_model_capabilities` 指纹条目），无 key 级信息回退 provider 级主 raw。控制台弹窗展示模型归属 key 徽章（可多选切换）。
+* **空闲探测**（`_idle_probe_one_provider_impl`）：逐 key 用 key 级 raw 探测，且目录明确不含探测模型（`key_supports_provider_model is False`）的 key 直接跳过；所有 key 都不含时保留原始顺序（兼容 static_models/manual map 场景）。
+* **巡检**（`_patrol_probe_one_key_impl`）：按 key 解析 raw；该 key 目录明确不含候选模型时记录 `skipped: model not in key catalog` 并返回 False，由驱动尝试下一候选模型，不产生失败记录。
+
 ---
 
 ## 3. 自动发现与手动重命名的协同机制
