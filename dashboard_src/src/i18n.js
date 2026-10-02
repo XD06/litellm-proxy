@@ -682,6 +682,15 @@ const dict = {
   "prov.models.add_model_ids_help": { en: "Comma-separated. New entries are appended and de-duplicated.", zh: "用逗号分隔，新条目会追加并自动去重。" },
   "prov.models.add_models": { en: "Add models", zh: "添加模型" },
   "prov.models.clear": { en: "Clear", zh: "清空" },
+  "prov.models.kpi_usable": { en: "Usable models", zh: "可用模型" },
+  "prov.models.kpi_all_routable": { en: "all routable", zh: "全部可参与路由" },
+  "prov.models.kpi_disabled_hint": { en: "not offered to routing", zh: "不参与路由选择" },
+  "prov.models.kpi_disabled_none": { en: "nothing disabled", zh: "无禁用记录" },
+  "prov.models.kpi_staged": { en: "Staged changes", zh: "已暂存变更" },
+  "prov.models.kpi_staged_pending": { en: "applies only after Apply", zh: "待应用后生效" },
+  "prov.models.kpi_staged_none": { en: "nothing staged", zh: "无待应用变更" },
+  "prov.models.draft_apply_hint": { en: "Apply writes the config and changes which models routing can pick.", zh: "应用后才会写入配置并影响路由可选模型。" },
+  "prov.models.manual_map": { en: "manual map", zh: "手动映射" },
 
   // ---- Provider mini metrics ----
   "pm.keys": { en: "Keys", zh: "密钥" },

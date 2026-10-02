@@ -6122,6 +6122,8 @@ import {
     state.providerOverviewActivityTab = "";
     // Fresh drawer, all per-key override disclosures start collapsed.
     state.providerKeyOverridesOpen?.clear();
+    // Fresh drawer, models-tab disclosures start collapsed as well.
+    state.providerModelsDisclosuresOpen?.clear();
     // Reset the lazy events cache so the newly opened drawer fetches its own
     // activity events exactly once, regardless of which provider was open before.
     resetProviderActivityEventsCache(name);
@@ -6346,6 +6348,19 @@ import {
         const openSet = state.providerKeyOverridesOpen || (state.providerKeyOverridesOpen = new Set());
         if (details.open) openSet.add(keyId);
         else openSet.delete(keyId);
+      });
+    });
+    // Same for the models-tab disclosures (aliases / fallback / alias editor):
+    // morphdom does not preserve <details open> across re-renders.
+    root.querySelectorAll("details[data-models-disclosure]").forEach((details) => {
+      if (details.dataset.boundmodelsdisclosure) return;
+      details.dataset.boundmodelsdisclosure = "1";
+      details.addEventListener("toggle", () => {
+        const discId = details.dataset.modelsDisclosure || "";
+        if (!discId) return;
+        const openSet = state.providerModelsDisclosuresOpen || (state.providerModelsDisclosuresOpen = new Set());
+        if (details.open) openSet.add(discId);
+        else openSet.delete(discId);
       });
     });
     if (!root.dataset.boundprovideractivityrows) {
@@ -6780,10 +6795,21 @@ import {
     const legacyRouteRefs = Array.isArray(modelItems?.legacyRouteRefs) ? modelItems.legacyRouteRefs : [];
     const visibleItems = filteredProviderModelItems(modelItems);
     const largeCatalog = visibleItems.length > 24;
+    // Dual mode: small catalogs read better as detailed rows; large ones stay
+    // in the dense chip grid. Based on the filtered set so search results in a
+    // big catalog also get the detailed treatment.
+    const useRows = !largeCatalog && visibleItems.length > 0;
     const disabledCount = modelItems.filter((item) => item.disabled).length;
     const modelFilters = state.providerModelFilters || {};
     const draftCount = providerModelDraftCount(view.name);
     const staticModels = normalizeStaticModelIds(view.config.static_models);
+    // Same value-tint rules as the overview/keys KPI rows so all three tabs read alike.
+    const statusTone = capability.status === "ok" ? "ok" : capability.status === "error" ? "bad" : capability.status === "pending" || capability.status === "stale" ? "warn" : "neutral";
+    const usableModels = modelItems.length - disabledCount;
+    const usableTone = usableModels === 0 ? "bad" : disabledCount > 0 ? "warn" : "ok";
+    const disabledTone = disabledCount > 0 ? "warn" : "neutral";
+    const draftTone = draftCount > 0 ? "warn" : "neutral";
+    const discOpen = (id) => (state.providerModelsDisclosuresOpen?.has(id) ? " open" : "");
     const variantChoices = [];
     const seenVariantChoices = new Set();
     modelCapabilityItems(
@@ -6797,31 +6823,22 @@ import {
     });
     return `
       <section class="provider-drawer-section provider-models-workspace">
-        <div class="provider-model-status-strip">
-          <div class="provider-model-status-item">
-            <span>${iconSvg("radar")} ${escapeHtml(t("prov.models.discovery"))}</span>
-            <strong>${escapeHtml(providerModelStatusLabel(capability.status))}</strong>
-            <small>${escapeHtml(capability.fetched_at ? fmtDate(capability.fetched_at) : t("prov.models.no_snapshot"))}</small>
-          </div>
-          <div class="provider-model-status-item">
-            <span>${iconSvg("boxes")} ${escapeHtml(t("prov.models.models"))}</span>
-            <strong>${escapeHtml(fmtInt(modelItems.length))}</strong>
-            <small>${escapeHtml(t("prov.models.disabled_count", { count: fmtInt(disabledCount) }))}</small>
-          </div>
-          <button class="button secondary compact-action provider-model-refresh-action" type="button"
-            data-provider-models-refresh="${escapeHtml(view.name)}">
-            ${iconSvg("rotate")}<span>${escapeHtml(t("prov.models.refresh"))}</span>
-          </button>
+        <div class="provider-overview-kpis" role="list">
+          ${providerOverviewMetric("radar", t("prov.models.discovery"), providerModelStatusLabel(capability.status), capability.fetched_at ? fmtDate(capability.fetched_at) : t("prov.models.no_snapshot"), statusTone)}
+          ${providerOverviewMetric("boxes", t("prov.models.kpi_usable"), fmtInt(usableModels), disabledCount > 0 ? t("prov.models.disabled_count", { count: fmtInt(disabledCount) }) : t("prov.models.kpi_all_routable"), usableTone)}
+          ${providerOverviewMetric("eye-off", t("prov.models.disabled"), fmtInt(disabledCount), disabledCount > 0 ? t("prov.models.kpi_disabled_hint") : t("prov.models.kpi_disabled_none"), disabledTone)}
+          ${providerOverviewMetric("alert", t("prov.models.kpi_staged"), fmtInt(draftCount), draftCount > 0 ? t("prov.models.kpi_staged_pending") : t("prov.models.kpi_staged_none"), draftTone)}
         </div>
         ${capability.status === "pending" ? `<div class="model-capability-refreshing">${refreshSpinner()} ${escapeHtml(t("prov.models.discovering"))}</div>` : ""}
         ${capability.error ? `<div class="model-capability-error">${messageMarkup(capability.error)}</div>` : ""}
         <section class="provider-model-catalog ${largeCatalog ? "is-large-catalog" : ""}" aria-labelledby="provider-model-catalog-title">
-          <div class="provider-model-section-heading">
-            <div>
-              <h3 id="provider-model-catalog-title">${iconSvg("boxes")} ${escapeHtml(t("prov.models.catalog"))}</h3>
-              <p>${escapeHtml(t("prov.models.catalog_desc"))}</p>
-            </div>
+          <div class="provider-model-catalog-head">
+            <h3 id="provider-model-catalog-title">${iconSvg("boxes")} ${escapeHtml(t("prov.models.catalog"))}</h3>
             <span class="provider-model-section-count">${escapeHtml(t("prov.models.shown", { count: fmtInt(visibleItems.length) }))}</span>
+            <button class="button secondary icon-action provider-model-refresh-action" type="button"
+              data-provider-models-refresh="${escapeHtml(view.name)}"
+              title="${escapeHtml(t("prov.models.refresh"))}"
+              aria-label="${escapeHtml(t("prov.models.refresh"))}">${iconSvg("rotate")}</button>
           </div>
           <div class="provider-model-toolbar">
             <input class="control provider-model-search" type="search"
@@ -6853,6 +6870,24 @@ import {
             ${iconSvg("alert")}
             <span>${escapeHtml(t("prov.models.legacy_route_notice", { names: legacyRouteRefs.join(", "), alias: (Object.entries(state.data.config?.models?.provider_model_map?.[view.name] || {}).map(([c, r]) => [r, c])).filter(([r]) => legacyRouteRefs.some(n => String(n).toLowerCase() === String(r).toLowerCase())).map(([, c]) => c).join(", ") }))}</span>
           </div>` : ""}
+          ${draftCount ? `
+            <div class="provider-model-draft-bar" role="status">
+              <div><strong>${escapeHtml(draftCount === 1 ? t("prov.models.staged_one") : t("prov.models.staged_many", { count: fmtInt(draftCount) }))}</strong><small>${escapeHtml(t("prov.models.draft_apply_hint"))}</small></div>
+              <div class="provider-model-draft-actions">
+                <button class="button small secondary" type="button"
+                  data-provider-model-reset="${escapeHtml(view.name)}"
+                  title="${escapeHtml(t("prov.models.reset"))}">${iconSvg("undo")}<span>${escapeHtml(t("prov.models.reset_label"))}</span></button>
+                <button class="button small" type="button"
+                  data-provider-model-apply="${escapeHtml(view.name)}"
+                  title="${escapeHtml(t("prov.models.apply", { count: fmtInt(draftCount) }))}">${iconSvg("save")}<span>${escapeHtml(t("prov.models.apply_label"))}</span></button>
+              </div>
+            </div>
+          ` : ""}
+          ${useRows ? `
+          <div class="provider-model-rows" role="list">
+            ${visibleItems.map((item) => providerModelRow(view.name, item)).join("")}
+          </div>
+          ` : `
           <div class="model-chip-list provider-drawer-models" role="list" ${largeCatalog ? `aria-label="${escapeHtml(t("prov.models.visible_count", { count: fmtInt(visibleItems.length) }))}"` : ""}>
             ${visibleItems.length ? visibleItems.slice(0, 100).map((item) => `
               <span class="model-map-chip provider-model-chip ${item.disabled ? "is-disabled" : ""} ${item.pending ? "is-pending" : ""} ${item.manual ? "is-manual-map" : ""}" role="listitem">
@@ -6864,8 +6899,8 @@ import {
                   aria-label="${escapeHtml(`${item.disabled ? t("prov.models.stage_enable") : t("prov.models.stage_disable")} ${item.label}`)}">
                   <b>${escapeHtml(item.label)}</b>
                   ${item.raw && item.raw !== item.label ? `<small>${escapeHtml(item.raw)}</small>` : ""}
-                  ${item.pending ? `<small class="model-pending-note">${escapeHtml(t("prov.models.pending_short"))}</small>` : ""}
                 </button>
+                ${item.pending ? `<span class="model-chip-pending-flag">${escapeHtml(t("prov.models.pending_short"))}</span>` : ""}
                 <button class="model-map-edit-button" type="button"
                   data-provider-model-map-edit-provider="${escapeHtml(view.name)}"
                   data-provider-model-map-edit-model="${escapeHtml(item.label)}"
@@ -6876,25 +6911,15 @@ import {
               </span>
             `).join("") + (visibleItems.length > 100 ? `<span class="muted provider-model-overflow-note" role="listitem">${escapeHtml(t("prov.models.more", { count: fmtInt(visibleItems.length - 100) }))}</span>` : "") : `<div class="empty pad-slim" role="listitem">${escapeHtml(t("prov.models.no_match"))}</div>`}
           </div>
-          ${draftCount ? `
-            <div class="provider-model-draft-bar" role="status">
-              <div><strong>${escapeHtml(draftCount === 1 ? t("prov.models.staged_one") : t("prov.models.staged_many", { count: fmtInt(draftCount) }))}</strong><small>${escapeHtml(t("prov.models.review_apply"))}</small></div>
-              <div class="provider-model-draft-actions">
-                <button class="button small secondary" type="button"
-                  data-provider-model-reset="${escapeHtml(view.name)}"
-                  title="${escapeHtml(t("prov.models.reset"))}">${iconSvg("undo")}<span>${escapeHtml(t("prov.models.reset_label"))}</span></button>
-                <button class="button small" type="button"
-                  data-provider-model-apply="${escapeHtml(view.name)}"
-                  title="${escapeHtml(t("prov.models.apply", { count: fmtInt(draftCount) }))}">${iconSvg("save")}<span>${escapeHtml(t("prov.models.apply_label"))}</span></button>
-              </div>
-            </div>
-          ` : ""}
+          `}
         </section>
 
-        <details class="provider-model-disclosure provider-model-aliases">
+        <details class="provider-model-disclosure provider-model-aliases" data-models-disclosure="aliases"${discOpen("aliases")}>
           <summary>
-            <span><strong>${iconSvg("layers")} ${escapeHtml(t("prov.models.canonical_aliases"))}</strong><small>${escapeHtml(t("prov.models.canonical_aliases_desc"))}</small></span>
+            <span class="provider-model-disclosure-icon">${iconSvg("layers")}</span>
+            <span class="provider-model-disclosure-head"><strong>${escapeHtml(t("prov.models.canonical_aliases"))}</strong><small>${escapeHtml(t("prov.models.canonical_aliases_desc"))}</small></span>
             <span class="provider-model-disclosure-meta">${escapeHtml(t("prov.models.configured", { count: fmtInt(Object.keys(configuredVariants).length) }))}</span>
+            <span class="provider-model-disclosure-chev">${iconSvg("chevron-right")}</span>
           </summary>
           <div class="provider-model-disclosure-body">
             <div class="provider-route-list">
@@ -6920,7 +6945,7 @@ import {
                 </article>
               `; }).join("") : `<div class="empty pad-slim">${escapeHtml(t("prov.models.no_aliases"))}</div>`}
             </div>
-            <details class="provider-model-inline-editor">
+            <details class="provider-model-inline-editor" data-models-disclosure="alias-editor"${discOpen("alias-editor")}>
               <summary>${iconSvg("plus")}<span>${escapeHtml(t("prov.models.add_alias"))}</span></summary>
               <form class="provider-variant-form" data-provider="${escapeHtml(view.name)}">
                 <div class="form-row">
@@ -6965,10 +6990,12 @@ import {
           </div>
         </details>
 
-        <details class="provider-model-disclosure provider-model-static-fallback">
+        <details class="provider-model-disclosure provider-model-static-fallback" data-models-disclosure="fallback"${discOpen("fallback")}>
           <summary>
-            <span><strong>${iconSvg("shield")} ${escapeHtml(t("prov.models.advanced_fallback"))}</strong><small>${escapeHtml(t("prov.models.advanced_fallback_desc"))}</small></span>
+            <span class="provider-model-disclosure-icon">${iconSvg("shield")}</span>
+            <span class="provider-model-disclosure-head"><strong>${escapeHtml(t("prov.models.advanced_fallback"))}</strong><small>${escapeHtml(t("prov.models.advanced_fallback_desc"))}</small></span>
             <span class="provider-model-disclosure-meta">${escapeHtml(t("prov.models.static_count", { count: fmtInt(staticModels.length) }))}</span>
+            <span class="provider-model-disclosure-chev">${iconSvg("chevron-right")}</span>
           </summary>
           <div class="provider-model-disclosure-body">
             <form class="config-static-models-form" data-provider="${escapeHtml(view.name)}">
@@ -7002,6 +7029,42 @@ import {
           </div>
         </details>
       </section>
+    `;
+  }
+
+  // Small-catalog treatment: one detailed row per model (state dot, raw id,
+  // live status badge, mapping + stage-toggle ops). Same data attributes as
+  // the chip grid, so the delegated bindings stay identical.
+  function providerModelRow(provider, item) {
+    const subParts = [];
+    if (item.raw && item.raw !== item.label) subParts.push(item.raw);
+    if (item.manual) subParts.push(t("prov.models.manual_map"));
+    return `
+      <article class="provider-model-row ${item.disabled ? "is-off" : ""} ${item.pending ? "is-pending" : ""}" role="listitem">
+        <span class="provider-overview-state-dot ${item.disabled ? "bad" : "ok"}" aria-hidden="true"></span>
+        <div class="provider-model-row-main">
+          <b class="mono">${escapeHtml(item.label)}</b>
+          ${subParts.length ? `<small>${escapeHtml(subParts.join(" · "))}</small>` : ""}
+        </div>
+        ${item.pending
+          ? badge(t("prov.models.pending_short"), "warn")
+          : badge(item.disabled ? t("prov.models.disabled") : t("prov.models.enabled"), item.disabled ? "bad" : "ok")}
+        <div class="provider-model-row-ops">
+          <button class="button secondary icon-action model-row-op" type="button"
+            data-provider-model-map-edit-provider="${escapeHtml(provider)}"
+            data-provider-model-map-edit-model="${escapeHtml(item.label)}"
+            data-provider-model-map-edit-raw="${escapeHtml(item.raw || item.label)}"
+            data-provider-model-map-edit-manual="${item.manual ? "1" : "0"}"
+            title="${escapeHtml(t("prov.models.edit_mapping_for", { model: item.label }))}"
+            aria-label="${escapeHtml(t("prov.models.edit_mapping_for", { model: item.label }))}">${iconSvg("pencil")}</button>
+          <button class="button ${item.disabled ? "secondary" : "danger"} icon-action model-row-op" type="button"
+            data-provider-model-disable-provider="${escapeHtml(provider)}"
+            data-provider-model-disable-model="${escapeHtml(item.sourceModel)}"
+            data-provider-model-disable-next="${item.disabled ? "false" : "true"}"
+            title="${escapeHtml(`${item.disabled ? t("prov.models.stage_enable") : t("prov.models.stage_disable")} ${item.label}`)}"
+            aria-label="${escapeHtml(`${item.disabled ? t("prov.models.stage_enable") : t("prov.models.stage_disable")} ${item.label}`)}">${iconSvg(item.disabled ? "power" : "eye-off")}</button>
+        </div>
+      </article>
     `;
   }
 

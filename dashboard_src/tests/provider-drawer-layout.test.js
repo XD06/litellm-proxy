@@ -157,6 +157,13 @@ assert.match(modelsPanel, /const largeCatalog = visibleItems\.length > 24/, "lar
 assert.match(modelsPanel, /provider-model-catalog \$\{largeCatalog \? "is-large-catalog" : ""\}/, "large model catalogs must expose a layout hook");
 assert.match(modelsPanel, /role="list"/, "model catalog must expose list semantics");
 assert.match(modelsPanel, /role="listitem"/, "model chips must expose list item semantics");
+assert.match(modelsPanel, /provider-overview-kpis/, "the Models tab must reuse the overview KPI row style");
+assert.match(modelsPanel, /providerModelRow\(/, "small model catalogs must render detailed rows");
+assert.match(modelsPanel, /provider-model-rows/, "small-catalog model rows must have a dedicated container");
+assert.match(modelsPanel, /provider-model-draft-bar[\s\S]*data-provider-model-apply/, "staged changes must surface a draft bar with the apply action");
+assert.match(modelsPanel, /data-models-disclosure/, "models disclosures must persist their open state across polls");
+assert.match(modelsPanel, /aria-label=/, "model row icon ops must carry accessible names");
+assert.match(modelsPanel, /provider-model-catalog-head/, "the catalog must keep a compact head with the refresh action");
 
 for (const hardcodedLabel of ["Models by key", "Model catalog", "Key coverage", "Canonical aliases", "Advanced fallback"]) {
   assert.doesNotMatch(modelsPanel, new RegExp(hardcodedLabel), `${hardcodedLabel} must come from i18n`);
@@ -173,6 +180,11 @@ assert.match(styles, /\.provider-model-catalog\.is-large-catalog \.provider-draw
 assert.match(styles, /grid-template-columns: repeat\(auto-fill, minmax\(126px, 1fr\)\)/, "large model catalogs must keep dense responsive columns");
 assert.match(styles, /overflow-y: auto/, "large model catalogs must scroll internally");
 assert.match(styles, /overscroll-behavior: contain/, "large model catalog scrolling must stay inside the drawer");
+assert.match(styles, /\.provider-model-rows\s*\{/, "small-catalog model rows must have dedicated styles");
+assert.match(styles, /\.provider-model-row\.is-pending/, "staged model rows must read as pending until applied");
+assert.match(styles, /\.provider-model-draft-bar\s*\{[\s\S]*?color-mix\(in srgb, var\(--warning\)/, "the draft bar must read as a pending-write warning");
+assert.match(styles, /\.provider-model-disclosure-chev/, "disclosure summaries must keep an explicit chevron");
+assert.match(styles, /\.model-chip-pending-flag/, "staged chips must carry a visible pending flag");
 assert.match(styles, /\.provider-overview-readiness/, "provider overview must style route readiness");
 assert.match(styles, /\.provider-overview-state-dot/, "provider overview must keep a visible state dot on the readiness ribbon");
 assert.match(styles, /\.provider-overview-kpis/, "provider overview must provide a compact KPI grid");

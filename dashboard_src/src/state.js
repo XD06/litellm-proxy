@@ -82,6 +82,9 @@ export const state = {
     status: "",
   },
   providerModelDrafts: {},
+  // Models tab: which disclosures (aliases / fallback / alias editor) the user
+  // expanded, so poll re-renders keep them open instead of snapping shut.
+  providerModelsDisclosuresOpen: new Set(),
   confirmResolve: null,
   confirmLastFocus: null,
   data: {

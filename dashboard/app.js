@@ -512,6 +512,7 @@
 				status: ""
 			},
 			providerModelDrafts: {},
+			providerModelsDisclosuresOpen: /* @__PURE__ */ new Set(),
 			confirmResolve: null,
 			confirmLastFocus: null,
 			data: {
@@ -3124,6 +3125,42 @@
 			"prov.models.clear": {
 				en: "Clear",
 				zh: "清空"
+			},
+			"prov.models.kpi_usable": {
+				en: "Usable models",
+				zh: "可用模型"
+			},
+			"prov.models.kpi_all_routable": {
+				en: "all routable",
+				zh: "全部可参与路由"
+			},
+			"prov.models.kpi_disabled_hint": {
+				en: "not offered to routing",
+				zh: "不参与路由选择"
+			},
+			"prov.models.kpi_disabled_none": {
+				en: "nothing disabled",
+				zh: "无禁用记录"
+			},
+			"prov.models.kpi_staged": {
+				en: "Staged changes",
+				zh: "已暂存变更"
+			},
+			"prov.models.kpi_staged_pending": {
+				en: "applies only after Apply",
+				zh: "待应用后生效"
+			},
+			"prov.models.kpi_staged_none": {
+				en: "nothing staged",
+				zh: "无待应用变更"
+			},
+			"prov.models.draft_apply_hint": {
+				en: "Apply writes the config and changes which models routing can pick.",
+				zh: "应用后才会写入配置并影响路由可选模型。"
+			},
+			"prov.models.manual_map": {
+				en: "manual map",
+				zh: "手动映射"
 			},
 			"pm.keys": {
 				en: "Keys",
@@ -12045,6 +12082,7 @@
 			if (tab) state.providerDrawerTab = tab;
 			state.providerOverviewActivityTab = "";
 			state.providerKeyOverridesOpen?.clear();
+			state.providerModelsDisclosuresOpen?.clear();
 			resetProviderActivityEventsCache(name);
 			const drawer = el("providerDrawer");
 			if (!drawer) return;
@@ -12247,6 +12285,17 @@
 					const openSet = state.providerKeyOverridesOpen || (state.providerKeyOverridesOpen = /* @__PURE__ */ new Set());
 					if (details.open) openSet.add(keyId);
 					else openSet.delete(keyId);
+				});
+			});
+			root.querySelectorAll("details[data-models-disclosure]").forEach((details) => {
+				if (details.dataset.boundmodelsdisclosure) return;
+				details.dataset.boundmodelsdisclosure = "1";
+				details.addEventListener("toggle", () => {
+					const discId = details.dataset.modelsDisclosure || "";
+					if (!discId) return;
+					const openSet = state.providerModelsDisclosuresOpen || (state.providerModelsDisclosuresOpen = /* @__PURE__ */ new Set());
+					if (details.open) openSet.add(discId);
+					else openSet.delete(discId);
 				});
 			});
 			if (!root.dataset.boundprovideractivityrows) {
@@ -12602,10 +12651,17 @@
 			const legacyRouteRefs = Array.isArray(modelItems?.legacyRouteRefs) ? modelItems.legacyRouteRefs : [];
 			const visibleItems = filteredProviderModelItems(modelItems);
 			const largeCatalog = visibleItems.length > 24;
+			const useRows = !largeCatalog && visibleItems.length > 0;
 			const disabledCount = modelItems.filter((item) => item.disabled).length;
 			const modelFilters = state.providerModelFilters || {};
 			const draftCount = providerModelDraftCount(view.name);
 			const staticModels = normalizeStaticModelIds(view.config.static_models);
+			const statusTone = capability.status === "ok" ? "ok" : capability.status === "error" ? "bad" : capability.status === "pending" || capability.status === "stale" ? "warn" : "neutral";
+			const usableModels = modelItems.length - disabledCount;
+			const usableTone = usableModels === 0 ? "bad" : disabledCount > 0 ? "warn" : "ok";
+			const disabledTone = disabledCount > 0 ? "warn" : "neutral";
+			const draftTone = draftCount > 0 ? "warn" : "neutral";
+			const discOpen = (id) => state.providerModelsDisclosuresOpen?.has(id) ? " open" : "";
 			const variantChoices = [];
 			const seenVariantChoices = /* @__PURE__ */ new Set();
 			modelCapabilityItems(Array.isArray(capability.models) ? capability.models : [], capability.canonical_map || {}).forEach((item) => {
@@ -12619,31 +12675,22 @@
 			});
 			return `
       <section class="provider-drawer-section provider-models-workspace">
-        <div class="provider-model-status-strip">
-          <div class="provider-model-status-item">
-            <span>${iconSvg("radar")} ${escapeHtml(t("prov.models.discovery"))}</span>
-            <strong>${escapeHtml(providerModelStatusLabel(capability.status))}</strong>
-            <small>${escapeHtml(capability.fetched_at ? fmtDate(capability.fetched_at) : t("prov.models.no_snapshot"))}</small>
-          </div>
-          <div class="provider-model-status-item">
-            <span>${iconSvg("boxes")} ${escapeHtml(t("prov.models.models"))}</span>
-            <strong>${escapeHtml(fmtInt(modelItems.length))}</strong>
-            <small>${escapeHtml(t("prov.models.disabled_count", { count: fmtInt(disabledCount) }))}</small>
-          </div>
-          <button class="button secondary compact-action provider-model-refresh-action" type="button"
-            data-provider-models-refresh="${escapeHtml(view.name)}">
-            ${iconSvg("rotate")}<span>${escapeHtml(t("prov.models.refresh"))}</span>
-          </button>
+        <div class="provider-overview-kpis" role="list">
+          ${providerOverviewMetric("radar", t("prov.models.discovery"), providerModelStatusLabel(capability.status), capability.fetched_at ? fmtDate(capability.fetched_at) : t("prov.models.no_snapshot"), statusTone)}
+          ${providerOverviewMetric("boxes", t("prov.models.kpi_usable"), fmtInt(usableModels), disabledCount > 0 ? t("prov.models.disabled_count", { count: fmtInt(disabledCount) }) : t("prov.models.kpi_all_routable"), usableTone)}
+          ${providerOverviewMetric("eye-off", t("prov.models.disabled"), fmtInt(disabledCount), disabledCount > 0 ? t("prov.models.kpi_disabled_hint") : t("prov.models.kpi_disabled_none"), disabledTone)}
+          ${providerOverviewMetric("alert", t("prov.models.kpi_staged"), fmtInt(draftCount), draftCount > 0 ? t("prov.models.kpi_staged_pending") : t("prov.models.kpi_staged_none"), draftTone)}
         </div>
         ${capability.status === "pending" ? `<div class="model-capability-refreshing">${refreshSpinner()} ${escapeHtml(t("prov.models.discovering"))}</div>` : ""}
         ${capability.error ? `<div class="model-capability-error">${messageMarkup(capability.error)}</div>` : ""}
         <section class="provider-model-catalog ${largeCatalog ? "is-large-catalog" : ""}" aria-labelledby="provider-model-catalog-title">
-          <div class="provider-model-section-heading">
-            <div>
-              <h3 id="provider-model-catalog-title">${iconSvg("boxes")} ${escapeHtml(t("prov.models.catalog"))}</h3>
-              <p>${escapeHtml(t("prov.models.catalog_desc"))}</p>
-            </div>
+          <div class="provider-model-catalog-head">
+            <h3 id="provider-model-catalog-title">${iconSvg("boxes")} ${escapeHtml(t("prov.models.catalog"))}</h3>
             <span class="provider-model-section-count">${escapeHtml(t("prov.models.shown", { count: fmtInt(visibleItems.length) }))}</span>
+            <button class="button secondary icon-action provider-model-refresh-action" type="button"
+              data-provider-models-refresh="${escapeHtml(view.name)}"
+              title="${escapeHtml(t("prov.models.refresh"))}"
+              aria-label="${escapeHtml(t("prov.models.refresh"))}">${iconSvg("rotate")}</button>
           </div>
           <div class="provider-model-toolbar">
             <input class="control provider-model-search" type="search"
@@ -12678,6 +12725,24 @@
 				alias: Object.entries(state.data.config?.models?.provider_model_map?.[view.name] || {}).map(([c, r]) => [r, c]).filter(([r]) => legacyRouteRefs.some((n) => String(n).toLowerCase() === String(r).toLowerCase())).map(([, c]) => c).join(", ")
 			}))}</span>
           </div>` : ""}
+          ${draftCount ? `
+            <div class="provider-model-draft-bar" role="status">
+              <div><strong>${escapeHtml(draftCount === 1 ? t("prov.models.staged_one") : t("prov.models.staged_many", { count: fmtInt(draftCount) }))}</strong><small>${escapeHtml(t("prov.models.draft_apply_hint"))}</small></div>
+              <div class="provider-model-draft-actions">
+                <button class="button small secondary" type="button"
+                  data-provider-model-reset="${escapeHtml(view.name)}"
+                  title="${escapeHtml(t("prov.models.reset"))}">${iconSvg("undo")}<span>${escapeHtml(t("prov.models.reset_label"))}</span></button>
+                <button class="button small" type="button"
+                  data-provider-model-apply="${escapeHtml(view.name)}"
+                  title="${escapeHtml(t("prov.models.apply", { count: fmtInt(draftCount) }))}">${iconSvg("save")}<span>${escapeHtml(t("prov.models.apply_label"))}</span></button>
+              </div>
+            </div>
+          ` : ""}
+          ${useRows ? `
+          <div class="provider-model-rows" role="list">
+            ${visibleItems.map((item) => providerModelRow(view.name, item)).join("")}
+          </div>
+          ` : `
           <div class="model-chip-list provider-drawer-models" role="list" ${largeCatalog ? `aria-label="${escapeHtml(t("prov.models.visible_count", { count: fmtInt(visibleItems.length) }))}"` : ""}>
             ${visibleItems.length ? visibleItems.slice(0, 100).map((item) => `
               <span class="model-map-chip provider-model-chip ${item.disabled ? "is-disabled" : ""} ${item.pending ? "is-pending" : ""} ${item.manual ? "is-manual-map" : ""}" role="listitem">
@@ -12689,8 +12754,8 @@
                   aria-label="${escapeHtml(`${item.disabled ? t("prov.models.stage_enable") : t("prov.models.stage_disable")} ${item.label}`)}">
                   <b>${escapeHtml(item.label)}</b>
                   ${item.raw && item.raw !== item.label ? `<small>${escapeHtml(item.raw)}</small>` : ""}
-                  ${item.pending ? `<small class="model-pending-note">${escapeHtml(t("prov.models.pending_short"))}</small>` : ""}
                 </button>
+                ${item.pending ? `<span class="model-chip-pending-flag">${escapeHtml(t("prov.models.pending_short"))}</span>` : ""}
                 <button class="model-map-edit-button" type="button"
                   data-provider-model-map-edit-provider="${escapeHtml(view.name)}"
                   data-provider-model-map-edit-model="${escapeHtml(item.label)}"
@@ -12701,25 +12766,15 @@
               </span>
             `).join("") + (visibleItems.length > 100 ? `<span class="muted provider-model-overflow-note" role="listitem">${escapeHtml(t("prov.models.more", { count: fmtInt(visibleItems.length - 100) }))}</span>` : "") : `<div class="empty pad-slim" role="listitem">${escapeHtml(t("prov.models.no_match"))}</div>`}
           </div>
-          ${draftCount ? `
-            <div class="provider-model-draft-bar" role="status">
-              <div><strong>${escapeHtml(draftCount === 1 ? t("prov.models.staged_one") : t("prov.models.staged_many", { count: fmtInt(draftCount) }))}</strong><small>${escapeHtml(t("prov.models.review_apply"))}</small></div>
-              <div class="provider-model-draft-actions">
-                <button class="button small secondary" type="button"
-                  data-provider-model-reset="${escapeHtml(view.name)}"
-                  title="${escapeHtml(t("prov.models.reset"))}">${iconSvg("undo")}<span>${escapeHtml(t("prov.models.reset_label"))}</span></button>
-                <button class="button small" type="button"
-                  data-provider-model-apply="${escapeHtml(view.name)}"
-                  title="${escapeHtml(t("prov.models.apply", { count: fmtInt(draftCount) }))}">${iconSvg("save")}<span>${escapeHtml(t("prov.models.apply_label"))}</span></button>
-              </div>
-            </div>
-          ` : ""}
+          `}
         </section>
 
-        <details class="provider-model-disclosure provider-model-aliases">
+        <details class="provider-model-disclosure provider-model-aliases" data-models-disclosure="aliases"${discOpen("aliases")}>
           <summary>
-            <span><strong>${iconSvg("layers")} ${escapeHtml(t("prov.models.canonical_aliases"))}</strong><small>${escapeHtml(t("prov.models.canonical_aliases_desc"))}</small></span>
+            <span class="provider-model-disclosure-icon">${iconSvg("layers")}</span>
+            <span class="provider-model-disclosure-head"><strong>${escapeHtml(t("prov.models.canonical_aliases"))}</strong><small>${escapeHtml(t("prov.models.canonical_aliases_desc"))}</small></span>
             <span class="provider-model-disclosure-meta">${escapeHtml(t("prov.models.configured", { count: fmtInt(Object.keys(configuredVariants).length) }))}</span>
+            <span class="provider-model-disclosure-chev">${iconSvg("chevron-right")}</span>
           </summary>
           <div class="provider-model-disclosure-body">
             <div class="provider-route-list">
@@ -12746,7 +12801,7 @@
               `;
 			}).join("") : `<div class="empty pad-slim">${escapeHtml(t("prov.models.no_aliases"))}</div>`}
             </div>
-            <details class="provider-model-inline-editor">
+            <details class="provider-model-inline-editor" data-models-disclosure="alias-editor"${discOpen("alias-editor")}>
               <summary>${iconSvg("plus")}<span>${escapeHtml(t("prov.models.add_alias"))}</span></summary>
               <form class="provider-variant-form" data-provider="${escapeHtml(view.name)}">
                 <div class="form-row">
@@ -12791,10 +12846,12 @@
           </div>
         </details>
 
-        <details class="provider-model-disclosure provider-model-static-fallback">
+        <details class="provider-model-disclosure provider-model-static-fallback" data-models-disclosure="fallback"${discOpen("fallback")}>
           <summary>
-            <span><strong>${iconSvg("shield")} ${escapeHtml(t("prov.models.advanced_fallback"))}</strong><small>${escapeHtml(t("prov.models.advanced_fallback_desc"))}</small></span>
+            <span class="provider-model-disclosure-icon">${iconSvg("shield")}</span>
+            <span class="provider-model-disclosure-head"><strong>${escapeHtml(t("prov.models.advanced_fallback"))}</strong><small>${escapeHtml(t("prov.models.advanced_fallback_desc"))}</small></span>
             <span class="provider-model-disclosure-meta">${escapeHtml(t("prov.models.static_count", { count: fmtInt(staticModels.length) }))}</span>
+            <span class="provider-model-disclosure-chev">${iconSvg("chevron-right")}</span>
           </summary>
           <div class="provider-model-disclosure-body">
             <form class="config-static-models-form" data-provider="${escapeHtml(view.name)}">
@@ -12828,6 +12885,36 @@
           </div>
         </details>
       </section>
+    `;
+		}
+		function providerModelRow(provider, item) {
+			const subParts = [];
+			if (item.raw && item.raw !== item.label) subParts.push(item.raw);
+			if (item.manual) subParts.push(t("prov.models.manual_map"));
+			return `
+      <article class="provider-model-row ${item.disabled ? "is-off" : ""} ${item.pending ? "is-pending" : ""}" role="listitem">
+        <span class="provider-overview-state-dot ${item.disabled ? "bad" : "ok"}" aria-hidden="true"></span>
+        <div class="provider-model-row-main">
+          <b class="mono">${escapeHtml(item.label)}</b>
+          ${subParts.length ? `<small>${escapeHtml(subParts.join(" · "))}</small>` : ""}
+        </div>
+        ${item.pending ? badge(t("prov.models.pending_short"), "warn") : badge(item.disabled ? t("prov.models.disabled") : t("prov.models.enabled"), item.disabled ? "bad" : "ok")}
+        <div class="provider-model-row-ops">
+          <button class="button secondary icon-action model-row-op" type="button"
+            data-provider-model-map-edit-provider="${escapeHtml(provider)}"
+            data-provider-model-map-edit-model="${escapeHtml(item.label)}"
+            data-provider-model-map-edit-raw="${escapeHtml(item.raw || item.label)}"
+            data-provider-model-map-edit-manual="${item.manual ? "1" : "0"}"
+            title="${escapeHtml(t("prov.models.edit_mapping_for", { model: item.label }))}"
+            aria-label="${escapeHtml(t("prov.models.edit_mapping_for", { model: item.label }))}">${iconSvg("pencil")}</button>
+          <button class="button ${item.disabled ? "secondary" : "danger"} icon-action model-row-op" type="button"
+            data-provider-model-disable-provider="${escapeHtml(provider)}"
+            data-provider-model-disable-model="${escapeHtml(item.sourceModel)}"
+            data-provider-model-disable-next="${item.disabled ? "false" : "true"}"
+            title="${escapeHtml(`${item.disabled ? t("prov.models.stage_enable") : t("prov.models.stage_disable")} ${item.label}`)}"
+            aria-label="${escapeHtml(`${item.disabled ? t("prov.models.stage_enable") : t("prov.models.stage_disable")} ${item.label}`)}">${iconSvg(item.disabled ? "power" : "eye-off")}</button>
+        </div>
+      </article>
     `;
 		}
 		function providerDrawerRouting(view) {
