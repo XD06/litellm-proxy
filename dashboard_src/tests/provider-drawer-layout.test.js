@@ -160,7 +160,9 @@ assert.match(modelsPanel, /role="listitem"/, "model chips must expose list item 
 assert.match(modelsPanel, /provider-overview-kpis/, "the Models tab must reuse the overview KPI row style");
 assert.match(modelsPanel, /providerModelRow\(/, "small model catalogs must render detailed rows");
 assert.match(modelsPanel, /provider-model-rows/, "small-catalog model rows must have a dedicated container");
-assert.match(modelsPanel, /provider-model-draft-bar[\s\S]*data-provider-model-apply/, "staged changes must surface a draft bar with the apply action");
+assert.match(modelsPanel, /provider-model-draft-bar[\s\S]*?data-provider-model-apply[^>]*aria-label=/, "the draft bar's apply action must be an icon button with an accessible name");
+assert.doesNotMatch(modelsPanel, /data-provider-model-reset[^>]*>[\s\S]{0,300}?<span>/, "the draft bar's reset action must be icon-only");
+assert.doesNotMatch(modelsPanel, /data-provider-model-apply[^>]*>[\s\S]{0,300}?<span>/, "the draft bar's apply action must be icon-only");
 assert.match(modelsPanel, /data-models-disclosure/, "models disclosures must persist their open state across polls");
 assert.match(modelsPanel, /aria-label=/, "model row icon ops must carry accessible names");
 assert.match(modelsPanel, /provider-model-catalog-head/, "the catalog must keep a compact head with the refresh action");
