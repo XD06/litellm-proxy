@@ -8033,8 +8033,57 @@ import {
     );
   }
 
+  function modelMapKeyOwners(provider, rawModel, canonicalModel) {
+    // Which provider keys carry this model in their OWN catalog (per-key
+    // /v1/models discovery or per-key manual map). Data source:
+    // /-/admin/models/capabilities → providers[p].keys[] (key_id, key_index,
+    // status, models, canonical_map) — already fetched for the drawer.
+    const capability = providerModelItemsCapability(provider);
+    const keys = Array.isArray(capability?.keys) ? capability.keys : [];
+    const raw = String(rawModel || "").trim();
+    const canonical = String(canonicalModel || "").trim();
+    const owners = [];
+    keys.forEach((entry) => {
+      if (!entry || typeof entry !== "object") return;
+      const models = Array.isArray(entry.models) ? entry.models.map((m) => String(m || "").trim()) : [];
+      const canonicalMap = entry.canonical_map && typeof entry.canonical_map === "object" ? entry.canonical_map : {};
+      const rawHit = (raw && models.includes(raw))
+        || (raw && Object.values(canonicalMap).some((v) => String(v || "").trim() === raw));
+      const canonicalHit = canonical && Object.keys(canonicalMap).some((k) => String(k || "").trim() === canonical);
+      if (rawHit || canonicalHit) {
+        owners.push({
+          key_index: Number(entry.key_index || 0),
+          key_id: String(entry.key_id || ""),
+          status: String(entry.status || ""),
+        });
+      }
+    });
+    owners.sort((a, b) => a.key_index - b.key_index);
+    return { owners, keyCatalogCount: keys.length };
+  }
+
+  function modelMapKeyOwnersHtml(keyOwnerInfo) {
+    if (!keyOwnerInfo.owners.length) {
+      // No per-key catalog (or none matches): the probe falls back to the
+      // provider-level catalog on key #0 — say so instead of hiding it.
+      return `<div class="model-map-key-owners is-empty" data-model-map-key-owners aria-label="${escapeHtml(t("modal.key_owner_title"))}">
+        <span>${escapeHtml(t("modal.key_owner_none"))}</span>
+      </div>`;
+    }
+    return `<div class="model-map-key-owners" data-model-map-key-owners aria-label="${escapeHtml(t("modal.key_owner_title"))}">
+      ${keyOwnerInfo.owners.map((owner) => `
+        <button type="button" class="model-map-key-chip" data-model-map-key-chip="${escapeHtml(owner.key_index)}"
+          title="${escapeHtml(`${t("modal.key_owner_title")} · ${owner.key_id} · ${owner.status}`)}">
+          <span class="mono">#${escapeHtml(owner.key_index)}</span>
+          <small>${escapeHtml(owner.key_id)}</small>
+        </button>
+      `).join("")}
+    </div>`;
+  }
+
   function openProviderModelMappingModal({ provider, oldModel, rawModel, isManual }) {
     if (!provider || !oldModel || !rawModel) return;
+    const keyOwnerInfo = modelMapKeyOwners(provider, rawModel, oldModel);
     openFormModal({
       title: t("modal.edit_mapping_title"),
       subtitle: provider,
@@ -8048,6 +8097,7 @@ import {
               <small>${escapeHtml(t("prov.models.raw_hero_hint"))}</small>
             </div>
           </div>
+          ${modelMapKeyOwnersHtml(keyOwnerInfo)}
           <label class="model-map-field">
             <span>Client model</span>
             <input name="model" value="${escapeHtml(oldModel)}" autocomplete="off" spellcheck="false" />
@@ -8076,6 +8126,22 @@ import {
     form.querySelector("[data-model-map-cancel]")?.addEventListener("click", closeFormModal);
     const testButton = form.querySelector("[data-model-map-test]");
     const testResult = form.querySelector("[data-model-map-test-result]");
+    // Key-level test targeting: the probe sends the raw id the SELECTED key's
+    // own catalog maps this model to. Defaults to the first owner; with no
+    // per-key owners the backend falls back to its provider-level behavior.
+    let selectedKeyIndex = keyOwnerInfo.owners.length ? keyOwnerInfo.owners[0].key_index : null;
+    const syncKeyChipSelection = () => {
+      form.querySelectorAll("[data-model-map-key-chip]").forEach((chip) => {
+        chip.classList.toggle("is-selected", Number(chip.dataset.modelMapKeyChip) === selectedKeyIndex);
+      });
+    };
+    form.querySelectorAll("[data-model-map-key-chip]").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        selectedKeyIndex = Number(chip.dataset.modelMapKeyChip);
+        syncKeyChipSelection();
+      });
+    });
+    syncKeyChipSelection();
     testButton?.addEventListener("click", async () => {
       if (testButton.disabled) return;
       testButton.disabled = true;
@@ -8085,12 +8151,17 @@ import {
         testResult.innerHTML = `${refreshSpinner()}<span>${escapeHtml(t("modal.mapping_test_running"))}</span>`;
       }
       try {
-        const resp = await apiPost("/-/admin/models/test", { provider, model: rawModel });
+        const payload = { provider, model: rawModel };
+        if (selectedKeyIndex !== null) payload.key_index = selectedKeyIndex;
+        const viaKeySuffix = selectedKeyIndex !== null
+          ? ` ${escapeHtml(t("modal.test_via_key", { index: selectedKeyIndex }))}`
+          : "";
+        const resp = await apiPost("/-/admin/models/test", payload);
         const result = resp?.result || {};
         if (testResult) {
           if (result.ok) {
             testResult.className = "model-map-test-result is-ok";
-            testResult.innerHTML = `${iconSvg("check")}<span>${escapeHtml(t("modal.mapping_test_ok", { ms: fmtInt(result.latency_ms || 0) }))}</span>`;
+            testResult.innerHTML = `${iconSvg("check")}<span>${escapeHtml(t("modal.mapping_test_ok", { ms: fmtInt(result.latency_ms || 0) }))}${viaKeySuffix}</span>`;
           } else {
             const errText = [
               result.error_type || "",
@@ -8098,7 +8169,7 @@ import {
               result.error || "",
             ].filter(Boolean).join(" · ");
             testResult.className = "model-map-test-result is-bad";
-            testResult.innerHTML = `${iconSvg("alert")}<span>${escapeHtml(t("modal.mapping_test_failed", { error: errText || "unknown" }))}</span>`;
+            testResult.innerHTML = `${iconSvg("alert")}<span>${escapeHtml(t("modal.mapping_test_failed", { error: errText || "unknown" }))}${viaKeySuffix}</span>`;
           }
         }
       } catch (err) {

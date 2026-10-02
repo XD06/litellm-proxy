@@ -1125,6 +1125,9 @@ const dict = {
   "modal.mapping_test_running": { en: "Testing…", zh: "测试中…" },
   "modal.mapping_test_ok": { en: "OK · {ms} ms", zh: "可用 · {ms} ms" },
   "modal.mapping_test_failed": { en: "Failed: {error}", zh: "失败：{error}" },
+  "modal.key_owner_title": { en: "Keys serving this model", zh: "提供该模型的密钥" },
+  "modal.key_owner_none": { en: "No per-key catalog match — test uses the provider catalog (key #0)", zh: "无 key 级目录匹配 —— 将按 provider 级目录测试（key #0）" },
+  "modal.test_via_key": { en: "· key #{index}", zh: "· key #{index}" },
   "notice.model_mapping_saved_detail": { en: "Saved: {name} → {raw}", zh: "已保存映射：{name} → {raw}" },
   "modal.edit_format_title": { en: "Edit format path", zh: "编辑格式路径" },
 

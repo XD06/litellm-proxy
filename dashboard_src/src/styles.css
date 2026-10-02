@@ -7732,6 +7732,49 @@ form.is-busy {
   background: color-mix(in srgb, #ef4444 10%, transparent);
 }
 
+/* Per-key model ownership chips inside the mapping modal: which provider
+   keys' own catalogs serve this raw model; clickable to target the test. */
+.model-map-key-owners {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.model-map-key-owners.is-empty span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.model-map-key-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.model-map-key-chip small {
+  color: var(--muted);
+  font-family: var(--mono, monospace);
+}
+
+.model-map-key-chip.is-selected {
+  border-color: var(--info);
+  background: color-mix(in srgb, var(--info) 12%, transparent);
+}
+
+.model-map-key-chip.is-selected small {
+  color: var(--text);
+}
+
 
 .mobile-settings-body {
   display: grid;

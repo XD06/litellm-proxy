@@ -71,10 +71,14 @@ assert.match(source, /data-model-map-test[\s\S]*?iconSvg\("activity"\)/, "mappin
 assert.match(source, /"\/-\/admin\/models\/test"/, "model test action must call the admin model test endpoint");
 assert.match(source, /data-model-map-test-result[\s\S]*?is-ok[\s\S]*?is-bad/, "model test outcome must render inline with ok/bad tones");
 assert.doesNotMatch(source, /provider-model-key-discovery/, "per-key catalog testing panel must stay removed from the models workspace");
+assert.match(source, /data-model-map-key-owners/, "mapping modal must render the per-key ownership row");
+assert.match(source, /data-model-map-key-chip/, "each serving key must render as a selectable chip");
+assert.match(source, /payload\.key_index = selectedKeyIndex/, "model test must target the selected provider key");
 
 const styles = readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
 assert.match(styles, /\.model-map-action\s*\{[\s\S]*?white-space:\s*nowrap/, "mapping modal actions must never wrap into one-character columns");
 assert.match(styles, /\.model-map-action\s*\{[\s\S]*?min-width:\s*36px/, "mapping modal icon actions keep their square hit target");
 assert.match(styles, /\.model-map-test-result\.is-ok/, "model test result must expose an ok tone");
+assert.match(styles, /\.model-map-key-chip/, "key ownership chips must be styled");
 
 console.log("form modal lifecycle tests passed");
