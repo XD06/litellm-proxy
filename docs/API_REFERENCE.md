@@ -61,7 +61,7 @@
 * **`POST /-/admin/models/refresh`**：强制立即触发后台供应商 `/v1/models` 自动发现。
 * **`POST /-/admin/models/test`**：对指定供应商模型发起一次真实的最小测试请求（复用 key 探测管道，15s 预算，去重并发，结果记入请求历史）。
   * Payload：`{"provider": "requesty", "model": "runware/deepseek-v4-flash-0731", "key_index": 0}`（`key_index` 可选，默认 0）
-  * **key 级解析**：探测按所选 key 的自身目录解析上游模型名（key 条目 `models` dict → `provider_key_model_capabilities` 指纹条目），无 key 级信息时回退 provider 级主 raw；控制台映射弹窗会展示该模型的归属 key（可多选）并把所选 `key_index` 传入本端点。
+  * **key 级解析**：探测按所选 key 的自身目录解析上游模型名（key 条目 `models` dict → `provider_key_model_capabilities` 指纹条目），无 key 级信息时回退 provider 级主 raw；控制台映射弹窗会展示该模型的归属 key 徽章（脱敏形态，可多选）并把所选 `key_index` 传入本端点。
   * 返回：`{"action": "model_tested", "result": {"ok": true, "format": "...", "upstream_model": "...", "latency_ms": 42}}`；失败时含 `http_status` / `error_type` / `error`（脱敏）。
 * **模型目录可见性**：聚合供应商（如 requesty）同一基础模型的多个厂商副本归一为 1 个 canonical id，并记录 1 对多 `variant_map`；只要任一副本未被禁用，canonical 即出现在 `/v1/models`，且路由按 副本优先级 依次故障转移。
 
