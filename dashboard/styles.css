@@ -3573,7 +3573,6 @@ tr.clickable:hover {
 .provider-stat.bad strong { color: var(--danger); }
 
 .provider-runtime-head,
-.key-card-head,
 .failure-policy-head {
   display: flex;
   gap: 10px;
@@ -3592,14 +3591,6 @@ tr.clickable:hover {
 
 .failure-policy-head .compact-control {
   margin-left: auto;
-}
-
-.key-card-badges {
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: flex-end;
 }
 
 .compact-control {
@@ -4673,38 +4664,53 @@ form.is-busy {
 
 .provider-key-list {
   display: grid;
-  /* Merged key cards embed a proxy/model form: two columns when wide,
-     single column once a card would get tighter than ~430px. */
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 430px), 1fr));
   gap: 8px;
 }
 
+/* Keys tab key card (Option A): one line for identity + status + labeled ops,
+   a quiet stats row, and the proxy/model overrides collapsed behind a summary
+   that already shows the live values. Mirrors the overview card language. */
 .provider-key-card {
   display: grid;
-  gap: 9px;
+  gap: 8px;
   min-width: 0;
-  padding: 10px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  background: var(--surface-raised);
+  padding: 12px;
+  border: 1.5px solid var(--line-soft);
+  border-radius: 10px;
+  background: var(--surface);
 }
 
-.key-title {
-  color: var(--text);
-  font-weight: 760;
-}
-
-.provider-key-card .provider-meta {
-  font-family: var(--mono);
-  color: var(--text);
-}
-
-.key-card-foot {
+.key-card-head {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 9px;
   align-items: center;
-  justify-content: space-between;
+  min-width: 0;
+}
+
+.key-card-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 760;
+  letter-spacing: 0.01em;
+}
+
+.key-card-index {
+  flex: 0 0 auto;
+  color: var(--faint);
+  font-size: 10.5px;
+  font-weight: 650;
+}
+
+.key-card-ops {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
 }
 
 .key-card-stats {
@@ -4721,8 +4727,77 @@ form.is-busy {
   font-weight: 700;
 }
 
-.key-actions {
-  justify-content: flex-start;
+.key-card-stats .is-warn strong {
+  color: var(--warning);
+}
+
+.key-card-details {
+  min-width: 0;
+  border-top: 1px dashed var(--line);
+  padding-top: 8px;
+}
+
+.key-card-details summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 4px 2px;
+  border-radius: 6px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 650;
+  transition: color 120ms ease;
+}
+
+.key-card-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.key-card-details summary:hover {
+  color: var(--text);
+}
+
+.key-card-details summary:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--info) 62%, transparent);
+  outline-offset: 1px;
+}
+
+.key-card-details summary .icon-svg {
+  width: 12px;
+  height: 12px;
+}
+
+.key-card-overrides-cur {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  color: var(--faint);
+  font: 500 11px/1.4 var(--mono);
+}
+
+.key-card-chev {
+  display: inline-flex;
+  color: var(--faint);
+  transition: transform 150ms ease;
+}
+
+.key-card-chev .icon-svg {
+  width: 12px;
+  height: 12px;
+}
+
+.key-card-details[open] .key-card-chev {
+  transform: rotate(90deg);
+}
+
+.key-proxy-field {
+  min-width: 0;
 }
 
 .provider-edit-drawer {
@@ -4771,13 +4846,9 @@ form.is-busy {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto;
   gap: 8px;
   align-items: end;
-  padding: 0;
+  padding: 2px 0 0;
   border: 0;
   background: transparent;
-}
-
-.key-proxy-field {
-  min-width: 0;
 }
 
 .provider-format-edit-list {
@@ -10221,7 +10292,6 @@ body {
   }
 
   .provider-runtime-head,
-  .key-card-head,
   .failure-policy-head {
     display: grid;
     grid-template-columns: 1fr;
@@ -10381,7 +10451,6 @@ body {
   }
 
   .format-route-list,
-  .provider-key-list,
   .provider-inline-form,
   .provider-inline-key-form,
   .key-proxy-row,
@@ -16379,7 +16448,8 @@ body {
 
 .provider-list-actions .provider-row-link,
 .provider-overview-readiness-ops .provider-row-link,
-.provider-overview-viewall .provider-row-link {
+.provider-overview-viewall .provider-row-link,
+.key-card-ops .provider-row-link {
   padding: 0;
   border: 0;
   background: none;
@@ -16391,18 +16461,30 @@ body {
 
 .provider-list-actions .provider-row-link:hover,
 .provider-overview-readiness-ops .provider-row-link:hover,
-.provider-overview-viewall .provider-row-link:hover {
+.provider-overview-viewall .provider-row-link:hover,
+.key-card-ops .provider-row-link:hover {
   color: var(--text);
 }
 
 .provider-list-actions .provider-row-link.is-danger,
-.provider-overview-readiness-ops .provider-row-link.is-danger {
+.provider-overview-readiness-ops .provider-row-link.is-danger,
+.key-card-ops .provider-row-link.is-danger {
   color: var(--danger);
 }
 
 .provider-list-actions .provider-row-link.is-danger:hover,
-.provider-overview-readiness-ops .provider-row-link.is-danger:hover {
+.provider-overview-readiness-ops .provider-row-link.is-danger:hover,
+.key-card-ops .provider-row-link.is-danger:hover {
   color: color-mix(in srgb, var(--danger) 78%, #000);
+}
+
+.provider-list-actions .provider-row-link:focus-visible,
+.provider-overview-readiness-ops .provider-row-link:focus-visible,
+.provider-overview-viewall .provider-row-link:focus-visible,
+.key-card-ops .provider-row-link:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--info) 62%, transparent);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 /* Providers KPI card: the overview language applied to provider cards —
@@ -17999,10 +18081,33 @@ body {
 
 .provider-key-add-form {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 8px;
+  margin-top: 2px;
+  padding: 12px;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface-raised);
+}
+
+.provider-key-add-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.provider-key-add-title .icon-svg {
+  width: 13px;
+  height: 13px;
+}
+
+.provider-key-add-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) auto;
   gap: 8px;
   align-items: end;
-  margin-top: 10px;
 }
 
 .provider-key-add-form .field {
@@ -18048,7 +18153,7 @@ body {
     width: 100%;
   }
 
-  .provider-key-add-form {
+  .provider-key-add-row {
     grid-template-columns: minmax(0, 1fr);
     align-items: stretch;
   }
@@ -18057,6 +18162,10 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .provider-setting-switch i,
   .provider-setting-switch i::after {
+    transition: none;
+  }
+
+  .key-card-chev {
     transition: none;
   }
 }

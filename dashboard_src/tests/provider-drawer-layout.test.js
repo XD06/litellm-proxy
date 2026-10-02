@@ -14,6 +14,7 @@ function bodyBetween(startMarker, endMarker) {
 }
 
 const keysPanel = bodyBetween("function providerDrawerKeys", "function providerDrawerModels");
+const keyCardRegion = bodyBetween("function keyCard", "function actionButton");
 const modelsPanel = bodyBetween("function providerDrawerModels", "function providerDrawerRouting");
 const routingPanel = bodyBetween("function providerDrawerRouting", "function providerDrawerConfig");
 const configPanel = bodyBetween("function providerDrawerConfig", "function providerRoutingRows");
@@ -43,6 +44,30 @@ assert.doesNotMatch(
   /data-key-test-provider|probeModelSelect|providerKeyConfiguration/,
   "per-key model testing and the probe model dropdown must stay removed",
 );
+assert.match(
+  keysPanel,
+  /provider-overview-kpis/,
+  "the Keys tab must reuse the overview KPI row style",
+);
+assert.match(
+  keyCardRegion,
+  /key-card-details/,
+  "per-key proxy/model overrides must collapse behind a disclosure",
+);
+assert.match(
+  keyCardRegion,
+  /key-card-ops/,
+  "per-key actions must be labeled text links, not icon-only buttons",
+);
+assert.doesNotMatch(keyCardRegion, /iconOnly: true/, "per-key actions must show labels instead of bare icons");
+assert.doesNotMatch(keysPanel, /miniMetric\("Usable"/, "keys tab must not use untranslated mini metrics");
+const keyTranslationKeys = [
+  ...keysPanel.matchAll(/t\("(prov\.[^"]+)"/g),
+  ...keyCardRegion.matchAll(/t\("(prov\.[^"]+)"/g),
+].map((match) => match[1]);
+for (const key of new Set(keyTranslationKeys)) {
+  assert.ok(translations.includes(`"${key}":`), `missing provider keys translation: ${key}`);
+}
 assert.match(
   routingPanel,
   /providerFormatConfiguration\(view\.name, view\.formats\)/,
@@ -148,6 +173,9 @@ assert.match(styles, /\.provider-overview-state-dot/, "provider overview must ke
 assert.match(styles, /\.provider-overview-kpis/, "provider overview must provide a compact KPI grid");
 assert.match(styles, /\.provider-activity-tab:focus-visible/, "activity sub-tabs must keep keyboard focus feedback");
 assert.match(styles, /\.provider-compatibility-clear/, "compatibility clear action must have a distinct visual treatment");
+assert.match(styles, /\.key-card-details\[open\] \.key-card-chev/, "the overrides disclosure must rotate its chevron when open");
+assert.match(styles, /\.key-card-ops \.provider-row-link:focus-visible/, "per-key ops links must keep keyboard focus feedback");
+assert.match(styles, /\.provider-key-add-form\s*\{[\s\S]*?border: 1\.5px dashed/, "the add-key form must read as a distinct drop-zone card");
 assert.match(source, /providerCompatibilityToolbar/, "providers view must expose a global compatibility-circuit summary and clear action");
 assert.match(styles, /#providersView \.provider-kpi-card\s*\{/, "provider cards must use the unified KPI anatomy");
 

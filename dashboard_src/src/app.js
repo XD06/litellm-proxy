@@ -6120,6 +6120,8 @@ import {
     // Fresh drawer, fresh automatic choice of the overview activity sub-pane
     // (calls by default, patrol probes when a provider is cooling down).
     state.providerOverviewActivityTab = "";
+    // Fresh drawer, all per-key override disclosures start collapsed.
+    state.providerKeyOverridesOpen?.clear();
     // Reset the lazy events cache so the newly opened drawer fetches its own
     // activity events exactly once, regardless of which provider was open before.
     resetProviderActivityEventsCache(name);
@@ -6331,6 +6333,19 @@ import {
       button.dataset.boundgotoproviderrequests = "1";
       button.addEventListener("click", () => {
         gotoProviderRequests(button.dataset.gotoProviderRequests || "");
+      });
+    });
+    // Remember which per-key override disclosures the user expanded, so poll
+    // re-renders (morphdom) keep them open instead of collapsing the panel.
+    root.querySelectorAll("details[data-key-details]").forEach((details) => {
+      if (details.dataset.boundkeydetails) return;
+      details.dataset.boundkeydetails = "1";
+      details.addEventListener("toggle", () => {
+        const keyId = details.dataset.keyDetails || "";
+        if (!keyId) return;
+        const openSet = state.providerKeyOverridesOpen || (state.providerKeyOverridesOpen = new Set());
+        if (details.open) openSet.add(keyId);
+        else openSet.delete(keyId);
       });
     });
     if (!root.dataset.boundprovideractivityrows) {
@@ -6718,21 +6733,30 @@ import {
 
   function providerDrawerKeys(view) {
     const keyListId = `key-list-${view.name}`;
+    const stats = view.keyStats;
+    // Same value-tint rules as the overview KPI row so both tabs read alike.
+    const usableTone = stats.usable === 0 ? "bad" : stats.usable < stats.total ? "warn" : "ok";
+    const runtimeTone = stats.runtimeEnabled === 0 ? "bad" : stats.runtimeEnabled < stats.total ? "warn" : "ok";
+    const cooldownTone = stats.cooldown > 0 ? "warn" : "neutral";
+    const failsTone = stats.fails > 2 ? "bad" : stats.fails > 0 ? "warn" : "neutral";
     return `
-      <section class="provider-drawer-section">
-        <div class="provider-detail-metrics">
-          ${miniMetric("Usable", fmtInt(view.keyStats.usable), "keys")}
-          ${miniMetric("Runtime on", fmtInt(view.keyStats.runtimeEnabled), "keys")}
-          ${miniMetric("Cooldown", fmtInt(view.keyStats.cooldown), "keys")}
-          ${miniMetric("Fails", fmtInt(view.keyStats.fails), "runtime")}
+      <section class="provider-drawer-section provider-keys-workspace">
+        <div class="provider-overview-kpis" role="list">
+          ${providerOverviewMetric("key", t("prov.keys_usable"), `${fmtInt(stats.usable)}/${fmtInt(stats.total)}`, t("prov.keys_usable_hint"), usableTone)}
+          ${providerOverviewMetric("power", t("prov.keys_runtime"), fmtInt(stats.runtimeEnabled), stats.runtimeEnabled < stats.total ? t("prov.keys_runtime_partial", { count: fmtInt(stats.total - stats.runtimeEnabled) }) : t("prov.keys_runtime_hint"), runtimeTone)}
+          ${providerOverviewMetric("clock", t("prov.keys_cooldown"), fmtInt(stats.cooldown), stats.cooldown > 0 ? t("prov.overview_cooldown_note") : t("prov.keys_cooldown_none"), cooldownTone)}
+          ${providerOverviewMetric("alert", t("prov.keys_fails"), fmtInt(stats.fails), stats.fails > 0 ? t("prov.keys_fails_hint") : t("prov.keys_fails_none"), failsTone)}
         </div>
-        <div class="provider-key-list drawer-key-list" id="${escapeHtml(keyListId)}">
+        <div class="provider-key-list drawer-key-list" id="${escapeHtml(keyListId)}" role="list">
           ${view.keys.length ? view.keys.map((key) => keyCard(view.name, key, view.keyStats.total)).join("") : `<div class="empty pad-slim">${escapeHtml(t("prov.no_keys_configured"))}</div>`}
         </div>
         <form class="config-key-form provider-key-add-form" data-provider="${escapeHtml(view.name)}">
-          <label class="field"><span>${escapeHtml(t("prov.api_key"))}</span><input class="control" name="key" type="password" autocomplete="off" spellcheck="false" placeholder="${escapeHtml(t("prov.api_key_ph"))}" required /></label>
-          <label class="field"><span>${escapeHtml(t("form.proxy"))}</span>${proxyControlInput("proxy", "", "http://host:port / socks5://host:port")}</label>
-          <button class="button secondary" type="submit">${escapeHtml(t("prov.add_key"))}</button>
+          <div class="provider-key-add-title">${iconSvg("plus")}<span>${escapeHtml(t("prov.add_key"))}</span></div>
+          <div class="provider-key-add-row">
+            <label class="field"><span>${escapeHtml(t("prov.api_key"))}</span><input class="control" name="key" type="password" autocomplete="off" spellcheck="false" placeholder="${escapeHtml(t("prov.api_key_ph"))}" required /></label>
+            <label class="field"><span>${escapeHtml(t("form.proxy"))}</span>${proxyControlInput("proxy", "", "http://host:port / socks5://host:port")}</label>
+            <button class="button primary" type="submit">${escapeHtml(t("prov.add_key"))}</button>
+          </div>
         </form>
       </section>
     `;
@@ -7410,49 +7434,57 @@ import {
     const keyId = `key-${provider}-${key.index}`;
     const proxy = proxyText(key.proxy);
     const models = keyModelsText(key.models);
+    // Disclosure summary: show the live override values so the collapsed row
+    // already answers "does this key diverge from the provider defaults?".
+    const overrideCur = proxy || models
+      ? [proxy || t("prov.key_inherit_proxy"), models].filter(Boolean).join(" · ")
+      : t("prov.key_overrides_none");
+    const dotTone = tone === "ok" ? "ok" : tone;
+    const openAttr = state.providerKeyOverridesOpen?.has(keyId) ? " open" : "";
     return `
-      <article class="provider-key-card" data-key="${escapeHtml(keyId)}" data-key-total="${escapeHtml(totalKeys)}">
+      <article class="provider-key-card" data-key="${escapeHtml(keyId)}" data-key-total="${escapeHtml(totalKeys)}" role="listitem">
         <div class="key-card-head">
-          <div>
-            <div class="mono key-title">key ${escapeHtml(key.index)}</div>
-            <div class="provider-meta" title="${escapeHtml(key.key_id || "")}">${escapeHtml(key.masked || key.key_id || "-")}</div>
-          </div>
-          <div class="key-card-badges">
-            ${badge(available ? "available" : key.runtime_enabled ? "cooldown" : "disabled", tone)}
-          </div>
-        </div>
-        <form class="key-proxy-row" data-provider="${escapeHtml(provider)}" data-key-index="${escapeHtml(key.index)}">
-          <label class="field key-proxy-field">
-            <span>${escapeHtml(t("form.proxy"))}</span>
-            ${proxyControlInput("proxy", proxy, t("prov.inherit"))}
-          </label>
-          <label class="field key-proxy-field">
-            <span>${escapeHtml(t("prov.models"))}</span>
-            <input class="control" name="models" value="${escapeHtml(models)}" placeholder="${escapeHtml(t("prov.models_ph"))}" />
-          </label>
-          <button class="button secondary compact-action" type="submit">${escapeHtml(t("form.save"))}</button>
-        </form>
-        <div class="key-card-foot">
-          <div class="key-card-stats mono">
-            <span>fails <strong>${fmtInt(key.fails)}</strong></span>
-            <span>cooldown <strong>${fmtInt(key.cooldown_remaining_s)}s</strong></span>
-            <span>disabled <strong>${fmtInt(key.disabled_remaining_s)}s</strong></span>
-          </div>
-          <div class="actions key-actions">
-            ${actionButton(key.runtime_enabled ? "Disable key" : "Enable key", `/providers/${encodeURIComponent(provider)}/keys/${key.index}/${key.runtime_enabled ? "disable" : "enable"}`, key.runtime_enabled ? "danger" : "secondary", { iconOnly: true })}
-            ${actionButton("Clear key state", `/providers/${encodeURIComponent(provider)}/keys/${key.index}/state/clear`, "secondary", { iconOnly: true })}
+          <span class="provider-overview-state-dot ${escapeHtml(dotTone)}" aria-hidden="true"></span>
+          <span class="key-card-name mono" title="${escapeHtml(key.key_id || "")}">${escapeHtml(key.masked || key.key_id || "-")}</span>
+          <span class="key-card-index mono">#${escapeHtml(key.index)}</span>
+          ${badge(available ? t("prov.key_available") : key.runtime_enabled ? t("prov.key_cooldown_label") : t("prov.key_disabled_label"), tone)}
+          <div class="key-card-ops">
+            <button class="provider-row-link${key.runtime_enabled ? " is-danger" : ""}" type="button" data-action-path="/providers/${encodeURIComponent(provider)}/keys/${encodeURIComponent(key.index)}/${key.runtime_enabled ? "disable" : "enable"}">${escapeHtml(t(key.runtime_enabled ? "prov.disable" : "prov.enable"))}</button>
+            <button class="provider-row-link" type="button" data-action-path="/providers/${encodeURIComponent(provider)}/keys/${encodeURIComponent(key.index)}/state/clear">${escapeHtml(t("prov.key_clear_state"))}</button>
             <button
-              class="button danger icon-action"
+              class="provider-row-link is-danger"
               type="button"
               data-key-delete-provider="${escapeHtml(provider)}"
               data-key-delete-index="${escapeHtml(key.index)}"
               data-key-delete-total="${escapeHtml(totalKeys)}"
               data-key-delete-label="${escapeHtml(key.masked || key.key_id || `key ${key.index}`)}"
-              title="Delete key"
-              aria-label="Delete key"
-            >${iconSvg("trash")}</button>
+            >${escapeHtml(t("prov.key_delete"))}</button>
           </div>
         </div>
+        <div class="key-card-stats mono">
+          <span class="${Number(key.fails) > 0 ? "is-warn" : ""}">${escapeHtml(t("prov.key_stat_fails"))} <strong>${fmtInt(key.fails)}</strong></span>
+          <span class="${Number(key.cooldown_remaining_s) > 0 ? "is-warn" : ""}">${escapeHtml(t("prov.key_stat_cooldown"))} <strong>${fmtInt(key.cooldown_remaining_s)}s</strong></span>
+          <span>${escapeHtml(t("prov.key_stat_disabled"))} <strong>${fmtInt(key.disabled_remaining_s)}s</strong></span>
+        </div>
+        <details class="key-card-details"${openAttr} data-key-details="${escapeHtml(keyId)}">
+          <summary>
+            ${iconSvg("pencil")}
+            <span>${escapeHtml(t("prov.key_overrides"))}</span>
+            <span class="key-card-overrides-cur">${escapeHtml(overrideCur)}</span>
+            <span class="key-card-chev">${iconSvg("chevron-right")}</span>
+          </summary>
+          <form class="key-proxy-row" data-provider="${escapeHtml(provider)}" data-key-index="${escapeHtml(key.index)}">
+            <label class="field key-proxy-field">
+              <span>${escapeHtml(t("form.proxy"))}</span>
+              ${proxyControlInput("proxy", proxy, t("prov.inherit"))}
+            </label>
+            <label class="field key-proxy-field">
+              <span>${escapeHtml(t("prov.models_override"))}</span>
+              <input class="control" name="models" value="${escapeHtml(models)}" placeholder="${escapeHtml(t("prov.models_ph"))}" />
+            </label>
+            <button class="button secondary compact-action" type="submit">${escapeHtml(t("form.save"))}</button>
+          </form>
+        </details>
       </article>
     `;
   }

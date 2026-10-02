@@ -66,6 +66,9 @@ export const state = {
   // Overview merged activity card: which sub-pane is shown. "" = automatic
   // (calls normally, patrol probes when a probe has failed / provider cooling).
   providerOverviewActivityTab: "",
+  // Keys tab: which per-key override disclosures are expanded, by key id.
+  // Tracked in state so poll re-renders keep the user's disclosure open.
+  providerKeyOverridesOpen: new Set(),
   detailDrawerReturn: null,
   modelDrawerMode: "summary",
   providerFilters: {
