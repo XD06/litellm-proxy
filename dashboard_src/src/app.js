@@ -559,6 +559,16 @@ import {
     return `$${n.toLocaleString(getLang() === "zh" ? "zh-CN" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })}`;
   }
 
+  function fmtCost3(value) {
+    // Aggregate known-cost display (usage summary / breakdown totals): at the
+    // dollars scale three decimals are enough; tiny totals keep fmtCost's
+    // high-precision branches instead of collapsing to "$0.00".
+    const n = Number(value || 0);
+    if (!Number.isFinite(n) || n <= 0) return "$0";
+    if (n < 0.0001) return fmtCost(n);
+    return `$${n.toLocaleString(getLang() === "zh" ? "zh-CN" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 3 })}`;
+  }
+
   function fmtPricing(value) {
     return value === null || value === undefined || value === "" ? "-" : fmtCost(value);
   }
@@ -9047,7 +9057,7 @@ import {
         </article>
         <article class="usage-compact-card">
           <span class="usage-compact-icon tone-success">${iconSvg("dollar")}</span>
-          <span><small>${escapeHtml(t("usage_stats.known_cost"))}</small><strong>${escapeHtml(fmtCost(summary.cost?.known_usd || 0))}</strong><b class="tone-${escapeHtml(costStatus.tone)}">${iconSvg(costStatus.icon)}${escapeHtml(costStatus.label)}</b></span>
+          <span><small>${escapeHtml(t("usage_stats.known_cost"))}</small><strong>${escapeHtml(fmtCost3(summary.cost?.known_usd || 0))}</strong><b class="tone-${escapeHtml(costStatus.tone)}">${iconSvg(costStatus.icon)}${escapeHtml(costStatus.label)}</b></span>
         </article>
       </div>
       <div class="usage-token-grid">
@@ -9262,7 +9272,7 @@ import {
             <span class="usage-statistics-breakdown-identity">${brand}<span><strong data-tip="${escapeHtml(dimension)}">${escapeHtml(dimension)}</strong><small>${escapeHtml(group === "provider" ? t("usage_stats.upstream_provider") : t("usage_stats.client_model"))}</small></span></span>
             <span class="usage-statistics-breakdown-bar"><i style="--breakdown-share:${svgNum((metricValue / maxValue) * 100)}%"></i></span>
             <span class="usage-statistics-breakdown-result"><strong>${escapeHtml(usageStatisticsBreakdownMetricText(item))}</strong><small>${escapeHtml(t("usage_stats.requests_and_success", { requests: fmtInt(item.requests || 0), rate: fmtPct(item.success_rate || 0) }))}</small></span>
-            <span class="usage-statistics-breakdown-cost"><strong>${escapeHtml(fmtCost(item.cost?.known_usd || 0))}</strong><small>${escapeHtml(t("usage_stats.cost_short"))}</small></span>
+            <span class="usage-statistics-breakdown-cost"><strong>${escapeHtml(fmtCost3(item.cost?.known_usd || 0))}</strong><small>${escapeHtml(t("usage_stats.cost_short"))}</small></span>
           </article>`;
         }).join("")}
       </div>

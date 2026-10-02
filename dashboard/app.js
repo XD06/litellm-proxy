@@ -7533,6 +7533,15 @@
 				maximumFractionDigits: 6
 			})}`;
 		}
+		function fmtCost3(value) {
+			const n = Number(value || 0);
+			if (!Number.isFinite(n) || n <= 0) return "$0";
+			if (n < 1e-4) return fmtCost(n);
+			return `$${n.toLocaleString(getLang() === "zh" ? "zh-CN" : "en-US", {
+				minimumFractionDigits: 2,
+				maximumFractionDigits: 3
+			})}`;
+		}
 		function fmtPricing(value) {
 			return value === null || value === void 0 || value === "" ? "-" : fmtCost(value);
 		}
@@ -14991,7 +15000,7 @@
         </article>
         <article class="usage-compact-card">
           <span class="usage-compact-icon tone-success">${iconSvg("dollar")}</span>
-          <span><small>${escapeHtml(t("usage_stats.known_cost"))}</small><strong>${escapeHtml(fmtCost(summary.cost?.known_usd || 0))}</strong><b class="tone-${escapeHtml(costStatus.tone)}">${iconSvg(costStatus.icon)}${escapeHtml(costStatus.label)}</b></span>
+          <span><small>${escapeHtml(t("usage_stats.known_cost"))}</small><strong>${escapeHtml(fmtCost3(summary.cost?.known_usd || 0))}</strong><b class="tone-${escapeHtml(costStatus.tone)}">${iconSvg(costStatus.icon)}${escapeHtml(costStatus.label)}</b></span>
         </article>
       </div>
       <div class="usage-token-grid">
@@ -15279,7 +15288,7 @@
 					requests: fmtInt(item.requests || 0),
 					rate: fmtPct(item.success_rate || 0)
 				}))}</small></span>
-            <span class="usage-statistics-breakdown-cost"><strong>${escapeHtml(fmtCost(item.cost?.known_usd || 0))}</strong><small>${escapeHtml(t("usage_stats.cost_short"))}</small></span>
+            <span class="usage-statistics-breakdown-cost"><strong>${escapeHtml(fmtCost3(item.cost?.known_usd || 0))}</strong><small>${escapeHtml(t("usage_stats.cost_short"))}</small></span>
           </article>`;
 			}).join("")}
       </div>
