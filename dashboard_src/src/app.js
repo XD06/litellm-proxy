@@ -8033,6 +8033,24 @@ import {
     );
   }
 
+  function modelMapKeyOwnerMaskedLookup(provider) {
+    // key_id → masked identity ("ms-559**1d": real prefix/suffix, middle
+    // hidden) from the snapshots the key cards already render.
+    const sources = [
+      state.data.status?.router?.providers?.[provider]?.keys,
+      state.data.config?.providers?.[provider]?.keys,
+    ];
+    const lookup = {};
+    sources.forEach((keys) => {
+      (Array.isArray(keys) ? keys : []).forEach((entry) => {
+        const id = String(entry?.key_id || "").trim();
+        const masked = String(entry?.masked || "").trim();
+        if (id && masked && !lookup[id]) lookup[id] = masked;
+      });
+    });
+    return lookup;
+  }
+
   function modelMapKeyOwners(provider, rawModel, canonicalModel) {
     // Which provider keys carry this model in their OWN catalog (per-key
     // /v1/models discovery or per-key manual map). Data source:
@@ -8040,6 +8058,7 @@ import {
     // status, models, canonical_map) — already fetched for the drawer.
     const capability = providerModelItemsCapability(provider);
     const keys = Array.isArray(capability?.keys) ? capability.keys : [];
+    const maskedById = modelMapKeyOwnerMaskedLookup(provider);
     const raw = String(rawModel || "").trim();
     const canonical = String(canonicalModel || "").trim();
     const owners = [];
@@ -8051,9 +8070,11 @@ import {
         || (raw && Object.values(canonicalMap).some((v) => String(v || "").trim() === raw));
       const canonicalHit = canonical && Object.keys(canonicalMap).some((k) => String(k || "").trim() === canonical);
       if (rawHit || canonicalHit) {
+        const keyId = String(entry.key_id || "");
         owners.push({
           key_index: Number(entry.key_index || 0),
-          key_id: String(entry.key_id || ""),
+          key_id: keyId,
+          masked: maskedById[keyId] || "",
           status: String(entry.status || ""),
         });
       }
@@ -8073,9 +8094,9 @@ import {
     return `<div class="model-map-key-owners" data-model-map-key-owners aria-label="${escapeHtml(t("modal.key_owner_title"))}">
       ${keyOwnerInfo.owners.map((owner) => `
         <button type="button" class="model-map-key-chip" data-model-map-key-chip="${escapeHtml(owner.key_index)}"
-          title="${escapeHtml(`${t("modal.key_owner_title")} · ${owner.key_id} · ${owner.status}`)}">
+          title="${escapeHtml(`${t("modal.key_owner_title")} · ${owner.masked || owner.key_id} · ${owner.status}`)}">
           <span class="mono">#${escapeHtml(owner.key_index)}</span>
-          <small>${escapeHtml(owner.key_id)}</small>
+          <small>${escapeHtml(owner.masked || owner.key_id)}</small>
         </button>
       `).join("")}
     </div>`;

@@ -74,6 +74,8 @@ assert.doesNotMatch(source, /provider-model-key-discovery/, "per-key catalog tes
 assert.match(source, /data-model-map-key-owners/, "mapping modal must render the per-key ownership row");
 assert.match(source, /data-model-map-key-chip/, "each serving key must render as a selectable chip");
 assert.match(source, /payload\.key_index = selectedKeyIndex/, "model test must target the selected provider key");
+assert.match(source, /modelMapKeyOwnerMaskedLookup\(/, "ownership chips must resolve masked key identities from snapshots");
+assert.match(source, /owner\.masked \|\| owner\.key_id/, "chips prefer the real masked key over the hash id");
 
 const styles = readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
 assert.match(styles, /\.model-map-action\s*\{[\s\S]*?white-space:\s*nowrap/, "mapping modal actions must never wrap into one-character columns");
