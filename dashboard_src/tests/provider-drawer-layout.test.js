@@ -101,7 +101,6 @@ assert.match(
   "the Config tab must render only the provider inspector",
 );
 assert.doesNotMatch(configPanel, /providerKeyConfiguration|providerFormatConfiguration/);
-
 assert.match(overviewPanel, /provider-overview-workspace/, "Overview must expose a dedicated information hierarchy");
 assert.match(overviewPanel, /provider-overview-readiness/, "Overview must lead with route readiness");
 assert.match(overviewPanel, /provider-overview-kpis/, "Overview must group the four decision KPIs");
@@ -151,6 +150,19 @@ assert.match(inspector, /data-skip-idle-toggle/, "Config must preserve the idle 
 assert.match(inspector, /data-skip-patrol-toggle/, "Config must preserve the patrol probe toggle");
 assert.match(inspector, /type="reset"/, "Config must offer a reset action in the sticky footer");
 assert.match(inspector, /type="submit"/, "Config must preserve one provider save action");
+assert.match(inspector, /provider-overview-kpis/, "the Config tab must reuse the overview KPI row style");
+assert.match(inspector, /provider-routing-card provider-config-card/, "config groups must reuse the routing card shell");
+assert.match(inspector, /data-provider-flag="[^"]*" data-flag-field="enabled"/, "the enabled switch must hot-apply through the flag binding");
+for (const flag of ["force_reasoning_content", "force_anthropic_thinking", "assume_supports_unknown_models"]) {
+  assert.match(inspector, new RegExp(`providerFlagSwitch\\(name, "${flag}"`), `Config must expose the backend ${flag} switch`);
+}
+assert.match(inspector, /data-flag-field=/, "flag switches must carry their backend field name");
+assert.match(inspector, /name="forward_client_headers"/, "Config must expose the forward client headers whitelist");
+assert.match(inspector, /aria-label=/, "config switches must carry accessible names");
+const configTranslationKeys = [...inspector.matchAll(/t\("(prov\.config\.[^"]+)"/g)].map((match) => match[1]);
+for (const key of new Set(configTranslationKeys)) {
+  assert.ok(translations.includes(`"${key}":`), `missing provider config translation: ${key}`);
+}
 assert.match(providerCard, /providerBrandIconMarkup\(view\.name, iconSvg\("server"\)\)/, "Provider cards must use the shared brand icon helper with the server fallback");
 assert.match(providerCard, /provider-kpi-head[\s\S]*provider-kpi-name[\s\S]*providerHealthPill\(view\)[\s\S]*provider-kpi-meta[\s\S]*provider-kpi-stats/, "Provider card must follow the KPI anatomy (identity, health pill, meta line, big-number stats)");
 assert.match(source, /function providerServerIconMarkup[\s\S]*iconSvg\("server"\)/, "Provider cards must render the fixed server SVG");
@@ -205,6 +217,10 @@ assert.match(styles, /\.provider-route-rank\.is-me/, "the current provider must 
 assert.match(styles, /\.provider-routing-context\[open\] \.provider-routing-chev/, "the routing context chevron must rotate when open");
 assert.match(styles, /\.provider-drawer-section \.provider-formats-group \.format-route\.is-interactive\s*\{/, "routing-tab format routes must read as capsule rows");
 assert.match(styles, /\.provider-routing-pool-switch/, "the pool switch must have explicit capsule sizing");
+assert.match(styles, /\.provider-config-row\s*\{/, "config tab switch rows must have dedicated styles");
+assert.match(styles, /\.toggle-switch input:checked \+ \.slider\s*\{\s*background: var\(--accent\)/, "capsule switches must use the accent color when on");
+assert.match(styles, /\.format-route-switch\.is-on\s*\{[^}]*background: var\(--accent\)/, "routing capsule switches must use the accent color when on");
+assert.doesNotMatch(styles, /\.format-route-switch\.is-on \{[^}]*--success/, "routing capsule switches must not fall back to the success green");
 assert.match(styles, /\.provider-model-row\.is-pending/, "staged model rows must read as pending until applied");
 assert.match(styles, /\.provider-model-draft-bar\s*\{[\s\S]*?color-mix\(in srgb, var\(--warning\)/, "the draft bar must read as a pending-write warning");
 assert.match(styles, /\.provider-model-disclosure-chev/, "disclosure summaries must keep an explicit chevron");

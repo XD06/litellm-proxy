@@ -3894,9 +3894,9 @@ tr.clickable:hover {
 }
 
 .format-route-switch.is-on {
-  border-color: color-mix(in srgb, var(--success) 42%, #dfe5ec);
-  background: color-mix(in srgb, var(--success) 82%, #0f172a);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 11%, transparent);
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 .format-route-switch.is-on span {
@@ -3904,11 +3904,11 @@ tr.clickable:hover {
 }
 
 .format-route-switch:hover {
-  border-color: color-mix(in srgb, var(--info) 34%, var(--line));
+  border-color: color-mix(in srgb, var(--accent) 44%, var(--line));
 }
 
 .format-route-switch:focus-visible {
-  outline: 2px solid var(--info);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -4049,7 +4049,7 @@ tr.clickable:hover {
 }
 
 .provider-routing-pool-switch:focus-visible {
-  outline: 2px solid var(--info, #3b82f6);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -13305,7 +13305,7 @@ body {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
 }
 .toggle-switch input:checked + .slider {
-  background: var(--success);
+  background: var(--accent);
 }
 .toggle-switch input:checked + .slider::before {
   transform: translateX(16px);
@@ -18216,25 +18216,16 @@ body {
 
 .provider-config-inspector {
   display: grid;
+  gap: 9px;
   min-width: 0;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
 }
 
 .provider-inspector-content {
+  display: grid;
+  gap: 9px;
   min-width: 0;
 }
 
-.provider-inspector-section {
-  padding: 16px;
-}
-
-.provider-inspector-section + .provider-inspector-section {
-  border-top: 1px solid var(--line);
-}
-
-.provider-inspector-head,
 .provider-tab-section-head {
   display: flex;
   align-items: flex-start;
@@ -18243,7 +18234,6 @@ body {
   margin-bottom: 14px;
 }
 
-.provider-inspector-head strong,
 .provider-tab-section-head strong {
   display: block;
   color: var(--text);
@@ -18252,7 +18242,6 @@ body {
   line-height: 1.25;
 }
 
-.provider-inspector-head small,
 .provider-tab-section-head small {
   display: block;
   margin-top: 3px;
@@ -18261,49 +18250,114 @@ body {
   line-height: 1.35;
 }
 
-.provider-inspector-code {
-  color: var(--faint);
-  font: 650 9.5px/1.4 var(--mono);
-  font-variant-numeric: tabular-nums;
-}
-
-.provider-inspector-grid {
+/* Config tab cards reuse the .provider-routing-card shell; these are the row grids. */
+.provider-config-fields {
   display: grid;
-  grid-template-columns: 112px minmax(0, 1fr);
-  gap: 10px 14px;
+}
+
+.provider-config-field {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
+  gap: 4px 10px;
   align-items: center;
+  min-height: 50px;
+  padding: 9px 13px;
 }
 
-.provider-inspector-grid > label {
+.provider-config-field + .provider-config-field {
+  border-top: 1px solid var(--line-soft);
+}
+
+.provider-config-field > label {
   color: var(--muted);
-  font-size: 10.5px;
-  font-weight: 680;
+  font-size: 11px;
+  font-weight: 650;
 }
 
-.provider-inspector-grid > div,
-.provider-inspector-grid .proxy-control-row,
-.provider-inspector-grid .control {
+.provider-config-field > div,
+.provider-config-field .proxy-control-row,
+.provider-config-field .control {
   min-width: 0;
   width: 100%;
 }
 
-.provider-inspector-grid .control {
-  min-height: 36px;
-  border-color: #d8dee7;
+.provider-config-field .control {
+  min-height: 32px;
   border-radius: 6px;
   background: var(--surface);
   color: var(--text);
   font-size: 11.5px;
 }
 
-.provider-inspector-grid .control:focus-visible {
+.provider-config-field .control:focus-visible {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
   outline: 0;
 }
 
-.provider-runtime-grid {
-  margin-bottom: 12px;
+.provider-config-field > small {
+  grid-column: 2 / -1;
+  margin-top: -2px;
+  color: var(--muted);
+  font-size: 9.5px;
+  line-height: 1.35;
+}
+
+.provider-config-rows {
+  display: grid;
+}
+
+.provider-config-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 16px;
+  align-items: center;
+  min-height: 52px;
+  padding: 10px 13px;
+}
+
+.provider-config-row + .provider-config-row {
+  border-top: 1px solid var(--line-soft);
+}
+
+.provider-config-row-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.provider-config-row-text strong {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.provider-config-row-text small {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.provider-config-row-ctl {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.provider-config-priority-input {
+  width: 88px;
+  min-height: 30px;
+  padding: 5px 9px;
+  font: 680 13px/1.2 var(--mono);
+  text-align: center;
+}
+
+.provider-config-headers-input {
+  width: 220px;
+  min-height: 30px;
+  padding: 5px 9px;
+  font-size: 11px;
 }
 
 .provider-setting-row {
@@ -18344,7 +18398,7 @@ body {
 .provider-setting-switch {
   position: relative;
   display: block;
-  width: 36px;
+  width: 38px;
   height: 22px;
   flex: 0 0 auto;
 }
@@ -18363,8 +18417,8 @@ body {
 .provider-setting-switch i {
   position: absolute;
   inset: 0;
-  border-radius: 11px;
-  background: #c8d0da;
+  border-radius: 999px;
+  background: var(--line-strong);
   transition: background-color 170ms ease;
 }
 
@@ -18383,10 +18437,11 @@ body {
 
 .provider-setting-switch input:checked + i {
   background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 .provider-setting-switch input:checked + i::after {
-  transform: translateX(14px);
+  transform: translateX(16px);
 }
 
 .provider-setting-switch input:focus-visible + i {
@@ -18413,6 +18468,11 @@ body {
 .provider-inspector-status {
   color: var(--muted);
   font-size: 9.5px;
+}
+
+.provider-inspector-status b {
+  color: var(--text);
+  font-weight: 650;
 }
 
 .provider-inspector-actions > div {
@@ -18496,13 +18556,28 @@ body {
 }
 
 @media (max-width: 640px) {
-  .provider-inspector-grid {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 5px;
+  .provider-config-field {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  .provider-inspector-grid > label:not(:first-child) {
-    margin-top: 5px;
+  .provider-config-field > label {
+    grid-column: 1 / -1;
+  }
+
+  .provider-config-field > small {
+    grid-column: 1 / -1;
+  }
+
+  .provider-config-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .provider-config-row-ctl {
+    justify-content: flex-start;
+  }
+
+  .provider-config-headers-input {
+    width: 100%;
   }
 
   .provider-inspector-actions {

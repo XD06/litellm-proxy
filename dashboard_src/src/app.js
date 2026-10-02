@@ -7455,61 +7455,154 @@ import {
   }
 
   function providerConfigInspector(name, provider) {
+    // Formats come from the live config so the KPI reflects what routing actually uses.
+    const formats = state.data.config?.providers?.[name]?.formats || provider.formats || {};
+    const formatRows = Object.entries(formats);
+    const enabledFmt = formatRows.filter(([, cfg]) => cfg?.enabled).length;
+    const skipIdle = Boolean(provider.skip_idle_probe);
+    const skipPatrol = Boolean(provider.skip_patrol_probe);
+    const enabled = provider.enabled !== false;
+    const probesAllSkipped = skipIdle && skipPatrol;
+    let host = "";
+    try {
+      host = provider.base_url ? new URL(provider.base_url).host : "";
+    } catch (_e) {
+      host = String(provider.base_url || "");
+    }
+    const fwdHeaders = Array.isArray(provider.forward_client_headers) ? provider.forward_client_headers.join(", ") : "";
     return `
       <form class="config-provider-form provider-config-inspector" data-provider="${escapeHtml(name)}">
+        <div class="provider-overview-kpis" role="list">
+          ${providerOverviewMetric("server", t("prov.config.kpi_host"), host || t("prov.config.kpi_host_none"), provider.base_url || t("prov.config.kpi_host_none"), host ? "neutral" : "warn")}
+          ${providerOverviewMetric("arrow-up", t("form.priority"), `P${fmtInt(provider.priority ?? 0)}`, t("prov.config.kpi_priority_hint"), "neutral")}
+          ${providerOverviewMetric("layers", t("prov.config.kpi_formats"), `${fmtInt(enabledFmt)} / ${fmtInt(formatRows.length)}`, t("prov.config.kpi_formats_hint"), enabledFmt ? "ok" : "warn")}
+          ${providerOverviewMetric("radar", t("prov.config.kpi_probes"), probesAllSkipped ? t("prov.config.kpi_probes_skip") : t("prov.config.kpi_probes_on"), skipIdle || skipPatrol ? t("prov.config.kpi_probes_part_hint") : t("prov.config.kpi_probes_on_hint"), probesAllSkipped ? "warn" : "ok")}
+        </div>
         <div class="provider-inspector-content">
-          <section class="provider-inspector-section">
-            <div class="provider-inspector-head">
-              <div><strong>${escapeHtml(t("prov.config_connection"))}</strong><small>${escapeHtml(t("prov.config_connection_tip"))}</small></div>
-              <span class="provider-inspector-code">HTTP</span>
+          <section class="provider-routing-card provider-config-card">
+            <div class="provider-routing-head">
+              <h3>${iconSvg("server")}<span>${escapeHtml(t("prov.config_connection"))}</span></h3>
+              <span class="provider-routing-head-meta"><span class="badge neutral">${escapeHtml(t("prov.config.items", { count: 4 }))}</span></span>
             </div>
-            <div class="provider-inspector-grid">
-              <label for="provider-base-url-${escapeHtml(name)}">${escapeHtml(t("form.base_url"))}</label>
-              <input id="provider-base-url-${escapeHtml(name)}" class="control mono" name="base_url" type="url" autocomplete="off" spellcheck="false" value="${escapeHtml(provider.base_url || "")}" placeholder="https://api.example.com" required />
-              <label for="provider-site-url-${escapeHtml(name)}">${escapeHtml(t("form.site_url"))}</label>
-              <input id="provider-site-url-${escapeHtml(name)}" class="control mono" name="site_url" type="url" autocomplete="off" spellcheck="false" value="${escapeHtml(provider.site_url || "")}" placeholder="https://provider.example.com" />
-              <label for="provider-proxy-${escapeHtml(name)}">${escapeHtml(t("form.proxy"))}</label>
-              <div>${proxyControlInput("proxy", provider.proxy || "", "direct / http://host:port / socks5://host:port", `id="provider-proxy-${escapeHtml(name)}" autocomplete="off" spellcheck="false"`)}</div>
-              <label for="provider-user-agent-${escapeHtml(name)}">${escapeHtml(t("form.user_agent"))}</label>
-              <input id="provider-user-agent-${escapeHtml(name)}" class="control mono" name="user_agent" autocomplete="off" spellcheck="false" value="${escapeHtml(provider.user_agent || "")}" placeholder="${escapeHtml(t("prov.inherit_proxy_default"))}" />
+            <div class="provider-config-fields">
+              <div class="provider-config-field">
+                <label for="provider-base-url-${escapeHtml(name)}">${escapeHtml(t("form.base_url"))}</label>
+                <input id="provider-base-url-${escapeHtml(name)}" class="control mono" name="base_url" type="url" autocomplete="off" spellcheck="false" value="${escapeHtml(provider.base_url || "")}" placeholder="https://api.example.com" required />
+                <small>${escapeHtml(t("form.base_url_tip"))}</small>
+              </div>
+              <div class="provider-config-field">
+                <label for="provider-site-url-${escapeHtml(name)}">${escapeHtml(t("form.site_url"))}</label>
+                <input id="provider-site-url-${escapeHtml(name)}" class="control mono" name="site_url" type="url" autocomplete="off" spellcheck="false" value="${escapeHtml(provider.site_url || "")}" placeholder="https://provider.example.com" />
+                <small>${escapeHtml(t("form.site_url_tip"))}</small>
+              </div>
+              <div class="provider-config-field">
+                <label for="provider-proxy-${escapeHtml(name)}">${escapeHtml(t("form.proxy"))}</label>
+                <div>${proxyControlInput("proxy", provider.proxy || "", "direct / http://host:port / socks5://host:port", `id="provider-proxy-${escapeHtml(name)}" autocomplete="off" spellcheck="false"`)}</div>
+                <small>${escapeHtml(t("form.proxy_tip"))}</small>
+              </div>
+              <div class="provider-config-field">
+                <label for="provider-user-agent-${escapeHtml(name)}">${escapeHtml(t("form.user_agent"))}</label>
+                <input id="provider-user-agent-${escapeHtml(name)}" class="control mono" name="user_agent" autocomplete="off" spellcheck="false" value="${escapeHtml(provider.user_agent || "")}" placeholder="${escapeHtml(t("prov.inherit_proxy_default"))}" />
+                <small>${escapeHtml(t("form.ua_tip"))}</small>
+              </div>
             </div>
           </section>
-          <section class="provider-inspector-section">
-            <div class="provider-inspector-head">
-              <div><strong>${escapeHtml(t("prov.config_runtime"))}</strong><small>${escapeHtml(t("prov.config_runtime_tip"))}</small></div>
-              <span class="provider-inspector-code">LIVE</span>
+          <section class="provider-routing-card provider-config-card">
+            <div class="provider-routing-head">
+              <h3>${iconSvg("zap")}<span>${escapeHtml(t("prov.config_runtime"))}</span></h3>
+              <span class="provider-routing-head-meta"><span class="badge ${enabled ? "ok" : "warn"}">${escapeHtml(t(enabled ? "prov.config.enabled_badge" : "prov.config.disabled_badge"))}</span></span>
             </div>
-            <div class="provider-inspector-grid provider-runtime-grid">
-              <label for="provider-priority-${escapeHtml(name)}">${escapeHtml(t("form.priority"))}</label>
-              <input id="provider-priority-${escapeHtml(name)}" class="control mono" name="priority" type="number" inputmode="numeric" min="-1000" max="1000" step="1" value="${escapeHtml(provider.priority ?? 0)}" />
+            <div class="provider-config-rows">
+              ${providerConfigSwitchRow(
+                "form.priority",
+                "prov.config.kpi_priority_hint",
+                `<input class="control mono provider-config-priority-input" name="priority" type="number" inputmode="numeric" min="-1000" max="1000" step="1" value="${escapeHtml(provider.priority ?? 0)}" aria-label="${escapeHtml(t("form.priority"))}" /><span class="badge neutral">${escapeHtml(t("prov.config.saved_badge"))}</span>`,
+              )}
+              ${providerConfigSwitchRow(
+                "prov.provider_enabled",
+                "prov.provider_enabled_tip",
+                `<span class="provider-setting-switch provider-config-switch"><input type="checkbox" name="enabled" data-provider-flag="${escapeHtml(name)}" data-flag-field="enabled" ${enabled ? "checked" : ""} aria-label="${escapeHtml(t("prov.provider_enabled"))}" /><i></i></span>`,
+              )}
             </div>
-            <label class="provider-setting-row">
-              <span><strong>${escapeHtml(t("prov.provider_enabled"))}</strong><small>${escapeHtml(t("prov.provider_enabled_tip"))}</small></span>
-              <span class="provider-setting-switch"><input type="checkbox" name="enabled" ${provider.enabled === false ? "" : "checked"} /><i></i></span>
-            </label>
           </section>
-          <section class="provider-inspector-section">
-            <div class="provider-inspector-head">
-              <div><strong>${escapeHtml(t("prov.health_probes"))}</strong><small>${escapeHtml(t("prov.health_probes_tip"))}</small></div>
+          <section class="provider-routing-card provider-config-card">
+            <div class="provider-routing-head">
+              <h3>${iconSvg("radar")}<span>${escapeHtml(t("prov.health_probes"))}</span></h3>
+              <span class="provider-routing-head-meta"><span class="badge ${probesAllSkipped ? "warn" : "ok"}">${escapeHtml(t(probesAllSkipped ? "prov.config.probes_badge_off" : "prov.config.probes_badge_on"))}</span></span>
             </div>
-            <label class="provider-setting-row">
-              <span><strong>${escapeHtml(t("prov.skip_idle_probes"))}</strong><small>${escapeHtml(t("prov.skip_idle_probes_tip"))}</small></span>
-              <span class="provider-setting-switch"><input type="checkbox" name="skip_idle_probe" ${provider.skip_idle_probe ? "checked" : ""} data-skip-idle-toggle="${escapeHtml(name)}" /><i></i></span>
-            </label>
-            <label class="provider-setting-row">
-              <span><strong>${escapeHtml(t("prov.skip_patrol_probes"))}</strong><small>${escapeHtml(t("prov.skip_patrol_probes_tip"))}</small></span>
-              <span class="provider-setting-switch"><input type="checkbox" name="skip_patrol_probe" ${provider.skip_patrol_probe ? "checked" : ""} data-skip-patrol-toggle="${escapeHtml(name)}" /><i></i></span>
-            </label>
+            <div class="provider-config-rows">
+              ${providerConfigSwitchRow(
+                "prov.skip_idle_probes",
+                "prov.skip_idle_probes_tip",
+                `<span class="provider-setting-switch provider-config-switch"><input type="checkbox" name="skip_idle_probe" data-skip-idle-toggle="${escapeHtml(name)}" ${skipIdle ? "checked" : ""} aria-label="${escapeHtml(t("prov.skip_idle_probes"))}" /><i></i></span>`,
+              )}
+              ${providerConfigSwitchRow(
+                "prov.skip_patrol_probes",
+                "prov.skip_patrol_probes_tip",
+                `<span class="provider-setting-switch provider-config-switch"><input type="checkbox" name="skip_patrol_probe" data-skip-patrol-toggle="${escapeHtml(name)}" ${skipPatrol ? "checked" : ""} aria-label="${escapeHtml(t("prov.skip_patrol_probes"))}" /><i></i></span>`,
+              )}
+            </div>
+          </section>
+          <section class="provider-routing-card provider-config-card">
+            <div class="provider-routing-head">
+              <h3>${iconSvg("brain")}<span>${escapeHtml(t("prov.config.behavior_title"))}</span></h3>
+              <span class="provider-routing-head-meta"><span class="badge neutral">${escapeHtml(t("prov.config.items", { count: 4 }))}</span></span>
+            </div>
+            <div class="provider-config-rows">
+              ${providerConfigSwitchRow(
+                "prov.config.force_reasoning",
+                "prov.config.force_reasoning_tip",
+                providerFlagSwitch(name, "force_reasoning_content", "prov.config.force_reasoning", Boolean(provider.force_reasoning_content)),
+              )}
+              ${providerConfigSwitchRow(
+                "prov.config.force_thinking",
+                "prov.config.force_thinking_tip",
+                providerFlagSwitch(name, "force_anthropic_thinking", "prov.config.force_thinking", Boolean(provider.force_anthropic_thinking)),
+              )}
+              ${providerConfigSwitchRow(
+                "prov.config.assume_unknown",
+                "prov.config.assume_unknown_tip",
+                providerFlagSwitch(name, "assume_supports_unknown_models", "prov.config.assume_unknown", Boolean(provider.assume_supports_unknown_models)),
+              )}
+              <div class="provider-config-row">
+                <div class="provider-config-row-text">
+                  <strong>${escapeHtml(t("prov.config.forward_headers"))}</strong>
+                  <small>${escapeHtml(t("prov.config.forward_headers_tip"))}</small>
+                </div>
+                <span class="provider-config-row-ctl"><input class="control mono provider-config-headers-input" name="forward_client_headers" type="text" autocomplete="off" spellcheck="false" value="${escapeHtml(fwdHeaders)}" placeholder="X-Trace-Id, X-Request-Id" aria-label="${escapeHtml(t("prov.config.forward_headers"))}" /></span>
+              </div>
+            </div>
           </section>
         </div>
         <div class="provider-inspector-actions">
-          <span class="provider-inspector-status">${escapeHtml(t("prov.config_runtime_save"))}</span>
+          <span class="provider-inspector-status"><b>${escapeHtml(t("prov.config.savebar_hint_on"))}</b> · ${escapeHtml(t("prov.config.savebar_hint_text"))}</span>
           <div>
             <button class="button secondary" type="reset">${escapeHtml(t("form.reset"))}</button>
             <button class="button primary" type="submit">${escapeHtml(t("form.save_configuration"))}</button>
           </div>
         </div>
       </form>
+    `;
+  }
+
+  function providerConfigSwitchRow(titleKey, tipKey, controlMarkup) {
+    return `
+      <div class="provider-config-row">
+        <div class="provider-config-row-text">
+          <strong>${escapeHtml(t(titleKey))}</strong>
+          <small>${escapeHtml(t(tipKey))}</small>
+        </div>
+        <span class="provider-config-row-ctl">${controlMarkup}</span>
+      </div>
+    `;
+  }
+
+  function providerFlagSwitch(name, field, labelKey, checked) {
+    return `
+      <span class="provider-setting-switch provider-config-switch">
+        <input type="checkbox" name="${escapeHtml(field)}" data-provider-flag="${escapeHtml(name)}" data-flag-field="${escapeHtml(field)}" ${checked ? "checked" : ""} aria-label="${escapeHtml(t(labelKey))}" />
+        <i></i>
+      </span>
     `;
   }
 
@@ -9992,6 +10085,14 @@ import {
         if (form.elements.skip_patrol_probe) {
           payload.skip_patrol_probe = Boolean(form.elements.skip_patrol_probe.checked);
         }
+        // Header whitelist lives only on the drawer form; the providers-page
+        // card form must not wipe a configured list by omitting the field.
+        if (form.elements.forward_client_headers) {
+          const rawHeaders = String(form.elements.forward_client_headers.value || "").trim();
+          payload.forward_client_headers = rawHeaders
+            ? rawHeaders.split(",").map((part) => part.trim()).filter(Boolean)
+            : [];
+        }
         await runConfigMutation(form, async () => {
           const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, payload);
           setNotice(t("notice.provider_updated", { provider }), "ok");
@@ -10026,8 +10127,52 @@ import {
           },
           {
             locateRoot: () => root.querySelector(`[${selector}="${CSS.escape(provider)}"]`),
-            onSuccess: () => setNotice(`${field === "skip_idle_probe" ? "Idle" : "Patrol"} probe ${value ? "skipped" : "enabled"} for ${provider}.`, "ok"),
-            onError: (err) => setNotice(`Failed to update ${field}: ${err.message}`),
+            onSuccess: () => setNotice(
+              t(value ? "notice.provider_flag_on" : "notice.provider_flag_off", {
+                provider,
+                field: t(toggle.dataset.skipIdleToggle ? "prov.skip_idle_probes" : "prov.skip_patrol_probes"),
+              }),
+              "ok",
+            ),
+            onError: (err) => setNotice(t("notice.provider_flag_failed", { error: err.message }), "bad"),
+          },
+        );
+      });
+    });
+
+    // Drawer behavior-flag switches (enabled, reasoning/thinking force flags,
+    // unknown-model assumption) — same instant-PATCH-with-rollback flow as the
+    // skip-probe toggles, keyed by field so each switch tracks its own state.
+    root.querySelectorAll("[data-provider-flag]").forEach((toggle) => {
+      if (toggle.dataset.boundproviderflag) return;
+      toggle.dataset.boundproviderflag = "1";
+      toggle.addEventListener("change", async () => {
+        const provider = toggle.dataset.providerFlag || "";
+        const field = toggle.dataset.flagField || "";
+        if (!provider || !field) return;
+        const value = Boolean(toggle.checked);
+        const labelKey = {
+          enabled: "prov.provider_enabled",
+          force_reasoning_content: "prov.config.force_reasoning",
+          force_anthropic_thinking: "prov.config.force_thinking",
+          assume_supports_unknown_models: "prov.config.assume_unknown",
+        }[field] || field;
+        await runOptimisticConfigAction(
+          toggle,
+          () => apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { [field]: value }),
+          {
+            resourceKey: `provider:${provider}`,
+            apply: (config) => {
+              if (config.providers?.[provider]) config.providers[provider][field] = value;
+            },
+          },
+          {
+            locateRoot: () => root.querySelector(`[data-provider-flag="${CSS.escape(provider)}"][data-flag-field="${field}"]`),
+            onSuccess: () => setNotice(
+              t(value ? "notice.provider_flag_on" : "notice.provider_flag_off", { provider, field: t(labelKey) }),
+              "ok",
+            ),
+            onError: (err) => setNotice(t("notice.provider_flag_failed", { error: err.message }), "bad"),
           },
         );
       });
