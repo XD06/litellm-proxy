@@ -4951,6 +4951,10 @@
 				en: "Navigation, runtime controls, and view filters.",
 				zh: "导航、运行时控制和视图筛选。"
 			},
+			"prov.pagination_clear": {
+				en: "Clear filters and return to page 1",
+				zh: "清除筛选并回到第 1 页"
+			},
 			"misc.mono": {
 				en: "mono",
 				zh: "mono"
@@ -11564,6 +11568,10 @@
           <button class="button secondary icon-action" type="button" data-list-page-key="${escapeHtml(pageKey)}" data-list-page="prev" title="Previous page" aria-label="Previous page" ${page.currentPage <= 1 ? "disabled" : ""}>${iconSvg("arrow-left")}</button>
           <span class="request-page-indicator">${fmtInt(page.currentPage)} / ${fmtInt(page.totalPages)}</span>
           <button class="button secondary icon-action" type="button" data-list-page-key="${escapeHtml(pageKey)}" data-list-page="next" title="Next page" aria-label="Next page" ${page.currentPage >= page.totalPages ? "disabled" : ""}>${iconSvg("arrow-right")}</button>
+          ${pageKey === "providersPage" ? `
+          <button class="button secondary icon-action" type="button" data-providers-clear-filters="1"
+            title="${escapeHtml(t("prov.pagination_clear"))}"
+            aria-label="${escapeHtml(t("prov.pagination_clear"))}">${iconSvg("x")}</button>` : ""}
         </div>
       </div>
     `;
@@ -11596,6 +11604,13 @@
 				}
 				renderAll();
 			});
+			if (root?.addEventListener && !root.dataset.boundProvidersClear) {
+				root.dataset.boundProvidersClear = "1";
+				root.addEventListener("click", (event) => {
+					if (!event.target?.closest?.("[data-providers-clear-filters]")) return;
+					clearProviderFilters();
+				});
+			}
 		}
 		function renderProvidersTable() {
 			const providers = state.data.status?.router?.providers || {};
@@ -17035,7 +17050,6 @@
 			renderAll();
 			if (nextView === "overview" || nextView === "requests" || nextView === "providers") refreshRuntimeData({ forceViewData: true });
 			else if (nextView === "playground") pgLoadModels();
-			syncMobileSettingsContext();
 			closeMobileSettings();
 		}
 		function captureMobileAnchor(id) {
@@ -17058,26 +17072,17 @@
 			if (anchor.next && anchor.next.parentNode === anchor.parent) anchor.parent.insertBefore(node, anchor.next);
 			else anchor.parent.appendChild(node);
 		}
-		function syncMobileSettingsContext() {
-			const contextSection = el("mobileContextSection");
-			if (!contextSection) return;
-			const isMobile = Boolean(mobileSettings.media?.matches);
-			contextSection.classList.toggle("is-hidden", !(isMobile && state.view === "requests"));
-		}
 		function applyMobileSettingsMode() {
 			const isMobile = Boolean(mobileSettings.media?.matches);
 			document.body.classList.toggle("has-mobile-settings", isMobile);
 			if (isMobile) {
 				moveNodeTo("sectionNav", "mobileNavActions");
 				moveNodeTo("sidebarActions", "mobileGlobalActions");
-				moveNodeTo("requestsToolbar", "mobileContextActions");
 			} else {
 				closeMobileSettings();
 				restoreNode("sectionNav");
 				restoreNode("sidebarActions");
-				restoreNode("requestsToolbar");
 			}
-			syncMobileSettingsContext();
 		}
 		function openMobileSettings() {
 			if (!mobileSettings.media?.matches) return;
@@ -17109,7 +17114,6 @@
 		function installMobileSettings() {
 			captureMobileAnchor("sectionNav");
 			captureMobileAnchor("sidebarActions");
-			captureMobileAnchor("requestsToolbar");
 			mobileSettings.media = window.matchMedia(mobileSettings.query);
 			const onChange = () => applyMobileSettingsMode();
 			if (typeof mobileSettings.media.addEventListener === "function") mobileSettings.media.addEventListener("change", onChange);

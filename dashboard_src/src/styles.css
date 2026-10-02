@@ -16235,6 +16235,107 @@ body {
   min-height: 30px;
 }
 
+/* Mobile: the requests toolbar stays on the page (it is no longer relocated
+   into the settings drawer), stacked into three compact rows. */
+@media (max-width: 760px) {
+  #requestsToolbar.request-filter-bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 9px;
+    margin: 0 0 8px;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+  }
+
+  #requestsToolbar .request-filter-primary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+  }
+
+  #requestsToolbar .request-search-group {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, 0.85fr);
+    width: 100%;
+    min-width: 0;
+    min-height: 36px;
+    flex: 0 0 auto;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface-raised);
+  }
+
+  #requestsToolbar .request-search-icon {
+    display: inline-grid;
+    width: 28px;
+    height: 34px;
+    place-items: center;
+    color: var(--faint);
+  }
+
+  #requestsToolbar .request-search-icon .icon-svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  #requestsToolbar .filter-search-field {
+    display: block;
+    min-width: 0;
+    border-left: 1px solid var(--line-soft);
+  }
+
+  #requestsToolbar .filter-search-field:first-of-type {
+    border-left: 0;
+  }
+
+  #requestsToolbar .request-search-group .control {
+    width: 100%;
+    min-height: 34px;
+    padding: 0 9px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--text);
+    font: 400 11px/1 var(--mono);
+    box-shadow: none;
+  }
+
+  #requestsToolbar .request-status-chips,
+  #requestsToolbar .advanced-filter-box,
+  #requestsToolbar .compact-action {
+    flex: 0 0 auto;
+  }
+
+  /* The drawer-era rules further up stretch every filter control to full
+     width; only the chips keep that here. 更多/应用/清除 share one row. */
+  #requestsToolbar .advanced-filter-box,
+  #requestsToolbar .advanced-filter-box > summary {
+    width: auto;
+  }
+
+  #requestsToolbar .request-toolbar-tail {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
+    padding-top: 8px;
+    border-top: 1px solid var(--line-soft);
+  }
+
+  #requestsToolbar .request-toolbar-pagination {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+  }
+}
+
 #requestsView > .panel {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);

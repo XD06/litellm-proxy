@@ -1172,6 +1172,7 @@ const dict = {
   "mobile.request_filters": { en: "Request filters", zh: "请求筛选" },
   "mobile.close": { en: "Close settings", zh: "关闭设置" },
   "mobile.nav_desc": { en: "Navigation, runtime controls, and view filters.", zh: "导航、运行时控制和视图筛选。" },
+  "prov.pagination_clear": { en: "Clear filters and return to page 1", zh: "清除筛选并回到第 1 页" },
 
   // ---- Misc ----
   "misc.mono": { en: "mono", zh: "mono" },
