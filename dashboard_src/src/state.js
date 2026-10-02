@@ -85,6 +85,8 @@ export const state = {
   // Models tab: which disclosures (aliases / fallback / alias editor) the user
   // expanded, so poll re-renders keep them open instead of snapping shut.
   providerModelsDisclosuresOpen: new Set(),
+  // Routing tab: same persistence for the global routing context disclosure.
+  providerRoutingContextOpen: false,
   confirmResolve: null,
   confirmLastFocus: null,
   data: {

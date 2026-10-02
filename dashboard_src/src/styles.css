@@ -3949,6 +3949,402 @@ tr.clickable:hover {
   pointer-events: none;
 }
 
+/* ---- Provider drawer · Routing tab: pool-card rows, ranked route chains ---- */
+.provider-routing-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.provider-routing-card.is-in-pool {
+  background: color-mix(in srgb, var(--success) 4%, var(--surface));
+}
+
+.provider-routing-priority,
+.provider-routing-pool {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 13px;
+  min-width: 0;
+}
+
+.provider-routing-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  border-radius: 7px;
+  background: var(--surface-raised);
+  color: var(--muted);
+}
+
+.provider-routing-icon .icon-svg {
+  width: 14px;
+  height: 14px;
+}
+
+.provider-routing-priority-text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.provider-routing-priority-text strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12.5px;
+  font-weight: 760;
+  flex-wrap: wrap;
+}
+
+.provider-routing-priority-text small {
+  color: var(--muted);
+  font-size: 10.5px;
+  min-width: 0;
+}
+
+.provider-routing-priority-input {
+  width: 88px;
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 5px 9px;
+  font: 680 13px/1.2 var(--mono);
+  text-align: center;
+}
+
+.provider-routing-priority-apply {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.provider-routing-priority-apply:hover {
+  background: color-mix(in srgb, var(--accent) 86%, #fff);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.provider-routing-pool-switch {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 22px;
+}
+
+.provider-routing-pool-switch span {
+  width: 16px;
+  height: 16px;
+}
+
+.provider-routing-pool-switch.is-on span {
+  transform: translateX(18px);
+}
+
+.provider-routing-pool-switch:focus-visible {
+  outline: 2px solid var(--info, #3b82f6);
+  outline-offset: 2px;
+}
+
+.provider-routing-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 13px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.provider-routing-head h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.provider-routing-head h3 .icon-svg {
+  width: 13px;
+  height: 13px;
+  color: var(--faint);
+}
+
+.provider-routing-count {
+  color: var(--muted);
+  font: 680 10px/1.2 var(--mono);
+}
+
+.provider-routing-head-meta {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 640;
+}
+
+.provider-routing-routes {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  background: color-mix(in srgb, var(--surface-raised) 62%, var(--surface));
+}
+
+.provider-route-chain {
+  display: grid;
+  gap: 6px;
+  padding: 9px 11px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: var(--surface);
+  min-width: 0;
+}
+
+.provider-route-chain-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.provider-route-chain-head b {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.provider-route-chain-ranks {
+  display: grid;
+  gap: 4px;
+}
+
+.provider-route-rank {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 9px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.provider-route-rank.is-me {
+  border-color: color-mix(in srgb, var(--success) 36%, var(--line));
+  background: color-mix(in srgb, var(--success-soft) 60%, var(--surface));
+}
+
+.provider-route-rank-num {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  border-radius: 6px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font: 760 10px/1 var(--mono);
+}
+
+.provider-route-rank.is-me .provider-route-rank-num {
+  background: var(--success);
+  color: #fff;
+}
+
+.provider-route-rank-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.provider-route-rank.is-me .provider-route-rank-name {
+  color: var(--success);
+}
+
+.provider-route-rank-inh {
+  flex: 0 0 auto;
+  padding: 2px 5px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 4px;
+  color: var(--faint);
+  font: 640 9px/1 var(--sans);
+}
+
+.provider-route-rank-pv {
+  margin-left: auto;
+  flex: 0 0 auto;
+  color: var(--muted);
+  font: 640 10px/1.2 var(--mono);
+}
+
+.provider-route-rank-pv b {
+  color: var(--text-soft);
+  font-weight: 700;
+}
+
+.provider-route-rank.is-me .provider-route-rank-pv,
+.provider-route-rank.is-me .provider-route-rank-pv b {
+  color: var(--success);
+}
+
+.provider-routing-empty {
+  padding: 14px;
+  color: var(--muted);
+  font-size: 11.5px;
+  text-align: center;
+}
+
+.provider-routing-more {
+  padding: 8px 13px;
+  font-size: 11px;
+  text-align: center;
+}
+
+.provider-routing-context > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 13px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 650;
+  user-select: none;
+}
+
+.provider-routing-context > summary::-webkit-details-marker {
+  display: none;
+}
+
+.provider-routing-context > summary .icon-svg {
+  width: 12px;
+  height: 12px;
+}
+
+.provider-routing-chev {
+  margin-left: auto;
+  display: inline-flex;
+  transition: transform 0.15s ease;
+}
+
+.provider-routing-context[open] .provider-routing-chev {
+  transform: rotate(90deg);
+}
+
+.provider-routing-context-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px 18px;
+  padding: 2px 13px 12px;
+}
+
+.provider-routing-context-grid > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  padding: 5px 0;
+  border-bottom: 1px dashed var(--line-soft);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.provider-routing-context-grid b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 640 11px/1.4 var(--mono);
+  color: var(--text-soft);
+}
+
+/* Routing-tab format routes read as pool-card rows: icon tile + title/path +
+   capsule switch on the right, matching the default-pool card above them.
+   Selector carries .provider-drawer-section to out-rank the legacy min-height /
+   padding overrides further down this file. */
+.provider-drawer-section .provider-formats-group .format-route.is-interactive {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 9px 13px;
+}
+
+.provider-drawer-section .provider-formats-group .format-route.is-interactive .format-route-main {
+  flex: 1 1 auto;
+  display: grid;
+  gap: 1px;
+}
+
+.provider-drawer-section .provider-formats-group .format-route.is-interactive .format-route-main b {
+  font: 700 12.5px/1.35 var(--sans);
+}
+
+.provider-drawer-section .provider-formats-group .format-route.is-interactive .format-route-main small {
+  font: 500 10.5px/1.35 var(--mono);
+}
+
+.provider-formats-group .format-route-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  border-radius: 7px;
+  background: var(--surface-raised);
+  color: var(--muted);
+}
+
+.provider-formats-group .format-route-icon .icon-svg {
+  width: 14px;
+  height: 14px;
+}
+
+.provider-formats-group .format-route.is-interactive.enabled .format-route-icon {
+  background: color-mix(in srgb, var(--success) 10%, var(--surface));
+  color: var(--success);
+}
+
+.provider-drawer-section .provider-formats-group .format-route.is-interactive .format-route-edit {
+  margin-left: 0;
+}
+
+@media (max-width: 520px) {
+  .provider-routing-priority,
+  .provider-routing-pool {
+    flex-wrap: wrap;
+  }
+
+  .provider-routing-priority-text {
+    flex: 1 1 100%;
+    order: -1;
+  }
+
+  .provider-routing-context-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .provider-routing-chev {
+    transition: none;
+  }
+}
+
 /* Usage observability and request data tables */
 #configView.is-model-data .config-grid {
   grid-template-columns: minmax(0, 1fr);
@@ -6007,27 +6403,6 @@ form.is-busy {
   color: var(--muted);
   font-family: var(--mono);
   font-size: 11px;
-}
-
-.provider-detail-metrics {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-  align-items: start;
-  grid-auto-rows: max-content;
-}
-
-.provider-detail-metrics .mini-metric {
-  align-self: start;
-}
-
-.provider-detail-metrics .mini-metric span,
-.provider-detail-metrics .mini-metric strong,
-.provider-detail-metrics .mini-metric small {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* Provider overview: routing readiness first, evidence second. */
@@ -10389,32 +10764,6 @@ body {
     gap: 7px;
   }
 
-  .provider-detail-metrics {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 6px;
-  }
-
-  .provider-detail-metrics .mini-metric {
-    min-height: 0;
-    padding: 6px 7px;
-    border-radius: 6px;
-  }
-
-  .provider-detail-metrics .mini-metric span {
-    font-size: 10px;
-    line-height: 1.1;
-  }
-
-  .provider-detail-metrics .mini-metric strong {
-    margin-top: 1px;
-    font-size: 12px;
-    line-height: 1.1;
-  }
-
-  .provider-detail-metrics .mini-metric small {
-    display: none;
-  }
-
   .provider-health-tile {
     min-height: 0;
   }
@@ -14242,33 +14591,6 @@ body {
   .playground-layout {
     grid-template-columns: 310px minmax(0, 1fr);
   }
-}
-
-/* ---- Hot-reload priority controls ---- */
-.provider-hot-reload-controls {
-  margin: 10px 0;
-  padding: 10px 12px;
-  background: var(--bg-elevated, #f6f7f9);
-  border-radius: 8px;
-  border: 1px solid var(--border-soft, #e2e5ea);
-}
-.hot-reload-row {
-  display: flex;
-  gap: 10px;
-  align-items: flex-end;
-}
-.hot-reload-field {
-  flex: 1;
-  margin: 0;
-}
-.hot-reload-input-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-.hot-reload-input-row input {
-  flex: 1;
-  min-width: 80px;
 }
 
 /* ---- Sidebar refinement: quiet rail, clear active state, compact runtime tools ---- */

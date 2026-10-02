@@ -6124,6 +6124,8 @@ import {
     state.providerKeyOverridesOpen?.clear();
     // Fresh drawer, models-tab disclosures start collapsed as well.
     state.providerModelsDisclosuresOpen?.clear();
+    // Fresh drawer, routing-tab context disclosure starts collapsed.
+    state.providerRoutingContextOpen = false;
     // Reset the lazy events cache so the newly opened drawer fetches its own
     // activity events exactly once, regardless of which provider was open before.
     resetProviderActivityEventsCache(name);
@@ -6361,6 +6363,54 @@ import {
         const openSet = state.providerModelsDisclosuresOpen || (state.providerModelsDisclosuresOpen = new Set());
         if (details.open) openSet.add(discId);
         else openSet.delete(discId);
+      });
+    });
+    // Routing tab: keep the global-context disclosure open across polls, and
+    // wire the default-pool switch (click + Space/Enter on the keyboard-focusable
+    // switch) to a routing config patch with optimistic rollback.
+    root.querySelectorAll("details[data-routing-context-disclosure]").forEach((details) => {
+      if (details.dataset.boundroutingcontext) return;
+      details.dataset.boundroutingcontext = "1";
+      details.addEventListener("toggle", () => {
+        state.providerRoutingContextOpen = details.open;
+      });
+    });
+    root.querySelectorAll("[data-provider-pool-toggle]").forEach((switchEl) => {
+      if (switchEl.dataset.boundproviderpooltoggle) return;
+      switchEl.dataset.boundproviderpooltoggle = "1";
+      const togglePool = async () => {
+        const provider = switchEl.dataset.providerPoolToggle || "";
+        if (!provider) return;
+        const routing = state.data.config?.routing || {};
+        const pool = Array.isArray(routing.default_provider_pool)
+          ? routing.default_provider_pool.slice()
+          : [];
+        const joined = pool.includes(provider);
+        const nextPool = joined ? pool.filter((name) => name !== provider) : [...pool, provider];
+        await runOptimisticConfigAction(
+          switchEl,
+          () => apiPatch("/-/admin/routing", { default_provider_pool: nextPool }),
+          {
+            resourceKey: "routing",
+            apply: (config) => {
+              ((config.routing ||= {}).default_provider_pool) = nextPool.slice();
+            },
+          },
+          {
+            locateRoot: () => root.querySelector(`[data-provider-pool-toggle="${CSS.escape(provider)}"]`),
+            onSuccess: () => setNotice(t("notice.default_pool_updated"), "ok"),
+            onError: (err) => setNotice(t("notice.default_pool_failed", { error: err.message }), "bad"),
+          },
+        );
+      };
+      switchEl.addEventListener("click", (event) => {
+        event.preventDefault();
+        togglePool();
+      });
+      switchEl.addEventListener("keydown", (event) => {
+        if (event.key !== " " && event.key !== "Enter") return;
+        event.preventDefault();
+        togglePool();
       });
     });
     if (!root.dataset.boundprovideractivityrows) {
@@ -7075,41 +7125,123 @@ import {
     const defaultPool = Array.isArray(routing.default_provider_pool) ? routing.default_provider_pool : [];
     const routeRows = providerRoutingRows(view.name);
     const currentMode = routing.provider_select || "priority_failover";
+    const inPool = defaultPool.includes(view.name);
+    const priorityOverride = Boolean(view.runtime.priority_override_active);
+    const ctxOpen = state.providerRoutingContextOpen ? " open" : "";
     return `
-      <section class="provider-drawer-section">
-        <div class="provider-detail-metrics">
-          ${miniMetric("Default pool", defaultPool.includes(view.name) ? "yes" : "no", currentMode)}
-          ${miniMetric("Priority", fmtInt(view.priority), "provider")}
-          ${miniMetric("Route models", fmtInt(routeRows.length), "explicit")}
-          ${miniMetric("Provider select", currentMode, "default")}
-          ${miniMetric("Max attempts", fmtInt(routing.max_attempts), "request")}
-        </div>
-        <div class="provider-hot-reload-controls">
-          <div class="hot-reload-row">
-            <label class="field hot-reload-field">
-              <span>Quick priority (hot-reload)</span>
-              <div class="hot-reload-input-row">
-                <input class="control" type="number" min="-1000" max="1000" step="1" value="${escapeHtml(view.priority ?? 0)}" data-hot-priority="${escapeHtml(view.name)}" />
-                <button class="button secondary compact-action" type="button" data-hot-priority-apply="${escapeHtml(view.name)}">Apply</button>
-              </div>
-              <small class="muted">Instantly updates priority without full config reload</small>
-            </label>
+      <section class="provider-drawer-section provider-routing-workspace">
+      <div class="provider-overview-kpis" role="list" aria-label="${escapeHtml(t("prov.tab_routing"))}">
+        ${providerOverviewMetric("arrow-up", t("prov.routing.kpi_priority"), fmtInt(view.priority), priorityOverride ? t("prov.routing.kpi_priority_override") : t("prov.routing.kpi_priority_cfg"), priorityOverride ? "warn" : "neutral")}
+        ${providerOverviewMetric("layers", t("prov.routing.kpi_pool"), inPool ? t("prov.routing.kpi_pool_in") : t("prov.routing.kpi_pool_out"), t("prov.routing.kpi_pool_hint"), inPool ? "ok" : "warn")}
+        ${providerOverviewMetric("git-branch", t("prov.routing.kpi_routes"), fmtInt(routeRows.length), routeRows.length ? t("prov.routing.kpi_routes_hint") : t("prov.routing.kpi_routes_none"), routeRows.length ? "ok" : "neutral")}
+        ${providerOverviewMetric("arrow-right-left", t("prov.routing.kpi_select"), providerRoutingSelectLabel(currentMode), String(currentMode || "-"), "neutral")}
+      </div>
+      <section class="provider-routing-card">
+        <div class="provider-routing-priority">
+          <span class="provider-routing-icon">${iconSvg("zap")}</span>
+          <div class="provider-routing-priority-text">
+            <strong>${escapeHtml(t("prov.routing.priority_title"))} ${priorityOverride ? `<span class="badge warn">${escapeHtml(t("prov.routing.priority_badge_override"))}</span>` : `<span class="badge neutral">${escapeHtml(t("prov.routing.priority_badge_config"))}</span>`}</strong>
+            <small>${escapeHtml(t("prov.routing.priority_hint"))}</small>
           </div>
-        </div>
-        ${providerFormatConfiguration(view.name, view.formats)}
-        <div class="provider-route-list">
-          ${routeRows.length ? routeRows.slice(0, 50).map((row) => `
-            <article class="provider-route-card">
-              <div>
-                <strong class="mono">${escapeHtml(row.model)}</strong>
-                <small>${escapeHtml(row.providerText)}</small>
-              </div>
-              ${badge(row.select || currentMode, "info")}
-            </article>
-          `).join("") + (routeRows.length > 50 ? `<div class="pad-slim muted">+ ${routeRows.length - 50} more routes...</div>` : "") : `<div class="empty pad-slim">No explicit model route includes this provider</div>`}
+          <input class="control provider-routing-priority-input" type="number" min="-1000" max="1000" step="1" value="${escapeHtml(view.priority ?? 0)}"
+            data-hot-priority="${escapeHtml(view.name)}"
+            aria-label="${escapeHtml(t("prov.routing.priority_title"))}" />
+          <button class="button icon-action provider-routing-priority-apply" type="button"
+            data-hot-priority-apply="${escapeHtml(view.name)}"
+            title="${escapeHtml(t("prov.routing.priority_apply", { priority: fmtInt(view.priority ?? 0) }))}"
+            aria-label="${escapeHtml(t("prov.routing.priority_apply", { priority: fmtInt(view.priority ?? 0) }))}">${iconSvg("check")}</button>
         </div>
       </section>
+      <section class="provider-routing-card ${inPool ? "is-in-pool" : ""}">
+        <div class="provider-routing-pool">
+          <span class="provider-routing-icon">${iconSvg("layers")}</span>
+          <div class="provider-routing-priority-text">
+            <strong>${escapeHtml(t("prov.routing.pool_title"))} ${inPool ? `<span class="badge ok">${escapeHtml(t("prov.routing.pool_badge_in"))}</span>` : `<span class="badge warn">${escapeHtml(t("prov.routing.pool_badge_out"))}</span>`}</strong>
+            <small>${escapeHtml(t("prov.routing.pool_hint"))}</small>
+          </div>
+          <label class="format-route-switch provider-routing-pool-switch ${inPool ? "is-on" : ""}"
+            data-provider-pool-toggle="${escapeHtml(view.name)}"
+            role="switch"
+            aria-checked="${inPool ? "true" : "false"}"
+            tabindex="0"
+            title="${escapeHtml(t("prov.routing.pool_title"))}"
+            aria-label="${escapeHtml(t("prov.routing.pool_title"))}">
+            <span></span>
+          </label>
+        </div>
+      </section>
+      <section class="provider-routing-card">
+        <div class="provider-routing-head">
+          <h3>${iconSvg("git-branch")}<span>${escapeHtml(t("prov.routing.routes_title"))}</span></h3>
+          <span class="provider-routing-count">${fmtInt(routeRows.length)}</span>
+          <span class="provider-routing-head-meta">${escapeHtml(t("prov.routing.routes_ranked"))}</span>
+        </div>
+        ${routeRows.length ? `
+          <div class="provider-routing-routes" role="list">
+            ${routeRows.slice(0, 50).map((row) => `
+              <article class="provider-route-chain" role="listitem">
+                <div class="provider-route-chain-head">
+                  <b class="mono">${escapeHtml(row.model)}</b>
+                  ${badge(row.select || currentMode, "info")}
+                </div>
+                <div class="provider-route-chain-ranks">${providerRouteChainRows(view.name, row)}</div>
+              </article>
+            `).join("")}
+          </div>
+          ${routeRows.length > 50 ? `<div class="provider-routing-more muted">${escapeHtml(t("prov.routing.routes_more", { count: routeRows.length - 50 }))}</div>` : ""}
+        ` : `<div class="provider-routing-empty">${escapeHtml(t("prov.routing.routes_empty"))}</div>`}
+      </section>
+      <details class="provider-routing-card provider-routing-context" data-routing-context-disclosure="global"${ctxOpen}>
+        <summary>
+          ${iconSvg("filter")}
+          <span>${escapeHtml(t("prov.routing.ctx_title"))}</span>
+          <span class="provider-routing-chev">${iconSvg("chevron-right")}</span>
+        </summary>
+        <div class="provider-routing-context-grid">
+          <div><span>${escapeHtml(t("prov.routing.kpi_select"))}</span><b class="mono">${escapeHtml(String(currentMode || "-"))}</b></div>
+          <div><span>${escapeHtml(t("prov.routing.ctx_attempts"))}</span><b class="mono">${escapeHtml(fmtInt(routing.max_attempts))}</b></div>
+          <div><span>${escapeHtml(t("prov.routing.ctx_format_pref"))}</span><b class="mono">${escapeHtml(String(routing.format_preference || "-"))}</b></div>
+          <div><span>${escapeHtml(t("prov.routing.ctx_semantic"))}</span><b class="mono">${escapeHtml(String(routing.semantic_conversion || "-"))}</b></div>
+        </div>
+      </details>
+      ${providerFormatConfiguration(view.name, view.formats)}
+      </section>
     `;
+  }
+
+  function providerRoutingSelectLabel(mode) {
+    const key = {
+      priority_failover: "policy.mode_priority",
+      round_robin: "policy.mode_round_robin",
+      weighted_rr: "policy.mode_weighted",
+      random: "policy.mode_random",
+      auto: "policy.mode_auto",
+    }[mode];
+    return key ? t(key) : String(mode || "-");
+  }
+
+  function providerRouteChainRows(name, row) {
+    const providerConfigs = state.data.config?.providers || {};
+    const ranked = row.providers
+      .map((item) => ({
+        ...item,
+        effectivePriority: item.priority !== null && item.priority !== undefined
+          ? item.priority
+          : Number(providerConfigs[item.name]?.priority ?? 0),
+      }))
+      .sort((a, b) => b.effectivePriority - a.effectivePriority);
+    return ranked.map((item, index) => {
+      const isMe = item.name === name;
+      const hasOverride = item.priority !== null && item.priority !== undefined;
+      return `
+        <div class="provider-route-rank ${isMe ? "is-me" : ""}">
+          <span class="provider-route-rank-num" aria-hidden="true">${fmtInt(index + 1)}</span>
+          <span class="provider-route-rank-name mono">${escapeHtml(item.name)}</span>
+          ${!hasOverride ? `<span class="provider-route-rank-inh">${escapeHtml(t("prov.routing.inherits_global"))}</span>` : ""}
+          <span class="provider-route-rank-pv">W${fmtInt(item.weight || 1)} · <b>${hasOverride ? `P${fmtInt(item.priority)}` : escapeHtml(t("prov.routing.prio_inherit"))}</b></span>
+        </div>
+      `;
+    }).join("");
   }
 
   function providerDrawerConfig(view) {
@@ -7388,7 +7520,7 @@ import {
           <div><strong>${escapeHtml(t("prov.format_routes"))}</strong><small>${escapeHtml(t("prov.format_routes_tip"))}</small></div>
         </div>
         <div class="format-route-list provider-format-edit-list">
-          ${formatRouteItems(formats, name)}
+          ${formatRouteItems(formats, name, { poolRow: true })}
         </div>
       </section>
     `;
@@ -7441,7 +7573,7 @@ import {
     `;
   }
 
-  function formatRouteItems(formats, provider) {
+  function formatRouteItems(formats, provider, options = {}) {
     const rows = Object.entries(formats || {}).sort();
     if (!rows.length) return `<span class="empty">No format routes</span>`;
     // When a provider name is supplied the row exposes explicit controls:
@@ -7453,6 +7585,12 @@ import {
       const label = formatLabel(name) || name;
       const dataAttrs = interactive
         ? `data-format-provider="${escapeHtml(provider)}" data-format="${escapeHtml(name)}" data-format-enabled="${enabled ? "1" : "0"}" data-format-path="${escapeHtml(cfg?.path || "")}"`
+        : "";
+      // The drawer routing tab renders rows in the same capsule style as the
+      // default-pool card (icon tile + title/path + switch); other surfaces
+      // keep the compact legacy row.
+      const icon = options.poolRow
+        ? `<span class="format-route-icon" aria-hidden="true">${iconSvg("filter")}</span>`
         : "";
       const toggle = interactive ? `
           <button class="format-route-switch ${enabled ? "is-on" : ""}" type="button"
@@ -7472,6 +7610,7 @@ import {
         ` : "";
       return `
         <span class="format-route ${enabled ? "enabled" : "disabled"} ${interactive ? "is-interactive" : ""}" ${dataAttrs}>
+          ${icon}
           <span class="format-route-main">
             <b>${escapeHtml(label)}</b>
             <small>${escapeHtml(path)}</small>
@@ -9797,7 +9936,7 @@ import {
         try {
           const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/priority`, { priority });
           applyMutationResult(result, { drawer: true });
-          setNotice(`Priority for ${provider} hot-updated to ${priority}.`, "ok");
+          setNotice(t("notice.priority_hot_updated", { provider, priority }), "ok");
           scheduleBackgroundRefresh({ quiet: true, preserveNotice: true });
         } catch (err) {
           if (runtime) {
@@ -9812,11 +9951,24 @@ import {
             restoredInput.value = String(priority);
             restoredInput.focus();
           }
-          setNotice(`Hot-reload priority failed: ${err.message}`);
+          setNotice(t("notice.priority_hot_failed", { error: err.message }), "bad");
         } finally {
           pendingRuntimeMutations.delete(resourceKey);
           setMutationBusy(currentButton(), false);
         }
+      });
+    });
+
+    // Enter inside the routing-tab priority input applies the same hot update,
+    // so the flow is: type a number, press Enter, done.
+    root.querySelectorAll("[data-hot-priority]").forEach((input) => {
+      if (input.dataset.boundHotPriorityEnter) return;
+      input.dataset.boundHotPriorityEnter = "1";
+      input.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        const provider = input.dataset.hotPriority || "";
+        root.querySelector(`[data-hot-priority-apply="${CSS.escape(provider)}"]`)?.click();
       });
     });
 

@@ -78,6 +78,23 @@ assert.match(
   /providerFormatConfiguration\(view\.name, view\.formats\)/,
   "the Routing tab must own provider format routes",
 );
+assert.match(routingPanel, /provider-overview-kpis/, "the Routing tab must reuse the overview KPI row style");
+assert.match(routingPanel, /providerRouteChainRows\(/, "route chains must render as ranked provider rows");
+assert.match(routingPanel, /provider-route-rank-num/, "ranked chain rows must expose a position badge");
+assert.match(routingPanel, /data-provider-pool-toggle/, "the default pool switch must be wired to the routing config");
+assert.match(routingPanel, /provider-routing-pool-switch/, "the pool switch must use the capsule switch style");
+assert.match(routingPanel, /aria-checked=/, "the pool switch must expose switch semantics");
+assert.match(routingPanel, /data-routing-context-disclosure/, "the global routing context must be a persistent disclosure");
+assert.match(routingPanel, /data-hot-priority-apply[^>]*aria-label=/, "the hot priority apply must be an icon button with an accessible name");
+assert.doesNotMatch(routingPanel, /Quick priority|Instantly updates priority|"Default pool"|Max attempts|Route models|Provider select/, "routing tab must not leak untranslated legacy labels");
+const formatConfigRegion = bodyBetween("function providerFormatConfiguration", "function providerRuntimeState");
+const formatRouteItemsRegion = bodyBetween("function formatRouteItems", "function stateBadges");
+assert.match(formatConfigRegion, /formatRouteItems\(formats, name, \{ poolRow: true \}\)/, "routing-tab format routes must request the pool-card capsule variant");
+assert.match(formatRouteItemsRegion, /format-route-icon/, "pool-card format routes must render an icon tile");
+const routingTranslationKeys = [...routingPanel.matchAll(/t\("(prov\.routing\.[^"]+)"/g)].map((match) => match[1]);
+for (const key of new Set(routingTranslationKeys)) {
+  assert.ok(translations.includes(`"${key}":`), `missing provider routing translation: ${key}`);
+}
 assert.match(
   configPanel,
   /providerConfigInspector\(view\.name, view\.config\)/,
@@ -183,6 +200,11 @@ assert.match(styles, /grid-template-columns: repeat\(auto-fill, minmax\(126px, 1
 assert.match(styles, /overflow-y: auto/, "large model catalogs must scroll internally");
 assert.match(styles, /overscroll-behavior: contain/, "large model catalog scrolling must stay inside the drawer");
 assert.match(styles, /\.provider-model-rows\s*\{/, "small-catalog model rows must have dedicated styles");
+assert.match(styles, /\.provider-routing-card\s*\{/, "routing tab cards must have dedicated styles");
+assert.match(styles, /\.provider-route-rank\.is-me/, "the current provider must be highlighted in ranked route chains");
+assert.match(styles, /\.provider-routing-context\[open\] \.provider-routing-chev/, "the routing context chevron must rotate when open");
+assert.match(styles, /\.provider-drawer-section \.provider-formats-group \.format-route\.is-interactive\s*\{/, "routing-tab format routes must read as capsule rows");
+assert.match(styles, /\.provider-routing-pool-switch/, "the pool switch must have explicit capsule sizing");
 assert.match(styles, /\.provider-model-row\.is-pending/, "staged model rows must read as pending until applied");
 assert.match(styles, /\.provider-model-draft-bar\s*\{[\s\S]*?color-mix\(in srgb, var\(--warning\)/, "the draft bar must read as a pending-write warning");
 assert.match(styles, /\.provider-model-disclosure-chev/, "disclosure summaries must keep an explicit chevron");
