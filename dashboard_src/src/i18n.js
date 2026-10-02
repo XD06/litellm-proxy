@@ -565,7 +565,6 @@ const dict = {
   "prov.overview_health_probes_tip": { en: "Recovery and patrol evidence; opens automatically when a probe fails", zh: "恢复与巡检证据；存在失败探测时自动展开" },
   "prov.overview_probe_count": { en: "{count} probes", zh: "{count} 次探测" },
   "prov.overview_probe_empty": { en: "No background health probes yet", zh: "暂无后台健康探测" },
-  "prov.overview_more_probes": { en: "+ {count} more probes", zh: "另有 {count} 次探测" },
   "prov.overview_summary_ready": { en: "Config · runtime · routing all ready", zh: "配置 · 运行 · 路由 均已就绪" },
   "prov.overview_summary_parts": { en: "Config {config} · Runtime {runtime} · Routing {routing}", zh: "配置 {config} · 运行 {runtime} · 路由 {routing}" },
   "prov.overview_cooldown_note": { en: "not eligible while cooling down", zh: "期间不参与路由" },

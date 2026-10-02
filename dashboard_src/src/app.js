@@ -6470,9 +6470,10 @@ import {
     // provider's event list. Fall back to whatever is cached locally.
     const events = Array.isArray(view.activity.events) ? view.activity.events : [];
     const recent = events.slice(-10).reverse();
+    // Both panes show at most the 10 newest records; the fetch above caps the
+    // server payload to the same window, so older records simply never load.
     const probeEvents = Array.isArray(view.activity.probeEvents) ? view.activity.probeEvents : [];
-    const recentProbes = probeEvents.slice(0, 20);
-    const probeOverflow = Math.max(0, probeEvents.length - 20);
+    const recentProbes = probeEvents.slice(0, 10);
     const compatibilityCircuits = Array.isArray(view.compatibilityCircuits) ? view.compatibilityCircuits : [];
     const configOn = view.config.enabled !== false && view.runtime.config_enabled !== false;
     const runtimeOn = view.runtime.runtime_enabled !== false;
@@ -6600,7 +6601,6 @@ import {
             <div class="provider-probe-legend">${escapeHtml(t("prov.probe_legend"))}</div>
             <div class="provider-probe-list" data-provider-probe-list="${escapeHtml(view.name)}">
               ${recentProbes.length ? recentProbes.map(providerProbeRow).join("") : `<div class="empty pad-slim">${escapeHtml(t("prov.overview_probe_empty"))}</div>`}
-              ${probeOverflow ? `<div class="probe-list-more" data-probe-list-more="${escapeHtml(view.name)}">${escapeHtml(t("prov.overview_more_probes", { count: fmtInt(probeOverflow) }))}</div>` : ""}
             </div>
           </div>
         </section>
@@ -6634,7 +6634,7 @@ import {
     _providerActivityEventsState.name = name;
     _providerActivityEventsState.loading = true;
     try {
-      const resp = await apiGet(`/-/admin/provider-activity/${encodeURIComponent(name)}`);
+      const resp = await apiGet(`/-/admin/provider-activity/${encodeURIComponent(name)}?limit=10`);
       const activity = (resp && resp.activity) || null;
       const aggregate = (state.data.providerActivity || {})[name] || {};
       if (activity) {
@@ -6657,10 +6657,9 @@ import {
       const probeList = Array.from(probeLists).find((el) => el.getAttribute("data-provider-probe-list") === name);
       if (probeList) {
         const probes = Array.isArray(activity?.probeEvents) ? activity.probeEvents : [];
-        const visibleProbes = probes.slice(0, 20);
-        const overflow = Math.max(0, probes.length - 20);
+        const visibleProbes = probes.slice(0, 10);
         probeList.innerHTML = visibleProbes.length
-          ? visibleProbes.map(providerProbeRow).join("") + (overflow ? `<div class="probe-list-more" data-probe-list-more="${escapeHtml(name)}">${escapeHtml(t("prov.overview_more_probes", { count: fmtInt(overflow) }))}</div>` : "")
+          ? visibleProbes.map(providerProbeRow).join("")
           : `<div class="empty pad-slim">${escapeHtml(t("prov.overview_probe_empty"))}</div>`;
         // Keep the merged activity card's patrol tab badge and alert dot in
         // sync with the freshly loaded probe evidence.

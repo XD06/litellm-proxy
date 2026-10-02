@@ -13840,15 +13840,6 @@ body {
 .health-overview-loading svg {
   animation: refresh-spin 1.2s linear infinite;
 }
-.probe-list-more {
-  padding: 8px 12px;
-  text-align: center;
-  font-size: 12px;
-  color: var(--muted, #6f706a);
-  cursor: default;
-  border-top: 1px dashed var(--border, rgba(255,255,255,0.08));
-  margin-top: 4px;
-}
 .section-count-badge {
   display: inline-flex;
   align-items: center;

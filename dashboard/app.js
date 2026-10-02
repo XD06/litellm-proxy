@@ -2672,10 +2672,6 @@
 				en: "No background health probes yet",
 				zh: "暂无后台健康探测"
 			},
-			"prov.overview_more_probes": {
-				en: "+ {count} more probes",
-				zh: "另有 {count} 次探测"
-			},
 			"prov.overview_summary_ready": {
 				en: "Config · runtime · routing all ready",
 				zh: "配置 · 运行 · 路由 均已就绪"
@@ -12260,8 +12256,7 @@
 		function providerDrawerOverview(view) {
 			const recent = (Array.isArray(view.activity.events) ? view.activity.events : []).slice(-10).reverse();
 			const probeEvents = Array.isArray(view.activity.probeEvents) ? view.activity.probeEvents : [];
-			const recentProbes = probeEvents.slice(0, 20);
-			const probeOverflow = Math.max(0, probeEvents.length - 20);
+			const recentProbes = probeEvents.slice(0, 10);
 			const compatibilityCircuits = Array.isArray(view.compatibilityCircuits) ? view.compatibilityCircuits : [];
 			const configOn = view.config.enabled !== false && view.runtime.config_enabled !== false;
 			const runtimeOn = view.runtime.runtime_enabled !== false;
@@ -12379,7 +12374,6 @@
             <div class="provider-probe-legend">${escapeHtml(t("prov.probe_legend"))}</div>
             <div class="provider-probe-list" data-provider-probe-list="${escapeHtml(view.name)}">
               ${recentProbes.length ? recentProbes.map(providerProbeRow).join("") : `<div class="empty pad-slim">${escapeHtml(t("prov.overview_probe_empty"))}</div>`}
-              ${probeOverflow ? `<div class="probe-list-more" data-probe-list-more="${escapeHtml(view.name)}">${escapeHtml(t("prov.overview_more_probes", { count: fmtInt(probeOverflow) }))}</div>` : ""}
             </div>
           </div>
         </section>
@@ -12402,7 +12396,7 @@
 			_providerActivityEventsState.name = name;
 			_providerActivityEventsState.loading = true;
 			try {
-				const resp = await apiGet(`/-/admin/provider-activity/${encodeURIComponent(name)}`);
+				const resp = await apiGet(`/-/admin/provider-activity/${encodeURIComponent(name)}?limit=10`);
 				const activity = resp && resp.activity || null;
 				const aggregate = (state.data.providerActivity || {})[name] || {};
 				if (activity) state.data.providerActivity[name] = {
@@ -12421,9 +12415,8 @@
 				const probeList = Array.from(probeLists).find((el) => el.getAttribute("data-provider-probe-list") === name);
 				if (probeList) {
 					const probes = Array.isArray(activity?.probeEvents) ? activity.probeEvents : [];
-					const visibleProbes = probes.slice(0, 20);
-					const overflow = Math.max(0, probes.length - 20);
-					probeList.innerHTML = visibleProbes.length ? visibleProbes.map(providerProbeRow).join("") + (overflow ? `<div class="probe-list-more" data-probe-list-more="${escapeHtml(name)}">${escapeHtml(t("prov.overview_more_probes", { count: fmtInt(overflow) }))}</div>` : "") : `<div class="empty pad-slim">${escapeHtml(t("prov.overview_probe_empty"))}</div>`;
+					const visibleProbes = probes.slice(0, 10);
+					probeList.innerHTML = visibleProbes.length ? visibleProbes.map(providerProbeRow).join("") : `<div class="empty pad-slim">${escapeHtml(t("prov.overview_probe_empty"))}</div>`;
 					const badge = document.querySelector("[data-provider-probe-count]");
 					if (badge) badge.textContent = fmtInt(probes.length);
 					const hasFailed = visibleProbes.some((probe) => probeTone(probe) === "bad");
