@@ -10452,7 +10452,16 @@ body {
     border-bottom: 0;
   }
 
-  .overview-page-head > div:first-child {
+  /* The topbar acts as the page hero on mobile; page-head titles would
+     duplicate it. Functional siblings (vitals, actions, status) stay. */
+  .overview-page-head > div:first-child,
+  .requests-page-head > div:first-child,
+  .providers-page-head > div:first-child,
+  .playground-page-head > div:first-child {
+    display: none;
+  }
+
+  body:has(#policyView) .policy-page-head {
     display: none;
   }
 
@@ -18731,10 +18740,6 @@ body {
   #providersView .provider-toolbar #clearProviderFiltersButton {
     grid-column: auto;
   }
-
-  .playground-view .pg-param-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 /* Overview observability workspace. */
@@ -19626,27 +19631,28 @@ body {
 
 @media (max-width: 760px) {
   .provider-model-catalog .provider-model-toolbar {
-    grid-template-columns: minmax(0, 1fr) 112px;
+    grid-template-columns: minmax(0, 1fr) 40px 40px;
   }
 
-  .provider-model-toolbar-action {
+  .provider-model-catalog .provider-model-status-filter {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .button.provider-model-toolbar-action {
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
     min-height: 40px;
+    padding: 0;
   }
 }
 
 @media (max-width: 520px) {
-  .provider-model-catalog .provider-model-toolbar {
-    grid-template-columns: 1fr;
-  }
-
   .provider-model-catalog.is-large-catalog .provider-drawer-models {
     grid-template-columns: 1fr;
     max-height: min(420px, 52dvh);
     padding: 8px;
-  }
-
-  .provider-model-toolbar-action {
-    min-height: 44px;
   }
 
   .provider-model-disclosure > summary {
@@ -28889,6 +28895,44 @@ body.is-auth-checking {
 
 .settings-pricing-table tr.settings-pricing-overridden td {
   background: color-mix(in srgb, #2563eb 4%, transparent);
+}
+
+/* Pricing table on phones: keep the model column pinned while the numeric
+   columns scroll, and tighten the cells so more of the row fits. */
+@media (max-width: 640px) {
+  #settingsView .settings-pricing-table th,
+  #settingsView .settings-pricing-table td {
+    padding: 9px 10px;
+  }
+
+  #settingsView .settings-pricing-table th:first-child,
+  #settingsView .settings-pricing-table td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--surface);
+    box-shadow: inset -1px 0 0 var(--line);
+  }
+
+  #settingsView .settings-pricing-table thead th:first-child {
+    background: #fbfcfd;
+  }
+
+  #settingsView .settings-pricing-table tbody tr:hover td:first-child {
+    background: #f8fafc;
+  }
+
+  #settingsView .settings-pricing-table tr.settings-pricing-overridden td:first-child {
+    background: color-mix(in srgb, #2563eb 4%, var(--surface));
+  }
+
+  .settings-pricing-table .settings-model-identity > strong {
+    max-width: 148px;
+  }
+
+  .settings-price-input {
+    width: 76px;
+  }
 }
 
 .filter-search-box {
