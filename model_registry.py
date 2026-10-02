@@ -1149,6 +1149,66 @@ def _key_discovered_raw_models(
     return _dedupe(raw_models)
 
 
+def resolve_key_provider_model(
+    config: Dict[str, Any],
+    provider: str,
+    key_index: int,
+    canonical_model: str,
+) -> str:
+    """Resolve the raw upstream id that ONE specific key's own catalog maps
+    the canonical model to.
+
+    Probe/patrol paths must send each key the raw id THIS key recognizes —
+    keys of one provider can carry different catalogs (per-key model maps,
+    per-key discovered /v1/models), while the provider-level resolution
+    prefers the first key's raw. Returns "" when this key contributes no
+    key-level mapping, in which case callers fall back to the provider-level
+    resolution.
+
+    Priority (scoped to one key, mirrors resolve_provider_model_candidates):
+      1. key entry "models" dict (manual canonical→raw)
+      2. provider_key_model_capabilities[provider][fingerprint].canonical_map
+    """
+    keys = (((config.get("providers") or {}).get(provider) or {}).get("keys") or [])
+    if key_index < 0 or key_index >= len(keys):
+        return ""
+    canonical = str(canonical_model or "").strip()
+    if not canonical:
+        return ""
+    lower = canonical.lower()
+
+    entry = keys[key_index]
+    if isinstance(entry, dict):
+        models = entry.get("models") if "models" in entry else entry.get("model_map")
+        if isinstance(models, dict) and models:
+            raw = models.get(canonical)
+            if raw is None:
+                raw = models.get(lower)
+            raw = str(raw or "").strip()
+            if raw:
+                return raw
+
+    fingerprint = key_fingerprint(entry)
+    provider_caps = (
+        ((config.get("models") or {}).get("provider_key_model_capabilities") or {}).get(provider) or {}
+    )
+    capability = provider_caps.get(fingerprint) if isinstance(provider_caps, dict) else None
+    if isinstance(capability, dict) and capability.get("status") in ("ok", "stale"):
+        canonical_map = capability.get("canonical_map") or {}
+        raw = canonical_map.get(canonical)
+        if raw is None:
+            raw = canonical_map.get(lower)
+        if raw is None and _normalized_intersection(canonical, canonical_map.keys()):
+            for map_canonical, map_raw in canonical_map.items():
+                if lower in _normalized_variants(map_canonical):
+                    raw = map_raw
+                    break
+        raw = str(raw or "").strip()
+        if raw:
+            return raw
+    return ""
+
+
 # ---------------------------------------------------------------------------
 # Key-level model whitelist check
 #

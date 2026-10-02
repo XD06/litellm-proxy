@@ -2304,6 +2304,51 @@ class AdminApiTests(unittest.TestCase):
         self.assertEqual(body["result"]["requested_model"], "chosen-model")
         self.assertEqual(body["result"]["upstream_model"], "provider-chosen-model")
 
+    def test_key_probe_sends_key_level_model_mapping(self):
+        cfg = self._probe_cfg()
+        cfg["providers"]["alpha"]["keys"] = ["raw-alpha-key", "raw-alpha-key-two"]
+        cfg["models"]["provider_key_model_capabilities"] = {
+            "alpha": {
+                key_fingerprint("raw-alpha-key"): {
+                    "status": "ok",
+                    "key_index": 0,
+                    "models": ["provider-chosen-model"],
+                    "canonical_map": {"chosen-model": "provider-chosen-model"},
+                },
+                key_fingerprint("raw-alpha-key-two"): {
+                    "status": "ok",
+                    "key_index": 1,
+                    "models": ["secondary-chosen-model"],
+                    "canonical_map": {"chosen-model": "secondary-chosen-model"},
+                },
+            }
+        }
+        router = sse2json.UpstreamRouter(cfg)
+        captured = {}
+
+        class OkClient:
+            def request_json_with_timing(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
+                captured["payload"] = payload
+                return {"id": "x", "choices": [{"message": {"content": "ok"}}]}, 7
+
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(sse2json, "ROUTER", router), patch.object(
+            sse2json, "UPSTREAM_CLIENT", OkClient()
+        ):
+            with sse2json._KEY_PROBE_LOCK:
+                sse2json._KEY_PROBE_INFLIGHT.clear()
+            status, body = self.post_json(
+                "/-/admin/models/test",
+                {"provider": "alpha", "model": "chosen-model", "key_index": 1},
+                headers={"Content-Type": "application/json", "X-Admin-Key": "admin-secret"},
+            )
+
+        self.assertEqual(status, 200)
+        self.assertTrue(body["result"]["ok"])
+        # The probe must send the raw id that key #1's OWN catalog maps the
+        # canonical to, not the provider-level primary raw of key #0.
+        self.assertEqual(captured["payload"]["model"], "secondary-chosen-model")
+        self.assertEqual(body["result"]["upstream_model"], "secondary-chosen-model")
+
     def test_model_test_endpoint_reuses_probe_pipeline(self):
         cfg = self._probe_cfg()
         router = sse2json.UpstreamRouter(cfg)

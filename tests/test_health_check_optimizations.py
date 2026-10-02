@@ -17,6 +17,7 @@ from unittest.mock import patch
 
 import sse2json
 from observability import ProxyObservability
+from proxy_utils import key_fingerprint
 from router import Attempt, UpstreamRouter
 
 
@@ -486,6 +487,86 @@ class ProbeCountVisibilityTests(unittest.TestCase):
         entry = obs.provider_activity_for("alpha", limit=60)
         self.assertEqual(entry["probeCount24h"], 3)
         self.assertIsNotNone(entry["lastProbe"])
+
+
+class PerKeyCatalogProbeTests(unittest.TestCase):
+    """Idle/patrol probes honor per-key catalogs: keys whose own catalog
+    lacks the probe model are skipped, and each probed key receives the raw
+    id its own catalog maps the canonical to."""
+
+    def _dual_key_cfg(self):
+        cfg = _idle_cfg("alpha", 2)
+        cfg["models"]["provider_key_model_capabilities"] = {
+            "alpha": {
+                key_fingerprint("raw-alpha-key-0"): {
+                    "status": "ok",
+                    "key_index": 0,
+                    "models": ["alpha-model"],
+                    "canonical_map": {"alpha-model": "alpha-model"},
+                },
+                key_fingerprint("raw-alpha-key-1"): {
+                    "status": "ok",
+                    "key_index": 1,
+                    "models": ["beta-model"],
+                    "canonical_map": {"beta-model": "beta-model-raw"},
+                },
+            }
+        }
+        return cfg
+
+    def test_idle_probe_skips_keys_without_model_support(self):
+        cfg = self._dual_key_cfg()
+        router = UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+        probed_models = []
+
+        class CountingClient:
+            def open_stream(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None, first_byte_timeout_s=None):
+                probed_models.append(payload.get("model"))
+                return _EmptyStream()
+
+        rt = sse2json.RuntimeContext(cfg, router, CountingClient(), obs, sse2json.AUDIT)
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(
+            sse2json, "PROBE_COORDINATOR", _CoordinatorStub()
+        ):
+            healthy = sse2json._idle_probe_one_provider_impl(
+                rt, "alpha", suggested_model="alpha-model"
+            )
+
+        self.assertFalse(healthy)
+        # Only key #0 (whose catalog supports alpha-model) may be probed;
+        # key #1's catalog lacks the model and must be skipped entirely.
+        self.assertEqual(probed_models, ["alpha-model"])
+
+    def test_patrol_probe_sends_key_level_raw(self):
+        cfg = self._dual_key_cfg()
+        router = UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+        captured = {}
+
+        class CaptureClient:
+            def open_stream(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None, first_byte_timeout_s=None):
+                captured["payload"] = payload
+                return _OkStream()
+
+        rt = sse2json.RuntimeContext(cfg, router, CaptureClient(), obs, sse2json.AUDIT)
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(
+            sse2json, "PROBE_COORDINATOR", _CoordinatorStub()
+        ):
+            healthy = sse2json._patrol_probe_one_key_impl(
+                rt, "alpha", 1, canonical_model="beta-model", model_source="capability"
+            )
+            self.assertTrue(healthy)
+            # The probe must send key #1's own raw id, not key #0's.
+            self.assertEqual(captured["payload"]["model"], "beta-model-raw")
+
+            # A model absent from key #1's catalog is skipped with no
+            # upstream call at all.
+            skipped = sse2json._patrol_probe_one_key_impl(
+                rt, "alpha", 1, canonical_model="alpha-model", model_source="capability"
+            )
+            self.assertFalse(skipped)
+            self.assertEqual(captured["payload"]["model"], "beta-model-raw")
 
 
 if __name__ == "__main__":

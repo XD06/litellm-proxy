@@ -138,6 +138,76 @@ class ModelRegistryTests(unittest.TestCase):
             )
         )
 
+    def test_resolve_key_provider_model_prefers_key_own_catalog(self):
+        cfg = registry_config("union")
+        cfg["providers"]["alpha"]["keys"] = [
+            {"key": "alpha-key-a", "models": {"shared-model": "manual-raw-a"}},
+            "alpha-key-b",
+        ]
+        cfg["models"]["provider_key_model_capabilities"] = {
+            "alpha": {
+                key_fingerprint("alpha-key-a"): {
+                    "status": "ok",
+                    "models": ["discovered-raw-a"],
+                    "canonical_map": {"shared-model": "discovered-raw-a"},
+                },
+                key_fingerprint("alpha-key-b"): {
+                    "status": "ok",
+                    "models": ["discovered-raw-b"],
+                    "canonical_map": {"shared-model": "discovered-raw-b"},
+                },
+            }
+        }
+
+        # Manual per-key dict map outranks the key's discovered catalog.
+        self.assertEqual(
+            model_registry.resolve_key_provider_model(cfg, "alpha", 0, "shared-model"),
+            "manual-raw-a",
+        )
+        self.assertEqual(
+            model_registry.resolve_key_provider_model(cfg, "alpha", 1, "shared-model"),
+            "discovered-raw-b",
+        )
+
+        # Normalized canonical variants (vendor prefix / case) still resolve.
+        cfg["models"]["provider_key_model_capabilities"]["alpha"][
+            key_fingerprint("alpha-key-b")
+        ]["canonical_map"] = {"vendor/shared-model": "variant-raw-b"}
+        self.assertEqual(
+            model_registry.resolve_key_provider_model(cfg, "alpha", 1, "shared-model"),
+            "variant-raw-b",
+        )
+
+    def test_resolve_key_provider_model_falls_back_when_key_has_no_catalog(self):
+        cfg = registry_config("union")
+        cfg["providers"]["alpha"]["keys"] = ["plain-key", "stale-key"]
+        cfg["models"]["provider_key_model_capabilities"] = {
+            "alpha": {
+                key_fingerprint("stale-key"): {
+                    "status": "error",
+                    "models": [],
+                    "canonical_map": {},
+                    "error": "boom",
+                },
+            }
+        }
+
+        # Plain string key without caps → caller falls back to provider level.
+        self.assertEqual(
+            model_registry.resolve_key_provider_model(cfg, "alpha", 0, "shared-model"), ""
+        )
+        # Error-status caps contribute nothing.
+        self.assertEqual(
+            model_registry.resolve_key_provider_model(cfg, "alpha", 1, "shared-model"), ""
+        )
+        # Out-of-range key index and empty canonical are rejected.
+        self.assertEqual(
+            model_registry.resolve_key_provider_model(cfg, "alpha", 9, "shared-model"), ""
+        )
+        self.assertEqual(
+            model_registry.resolve_key_provider_model(cfg, "alpha", 0, "  "), ""
+        )
+
     def test_union_fetch_records_capabilities_without_mutating_provider_model_map(self):
         cfg = registry_config("union")
         cfg["models"]["provider_model_map"] = {"alpha": {"manual-model": "alpha-real"}}

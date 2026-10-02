@@ -743,6 +743,25 @@ def _idle_probe_one_provider_impl(rt, provider: str, *, idle_tier: str = "", nex
         )
         return False
 
+    # Keys of one provider can carry different catalogs (per-key /v1/models,
+    # per-key model maps): give each key the raw id its own catalog maps the
+    # canonical to, and skip keys whose own catalog does not support the
+    # probe model — the same filter real routing applies in _select_key.
+    # If no key's catalog supports the model (e.g. it exists only through a
+    # provider-level manual map), keep the original order and probe as before.
+    def _key_probe_raw(index: int) -> str:
+        return model_registry.resolve_key_provider_model(config, provider, index, canonical_model)
+
+    supported_key_indices = [
+        index
+        for index in key_indices_to_try
+        if model_registry.key_supports_provider_model(
+            config, provider, index, canonical_model, _key_probe_raw(index) or canonical_model
+        ) is not False
+    ]
+    if supported_key_indices:
+        key_indices_to_try = supported_key_indices
+
     # Build the base payload once — only the key/url/headers change per key.
     # We need a provider_model and an Attempt object for payload construction
     # (the Attempt is needed for provider-specific transformations like
@@ -752,7 +771,12 @@ def _idle_probe_one_provider_impl(rt, provider: str, *, idle_tier: str = "", nex
 
     first_raw_key = key_value(keys[key_indices_to_try[0]])
     first_url, first_headers, first_provider_model, first_proxy = router._build_attempt_details(
-        provider, canonical_model, first_raw_key, key_index=key_indices_to_try[0], upstream_format=fmt
+        provider,
+        canonical_model,
+        first_raw_key,
+        key_index=key_indices_to_try[0],
+        upstream_format=fmt,
+        provider_model=_key_probe_raw(key_indices_to_try[0]) or None,
     )
     provider_model = first_provider_model
     first_attempt = _Attempt(
@@ -790,10 +814,16 @@ def _idle_probe_one_provider_impl(rt, provider: str, *, idle_tier: str = "", nex
             time.sleep(_IDLE_KEY_PROBE_DELAY_S)
         raw_key = key_value(keys[key_index])
         url, headers, key_provider_model, proxy_url = router._build_attempt_details(
-            provider, canonical_model, raw_key, key_index=key_index, upstream_format=fmt
+            provider,
+            canonical_model,
+            raw_key,
+            key_index=key_index,
+            upstream_format=fmt,
+            provider_model=_key_probe_raw(key_index) or None,
         )
-        # provider_model may differ per key if provider_model_map is key-specific,
-        # but in practice it's the same.  Use the per-key value for safety.
+        # Keys of one provider can map the canonical to different raw ids
+        # (per-key model maps / per-key discovered catalogs); send each key
+        # the raw its own catalog recognizes.
         if key_provider_model:
             payload["model"] = key_provider_model
 
@@ -1350,8 +1380,35 @@ def _patrol_probe_one_key_impl(rt, provider: str, key_index: int, *, canonical_m
         return False
 
     raw_key = key_value(keys[key_index])
+    # Keys of one provider can carry different catalogs (per-key /v1/models,
+    # per-key model maps): probe with the raw id THIS key's own catalog maps
+    # the canonical to, and skip the (key, model) pair outright when the
+    # key's catalog provably lacks the model — the patrol driver then tries
+    # the next candidate instead of burning a guaranteed 404 on this key.
+    key_provider_model = model_registry.resolve_key_provider_model(
+        config, provider, key_index, canonical_model
+    )
+    if model_registry.key_supports_provider_model(
+        config, provider, key_index, canonical_model, key_provider_model or canonical_model
+    ) is False:
+        _record_probe(
+            key_index=key_index,
+            key_id=router.key_id(raw_key),
+            model=canonical_model,
+            model_source=model_source,
+            format=fmt,
+            outcome="skipped",
+            reason="model not in key catalog",
+            action="none",
+        )
+        return False
     url, headers, provider_model, proxy_url = router._build_attempt_details(
-        provider, canonical_model, raw_key, key_index=key_index, upstream_format=fmt
+        provider,
+        canonical_model,
+        raw_key,
+        key_index=key_index,
+        upstream_format=fmt,
+        provider_model=key_provider_model or None,
     )
 
     # Build a STREAMING payload — stream=true so we can read just the first
@@ -2694,8 +2751,19 @@ def _probe_provider_key_once(provider: str, key_index: int, model: str = "") -> 
         return {"ok": False, "error_type": "no_format", "error": "no enabled upstream format"}
 
     raw_key = key_value(keys[key_index])
+    # Probe with the raw id THIS key's own catalog maps the canonical to —
+    # keys of one provider can carry different catalogs/model maps, and the
+    # provider-level resolution prefers the first key's raw.
+    key_provider_model = model_registry.resolve_key_provider_model(
+        CONFIG, provider, key_index, canonical_model
+    )
     url, headers, provider_model, proxy_url = ROUTER._build_attempt_details(
-        provider, canonical_model, raw_key, key_index=key_index, upstream_format=fmt
+        provider,
+        canonical_model,
+        raw_key,
+        key_index=key_index,
+        upstream_format=fmt,
+        provider_model=key_provider_model or None,
     )
 
     request_id = f"probe-{provider}-k{key_index}-{uuid.uuid4().hex[:8]}"

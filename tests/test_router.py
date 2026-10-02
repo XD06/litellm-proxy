@@ -428,6 +428,45 @@ class RouterTests(unittest.TestCase):
             [(0, "grok-4.3-high")],
         )
 
+    def test_discovered_key_capabilities_split_one_canonical_across_keys(self):
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha"]
+        cfg["providers"]["alpha"]["keys"] = ["alpha-key-a", "alpha-key-b"]
+        cfg["providers"]["beta"]["enabled"] = False
+        cfg["models"]["provider_model_capabilities"] = {
+            "alpha": {
+                "status": "ok",
+                "models": ["raw-a", "raw-b"],
+                "canonical_map": {"shared-model": "raw-a"},
+                "variant_map": {"shared-model": ["raw-a", "raw-b"]},
+            }
+        }
+        cfg["models"]["provider_key_model_capabilities"] = {
+            "alpha": {
+                key_fingerprint("alpha-key-a"): {
+                    "status": "ok",
+                    "models": ["raw-a"],
+                    "canonical_map": {"shared-model": "raw-a"},
+                },
+                key_fingerprint("alpha-key-b"): {
+                    "status": "ok",
+                    "models": ["raw-b"],
+                    "canonical_map": {"shared-model": "raw-b"},
+                },
+            }
+        }
+
+        attempts = list(
+            UpstreamRouter(cfg).iter_attempts("shared-model", False, "req-shared-canonical")
+        )
+
+        # One canonical, two keys with different raw ids: each candidate raw
+        # must route ONLY to the key whose own catalog carries it.
+        self.assertEqual(
+            [(attempt.key_index, attempt.provider_model) for attempt in attempts],
+            [(0, "raw-a"), (1, "raw-b")],
+        )
+
     def test_manual_provider_mapping_and_paid_disable_survive_multi_key_discovery(self):
         cfg = base_config()
         cfg["routing"]["default_provider_pool"] = ["alpha"]
