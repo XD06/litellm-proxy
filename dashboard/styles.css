@@ -6112,33 +6112,82 @@ form.is-busy {
 .provider-overview-kpis {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  border: 1px solid var(--line-soft);
-  border-radius: 11px;
-  background: var(--surface);
-  overflow: clip;
+  gap: 8px;
 }
 
 .provider-overview-kpi {
   display: grid;
-  gap: 2px;
-  align-content: center;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
   min-width: 0;
-  min-height: 62px;
-  padding: 11px 14px;
-  border-right: 1px solid var(--line-soft);
+  min-height: 68px;
+  padding: 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 9px;
+  background: var(--surface);
 }
 
-.provider-overview-kpi:last-child {
-  border-right: 0;
+.provider-overview-kpi-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: var(--surface-raised);
+  color: var(--muted);
+}
+
+.provider-overview-kpi-icon .icon-svg {
+  width: 14px;
+  height: 14px;
+}
+
+.provider-overview-kpi.tone-ok .provider-overview-kpi-icon {
+  background: color-mix(in srgb, var(--success) 10%, var(--surface));
+  color: var(--success);
+}
+
+.provider-overview-kpi.tone-warn .provider-overview-kpi-icon {
+  background: color-mix(in srgb, var(--warning) 12%, var(--surface));
+  color: var(--warning);
+}
+
+.provider-overview-kpi.tone-bad .provider-overview-kpi-icon {
+  background: color-mix(in srgb, var(--danger) 11%, var(--surface));
+  color: var(--danger);
+}
+
+.provider-overview-kpi.tone-info .provider-overview-kpi-icon {
+  background: color-mix(in srgb, var(--info) 9%, var(--surface));
+  color: var(--info);
+}
+
+.provider-overview-kpi > div {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.provider-overview-kpi small,
+.provider-overview-kpi strong,
+.provider-overview-kpi > div > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.provider-overview-kpi small {
+  color: var(--text-soft);
+  font-size: 10.5px;
+  font-weight: 650;
 }
 
 .provider-overview-kpi strong {
-  overflow: hidden;
   color: var(--text);
-  font: 700 16px/1.2 var(--mono);
+  font: 760 15px/1.25 var(--mono);
   font-variant-numeric: tabular-nums;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .provider-overview-kpi strong.is-ok {
@@ -6153,21 +6202,9 @@ form.is-busy {
   color: var(--danger);
 }
 
-.provider-overview-kpi-label,
-.provider-overview-kpi-hint {
-  overflow: hidden;
+.provider-overview-kpi > div > span {
   color: var(--muted);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.provider-overview-kpi-label {
-  font-size: 10px;
-}
-
-.provider-overview-kpi-hint {
-  font-size: 9px;
-  opacity: 0.85;
+  font-size: 9.5px;
 }
 
 .provider-overview-section {
@@ -6360,14 +6397,6 @@ form.is-busy {
 @media (max-width: 760px) {
   .provider-overview-kpis {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .provider-overview-kpi:nth-child(2) {
-    border-right: 0;
-  }
-
-  .provider-overview-kpi:nth-child(-n + 2) {
-    border-bottom: 1px solid var(--line-soft);
   }
 
   .provider-overview-readiness-line1 {

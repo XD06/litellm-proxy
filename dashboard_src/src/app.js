@@ -6448,16 +6448,19 @@ import {
     return t(key || "prov.overview_state_unavailable");
   }
 
-  // Flat stat column for the overview metrics strip. `icon` is kept in the
-  // signature for call-site readability but the strip itself is icon-free.
+  // Icon-tile stat card for the overview metrics row: tone colors the icon
+  // tile, and strong gets is-ok/is-warn/is-bad when the value itself warrants it.
   function providerOverviewMetric(icon, label, value, hint, tone = "neutral") {
     const valueCls = tone === "ok" ? " is-ok" : tone === "warn" ? " is-warn" : tone === "bad" ? " is-bad" : "";
     return `
-      <div class="provider-overview-kpi tone-${escapeHtml(tone)}" role="listitem">
-        <strong class="${valueCls}">${escapeHtml(value)}</strong>
-        <span class="provider-overview-kpi-label">${escapeHtml(label)}</span>
-        <span class="provider-overview-kpi-hint">${escapeHtml(hint)}</span>
-      </div>
+      <article class="provider-overview-kpi tone-${escapeHtml(tone)}" role="listitem">
+        <span class="provider-overview-kpi-icon">${iconSvg(icon)}</span>
+        <div>
+          <small>${escapeHtml(label)}</small>
+          <strong${valueCls ? ` class="${valueCls.trim()}"` : ""}>${escapeHtml(value)}</strong>
+          <span>${escapeHtml(hint)}</span>
+        </div>
+      </article>
     `;
   }
 
@@ -6509,7 +6512,7 @@ import {
       : view.keyStats.usable === view.keyStats.total
         ? t("prov.overview_keys_all_usable")
         : t("prov.overview_usable_keys", { usable: fmtInt(view.keyStats.usable), total: fmtInt(view.keyStats.total) });
-    const keyTone = view.keyStats.usable === 0 ? "bad" : view.keyStats.usable < view.keyStats.total ? "warn" : "neutral";
+    const keyTone = view.keyStats.usable === 0 ? "bad" : view.keyStats.usable < view.keyStats.total ? "warn" : "ok";
     return `
       <section class="provider-drawer-section provider-overview-workspace">
         <section class="provider-overview-readiness ${view.runtimeState.tone}" aria-label="${escapeHtml(t("prov.overview_readiness"))}">
