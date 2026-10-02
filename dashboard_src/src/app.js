@@ -5070,7 +5070,7 @@ import {
           ${pageKey === "providersPage" ? `
           <button class="button secondary icon-action" type="button" data-providers-clear-filters="1"
             title="${escapeHtml(t("prov.pagination_clear"))}"
-            aria-label="${escapeHtml(t("prov.pagination_clear"))}">${iconSvg("x")}</button>` : ""}
+            aria-label="${escapeHtml(t("prov.pagination_clear"))}">${iconSvg("broom")}</button>` : ""}
         </div>
       </div>
     `;
@@ -7829,6 +7829,7 @@ import {
       "power": `<path d="M12 3v8"></path><path d="M17.7 6.3a8 8 0 1 1-11.4 0"></path>`,
       "power-off": `<path d="M12 3v4"></path><path d="M6.3 6.3a8 8 0 0 0 11.4 11.4"></path><path d="M18.7 13.8a8 8 0 0 0-2.4-7.5"></path><path d="M4 4l16 16"></path>`,
       rotate: `<path d="M20 11a8 8 0 1 0-2.3 5.7"></path><path d="M20 4v7h-7"></path>`,
+      broom: `<path fill="currentColor" stroke="none" d="m19.36 2.72l1.42 1.42l-5.72 5.71c1.07 1.54 1.22 3.39.32 4.59L9.06 8.12c1.2-.9 3.05-.75 4.59.32zM5.93 17.57c-2.01-2.01-3.24-4.41-3.58-6.65l4.88-2.09l7.44 7.44l-2.09 4.88c-2.24-.34-4.64-1.57-6.65-3.58"></path>`,
       trash: `<path d="M4 7h16"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M6 7l1 14h10l1-14"></path><path d="M9 7V4h6v3"></path>`,
       check: `<path d="M5 12l4 4L19 6"></path>`,
       "check-circle": `<circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path>`,
