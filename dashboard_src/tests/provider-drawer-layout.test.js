@@ -68,8 +68,16 @@ assert.match(overviewPanel, /provider-compatibility-clear/, "provider compatibil
 assert.match(overviewPanel, /data-compatibility-circuit/, "each compatibility circuit must expose traceable row metadata");
 assert.match(overviewPanel, /data-provider-activity-list/, "Overview must preserve lazy activity loading");
 assert.match(overviewPanel, /data-provider-probe-list/, "Overview must preserve lazy probe loading");
-assert.match(overviewPanel, /<details class="provider-overview-disclosure"/, "health probes must use progressive disclosure");
-assert.match(overviewPanel, /data-provider-probes-disclosure/, "probe disclosure must remain patchable after lazy loading");
+assert.match(
+  overviewPanel,
+  /provider-overview-activity-card[\s\S]*data-provider-activity-tab="calls"[\s\S]*data-provider-activity-tab="probes"[\s\S]*data-provider-activity-pane/,
+  "health probes and recent calls must merge into one activity card with sub-panes",
+);
+assert.match(
+  overviewPanel,
+  /state\.providerOverviewActivityTab\s*\|\|\s*\(hasFailedProbe\s*\|\|\s*view\.runtimeState\.id === "cooldown" \? "probes" : "calls"\)/,
+  "activity sub-pane must follow the user's choice, falling back to probes on failure evidence",
+);
 assert.doesNotMatch(overviewPanel, /config on|runtime on|0s cooldown|0 compat/, "Overview must not expose the old raw state chip dump");
 
 for (const key of [
@@ -79,8 +87,10 @@ for (const key of [
   "prov.overview_recent_success",
   "prov.overview_avg_first_byte",
   "prov.overview_routing_exceptions",
-  "prov.overview_recent_activity",
-  "prov.overview_health_probes",
+  "prov.overview_activity_title",
+  "prov.overview_tab_calls",
+  "prov.overview_tab_probes",
+  "prov.overview_view_all",
 ]) {
   assert.ok(translations.includes(`"${key}":`), `missing provider overview translation: ${key}`);
 }
@@ -134,9 +144,9 @@ assert.match(styles, /grid-template-columns: repeat\(auto-fill, minmax\(126px, 1
 assert.match(styles, /overflow-y: auto/, "large model catalogs must scroll internally");
 assert.match(styles, /overscroll-behavior: contain/, "large model catalog scrolling must stay inside the drawer");
 assert.match(styles, /\.provider-overview-readiness/, "provider overview must style route readiness");
-assert.match(styles, /\.provider-overview-state-facts/, "provider overview must visually separate state evidence");
+assert.match(styles, /\.provider-overview-state-dot/, "provider overview must keep a visible state dot on the readiness ribbon");
 assert.match(styles, /\.provider-overview-kpis/, "provider overview must provide a compact KPI grid");
-assert.match(styles, /\.provider-overview-disclosure > summary:focus-visible/, "probe disclosure must keep keyboard focus feedback");
+assert.match(styles, /\.provider-activity-tab:focus-visible/, "activity sub-tabs must keep keyboard focus feedback");
 assert.match(styles, /\.provider-compatibility-clear/, "compatibility clear action must have a distinct visual treatment");
 assert.match(source, /providerCompatibilityToolbar/, "providers view must expose a global compatibility-circuit summary and clear action");
 assert.match(styles, /#providersView \.provider-kpi-card\s*\{/, "provider cards must use the unified KPI anatomy");

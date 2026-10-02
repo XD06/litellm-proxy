@@ -497,6 +497,7 @@
 			openProviderEditors: /* @__PURE__ */ new Set(),
 			providerDrawerName: "",
 			providerDrawerTab: "overview",
+			providerOverviewActivityTab: "",
 			detailDrawerReturn: null,
 			modelDrawerMode: "summary",
 			providerFilters: {
@@ -2674,6 +2675,90 @@
 			"prov.overview_more_probes": {
 				en: "+ {count} more probes",
 				zh: "另有 {count} 次探测"
+			},
+			"prov.overview_summary_ready": {
+				en: "Config · runtime · routing all ready",
+				zh: "配置 · 运行 · 路由 均已就绪"
+			},
+			"prov.overview_summary_parts": {
+				en: "Config {config} · Runtime {runtime} · Routing {routing}",
+				zh: "配置 {config} · 运行 {runtime} · 路由 {routing}"
+			},
+			"prov.overview_cooldown_note": {
+				en: "not eligible while cooling down",
+				zh: "期间不参与路由"
+			},
+			"prov.overview_priority_tip": {
+				en: "Lower value = higher routing priority; click to open the Routing tab",
+				zh: "数值越小越优先；点击前往「路由」"
+			},
+			"prov.overview_copy": {
+				en: "Copy",
+				zh: "复制"
+			},
+			"prov.overview_copied": {
+				en: "Upstream endpoint copied",
+				zh: "已复制上游地址"
+			},
+			"prov.overview_view_all": {
+				en: "View all →",
+				zh: "查看全部 →"
+			},
+			"prov.overview_activity_title": {
+				en: "Activity",
+				zh: "活动"
+			},
+			"prov.overview_activity_tip": {
+				en: "Click a row to trace the request",
+				zh: "点击记录可追溯到请求详情"
+			},
+			"prov.overview_tab_calls": {
+				en: "Calls",
+				zh: "调用"
+			},
+			"prov.overview_tab_probes": {
+				en: "Patrol",
+				zh: "巡检"
+			},
+			"prov.overview_keys_all_usable": {
+				en: "All keys usable",
+				zh: "全部密钥可用"
+			},
+			"prov.overview_keys_cooldown": {
+				en: "{count} keys cooling down",
+				zh: "{count} 个密钥冷却中"
+			},
+			"prov.idle_cadence": {
+				en: "cadence {time}",
+				zh: "巡检节奏 {time}"
+			},
+			"prov.idle_idle": {
+				en: "idle {time}",
+				zh: "空闲 {time}"
+			},
+			"prov.idle_no_requests": {
+				en: "no request yet",
+				zh: "尚无请求"
+			},
+			"prov.tier.cold_start": {
+				en: "Cold start",
+				zh: "冷启动"
+			},
+			"prov.tier.recent": {
+				en: "Recent",
+				zh: "近期活跃"
+			},
+			"prov.tier.medium": {
+				en: "Medium",
+				zh: "中等间隔"
+			},
+			"prov.tier.long": {
+				en: "Long idle",
+				zh: "长久未用"
+			},
+			"prov.tier.deep": {
+				en: "Deep idle",
+				zh: "深度休眠"
 			},
 			"prov.models.discovery": {
 				en: "Discovery",
@@ -11649,27 +11734,27 @@
 		function idleTierLabel(tier) {
 			return {
 				cold_start: {
-					text: "cold start",
+					text: t("prov.tier.cold_start"),
 					title: t("prov.tier.cold_start_title"),
 					tone: "neutral"
 				},
 				recent: {
-					text: "recent",
+					text: t("prov.tier.recent"),
 					title: t("prov.tier.recent_title"),
 					tone: "ok"
 				},
 				medium: {
-					text: "medium",
+					text: t("prov.tier.medium"),
 					title: t("prov.tier.medium_title"),
 					tone: "ok"
 				},
 				long: {
-					text: "long",
+					text: t("prov.tier.long"),
 					title: t("prov.tier.long_title"),
 					tone: "warn"
 				},
 				deep: {
-					text: "deep",
+					text: t("prov.tier.deep"),
 					title: t("prov.tier.deep_title"),
 					tone: "soft"
 				}
@@ -11680,13 +11765,13 @@
 			if (!is) return "";
 			const tierInfo = idleTierLabel(is.tier);
 			if (!tierInfo) return "";
-			const idleDesc = is.idle_seconds >= 0 ? `idle ${fmtNextProbe(is.idle_seconds)}` : "no request yet";
+			const idleDesc = is.idle_seconds >= 0 ? t("prov.idle_idle", { time: fmtNextProbe(is.idle_seconds) }) : t("prov.idle_no_requests");
 			return `
       <div class="idle-state-bar" title="${escapeHtml(tierInfo.title)}">
         ${iconSvg("radar")}
         <span class="idle-state-tier tone-${escapeHtml(tierInfo.tone)}">${escapeHtml(tierInfo.text)}</span>
         <span class="idle-state-sep">·</span>
-        <span class="idle-state-cadence">cadence ${escapeHtml(fmtNextProbe(is.next_probe_in_s))}</span>
+        <span class="idle-state-cadence">${escapeHtml(t("prov.idle_cadence", { time: fmtNextProbe(is.next_probe_in_s) }))}</span>
         <span class="idle-state-sep">·</span>
         <span class="idle-state-idle">${escapeHtml(idleDesc)}</span>
       </div>
@@ -11873,6 +11958,7 @@
 			closeModelDrawer();
 			state.providerDrawerName = name;
 			if (tab) state.providerDrawerTab = tab;
+			state.providerOverviewActivityTab = "";
 			resetProviderActivityEventsCache(name);
 			const drawer = el("providerDrawer");
 			if (!drawer) return;
@@ -12037,6 +12123,35 @@
 					renderProviderDrawerTabSwitch();
 				});
 			});
+			root.querySelectorAll("[data-provider-activity-tab]").forEach((button) => {
+				if (button.dataset.boundprovideractivitytab) return;
+				button.dataset.boundprovideractivitytab = "1";
+				button.addEventListener("click", () => {
+					const tab = button.getAttribute("data-provider-activity-tab") || "calls";
+					state.providerOverviewActivityTab = tab;
+					switchProviderActivityPane(button.closest(".provider-overview-activity-card"), tab);
+				});
+			});
+			root.querySelectorAll("[data-provider-copy-endpoint]").forEach((button) => {
+				if (button.dataset.boundprovidercopyendpoint) return;
+				button.dataset.boundprovidercopyendpoint = "1";
+				button.addEventListener("click", async () => {
+					const value = button.dataset.providerCopyEndpoint || "";
+					try {
+						await navigator.clipboard.writeText(value);
+						setNotice(t("prov.overview_copied"), "ok");
+					} catch (_err) {
+						setNotice(value, "info");
+					}
+				});
+			});
+			root.querySelectorAll("[data-goto-provider-requests]").forEach((button) => {
+				if (button.dataset.boundgotoproviderrequests) return;
+				button.dataset.boundgotoproviderrequests = "1";
+				button.addEventListener("click", () => {
+					gotoProviderRequests(button.dataset.gotoProviderRequests || "");
+				});
+			});
 			if (!root.dataset.boundprovideractivityrows) {
 				root.dataset.boundprovideractivityrows = "1";
 				root.addEventListener("click", (event) => {
@@ -12129,30 +12244,14 @@
 			}[String(stateId || "")];
 			return t(key || "prov.overview_state_unavailable");
 		}
-		function providerOverviewStateDescription(stateId) {
-			const key = {
-				normal: "prov.overview_desc_normal",
-				degraded: "prov.overview_desc_degraded",
-				cooldown: "prov.overview_desc_cooldown",
-				unavailable: "prov.overview_desc_unavailable",
-				disabled: "prov.overview_desc_disabled"
-			}[String(stateId || "")];
-			return t(key || "prov.overview_desc_unavailable");
-		}
-		function providerOverviewStateFact(icon, label, value, tone) {
-			return `
-      <div class="provider-overview-state-fact tone-${escapeHtml(tone || "neutral")}" role="listitem">
-        <span class="provider-overview-state-icon">${iconSvg(icon)}</span>
-        <span><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong></span>
-      </div>
-    `;
-		}
 		function providerOverviewMetric(icon, label, value, hint, tone = "neutral") {
+			const valueCls = tone === "ok" ? " is-ok" : tone === "warn" ? " is-warn" : tone === "bad" ? " is-bad" : "";
 			return `
-      <article class="provider-overview-kpi tone-${escapeHtml(tone)}">
-        <span class="provider-overview-kpi-icon">${iconSvg(icon)}</span>
-        <div><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong><span>${escapeHtml(hint)}</span></div>
-      </article>
+      <div class="provider-overview-kpi tone-${escapeHtml(tone)}" role="listitem">
+        <strong class="${valueCls}">${escapeHtml(value)}</strong>
+        <span class="provider-overview-kpi-label">${escapeHtml(label)}</span>
+        <span class="provider-overview-kpi-hint">${escapeHtml(hint)}</span>
+      </div>
     `;
 		}
 		function providerDrawerOverview(view) {
@@ -12168,46 +12267,45 @@
 			const hasFailedProbe = recentProbes.some((probe) => probeTone(probe) === "bad");
 			const endpoint = String(view.config.base_url || "").trim();
 			const successRate = view.activity.successRate;
-			const successTone = successRate === null ? "neutral" : successRate >= .9 ? "ok" : successRate >= .5 ? "warn" : "bad";
-			const stateTone = view.runtimeState.badge || "neutral";
+			const successTone = successRate === null || view.activity.total < 5 ? "neutral" : successRate >= .9 ? "ok" : successRate >= .5 ? "warn" : "bad";
+			const dotTone = view.runtimeState.id === "normal" ? "ok" : view.runtimeState.id === "disabled" ? "mute" : view.runtimeState.id === "unavailable" ? "bad" : "warn";
+			let readinessSummary;
+			if (view.runtimeState.id === "normal") readinessSummary = t("prov.overview_summary_ready");
+			else if (cooldownRemaining > 0) readinessSummary = `${t("prov.overview_cooldown_remaining", { time: fmtNextProbe(cooldownRemaining) })} · ${t("prov.overview_cooldown_note")}`;
+			else readinessSummary = t("prov.overview_summary_parts", {
+				config: t(configOn ? "prov.overview_enabled" : "prov.overview_disabled"),
+				runtime: t(runtimeOn ? "prov.overview_enabled" : "prov.overview_disabled"),
+				routing: t(routeEligible ? "prov.overview_available" : "prov.overview_unavailable")
+			});
+			const activityTab = state.providerOverviewActivityTab || (hasFailedProbe || view.runtimeState.id === "cooldown" ? "probes" : "calls");
+			const keyHint = view.keyStats.cooldown > 0 ? t("prov.overview_keys_cooldown", { count: fmtInt(view.keyStats.cooldown) }) : view.keyStats.usable === view.keyStats.total ? t("prov.overview_keys_all_usable") : t("prov.overview_usable_keys", {
+				usable: fmtInt(view.keyStats.usable),
+				total: fmtInt(view.keyStats.total)
+			});
+			const keyTone = view.keyStats.usable === 0 ? "bad" : view.keyStats.usable < view.keyStats.total ? "warn" : "neutral";
 			return `
       <section class="provider-drawer-section provider-overview-workspace">
         <section class="provider-overview-readiness ${view.runtimeState.tone}" aria-label="${escapeHtml(t("prov.overview_readiness"))}">
-          <div class="provider-overview-readiness-head">
-            <span class="provider-overview-readiness-icon tone-${escapeHtml(stateTone)}">${iconSvg(routeEligible ? "check" : view.runtimeState.id === "cooldown" ? "clock" : "alert")}</span>
-            <div>
-              <span>${escapeHtml(t("prov.overview_readiness"))}</span>
-              <h3>${escapeHtml(providerOverviewStateLabel(view.runtimeState.id))}</h3>
-              <p>${escapeHtml(providerOverviewStateDescription(view.runtimeState.id))}</p>
+          <div class="provider-overview-readiness-line1">
+            <span class="provider-overview-state-dot ${escapeHtml(dotTone)}" aria-hidden="true"></span>
+            <h3>${escapeHtml(providerOverviewStateLabel(view.runtimeState.id))}</h3>
+            <p class="provider-overview-readiness-sum">${escapeHtml(readinessSummary)}</p>
+            <div class="provider-overview-readiness-side">
+              <button class="provider-overview-priority" type="button" data-provider-drawer-tab="routing" title="${escapeHtml(t("prov.overview_priority_tip"))}">${escapeHtml(t("prov.overview_priority", { priority: fmtInt(view.priority) }))}</button>
+              <span class="provider-overview-readiness-ops">
+                <button class="provider-row-link" type="button" data-action-path="/providers/${encodeURIComponent(view.name)}/cooldown/clear">${escapeHtml(t("prov.clear_cooldown"))}</button>
+                <button class="provider-row-link${runtimeOn ? " is-danger" : ""}" type="button" data-action-path="/providers/${encodeURIComponent(view.name)}/${runtimeOn ? "disable" : "enable"}">${escapeHtml(t(runtimeOn ? "prov.disable" : "prov.enable"))}</button>
+              </span>
             </div>
-            <span class="provider-overview-priority">${escapeHtml(t("prov.overview_priority", { priority: fmtInt(view.priority) }))}</span>
           </div>
           <div class="provider-overview-endpoint">
             <span>${iconSvg("server")} ${escapeHtml(t("prov.overview_endpoint"))}</span>
-            <code translate="no" title="${escapeHtml(endpoint || t("prov.overview_endpoint_missing"))}">${escapeHtml(endpoint || t("prov.overview_endpoint_missing"))}</code>
+            <span class="provider-overview-endpoint-value">
+              <code translate="no" title="${escapeHtml(endpoint || t("prov.overview_endpoint_missing"))}">${escapeHtml(endpoint || t("prov.overview_endpoint_missing"))}</code>
+              ${endpoint ? `<button class="provider-overview-copy" type="button" data-provider-copy-endpoint="${escapeHtml(endpoint)}">${iconSvg("copy")}<span>${escapeHtml(t("prov.overview_copy"))}</span></button>` : ""}
+            </span>
           </div>
-          <div class="provider-overview-state-facts" role="list">
-            ${providerOverviewStateFact("settings", t("prov.overview_config_state"), t(configOn ? "prov.overview_enabled" : "prov.overview_disabled"), configOn ? "ok" : "bad")}
-            ${providerOverviewStateFact("activity", t("prov.overview_runtime_state"), t(runtimeOn ? "prov.overview_enabled" : "prov.overview_disabled"), runtimeOn ? "ok" : "bad")}
-            ${providerOverviewStateFact("radar", t("prov.overview_route_state"), t(routeEligible ? "prov.overview_available" : "prov.overview_unavailable"), routeEligible ? "ok" : view.runtimeState.id === "cooldown" ? "warn" : "bad")}
-          </div>
-          ${cooldownRemaining > 0 ? `
-            <div class="provider-overview-cooldown" role="status">
-              ${iconSvg("clock")}
-              <span>${escapeHtml(t("prov.overview_cooldown_remaining", { time: fmtNextProbe(cooldownRemaining) }))}</span>
-            </div>
-          ` : ""}
         </section>
-
-        <div class="provider-overview-kpis">
-          ${providerOverviewMetric("key", t("prov.overview_key_coverage"), `${fmtInt(view.keyStats.usable)}/${fmtInt(view.keyStats.total)}`, t("prov.overview_usable_keys", {
-				usable: fmtInt(view.keyStats.usable),
-				total: fmtInt(view.keyStats.total)
-			}), view.keyStats.usable > 0 ? view.keyStats.usable === view.keyStats.total ? "ok" : "warn" : "bad")}
-          ${providerOverviewMetric("boxes", t("prov.overview_models"), fmtInt(view.modelItems.length), t("prov.overview_models_available"), view.modelItems.length ? "info" : "neutral")}
-          ${providerOverviewMetric("activity", t("prov.overview_recent_success"), successRate === null ? "—" : fmtPct(successRate), t("prov.overview_recent_requests", { count: fmtInt(view.activity.total) }), successTone)}
-          ${providerOverviewMetric("clock", t("prov.overview_avg_first_byte"), view.activity.avgLatency ? fmtMs(view.activity.avgLatency) : "—", t("prov.overview_successful_calls"), view.activity.avgLatency ? "info" : "neutral")}
-        </div>
 
         ${compatibilityCircuits.length ? `
           <section class="provider-overview-section provider-overview-attention">
@@ -12244,24 +12342,34 @@
           </section>
         ` : ""}
 
-        <section class="provider-overview-section">
-          <div class="provider-overview-section-head">
-            <span class="provider-overview-section-icon">${iconSvg("activity")}</span>
-            <div><h3>${escapeHtml(t("prov.overview_recent_activity"))}</h3><p>${escapeHtml(t("prov.overview_recent_activity_tip"))}</p></div>
-            ${view.activity.total ? `<span class="section-count-badge">${fmtInt(view.activity.total)}</span>` : ""}
-          </div>
-          <div class="provider-activity-list" data-provider-activity-list="${escapeHtml(view.name)}">
-            ${recent.length ? recent.map(providerActivityRow).join("") : `<div class="empty pad-slim">${escapeHtml(t("prov.overview_activity_loading"))}</div>`}
-          </div>
-        </section>
+        <div class="provider-overview-kpis" role="list" aria-label="${escapeHtml(t("prov.overview_readiness"))}">
+          ${providerOverviewMetric("key", t("prov.overview_key_coverage"), `${fmtInt(view.keyStats.usable)}/${fmtInt(view.keyStats.total)}`, keyHint, keyTone)}
+          ${providerOverviewMetric("boxes", t("prov.overview_models"), fmtInt(view.modelItems.length), t("prov.overview_models_available"), "neutral")}
+          ${providerOverviewMetric("activity", t("prov.overview_recent_success"), successRate === null ? "—" : fmtPct(successRate), t("prov.overview_recent_requests", { count: fmtInt(view.activity.total) }), successTone)}
+          ${providerOverviewMetric("clock", t("prov.overview_avg_first_byte"), view.activity.avgLatency ? fmtMs(view.activity.avgLatency) : "—", t("prov.overview_successful_calls"), "neutral")}
+        </div>
 
-        <details class="provider-overview-disclosure" data-provider-probes-disclosure="${escapeHtml(view.name)}" ${hasFailedProbe ? "open" : ""}>
-          <summary>
-            <span class="provider-overview-section-icon">${iconSvg("radar")}</span>
-            <span><strong>${escapeHtml(t("prov.overview_health_probes"))}</strong><small>${escapeHtml(t("prov.overview_health_probes_tip"))}</small></span>
-            <span class="provider-overview-disclosure-count" data-provider-probe-count>${escapeHtml(t("prov.overview_probe_count", { count: fmtInt(probeEvents.length) }))}</span>
-          </summary>
-          <div class="provider-overview-disclosure-body">
+        <section class="provider-overview-section provider-overview-activity-card">
+          <div class="provider-overview-activity-head">
+            <div class="provider-overview-activity-title">
+              <h3>${escapeHtml(t("prov.overview_activity_title"))}</h3>
+              <p>${escapeHtml(t("prov.overview_activity_tip"))}</p>
+            </div>
+            <div class="provider-activity-tabs" role="tablist" aria-label="${escapeHtml(t("prov.overview_activity_title"))}">
+              <button class="provider-activity-tab${activityTab === "calls" ? " is-active" : ""}" type="button" role="tab" aria-selected="${activityTab === "calls" ? "true" : "false"}" data-provider-activity-tab="calls">${escapeHtml(t("prov.overview_tab_calls"))} <b>${fmtInt(view.activity.total)}</b></button>
+              <button class="provider-activity-tab${activityTab === "probes" ? " is-active" : ""}${hasFailedProbe ? " is-alert" : ""}" type="button" role="tab" aria-selected="${activityTab === "probes" ? "true" : "false"}" data-provider-activity-tab="probes">${escapeHtml(t("prov.overview_tab_probes"))} <b data-provider-probe-count>${fmtInt(probeEvents.length)}</b></button>
+            </div>
+          </div>
+          <div class="provider-overview-activity-pane" data-provider-activity-pane="calls" ${activityTab === "calls" ? "" : "hidden"}>
+            <div class="provider-overview-callstrip">${providerSparkline(view.activity, view.name)}</div>
+            <div class="provider-activity-list" data-provider-activity-list="${escapeHtml(view.name)}">
+              ${recent.length ? recent.map(providerActivityRow).join("") : `<div class="empty pad-slim">${escapeHtml(t("prov.overview_activity_loading"))}</div>`}
+            </div>
+            <div class="provider-overview-viewall">
+              <button class="provider-row-link" type="button" data-goto-provider-requests="${escapeHtml(view.name)}">${escapeHtml(t("prov.overview_view_all"))}</button>
+            </div>
+          </div>
+          <div class="provider-overview-activity-pane" data-provider-activity-pane="probes" ${activityTab === "probes" ? "" : "hidden"}>
             ${renderIdleStateBar()}
             <div class="provider-probe-legend">${escapeHtml(t("prov.probe_legend"))}</div>
             <div class="provider-probe-list" data-provider-probe-list="${escapeHtml(view.name)}">
@@ -12269,7 +12377,7 @@
               ${probeOverflow ? `<div class="probe-list-more" data-probe-list-more="${escapeHtml(view.name)}">${escapeHtml(t("prov.overview_more_probes", { count: fmtInt(probeOverflow) }))}</div>` : ""}
             </div>
           </div>
-        </details>
+        </section>
       </section>
     `;
 		}
@@ -12281,7 +12389,11 @@
 		async function loadProviderActivityEvents(name) {
 			if (!name) return;
 			if (_providerActivityEventsState.loading) return;
-			if (_providerActivityEventsState.name === name && _providerActivityEventsState.loaded) return;
+			if (_providerActivityEventsState.name === name && _providerActivityEventsState.loaded) {
+				const cached = (state.data.providerActivity || {})[name];
+				if (cached && Array.isArray(cached.events)) return;
+				_providerActivityEventsState.loaded = false;
+			}
 			_providerActivityEventsState.name = name;
 			_providerActivityEventsState.loading = true;
 			try {
@@ -12307,13 +12419,12 @@
 					const visibleProbes = probes.slice(0, 20);
 					const overflow = Math.max(0, probes.length - 20);
 					probeList.innerHTML = visibleProbes.length ? visibleProbes.map(providerProbeRow).join("") + (overflow ? `<div class="probe-list-more" data-probe-list-more="${escapeHtml(name)}">${escapeHtml(t("prov.overview_more_probes", { count: fmtInt(overflow) }))}</div>` : "") : `<div class="empty pad-slim">${escapeHtml(t("prov.overview_probe_empty"))}</div>`;
-					const disclosures = document.querySelectorAll("[data-provider-probes-disclosure]");
-					const disclosure = Array.from(disclosures).find((el) => el.getAttribute("data-provider-probes-disclosure") === name);
-					if (disclosure) {
-						const count = disclosure.querySelector("[data-provider-probe-count]");
-						if (count) count.textContent = t("prov.overview_probe_count", { count: fmtInt(probes.length) });
-						if (visibleProbes.some((probe) => probeTone(probe) === "bad")) disclosure.open = true;
-					}
+					const badge = document.querySelector("[data-provider-probe-count]");
+					if (badge) badge.textContent = fmtInt(probes.length);
+					const hasFailed = visibleProbes.some((probe) => probeTone(probe) === "bad");
+					const probeTab = document.querySelector("[data-provider-activity-tab=\"probes\"]");
+					if (probeTab) probeTab.classList.toggle("is-alert", hasFailed);
+					if (hasFailed && !state.providerOverviewActivityTab) switchProviderActivityPane(probeList.closest(".provider-overview-activity-card"), "probes");
 				}
 			} catch (_err) {} finally {
 				_providerActivityEventsState.loading = false;
@@ -12324,6 +12435,28 @@
 				_providerActivityEventsState.name = name || "";
 				_providerActivityEventsState.loaded = false;
 			}
+		}
+		function switchProviderActivityPane(card, tab) {
+			if (!card) return;
+			card.querySelectorAll("[data-provider-activity-tab]").forEach((button) => {
+				const active = button.getAttribute("data-provider-activity-tab") === tab;
+				button.classList.toggle("is-active", active);
+				button.setAttribute("aria-selected", active ? "true" : "false");
+			});
+			card.querySelectorAll("[data-provider-activity-pane]").forEach((pane) => {
+				const active = pane.getAttribute("data-provider-activity-pane") === tab;
+				pane.toggleAttribute("hidden", !active);
+			});
+		}
+		function gotoProviderRequests(name) {
+			const input = el("filterProvider");
+			if (input) input.value = name;
+			state.requestsPage = 0;
+			state.selectedRequestIds.clear();
+			state.allMatchingSelected = false;
+			state.forceRequestsFetch = true;
+			setView("requests");
+			refreshRuntimeData({ forceViewData: true });
 		}
 		function providerDrawerKeys(view) {
 			const keyListId = `key-list-${view.name}`;

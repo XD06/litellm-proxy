@@ -63,6 +63,9 @@ export const state = {
   openProviderEditors: new Set(),
   providerDrawerName: "",
   providerDrawerTab: "overview",
+  // Overview merged activity card: which sub-pane is shown. "" = automatic
+  // (calls normally, patrol probes when a probe has failed / provider cooling).
+  providerOverviewActivityTab: "",
   detailDrawerReturn: null,
   modelDrawerMode: "summary",
   providerFilters: {
