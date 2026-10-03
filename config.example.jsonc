@@ -286,6 +286,11 @@
   //   写法1（简单）："proxy": "http://127.0.0.1:10808"
   //   写法2（完整）："proxy": {"http": "http://127.0.0.1:10808", "https": "http://127.0.0.1:10808"}
   // 不填 = 全直连；优先级：key.proxy > provider.proxy > 全局 proxy > 直连
+  // ★ 内网目标自动绕过代理（NO_PROXY 惯例）：上游地址是 docker 服务名/容器名
+  //   （无 "." 的单标签主机，如 http://opencode2api-1:9090）、内网 IP
+  //   （RFC1918/127/169.254、IPv6 ULA）、localhost 或 .local/.internal/.lan/
+  //   .docker.internal 后缀时，无论哪级 proxy 都会直连——公网出口代理无法
+  //   回源 docker 内嵌 DNS，强行代理只会 502。
   "proxy": {},
 
   // 上游供应商列表（多供应商切换的核心）
@@ -313,6 +318,7 @@
       // 多 key：按配置顺序优先使用，失败或冷却时才切到后续 key
       // key 可写成字符串，也可写成对象来单独设置 key 级代理。
       // key.proxy 优先级最高，只对这一把 key 生效。
+      // 内网目标（docker 服务名等）自动绕过代理直连，见顶部 proxy 说明。
       "keys": [
         "sk-your-key-1",
         { "key": "sk-your-key-2", "proxy": "http://127.0.0.1:9000" }
@@ -340,6 +346,7 @@
       //   写法1（简单）："proxy": "http://127.0.0.1:10808"
       //   写法2（完整）："proxy": {"http": "http://127.0.0.1:10808", "https": "http://127.0.0.1:10808"}
       // 不填 = 回退到全局 proxy；全局也没填则直连
+      // 内网目标（docker 服务名等）自动绕过代理直连，见顶部 proxy 说明。
 
       // 是否启用该 provider
       "enabled": true

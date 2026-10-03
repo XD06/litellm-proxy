@@ -13,7 +13,7 @@ from typing import Any, Dict, Generator, List, Optional, Tuple
 import model_registry
 import scheduler_policy
 from config_loader import join_base_url
-from proxy_utils import key_proxy, key_value, resolve_proxy_url
+from proxy_utils import key_proxy, key_value, resolve_proxy_url, resolve_upstream_proxy
 
 
 PROVIDER_SELECT_MODES = ("priority_failover", "round_robin", "weighted_rr", "random", "auto")
@@ -1896,6 +1896,7 @@ class UpstreamRouter:
     ) -> Tuple[str, Dict[str, str], str, Optional[str]]:
         """返回 (url, headers, provider_model, proxy_url)。
         proxy 优先级：key.proxy > provider.proxy > 全局 proxy > None（直连）。
+        内网/单标签主机（docker 服务名等）自动绕过代理直连（NO_PROXY 惯例）。
         client_headers: 客户端原始请求头，按 provider 的 forward_client_headers 白名单透传。"""
         pcfg = (self.cfg.get("providers") or {}).get(provider) or {}
         url, base_headers, header_names_lower, fwd_list, configured_ua, provider_ua = (
@@ -1932,7 +1933,9 @@ class UpstreamRouter:
         keys = pcfg.get("keys") or []
         if key_index is not None and 0 <= key_index < len(keys):
             key_entry = keys[key_index]
-        proxy_url = resolve_proxy_url(key_proxy(key_entry), pcfg.get("proxy"), self.cfg.get("proxy"))
+        # 内网/单标签主机（docker 服务名等）绕过代理直连——公网出口代理无法
+        # 回源 docker 内嵌 DNS，会 502；详见 proxy_utils.should_bypass_proxy。
+        proxy_url = resolve_upstream_proxy(url, key_proxy(key_entry), pcfg.get("proxy"), self.cfg.get("proxy"))
 
         resolved_provider_model = provider_model or model_registry.resolve_provider_model(
             self.cfg, provider, canonical_model

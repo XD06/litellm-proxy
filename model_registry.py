@@ -13,7 +13,7 @@ import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
-from proxy_utils import key_fingerprint, key_proxy, key_value, resolve_proxy_url
+from proxy_utils import key_fingerprint, key_proxy, key_value, resolve_upstream_proxy
 
 
 _cached_models_by_provider: Dict[str, Dict[str, Any]] = {}
@@ -1642,7 +1642,9 @@ def fetch_upstream_models(
         else:
             headers["User-Agent"] = configured_ua or "Mozilla/5.0"
 
-        proxy_url = resolve_proxy_url(key_proxy(key_entry), pcfg.get("proxy"), config.get("proxy"))
+        # 内网/单标签主机（docker 服务名等）绕过代理直连——发现路径与真实
+        # 路由保持一致；详见 proxy_utils.should_bypass_proxy。
+        proxy_url = resolve_upstream_proxy(base_url, key_proxy(key_entry), pcfg.get("proxy"), config.get("proxy"))
 
         errors: List[str] = []
 

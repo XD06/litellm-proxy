@@ -8,6 +8,8 @@ from proxy_utils import (
     normalize_proxy_url,
     normalize_proxy_config,
     resolve_proxy_url,
+    resolve_upstream_proxy,
+    should_bypass_proxy,
     is_socks_proxy,
     mask_proxy_url,
 )
@@ -280,6 +282,78 @@ class TestMaskProxyUrl(unittest.TestCase):
             mask_proxy_url("http://token@127.0.0.1:7890"),
             "http://***@127.0.0.1:7890",
         )
+
+
+class TestShouldBypassProxy(unittest.TestCase):
+    def test_single_label_docker_names_bypass(self):
+        # Compose service / container names resolved by docker embedded DNS —
+        # external proxies cannot resolve them (regression: 502 on
+        # http://opencode2api-opencode2api-1:9090/v1/models).
+        self.assertTrue(should_bypass_proxy("http://opencode2api-opencode2api-1:9090/v1/models"))
+        self.assertTrue(should_bypass_proxy("http://vllm-svc:8000/v1"))
+
+    def test_private_and_loopback_ip_literals_bypass(self):
+        for url in (
+            "http://192.168.1.5:9090/v1",
+            "http://10.0.0.9",
+            "http://172.16.0.3:8080",
+            "http://127.0.0.1:4894/health",
+            "http://169.254.10.2/",
+            "http://[fd00::5]:9090/v1",
+            "http://[::1]:4894/health",
+        ):
+            self.assertTrue(should_bypass_proxy(url), url)
+
+    def test_localhost_and_private_suffixes_bypass(self):
+        for url in (
+            "http://localhost:4894/v1",
+            "http://my-service.local:9000",
+            "http://svc.internal/v1",
+            "http://nas.lan:5000",
+            "http://host.docker.internal:8080",
+        ):
+            self.assertTrue(should_bypass_proxy(url), url)
+
+    def test_public_hosts_do_not_bypass(self):
+        for url in (
+            "https://api.groq.com/openai",
+            "https://alpha.example/v1",
+            "http://93.184.216.34:8080",
+        ):
+            self.assertFalse(should_bypass_proxy(url), url)
+
+    def test_blank_or_unparsable_do_not_bypass(self):
+        self.assertFalse(should_bypass_proxy(""))
+        self.assertFalse(should_bypass_proxy(None))
+
+
+class TestResolveUpstreamProxy(unittest.TestCase):
+    def test_internal_target_drops_key_proxy(self):
+        # Production failure mode: docker-internal upstream + pool proxy → 502.
+        self.assertIsNone(
+            resolve_upstream_proxy(
+                "http://opencode2api-opencode2api-1:9090/v1/models",
+                {"http": "http://proxy-pool-manager:8002", "https": "http://proxy-pool-manager:8002"},
+            )
+        )
+
+    def test_public_target_keeps_key_proxy(self):
+        self.assertEqual(
+            resolve_upstream_proxy("https://api.groq.com/openai/v1/models", "http://proxy:8002"),
+            "http://proxy:8002",
+        )
+
+    def test_priority_chain_preserved(self):
+        self.assertEqual(
+            resolve_upstream_proxy(
+                "https://api.groq.com/openai", "", "http://provider:8000", "http://global:7000"
+            ),
+            "http://provider:8000",
+        )
+
+    def test_no_proxy_stays_none(self):
+        self.assertIsNone(resolve_upstream_proxy("https://api.groq.com/openai"))
+        self.assertIsNone(resolve_upstream_proxy("http://internal-svc:9090", "http://proxy:8002"))
 
 
 if __name__ == "__main__":

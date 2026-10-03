@@ -1076,6 +1076,25 @@ class RouterTests(unittest.TestCase):
         global_attempt = list(router.iter_attempts("any-model", False, "req-proxy-global"))[0]
         self.assertEqual(global_attempt.proxy_url, "http://127.0.0.1:7000")
 
+    def test_attempt_proxy_bypassed_for_internal_upstream(self):
+        # key/provider/global proxy all exist, but the upstream is a
+        # docker-internal single-label host that public-egress proxies cannot
+        # reach (502) — traffic must go direct instead.
+        cfg = base_config()
+        cfg["routing"]["default_provider_pool"] = ["alpha"]
+        cfg["proxy"] = "http://127.0.0.1:7000"
+        cfg["providers"]["alpha"]["base_url"] = "http://opencode2api-opencode2api-1:9090/v1"
+        cfg["providers"]["alpha"]["proxy"] = "http://proxy-pool-manager:8002"
+        cfg["providers"]["alpha"]["keys"] = [
+            {"key": "alpha-key", "proxy": "http://proxy-pool-manager:8002"},
+        ]
+        router = UpstreamRouter(cfg)
+
+        attempts = list(router.iter_attempts("any-model", False, "req-proxy-internal"))
+
+        self.assertEqual(attempts[0].key, "alpha-key")
+        self.assertIsNone(attempts[0].proxy_url)
+
     def test_default_pool_includes_enabled_providers_not_listed_in_stale_pool(self):
         cfg = base_config()
         cfg["routing"]["default_provider_pool"] = ["alpha"]

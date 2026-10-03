@@ -230,6 +230,30 @@ class ModelRegistryTests(unittest.TestCase):
         self.assertEqual(caps["beta"]["canonical_map"]["v4-flash"], "v4-flash")
         self.assertNotIn("deepseek-v4-flash", caps["beta"]["canonical_map"])
 
+    def test_fetch_upstream_models_proxy_bypass_matches_routing(self):
+        # Discovery must agree with real routing: a docker-internal upstream
+        # goes direct even when the key carries a public-egress proxy, while
+        # a public upstream still uses it.
+        cfg = registry_config("union")
+        cfg["providers"]["alpha"]["base_url"] = "http://opencode2api-opencode2api-1:9090"
+        cfg["providers"]["alpha"]["keys"] = [
+            {"key": "alpha-key", "proxy": "http://proxy-pool-manager:8002"},
+        ]
+        internal_client = FakeUpstreamClient(
+            {"http://opencode2api-opencode2api-1:9090": {"data": [{"id": "m1"}]}}
+        )
+
+        model_registry.fetch_upstream_models(cfg, FakeRouter(), internal_client, only_provider="alpha")
+
+        self.assertEqual(internal_client.calls[0]["proxy_url"], None)
+
+        cfg["providers"]["alpha"]["base_url"] = "https://alpha.example"
+        public_client = FakeUpstreamClient({"https://alpha.example": {"data": [{"id": "m1"}]}})
+
+        model_registry.fetch_upstream_models(cfg, FakeRouter(), public_client, only_provider="alpha")
+
+        self.assertEqual(public_client.calls[0]["proxy_url"], "http://proxy-pool-manager:8002")
+
     def test_provider_refresh_discovers_and_merges_each_key_model_catalog(self):
         cfg = registry_config("union")
         cfg["providers"]["alpha"]["keys"] = ["alpha-key-a", "alpha-key-b"]

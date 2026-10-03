@@ -368,6 +368,8 @@ sequenceDiagram
 
 Proxy priority: `key proxy → provider proxy → global proxy → direct connection`
 
+Internal targets always bypass the proxy (NO_PROXY convention): docker service/container names (single-label hosts like `http://opencode2api-1:9090`), private/loopback IP literals, `localhost`, and `.local`/`.internal`/`.lan`/`.docker.internal` suffixes go direct even when a proxy is configured — a public-egress proxy cannot resolve docker-embedded DNS and would only return 502.
+
 </details>
 
 > See [config.example.jsonc](config.example.jsonc) for the full annotated configuration reference.

@@ -6,6 +6,7 @@ import hashlib
 import ipaddress
 import re
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
 
 # Known proxy schemes (lowercase). ``socks4a`` is included for completeness
@@ -92,6 +93,52 @@ def resolve_proxy_url(*sources: Any) -> Optional[str]:
         if proxy:
             return normalize_proxy_url(proxy)
     return None
+
+
+# Hostname suffixes that only exist inside private networks — mDNS, docker and
+# k8s-style internal zones. An external egress proxy can neither resolve nor
+# reach these, so they always bypass proxy settings.
+_PROXY_BYPASS_SUFFIXES = (".local", ".internal", ".lan", ".localhost", ".docker.internal")
+
+
+def should_bypass_proxy(target_url: Any) -> bool:
+    """Return True when *target_url* points at a host an external egress proxy
+    cannot reach, so upstream traffic must go direct (NO_PROXY convention):
+
+      * single-label hostnames — docker embedded DNS names (compose service /
+        container names such as ``opencode2api-opencode2api-1``)
+      * RFC1918 / loopback / link-local IP literals (IPv4, plus IPv6 ULA)
+      * ``localhost`` and private-network suffixes (``.local``, ``.internal``,
+        ``.lan``, ``.localhost``, ``.docker.internal``)
+
+    Routing a docker-internal upstream through a public-egress proxy always
+    fails (the proxy cannot resolve docker-embedded DNS → HTTP 502), so key /
+    provider / global proxy settings must not apply to these targets.
+    """
+    try:
+        host = str(urlparse(str(target_url or "")).hostname or "").strip().lower().rstrip(".")
+    except ValueError:
+        return False
+    if not host:
+        return False
+    if host == "localhost" or "." not in host:
+        return True
+    if host.endswith(_PROXY_BYPASS_SUFFIXES):
+        return True
+    try:
+        return bool(ipaddress.ip_address(host).is_private)
+    except ValueError:
+        return False
+
+
+def resolve_upstream_proxy(target_url: Any, *sources: Any) -> Optional[str]:
+    """resolve_proxy_url for upstream targets: same key > provider > global
+    priority chain, but returns None (direct) when the *target_url* host is
+    internal — see should_bypass_proxy."""
+    proxy = resolve_proxy_url(*sources)
+    if proxy and should_bypass_proxy(target_url):
+        return None
+    return proxy
 
 
 def proxy_display(value: Any) -> str:

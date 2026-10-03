@@ -20,6 +20,7 @@
 - **控制台健康检测可读性改版**：修复健康监控设置面板整面显示原始 i18n 键名的问题（16 个 `cfg.*` 键缺失）；两套探测器改名**预检（Readiness Probe）/巡检（Full Sweep）**并配目的/节奏/范围/适用模式对照表；provider 卡片"跳过空闲探测/跳过巡检探测"开关改为"跳过预检/跳过巡检"；运行时状态卡标签与"立即运行"按钮接入 i18n；探测摘要徽标、档位提示、巡检徽标文案同步 i18n；健康检测两个配置小节去除底色，与面板背景融为一体。
 
 ### 修复
+- **内网上游被 key 代理拦成 502**：给 key/provider/全局设置代理后，上游是 docker 内网地址（单标签服务名如 `http://opencode2api-1:9090`、内网 IP、localhost、`.local`/`.internal`/`.lan`/`.docker.internal`）的流量也一律强走公网出口代理——代理无法回源 docker 内嵌 DNS，转发、模型发现、测试/探测全部 502。现按 NO_PROXY 惯例自动绕过代理直连（`proxy_utils.should_bypass_proxy` / `resolve_upstream_proxy`，真实路由与发现路径一致生效），公网上游不受影响。
 - **探测/巡检的 key 目录盲区**：同一供应商不同 key 的 `/v1/models` 不同（或同 canonical 映射不同 raw）时，探测此前对每把 key 发同一个 provider 级 raw——非首选 key 的专属模型永远巡检不到，其 404 还会被误判为"模型级拒绝"提前终止整轮探测；现在空闲探测跳过目录明确不含探测模型的 key（全部不含时保持原顺序兼容 static_models/手动映射），巡检按 key 级 raw 发送并对明确不含的 (key, 模型) 组合记录 `skipped: model not in key catalog`（不记失败，由驱动换下一候选模型）。
 - **思考强度显示**：请求日志的思考强度徽标改用归一化级别显示——空值显示 `default`，Anthropic `budget:N` 折算为 minimal/low/medium/high/xhigh，`max`/`extra_high` 归入 xhigh 档；每档独立配色（新增 xhigh 红色档、off 弱化灰），模型路由覆盖思考强度后请求记录回写为实际生效值；徽标图标尺寸/间距/字重与相邻"流式"徽标统一（此前闪电图标回退到 16px 全局尺寸），客户端 IP 列让位给身份列（11→9% / 12→10%），徽标行不再拥挤。
 - **流式首事件超时**：默认预算上调（plain 15→25s / agent 30→45s，总预算 45→90s / 75→150s），自适应上限放宽（plain 45s / agent 90s）；总预算将耗尽时后续尝试保底获得单次预算的 60%，不再被切成几秒的"死亡时间片"（`TimeoutError: first stream event timeout after 9.6s` 类故障）；超时错误信息保留 1 位小数。
