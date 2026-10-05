@@ -5911,20 +5911,33 @@ import {
     const bucket = activity || {};
     const patrol = bucket.lastProbePatrol;
     const readiness = bucket.lastProbeReadiness;
-    // One chip per checker (readiness vs patrol). A provider probed by both
-    // shows both — the two mechanisms have different scopes and cadences, so
-    // a single mixed chip could not say which checker produced the result.
-    const chips = [];
-    if (readiness) chips.push(probeChipHtml(readiness, "readiness", bucket.probeCount24hReadiness));
-    if (patrol) chips.push(probeChipHtml(patrol, "patrol", bucket.probeCount24hPatrol));
-    if (!chips.length) {
-      const legacy = bucket.lastProbe;
-      if (legacy) chips.push(probeChipHtml(legacy, String(legacy.idle_tier || "") === "patrol" ? "patrol" : "readiness", bucket.probeCount24h));
+    // One chip only: the most recent probe wins, and its tier prefix (预检/巡检)
+    // already says which checker produced it. The full per-checker history
+    // lives in the drawer's probe tab.
+    let chip = null;
+    let chipTier = "readiness";
+    let chipCount = 0;
+    if (patrol && (!readiness || Number(patrol.ts || 0) > Number(readiness.ts || 0))) {
+      chip = patrol;
+      chipTier = "patrol";
+      chipCount = bucket.probeCount24hPatrol;
+    } else if (readiness) {
+      chip = readiness;
+      chipTier = "readiness";
+      chipCount = bucket.probeCount24hReadiness;
     }
-    if (!chips.length) {
+    if (!chip) {
+      const legacy = bucket.lastProbe;
+      if (legacy) {
+        chip = legacy;
+        chipTier = String(legacy.idle_tier || "") === "patrol" ? "patrol" : "readiness";
+        chipCount = bucket.probeCount24h;
+      }
+    }
+    if (!chip) {
       return `<div class="provider-probe-summary empty" title="${escapeHtml(t("prov.probe_none_title"))}"><span class="dot2 mute"></span><span>${escapeHtml(t("prov.probe_none"))} · ${escapeHtml(t("prov.probe_waiting"))}</span></div>`;
     }
-    return `<div class="provider-probe-summary-group">${chips.join("")}</div>`;
+    return `<div class="provider-probe-summary-group">${probeChipHtml(chip, chipTier, chipCount)}</div>`;
   }
 
   function probeChipHtml(probe, tier, count24h) {
@@ -5962,7 +5975,6 @@ import {
     const model = probe.model || "—";
     const isPatrol = String(probe.idle_tier || "") === "patrol";
     const tierInfo = idleTierLabel(probe.idle_tier);
-    const tierLabel = isPatrol ? { text: "patrol", title: t("prov.tier_patrol_title"), tone: "info" } : tierInfo;
     const meta = [
       probe.format || "",
       probe.model_source ? `source:${probe.model_source}` : "",
@@ -5971,7 +5983,13 @@ import {
       probe.next_probe_in_s ? `next:${fmtNextProbe(probe.next_probe_in_s)}` : "",
     ].filter(Boolean).join(" · ");
     const timing = probe.latency_ms != null ? fmtMs(probe.latency_ms) : probe.http_status ? `HTTP ${fmtInt(probe.http_status)}` : "—";
-    const tierBadge = tierLabel ? `<span class="probe-tier-badge tone-${escapeHtml(tierLabel.tone)}${isPatrol ? " patrol-badge" : ""}" title="${escapeHtml(tierLabel.title)}">${escapeHtml(tierLabel.text)}</span>` : "";
+    // The badge names the CHECKER (预检/巡检), not the idle tier — the tier
+    // detail stays in the meta line, which previously made probe types
+    // indistinguishable in the activity list.
+    const typeBadge = isPatrol
+      ? { text: t("prov.probe_type_patrol"), title: t("prov.tier_patrol_title") }
+      : { text: t("prov.probe_type_readiness"), title: t("prov.tier_readiness_title") };
+    const tierBadge = `<span class="probe-tier-badge${isPatrol ? " patrol-badge" : " tone-neutral"}" title="${escapeHtml(typeBadge.title)}">${escapeHtml(typeBadge.text)}</span>`;
     const nextBadge = probe.next_probe_in_s ? `<span class="probe-next-badge" title="Next probe in ~${fmtNextProbe(probe.next_probe_in_s)}">→ ${escapeHtml(fmtNextProbe(probe.next_probe_in_s))}</span>` : "";
     const timeStr = fmtProbeTime(probe.ts);
     const timeBadge = timeStr ? `<span class="probe-time-badge" title="${escapeHtml(fmtDate(probe.ts))}">${escapeHtml(timeStr)}</span>` : "";

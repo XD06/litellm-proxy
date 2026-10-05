@@ -2904,8 +2904,8 @@
 				zh: "后台健康探测"
 			},
 			"prov.overview_health_probes_tip": {
-				en: "Recovery and patrol evidence; opens automatically when a probe fails",
-				zh: "恢复与巡检证据；存在失败探测时自动展开"
+				en: "Recovery and monitoring evidence; opens automatically when a probe fails",
+				zh: "恢复与监测证据；存在失败探测时自动展开"
 			},
 			"prov.overview_probe_count": {
 				en: "{count} probes",
@@ -2956,8 +2956,16 @@
 				zh: "调用"
 			},
 			"prov.overview_tab_probes": {
-				en: "Patrol",
+				en: "Probes",
+				zh: "监测"
+			},
+			"prov.probe_type_patrol": {
+				en: "Sweep",
 				zh: "巡检"
+			},
+			"prov.probe_type_readiness": {
+				en: "Pre-check",
+				zh: "预检"
 			},
 			"prov.overview_keys_all_usable": {
 				en: "All keys usable",
@@ -2969,7 +2977,7 @@
 			},
 			"prov.idle_cadence": {
 				en: "cadence {time}",
-				zh: "巡检节奏 {time}"
+				zh: "探测节奏 {time}"
 			},
 			"prov.idle_idle": {
 				en: "idle {time}",
@@ -12324,15 +12332,28 @@
 			const bucket = activity || {};
 			const patrol = bucket.lastProbePatrol;
 			const readiness = bucket.lastProbeReadiness;
-			const chips = [];
-			if (readiness) chips.push(probeChipHtml(readiness, "readiness", bucket.probeCount24hReadiness));
-			if (patrol) chips.push(probeChipHtml(patrol, "patrol", bucket.probeCount24hPatrol));
-			if (!chips.length) {
-				const legacy = bucket.lastProbe;
-				if (legacy) chips.push(probeChipHtml(legacy, String(legacy.idle_tier || "") === "patrol" ? "patrol" : "readiness", bucket.probeCount24h));
+			let chip = null;
+			let chipTier = "readiness";
+			let chipCount = 0;
+			if (patrol && (!readiness || Number(patrol.ts || 0) > Number(readiness.ts || 0))) {
+				chip = patrol;
+				chipTier = "patrol";
+				chipCount = bucket.probeCount24hPatrol;
+			} else if (readiness) {
+				chip = readiness;
+				chipTier = "readiness";
+				chipCount = bucket.probeCount24hReadiness;
 			}
-			if (!chips.length) return `<div class="provider-probe-summary empty" title="${escapeHtml(t("prov.probe_none_title"))}"><span class="dot2 mute"></span><span>${escapeHtml(t("prov.probe_none"))} · ${escapeHtml(t("prov.probe_waiting"))}</span></div>`;
-			return `<div class="provider-probe-summary-group">${chips.join("")}</div>`;
+			if (!chip) {
+				const legacy = bucket.lastProbe;
+				if (legacy) {
+					chip = legacy;
+					chipTier = String(legacy.idle_tier || "") === "patrol" ? "patrol" : "readiness";
+					chipCount = bucket.probeCount24h;
+				}
+			}
+			if (!chip) return `<div class="provider-probe-summary empty" title="${escapeHtml(t("prov.probe_none_title"))}"><span class="dot2 mute"></span><span>${escapeHtml(t("prov.probe_none"))} · ${escapeHtml(t("prov.probe_waiting"))}</span></div>`;
+			return `<div class="provider-probe-summary-group">${probeChipHtml(chip, chipTier, chipCount)}</div>`;
 		}
 		function probeChipHtml(probe, tier, count24h) {
 			const isPatrol = tier === "patrol";
@@ -12366,11 +12387,6 @@
 			const model = probe.model || "—";
 			const isPatrol = String(probe.idle_tier || "") === "patrol";
 			const tierInfo = idleTierLabel(probe.idle_tier);
-			const tierLabel = isPatrol ? {
-				text: "patrol",
-				title: t("prov.tier_patrol_title"),
-				tone: "info"
-			} : tierInfo;
 			const meta = [
 				probe.format || "",
 				probe.model_source ? `source:${probe.model_source}` : "",
@@ -12379,7 +12395,14 @@
 				probe.next_probe_in_s ? `next:${fmtNextProbe(probe.next_probe_in_s)}` : ""
 			].filter(Boolean).join(" · ");
 			const timing = probe.latency_ms != null ? fmtMs(probe.latency_ms) : probe.http_status ? `HTTP ${fmtInt(probe.http_status)}` : "—";
-			const tierBadge = tierLabel ? `<span class="probe-tier-badge tone-${escapeHtml(tierLabel.tone)}${isPatrol ? " patrol-badge" : ""}" title="${escapeHtml(tierLabel.title)}">${escapeHtml(tierLabel.text)}</span>` : "";
+			const typeBadge = isPatrol ? {
+				text: t("prov.probe_type_patrol"),
+				title: t("prov.tier_patrol_title")
+			} : {
+				text: t("prov.probe_type_readiness"),
+				title: t("prov.tier_readiness_title")
+			};
+			const tierBadge = `<span class="probe-tier-badge${isPatrol ? " patrol-badge" : " tone-neutral"}" title="${escapeHtml(typeBadge.title)}">${escapeHtml(typeBadge.text)}</span>`;
 			const nextBadge = probe.next_probe_in_s ? `<span class="probe-next-badge" title="Next probe in ~${fmtNextProbe(probe.next_probe_in_s)}">→ ${escapeHtml(fmtNextProbe(probe.next_probe_in_s))}</span>` : "";
 			const timeStr = fmtProbeTime(probe.ts);
 			const timeBadge = timeStr ? `<span class="probe-time-badge" title="${escapeHtml(fmtDate(probe.ts))}">${escapeHtml(timeStr)}</span>` : "";
