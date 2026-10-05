@@ -4180,8 +4180,8 @@
 				zh: "自适应 30 秒~6 小时，仅空闲时"
 			},
 			"cfg.hm_cmp_cadence_patrol": {
-				en: "Fixed 6-12h random (configurable)",
-				zh: "固定 6-12 小时随机（可配置）"
+				en: "Random within interval window (default 6-12h, editable; changes apply to the running cycle)",
+				zh: "间隔窗口内随机（默认 6-12 小时，可改；修改对当前周期实时生效）"
 			},
 			"cfg.hm_cmp_scope": {
 				en: "Scope",

@@ -764,5 +764,95 @@ class ProbeEventPersistenceTests(unittest.TestCase):
                 pass
 
 
+class PatrolIntervalRecomputeTests(_PatrolScheduleReset, unittest.TestCase):
+    """Changing the patrol interval takes effect on the running cycle.
+
+    The checker loop used to roll the interval once and sleep through it,
+    so editing 巡检间隔 left the old countdown (up to 12h) untouched. The
+    loop now re-reads health_monitor every chunk and remaps the pending
+    next_run_at; a shrink below the elapsed time fires the round at once.
+    """
+
+    def test_mid_cycle_config_change_fires_round_immediately(self):
+        self._reset_schedule()
+        cfg = _idle_cfg("alpha", 1)
+        cfg["health_monitor"] = {
+            "patrol_interval_min_s": 36000,
+            "patrol_interval_max_s": 72000,
+        }
+        router = UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+        rt = sse2json.RuntimeContext(cfg, router, object(), obs, sse2json.AUDIT)
+
+        calls = {"sleep": 0}
+        rounds = []
+
+        def fake_sleep(seconds):
+            calls["sleep"] += 1
+            if calls["sleep"] == 1:
+                # First chunk: the cycle was rolled inside the original
+                # 10-20h window...
+                self.assertGreaterEqual(
+                    sse2json._patrol_probe_schedule["interval_s"], 36000
+                )
+                # ...then the user shrinks it below the elapsed time.
+                cfg["health_monitor"]["patrol_interval_min_s"] = 0
+                cfg["health_monitor"]["patrol_interval_max_s"] = 0
+            else:
+                self.fail(
+                    "loop kept sleeping after the window shrank below the "
+                    "elapsed time (next_run_at must move into the past and fire)"
+                )
+
+        def fake_round(*, manual=False):
+            rounds.append(sse2json._patrol_probe_schedule["interval_s"])
+            raise KeyboardInterrupt
+
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(
+            sse2json, "_request_runtime", return_value=rt
+        ), patch.object(sse2json.time, "sleep", side_effect=fake_sleep), patch.object(
+            sse2json, "_patrol_health_check_round", side_effect=fake_round
+        ):
+            with self.assertRaises(KeyboardInterrupt):
+                sse2json._patrol_checker_loop()
+
+        self.assertEqual(
+            rounds,
+            [0.0],
+            "round must fire immediately once the recomputed next_run_at "
+            "lands in the past",
+        )
+
+    def test_interval_stays_inside_configured_window(self):
+        self._reset_schedule()
+        cfg = _idle_cfg("alpha", 1)
+        cfg["health_monitor"] = {
+            "patrol_interval_min_s": 600,
+            "patrol_interval_max_s": 1200,
+        }
+        router = UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+        rt = sse2json.RuntimeContext(cfg, router, object(), obs, sse2json.AUDIT)
+
+        calls = {"sleep": 0}
+
+        def fake_sleep(seconds):
+            _ = seconds
+            calls["sleep"] += 1
+            if calls["sleep"] >= 3:
+                raise KeyboardInterrupt
+
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(
+            sse2json, "_request_runtime", return_value=rt
+        ), patch.object(sse2json.time, "sleep", side_effect=fake_sleep):
+            with self.assertRaises(KeyboardInterrupt):
+                sse2json._patrol_checker_loop()
+
+        interval = sse2json._patrol_probe_schedule["interval_s"]
+        self.assertGreaterEqual(interval, 600)
+        self.assertLessEqual(interval, 1200)
+        self.assertGreater(calls["sleep"], 0)
+
+
 if __name__ == "__main__":
     unittest.main()

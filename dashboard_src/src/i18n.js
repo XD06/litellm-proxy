@@ -963,7 +963,7 @@ const dict = {
   "cfg.hm_cmp_purpose_patrol": { en: "Revive cooled/disabled keys, find dead keys", zh: "恢复冷却/禁用的密钥，发现失效密钥" },
   "cfg.hm_cmp_cadence": { en: "Cadence", zh: "节奏" },
   "cfg.hm_cmp_cadence_idle": { en: "Adaptive 30s – 6h, only while idle", zh: "自适应 30 秒~6 小时，仅空闲时" },
-  "cfg.hm_cmp_cadence_patrol": { en: "Fixed 6-12h random (configurable)", zh: "固定 6-12 小时随机（可配置）" },
+  "cfg.hm_cmp_cadence_patrol": { en: "Random within interval window (default 6-12h, editable; changes apply to the running cycle)", zh: "间隔窗口内随机（默认 6-12 小时，可改；修改对当前周期实时生效）" },
   "cfg.hm_cmp_scope": { en: "Scope", zh: "范围" },
   "cfg.hm_cmp_scope_idle": { en: "Priority order, stops at first healthy provider", zh: "按优先级，测到第一个健康即停" },
   "cfg.hm_cmp_scope_patrol": { en: "Every provider × every key", zh: "所有供应商 × 所有密钥" },

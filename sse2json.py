@@ -2021,50 +2021,75 @@ def _patrol_health_check_round(*, manual: bool = False) -> None:
         _patrol_probe_schedule["last_summary"] = f"error: {type(e).__name__}: {e}"
 
 
+def _patrol_checker_loop() -> None:
+    """Patrol daemon body: wait until a round is due, run it, repeat.
+
+    The wait re-reads `health_monitor` every 30s chunk, so changing the
+    interval (or toggling the checker) takes effect on the CURRENT cycle —
+    including shrinking the window below the already-elapsed time, which
+    pulls `next_run_at` into the past and fires the round immediately.
+
+    The random jitter is rolled ONCE per cycle as a fraction of the
+    configured [min, max] window: `interval = min + fraction * (max - min)`.
+    A mid-cycle config change therefore remaps the same spot into the new
+    window (e.g. 9h into a 6-12h roll becomes ~2h when the window moves to
+    3-6h) instead of re-rolling and making the countdown jump around.
+
+    A short retry after an interrupted/postponed round keeps its ~10min
+    interval regardless of window changes.
+    """
+    fraction = None        # this cycle's random spot in the [min, max] window
+    short_interval = None  # fixed ~10min retry after interrupted/postponed
+    cycle_start = 0.0
+    while True:
+        try:
+            rt = _request_runtime()
+            hm = _health_monitor_cfg(rt.config)
+            if not hm.get("patrol_check_enabled", True):
+                _patrol_probe_schedule["next_run_at"] = 0.0
+                time.sleep(60)
+                continue
+            try:
+                pmin = float(hm.get("patrol_interval_min_s", _PATROL_INTERVAL_S[0]))
+                pmax = float(hm.get("patrol_interval_max_s", _PATROL_INTERVAL_S[1]))
+            except (TypeError, ValueError):
+                pmin, pmax = _PATROL_INTERVAL_S
+            pmin, pmax = min(pmin, pmax), max(pmin, pmax)
+            if fraction is None:
+                fraction = random.uniform(0.0, 1.0)
+                cycle_start = time.time()
+                if _patrol_probe_schedule.get("last_result") in ("interrupted", "postponed"):
+                    short_interval = _PATROL_RESCHEDULE_AFTER_INTERRUPT_S + random.uniform(0, 300)
+            interval = short_interval if short_interval is not None else pmin + fraction * (pmax - pmin)
+            due = cycle_start + interval
+            _patrol_probe_schedule["interval_s"] = interval
+            _patrol_probe_schedule["next_run_at"] = due
+            remaining = due - time.time()
+            if remaining <= 0:
+                _patrol_health_check_round()
+                # Fresh cycle: re-roll the fraction and clear the short retry.
+                fraction = None
+                short_interval = None
+                continue
+            # Chunked sleep so config changes are noticed within one chunk
+            # and shutdown is not blocked for hours.
+            time.sleep(min(remaining, 30))
+        except Exception:
+            # Never let the loop die.
+            time.sleep(60)
+
+
 def _start_patrol_health_checker() -> None:
     """Start the patrol health checker daemon thread.
 
-    Runs on a fixed 6-12h random interval, independent of the adaptive
-    idle checker's cadence.  The patrol does a full sweep of all
-    providers × keys to discover dead keys and trigger circuit breakers.
+    Runs on a random interval inside the configured
+    `patrol_interval_min_s`..`patrol_interval_max_s` window (default 6-12h),
+    independent of the adaptive idle checker's cadence.  The patrol does a
+    full sweep of all providers × keys to discover dead keys and trigger
+    circuit breakers.  Config changes to the interval take effect on the
+    running cycle within one 30s chunk (see _patrol_checker_loop).
     """
-
-    def _loop():
-        while True:
-            try:
-                rt = _request_runtime()
-                hm = _health_monitor_cfg(rt.config)
-                if not hm.get("patrol_check_enabled", True):
-                    _patrol_probe_schedule["next_run_at"] = 0.0
-                    time.sleep(60)
-                    continue
-                pmin = float(hm.get("patrol_interval_min_s", _PATROL_INTERVAL_S[0]))
-                pmax = float(hm.get("patrol_interval_max_s", _PATROL_INTERVAL_S[1]))
-                interval = random.uniform(min(pmin, pmax), max(pmin, pmax))
-                if _patrol_probe_schedule.get("last_result") in ("interrupted", "postponed"):
-                    # The previous round was cut short by real traffic (or
-                    # postponed at start because a request was in flight);
-                    # retry within minutes instead of waiting another full
-                    # 6-12h interval.
-                    interval = min(
-                        interval,
-                        _PATROL_RESCHEDULE_AFTER_INTERRUPT_S + random.uniform(0, 300),
-                    )
-                _patrol_probe_schedule["interval_s"] = interval
-                _patrol_probe_schedule["next_run_at"] = time.time() + interval
-                # Chunk the sleep so we can exit cleanly on shutdown.
-                remaining = interval
-                while remaining > 0:
-                    chunk = min(remaining, 60)
-                    time.sleep(chunk)
-                    remaining -= chunk
-
-                _patrol_health_check_round()
-            except Exception:
-                # Never let the loop die.
-                time.sleep(60)
-
-    t = threading.Thread(target=_loop, name="patrol-health-checker", daemon=True)
+    t = threading.Thread(target=_patrol_checker_loop, name="patrol-health-checker", daemon=True)
     t.start()
 
 

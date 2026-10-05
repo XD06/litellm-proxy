@@ -38,7 +38,7 @@ LiteLLM Proxy（入口 `sse2json.py`，默认端口 4894）是位于 LLM 客户�
 
 ### 2. 巡检（Patrol Health Checker）
 
-- **固定 6-12h 随机间隔**（历史文档写的 1-3h 已过期），全量扫描每个 provider × 每个 key。
+- **固定 6-12h 随机间隔**（历史文档写的 1-3h 已过期），全量扫描每个 provider × 每个 key。间隔 = `patrol_interval_min_s + r × (patrol_interval_max_s - min)`（r 为本轮掷定的 0-1 比例）；**配置修改对当前周期实时生效**：巡检线程每 30s 重读 `health_monitor` 并按同一比例重映射 `next_run_at`（如 6-12h 已跑 9h 时改成 3-6h，则按比例折算 ~2h 后运行），窗口改小到已过时间以内时**立即触发本轮**（`_patrol_checker_loop`）。
 - **流式探测省 token**：`stream=true, max_tokens=16`（payload 为 `"Hi"`，历史教训：空 content 会被上游 400 误伤健康 key），读首个非 `[DONE]` 的 `data:` 事件即关连接。
 - **多候选模型**（`_collect_patrol_models`，来源优先级 key_recent_success → recent_success → capability → manual_map → static → route，上限 5 个），任一成功即健康；provider 级无候选模型时现场拉取 `/v1/models` 补救；单 key 无候选模型时记录 `skipped: no probe model` 事件（不再静默漏测）。
 - **探测间 3-5s 随机延迟**（`patrol_delay_s` + `patrol_delay_jitter_s`），跨 provider 也延迟。
