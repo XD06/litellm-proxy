@@ -4755,6 +4755,13 @@ tr.clickable:hover {
   min-width: 0;
 }
 
+/* A client-key stat joins the row: widen the band from 4 to 5 stat columns.
+   The paired selector must outrank "#detailDrawer .request-result-band". */
+.request-result-band.has-client-key,
+#detailDrawer .request-result-band.has-client-key {
+  grid-template-columns: auto repeat(5, minmax(0, 1fr));
+}
+
 .request-result-band span,
 .request-result-band strong {
   display: block;
@@ -5042,6 +5049,11 @@ tr.clickable:hover {
   .request-result-band {
     grid-template-columns: auto repeat(2, minmax(0, 1fr));
   }
+
+  .request-result-band.has-client-key,
+  #detailDrawer .request-result-band.has-client-key {
+    grid-template-columns: auto repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 760px) {
@@ -5059,6 +5071,11 @@ tr.clickable:hover {
   }
 
   .request-result-band {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .request-result-band.has-client-key,
+  #detailDrawer .request-result-band.has-client-key {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -11733,10 +11750,10 @@ body {
 }
 
 #providersView .provider-toolbar {
-  border: 1px solid var(--line-soft);
-  border-radius: 12px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 16px;
   background: #fff;
-  box-shadow: none;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.03), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
 }
 
 #providersView .provider-compatibility-toolbar {
@@ -11756,13 +11773,18 @@ body {
 
 #providersView .provider-toolbar .control {
   min-height: 36px;
-  border-color: color-mix(in srgb, var(--line-strong) 74%, var(--line));
-  background: rgba(255, 255, 255, 0.78);
+  border-color: #e4e4e7;
+  background: #fafafa;
 }
 
 #providersView .provider-toolbar .control:focus-visible {
-  border-color: color-mix(in srgb, var(--info) 56%, var(--line));
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  border-color: #a1a1aa;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(24, 24, 27, 0.06);
+}
+
+#providersView .provider-toolbar #providerSearchInput {
+  font-family: var(--mono);
 }
 
 #providersView .provider-toolbar #clearProviderFiltersButton {
@@ -16725,10 +16747,11 @@ body {
 
 #providersView .provider-toolbar {
   grid-template-columns: minmax(240px, 1.6fr) repeat(3, minmax(130px, 0.75fr));
-  gap: 9px;
+  gap: 14px;
   align-items: center;
+  min-height: 60px;
   margin: 0;
-  padding: 12px 14px;
+  padding: 10px 12px;
 }
 
 #providersView .provider-toolbar .field {
@@ -16741,7 +16764,7 @@ body {
 
 #providersView .provider-toolbar .control,
 #providersView .provider-toolbar #clearProviderFiltersButton {
-  min-height: 30px;
+  min-height: 36px;
   border-radius: 8px;
   font-size: 11px;
 }
@@ -29613,10 +29636,25 @@ body.is-auth-checking {
   height: 14px;
 }
 
-#settingsKeysPanel .cell-actions .button {
-  min-height: 24px;
-  padding: 2px 7px;
-  font-size: 11.5px;
+#settingsKeysPanel .cell-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+#settingsKeysPanel .cell-actions .button.icon-action {
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
+  min-height: 26px;
+  border-radius: 7px;
+  padding: 0;
+}
+
+#settingsKeysPanel .cell-actions .icon-svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* Settings pricing catalog: rank column */

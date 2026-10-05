@@ -959,6 +959,10 @@
 				en: "In 90 days",
 				zh: "90 天后失效"
 			},
+			"settings.keys.f_expires_keep": {
+				en: "Keep current ({days}d left)",
+				zh: "保留当前（剩 {days} 天）"
+			},
 			"settings.keys.submit": {
 				en: "Generate & Activate",
 				zh: "生成并激活"
@@ -1268,16 +1272,48 @@
 				zh: "控制台安全"
 			},
 			"settings.ops.security_desc": {
-				en: "Admin access and trusted-proxy posture (read-only here).",
-				zh: "管理访问与可信反代策略（此处只读）。"
+				en: "Admin access and trusted-proxy posture.",
+				zh: "管理访问与可信反代策略。"
 			},
 			"settings.ops.security_admin_key": {
 				en: "Admin key",
 				zh: "管理员密钥"
 			},
 			"settings.ops.security_admin_key_hint": {
-				en: "Masked by the API. Rotate by editing config.json server.admin_key.",
-				zh: "接口已脱敏；轮换需修改 config.json 的 server.admin_key。"
+				en: "Masked by the API. Updating the key takes effect immediately; other sessions must re-login with the new key. Stored in the runtime overlay, config.json is never rewritten.",
+				zh: "接口已脱敏。更新后立即生效，其他会话需用新密钥重新登录；修改写入运行时覆盖层，config.json 永不改写。"
+			},
+			"settings.ops.security_new_key": {
+				en: "New admin key",
+				zh: "新管理员密钥"
+			},
+			"settings.ops.security_confirm_key": {
+				en: "Confirm new key",
+				zh: "确认新密钥"
+			},
+			"settings.ops.security_new_key_hint": {
+				en: "6–128 characters, no spaces. Takes effect immediately.",
+				zh: "6–128 位，不含空格，保存后立即生效。"
+			},
+			"settings.ops.security_change": {
+				en: "Update Admin Key",
+				zh: "更新管理员密钥"
+			},
+			"settings.ops.security_key_mismatch": {
+				en: "The two entries do not match.",
+				zh: "两次输入不一致。"
+			},
+			"settings.ops.security_key_confirm_title": {
+				en: "Update admin key",
+				zh: "更新管理员密钥"
+			},
+			"settings.ops.security_key_confirm_msg": {
+				en: "The new key takes effect immediately and this console switches to it automatically. Sessions holding the old key will be logged out. Continue?",
+				zh: "新密钥立即生效，本控制台将自动切换到新密钥；持有旧密钥的其他会话将被登出。确认继续？"
+			},
+			"settings.ops.security_key_changed": {
+				en: "Admin key updated; this session now uses the new key.",
+				zh: "管理员密钥已更新，本会话已切换到新密钥。"
 			},
 			"settings.ops.security_trusted": {
 				en: "Trusted proxy CIDRs",
@@ -5999,6 +6035,10 @@
 				en: "IP source",
 				zh: "IP 来源"
 			},
+			"req.meta_client_key": {
+				en: "Client Key",
+				zh: "客户端密钥"
+			},
 			"req.meta_size": {
 				en: "Request size",
 				zh: "请求大小"
@@ -9115,18 +9155,23 @@
 			else if (tabName === "pricing") loadSettingsPricingCatalog();
 		}
 		function renderSettings() {
+			loadClientKeys();
 			renderSettingsKeys();
 			renderSettingsPricing();
 			renderSettingsOps();
 			renderKeyDrawer();
 		}
+		var CLIENT_KEYS_REFRESH_MS = 5e3;
+		var _clientKeysLoadedAt = 0;
 		async function loadClientKeys() {
-			if (_clientKeysLoadInFlight || state.clientKeysAvailable === true) return;
+			if (_clientKeysLoadInFlight) return;
+			if (state.clientKeysAvailable === true && Date.now() - _clientKeysLoadedAt < CLIENT_KEYS_REFRESH_MS) return;
 			_clientKeysLoadInFlight = true;
 			try {
 				const data = await apiGet("/-/admin/client-keys");
 				state.data.clientKeys = Array.isArray(data?.keys) ? data.keys : [];
 				state.clientKeysAvailable = true;
+				_clientKeysLoadedAt = Date.now();
 			} catch (err) {
 				state.data.clientKeys = [];
 				state.clientKeysAvailable = false;
@@ -9234,9 +9279,9 @@
         <td class="mono">${rpm ? `${escapeHtml(String(rpm))} RPM` : "—"}</td>
         <td>${status}</td>
         <td class="cell-actions">
-          <button class="button secondary" type="button" data-edit-key-id="${escapeHtml(String(entry.id ?? ""))}">${escapeHtml(t("settings.keys.edit"))}</button>
-          <button class="button secondary" type="button" data-reset-key-id="${escapeHtml(String(entry.id ?? ""))}" title="${escapeHtml(t("settings.keys.reset_usage"))}">${iconSvg("rotate")}</button>
-          <button class="button secondary settings-danger-btn" type="button" data-delete-key-id="${escapeHtml(String(entry.id ?? ""))}" title="${escapeHtml(t("settings.keys.delete"))}">${iconSvg("trash")}</button>
+          <button class="button secondary icon-action" type="button" data-edit-key-id="${escapeHtml(String(entry.id ?? ""))}" title="${escapeHtml(t("settings.keys.edit"))}" aria-label="${escapeHtml(t("settings.keys.edit"))}">${iconSvg("pencil")}</button>
+          <button class="button secondary icon-action" type="button" data-reset-key-id="${escapeHtml(String(entry.id ?? ""))}" title="${escapeHtml(t("settings.keys.reset_usage"))}" aria-label="${escapeHtml(t("settings.keys.reset_usage"))}">${iconSvg("rotate")}</button>
+          <button class="button secondary icon-action settings-danger-btn" type="button" data-delete-key-id="${escapeHtml(String(entry.id ?? ""))}" title="${escapeHtml(t("settings.keys.delete"))}" aria-label="${escapeHtml(t("settings.keys.delete"))}">${iconSvg("trash")}</button>
         </td>
       </tr>`;
 		}
@@ -9622,6 +9667,20 @@
         <div class="settings-kv"><span>${escapeHtml(t("settings.ops.security_headers"))}</span><strong class="mono">${escapeHtml(headers || t("settings.ops.not_set"))}</strong></div>
         <div class="settings-kv"><span>${escapeHtml(t("settings.ops.security_query_key"))}</span><strong>${server.allow_query_admin_key ? "On" : "Off"}</strong></div>
       </div>
+      <form id="settingsOpsAdminKeyForm" class="settings-ops-form">
+        <label class="field">
+          <span>${escapeHtml(t("settings.ops.security_new_key"))}</span>
+          <input class="control mono" name="admin_key" type="password" autocomplete="new-password" placeholder="••••••••" />
+        </label>
+        <label class="field">
+          <span>${escapeHtml(t("settings.ops.security_confirm_key"))}</span>
+          <input class="control mono" name="admin_key_confirm" type="password" autocomplete="new-password" placeholder="••••••••" />
+          <small>${escapeHtml(t("settings.ops.security_new_key_hint"))}</small>
+        </label>
+        <div class="settings-ops-form-actions">
+          <button class="button primary" type="submit">${escapeHtml(t("settings.ops.security_change"))}</button>
+        </div>
+      </form>
       <p class="settings-ops-note">${escapeHtml(t("settings.ops.security_admin_key_hint"))}</p>`, "security");
 		}
 		function bindSettingsOpsForms(target) {
@@ -9667,6 +9726,38 @@
 						},
 						drawer: false
 					});
+				});
+			}
+			const adminKeyForm = target.querySelector("#settingsOpsAdminKeyForm");
+			if (adminKeyForm && !adminKeyForm.dataset.boundSettingsOpsAdminKey) {
+				adminKeyForm.dataset.boundSettingsOpsAdminKey = "1";
+				adminKeyForm.addEventListener("submit", async (event) => {
+					event.preventDefault();
+					const newKey = String(adminKeyForm.elements.admin_key.value || "").trim();
+					const confirmKey = String(adminKeyForm.elements.admin_key_confirm.value || "").trim();
+					if (!newKey) {
+						adminKeyForm.elements.admin_key?.focus();
+						return;
+					}
+					if (newKey !== confirmKey) {
+						setNotice(t("settings.ops.security_key_mismatch"), "bad");
+						adminKeyForm.elements.admin_key_confirm?.focus();
+						return;
+					}
+					if (!await openConfirmDialog({
+						title: t("settings.ops.security_key_confirm_title"),
+						message: t("settings.ops.security_key_confirm_msg"),
+						acceptLabel: t("settings.ops.security_change")
+					})) return;
+					if (await runConfigMutation(adminKeyForm, async () => {
+						const result = await apiPatch("/-/admin/server/admin-key", { admin_key: newKey });
+						state.adminKey = newKey;
+						try {
+							localStorage.setItem("proxyConsoleAdminKey", newKey);
+						} catch (_err) {}
+						adminKeyForm.reset();
+						return result;
+					}, null)) setNotice(t("settings.ops.security_key_changed"), "ok", { key: "mutation:config" });
 				});
 			}
 			target.querySelectorAll("[data-settings-export]").forEach((button) => {
@@ -9792,6 +9883,8 @@
 			if (!force && shouldPreserveContainer("#keyDrawerBody")) return;
 			const editing = state.settingsKeyEditRecord || {};
 			const modelsValue = editing.models === "*" || !editing.models ? "" : Array.isArray(editing.models) ? editing.models.join(", ") : String(editing.models);
+			const editingExpiresDays = state.settingsKeyDrawerMode === "edit" && Number(editing.expires_at || 0) > 0 ? Math.max(1, Math.ceil((Number(editing.expires_at) * 1e3 - Date.now()) / 864e5)) : 0;
+			const keepExpiryOption = editingExpiresDays ? `<option value="keep" selected>${escapeHtml(t("settings.keys.f_expires_keep", { days: editingExpiresDays }))}</option>` : "";
 			updateDOM(body, `
       <form id="settingsKeyForm" class="settings-key-form">
         <label class="field">
@@ -9815,7 +9908,8 @@
         <label class="field">
           <span>${escapeHtml(t("settings.keys.f_expires"))}</span>
           <select class="control" name="expires">
-            <option value="never">${escapeHtml(t("settings.keys.f_expires_never"))}</option>
+            ${keepExpiryOption}
+            <option value="never" ${keepExpiryOption ? "" : "selected"}>${escapeHtml(t("settings.keys.f_expires_never"))}</option>
             <option value="30d">${escapeHtml(t("settings.keys.f_expires_30d"))}</option>
             <option value="90d">${escapeHtml(t("settings.keys.f_expires_90d"))}</option>
           </select>
@@ -9832,12 +9926,13 @@
 					event.preventDefault();
 					if (state.settingsKeySubmitting) return;
 					const modelsRaw = String(form.elements.models.value || "").trim();
+					const expiresChoice = String(form.elements.expires.value || "never");
 					const payload = {
 						name: String(form.elements.name.value || "").trim(),
 						quota: String(form.elements.quota.value || "").trim(),
 						rpm: Number(form.elements.rpm.value || 0),
 						models: modelsRaw ? modelsRaw : "*",
-						expires: form.elements.expires.value
+						...expiresChoice === "keep" ? {} : { expires: expiresChoice }
 					};
 					if (!payload.name) return;
 					const submitButton = form.querySelector("button[type=\"submit\"]");
@@ -11612,7 +11707,7 @@
           ${pageKey === "providersPage" ? `
           <button class="button secondary icon-action" type="button" data-providers-clear-filters="1"
             title="${escapeHtml(t("prov.pagination_clear"))}"
-            aria-label="${escapeHtml(t("prov.pagination_clear"))}">${iconSvg("broom")}</button>` : ""}
+            aria-label="${escapeHtml(t("prov.pagination_clear"))}">${iconSvg("rotate-reset")}</button>` : ""}
         </div>
       </div>
     `;
@@ -13860,7 +13955,7 @@
 				"power": `<path d="M12 3v8"></path><path d="M17.7 6.3a8 8 0 1 1-11.4 0"></path>`,
 				"power-off": `<path d="M12 3v4"></path><path d="M6.3 6.3a8 8 0 0 0 11.4 11.4"></path><path d="M18.7 13.8a8 8 0 0 0-2.4-7.5"></path><path d="M4 4l16 16"></path>`,
 				rotate: `<path d="M20 11a8 8 0 1 0-2.3 5.7"></path><path d="M20 4v7h-7"></path>`,
-				broom: `<g transform="scale(.0234375)"><path fill="currentColor" stroke="currentColor" stroke-width="40" stroke-linejoin="round" stroke-linecap="round" d="M615.90666666 893.92c-6.2 0-13.64-1.24-19.84-4.96-3.72-1.24-8.68-2.48-12.4-4.96L164.54666666 627.32c-13.64-8.68-19.84-23.56-18.6-38.44 1.24-14.88 11.16-28.52 23.56-34.72 66.96-24.8 128.96-60.76 182.28-105.4 18.6-16.12 37.2-33.48 54.56-52.08l2.48-2.48c24.8-28.52 47.12-59.52 64.48-94.24 0-1.24 1.24-1.24 1.24-2.48 0 0 1.24-1.24 1.24-2.48s1.24-2.48 2.48-2.48c0 0 2.48-2.48 2.48-3.72 0 0 2.48-1.24 2.48-2.48 0 0 2.48-2.48 3.72-2.48l1.24-1.24s1.24-1.24 2.48-1.24c0 0 1.24-1.24 2.48-1.24 0 0 1.24 0 1.24-1.24 0 0 1.24 0 1.24-1.24 1.24 0 2.48-1.24 2.48-1.24h21.08c1.24 0 2.48 0 3.72 1.24h2.48s1.24 1.24 2.48 1.24l109.12 54.56 104.16-189.72c8.68-17.36 32.24-21.08 54.56-9.92 22.32 11.16 33.48 33.48 24.8 50.84l-104.16 189.72 96.72 48.36c6.2 3.72 11.16 7.44 14.88 13.64 4.96 6.2 7.44 14.88 7.44 23.56-1.24 76.88-18.6 151.28-50.84 221.96-34.72 74.4-81.84 140.12-141.36 197.16-7.44 11.16-17.36 14.88-27.28 14.88zM452.22666666 767.44l147.56 90.52c1.24 1.24 2.48 1.24 3.72 1.24 2.48 0 4.96 1.24 6.2 2.48 3.72 2.48 8.68 2.48 12.4-1.24 55.8-54.56 101.68-117.8 135.16-188.48 31-65.72 47.12-136.4 48.36-209.56 0-2.48 0-3.72-1.24-4.96l-1.24-1.24-3.72-3.72-110.36-55.8c-3.72-1.24-6.2-4.96-7.44-8.68-1.24-3.72-1.24-7.44 1.24-11.16l111.6-203.36c0-1.24-3.72-6.2-11.16-11.16-7.44-3.72-14.88-2.48-16.12-2.48l-111.6 203.36c-3.72 7.44-12.4 9.92-19.84 6.2l-121.52-60.76h-1.24H509.26666666s-1.24 0-1.24 1.24h-1.24c-1.24 0-1.24 1.24-2.48 1.24H503.06666666s0 1.24-1.24 1.24c0 0 0 1.24-1.24 1.24v1.24c-18.6 35.96-42.16 69.44-69.44 100.44l-1.24 1.24c-17.36 19.84-37.2 38.44-58.28 55.8-57.04 47.12-121.52 84.32-189.72 110.36-2.48 1.24-6.2 4.96-6.2 9.92s1.24 8.68 4.96 11.16l97.96 59.52 116.56-84.32 17.36 23.56-106.64 78.12 119.04 73.16 107.88-86.8 18.6 23.56-99.2 76.88z m-22.32-353.4z m70.68-100.44c0 1.24-1.24 1.24-1.24 1.24 0-1.24 0-1.24 1.24-1.24z m-1.24-7.44l3.72 2.48h1.24l-9.92-9.92 4.96 7.44z m9.92 1.24z m-4.96-7.44l1.24 3.72-2.48-9.92 1.24 6.2z m214.52 312.48l-260.4-148.8 14.88-26.04 260.4 148.8-14.88 26.04z"></path></g>`,
+				"rotate-reset": `<g transform="scale(.0234375)"><path fill="currentColor" d="M895.701333 391.424h-172.629333a39.850667 39.850667 0 1 1 0-79.701333h69.333333a344.490667 344.490667 0 0 0-281.813333-146.048 345.258667 345.258667 0 1 0 345.301333 345.258666 39.850667 39.850667 0 1 1 79.658667 0c0 234.666667-190.293333 424.96-424.96 424.96-234.666667 0-424.96-190.293333-424.96-424.96 0-234.666667 190.293333-424.96 424.96-424.96a423.765333 423.765333 0 0 1 345.301333 177.834667V192.213333a39.850667 39.850667 0 1 1 79.658667 0V351.573333a39.850667 39.850667 0 0 1-39.850667 39.850667z"></path></g>`,
 				trash: `<path d="M4 7h16"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M6 7l1 14h10l1-14"></path><path d="M9 7V4h6v3"></path>`,
 				check: `<path d="M5 12l4 4L19 6"></path>`,
 				"check-circle": `<circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path>`,
@@ -16566,15 +16661,17 @@
 			const firstEvent = firstByteMsFromRequest(detail);
 			const outcome = summary.outcome || "unknown";
 			const routeTone = routeOutcomeTone(outcome);
+			const clientKeyTitle = [String(detail.client_key_name || "").trim(), String(detail.client_key_masked || "").trim()].filter(Boolean).join(" · ");
 			el("drawerSubtitle").textContent = `${detail.request_id || "-"} / ${detail.state || "unknown"}`;
 			updateDOM(el("drawerBody"), `
-      <section class="request-result-band tone-${escapeHtml(requestTone(detail))} outcome-${escapeHtml(routeTone)}">
+      <section class="request-result-band tone-${escapeHtml(requestTone(detail))} outcome-${escapeHtml(routeTone)}${clientKeyTitle ? " has-client-key" : ""}">
         <div class="request-result-status">
           ${statusBadge(detail.status || detail.state, detail.status_code || "")}
           <span class="request-detail-route-chip tone-${escapeHtml(routeTone)}">${iconSvg(routeOutcomeIcon(outcome))}${escapeHtml(routeOutcomeLabel(outcome))}</span>
         </div>
         <div class="request-result-stat">${iconSvg("boxes")}<span><small>${escapeHtml(t("req.col_model"))}</small><strong class="mono">${escapeHtml(detail.model || "-")}</strong></span></div>
         <div class="request-result-stat">${iconSvg("server")}<span><small>${escapeHtml(t("req.summary_final_provider"))}</small><strong>${escapeHtml(summary.final_provider || "-")}</strong></span></div>
+        ${clientKeyTitle ? `<div class="request-result-stat" title="${escapeHtml(clientKeyTitle)}">${iconSvg("key-round")}<span><small>${escapeHtml(t("req.meta_client_key"))}</small><strong>${escapeHtml(clientKeyTitle)}</strong></span></div>` : ""}
         <div class="request-result-stat">${iconSvg("clock")}<span><small>${escapeHtml(t("req.col_latency"))}</small><strong class="mono">${firstEvent ? escapeHtml(fmtCompactMs(firstEvent)) : "-"} / ${escapeHtml(fmtCompactMs(detail.duration_ms))}</strong></span></div>
         <div class="request-result-stat">${iconSvg("dollar")}<span><small>${escapeHtml(t("req.col_cost"))}</small>${renderCost({
 				...detail,
