@@ -17237,6 +17237,20 @@ body {
 
 /* Probe summary pairs with the footer: every card's bottom reads as one
    status + actions zone regardless of whether the activity strip renders. */
+#providersView .provider-kpi-card .provider-probe-summary-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: auto;
+  min-width: 0;
+}
+
+/* When the group wrapper is present it owns the bottom-pin; the chips
+   themselves must not each claim margin-top:auto. */
+#providersView .provider-kpi-card .provider-probe-summary-group .provider-probe-summary {
+  margin-top: 0;
+}
+
 #providersView .provider-kpi-card .provider-probe-summary {
   display: flex;
   align-items: center;

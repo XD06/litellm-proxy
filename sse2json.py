@@ -487,12 +487,17 @@ _idle_failed_round_streak = 0
 _patrol_probe_schedule = {
     "last_run_at": 0.0,         # epoch seconds of last patrol round start
     "last_run_duration_s": 0.0,  # how long the last round took
-    "last_result": "",           # "ok" | "partial" | "failed" | ""
+    "last_result": "",           # "ok" | "partial" | "failed" | "postponed" | "interrupted" | ""
     "last_summary": "",          # e.g. "3/5 keys healthy"
     "next_run_at": 0.0,          # epoch seconds of next scheduled run
     "interval_s": 0.0,           # the computed interval for this cycle
     "running": False,            # is a patrol round currently in progress?
     "manual_trigger": False,     # was the current run triggered manually?
+    # Resume cursor for interrupted rounds: {"provider": name, "key_index": n}
+    # marks the NEXT (provider, key) to visit. Rounds cut short by real
+    # traffic resume from here instead of restarting from the top, so
+    # providers late in the priority order still get swept.
+    "cursor": None,
 }
 
 # NH8: serializes the check-and-set of _patrol_probe_schedule["running"] in
@@ -1799,9 +1804,16 @@ def _patrol_health_check_round(*, manual: bool = False) -> None:
             in_flight = int(observability._counters.get("requests_in_flight") or 0)
         if in_flight > 0:
             _patrol_probe_schedule["running"] = False
-            _patrol_probe_schedule["last_result"] = "skipped"
-            _patrol_probe_schedule["last_summary"] = "skipped: request in flight"
+            # "postponed" (not "skipped"): the checker loop treats this like
+            # an interrupted round and retries in minutes. Previously this
+            # path rolled a fresh 6-12h interval, so on a proxy with
+            # near-constant traffic the patrol could go days without ever
+            # starting a round.
+            _patrol_probe_schedule["last_result"] = "postponed"
+            _patrol_probe_schedule["last_summary"] = "postponed: request in flight"
             _patrol_probe_schedule["last_run_duration_s"] = 0.0
+            _patrol_probe_schedule["interval_s"] = _PATROL_RESCHEDULE_AFTER_INTERRUPT_S
+            _patrol_probe_schedule["next_run_at"] = time.time() + _PATROL_RESCHEDULE_AFTER_INTERRUPT_S
             return
 
         providers_cfg = config.get("providers") or {}
@@ -1821,10 +1833,30 @@ def _patrol_health_check_round(*, manual: bool = False) -> None:
         if not provider_priorities:
             return
 
+        # Resume cursor: on automatic rounds, continue an interrupted sweep
+        # where it left off. A cursor whose provider has vanished from the
+        # config is discarded so a stale pointer can never wedge the sweep.
+        cursor = _patrol_probe_schedule.get("cursor") or {}
+        cursor_provider = str(cursor.get("provider") or "")
+        try:
+            cursor_key = int(cursor.get("key_index") or 0)
+        except (TypeError, ValueError):
+            cursor_key = 0
+        if cursor_provider and not any(name == cursor_provider for name, _p in provider_priorities):
+            cursor_provider = ""
+            cursor_key = 0
+        reached_cursor = not cursor_provider
+
         total_probes = 0
         total_ok = 0
 
         for provider_name, _priority in provider_priorities:
+            if not reached_cursor:
+                if provider_name != cursor_provider:
+                    continue
+                # This is the cursor provider: the sweep picks up here.
+                reached_cursor = True
+            start_key = cursor_key if provider_name == cursor_provider else 0
             pcfg = providers_cfg.get(provider_name) or {}
             keys = pcfg.get("keys") or []
             if not keys:
@@ -1882,7 +1914,7 @@ def _patrol_health_check_round(*, manual: bool = False) -> None:
                 })
                 continue
 
-            for key_index in range(len(keys)):
+            for key_index in range(start_key, len(keys)):
                 # Check if a real request arrived during our patrol — bail out.
                 with observability._lock:
                     in_flight = int(observability._counters.get("requests_in_flight") or 0)
@@ -1896,6 +1928,13 @@ def _patrol_health_check_round(*, manual: bool = False) -> None:
                     _patrol_probe_schedule["last_result"] = "interrupted"
                     _patrol_probe_schedule["last_summary"] = "interrupted: request in flight"
                     _patrol_probe_schedule["last_run_duration_s"] = round(time.time() - _round_start, 1)
+                    # Resume from this (provider, key) on the next round — the
+                    # cursor was updated after every completed probe, so keys
+                    # already swept are not re-probed.
+                    _patrol_probe_schedule["cursor"] = {
+                        "provider": provider_name,
+                        "key_index": key_index,
+                    }
                     # Reschedule soon — the checker loop honours this instead
                     # of rolling a fresh 6-12h interval (see
                     # _start_patrol_health_checker).
@@ -1918,6 +1957,20 @@ def _patrol_health_check_round(*, manual: bool = False) -> None:
                     provider_name, observability=observability, config=config, key_index=key_index
                 )
                 if not candidate_models:
+                    # Record the skip so the dashboard shows why this key got
+                    # no probe instead of silently leaving it uncovered.
+                    observability.record_health_probe({
+                        "provider": provider_name,
+                        "key_index": key_index,
+                        "idle_tier": "patrol",
+                        "outcome": "skipped",
+                        "reason": "no probe model",
+                        "action": "none",
+                    })
+                    _patrol_probe_schedule["cursor"] = {
+                        "provider": provider_name,
+                        "key_index": key_index + 1,
+                    }
                     continue
                 total_probes += 1
                 # Try each candidate model until one succeeds.
@@ -1938,12 +1991,19 @@ def _patrol_health_check_round(*, manual: bool = False) -> None:
                     # the provider might route different models differently.
                 if key_healthy:
                     total_ok += 1
+                _patrol_probe_schedule["cursor"] = {
+                    "provider": provider_name,
+                    "key_index": key_index + 1,
+                }
 
         print(f"[proxy] patrol round complete: {total_ok}/{total_probes} keys healthy", flush=True)
         _duration = time.time() - _round_start
         _patrol_probe_schedule["running"] = False
         _patrol_probe_schedule["last_run_duration_s"] = round(_duration, 1)
         _patrol_probe_schedule["last_summary"] = f"{total_ok}/{total_probes} keys healthy"
+        # Full sweep (up to the configured key list) finished — clear the
+        # resume cursor so the next round starts from the top.
+        _patrol_probe_schedule["cursor"] = None
         if total_probes == 0:
             _patrol_probe_schedule["last_result"] = "skipped"
         elif total_ok == total_probes:
@@ -1981,10 +2041,11 @@ def _start_patrol_health_checker() -> None:
                 pmin = float(hm.get("patrol_interval_min_s", _PATROL_INTERVAL_S[0]))
                 pmax = float(hm.get("patrol_interval_max_s", _PATROL_INTERVAL_S[1]))
                 interval = random.uniform(min(pmin, pmax), max(pmin, pmax))
-                if _patrol_probe_schedule.get("last_result") == "interrupted":
-                    # The previous round was cut short by real traffic (or the
-                    # round budget); retry within minutes instead of waiting
-                    # another full 6-12h interval.
+                if _patrol_probe_schedule.get("last_result") in ("interrupted", "postponed"):
+                    # The previous round was cut short by real traffic (or
+                    # postponed at start because a request was in flight);
+                    # retry within minutes instead of waiting another full
+                    # 6-12h interval.
                     interval = min(
                         interval,
                         _PATROL_RESCHEDULE_AFTER_INTERRUPT_S + random.uniform(0, 300),
@@ -2053,6 +2114,10 @@ def _patrol_schedule_snapshot() -> dict:
         "next_run_at": next_at,
         "next_run_in_s": max(0, int(next_at - now)) if next_at > 0 else 0,
         "interval_s": float(_patrol_probe_schedule.get("interval_s") or 0.0),
+        # Resume position for a round cut short by real traffic; None when
+        # the last sweep completed. Surfaced so the dashboard can explain
+        # why some providers have not been swept yet.
+        "cursor": _patrol_probe_schedule.get("cursor") if isinstance(_patrol_probe_schedule.get("cursor"), dict) else None,
     }
 
 

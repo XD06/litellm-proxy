@@ -5581,7 +5581,7 @@ import {
               <div class="provider-kpi-activity-cap"><span>${escapeHtml(t("prov.col_calls"))}</span><b>${escapeHtml(t("prov.activity_summary", { avg: fmtCompactMs(stripStats.avg), failed: fmtInt(stripStats.failed) }))}</b></div>
             </div>`
           : `<div class="provider-kpi-empty">${escapeHtml(isDisabled ? t("prov.empty_disabled") : t("prov.empty_idle"))}</div>`}
-        ${providerProbeSummary(view.activity.lastProbe, view.activity.probeCount24h, isDisabled)}
+        ${providerProbeSummary(view.activity, isDisabled)}
         <div class="provider-kpi-foot">
           <div class="provider-kpi-ops">
             <button class="provider-kpi-op${isDisabled ? "" : " danger"}" type="button" data-action-path="/providers/${encodeURIComponent(view.name)}/${isDisabled ? "enable" : "disable"}">${escapeHtml(t(isDisabled ? "prov.enable" : "prov.disable"))}</button>
@@ -5819,17 +5819,34 @@ import {
     return `${mm}/${dd} ${hh}:${mi}`;
   }
 
-  function providerProbeSummary(probe, probeCount24h, isDisabled = false) {
+  function providerProbeSummary(activity, isDisabled = false) {
     if (isDisabled) {
       return `<div class="provider-probe-summary empty"><span class="dot2 mute"></span><span>${escapeHtml(t("prov.probe_paused"))}</span></div>`;
     }
-    if (!probe) {
+    const bucket = activity || {};
+    const patrol = bucket.lastProbePatrol;
+    const readiness = bucket.lastProbeReadiness;
+    // One chip per checker (readiness vs patrol). A provider probed by both
+    // shows both — the two mechanisms have different scopes and cadences, so
+    // a single mixed chip could not say which checker produced the result.
+    const chips = [];
+    if (readiness) chips.push(probeChipHtml(readiness, "readiness", bucket.probeCount24hReadiness));
+    if (patrol) chips.push(probeChipHtml(patrol, "patrol", bucket.probeCount24hPatrol));
+    if (!chips.length) {
+      const legacy = bucket.lastProbe;
+      if (legacy) chips.push(probeChipHtml(legacy, String(legacy.idle_tier || "") === "patrol" ? "patrol" : "readiness", bucket.probeCount24h));
+    }
+    if (!chips.length) {
       return `<div class="provider-probe-summary empty" title="${escapeHtml(t("prov.probe_none_title"))}"><span class="dot2 mute"></span><span>${escapeHtml(t("prov.probe_none"))} · ${escapeHtml(t("prov.probe_waiting"))}</span></div>`;
     }
+    return `<div class="provider-probe-summary-group">${chips.join("")}</div>`;
+  }
+
+  function probeChipHtml(probe, tier, count24h) {
+    const isPatrol = tier === "patrol";
     const tone = probeTone(probe);
-    const isPatrol = String(probe.idle_tier || "") === "patrol";
     const baseLabel = tone === "ok" ? t("prov.probe_ok") : tone === "bad" ? t("prov.probe_failed") : t("prov.probe_observed");
-    const label = isPatrol ? `${t("prov.probe_patrol_prefix")}${baseLabel}` : baseLabel;
+    const label = `${isPatrol ? t("prov.probe_patrol_prefix") : t("prov.probe_readiness_prefix")}${baseLabel}`;
     const details = [];
     if (probe.http_status && tone === "bad") details.push(`${fmtInt(probe.http_status)}`);
     if (tone === "bad" && (probe.action === "cooldown" || probe.action === "reported_failure" || probe.error_type === "cooldown")) {
@@ -5837,12 +5854,13 @@ import {
     }
     if (probe.latency_ms != null && tone !== "bad") details.push(fmtCompactMs(probe.latency_ms));
     else if (probe.http_status && tone !== "bad") details.push(`HTTP ${fmtInt(probe.http_status)}`);
-    if (Number(probeCount24h) > 0) details.push(t("prov.probe_count_short", { count: fmtInt(probeCount24h) }));
+    if (Number(count24h) > 0) details.push(t("prov.probe_count_short", { count: fmtInt(count24h) }));
     const detail = details.join(" · ");
     const chipTitle = [probeReasonText(probe), probeActionText(probe.action)].filter(Boolean).join(" · ");
     const dotTone = tone === "ok" ? "" : tone === "bad" ? "bad" : "warn";
+    const tierTitle = isPatrol ? t("prov.tier_patrol_title") : t("prov.tier_readiness_title");
     return `
-      <div class="provider-probe-summary tone-${escapeHtml(tone)}${isPatrol ? " patrol-probe" : ""}" title="${escapeHtml(chipTitle)}">
+      <div class="provider-probe-summary tone-${escapeHtml(tone)}${isPatrol ? " patrol-probe" : " readiness-probe"}" title="${escapeHtml(tierTitle)}${chipTitle ? " — " + escapeHtml(chipTitle) : ""}">
         <span class="dot2 ${escapeHtml(dotTone)}"></span>
         <span>${escapeHtml(label)}</span>
         ${detail ? `<span class="provider-kpi-sep">·</span><small>${escapeHtml(detail)}</small>` : ""}
@@ -11896,6 +11914,12 @@ import {
           } else if (patrolState.last_result === "failed") {
             statusEl.textContent = "failed";
             statusEl.className = "hm-runtime-status bad";
+          } else if (patrolState.last_result === "postponed") {
+            statusEl.textContent = t("cfg.hm_status_postponed");
+            statusEl.className = "hm-runtime-status warn";
+          } else if (patrolState.last_result === "interrupted") {
+            statusEl.textContent = t("cfg.hm_status_interrupted");
+            statusEl.className = "hm-runtime-status warn";
           } else {
             statusEl.textContent = "idle";
             statusEl.className = "hm-runtime-status";
@@ -11913,10 +11937,17 @@ import {
         }
 
         if (resultEl) {
+          const cursor = patrolState.cursor && patrolState.cursor.provider
+            ? `${patrolState.cursor.provider}#${patrolState.cursor.key_index}`
+            : "";
           if (patrolState.last_summary) {
-            resultEl.textContent = patrolState.last_summary;
+            resultEl.textContent = cursor
+              ? `${patrolState.last_summary} · ${t("cfg.hm_resume_from", { target: cursor })}`
+              : patrolState.last_summary;
           } else if (patrolState.last_result === "skipped") {
             resultEl.textContent = "skipped";
+          } else if (cursor) {
+            resultEl.textContent = t("cfg.hm_resume_from", { target: cursor });
           } else {
             resultEl.textContent = "—";
           }

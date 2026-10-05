@@ -40,12 +40,12 @@ LiteLLM Proxy（入口 `sse2json.py`，默认端口 4894）是位于 LLM 客户�
 
 - **固定 6-12h 随机间隔**（历史文档写的 1-3h 已过期），全量扫描每个 provider × 每个 key。
 - **流式探测省 token**：`stream=true, max_tokens=16`（payload 为 `"Hi"`，历史教训：空 content 会被上游 400 误伤健康 key），读首个非 `[DONE]` 的 `data:` 事件即关连接。
-- **多候选模型**（`_collect_patrol_models`，来源优先级 recent_success → capability → manual_map → static → route，上限 5 个），任一成功即健康；无候选模型时现场拉取 `/v1/models` 补救。
+- **多候选模型**（`_collect_patrol_models`，来源优先级 key_recent_success → recent_success → capability → manual_map → static → route，上限 5 个），任一成功即健康；provider 级无候选模型时现场拉取 `/v1/models` 补救；单 key 无候选模型时记录 `skipped: no probe model` 事件（不再静默漏测）。
 - **探测间 3-5s 随机延迟**（`patrol_delay_s` + `patrol_delay_jitter_s`），跨 provider 也延迟。
-- **中断就近重排**：被真实请求打断的轮次在 ~10min 后重试（`_PATROL_RESCHEDULE_AFTER_INTERRUPT_S`），不再等下一个完整 6-12h 间隔——巡检是禁用 key 的主要恢复通道，不能被一个 in-flight 请求推迟半天。
-- **手动触发** `_trigger_patrol_now()`，`_PATROL_TRIGGER_LOCK` 防并发重叠。
+- **中断就近重排 + 断点续扫**：被真实请求打断的轮次在 ~10min 后重试（`_PATROL_RESCHEDULE_AFTER_INTERRUPT_S`），不再等下一个完整 6-12h 间隔——巡检是禁用 key 的主要恢复通道，不能被一个 in-flight 请求推迟半天。重试轮次从**续扫游标**（`_patrol_probe_schedule.cursor = {provider, key_index}`，每完成一个 key 前进一次）继续，而不是从最高优先级 provider 重新开始——否则高频流量下排在队尾的供应商可能长期轮不到；整轮扫完游标清除，游标指向的 provider 被移除时游标作废。轮次开始时遇真实请求在途同样标记 `postponed`（~10min 后重试），不再整轮跳过并等满 6-12h。
+- **手动触发** `_trigger_patrol_now()`，`_PATROL_TRIGGER_LOCK` 防并发重叠；有续扫游标时手动轮次同样从断点继续（扫完自动清零，重新获得完整覆盖）。
 - 每 provider 可配 `skip_patrol_probe`（预检对应 `skip_idle_probe`）。
-- 状态：`_patrol_probe_schedule = {last_run_at, last_run_duration_s, last_result, last_summary, next_run_at, interval_s, running, manual_trigger}`。
+- 状态：`_patrol_probe_schedule = {last_run_at, last_run_duration_s, last_result, last_summary, next_run_at, interval_s, running, manual_trigger, cursor}`；`last_result ∈ {ok, partial, failed, skipped, interrupted, postponed}`。
 
 ### 3. 健康分数更新器（算分器，非探测器）
 
@@ -70,9 +70,11 @@ LiteLLM Proxy（入口 `sse2json.py`，默认端口 4894）是位于 LLM 客户�
   - `should_apply_failure`：同一 scope（provider+key+model+format）**连续窗口内 2 次失败**才上报 router；失败计数带 **600s 时间衰减**（`failure_decay_s`，陈旧证据不再武装处罚）；`key_invalid`/`quota_or_balance` 一次即上报。
 - **HTTP 错误**走 `_probe_error_type` 分类（401/403→key_invalid、429→rate_limited、402→quota_or_balance、5xx→server_error、4xx→client_error），按 `scheduler_policy.failure_policy_for_error_type` 冷却；模型级 404 只记录不惩罚 key。
 
-### 探测压力可见性
+### 探测压力可见性与记录保留
 
-- `observability` 聚合每 provider 的 `probeCount24h`（24h 探测次数，受探测事件 deque 上限约束，是下界），控制台 provider 卡片的探测摘要 chip 会显示。
+- **探测事件持久化**：`record_health_probe` 除写入内存 deque（默认 200 条，全 provider 共享，重启即失）外，同步落库 SQLite `probe_events` 表（`history_store.py`，与请求历史同库、同 `retention_days` 剪枝；history 关闭时自动回退纯内存）。理由：巡检间隔 6-12h，200 条全局环形队列在高探测压力下数小时即翻转，旧记录几乎必然在下轮巡检前消失——"被检测过但没有记录"即由此而来。
+- `observability` 聚合每 provider 的探测摘要（控制台 provider 卡片探测摘要 chip 消费）：`probeCount24h`（24h 探测总数，SQLite 为准）+ `probeCount24hPatrol/probeCount24hReadiness`（分层计数）+ `lastProbePatrol/lastProbeReadiness`（各检测来源最近一次事件）。provider 卡片因此按来源拆成两个徽标（预检 / 巡检），各带自己的 24h 次数。
+- provider 抽屉的活动面板探测记录（`probeEvents`）合并 SQLite 历史行，不再受 deque 翻转影响。
 - 巡检轮次结果 `X/Y keys healthy` 同时是本轮探测请求数。
 
 ## 数据流
@@ -88,16 +90,16 @@ RuntimeContext（router / observability / upstream_client / config）
    │  ProbeCoordinator 门控（2 连击 + 时间衰减 + 真实请求让路）
    │  observability.record_health_probe() 记录事件
    ▼
-observability（探测事件 deque + probeCount24h + provider_health_scores）
+observability（探测事件 deque + SQLite probe_events + 分层 probeCount24h + provider_health_scores）
    │  router.update_health_scores() 喂给 auto 路由
    │  Admin API 读取
    ▼
-Dashboard（预检/巡检运行时卡 · 健康分数环 · 手动触发 · 配置表单 · 对照表）
+Dashboard（预检/巡检运行时卡 · 健康分数环 · 手动触发 · 配置表单 · 对照表 · 概览预检/巡检双徽标）
 ```
 
 ## Admin API 端点（`admin_routes.py`，`/-/admin/*`）
 
-- `GET /-/admin/metrics` — 附带 `idle_state`（tier + 下次探测稳定倒计时）+ `patrol_state`
+- `GET /-/admin/metrics` — 附带 `idle_state`（tier + 下次探测稳定倒计时）+ `patrol_state`（含 `cursor` 续扫游标，非空表示上一轮被请求打断、下一轮将从该 (provider, key) 继续）
 - `GET /-/admin/health/scores` — provider 健康分数（0-100 + grade）
 - `POST /-/admin/health/patrol/trigger` — 手动触发巡检
 - `POST /-/admin/config/health-monitor` — 更新 health_monitor 配置（热生效）

@@ -569,5 +569,200 @@ class PerKeyCatalogProbeTests(unittest.TestCase):
             self.assertEqual(captured["payload"]["model"], "beta-model-raw")
 
 
+class _PatrolScheduleReset:
+    def _reset_schedule(self):
+        sse2json._patrol_probe_schedule.update(
+            {
+                "last_result": "",
+                "last_summary": "",
+                "running": False,
+                "cursor": None,
+                "next_run_at": 0.0,
+                "interval_s": 0.0,
+            }
+        )
+
+
+class PatrolPostponedTests(_PatrolScheduleReset, unittest.TestCase):
+    """A patrol round postponed at start (traffic in flight) retries soon."""
+
+    def test_in_flight_at_round_start_postpones_instead_of_full_interval(self):
+        self._reset_schedule()
+        cfg = _idle_cfg("alpha", 1)
+        router = UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+        with obs._lock:
+            obs._counters["requests_in_flight"] = 1
+
+        rt = sse2json.RuntimeContext(cfg, router, object(), obs, sse2json.AUDIT)
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(
+            sse2json, "PROBE_COORDINATOR", _CoordinatorStub()
+        ), patch.object(sse2json, "_request_runtime", return_value=rt):
+            sse2json._patrol_health_check_round()
+
+        schedule = sse2json._patrol_probe_schedule
+        self.assertEqual(schedule["last_result"], "postponed")
+        self.assertFalse(schedule["running"])
+        remaining = schedule["next_run_at"] - time.time()
+        self.assertGreater(remaining, 0)
+        self.assertLessEqual(
+            remaining,
+            sse2json._PATROL_RESCHEDULE_AFTER_INTERRUPT_S + 1,
+            "postponed patrol must retry within minutes, not wait 6-12h",
+        )
+
+
+class PatrolCursorResumeTests(_PatrolScheduleReset, unittest.TestCase):
+    """Interrupted rounds resume from the cursor instead of restarting."""
+
+    def _two_provider_cfg(self):
+        cfg = {
+            "server": {"admin_key": "admin-secret"},
+            "routing": {"provider_select": "priority_failover"},
+            "health_monitor": {"patrol_delay_s": 0, "patrol_delay_jitter_s": 0},
+            "models": {
+                "provider_model_capabilities": {
+                    "alpha": {
+                        "status": "ok",
+                        "models": ["alpha-model"],
+                        "canonical_map": {"alpha-model": "alpha-model"},
+                        "formats": ["chat_completions"],
+                    },
+                    "beta": {
+                        "status": "ok",
+                        "models": ["beta-model"],
+                        "canonical_map": {"beta-model": "beta-model"},
+                        "formats": ["chat_completions"],
+                    },
+                },
+            },
+            "providers": {
+                "alpha": _provider_cfg("alpha", 2),
+                "beta": _provider_cfg("beta", 1),
+            },
+        }
+        return cfg
+
+    def test_interrupted_round_resumes_from_cursor(self):
+        self._reset_schedule()
+        cfg = self._two_provider_cfg()
+        router = UpstreamRouter(cfg)
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+
+        class InterruptAfterFirstProbe:
+            def open_stream(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None, first_byte_timeout_s=None):
+                # A real request lands during the first probe → the next key
+                # iteration bails with cursor=(alpha, 1).
+                with obs._lock:
+                    obs._counters["requests_in_flight"] = 1
+                return _OkStream()
+
+        rt = sse2json.RuntimeContext(cfg, router, InterruptAfterFirstProbe(), obs, sse2json.AUDIT)
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(
+            sse2json, "PROBE_COORDINATOR", _CoordinatorStub()
+        ), patch.object(sse2json, "_request_runtime", return_value=rt):
+            sse2json._patrol_health_check_round()
+
+        schedule = sse2json._patrol_probe_schedule
+        self.assertEqual(schedule["last_result"], "interrupted")
+        self.assertEqual(schedule["cursor"], {"provider": "alpha", "key_index": 1})
+
+        # Traffic clears; the next round must NOT re-probe (alpha, 0).
+        with obs._lock:
+            obs._counters["requests_in_flight"] = 0
+
+        class QuietClient:
+            def open_stream(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None, first_byte_timeout_s=None):
+                return _EmptyStream()
+
+        rt2 = sse2json.RuntimeContext(cfg, router, QuietClient(), obs, sse2json.AUDIT)
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(
+            sse2json, "PROBE_COORDINATOR", _CoordinatorStub()
+        ), patch.object(sse2json, "_request_runtime", return_value=rt2):
+            sse2json._patrol_health_check_round()
+
+        attempts = [
+            (str(event.get("provider") or ""), int(event.get("key_index")))
+            for event in obs._health_probe_events
+            if event.get("outcome") in ("success", "failed")
+            and str(event.get("idle_tier") or "") == "patrol"
+        ]
+        from collections import Counter
+
+        counts = Counter(attempts)
+        self.assertEqual(
+            counts[("alpha", 0)],
+            1,
+            "resumed round must not re-probe keys already swept",
+        )
+        self.assertEqual(counts[("alpha", 1)], 1)
+        self.assertEqual(counts[("beta", 0)], 1)
+        # Full sweep finished → cursor cleared.
+        self.assertIsNone(sse2json._patrol_probe_schedule["cursor"])
+
+
+class ProbeEventPersistenceTests(unittest.TestCase):
+    """Probe events survive restarts: SQLite is the durable 24h source."""
+
+    def _make_obs(self, path):
+        return ProxyObservability(
+            {
+                "observability": {
+                    "history": {
+                        "enabled": True,
+                        "path": path,
+                        "retention_days": 30,
+                        "sync_mode": True,
+                    }
+                }
+            }
+        )
+
+    def test_probe_events_persist_and_survive_new_instance(self):
+        import os
+        import tempfile
+
+        fd, path = tempfile.mkstemp(prefix="probe-events-", suffix=".sqlite3")
+        os.close(fd)
+        try:
+            obs = self._make_obs(path)
+            now = time.time()
+            obs.record_health_probe({
+                "provider": "alpha", "key_index": 0, "idle_tier": "patrol",
+                "outcome": "success", "latency_ms": 12, "ts": int(now) - 3600,
+            })
+            obs.record_health_probe({
+                "provider": "alpha", "key_index": 1, "idle_tier": "recent",
+                "outcome": "failed", "http_status": 429, "action": "observed_only",
+                "ts": int(now) - 60,
+            })
+
+            summary = obs.provider_activity_summary(limit=60, include_events=False)
+            bucket = summary["alpha"]
+            self.assertEqual(bucket["probeCount24hPatrol"], 1)
+            self.assertEqual(bucket["probeCount24hReadiness"], 1)
+            self.assertEqual(bucket["probeCount24h"], 2)
+            self.assertEqual(bucket["lastProbePatrol"]["outcome"], "success")
+            self.assertEqual(bucket["lastProbeReadiness"]["http_status"], 429)
+
+            # A brand-new instance (simulating a restart) reads the same
+            # durable counts from SQLite even with an empty in-memory deque.
+            obs2 = self._make_obs(path)
+            summary2 = obs2.provider_activity_summary(limit=60, include_events=False)
+            self.assertEqual(summary2["alpha"]["probeCount24h"], 2)
+            self.assertIsNotNone(summary2["alpha"]["lastProbePatrol"])
+
+            # Drawer path merges persisted rows into the event list.
+            entry = obs2.provider_activity_for("alpha", limit=60)
+            tiers = {event.get("idle_tier") for event in entry["probeEvents"]}
+            self.assertIn("patrol", tiers)
+            self.assertIn("recent", tiers)
+        finally:
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+
+
 if __name__ == "__main__":
     unittest.main()

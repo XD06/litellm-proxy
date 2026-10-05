@@ -226,7 +226,10 @@ class RequestHistoryStore:
                 with self._lock:
                     with self._connection() as conn:
                         for queued in batch:
-                            self._insert_request(conn, queued)
+                            if queued.get("_kind") == "probe_event":
+                                self._insert_probe_event(conn, queued)
+                            else:
+                                self._insert_request(conn, queued)
                         self._prune_locked(conn)
             except Exception as e:
                 # A malformed record must not roll back the healthy remainder
@@ -236,7 +239,10 @@ class RequestHistoryStore:
                     try:
                         with self._lock:
                             with self._connection() as conn:
-                                self._insert_request(conn, queued)
+                                if queued.get("_kind") == "probe_event":
+                                    self._insert_probe_event(conn, queued)
+                                else:
+                                    self._insert_request(conn, queued)
                     except Exception as item_error:
                         self._record_write_failure(item_error)
             finally:
@@ -382,6 +388,30 @@ class RequestHistoryStore:
             CREATE INDEX IF NOT EXISTS idx_attempts_error_type ON attempts(error_type);
             CREATE INDEX IF NOT EXISTS idx_attempts_reason ON attempts(reason);
             CREATE INDEX IF NOT EXISTS idx_attempts_http_status ON attempts(http_status);
+
+            CREATE TABLE IF NOT EXISTS probe_events (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              ts INTEGER NOT NULL,
+              provider TEXT NOT NULL DEFAULT '',
+              key_index INTEGER NOT NULL DEFAULT -1,
+              key_id TEXT NOT NULL DEFAULT '',
+              model TEXT NOT NULL DEFAULT '',
+              model_source TEXT NOT NULL DEFAULT '',
+              upstream_model TEXT NOT NULL DEFAULT '',
+              format TEXT NOT NULL DEFAULT '',
+              idle_tier TEXT NOT NULL DEFAULT '',
+              outcome TEXT NOT NULL DEFAULT '',
+              reason TEXT NOT NULL DEFAULT '',
+              action TEXT NOT NULL DEFAULT '',
+              error_type TEXT NOT NULL DEFAULT '',
+              http_status INTEGER,
+              latency_ms INTEGER,
+              cooldown_s INTEGER,
+              provider_cooldown_s INTEGER,
+              next_probe_in_s INTEGER
+            );
+            CREATE INDEX IF NOT EXISTS idx_probe_events_ts ON probe_events(ts DESC);
+            CREATE INDEX IF NOT EXISTS idx_probe_events_provider ON probe_events(provider, ts DESC);
             """
         )
 
@@ -483,6 +513,187 @@ class RequestHistoryStore:
         """Number of history records dropped because the write queue was full."""
         with self._lock:
             return int(self._dropped)
+
+    def record_probe_event(self, item: Dict[str, Any]) -> None:
+        """Persist one health-probe event (idle readiness / patrol) to SQLite.
+
+        Probe events are low-frequency (seconds-to-hours cadence), so they
+        ride the same async writer queue as request records. Callers treat
+        this as best-effort: a disabled store or a full queue must never
+        break the probe itself.
+        """
+        if not self.enabled:
+            return
+        queued_item = dict(item or {})
+        queued_item["_kind"] = "probe_event"
+        if self._sync_mode:
+            try:
+                self._ensure_ready()
+                with self._lock:
+                    with self._connection() as conn:
+                        self._insert_probe_event(conn, queued_item)
+                        self._prune_locked(conn)
+            except Exception:
+                pass
+            return
+        if not self._writer_running:
+            self.initialize()
+        try:
+            self._queue.put(queued_item, block=False)
+        except queue.Full:
+            with self._lock:
+                self._dropped += 1
+
+    def _insert_probe_event(self, conn: sqlite3.Connection, item: Dict[str, Any]) -> None:
+        try:
+            ts = int(item.get("ts") or time.time())
+        except (TypeError, ValueError):
+            ts = int(time.time())
+        conn.execute(
+            """
+            INSERT INTO probe_events (
+              ts, provider, key_index, key_id, model, model_source,
+              upstream_model, format, idle_tier, outcome, reason, action,
+              error_type, http_status, latency_ms, cooldown_s,
+              provider_cooldown_s, next_probe_in_s
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                ts,
+                str(item.get("provider") or "")[:200],
+                int(item.get("key_index") if item.get("key_index") is not None else -1),
+                str(item.get("key_id") or "")[:200],
+                str(item.get("model") or "")[:300],
+                str(item.get("model_source") or "")[:64],
+                str(item.get("upstream_model") or "")[:300],
+                str(item.get("format") or "")[:64],
+                str(item.get("idle_tier") or "")[:64],
+                str(item.get("outcome") or "")[:32],
+                str(item.get("reason") or "")[:300],
+                str(item.get("action") or "")[:64],
+                str(item.get("error_type") or "")[:64],
+                int(item["http_status"]) if item.get("http_status") is not None else None,
+                int(item["latency_ms"]) if item.get("latency_ms") is not None else None,
+                int(item["cooldown_s"]) if item.get("cooldown_s") is not None else None,
+                int(item["provider_cooldown_s"]) if item.get("provider_cooldown_s") is not None else None,
+                int(item["next_probe_in_s"]) if item.get("next_probe_in_s") is not None else None,
+            ),
+        )
+
+    def _probe_event_from_row(self, row: sqlite3.Row) -> Dict[str, Any]:
+        item = {
+            "ts": int(row["ts"] or 0),
+            "provider": str(row["provider"] or ""),
+            "key_index": int(row["key_index"] if row["key_index"] is not None else -1),
+            "key_id": str(row["key_id"] or ""),
+            "model": str(row["model"] or ""),
+            "model_source": str(row["model_source"] or ""),
+            "upstream_model": str(row["upstream_model"] or ""),
+            "format": str(row["format"] or ""),
+            "idle_tier": str(row["idle_tier"] or ""),
+            "outcome": str(row["outcome"] or ""),
+            "reason": str(row["reason"] or ""),
+            "action": str(row["action"] or ""),
+        }
+        if row["error_type"]:
+            item["error_type"] = str(row["error_type"])
+        for key in ("http_status", "latency_ms", "cooldown_s", "provider_cooldown_s", "next_probe_in_s"):
+            if row[key] is not None:
+                item[key] = int(row[key])
+        return item
+
+    def probe_event_counts(self, since_ts: int) -> Optional[Dict[str, Dict[str, int]]]:
+        """24h-window probe counts per (provider, idle_tier), SQL-aggregated.
+
+        Returns ``{provider: {"patrol": n, "readiness": m}}`` or None when the
+        store is disabled/unavailable (caller falls back to the in-memory deque).
+        """
+        if not self.enabled:
+            return None
+        try:
+            self._ensure_ready()
+            with self._connection() as conn:
+                rows = conn.execute(
+                    """
+                    SELECT provider, idle_tier, COUNT(*) AS n
+                    FROM probe_events
+                    WHERE ts >= ?
+                    GROUP BY provider, idle_tier
+                    """,
+                    (int(since_ts),),
+                ).fetchall()
+            out: Dict[str, Dict[str, int]] = {}
+            for row in rows:
+                provider = str(row["provider"] or "")
+                if not provider:
+                    continue
+                tier = "patrol" if str(row["idle_tier"] or "") == "patrol" else "readiness"
+                out.setdefault(provider, {})
+                out[provider][tier] = out[provider].get(tier, 0) + int(row["n"] or 0)
+            return out
+        except Exception:
+            return None
+
+    def latest_probe_events(self, since_ts: int) -> Optional[Dict[str, Dict[str, Dict[str, Any]]]]:
+        """Latest persisted probe event per (provider, idle_tier).
+
+        Returns ``{provider: {"patrol": event|None, "readiness": event|None}}``
+        or None when the store is disabled/unavailable.
+        """
+        if not self.enabled:
+            return None
+        try:
+            self._ensure_ready()
+            with self._connection() as conn:
+                rows = conn.execute(
+                    """
+                    WITH ranked AS (
+                      SELECT *, ROW_NUMBER() OVER (
+                        PARTITION BY provider, idle_tier ORDER BY ts DESC, id DESC
+                      ) AS rn
+                      FROM probe_events
+                      WHERE ts >= ?
+                    )
+                    SELECT * FROM ranked WHERE rn = 1
+                    """,
+                    (int(since_ts),),
+                ).fetchall()
+            out: Dict[str, Dict[str, Dict[str, Any]]] = {}
+            for row in rows:
+                event = self._probe_event_from_row(row)
+                provider = event.get("provider") or ""
+                if not provider:
+                    continue
+                tier = "patrol" if str(event.get("idle_tier") or "") == "patrol" else "readiness"
+                out.setdefault(provider, {"patrol": None, "readiness": None})
+                out[provider][tier] = event
+            return out
+        except Exception:
+            return None
+
+    def probe_events_for(self, provider: str, since_ts: int, limit: int = 50) -> Optional[list]:
+        """Persisted probe events for one provider, newest first."""
+        if not self.enabled:
+            return None
+        name = str(provider or "")
+        if not name:
+            return []
+        try:
+            self._ensure_ready()
+            limit = max(1, min(200, int(limit)))
+            with self._connection() as conn:
+                rows = conn.execute(
+                    """
+                    SELECT * FROM probe_events
+                    WHERE provider = ? AND ts >= ?
+                    ORDER BY ts DESC, id DESC
+                    LIMIT ?
+                    """,
+                    (name, int(since_ts), limit),
+                ).fetchall()
+            return [self._probe_event_from_row(row) for row in rows]
+        except Exception:
+            return None
 
     def __del__(self):
         try:
@@ -677,6 +888,7 @@ class RequestHistoryStore:
             ]
             self._freeze_pending_statistics(conn, expiring_pending)
             conn.execute("DELETE FROM requests WHERE finished_at < ?", (cutoff,))
+        conn.execute("DELETE FROM probe_events WHERE ts < ?", (cutoff,))
         self._usage_statistics.prune(conn, now=int(now))
 
     def list_requests(

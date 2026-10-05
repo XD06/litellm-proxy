@@ -2415,9 +2415,17 @@
 				en: "Sweep · ",
 				zh: "巡检 · "
 			},
+			"prov.probe_readiness_prefix": {
+				en: "Pre-check · ",
+				zh: "预检 · "
+			},
 			"prov.tier_patrol_title": {
 				en: "Full sweep — every provider × every key",
 				zh: "全量巡检——覆盖所有供应商与所有密钥"
+			},
+			"prov.tier_readiness_title": {
+				en: "Readiness probe — pre-warms the next request's provider while idle",
+				zh: "预检——空闲时探测“下一个请求会用到的供应商”"
 			},
 			"prov.probe_count_short": {
 				en: "{count} probes/24h",
@@ -4242,6 +4250,18 @@
 			"cfg.patrol_triggered": {
 				en: "Patrol round triggered. Check results in a moment.",
 				zh: "巡检已触发，稍后查看结果。"
+			},
+			"cfg.hm_status_postponed": {
+				en: "postponed (traffic busy)",
+				zh: "已推迟（有请求在跑）"
+			},
+			"cfg.hm_status_interrupted": {
+				en: "interrupted by traffic",
+				zh: "被请求打断"
+			},
+			"cfg.hm_resume_from": {
+				en: "Resuming from {target}",
+				zh: "将从 {target} 续扫"
 			},
 			"cfg.advanced_tools": {
 				en: "Advanced overlay tools",
@@ -11978,7 +11998,7 @@
 				failed: fmtInt(stripStats.failed)
 			}))}</b></div>
             </div>` : `<div class="provider-kpi-empty">${escapeHtml(isDisabled ? t("prov.empty_disabled") : t("prov.empty_idle"))}</div>`}
-        ${providerProbeSummary(view.activity.lastProbe, view.activity.probeCount24h, isDisabled)}
+        ${providerProbeSummary(view.activity, isDisabled)}
         <div class="provider-kpi-foot">
           <div class="provider-kpi-ops">
             <button class="provider-kpi-op${isDisabled ? "" : " danger"}" type="button" data-action-path="/providers/${encodeURIComponent(view.name)}/${isDisabled ? "enable" : "disable"}">${escapeHtml(t(isDisabled ? "prov.enable" : "prov.disable"))}</button>
@@ -12204,24 +12224,38 @@
 			const d = /* @__PURE__ */ new Date(n * 1e3);
 			return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 		}
-		function providerProbeSummary(probe, probeCount24h, isDisabled = false) {
+		function providerProbeSummary(activity, isDisabled = false) {
 			if (isDisabled) return `<div class="provider-probe-summary empty"><span class="dot2 mute"></span><span>${escapeHtml(t("prov.probe_paused"))}</span></div>`;
-			if (!probe) return `<div class="provider-probe-summary empty" title="${escapeHtml(t("prov.probe_none_title"))}"><span class="dot2 mute"></span><span>${escapeHtml(t("prov.probe_none"))} · ${escapeHtml(t("prov.probe_waiting"))}</span></div>`;
+			const bucket = activity || {};
+			const patrol = bucket.lastProbePatrol;
+			const readiness = bucket.lastProbeReadiness;
+			const chips = [];
+			if (readiness) chips.push(probeChipHtml(readiness, "readiness", bucket.probeCount24hReadiness));
+			if (patrol) chips.push(probeChipHtml(patrol, "patrol", bucket.probeCount24hPatrol));
+			if (!chips.length) {
+				const legacy = bucket.lastProbe;
+				if (legacy) chips.push(probeChipHtml(legacy, String(legacy.idle_tier || "") === "patrol" ? "patrol" : "readiness", bucket.probeCount24h));
+			}
+			if (!chips.length) return `<div class="provider-probe-summary empty" title="${escapeHtml(t("prov.probe_none_title"))}"><span class="dot2 mute"></span><span>${escapeHtml(t("prov.probe_none"))} · ${escapeHtml(t("prov.probe_waiting"))}</span></div>`;
+			return `<div class="provider-probe-summary-group">${chips.join("")}</div>`;
+		}
+		function probeChipHtml(probe, tier, count24h) {
+			const isPatrol = tier === "patrol";
 			const tone = probeTone(probe);
-			const isPatrol = String(probe.idle_tier || "") === "patrol";
 			const baseLabel = tone === "ok" ? t("prov.probe_ok") : tone === "bad" ? t("prov.probe_failed") : t("prov.probe_observed");
-			const label = isPatrol ? `${t("prov.probe_patrol_prefix")}${baseLabel}` : baseLabel;
+			const label = `${isPatrol ? t("prov.probe_patrol_prefix") : t("prov.probe_readiness_prefix")}${baseLabel}`;
 			const details = [];
 			if (probe.http_status && tone === "bad") details.push(`${fmtInt(probe.http_status)}`);
 			if (tone === "bad" && (probe.action === "cooldown" || probe.action === "reported_failure" || probe.error_type === "cooldown")) details.push(t("prov.in_cooldown"));
 			if (probe.latency_ms != null && tone !== "bad") details.push(fmtCompactMs(probe.latency_ms));
 			else if (probe.http_status && tone !== "bad") details.push(`HTTP ${fmtInt(probe.http_status)}`);
-			if (Number(probeCount24h) > 0) details.push(t("prov.probe_count_short", { count: fmtInt(probeCount24h) }));
+			if (Number(count24h) > 0) details.push(t("prov.probe_count_short", { count: fmtInt(count24h) }));
 			const detail = details.join(" · ");
 			const chipTitle = [probeReasonText(probe), probeActionText(probe.action)].filter(Boolean).join(" · ");
 			const dotTone = tone === "ok" ? "" : tone === "bad" ? "bad" : "warn";
+			const tierTitle = isPatrol ? t("prov.tier_patrol_title") : t("prov.tier_readiness_title");
 			return `
-      <div class="provider-probe-summary tone-${escapeHtml(tone)}${isPatrol ? " patrol-probe" : ""}" title="${escapeHtml(chipTitle)}">
+      <div class="provider-probe-summary tone-${escapeHtml(tone)}${isPatrol ? " patrol-probe" : " readiness-probe"}" title="${escapeHtml(tierTitle)}${chipTitle ? " — " + escapeHtml(chipTitle) : ""}">
         <span class="dot2 ${escapeHtml(dotTone)}"></span>
         <span>${escapeHtml(label)}</span>
         ${detail ? `<span class="provider-kpi-sep">·</span><small>${escapeHtml(detail)}</small>` : ""}
@@ -17556,15 +17590,25 @@
 					} else if (patrolState.last_result === "failed") {
 						statusEl.textContent = "failed";
 						statusEl.className = "hm-runtime-status bad";
+					} else if (patrolState.last_result === "postponed") {
+						statusEl.textContent = t("cfg.hm_status_postponed");
+						statusEl.className = "hm-runtime-status warn";
+					} else if (patrolState.last_result === "interrupted") {
+						statusEl.textContent = t("cfg.hm_status_interrupted");
+						statusEl.className = "hm-runtime-status warn";
 					} else {
 						statusEl.textContent = "idle";
 						statusEl.className = "hm-runtime-status";
 					}
 					if (lastEl) if (patrolState.last_run_at > 0) lastEl.textContent = fmtAgo(patrolState.last_run_ago_s) + (patrolState.last_run_duration_s > 0 ? ` (${fmtDuration(patrolState.last_run_duration_s)})` : "");
 					else lastEl.textContent = "never";
-					if (resultEl) if (patrolState.last_summary) resultEl.textContent = patrolState.last_summary;
-					else if (patrolState.last_result === "skipped") resultEl.textContent = "skipped";
-					else resultEl.textContent = "—";
+					if (resultEl) {
+						const cursor = patrolState.cursor && patrolState.cursor.provider ? `${patrolState.cursor.provider}#${patrolState.cursor.key_index}` : "";
+						if (patrolState.last_summary) resultEl.textContent = cursor ? `${patrolState.last_summary} · ${t("cfg.hm_resume_from", { target: cursor })}` : patrolState.last_summary;
+						else if (patrolState.last_result === "skipped") resultEl.textContent = "skipped";
+						else if (cursor) resultEl.textContent = t("cfg.hm_resume_from", { target: cursor });
+						else resultEl.textContent = "—";
+					}
 					if (nextEl) if (patrolState.running) nextEl.textContent = "in progress";
 					else if (!patrolState.enabled) nextEl.textContent = "—";
 					else if (patrolState.next_run_in_s > 0) nextEl.textContent = fmtDuration(patrolState.next_run_in_s);

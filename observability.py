@@ -922,6 +922,18 @@ class ProxyObservability:
         with self._lock:
             self._health_probe_events.appendleft(item)
             self._invalidate_provider_activity_locked()
+        # Durable copy: the in-memory deque is capped (~200 events shared by
+        # every provider) and lost on restart, which made patrol records
+        # vanish long before the next 6-12h patrol round. SQLite keeps a
+        # full retention-days window so 24h probe counts and the activity
+        # panel survive restarts and deque turnover. Best-effort: a history
+        # failure must never break the probe path.
+        history = getattr(self, "_history", None)
+        if history is not None:
+            try:
+                history.record_probe_event(item)
+            except Exception:
+                pass
         return item
 
     def health_probe_summary(self, provider: Optional[str] = None, limit: int = 20) -> Dict[str, Any]:
@@ -1069,7 +1081,19 @@ class ProxyObservability:
             recent = list(self._recent)  # Reference, don't copy
             probe_events = list(self._health_probe_events)
         summary = self._provider_activity_from_recent(recent, limit, include_events=include_events)
-        self._merge_health_probe_summary(summary, probe_events, limit, include_events=include_events)
+        cutoff = int(time.time()) - 86400
+        history = getattr(self, "_history", None)
+        durable_counts = None
+        durable_latest = None
+        if history is not None:
+            durable_counts = history.probe_event_counts(cutoff)
+            durable_latest = history.latest_probe_events(cutoff)
+        self._merge_health_probe_summary(
+            summary, probe_events, limit,
+            include_events=include_events,
+            durable_counts=durable_counts,
+            durable_latest=durable_latest,
+        )
         with self._lock:
             if version == self._provider_activity_version:
                 self._provider_activity_cache[cache_key] = summary
@@ -1215,7 +1239,22 @@ class ProxyObservability:
             recent = list(self._recent)  # Reference, don't copy
             probe_events = list(self._health_probe_events)
         summary = self._provider_activity_from_recent(recent, limit, include_events=True)
-        self._merge_health_probe_summary(summary, probe_events, limit, include_events=True)
+        cutoff = int(time.time()) - 86400
+        history = getattr(self, "_history", None)
+        durable_counts = None
+        durable_latest = None
+        durable_events = None
+        if history is not None:
+            durable_counts = history.probe_event_counts(cutoff)
+            durable_latest = history.latest_probe_events(cutoff)
+            durable_events = {provider: (history.probe_events_for(provider, cutoff, limit) or [])}
+        self._merge_health_probe_summary(
+            summary, probe_events, limit,
+            include_events=True,
+            durable_counts=durable_counts,
+            durable_latest=durable_latest,
+            durable_events=durable_events,
+        )
         return summary.get(provider)
 
     @classmethod
@@ -1226,6 +1265,9 @@ class ProxyObservability:
         limit: int,
         *,
         include_events: bool,
+        durable_counts: Optional[Dict[str, Dict[str, int]]] = None,
+        durable_latest: Optional[Dict[str, Dict[str, Dict[str, Any]]]] = None,
+        durable_events: Optional[Dict[str, list]] = None,
     ) -> None:
         per_provider: Dict[str, list] = {}
         for event in probe_events or []:
@@ -1233,9 +1275,24 @@ class ProxyObservability:
             if not provider:
                 continue
             per_provider.setdefault(provider, []).append(event)
-        for provider, events in per_provider.items():
+        all_providers = set(per_provider.keys())
+        for mapping in (durable_counts, durable_latest, durable_events):
+            for provider in (mapping or {}):
+                all_providers.add(str(provider))
+        cutoff = time.time() - 86400
+        for provider in all_providers:
+            events = per_provider.get(provider) or []
             events.sort(key=lambda item: int(item.get("ts") or 0), reverse=True)
             clipped = events[:limit]
+            durable_provider_counts = (durable_counts or {}).get(provider) or {}
+            durable_provider_latest = (durable_latest or {}).get(provider) or {}
+            # Merge the durable (SQLite) event list into the per-provider
+            # window so the drawer shows deque-fresh plus deque-evicted rows.
+            for event in (durable_events or {}).get(provider) or []:
+                if all(cls._probe_event_signature(event) != cls._probe_event_signature(kept) for kept in clipped):
+                    clipped.append(event)
+            clipped.sort(key=lambda item: int(item.get("ts") or 0), reverse=True)
+            clipped = clipped[:limit]
             bucket = summary.setdefault(
                 provider,
                 {
@@ -1251,13 +1308,66 @@ class ProxyObservability:
             )
             bucket["lastProbe"] = cls._copy_value(clipped[0]) if clipped else None
             # Probe-pressure visibility: probes this provider attracted in the
-            # last 24h. Bounded by the probe-event deque, so for very chatty
-            # providers it is a lower bound — good enough to make probe load
-            # visible in the dashboard.
-            cutoff = time.time() - 86400
-            bucket["probeCount24h"] = sum(1 for event in events if int(event.get("ts") or 0) >= cutoff)
+            # last 24h. Counts come from SQLite when history is enabled (the
+            # in-memory deque is a small shared ring, so its numbers are only
+            # a lower bound); otherwise they fall back to the deque window.
+            patrol_count = sum(
+                1 for event in events
+                if str(event.get("idle_tier") or "") == "patrol" and int(event.get("ts") or 0) >= cutoff
+            )
+            readiness_count = sum(
+                1 for event in events
+                if str(event.get("idle_tier") or "") != "patrol" and int(event.get("ts") or 0) >= cutoff
+            )
+            if durable_provider_counts:
+                patrol_count = max(patrol_count, int(durable_provider_counts.get("patrol") or 0))
+                readiness_count = max(readiness_count, int(durable_provider_counts.get("readiness") or 0))
+            bucket["probeCount24h"] = patrol_count + readiness_count
+            bucket["probeCount24hPatrol"] = patrol_count
+            bucket["probeCount24hReadiness"] = readiness_count
+            # Per-tier latest probe so the overview can render one chip per
+            # checker (readiness vs patrol) instead of a single mixed chip.
+            # SQLite is authoritative; a same-event row still in the deque
+            # (async write lag) can only be equal-or-newer, so take the newer.
+            for tier, latest in (durable_provider_latest or {}).items():
+                key = "lastProbePatrol" if tier == "patrol" else "lastProbeReadiness"
+                bucket[key] = cls._copy_value(latest) if latest else None
+            deque_patrol = next(
+                (event for event in clipped if str(event.get("idle_tier") or "") == "patrol"),
+                None,
+            )
+            stored_patrol = bucket.get("lastProbePatrol")
+            if deque_patrol and (
+                not stored_patrol
+                or int(deque_patrol.get("ts") or 0) >= int(stored_patrol.get("ts") or 0)
+            ):
+                bucket["lastProbePatrol"] = cls._copy_value(deque_patrol)
+            deque_readiness = next(
+                (event for event in clipped if str(event.get("idle_tier") or "") != "patrol"),
+                None,
+            )
+            stored_readiness = bucket.get("lastProbeReadiness")
+            if deque_readiness and (
+                not stored_readiness
+                or int(deque_readiness.get("ts") or 0) >= int(stored_readiness.get("ts") or 0)
+            ):
+                bucket["lastProbeReadiness"] = cls._copy_value(deque_readiness)
             if include_events:
                 bucket["probeEvents"] = [cls._copy_value(event) for event in clipped]
+
+    @staticmethod
+    def _probe_event_signature(event: Dict[str, Any]) -> tuple:
+        return (
+            int(event.get("ts") or 0),
+            str(event.get("provider") or ""),
+            int(event.get("key_index") if event.get("key_index") is not None else -1),
+            str(event.get("model") or ""),
+            str(event.get("idle_tier") or ""),
+            str(event.get("outcome") or ""),
+            str(event.get("action") or ""),
+            int(event.get("latency_ms") if event.get("latency_ms") is not None else -1),
+            int(event.get("http_status") if event.get("http_status") is not None else -1),
+        )
 
     @classmethod
     def _provider_activity_from_recent(

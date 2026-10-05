@@ -37,7 +37,7 @@
 所有 Admin 接口均需在 Header 中携带 `Authorization: Bearer <ADMIN_KEY>`。
 
 ### 2.1 系统配置与热重载
-* **`GET /-/admin/config`**：获取当前运行时的全量合并配置（Base Config + Runtime Overlay）。
+* **`GET /-/admin/config`**：获取当前运行时的全量合并配置（Base Config + Runtime Overlay）。快照含 `server` / `routing` / `retry` / `health_monitor` / `models` / `proxy` / `providers`（key 脱敏）。
 * **`PATCH /-/admin/config`**：动态更新全局配置项（如代理设置、日志级别、并发限制等）。
 
 ### 2.2 供应商管理 (Providers)
