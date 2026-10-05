@@ -144,6 +144,20 @@ class ConfigManagerTests(unittest.TestCase):
         self.assertIn("masked", view["providers"]["alpha"]["keys"][0])
         self.assertNotIn("alpha-secret-key", json.dumps(view))
 
+    def test_config_snapshot_includes_health_monitor_after_update(self):
+        # Regression: the config view omitted the health_monitor block, so the
+        # dashboard's health settings save confirmed against a snapshot that
+        # lacked the block and the form always reverted to defaults.
+        _config_path, overlay_path = self.temp_paths()
+        mgr = config_manager.RuntimeConfigManager(base_config(), overlay_path=overlay_path)
+
+        mgr.update_health_monitor({"patrol_interval_min_s": 7200, "idle_check_enabled": False})
+        view = mgr.snapshot()
+
+        self.assertEqual(view["health_monitor"]["patrol_interval_min_s"], 7200)
+        self.assertFalse(view["health_monitor"]["idle_check_enabled"])
+        self.assertIn("health_monitor", json.dumps(view))
+
     def test_overlay_snapshot_preview_and_clear_are_safe(self):
         _config_path, overlay_path = self.temp_paths()
         with open(overlay_path, "w", encoding="utf-8") as f:

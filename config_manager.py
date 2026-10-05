@@ -135,6 +135,11 @@ class RuntimeConfigManager:
             "server": self._server_view(cfg.get("server") or {}),
             "routing": copy.deepcopy(cfg.get("routing") or {}),
             "retry": copy.deepcopy(cfg.get("retry") or {}),
+            # health_monitor must be part of the view: the dashboard's health
+            # settings form reads it from the config snapshot, and the
+            # save-then-confirm cycle rejects a response that lacks the block
+            # it optimistically applied (form silently reverted to defaults).
+            "health_monitor": copy.deepcopy(cfg.get("health_monitor") or {}),
             "models": self._models_view(cfg.get("models") or {}),
             "proxy": copy.deepcopy(cfg.get("proxy") or {}),
             "providers": {
