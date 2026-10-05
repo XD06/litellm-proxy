@@ -55,7 +55,7 @@ graph TB
 - **格式转换层** — `conversion_core/`（新一代转换引擎，codecs 按 chat / responses / anthropic 分文件）、`stream_adapters.py`（SSE 流式转换 + 直通中继）、`protocol_adapters.py`（非流式转换）、`format_adapters.py`（格式配对分派）、`chat.py` / `responses.py`（各格式非流式处理器）。
 - **配置层** — `config_loader.py`（加载/归一/推断/环境变量覆盖/零配置检测）、`config_manager.py`（运行时 overlay + tombstone 合并）。优先级：`config.json → runtime_config.json → env`。
 - **可观测层** — `observability.py`（内存指标/健康分）、`history_store.py`（SQLite 请求历史，默认保留 30 天并定时剪枝）、`audit_store.py`（JSONL 审计）、`usage_accounting.py` / `usage_statistics.py` / `pricing_resolver.py`（用量与成本）。
-- **管理面** — `admin_routes.py`（Admin API 分发）、`routing_explain.py` / `routing_trace.py`（路由可解释性）、`proxy_utils.py`（密钥掩码/代理解析与内网绕过/IP 解析）、`client_key_store.py`（客户端虚拟密钥：存储/鉴权/限流/配额）。
+- **管理面** — `admin_routes.py`（Admin API 分发）、`routing_explain.py` / `routing_trace.py`（路由可解释性）、`proxy_utils.py`（密钥掩码/代理解析与内网绕过/IP 解析）、`client_key_store.py`（客户端虚拟密钥：存储/鉴权/限流/配额/用量归因——请求结束经 observability usage 监听器记账，请求记录固化 name+脱敏预览快照）。
 - **前端** — `dashboard/`（构建产物，代理直接伺服）、`dashboard_src/`（Vite + vanilla JS 源；`npm run build` 产物写入 `dashboard/`）。
 - **打包子包** — `conversion_core/`、`artificial_analysis_api/`（pyproject `packages.find` 仅包含这两个包）；`artificial_analysis_api/` 负责 artificialanalysis.ai 基准定价数据抓取与缓存。
 

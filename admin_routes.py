@@ -1503,6 +1503,19 @@ class AdminRoutesMixin:
                 self._audit_admin_event("global_proxy_updated", target="proxy", detail=body or {})
                 return self._resp_json({"action": "global_proxy_updated", "config": CONFIG_MANAGER.snapshot()})
 
+            if parts == ["server", "admin-key"]:
+                # Authenticated with the CURRENT key; the new one takes effect
+                # on the next request. The key value itself is never echoed in
+                # the response, the audit trail, or the config snapshot
+                # (_server_view masks it as "***").
+                try:
+                    CONFIG_MANAGER.update_admin_key((body or {}).get("admin_key"))
+                except ConfigValidationError as e:
+                    return self._resp_json({"error": {"message": str(e)}}, 400)
+                _apply_runtime_config(CONFIG_MANAGER.config)
+                self._audit_admin_event("admin_key_updated", target="server/admin_key", detail={})
+                return self._resp_json({"action": "admin_key_updated", "config": CONFIG_MANAGER.snapshot()})
+
             # --- Hot-reload endpoints (lightweight, no full config rebuild) ---
             if len(parts) == 3 and parts[0] == "providers" and parts[2] == "priority":
                 provider = parts[1]

@@ -2559,6 +2559,101 @@ class AdminApiTests(unittest.TestCase):
         self.assertEqual(ks.fails, 0)
         self.assertEqual(ks.cooldown_until, 0.0)
 
+    def _env_without_proxy_admin_key(self):
+        env = {k: v for k, v in os.environ.items() if k != "PROXY_ADMIN_KEY"}
+        return patch.dict(os.environ, env, clear=True)
+
+    def test_admin_key_patch_rotates_auth_hot(self):
+        cfg = {"server": {"admin_key": "old-secret-key"}, "providers": {}, "models": {}}
+        overlay_path = self.temp_overlay_path()
+        manager = config_manager.RuntimeConfigManager(cfg, overlay_path=overlay_path)
+        old_headers = {"X-Admin-Key": "old-secret-key"}
+        with self._env_without_proxy_admin_key(), self.runtime_config(manager):
+            status, body = self.patch_json(
+                "/-/admin/server/admin-key",
+                {"admin_key": "brand-new-key"},
+                headers=old_headers,
+            )
+            self.assertEqual(status, 200)
+            self.assertEqual(body["action"], "admin_key_updated")
+            # The snapshot must never echo the key itself.
+            self.assertEqual(body["config"]["server"]["admin_key"], "***")
+
+            # Old key is rejected immediately; the new key authorizes.
+            status, _body = self.get_json("/-/admin/status", headers=old_headers)
+            self.assertEqual(status, 403)
+            status, _body = self.get_json(
+                "/-/admin/status", headers={"X-Admin-Key": "brand-new-key"}
+            )
+            self.assertEqual(status, 200)
+
+        # The rotation persists in the overlay, not in config.json.
+        self.assertEqual(manager.config["server"]["admin_key"], "brand-new-key")
+        reopened = config_manager.RuntimeConfigManager(cfg, overlay_path=overlay_path)
+        self.assertEqual(reopened.config["server"]["admin_key"], "brand-new-key")
+
+    def test_admin_key_patch_rejects_env_override_and_weak_keys(self):
+        cfg = {"server": {"admin_key": "old-secret-key"}, "providers": {}, "models": {}}
+        manager = config_manager.RuntimeConfigManager(cfg, overlay_path=self.temp_overlay_path())
+        headers = {"X-Admin-Key": "old-secret-key"}
+        with patch.dict(os.environ, {"PROXY_ADMIN_KEY": "env-key"}):
+            with self.runtime_config(manager):
+                status, body = self.patch_json(
+                    "/-/admin/server/admin-key",
+                    {"admin_key": "brand-new-key"},
+                    headers=headers,
+                )
+                self.assertEqual(status, 400)
+                self.assertIn("PROXY_ADMIN_KEY", body["error"]["message"])
+        with self._env_without_proxy_admin_key(), self.runtime_config(manager):
+            for rejected in ("abc", "has space", ""):
+                status, _body = self.patch_json(
+                    "/-/admin/server/admin-key",
+                    {"admin_key": rejected},
+                    headers=headers,
+                )
+                self.assertEqual(status, 400)
+            self.assertEqual(manager.config["server"]["admin_key"], "old-secret-key")
+
+    def test_client_key_usage_listener_attributes_request(self):
+        import tempfile as _tempfile
+
+        store_dir = _tempfile.mkdtemp(prefix="client_keys_listener_")
+        store = sse2json.ClientKeyStore(
+            {"client_keys": {"store_path": os.path.join(store_dir, "keys.sqlite3")}}
+        )
+        original = sse2json.CLIENT_KEYS
+        sse2json.CLIENT_KEYS = store
+        try:
+            record, _full = store.create_key(name="tracer", quota_tokens=1000)
+            sse2json._client_key_tls.ctx = {
+                "id": record["id"],
+                "name": record["name"],
+                "masked": store.masked_preview(record),
+            }
+            try:
+                sse2json._client_key_usage_listener(
+                    {"usage": {"total_tokens": 742}, "cost_usd": 0.0012, "status_code": 200}
+                )
+            finally:
+                sse2json._client_key_tls.ctx = None
+            listed = store.list_keys()["keys"][0]
+            self.assertEqual(listed["consumed_tokens"], 742)
+            self.assertEqual(listed["requests_total"], 1)
+            self.assertEqual(listed["requests_failed"], 0)
+            self.assertAlmostEqual(listed["cost_usd"], 0.0012, places=9)
+
+            # Without a TLS context (admin bypass / open mode) nothing is
+            # attributed — the owner's own traffic never consumes key quota.
+            sse2json._client_key_usage_listener(
+                {"usage": {"total_tokens": 5}, "cost_usd": 0.01, "status_code": 200}
+            )
+            listed = store.list_keys()["keys"][0]
+            self.assertEqual(listed["requests_total"], 1)
+            self.assertEqual(listed["consumed_tokens"], 742)
+        finally:
+            sse2json.CLIENT_KEYS = original
+
 
 class IdleProbeAdvancedTests(unittest.TestCase):
     """Tests for idle probe cooldown clearing, network errors, and config param."""

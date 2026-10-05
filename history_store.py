@@ -330,6 +330,9 @@ class RequestHistoryStore:
               client_ip TEXT NOT NULL DEFAULT '',
               client_ip_source TEXT NOT NULL DEFAULT '',
               user_agent TEXT NOT NULL DEFAULT '',
+              client_key_id INTEGER NOT NULL DEFAULT 0,
+              client_key_name TEXT NOT NULL DEFAULT '',
+              client_key_masked TEXT NOT NULL DEFAULT '',
               request_bytes INTEGER NOT NULL DEFAULT 0,
               request_profile TEXT NOT NULL DEFAULT '',
               reasoning_effort TEXT NOT NULL DEFAULT '',
@@ -435,6 +438,9 @@ class RequestHistoryStore:
                 "client_ip": "TEXT NOT NULL DEFAULT ''",
                 "client_ip_source": "TEXT NOT NULL DEFAULT ''",
                 "user_agent": "TEXT NOT NULL DEFAULT ''",
+                "client_key_id": "INTEGER NOT NULL DEFAULT 0",
+                "client_key_name": "TEXT NOT NULL DEFAULT ''",
+                "client_key_masked": "TEXT NOT NULL DEFAULT ''",
                 "request_bytes": "INTEGER NOT NULL DEFAULT 0",
                 "request_profile": "TEXT NOT NULL DEFAULT ''",
                 "reasoning_effort": "TEXT NOT NULL DEFAULT ''",
@@ -721,8 +727,9 @@ class RequestHistoryStore:
               uncached_input_tokens, cached_input_tokens, cache_write_tokens,
               output_tokens, reasoning_tokens, total_tokens, cost_usd, cost_status,
               pricing_source, pricing_snapshot, client_ip, client_ip_source, user_agent,
+              client_key_id, client_key_name, client_key_masked,
               request_bytes, request_profile, reasoning_effort, started_at, finished_at, error, routing_trace
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 request_id,
@@ -749,6 +756,9 @@ class RequestHistoryStore:
                 str(item.get("client_ip") or "")[:128],
                 str(item.get("client_ip_source") or "")[:64],
                 str(item.get("user_agent") or "")[:500],
+                max(0, int(item.get("client_key_id") or 0)),
+                str(item.get("client_key_name") or "")[:80],
+                str(item.get("client_key_masked") or "")[:64],
                 max(0, int(item.get("request_bytes") or 0)),
                 str(item.get("request_profile") or "")[:64],
                 str(item.get("reasoning_effort") or "")[:32],
@@ -2349,6 +2359,14 @@ class RequestHistoryStore:
         }
         if "reasoning_effort" in row.keys():
             out["reasoning_effort"] = str(row["reasoning_effort"] or "")
+        if "client_key_id" in row.keys():
+            ck_id = int(row["client_key_id"] or 0)
+            ck_name = str(row["client_key_name"] or "")
+            ck_masked = str(row["client_key_masked"] or "")
+            if ck_id or ck_name or ck_masked:
+                out["client_key_id"] = ck_id
+                out["client_key_name"] = ck_name
+                out["client_key_masked"] = ck_masked
         if row["error"]:
             out["error"] = str(row["error"])[:500]
         if row["pricing_snapshot"]:
@@ -2516,8 +2534,14 @@ class RequestHistoryStore:
             "attempt_http_statuses": cls._unique_sorted(
                 str(a.get("http_status")) for a in attempts if a.get("http_status") is not None
             ),
-            "attempt_outcomes": cls._unique_sorted(a.get("outcome") for a in attempts if a.get("outcome")),
+            "attempt_outcomes": cls._unique_sorted(a.get("outcome") for a in attempts),
         }
+        # Client virtual key snapshot: only present when the request was
+        # authenticated with one (admin bypass / open mode stay unattributed).
+        if item.get("client_key_id") or item.get("client_key_name"):
+            out["client_key_id"] = int(item.get("client_key_id") or 0)
+            out["client_key_name"] = str(item.get("client_key_name") or "")
+            out["client_key_masked"] = str(item.get("client_key_masked") or "")
         usage_totals = normalize_usage(item.get("usage") or item)
         if has_usage(usage_totals):
             out["usage"] = usage_totals

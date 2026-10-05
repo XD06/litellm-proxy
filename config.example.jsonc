@@ -42,6 +42,8 @@
 
     // Admin API 密钥。为空时 /-/admin/* 不可访问。
     // 可通过 X-Admin-Key、Authorization: Bearer ... 或 ?admin_key=... 传入。
+    // 也可在控制台"系统设置 → 运维与系统 → 控制台安全"中直接轮换（写入 runtime_config.json
+    // 覆盖层，config.json 永不改写）；设置 PROXY_ADMIN_KEY 环境变量时环境变量优先且控制台不可改。
     "admin_key": "sk-admin-change-me"
   },
 

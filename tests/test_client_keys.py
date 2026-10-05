@@ -48,6 +48,15 @@ class ClientKeyStoreTests(unittest.TestCase):
         self.assertIsNone(store.authenticate("sk-proxy-wrong-token"))
         self.assertIsNone(store.authenticate(""))
 
+    def test_masked_preview_matches_public_record(self):
+        store = make_store()
+        record, full = store.create_key(name="a")
+        listed = store.list_keys()["keys"][0]
+        preview = store.masked_preview(record)
+        self.assertEqual(preview, listed["masked"])
+        self.assertNotIn(full, preview)
+        self.assertIn("***", preview)
+
     def test_update_delete_reset(self):
         store = make_store()
         record, _ = store.create_key(name="a")
@@ -74,6 +83,27 @@ class ClientKeyStoreTests(unittest.TestCase):
         self.assertEqual(listed["consumed_tokens"], 0)
         self.assertEqual(listed["requests_total"], 0)
         self.assertIsNone(listed["last_used_at"])
+
+    def test_update_accepts_dashboard_quota_alias_and_preserves_expiry(self):
+        store = make_store()
+        record, _ = store.create_key(name="a", expires="30d")
+        # The dashboard edit form sends `quota` (create's alias), not quota_tokens.
+        updated = store.update_key(
+            record["id"],
+            {"name": "a2", "quota": "3000", "rpm": 60, "models": "*", "expires": "keep"},
+        )
+        self.assertEqual(updated["quota_tokens"], 3000)
+        self.assertIsNotNone(updated["expires_at"])
+
+        # Omitting expires entirely (the "keep current" UI path) must not
+        # reset the stored expiry to never.
+        touched = store.update_key(record["id"], {"rpm": 30})
+        self.assertIsNotNone(touched["expires_at"])
+        self.assertAlmostEqual(touched["expires_at"], updated["expires_at"], places=3)
+
+        # Omitting quota must not clobber the stored quota either.
+        touched = store.update_key(record["id"], {"name": "a3"})
+        self.assertEqual(touched["quota_tokens"], 3000)
 
     def test_check_access_disabled_expired_model_quota(self):
         store = make_store()

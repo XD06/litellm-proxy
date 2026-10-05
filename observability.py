@@ -415,8 +415,13 @@ class ProxyObservability:
         request_bytes: int = 0,
         request_profile: str = "",
         reasoning_effort: str = "",
+        client_key: Optional[Dict[str, Any]] = None,
     ) -> None:
         now = time.time()
+        # Client virtual key snapshot (id/name/masked) taken at auth time.
+        # Stored flat so it flows into the recent ring and the history store
+        # unchanged; the masked preview is a display value, never the key.
+        ck = client_key if isinstance(client_key, dict) else {}
         with self._lock:
             self._counters["requests_total"] += 1
             self._counters["requests_in_flight"] += 1
@@ -436,6 +441,9 @@ class ProxyObservability:
                 "request_bytes": max(0, int(request_bytes or 0)),
                 "request_profile": str(request_profile or "")[:64],
                 "reasoning_effort": str(reasoning_effort or "")[:32],
+                "client_key_id": max(0, int(ck.get("client_key_id") or 0)),
+                "client_key_name": str(ck.get("client_key_name") or "")[:80],
+                "client_key_masked": str(ck.get("client_key_masked") or "")[:64],
                 "started_at": now,
                 "attempts": [],
                 "_routing_trace": routing_trace,
@@ -734,6 +742,9 @@ class ProxyObservability:
                 "request_bytes": max(0, int(active.get("request_bytes") or 0)),
                 "request_profile": active.get("request_profile", ""),
                 "reasoning_effort": active.get("reasoning_effort", ""),
+                "client_key_id": int(active.get("client_key_id") or 0),
+                "client_key_name": str(active.get("client_key_name") or ""),
+                "client_key_masked": str(active.get("client_key_masked") or ""),
                 "status_code": int(status_code or 0),
                 "duration_ms": max(0, duration_ms),
                 "first_byte_ms": max(0, int(active.get("first_byte_ms") or 0)),

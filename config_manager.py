@@ -404,6 +404,34 @@ class RuntimeConfigManager:
             overlay["routing"] = _deep_merge(current, clean)
         return self.config
 
+    def update_admin_key(self, new_key: Any) -> Dict[str, Any]:
+        """Rotate the console admin key through the runtime overlay.
+
+        config.json is never rewritten; the new key lands in the server block
+        of runtime_config.json and takes effect on the next _apply_runtime_config.
+        Rejected when PROXY_ADMIN_KEY is set: apply_env_overrides re-applies the
+        env value on every config reload, so an overlay change would be
+        silently ineffective and mislead the operator into thinking the key
+        rotated when it did not.
+        """
+        if os.environ.get("PROXY_ADMIN_KEY"):
+            raise ConfigValidationError(
+                "server.admin_key is controlled by the PROXY_ADMIN_KEY environment "
+                "variable; unset it before changing the key from the console"
+            )
+        key = str(new_key or "").strip()
+        if len(key) < 6:
+            raise ConfigValidationError("admin_key must be at least 6 characters")
+        if len(key) > 128:
+            raise ConfigValidationError("admin_key must be at most 128 characters")
+        if re.search(r"\s", key):
+            raise ConfigValidationError("admin_key must not contain whitespace")
+        with self._locked_overlay() as overlay:
+            server = copy.deepcopy(overlay.get("server") or self.config.get("server") or {})
+            server["admin_key"] = key
+            overlay["server"] = server
+        return self.config
+
     def update_retry(self, patch: Dict[str, Any]) -> Dict[str, Any]:
         clean = self._validate_retry_patch(patch)
         with self._locked_overlay() as overlay:

@@ -173,6 +173,10 @@ class ClientKeyStore:
     def _masked(self, record: Dict[str, Any]) -> str:
         return f"{KEY_PREFIX}{record['key_prefix']}***{record['key_suffix']}"
 
+    def masked_preview(self, record: Dict[str, Any]) -> str:
+        """Public masked form for observability snapshots and audit trails."""
+        return self._masked(record)
+
     def _public_record(self, record: Dict[str, Any]) -> Dict[str, Any]:
         out = dict(record)
         out.pop("key_hash", None)
@@ -238,16 +242,21 @@ class ClientKeyStore:
         return self._public_record(record), token
 
     def update_key(self, key_id: int, patch: Dict[str, Any]) -> Dict[str, Any]:
-        allowed = {"name", "quota_tokens", "rpm", "models", "expires", "enabled"}
+        allowed = {"name", "rpm", "models", "expires", "enabled"}
         clean: Dict[str, Any] = {}
+        # The dashboard edit form sends `quota` (the same alias create_key
+        # accepts); an explicit quota_tokens wins when both are present.
+        raw_quota = (patch or {}).get("quota_tokens")
+        if raw_quota is None:
+            raw_quota = (patch or {}).get("quota")
+        if raw_quota is not None:
+            clean["quota_tokens"] = parse_quota_tokens(raw_quota)
         for field in allowed:
             if field not in (patch or {}):
                 continue
             value = patch[field]
             if field == "name":
                 clean["name"] = str(value or "").strip()[:80]
-            elif field == "quota_tokens":
-                clean["quota_tokens"] = parse_quota_tokens(value)
             elif field == "rpm":
                 clean["rpm"] = max(0, min(100000, int(value or 0)))
             elif field == "models":
@@ -255,7 +264,10 @@ class ClientKeyStore:
             elif field == "enabled":
                 clean["enabled"] = 1 if value else 0
             elif field == "expires":
-                clean["expires_at"] = _parse_expires(value)
+                # "keep" is the dashboard edit form's "leave unchanged"
+                # marker; never let it wipe the stored expiry.
+                if str(value or "").strip().lower() != "keep":
+                    clean["expires_at"] = _parse_expires(value)
         if not clean:
             raise ClientKeyError("nothing to update")
         assignments = ", ".join(f"{field} = :{field}" for field in clean)

@@ -76,3 +76,14 @@
 * **`GET /-/admin/stats`**：获取系统全局及各供应商的请求成功率、延迟百分位数、Token 消耗与费用统计。
 * **`GET /-/admin/history`**：获取近期请求的详细调用链追踪记录（包含每轮 Attempt、上游响应时延、状态码）。
 * **`GET /-/admin/health`**：获取各供应商节点的实时探针健康度与冷却剩余时间。
+
+### 2.7 客户端虚拟密钥 (Client Keys)
+* **`GET /-/admin/client-keys`**：列出虚拟密钥（脱敏预览 + 用量计数 `requests_total` / `consumed_tokens` / `cost_usd` / `last_used_at`，随请求实时累加）。
+* **`POST /-/admin/client-keys`**：签发虚拟密钥（`name` / `quota`（支持 `100M`/`1.5B`）/ `rpm` / `models` / `expires`）。完整 Key 仅创建时返回一次，服务端只存哈希。
+* **`PATCH /-/admin/client-keys/{id}`**：更新备注、额度、RPM、模型范围、有效期、启用状态。
+* **`POST /-/admin/client-keys/{id}/reset-usage`** / **`.../delete`**：重置用量计数 / 删除密钥。
+* 额度拦截：`quota_tokens > 0` 且 `consumed_tokens >= quota_tokens` 时新请求返回 429 `quota_exceeded`；用量经可观测性 usage 监听器在请求结束时记账，设置页数据随 5s 轮询刷新（K/M/B 压缩显示）。
+
+### 2.8 控制台安全 (Console Security)
+* **`PATCH /-/admin/server/admin-key`**：轮换控制台管理员密钥。Payload：`{"admin_key": "新密钥"}`（6–128 位、不含空白）。用**当前**密钥鉴权，保存后立即生效并写入 runtime overlay（`config.json` 永不改写）；响应、配置快照（掩码 `***`）与审计日志均不回显密钥明文。设置 `PROXY_ADMIN_KEY` 环境变量时拒绝修改（env 优先级高于 overlay，避免改动静默失效）。
+* **请求归因**：经客户端虚拟密钥发起的请求在请求记录中携带 `client_key_id` / `client_key_name` / `client_key_masked` 快照（请求时固化，key 删除或改名后历史仍可读；管理员密钥直连与未启用密钥模式不归因），`GET /-/admin/requests` 列表与 `GET /-/admin/requests/{id}` 详情均携带，控制台请求详情页直接展示。

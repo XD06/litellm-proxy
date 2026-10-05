@@ -2181,6 +2181,23 @@ def _client_key_usage_listener(recent_item):
 OBSERVABILITY.add_usage_listener(_client_key_usage_listener)
 
 
+def _client_key_observability_ctx() -> dict:
+    """Snapshot the per-request client-key context for observability.
+
+    Returns the flat field names the request record persists, so a request
+    made with a client key stays attributable (name + masked preview) in the
+    history store even after the key is later renamed or deleted.
+    """
+    ctx = getattr(_client_key_tls, "ctx", None)
+    if not ctx:
+        return {}
+    return {
+        "client_key_id": max(0, int(ctx.get("id") or 0)),
+        "client_key_name": str(ctx.get("name") or "")[:80],
+        "client_key_masked": str(ctx.get("masked") or "")[:64],
+    }
+
+
 def _apply_model_mapping_migrations(provider, migrations):
     """Persist drift migrations (0731 -> 0921) through the config manager,
     audit them, and rebuild the runtime so routing picks up the new raw id."""
@@ -5229,7 +5246,11 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             err_type = "rate_limit_error" if status == 429 else "invalid_request_error"
             return (self._client_key_error(message, code, err_type), status)
         CLIENT_KEYS.stamp_rate_limit(record["id"])
-        _client_key_tls.ctx = {"id": record["id"], "name": record.get("name") or ""}
+        _client_key_tls.ctx = {
+            "id": record["id"],
+            "name": record.get("name") or "",
+            "masked": CLIENT_KEYS.masked_preview(record),
+        }
         return None
 
     def do_GET(self):
@@ -5296,6 +5317,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             path="/v1/chat/completions",
             routing_trace=routing_trace,
             reasoning_effort=_client_reasoning_effort(req, CHAT),
+            client_key=_client_key_observability_ctx() or None,
             **_observability_request_meta(
                 self,
                 CONFIG,
@@ -5715,6 +5737,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             path=path,
             routing_trace=routing_trace,
             reasoning_effort=_client_reasoning_effort(req, RESPONSES),
+            client_key=_client_key_observability_ctx() or None,
             **_observability_request_meta(
                 self,
                 CONFIG,
@@ -6137,6 +6160,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             stream=False,
             path=upstream_path,
             routing_trace=routing_trace,
+            client_key=_client_key_observability_ctx() or None,
             **_observability_request_meta(self, CONFIG),
         )
         attempt_errors = []
@@ -6429,6 +6453,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                 path="/anthropic/v1/messages" if not route.legacy else "/v1/messages",
                 routing_trace=routing_trace,
                 reasoning_effort=_client_reasoning_effort(req, ANTHROPIC),
+                client_key=_client_key_observability_ctx() or None,
                 **_observability_request_meta(
                     self,
                     CONFIG,

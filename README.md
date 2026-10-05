@@ -186,6 +186,7 @@ The dashboard is static HTML/CSS/JS served by the proxy:
 | 🧭 **Routing Config** | Edit routing mode, retry policies, failure strategy, model routes |
 | 📋 **Request History** | Per-attempt traces, latency breakdown, token usage, cost estimation |
 | 🎮 **Playground** | Built-in API tester supporting all three formats |
+| 🔑 **Client Keys & Settings** | Issue virtual client keys (quota / RPM / model scope) with live usage, per-model pricing overrides, runtime ops, and admin-key rotation |
 | 📦 **Runtime Overlay** | Export, validate, or clear the runtime overlay |
 | 📝 **Audit Log** | Admin mutation records with sensitive field sanitization |
 
@@ -335,7 +336,7 @@ sequenceDiagram
 | `PROXY_PORT` | Override `server.port` |
 | `PROXY_MAX_WORKERS` | Override `server.max_workers` |
 | `PROXY_LOG_DIR` | Override log directory |
-| `PROXY_ADMIN_KEY` | Override admin key |
+| `PROXY_ADMIN_KEY` | Override admin key (while set, console-side rotation is rejected) |
 | `PROXY_PROVIDER_KEYS__name` | Override provider keys (JSON array) |
 | `OPENAI_API_KEY` | Auto-detected provider key (zero-config mode) |
 | `DEEPSEEK_API_KEY` | Auto-detected provider key (zero-config mode) |

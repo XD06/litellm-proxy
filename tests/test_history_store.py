@@ -244,6 +244,33 @@ class RequestHistoryStoreTests(unittest.TestCase):
         self.assertIn("routing_explanation", detail["attempts"][0])
         self.assertIsNone(store.get_request("missing"))
 
+    def test_client_key_snapshot_round_trips_through_history(self):
+        store = self.store()
+        item = sample_request("req-keyed")
+        item["client_key_id"] = 7
+        item["client_key_name"] = "cherry-studio"
+        item["client_key_masked"] = "sk-proxy-MnNZ1J***Tkaq"
+        store.record_request(item)
+
+        listed = store.list_requests()["items"]
+        keyed = next(row for row in listed if row["request_id"] == "req-keyed")
+        self.assertEqual(keyed["client_key_id"], 7)
+        self.assertEqual(keyed["client_key_name"], "cherry-studio")
+        self.assertEqual(keyed["client_key_masked"], "sk-proxy-MnNZ1J***Tkaq")
+
+        detail = store.get_request("req-keyed")
+        self.assertEqual(detail["client_key_id"], 7)
+        self.assertEqual(detail["client_key_name"], "cherry-studio")
+        self.assertEqual(detail["client_key_masked"], "sk-proxy-MnNZ1J***Tkaq")
+
+        # Requests without a client key (admin bypass / open mode) stay
+        # unattributed instead of growing empty key fields.
+        store.record_request(sample_request("req-anon"))
+        anon_detail = store.get_request("req-anon")
+        self.assertNotIn("client_key_id", anon_detail)
+        self.assertNotIn("client_key_name", anon_detail)
+        self.assertNotIn("client_key_masked", anon_detail)
+
     def test_get_request_returns_attempt_diagnostics(self):
         store = self.store()
         store.record_request(sample_request("req-diagnostic", status_code=502, provider="deepseek"))
