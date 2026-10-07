@@ -1504,9 +1504,9 @@ def _patrol_probe_one_key_impl(rt, provider: str, key_index: int, *, canonical_m
             # state (cooldown, disabled, fails, transient_fails) AND
             # provider-level cooldown.  This is critical for patrol probes:
             # a key that was disabled after 4 consecutive failures can
-            # only be recovered via report_success, not
-            # clear_provider_cooldown (which only clears the provider-level
-            # cooldown, leaving the key disabled).
+            # only be recovered via report_success — the admin
+            # clear_provider_cooldown endpoint would also work, but probes
+            # must self-heal without operator action.
             router.report_success(probe_attempt)
             PROBE_COORDINATOR.record_success(health_scope)
             _record_probe(

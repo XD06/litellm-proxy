@@ -1999,6 +1999,46 @@ class RouterTests(unittest.TestCase):
         ))
         self.assertTrue(any(a.provider == failed.provider for a in attempts))
 
+    def test_clear_provider_cooldown_restores_all_key_states(self):
+        """clear_provider_cooldown must reset key cooldowns, credential disables and failure counters.
+
+        Console provider cards derive their cooldown/unavailable state from
+        key-level state, so the operator-facing clear action must restore
+        keys as well, not only the (rarely set) provider-level cooldown.
+        """
+        router = UpstreamRouter(base_config())
+        failed = next(router.iter_attempts("any-model", False, "req-1"))
+
+        router.report_failure(failed, error_type="key_invalid", http_status=401)
+        snap = router.snapshot()
+        key_state = snap["providers"]["alpha"]["keys"][0]
+        self.assertTrue(
+            key_state["cooldown_remaining_s"] > 0 or key_state["disabled_remaining_s"] > 0,
+            "key_invalid must leave the key cooling or disabled before the clear",
+        )
+        self.assertGreater(key_state["fails"], 0)
+        self.assertGreater(key_state["credential_fails"], 0)
+
+        self.assertTrue(router.clear_provider_cooldown("alpha"))
+        snap = router.snapshot()
+        self.assertTrue(snap["providers"]["alpha"]["available"])
+        key_state = snap["providers"]["alpha"]["keys"][0]
+        self.assertEqual(key_state["cooldown_remaining_s"], 0)
+        self.assertEqual(key_state["disabled_remaining_s"], 0)
+        self.assertEqual(key_state["fails"], 0)
+        self.assertEqual(key_state["transient_fails"], 0)
+        self.assertEqual(key_state["credential_fails"], 0)
+
+    def test_clear_provider_cooldown_keeps_runtime_enabled_flag(self):
+        """The clear action restores failure state, not the operator enable/disable toggle."""
+        router = UpstreamRouter(base_config())
+        router.set_provider_enabled("alpha", False)
+
+        self.assertTrue(router.clear_provider_cooldown("alpha"))
+        snap = router.snapshot()
+        self.assertFalse(snap["providers"]["alpha"]["runtime_enabled"])
+        self.assertFalse(snap["providers"]["alpha"]["available"])
+
     def test_clear_key_state_also_clears_compatibility_circuits(self):
         """clear_key_state must also clear compatibility circuits for that key."""
         router = UpstreamRouter(base_config())

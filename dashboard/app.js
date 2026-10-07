@@ -2623,9 +2623,13 @@
 				en: "Inherit proxy default",
 				zh: "继承默认代理"
 			},
-			"prov.clear_cooldown": {
-				en: "Clear cooldown",
-				zh: "清除冷却"
+			"prov.restore_routing": {
+				en: "Restore routing",
+				zh: "恢复路由"
+			},
+			"prov.restore_routing_tip": {
+				en: "Clears the provider cooldown, every key's cooldown / credential disable / failure counters, and compatibility circuits. Runtime enable state is kept.",
+				zh: "清除供应商冷却、全部密钥的冷却/凭据禁用与失败计数，并清除兼容性熔断；不改动启用/禁用开关。"
 			},
 			"prov.disable": {
 				en: "Disable",
@@ -12113,7 +12117,7 @@
         <div class="provider-kpi-foot">
           <div class="provider-kpi-ops">
             <button class="provider-kpi-op${isDisabled ? "" : " danger"}" type="button" data-action-path="/providers/${encodeURIComponent(view.name)}/${isDisabled ? "enable" : "disable"}">${escapeHtml(t(isDisabled ? "prov.enable" : "prov.disable"))}</button>
-            <button class="provider-kpi-op" type="button" data-action-path="/providers/${encodeURIComponent(view.name)}/cooldown/clear">${escapeHtml(t("prov.clear_cooldown"))}</button>
+            <button class="provider-kpi-op" type="button" data-action-path="/providers/${encodeURIComponent(view.name)}/cooldown/clear" data-tip="${escapeHtml(t("prov.restore_routing_tip"))}">${escapeHtml(t("prov.restore_routing"))}</button>
           </div>
           <span class="provider-kpi-detail" aria-hidden="true">${escapeHtml(t("prov.details_short"))} →</span>
         </div>
@@ -12198,7 +12202,7 @@
         <td class="provider-list-num provider-list-calls" title="${escapeHtml(callsTitle)}">${callsText}</td>
         <td class="provider-list-actions">
           <button class="provider-row-link" type="button" data-provider-open="${escapeHtml(view.name)}" title="${escapeHtml(t("prov.row_details"))}" aria-label="${escapeHtml(t("prov.open_details", { name: view.name }))}">${escapeHtml(t("prov.details_short"))}</button>
-          <button class="provider-row-link" type="button" data-action-path="/providers/${encodeURIComponent(view.name)}/cooldown/clear">${escapeHtml(t("prov.clear_cooldown"))}</button>
+          <button class="provider-row-link" type="button" data-action-path="/providers/${encodeURIComponent(view.name)}/cooldown/clear" data-tip="${escapeHtml(t("prov.restore_routing_tip"))}">${escapeHtml(t("prov.restore_routing"))}</button>
           <button class="provider-row-link${view.runtime.runtime_enabled !== false ? " is-danger" : ""}" type="button" data-action-path="/providers/${encodeURIComponent(view.name)}/${view.runtime.runtime_enabled !== false ? "disable" : "enable"}">${escapeHtml(t(view.runtime.runtime_enabled !== false ? "prov.disable" : "prov.enable"))}</button>
         </td>
       </tr>
@@ -12934,7 +12938,7 @@
             <div class="provider-overview-readiness-side">
               <button class="provider-overview-priority" type="button" data-provider-drawer-tab="routing" title="${escapeHtml(t("prov.overview_priority_tip"))}">${escapeHtml(t("prov.overview_priority", { priority: fmtInt(view.priority) }))}</button>
               <span class="provider-overview-readiness-ops">
-                <button class="provider-row-link" type="button" data-action-path="/providers/${encodeURIComponent(view.name)}/cooldown/clear">${escapeHtml(t("prov.clear_cooldown"))}</button>
+                <button class="provider-row-link" type="button" data-action-path="/providers/${encodeURIComponent(view.name)}/cooldown/clear" data-tip="${escapeHtml(t("prov.restore_routing_tip"))}">${escapeHtml(t("prov.restore_routing"))}</button>
                 <button class="provider-row-link${runtimeOn ? " is-danger" : ""}" type="button" data-action-path="/providers/${encodeURIComponent(view.name)}/${runtimeOn ? "disable" : "enable"}">${escapeHtml(t(runtimeOn ? "prov.disable" : "prov.enable"))}</button>
               </span>
             </div>

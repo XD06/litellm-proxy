@@ -5670,7 +5670,7 @@ import {
         <div class="provider-kpi-foot">
           <div class="provider-kpi-ops">
             <button class="provider-kpi-op${isDisabled ? "" : " danger"}" type="button" data-action-path="/providers/${encodeURIComponent(view.name)}/${isDisabled ? "enable" : "disable"}">${escapeHtml(t(isDisabled ? "prov.enable" : "prov.disable"))}</button>
-            <button class="provider-kpi-op" type="button" data-action-path="/providers/${encodeURIComponent(view.name)}/cooldown/clear">${escapeHtml(t("prov.clear_cooldown"))}</button>
+            <button class="provider-kpi-op" type="button" data-action-path="/providers/${encodeURIComponent(view.name)}/cooldown/clear" data-tip="${escapeHtml(t("prov.restore_routing_tip"))}">${escapeHtml(t("prov.restore_routing"))}</button>
           </div>
           <span class="provider-kpi-detail" aria-hidden="true">${escapeHtml(t("prov.details_short"))} →</span>
         </div>
@@ -5763,7 +5763,7 @@ import {
         <td class="provider-list-num provider-list-calls" title="${escapeHtml(callsTitle)}">${callsText}</td>
         <td class="provider-list-actions">
           <button class="provider-row-link" type="button" data-provider-open="${escapeHtml(view.name)}" title="${escapeHtml(t("prov.row_details"))}" aria-label="${escapeHtml(t("prov.open_details", { name: view.name }))}">${escapeHtml(t("prov.details_short"))}</button>
-          <button class="provider-row-link" type="button" data-action-path="/providers/${encodeURIComponent(view.name)}/cooldown/clear">${escapeHtml(t("prov.clear_cooldown"))}</button>
+          <button class="provider-row-link" type="button" data-action-path="/providers/${encodeURIComponent(view.name)}/cooldown/clear" data-tip="${escapeHtml(t("prov.restore_routing_tip"))}">${escapeHtml(t("prov.restore_routing"))}</button>
           <button class="provider-row-link${view.runtime.runtime_enabled !== false ? " is-danger" : ""}" type="button" data-action-path="/providers/${encodeURIComponent(view.name)}/${view.runtime.runtime_enabled !== false ? "disable" : "enable"}">${escapeHtml(t(view.runtime.runtime_enabled !== false ? "prov.disable" : "prov.enable"))}</button>
         </td>
       </tr>
@@ -6752,7 +6752,7 @@ import {
             <div class="provider-overview-readiness-side">
               <button class="provider-overview-priority" type="button" data-provider-drawer-tab="routing" title="${escapeHtml(t("prov.overview_priority_tip"))}">${escapeHtml(t("prov.overview_priority", { priority: fmtInt(view.priority) }))}</button>
               <span class="provider-overview-readiness-ops">
-                <button class="provider-row-link" type="button" data-action-path="/providers/${encodeURIComponent(view.name)}/cooldown/clear">${escapeHtml(t("prov.clear_cooldown"))}</button>
+                <button class="provider-row-link" type="button" data-action-path="/providers/${encodeURIComponent(view.name)}/cooldown/clear" data-tip="${escapeHtml(t("prov.restore_routing_tip"))}">${escapeHtml(t("prov.restore_routing"))}</button>
                 <button class="provider-row-link${runtimeOn ? " is-danger" : ""}" type="button" data-action-path="/providers/${encodeURIComponent(view.name)}/${runtimeOn ? "disable" : "enable"}">${escapeHtml(t(runtimeOn ? "prov.disable" : "prov.enable"))}</button>
               </span>
             </div>

@@ -578,7 +578,7 @@ litellm-proxy --host 0.0.0.0 --port 8080   # 自定义绑定地址和端口
 | `/-/admin/providers/{name}` | POST (`/delete`) | 删除供应商（需 `confirm: delete_provider`） |
 | `/-/admin/providers/{name}/enable` | POST | 启用供应商 |
 | `/-/admin/providers/{name}/disable` | POST | 禁用供应商 |
-| `/-/admin/providers/{name}/cooldown/clear` | POST | 清除供应商冷却状态 |
+| `/-/admin/providers/{name}/cooldown/clear` | POST | 恢复供应商路由：清除供应商冷却、全部密钥的冷却/凭据禁用/失败计数与兼容性熔断（不改启用状态） |
 | `/-/admin/providers/{name}/keys` | POST | 添加密钥 |
 | `/-/admin/providers/{name}/keys/{idx}/enable` | POST | 启用密钥 |
 | `/-/admin/providers/{name}/keys/{idx}/disable` | POST | 禁用密钥 |

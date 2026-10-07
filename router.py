@@ -633,6 +633,18 @@ class UpstreamRouter:
         with self._lock:
             ps = self._providers_state.setdefault(provider, _ProviderState())
             ps.cooldown_until = 0.0
+            # Operator-facing "restore routing" action. Card cooldown state is
+            # usually key-derived, so reset every key of this provider too:
+            # cooldowns, credential disables and failure counters.
+            # runtime_enabled flags are deliberately kept — they are operator
+            # toggles (the enable/disable button), not failure state.
+            for idx in range(len(providers_cfg[provider].get("keys") or [])):
+                ks = self._keys_state.setdefault((provider, idx), _KeyState())
+                ks.cooldown_until = 0.0
+                ks.disabled_until = 0.0
+                ks.fails = 0
+                ks.transient_fails = 0
+                ks.credential_fails = 0
             # Also clear any compatibility circuits for this provider so that
             # the dashboard "clear cooldown" action fully restores routing.
             to_remove = [

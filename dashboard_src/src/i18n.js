@@ -550,7 +550,11 @@ const dict = {
   "prov.models_ph": { en: "alias=raw, model=model", zh: "alias=raw, model=model" },
   "prov.inherit": { en: "inherit", zh: "继承" },
   "prov.inherit_proxy_default": { en: "Inherit proxy default", zh: "继承默认代理" },
-  "prov.clear_cooldown": { en: "Clear cooldown", zh: "清除冷却" },
+  "prov.restore_routing": { en: "Restore routing", zh: "恢复路由" },
+  "prov.restore_routing_tip": {
+    en: "Clears the provider cooldown, every key's cooldown / credential disable / failure counters, and compatibility circuits. Runtime enable state is kept.",
+    zh: "清除供应商冷却、全部密钥的冷却/凭据禁用与失败计数，并清除兼容性熔断；不改动启用/禁用开关。",
+  },
   "prov.disable": { en: "Disable", zh: "禁用" },
   "prov.enable": { en: "Enable", zh: "启用" },
   "prov.disable_key": { en: "Disable key", zh: "禁用密钥" },

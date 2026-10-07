@@ -236,4 +236,10 @@ assert.match(styles, /\.provider-key-add-form\s*\{[\s\S]*?border: 1\.5px dashed/
 assert.match(source, /providerCompatibilityToolbar/, "providers view must expose a global compatibility-circuit summary and clear action");
 assert.match(styles, /#providersView \.provider-kpi-card\s*\{/, "provider cards must use the unified KPI anatomy");
 
+assert.match(providerCard, /prov\.restore_routing/, "provider card clear action must be labeled as routing restore, not cooldown clearing");
+assert.doesNotMatch(source, /prov\.clear_cooldown/, "the misleading clear-cooldown label must be fully retired");
+assert.match(providerCard, /cooldown\/clear[^>]*data-tip="\$\{escapeHtml\(t\("prov\.restore_routing_tip"\)\)\}"/, "the restore action must carry a tooltip explaining its key-level scope");
+assert.match(translations, /"prov\.restore_routing"\s*:\s*\{[^}]*zh:/, "restore routing label must be bilingual");
+assert.match(translations, /"prov\.restore_routing_tip"[\s\S]{0,300}zh:/, "restore routing tooltip must be bilingual");
+
 console.log("provider drawer layout tests passed");
