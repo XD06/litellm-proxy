@@ -9366,6 +9366,7 @@ import {
           return `<rect class="usage-statistics-inspection" x="${svgNum(xFor(index) - slot / 2)}" y="${pad.top}" width="${svgNum(slot)}" height="${plotH}" tabindex="0" role="img" aria-label="${escapeHtml(label)}" data-tip="${escapeHtml(label)}"></rect>`;
         }).join("");
         updateDOM(target, `
+          <div class="usage-statistics-legend">${series.map((definition) => `<span><i style="--series-color:${definition.color}"></i>${escapeHtml(definition.label)}</span>`).join("")}</div>
           <div class="usage-statistics-chart-canvas">
             <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(t("usage_stats.chart_aria", { metric: metric }))}">
               <defs>${gradientDefs}</defs>
@@ -9376,7 +9377,6 @@ import {
               <g>${inspection}</g>
             </svg>
           </div>
-          <div class="usage-statistics-legend">${series.map((definition) => `<span><i style="--series-color:${definition.color}"></i>${escapeHtml(definition.label)}</span>`).join("")}</div>
         `);
       }
 
