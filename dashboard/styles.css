@@ -22060,41 +22060,8 @@ body {
   min-width: 0;
 }
 
-#configView.is-model-data .statistics-subnav {
-  display: inline-flex;
-  width: max-content;
-  max-width: 100%;
-  gap: 3px;
-  padding: 3px;
-  border: 1px solid #dfe3e8;
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(18, 28, 45, 0.04);
-}
-
-#configView.is-model-data .statistics-subnav button {
-  min-height: 28px;
-  padding: 5px 12px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 9.5px;
-  font-weight: 720;
-  transition: background 140ms ease-out, color 140ms ease-out, box-shadow 140ms ease-out;
-}
-
-#configView.is-model-data .statistics-subnav button:hover {
-  background: #f3f5f7;
-  color: var(--text);
-}
-
-#configView.is-model-data .statistics-subnav button.is-active {
-  background: #151a23;
-  color: #fff;
-  box-shadow: 0 1px 3px rgba(18, 28, 45, 0.22);
-}
+/* 旧密排子导航样式已删除：statistics-subnav 由文件末尾 demo v2 段统一样式
+   （灰底容器 + 白底活动片）。 */
 
 #configView.is-model-data .statistics-subnav button:focus-visible,
 #configView.is-model-data .usage-statistics-filters button:focus-visible,
@@ -30113,7 +30080,7 @@ body.is-auth-checking {
 }
 
 #configView.is-model-data .statistics-view-panel[data-statistics-view-panel="usage"] {
-  gap: 12px;
+  gap: 24px;
 }
 
 #configView.is-model-data .usage-statistics-heading {
@@ -30366,14 +30333,35 @@ body.is-auth-checking {
 .statistics-toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px 14px;
+  gap: 8px 10px;
   align-items: center;
   justify-content: flex-start;
-  padding: 12px 14px;
+  padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 16px;
   background: var(--surface);
   box-shadow: var(--shadow-card);
+}
+
+/* 桌面宽度强制单行：装不下时横向滚动而不是换行 */
+@media (min-width: 1024px) {
+  .statistics-toolbar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .statistics-toolbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .statistics-toolbar > * {
+    flex: 0 0 auto;
+  }
+
+  .statistics-toolbar-right {
+    margin-left: auto;
+  }
 }
 
 .statistics-toolbar-divider {
@@ -30393,7 +30381,7 @@ body.is-auth-checking {
 }
 
 .statistics-toolbar .usage-statistics-custom-range {
-  flex-basis: 100%;
+  flex: 0 0 auto;
   padding: 8px 10px;
   margin: 0;
   border: 1px dashed var(--line);
@@ -30407,12 +30395,19 @@ body.is-auth-checking {
 
 /* -- 子视图药丸切换 -- */
 #configView .statistics-subnav {
+  display: inline-flex;
+  width: max-content;
+  max-width: 100%;
   gap: 2px;
   padding: 3px;
   border: 1px solid var(--line-soft);
   border-radius: 10px;
-  background: var(--surface-soft, #f4f4f5);
+  background: var(--neutral-soft, #f4f4f5);
   box-shadow: none;
+}
+
+#configView .statistics-subnav button span {
+  white-space: nowrap;
 }
 
 #configView .statistics-subnav button {
@@ -30420,7 +30415,7 @@ body.is-auth-checking {
   gap: 6px;
   align-items: center;
   min-height: 0;
-  padding: 6px 12px;
+  padding: 5px 10px;
   border: 0;
   border-radius: 8px;
   background: transparent;
@@ -30458,7 +30453,7 @@ body.is-auth-checking {
 #configView .usage-statistics-range .segmented-button {
   min-width: 0;
   min-height: 0;
-  padding: 5px 10px;
+  padding: 4px 7px;
   border-radius: 8px;
   font-size: 12.5px;
   color: var(--muted);
@@ -30485,8 +30480,8 @@ body.is-auth-checking {
 #configView .usage-statistics-dimensions .control {
   height: 30px;
   min-height: 0;
-  max-width: 140px;
-  padding: 0 8px;
+  max-width: 116px;
+  padding: 0 6px;
   border-radius: 8px;
   font-size: 12px;
 }
@@ -30523,7 +30518,7 @@ body.is-auth-checking {
 /* -- Hero KPI 三卡 -- */
 #configView.is-model-data .usage-statistics-summary {
   display: grid;
-  gap: 16px;
+  gap: 24px;
   padding: 0;
   border-radius: 0;
 }
@@ -31009,9 +31004,9 @@ body.is-auth-checking {
   border-color: color-mix(in srgb, var(--line) 72%, transparent);
 }
 
-/* 间距统一：区块间 20px，卡内栅格 16px */
+/* 间距统一：区块间 24px（demo space-y-6 节奏），卡内栅格 16px */
 #configView .statistics-panel {
-  gap: 20px;
+  gap: 24px;
 }
 
 .usage-hero-card {
@@ -31124,6 +31119,8 @@ body.is-auth-checking {
 
 /* 同步 chip 淡雅化 */
 #configView .usage-statistics-completeness {
+  min-height: 0;
+  padding: 3px 9px;
   border-color: #a7f3d0;
   background: #ecfdf5;
   color: #047857;
