@@ -140,8 +140,8 @@ assert.match(styles, /#configView\.is-model-data \.model-usage-open-button\s*\{[
 assert.match(styles, /#configView\.is-model-data \.model-usage-cost \.cost-state\s*\{[\s\S]*?display:\s*inline-flex[\s\S]*?align-items:\s*center/, "compact model costs need a single horizontal alignment context");
 assert.match(styles, /grid-template-areas:[\s\S]*?"calls success"/, "mobile model rows must preserve separate calls and success areas");
 assert.match(styles, /#modelDrawer\s*\{[\s\S]*?z-index:\s*36/, "the model drawer must stay above the tablet app shell");
-assert.match(styles, /#configView\.is-model-data \.config-tab-nav\s*\{[\s\S]*?margin-bottom:\s*4px/, "model table must sit closer to the config tab bar");
-assert.match(styles, /#configView\.is-model-data \.config-side-column\s*\{[\s\S]*?gap:\s*0/, "model data must remove the inherited config column gap");
+assert.match(styles, /#configView \.config-tab-nav\s*\{[\s\S]*?margin-bottom:\s*14px/, "config tab bar must keep breathing room above every merged panel");
+assert.match(styles, /\.config-panels\s*\{[\s\S]*?gap:\s*14px/, "merged config panels must share one consistent stack gap");
 assert.match(styles, /\.usage-statistics-primary-row\s*\{[\s\S]*?grid-template-columns:/, "usage statistics needs one intentional primary summary row");
 assert.match(styles, /\.usage-statistics-chart-canvas svg\s*\{[\s\S]*?width:\s*100%/, "statistics charts must scale to the workspace");
 assert.match(styles, /\.usage-statistics-breakdown-row\s*\{[\s\S]*?grid-template-columns:/, "statistics breakdown rows must keep aligned metrics");

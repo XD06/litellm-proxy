@@ -43,4 +43,52 @@ assert.match(
   "config statistics view must reserve the root scrollbar gutter while switching panels",
 );
 
+// ---- Merged config tabs (方案 D): five tabs over legacy panel wrappers ----
+const app = fs.readFileSync(path.join(root, "src", "app.js"), "utf8");
+const index = fs.readFileSync(path.join(root, "..", "dashboard", "index.html"), "utf8");
+
+const CONFIG_TAB_MAPPING_SNIPPETS = [
+  'models: ["models"],',
+  'routing: ["routes", "map"],',
+  'providers: ["providers"],',
+  'runtime_ops: ["runtime", "proxy", "health"],',
+  'advanced: ["advanced"],',
+];
+for (const snippet of CONFIG_TAB_MAPPING_SNIPPETS) {
+  assert.ok(app.includes(snippet), `CONFIG_TAB_PANELS must keep the mapping: ${snippet}`);
+}
+assert.match(app, /CONFIG_TAB_ALIASES = \{[\s\S]*?routes: "routing"[\s\S]*?proxy: "runtime_ops"/, "old persisted tab keys must keep their alias onto the merged tab");
+assert.match(app, /panel\.hidden = !visiblePanels\.includes\(panel\.dataset\.configTabPanel\)/, "tab switching must toggle every legacy panel wrapper from the mapping");
+assert.match(app, /normalized === "models"/, "statistics loading side-effects must stay tied to the models tab");
+
+for (const button of ["models", "routing", "providers", "runtime_ops", "advanced"]) {
+  assert.match(index, new RegExp(`data-config-tab="${button}"`), `tab bar must expose the ${button} tab`);
+}
+assert.doesNotMatch(index, /data-config-tab="(routes|map|runtime|proxy|health)"/, "the old seven-tab bar must not come back");
+
+// Functional anchors: every renderer/binding hooks onto these ids — they must
+// survive any layout reorganization.
+for (const anchor of [
+  "configProviders",
+  "auditTrail",
+  "modelRoutes",
+  "providerModelMap",
+  "configSummary",
+  "globalProxyForm",
+  "healthMonitorForm",
+  "conversionDiagnosticsStatus",
+  "conversionDiagnosticsRecords",
+  "overlaySafety",
+  "configSnapshot",
+  'id="modelRoutesPanel"',
+]) {
+  assert.match(index, new RegExp(anchor.replaceAll("-", "\\-")), `functional anchor ${anchor} must stay in the DOM`);
+}
+assert.match(
+  index,
+  /data-config-tab-panel="providers"[\s\S]*?id="configProviders"[\s\S]*?id="auditTrail"/,
+  "the providers tab must own both the provider config list and the audit trail",
+);
+assert.match(index, /providers-tab-grid/, "providers tab must use the two-column inner grid");
+
 console.log("config shell stability tests passed");

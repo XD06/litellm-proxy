@@ -2236,27 +2236,48 @@ import {
     });
   }
 
+  // Merged config tabs (方案D 全宽统一): each visible tab maps onto one or more
+  // legacy panel wrappers. The wrapper keys (routes/map/runtime/proxy/health)
+  // are kept verbatim in index.html so panel containers, renderers and bindings
+  // stay untouched.
+  const CONFIG_TAB_PANELS = {
+    models: ["models"],
+    routing: ["routes", "map"],
+    providers: ["providers"],
+    runtime_ops: ["runtime", "proxy", "health"],
+    advanced: ["advanced"],
+  };
+  // Old persisted tab values (localStorage `proxyConsoleConfigTab`) map onto
+  // the merged tab that now owns their panels.
+  const CONFIG_TAB_ALIASES = {
+    routes: "routing",
+    map: "routing",
+    proxy: "runtime_ops",
+    health: "runtime_ops",
+  };
+
   function switchConfigTab(tabName) {
     const tabNav = el("configTabNav");
-    const allowedTabs = new Set(["routes", "models", "map", "runtime", "proxy", "health", "advanced"]);
-    if (!tabNav || !allowedTabs.has(tabName)) return;
+    const normalized = CONFIG_TAB_ALIASES[tabName] || tabName;
+    const visiblePanels = CONFIG_TAB_PANELS[normalized];
+    if (!tabNav || !visiblePanels) return;
     tabNav.querySelectorAll("button").forEach((button) => {
-      const active = button.dataset.configTab === tabName;
+      const active = button.dataset.configTab === normalized;
       button.classList.toggle("is-active", active);
       button.setAttribute("aria-selected", active ? "true" : "false");
       button.tabIndex = active ? 0 : -1;
     });
     document.querySelectorAll("[data-config-tab-panel]").forEach((panel) => {
-      panel.hidden = panel.dataset.configTabPanel !== tabName;
+      panel.hidden = !visiblePanels.includes(panel.dataset.configTabPanel);
     });
-    state.configTab = tabName;
-    el("configView")?.classList.toggle("is-model-data", tabName === "models");
-    if (tabName === "models") {
+    state.configTab = normalized;
+    el("configView")?.classList.toggle("is-model-data", normalized === "models");
+    if (normalized === "models") {
       if (state.statisticsView === "models") loadModelUsage();
       else loadUsageStatistics();
     }
     try {
-      localStorage.setItem("proxyConsoleConfigTab", tabName);
+      localStorage.setItem("proxyConsoleConfigTab", normalized);
     } catch (_e) {}
   }
 
@@ -9750,14 +9771,14 @@ import {
     });
     updateDOM(target, `
       <div class="config-summary-grid config-status-grid">
-        ${miniMetric("Providers", `${fmtInt(enabledProviders)}/${fmtInt(providerCount)}`, "enabled")}
-        ${miniMetric("Keys", fmtInt(keyCount), "masked")}
-        ${miniMetric("Global proxy", proxyLabel(config.proxy, "direct"), "fallback")}
-        ${miniMetric("Overlay", config.has_overlay ? "active" : "none", "runtime_config")}
-        ${miniMetric("Formats", Object.entries(formatCounts).map(([k, v]) => `${shortFormatName(k)} ${v}`).join(" / "), "enabled routes")}
+        ${miniMetric(t("cfg.summary_providers"), `${fmtInt(enabledProviders)}/${fmtInt(providerCount)}`, t("cfg.summary_enabled"))}
+        ${miniMetric(t("cfg.summary_keys"), fmtInt(keyCount), t("cfg.summary_masked"))}
+        ${miniMetric(t("cfg.summary_global_proxy"), proxyLabel(config.proxy, t("cfg.summary_direct")), t("cfg.summary_fallback"))}
+        ${miniMetric(t("cfg.summary_overlay"), config.has_overlay ? t("cfg.summary_overlay_active") : t("cfg.summary_overlay_none"), "runtime_config")}
+        ${miniMetric(t("cfg.summary_formats"), Object.entries(formatCounts).map(([k, v]) => `${shortFormatName(k)} ${v}`).join(" / "), t("cfg.summary_enabled_routes"))}
       </div>
       <div class="config-path-row">
-        <span>Overlay path</span>
+        <span>${escapeHtml(t("cfg.summary_overlay_path"))}</span>
         <strong class="mono">${escapeHtml(overlayPath)}</strong>
       </div>
     `);
@@ -9835,12 +9856,12 @@ import {
       .filter(([_model, route]) => route && typeof route === "object")
       .sort(([a], [b]) => a.localeCompare(b));
     const hint = providers.length
-      ? `<div class="model-route-hint">Available providers ${chipList(providers)}</div>`
-      : `<div class="model-route-hint muted">No providers available</div>`;
+      ? `<div class="model-route-hint">${escapeHtml(t("cfg.route_available_providers"))} ${chipList(providers)}</div>`
+      : `<div class="model-route-hint muted">${escapeHtml(t("cfg.route_no_providers"))}</div>`;
 
     if (!entries.length) {
       target.classList.add("empty");
-      updateDOM(target, `${hint}<div class="pad-slim">No model routes configured</div>`);
+      updateDOM(target, `${hint}<div class="pad-slim">${escapeHtml(t("cfg.no_routes"))}</div>`);
       state.forceModelRoutesRender = false;
       return;
     }
@@ -9890,11 +9911,11 @@ import {
                     data-model-route-priority-apply
                     data-model="${escapeHtml(model)}"
                     data-provider="${escapeHtml(item.name)}"
-                  >Save</button>
-                  <small>${hasOverride ? `model P${escapeHtml(item.priority)}` : `inherits P${escapeHtml(globalPriority)}`}</small>
+                  >${escapeHtml(t("cfg.route_save_priority"))}</button>
+                  <small>${hasOverride ? escapeHtml(t("cfg.route_model_prio", { n: item.priority })) : escapeHtml(t("cfg.route_inherits_prio", { n: globalPriority }))}</small>
                 </div>
               `;
-            }).join("") : `<span class="muted">No providers</span>`}
+            }).join("") : `<span class="muted">${escapeHtml(t("cfg.route_no_providers_row"))}</span>`}
           </div>
         </div>
         <div class="model-route-side">
@@ -9902,8 +9923,8 @@ import {
           ${badge(formatPreference ? (formatPreference === "native_first" ? t("policy.format_native") : t("policy.format_priority")) : t("cfg.format_inherit"), formatPreference ? "info" : "neutral")}
           ${route.reasoning_effort ? badge(`${t("cfg.reasoning_effort")}: ${route.reasoning_effort}`, route.reasoning_effort === "off" ? "warn" : "info") : ""}
           <div class="actions tight">
-            <button class="button secondary compact-action icon-action" type="button" data-model-route-edit="${escapeHtml(model)}" title="Edit route" aria-label="Edit route">${iconSvg("pencil")}</button>
-            <button class="button danger compact-action icon-action" type="button" data-model-route-delete="${escapeHtml(model)}" title="Delete route" aria-label="Delete route">${iconSvg("trash")}</button>
+            <button class="button secondary compact-action icon-action" type="button" data-model-route-edit="${escapeHtml(model)}" title="${escapeHtml(t("cfg.route_edit_route"))}" aria-label="${escapeHtml(t("cfg.route_edit_route"))}">${iconSvg("pencil")}</button>
+            <button class="button danger compact-action icon-action" type="button" data-model-route-delete="${escapeHtml(model)}" title="${escapeHtml(t("cfg.route_delete_route"))}" aria-label="${escapeHtml(t("cfg.route_delete_route"))}">${iconSvg("trash")}</button>
           </div>
         </div>
       </article>
@@ -9946,7 +9967,7 @@ import {
       .sort(([a], [b]) => a.localeCompare(b));
     if (!providers.length) {
       target.classList.add("empty");
-      updateDOM(target, `<div class="pad-slim">No provider model overrides configured</div>`);
+      updateDOM(target, `<div class="pad-slim">${escapeHtml(t("cfg.no_pmm"))}</div>`);
       return;
     }
 
@@ -9961,7 +9982,7 @@ import {
         <article class="provider-model-map-card">
           <div class="provider-model-map-head">
             <span class="provider-name">${escapeHtml(provider)}</span>
-            ${badge(`${fmtInt(pairs.length)} overrides`, "info")}
+            ${badge(t("cfg.pmm_overrides", { n: fmtInt(pairs.length) }), "info")}
           </div>
           <div class="provider-model-map-pairs">
             ${pairs.map(([canonical, upstream]) => `
@@ -10007,16 +10028,91 @@ import {
     bindPanelPagination(target);
   }
 
+  // Known audit actions → i18n labels. Unknown actions fall back to the raw
+  // mono name so new backend events never render as a blank title.
+  const AUDIT_ACTION_LABEL_KEYS = {
+    admin_key_updated: "cfg.audit_admin_key_updated",
+    client_key_deleted: "cfg.audit_client_key_deleted",
+    client_key_usage_reset: "cfg.audit_client_key_usage_reset",
+    config_overlay_clear_failed: "cfg.audit_config_overlay_clear_failed",
+    config_overlay_cleared: "cfg.audit_config_overlay_cleared",
+    config_overlay_compact_failed: "cfg.audit_config_overlay_compact_failed",
+    config_overlay_compacted: "cfg.audit_config_overlay_compacted",
+    config_overlay_validate_failed: "cfg.audit_config_overlay_validate_failed",
+    config_overlay_validated: "cfg.audit_config_overlay_validated",
+    config_reload_failed: "cfg.audit_config_reload_failed",
+    config_reloaded: "cfg.audit_config_reloaded",
+    failure_policy_updated: "cfg.audit_failure_policy_updated",
+    format_updated: "cfg.audit_format_updated",
+    global_proxy_updated: "cfg.audit_global_proxy_updated",
+    health_monitor_updated: "cfg.audit_health_monitor_updated",
+    key_add_failed: "cfg.audit_key_add_failed",
+    key_added: "cfg.audit_key_added",
+    key_deleted: "cfg.audit_key_deleted",
+    key_state_cleared: "cfg.audit_key_state_cleared",
+    key_updated: "cfg.audit_key_updated",
+    model_route_deleted: "cfg.audit_model_route_deleted",
+    model_route_updated: "cfg.audit_model_route_updated",
+    models_refreshed: "cfg.audit_models_refreshed",
+    patrol_triggered: "cfg.audit_patrol_triggered",
+    provider_added: "cfg.audit_provider_added",
+    provider_cooldown_cleared: "cfg.audit_provider_cooldown_cleared",
+    provider_delete_failed: "cfg.audit_provider_delete_failed",
+    provider_deleted: "cfg.audit_provider_deleted",
+    provider_disabled: "cfg.audit_provider_disabled",
+    provider_enabled: "cfg.audit_provider_enabled",
+    provider_models_disabled_updated: "cfg.audit_provider_models_disabled_updated",
+    provider_models_refreshed: "cfg.audit_provider_models_refreshed",
+    provider_priority_hot_updated: "cfg.audit_provider_priority_hot_updated",
+    provider_updated: "cfg.audit_provider_updated",
+    provider_weight_hot_updated: "cfg.audit_provider_weight_hot_updated",
+    retry_updated: "cfg.audit_retry_updated",
+    routing_updated: "cfg.audit_routing_updated",
+    admin_patch_error: "cfg.audit_admin_patch_error",
+    admin_patch_failed: "cfg.audit_admin_patch_failed",
+    client_key_created: "cfg.audit_client_key_created",
+    client_key_updated: "cfg.audit_client_key_updated",
+    compatibility_circuits_cleared: "cfg.audit_compatibility_circuits_cleared",
+    conversion_diagnostics_cleared: "cfg.audit_conversion_diagnostics_cleared",
+    key_delete_failed: "cfg.audit_key_delete_failed",
+    key_enabled: "cfg.audit_key_enabled",
+    key_probed: "cfg.audit_key_probed",
+    model_mapping_auto_inferred: "cfg.audit_model_mapping_auto_inferred",
+    model_mapping_inferred: "cfg.audit_model_mapping_inferred",
+    model_pricing_override_deleted: "cfg.audit_model_pricing_override_deleted",
+    model_pricing_override_updated: "cfg.audit_model_pricing_override_updated",
+    model_route_delete_failed: "cfg.audit_model_route_delete_failed",
+    model_tested: "cfg.audit_model_tested",
+    provider_add_failed: "cfg.audit_provider_add_failed",
+    provider_model_disabled_updated: "cfg.audit_provider_model_disabled_updated",
+    provider_model_mapping_updated: "cfg.audit_provider_model_mapping_updated",
+    provider_model_variants_updated: "cfg.audit_provider_model_variants_updated",
+    proxy_tested: "cfg.audit_proxy_tested",
+    request_history_clear_failed: "cfg.audit_request_history_clear_failed",
+    request_history_cleared: "cfg.audit_request_history_cleared",
+    request_matching_delete_failed: "cfg.audit_request_matching_delete_failed",
+    request_matching_records_deleted: "cfg.audit_request_matching_records_deleted",
+    request_records_delete_failed: "cfg.audit_request_records_delete_failed",
+    request_records_deleted: "cfg.audit_request_records_deleted",
+    usage_statistics_clear_failed: "cfg.audit_usage_statistics_clear_failed",
+    usage_statistics_cleared: "cfg.audit_usage_statistics_cleared",
+  };
+
   function auditTrailItem(item) {
     const status = String(item.status || "success");
     const tone = status === "failed" ? "bad" : "ok";
+    const statusKey = status === "failed" ? "cfg.audit_status_failed" : "cfg.audit_status_success";
     const detail = item.detail && Object.keys(item.detail).length ? JSON.stringify(item.detail) : "";
+    const labelKey = AUDIT_ACTION_LABEL_KEYS[String(item.action || "")];
+    const actionTitle = labelKey
+      ? `${escapeHtml(t(labelKey))}<span class="mono audit-action-raw">${escapeHtml(item.action || "")}</span>`
+      : `<span class="mono">${escapeHtml(item.action || "unknown")}</span>`;
     return `
       <article class="audit-item tone-${escapeHtml(tone)}">
         <div class="audit-item-main">
           <div class="audit-item-title">
-            <span class="mono">${escapeHtml(item.action || "unknown")}</span>
-            ${badge(status, tone)}
+            <span class="audit-action-name">${actionTitle}</span>
+            ${badge(t(statusKey), tone)}
           </div>
           <div class="audit-item-meta">
             <span>${escapeHtml(fmtDate(item.ts))}</span>
@@ -10025,7 +10121,7 @@ import {
           </div>
           ${detail ? `
             <details class="audit-detail-details">
-              <summary>Detail</summary>
+              <summary>${escapeHtml(t("cfg.audit_detail"))}</summary>
               <pre class="audit-detail">${escapeHtml(detail)}</pre>
             </details>
           ` : ""}
@@ -10040,22 +10136,27 @@ import {
     const keys = Array.isArray(provider.keys) ? provider.keys : [];
     const enabled = enabledFormats(formats);
     const firstKey = keys[0];
-    const keyText = firstKey ? `key ${firstKey.index} / ${firstKey.masked || firstKey.key_id || "-"}` : t("prov.no_keys");
-    const moreKeys = keys.length > 1 ? ` +${keys.length - 1}` : "";
+    const keyMasked = firstKey ? (firstKey.masked || firstKey.key_id || "") : "";
     const priority = Number(provider.priority || 0);
     return `
       <article class="config-provider-summary-card">
-        <div class="config-provider-summary-main">
-          <div class="provider-name">${escapeHtml(name)}</div>
-          <div class="provider-meta">${escapeHtml(provider.base_url || "-")}</div>
+        <div class="config-provider-summary-identity">
+          ${providerBrandIconMarkup(name, iconSvg("server"))}
+          <div class="config-provider-summary-main">
+            <div class="provider-name">${escapeHtml(name)}</div>
+            <div class="provider-meta">${escapeHtml(provider.base_url || "-")}</div>
+          </div>
         </div>
         <div class="config-provider-summary-badges">
-          ${badge(`P${fmtInt(priority)}`, "info")}
-          ${badge(provider.enabled === false ? "config off" : "config on", provider.enabled === false ? "bad" : "ok")}
+          ${badge(t("prov.config_prio", { n: fmtInt(priority) }), "info")}
+          ${provider.enabled === false ? badge(t("prov.config_off"), "bad") : badge(t("prov.config_on"), "ok")}
         </div>
-        <div class="config-provider-summary-keys mono">${escapeHtml(keyText)}${escapeHtml(moreKeys)}</div>
-        <div class="config-provider-summary-formats">${chipList(enabled, "no enabled formats")}</div>
-        <button class="button secondary compact-action icon-action" type="button" data-view-target="providers" title="Open providers" aria-label="Open providers">${iconSvg("settings")}</button>
+        <div class="config-provider-summary-meta">
+          <span>${escapeHtml(t("prov.key_count_line", { n: fmtInt(keys.length) }))}</span>
+          ${keyMasked ? `<span class="mono">${escapeHtml(keyMasked)}</span>` : ""}
+          ${enabled.length ? enabled.map((fmt) => `<span class="fmt-chip">${escapeHtml(shortFormatName(fmt))}</span>`).join("") : `<span class="muted">${escapeHtml(t("prov.no_formats"))}</span>`}
+        </div>
+        <button class="button secondary compact-action config-provider-open" type="button" data-view-target="providers" title="${escapeHtml(t("prov.row_details"))}" aria-label="${escapeHtml(t("prov.open_details", { name }))}">${escapeHtml(t("prov.details_short"))} →</button>
       </article>
     `;
   }

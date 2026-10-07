@@ -344,38 +344,23 @@
         </section>
 
         <section id="configView" class="view is-model-data">
-          <div class="config-grid">
-            <div class="config-column config-main-column">
-              <section class="panel config-provider-panel">
-                <div class="panel-head">
-                  <div>
-                    <h2 data-i18n="cfg.providers">Providers<span class="help-tip" data-tip="Edit existing provider config. To add a new provider, use the Add Provider button on the Providers page." data-i18n-tip="cfg.providers_tip">?</span></h2>
-                  </div>
-                </div>
-                <div id="configProviders" class="config-provider-list empty" data-i18n="prov.no_config">No provider config loaded</div>
-              </section>
-
-              <section class="panel config-audit-panel">
-                <div class="panel-head">
-                  <div>
-                    <h2 data-i18n="cfg.audit_trail">Audit Trail<span class="help-tip" data-tip="Recent admin mutations with masked details." data-i18n-tip="cfg.audit_tip">?</span></h2>
-                  </div>
-                </div>
-                <div id="auditTrail" class="audit-list empty" data-i18n="cfg.no_audit">No audit events recorded</div>
-              </section>
+          <header class="config-page-head">
+            <div>
+              <h1 data-i18n="cfg.page_title">Config & Statistics</h1>
+              <p data-i18n="cfg.page_desc">Model routing and mapping, provider config, runtime and probe settings, long-term usage statistics.</p>
             </div>
+          </header>
+          <div class="config-tab-nav" id="configTabNav" role="tablist">
+            <button class="is-active" type="button" data-config-tab="models" role="tab" aria-selected="true" tabindex="0" data-i18n="cfg.tab_data_statistics">Data Statistics</button>
+            <button type="button" data-config-tab="routing" role="tab" aria-selected="false" tabindex="-1" data-i18n="cfg.tab_routing">Routing &amp; Mapping</button>
+            <button type="button" data-config-tab="providers" role="tab" aria-selected="false" tabindex="-1" data-i18n="cfg.tab_providers">Providers</button>
+            <button type="button" data-config-tab="runtime_ops" role="tab" aria-selected="false" tabindex="-1" data-i18n="cfg.tab_runtime_ops">Runtime &amp; Probes</button>
+            <button type="button" data-config-tab="advanced" role="tab" aria-selected="false" tabindex="-1" data-i18n="cfg.tab_advanced">Advanced</button>
+          </div>
 
-            <div class="config-column config-side-column">
-              <div class="config-tab-nav" id="configTabNav" role="tablist">
-                <button class="is-active" type="button" data-config-tab="models" role="tab" aria-selected="true" tabindex="0" data-i18n="cfg.tab_data_statistics">Data Statistics</button>
-                <button type="button" data-config-tab="routes" role="tab" aria-selected="false" tabindex="-1" data-i18n="cfg.tab_routes">Routes</button>
-                <button type="button" data-config-tab="map" role="tab" aria-selected="false" tabindex="-1" data-i18n="cfg.tab_map">Map</button>
-                <button type="button" data-config-tab="runtime" role="tab" aria-selected="false" tabindex="-1" data-i18n="cfg.tab_runtime">Runtime</button>
-                <button type="button" data-config-tab="proxy" role="tab" aria-selected="false" tabindex="-1" data-i18n="cfg.tab_proxy">Proxy</button>
-                <button type="button" data-config-tab="health" role="tab" aria-selected="false" tabindex="-1" data-i18n="cfg.tab_health">Health</button>
-                <button type="button" data-config-tab="advanced" role="tab" aria-selected="false" tabindex="-1" data-i18n="cfg.tab_advanced">Advanced</button>
-              </div>
-
+          <!-- Panel wrappers keep the legacy per-panel keys (routes/map/runtime/proxy/health);
+               switchConfigTab() maps the merged tab keys onto these via CONFIG_TAB_PANELS. -->
+          <div class="config-panels">
               <div class="config-tab-panel" data-config-tab-panel="routes" hidden>
               <section id="modelRoutesPanel" class="panel model-routes-panel">
                 <div class="panel-head">
@@ -554,6 +539,28 @@
                 </div>
                 <div id="providerModelMap" class="provider-model-map-list empty" data-i18n="cfg.no_pmm">No provider model overrides configured</div>
               </section>
+              </div>
+
+              <div class="config-tab-panel" data-config-tab-panel="providers" hidden>
+              <div class="providers-tab-grid">
+              <section class="panel config-provider-panel">
+                <div class="panel-head">
+                  <div>
+                    <h2 data-i18n="cfg.providers">Providers<span class="help-tip" data-tip="Edit existing provider config. To add a new provider, use the Add Provider button on the Providers page." data-i18n-tip="cfg.providers_tip">?</span></h2>
+                  </div>
+                </div>
+                <div id="configProviders" class="config-provider-list empty" data-i18n="prov.no_config">No provider config loaded</div>
+              </section>
+
+              <section class="panel config-audit-panel">
+                <div class="panel-head">
+                  <div>
+                    <h2 data-i18n="cfg.audit_trail">Audit Trail<span class="help-tip" data-tip="Recent admin mutations with masked details." data-i18n-tip="cfg.audit_tip">?</span></h2>
+                  </div>
+                </div>
+                <div id="auditTrail" class="audit-list empty" data-i18n="cfg.no_audit">No audit events recorded</div>
+              </section>
+              </div>
               </div>
 
               <div class="config-tab-panel" data-config-tab-panel="runtime" hidden>
@@ -790,8 +797,7 @@
                 </details>
               </section>
               </div>
-            </div>
-          </div>
+              </div>
         </section>
 
         <section id="playgroundView" class="view playground-view">

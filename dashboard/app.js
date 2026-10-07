@@ -3987,10 +3987,6 @@
 				en: "Recent conversion failures (newest first)",
 				zh: "最近转换错误（最新在前）"
 			},
-			"cfg.tab_routes": {
-				en: "Routes",
-				zh: "路由"
-			},
 			"cfg.tab_model_data": {
 				en: "Model Data",
 				zh: "模型数据"
@@ -3999,25 +3995,405 @@
 				en: "Data Statistics",
 				zh: "数据统计"
 			},
-			"cfg.tab_map": {
-				en: "Map",
-				zh: "映射"
-			},
-			"cfg.tab_runtime": {
-				en: "Runtime",
-				zh: "运行时"
-			},
-			"cfg.tab_proxy": {
-				en: "Proxy",
-				zh: "代理"
-			},
-			"cfg.tab_health": {
-				en: "Health",
-				zh: "健康检查"
-			},
 			"cfg.tab_advanced": {
 				en: "Advanced",
 				zh: "高级"
+			},
+			"cfg.page_title": {
+				en: "Config & Statistics",
+				zh: "配置与统计"
+			},
+			"cfg.page_desc": {
+				en: "Model routing and mapping, provider config, runtime and probe settings, long-term usage statistics.",
+				zh: "模型路由与映射、供应商配置、运行与探测设置，以及长期用量统计。"
+			},
+			"cfg.tab_routing": {
+				en: "Routing & Mapping",
+				zh: "路由与映射"
+			},
+			"cfg.tab_providers": {
+				en: "Providers",
+				zh: "供应商"
+			},
+			"cfg.tab_runtime_ops": {
+				en: "Runtime & Probes",
+				zh: "运行与探测"
+			},
+			"prov.config_prio": {
+				en: "Priority {n}",
+				zh: "优先级 {n}"
+			},
+			"prov.config_on": {
+				en: "Config on",
+				zh: "配置启用"
+			},
+			"prov.config_off": {
+				en: "Config off",
+				zh: "配置停用"
+			},
+			"prov.key_count_line": {
+				en: "{n} keys",
+				zh: "{n} 把密钥"
+			},
+			"cfg.audit_status_success": {
+				en: "success",
+				zh: "成功"
+			},
+			"cfg.audit_status_failed": {
+				en: "failed",
+				zh: "失败"
+			},
+			"cfg.audit_detail": {
+				en: "Detail",
+				zh: "详情"
+			},
+			"cfg.audit_admin_key_updated": {
+				en: "Admin key updated",
+				zh: "管理密钥已更新"
+			},
+			"cfg.audit_client_key_deleted": {
+				en: "Client key deleted",
+				zh: "客户端密钥已删除"
+			},
+			"cfg.audit_client_key_usage_reset": {
+				en: "Client key usage reset",
+				zh: "客户端密钥用量已重置"
+			},
+			"cfg.audit_config_overlay_clear_failed": {
+				en: "Overlay clear failed",
+				zh: "覆盖层清除失败"
+			},
+			"cfg.audit_config_overlay_cleared": {
+				en: "Overlay cleared",
+				zh: "覆盖层已清除"
+			},
+			"cfg.audit_config_overlay_compact_failed": {
+				en: "Overlay compaction failed",
+				zh: "覆盖层整理失败"
+			},
+			"cfg.audit_config_overlay_compacted": {
+				en: "Overlay compacted",
+				zh: "覆盖层已整理"
+			},
+			"cfg.audit_config_overlay_validate_failed": {
+				en: "Overlay validation failed",
+				zh: "覆盖层校验失败"
+			},
+			"cfg.audit_config_overlay_validated": {
+				en: "Overlay validated",
+				zh: "覆盖层已校验"
+			},
+			"cfg.audit_config_reload_failed": {
+				en: "Config reload failed",
+				zh: "配置重载失败"
+			},
+			"cfg.audit_config_reloaded": {
+				en: "Config reloaded",
+				zh: "配置已重载"
+			},
+			"cfg.audit_failure_policy_updated": {
+				en: "Failure policy updated",
+				zh: "失败策略已更新"
+			},
+			"cfg.audit_format_updated": {
+				en: "Format route updated",
+				zh: "格式路由已更新"
+			},
+			"cfg.audit_global_proxy_updated": {
+				en: "Global proxy updated",
+				zh: "全局代理已更新"
+			},
+			"cfg.audit_health_monitor_updated": {
+				en: "Health monitor updated",
+				zh: "健康检测已保存"
+			},
+			"cfg.audit_key_add_failed": {
+				en: "Key add failed",
+				zh: "密钥添加失败"
+			},
+			"cfg.audit_key_added": {
+				en: "Key added",
+				zh: "密钥已添加"
+			},
+			"cfg.audit_key_deleted": {
+				en: "Key deleted",
+				zh: "密钥已删除"
+			},
+			"cfg.audit_key_state_cleared": {
+				en: "Key state cleared",
+				zh: "密钥状态已重置"
+			},
+			"cfg.audit_key_updated": {
+				en: "Key updated",
+				zh: "密钥已更新"
+			},
+			"cfg.audit_model_route_deleted": {
+				en: "Model route deleted",
+				zh: "模型路由已删除"
+			},
+			"cfg.audit_model_route_updated": {
+				en: "Model route updated",
+				zh: "模型路由已保存"
+			},
+			"cfg.audit_models_refreshed": {
+				en: "Model catalog refreshed",
+				zh: "模型目录已刷新"
+			},
+			"cfg.audit_patrol_triggered": {
+				en: "Patrol triggered manually",
+				zh: "巡检已手动触发"
+			},
+			"cfg.audit_provider_added": {
+				en: "Provider added",
+				zh: "供应商已添加"
+			},
+			"cfg.audit_provider_cooldown_cleared": {
+				en: "Provider cooldown cleared",
+				zh: "供应商冷却已清除"
+			},
+			"cfg.audit_provider_delete_failed": {
+				en: "Provider delete failed",
+				zh: "供应商删除失败"
+			},
+			"cfg.audit_provider_deleted": {
+				en: "Provider deleted",
+				zh: "供应商已删除"
+			},
+			"cfg.audit_provider_disabled": {
+				en: "Provider disabled",
+				zh: "供应商已禁用"
+			},
+			"cfg.audit_provider_enabled": {
+				en: "Provider enabled",
+				zh: "供应商已启用"
+			},
+			"cfg.audit_provider_models_disabled_updated": {
+				en: "Model disable state updated",
+				zh: "模型禁用状态已更新"
+			},
+			"cfg.audit_provider_models_refreshed": {
+				en: "Provider models refreshed",
+				zh: "供应商模型已刷新"
+			},
+			"cfg.audit_provider_priority_hot_updated": {
+				en: "Provider priority hot-updated",
+				zh: "供应商优先级已热更"
+			},
+			"cfg.audit_provider_updated": {
+				en: "Provider updated",
+				zh: "供应商已更新"
+			},
+			"cfg.audit_provider_weight_hot_updated": {
+				en: "Provider weight hot-updated",
+				zh: "供应商权重已热更"
+			},
+			"cfg.audit_retry_updated": {
+				en: "Retry policy updated",
+				zh: "重试策略已更新"
+			},
+			"cfg.audit_routing_updated": {
+				en: "Routing policy updated",
+				zh: "路由策略已更新"
+			},
+			"cfg.audit_admin_patch_error": {
+				en: "Admin patch error",
+				zh: "管理端修改错误"
+			},
+			"cfg.audit_admin_patch_failed": {
+				en: "Admin patch failed",
+				zh: "管理端修改失败"
+			},
+			"cfg.audit_client_key_created": {
+				en: "Client key created",
+				zh: "客户端密钥已创建"
+			},
+			"cfg.audit_client_key_updated": {
+				en: "Client key updated",
+				zh: "客户端密钥已更新"
+			},
+			"cfg.audit_compatibility_circuits_cleared": {
+				en: "Compatibility circuits cleared",
+				zh: "兼容性熔断已清除"
+			},
+			"cfg.audit_conversion_diagnostics_cleared": {
+				en: "Conversion diagnostics cleared",
+				zh: "转换诊断已清除"
+			},
+			"cfg.audit_key_delete_failed": {
+				en: "Key delete failed",
+				zh: "密钥删除失败"
+			},
+			"cfg.audit_key_enabled": {
+				en: "Key enabled",
+				zh: "密钥已启用"
+			},
+			"cfg.audit_key_probed": {
+				en: "Key probed",
+				zh: "密钥已探测"
+			},
+			"cfg.audit_model_mapping_auto_inferred": {
+				en: "Model mapping auto-inferred",
+				zh: "模型映射已自动推断"
+			},
+			"cfg.audit_model_mapping_inferred": {
+				en: "Model mapping inferred",
+				zh: "模型映射已推断"
+			},
+			"cfg.audit_model_pricing_override_deleted": {
+				en: "Model pricing override deleted",
+				zh: "模型价格覆盖已删除"
+			},
+			"cfg.audit_model_pricing_override_updated": {
+				en: "Model pricing override updated",
+				zh: "模型价格覆盖已更新"
+			},
+			"cfg.audit_model_route_delete_failed": {
+				en: "Model route delete failed",
+				zh: "模型路由删除失败"
+			},
+			"cfg.audit_model_tested": {
+				en: "Model tested",
+				zh: "模型已测试"
+			},
+			"cfg.audit_provider_add_failed": {
+				en: "Provider add failed",
+				zh: "供应商添加失败"
+			},
+			"cfg.audit_provider_model_disabled_updated": {
+				en: "Provider model disable state updated",
+				zh: "供应商模型禁用状态已更新"
+			},
+			"cfg.audit_provider_model_mapping_updated": {
+				en: "Provider model mapping updated",
+				zh: "供应商模型映射已更新"
+			},
+			"cfg.audit_provider_model_variants_updated": {
+				en: "Provider model variants updated",
+				zh: "供应商模型变体已更新"
+			},
+			"cfg.audit_proxy_tested": {
+				en: "Proxy tested",
+				zh: "代理已测试"
+			},
+			"cfg.audit_request_history_clear_failed": {
+				en: "Request history clear failed",
+				zh: "请求历史清除失败"
+			},
+			"cfg.audit_request_history_cleared": {
+				en: "Request history cleared",
+				zh: "请求历史已清除"
+			},
+			"cfg.audit_request_matching_delete_failed": {
+				en: "Request matching delete failed",
+				zh: "请求匹配删除失败"
+			},
+			"cfg.audit_request_matching_records_deleted": {
+				en: "Request matching records deleted",
+				zh: "请求匹配记录已删除"
+			},
+			"cfg.audit_request_records_delete_failed": {
+				en: "Request records delete failed",
+				zh: "请求记录删除失败"
+			},
+			"cfg.audit_request_records_deleted": {
+				en: "Request records deleted",
+				zh: "请求记录已删除"
+			},
+			"cfg.audit_usage_statistics_clear_failed": {
+				en: "Usage statistics clear failed",
+				zh: "用量统计清除失败"
+			},
+			"cfg.audit_usage_statistics_cleared": {
+				en: "Usage statistics cleared",
+				zh: "用量统计已清除"
+			},
+			"cfg.route_available_providers": {
+				en: "Available providers",
+				zh: "可用供应商"
+			},
+			"cfg.route_no_providers": {
+				en: "No providers available",
+				zh: "无可用供应商"
+			},
+			"cfg.route_save_priority": {
+				en: "Save",
+				zh: "保存"
+			},
+			"cfg.route_model_prio": {
+				en: "model P{n}",
+				zh: "模型 P{n}"
+			},
+			"cfg.route_inherits_prio": {
+				en: "inherits P{n}",
+				zh: "继承 P{n}"
+			},
+			"cfg.route_no_providers_row": {
+				en: "No providers",
+				zh: "无供应商"
+			},
+			"cfg.route_edit_route": {
+				en: "Edit route",
+				zh: "编辑路由"
+			},
+			"cfg.route_delete_route": {
+				en: "Delete route",
+				zh: "删除路由"
+			},
+			"cfg.pmm_overrides": {
+				en: "{n} overrides",
+				zh: "{n} 条覆盖"
+			},
+			"cfg.summary_providers": {
+				en: "Providers",
+				zh: "供应商"
+			},
+			"cfg.summary_keys": {
+				en: "Keys",
+				zh: "密钥"
+			},
+			"cfg.summary_enabled": {
+				en: "enabled",
+				zh: "已启用"
+			},
+			"cfg.summary_masked": {
+				en: "masked",
+				zh: "已脱敏"
+			},
+			"cfg.summary_global_proxy": {
+				en: "Global proxy",
+				zh: "全局代理"
+			},
+			"cfg.summary_direct": {
+				en: "direct",
+				zh: "直连"
+			},
+			"cfg.summary_fallback": {
+				en: "fallback",
+				zh: "兜底"
+			},
+			"cfg.summary_overlay": {
+				en: "Overlay",
+				zh: "覆盖层"
+			},
+			"cfg.summary_overlay_active": {
+				en: "active",
+				zh: "生效中"
+			},
+			"cfg.summary_overlay_none": {
+				en: "none",
+				zh: "无"
+			},
+			"cfg.summary_formats": {
+				en: "Formats",
+				zh: "格式"
+			},
+			"cfg.summary_enabled_routes": {
+				en: "enabled routes",
+				zh: "启用路由数"
+			},
+			"cfg.summary_overlay_path": {
+				en: "Overlay path",
+				zh: "覆盖层文件路径"
 			},
 			"cfg.model_routes": {
 				en: "Model Routes",
@@ -9021,32 +9397,43 @@
 				button.addEventListener("click", () => setView(button.dataset.viewTarget || "overview"));
 			});
 		}
-		function switchConfigTab(tabName) {
-			const tabNav = el("configTabNav");
-			if (!tabNav || !new Set([
-				"routes",
-				"models",
-				"map",
+		var CONFIG_TAB_PANELS = {
+			models: ["models"],
+			routing: ["routes", "map"],
+			providers: ["providers"],
+			runtime_ops: [
 				"runtime",
 				"proxy",
-				"health",
-				"advanced"
-			]).has(tabName)) return;
+				"health"
+			],
+			advanced: ["advanced"]
+		};
+		var CONFIG_TAB_ALIASES = {
+			routes: "routing",
+			map: "routing",
+			proxy: "runtime_ops",
+			health: "runtime_ops"
+		};
+		function switchConfigTab(tabName) {
+			const tabNav = el("configTabNav");
+			const normalized = CONFIG_TAB_ALIASES[tabName] || tabName;
+			const visiblePanels = CONFIG_TAB_PANELS[normalized];
+			if (!tabNav || !visiblePanels) return;
 			tabNav.querySelectorAll("button").forEach((button) => {
-				const active = button.dataset.configTab === tabName;
+				const active = button.dataset.configTab === normalized;
 				button.classList.toggle("is-active", active);
 				button.setAttribute("aria-selected", active ? "true" : "false");
 				button.tabIndex = active ? 0 : -1;
 			});
 			document.querySelectorAll("[data-config-tab-panel]").forEach((panel) => {
-				panel.hidden = panel.dataset.configTabPanel !== tabName;
+				panel.hidden = !visiblePanels.includes(panel.dataset.configTabPanel);
 			});
-			state.configTab = tabName;
-			el("configView")?.classList.toggle("is-model-data", tabName === "models");
-			if (tabName === "models") if (state.statisticsView === "models") loadModelUsage();
+			state.configTab = normalized;
+			el("configView")?.classList.toggle("is-model-data", normalized === "models");
+			if (normalized === "models") if (state.statisticsView === "models") loadModelUsage();
 			else loadUsageStatistics();
 			try {
-				localStorage.setItem("proxyConsoleConfigTab", tabName);
+				localStorage.setItem("proxyConsoleConfigTab", normalized);
 			} catch (_e) {}
 		}
 		function bindConfigTabs() {
@@ -15833,14 +16220,14 @@
 			});
 			updateDOM(target, `
       <div class="config-summary-grid config-status-grid">
-        ${miniMetric("Providers", `${fmtInt(enabledProviders)}/${fmtInt(providerCount)}`, "enabled")}
-        ${miniMetric("Keys", fmtInt(keyCount), "masked")}
-        ${miniMetric("Global proxy", proxyLabel(config.proxy, "direct"), "fallback")}
-        ${miniMetric("Overlay", config.has_overlay ? "active" : "none", "runtime_config")}
-        ${miniMetric("Formats", Object.entries(formatCounts).map(([k, v]) => `${shortFormatName(k)} ${v}`).join(" / "), "enabled routes")}
+        ${miniMetric(t("cfg.summary_providers"), `${fmtInt(enabledProviders)}/${fmtInt(providerCount)}`, t("cfg.summary_enabled"))}
+        ${miniMetric(t("cfg.summary_keys"), fmtInt(keyCount), t("cfg.summary_masked"))}
+        ${miniMetric(t("cfg.summary_global_proxy"), proxyLabel(config.proxy, t("cfg.summary_direct")), t("cfg.summary_fallback"))}
+        ${miniMetric(t("cfg.summary_overlay"), config.has_overlay ? t("cfg.summary_overlay_active") : t("cfg.summary_overlay_none"), "runtime_config")}
+        ${miniMetric(t("cfg.summary_formats"), Object.entries(formatCounts).map(([k, v]) => `${shortFormatName(k)} ${v}`).join(" / "), t("cfg.summary_enabled_routes"))}
       </div>
       <div class="config-path-row">
-        <span>Overlay path</span>
+        <span>${escapeHtml(t("cfg.summary_overlay_path"))}</span>
         <strong class="mono">${escapeHtml(overlayPath)}</strong>
       </div>
     `);
@@ -15906,10 +16293,10 @@
 			const providers = Object.keys(config.providers || {}).sort();
 			const routes = config.models?.routes || {};
 			const entries = Object.entries(routes).filter(([_model, route]) => route && typeof route === "object").sort(([a], [b]) => a.localeCompare(b));
-			const hint = providers.length ? `<div class="model-route-hint">Available providers ${chipList(providers)}</div>` : `<div class="model-route-hint muted">No providers available</div>`;
+			const hint = providers.length ? `<div class="model-route-hint">${escapeHtml(t("cfg.route_available_providers"))} ${chipList(providers)}</div>` : `<div class="model-route-hint muted">${escapeHtml(t("cfg.route_no_providers"))}</div>`;
 			if (!entries.length) {
 				target.classList.add("empty");
-				updateDOM(target, `${hint}<div class="pad-slim">No model routes configured</div>`);
+				updateDOM(target, `${hint}<div class="pad-slim">${escapeHtml(t("cfg.no_routes"))}</div>`);
 				state.forceModelRoutesRender = false;
 				return;
 			}
@@ -15957,11 +16344,11 @@
                     data-model-route-priority-apply
                     data-model="${escapeHtml(model)}"
                     data-provider="${escapeHtml(item.name)}"
-                  >Save</button>
-                  <small>${hasOverride ? `model P${escapeHtml(item.priority)}` : `inherits P${escapeHtml(globalPriority)}`}</small>
+                  >${escapeHtml(t("cfg.route_save_priority"))}</button>
+                  <small>${hasOverride ? escapeHtml(t("cfg.route_model_prio", { n: item.priority })) : escapeHtml(t("cfg.route_inherits_prio", { n: globalPriority }))}</small>
                 </div>
               `;
-			}).join("") : `<span class="muted">No providers</span>`}
+			}).join("") : `<span class="muted">${escapeHtml(t("cfg.route_no_providers_row"))}</span>`}
           </div>
         </div>
         <div class="model-route-side">
@@ -15969,8 +16356,8 @@
           ${badge(formatPreference ? formatPreference === "native_first" ? t("policy.format_native") : t("policy.format_priority") : t("cfg.format_inherit"), formatPreference ? "info" : "neutral")}
           ${route.reasoning_effort ? badge(`${t("cfg.reasoning_effort")}: ${route.reasoning_effort}`, route.reasoning_effort === "off" ? "warn" : "info") : ""}
           <div class="actions tight">
-            <button class="button secondary compact-action icon-action" type="button" data-model-route-edit="${escapeHtml(model)}" title="Edit route" aria-label="Edit route">${iconSvg("pencil")}</button>
-            <button class="button danger compact-action icon-action" type="button" data-model-route-delete="${escapeHtml(model)}" title="Delete route" aria-label="Delete route">${iconSvg("trash")}</button>
+            <button class="button secondary compact-action icon-action" type="button" data-model-route-edit="${escapeHtml(model)}" title="${escapeHtml(t("cfg.route_edit_route"))}" aria-label="${escapeHtml(t("cfg.route_edit_route"))}">${iconSvg("pencil")}</button>
+            <button class="button danger compact-action icon-action" type="button" data-model-route-delete="${escapeHtml(model)}" title="${escapeHtml(t("cfg.route_delete_route"))}" aria-label="${escapeHtml(t("cfg.route_delete_route"))}">${iconSvg("trash")}</button>
           </div>
         </div>
       </article>
@@ -16009,7 +16396,7 @@
 			const providers = Object.entries(map).filter(([_provider, entries]) => entries && typeof entries === "object" && Object.keys(entries).length).sort(([a], [b]) => a.localeCompare(b));
 			if (!providers.length) {
 				target.classList.add("empty");
-				updateDOM(target, `<div class="pad-slim">No provider model overrides configured</div>`);
+				updateDOM(target, `<div class="pad-slim">${escapeHtml(t("cfg.no_pmm"))}</div>`);
 				return;
 			}
 			target.classList.remove("empty");
@@ -16023,7 +16410,7 @@
         <article class="provider-model-map-card">
           <div class="provider-model-map-head">
             <span class="provider-name">${escapeHtml(provider)}</span>
-            ${badge(`${fmtInt(pairs.length)} overrides`, "info")}
+            ${badge(t("cfg.pmm_overrides", { n: fmtInt(pairs.length) }), "info")}
           </div>
           <div class="provider-model-map-pairs">
             ${pairs.map(([canonical, upstream]) => `
@@ -16064,16 +16451,86 @@
     `);
 			bindPanelPagination(target);
 		}
+		var AUDIT_ACTION_LABEL_KEYS = {
+			admin_key_updated: "cfg.audit_admin_key_updated",
+			client_key_deleted: "cfg.audit_client_key_deleted",
+			client_key_usage_reset: "cfg.audit_client_key_usage_reset",
+			config_overlay_clear_failed: "cfg.audit_config_overlay_clear_failed",
+			config_overlay_cleared: "cfg.audit_config_overlay_cleared",
+			config_overlay_compact_failed: "cfg.audit_config_overlay_compact_failed",
+			config_overlay_compacted: "cfg.audit_config_overlay_compacted",
+			config_overlay_validate_failed: "cfg.audit_config_overlay_validate_failed",
+			config_overlay_validated: "cfg.audit_config_overlay_validated",
+			config_reload_failed: "cfg.audit_config_reload_failed",
+			config_reloaded: "cfg.audit_config_reloaded",
+			failure_policy_updated: "cfg.audit_failure_policy_updated",
+			format_updated: "cfg.audit_format_updated",
+			global_proxy_updated: "cfg.audit_global_proxy_updated",
+			health_monitor_updated: "cfg.audit_health_monitor_updated",
+			key_add_failed: "cfg.audit_key_add_failed",
+			key_added: "cfg.audit_key_added",
+			key_deleted: "cfg.audit_key_deleted",
+			key_state_cleared: "cfg.audit_key_state_cleared",
+			key_updated: "cfg.audit_key_updated",
+			model_route_deleted: "cfg.audit_model_route_deleted",
+			model_route_updated: "cfg.audit_model_route_updated",
+			models_refreshed: "cfg.audit_models_refreshed",
+			patrol_triggered: "cfg.audit_patrol_triggered",
+			provider_added: "cfg.audit_provider_added",
+			provider_cooldown_cleared: "cfg.audit_provider_cooldown_cleared",
+			provider_delete_failed: "cfg.audit_provider_delete_failed",
+			provider_deleted: "cfg.audit_provider_deleted",
+			provider_disabled: "cfg.audit_provider_disabled",
+			provider_enabled: "cfg.audit_provider_enabled",
+			provider_models_disabled_updated: "cfg.audit_provider_models_disabled_updated",
+			provider_models_refreshed: "cfg.audit_provider_models_refreshed",
+			provider_priority_hot_updated: "cfg.audit_provider_priority_hot_updated",
+			provider_updated: "cfg.audit_provider_updated",
+			provider_weight_hot_updated: "cfg.audit_provider_weight_hot_updated",
+			retry_updated: "cfg.audit_retry_updated",
+			routing_updated: "cfg.audit_routing_updated",
+			admin_patch_error: "cfg.audit_admin_patch_error",
+			admin_patch_failed: "cfg.audit_admin_patch_failed",
+			client_key_created: "cfg.audit_client_key_created",
+			client_key_updated: "cfg.audit_client_key_updated",
+			compatibility_circuits_cleared: "cfg.audit_compatibility_circuits_cleared",
+			conversion_diagnostics_cleared: "cfg.audit_conversion_diagnostics_cleared",
+			key_delete_failed: "cfg.audit_key_delete_failed",
+			key_enabled: "cfg.audit_key_enabled",
+			key_probed: "cfg.audit_key_probed",
+			model_mapping_auto_inferred: "cfg.audit_model_mapping_auto_inferred",
+			model_mapping_inferred: "cfg.audit_model_mapping_inferred",
+			model_pricing_override_deleted: "cfg.audit_model_pricing_override_deleted",
+			model_pricing_override_updated: "cfg.audit_model_pricing_override_updated",
+			model_route_delete_failed: "cfg.audit_model_route_delete_failed",
+			model_tested: "cfg.audit_model_tested",
+			provider_add_failed: "cfg.audit_provider_add_failed",
+			provider_model_disabled_updated: "cfg.audit_provider_model_disabled_updated",
+			provider_model_mapping_updated: "cfg.audit_provider_model_mapping_updated",
+			provider_model_variants_updated: "cfg.audit_provider_model_variants_updated",
+			proxy_tested: "cfg.audit_proxy_tested",
+			request_history_clear_failed: "cfg.audit_request_history_clear_failed",
+			request_history_cleared: "cfg.audit_request_history_cleared",
+			request_matching_delete_failed: "cfg.audit_request_matching_delete_failed",
+			request_matching_records_deleted: "cfg.audit_request_matching_records_deleted",
+			request_records_delete_failed: "cfg.audit_request_records_delete_failed",
+			request_records_deleted: "cfg.audit_request_records_deleted",
+			usage_statistics_clear_failed: "cfg.audit_usage_statistics_clear_failed",
+			usage_statistics_cleared: "cfg.audit_usage_statistics_cleared"
+		};
 		function auditTrailItem(item) {
 			const status = String(item.status || "success");
 			const tone = status === "failed" ? "bad" : "ok";
+			const statusKey = status === "failed" ? "cfg.audit_status_failed" : "cfg.audit_status_success";
 			const detail = item.detail && Object.keys(item.detail).length ? JSON.stringify(item.detail) : "";
+			const labelKey = AUDIT_ACTION_LABEL_KEYS[String(item.action || "")];
+			const actionTitle = labelKey ? `${escapeHtml(t(labelKey))}<span class="mono audit-action-raw">${escapeHtml(item.action || "")}</span>` : `<span class="mono">${escapeHtml(item.action || "unknown")}</span>`;
 			return `
       <article class="audit-item tone-${escapeHtml(tone)}">
         <div class="audit-item-main">
           <div class="audit-item-title">
-            <span class="mono">${escapeHtml(item.action || "unknown")}</span>
-            ${badge(status, tone)}
+            <span class="audit-action-name">${actionTitle}</span>
+            ${badge(t(statusKey), tone)}
           </div>
           <div class="audit-item-meta">
             <span>${escapeHtml(fmtDate(item.ts))}</span>
@@ -16082,7 +16539,7 @@
           </div>
           ${detail ? `
             <details class="audit-detail-details">
-              <summary>Detail</summary>
+              <summary>${escapeHtml(t("cfg.audit_detail"))}</summary>
               <pre class="audit-detail">${escapeHtml(detail)}</pre>
             </details>
           ` : ""}
@@ -16096,22 +16553,27 @@
 			const keys = Array.isArray(provider.keys) ? provider.keys : [];
 			const enabled = enabledFormats(formats);
 			const firstKey = keys[0];
-			const keyText = firstKey ? `key ${firstKey.index} / ${firstKey.masked || firstKey.key_id || "-"}` : t("prov.no_keys");
-			const moreKeys = keys.length > 1 ? ` +${keys.length - 1}` : "";
+			const keyMasked = firstKey ? firstKey.masked || firstKey.key_id || "" : "";
 			const priority = Number(provider.priority || 0);
 			return `
       <article class="config-provider-summary-card">
-        <div class="config-provider-summary-main">
-          <div class="provider-name">${escapeHtml(name)}</div>
-          <div class="provider-meta">${escapeHtml(provider.base_url || "-")}</div>
+        <div class="config-provider-summary-identity">
+          ${providerBrandIconMarkup(name, iconSvg("server"))}
+          <div class="config-provider-summary-main">
+            <div class="provider-name">${escapeHtml(name)}</div>
+            <div class="provider-meta">${escapeHtml(provider.base_url || "-")}</div>
+          </div>
         </div>
         <div class="config-provider-summary-badges">
-          ${badge(`P${fmtInt(priority)}`, "info")}
-          ${badge(provider.enabled === false ? "config off" : "config on", provider.enabled === false ? "bad" : "ok")}
+          ${badge(t("prov.config_prio", { n: fmtInt(priority) }), "info")}
+          ${provider.enabled === false ? badge(t("prov.config_off"), "bad") : badge(t("prov.config_on"), "ok")}
         </div>
-        <div class="config-provider-summary-keys mono">${escapeHtml(keyText)}${escapeHtml(moreKeys)}</div>
-        <div class="config-provider-summary-formats">${chipList(enabled, "no enabled formats")}</div>
-        <button class="button secondary compact-action icon-action" type="button" data-view-target="providers" title="Open providers" aria-label="Open providers">${iconSvg("settings")}</button>
+        <div class="config-provider-summary-meta">
+          <span>${escapeHtml(t("prov.key_count_line", { n: fmtInt(keys.length) }))}</span>
+          ${keyMasked ? `<span class="mono">${escapeHtml(keyMasked)}</span>` : ""}
+          ${enabled.length ? enabled.map((fmt) => `<span class="fmt-chip">${escapeHtml(shortFormatName(fmt))}</span>`).join("") : `<span class="muted">${escapeHtml(t("prov.no_formats"))}</span>`}
+        </div>
+        <button class="button secondary compact-action config-provider-open" type="button" data-view-target="providers" title="${escapeHtml(t("prov.row_details"))}" aria-label="${escapeHtml(t("prov.open_details", { name }))}">${escapeHtml(t("prov.details_short"))} →</button>
       </article>
     `;
 		}
