@@ -30958,27 +30958,64 @@ body.is-auth-checking {
 }
 
 #configView.is-model-data .model-usage-toolbar {
-  grid-template-columns: auto minmax(220px, 1fr) 150px auto;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 10px;
+  align-items: center;
   padding: 12px 14px;
   border-bottom: 1px solid var(--line-soft);
   background: transparent;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
-#modelUsageTable {
-  display: flex;
-  flex-direction: column;
+#configView.is-model-data .model-usage-toolbar::-webkit-scrollbar { display: none; }
+
+#configView.is-model-data .model-usage-toolbar > * { flex: 0 0 auto; }
+
+#configView.is-model-data .model-usage-search {
+  flex: 1 1 auto;
+  min-width: 150px;
 }
 
-#modelUsageTable > .model-usage-table-scroll { order: 1; }
-#modelUsageTable > .model-usage-pagination { order: 2; }
-#modelUsageTable > .empty,
-#modelUsageTable > .notice { order: 0; }
-
+/* 分页信息并入工具条：右对齐的紧凑页码组 */
 #configView.is-model-data .model-usage-pagination {
-  padding: 10px 14px;
-  border-bottom: 0;
-  border-top: 1px solid var(--line-soft);
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
   background: transparent;
+  min-height: 0;
+}
+
+#configView.is-model-data .model-usage-pagination .model-usage-page-copy {
+  display: inline-flex;
+  gap: 6px;
+  align-items: baseline;
+}
+
+#configView.is-model-data .model-usage-pagination .model-usage-page-copy strong {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+#configView.is-model-data .model-usage-pagination .model-usage-page-copy small {
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+#configView.is-model-data .model-usage-pagination .model-usage-page-actions {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+#configView.is-model-data .model-usage-pagination .model-usage-page-actions strong {
+  color: var(--text);
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 #configView.is-model-data .model-usage-table th {

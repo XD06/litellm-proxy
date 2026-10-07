@@ -94,7 +94,7 @@ assert.match(index, /id="modelUsageTable"[^>]+aria-busy="false"/, "model usage l
 assert.match(index, /id="modelUsageSummary"[\s\S]*class="model-usage-workspace"[\s\S]*id="modelUsageTable"/, "model overview cards sit above the inset workspace holding controls and data");
 assert.match(index, /data-i18n="cfg\.tab_data_statistics"/, "model data must live under the data statistics top-level tab");
 assert.match(index, /id="statisticsViewTabs"[\s\S]*data-statistics-view="usage"[\s\S]*data-statistics-view="models"/, "statistics needs clear usage and model subviews");
-assert.match(index, /id="usageStatisticsRange"[\s\S]*data-usage-statistics-range="today"[\s\S]*data-usage-statistics-range="custom"/, "statistics needs complete time range controls");
+assert.match(index, /id="usageStatisticsRange"[\s\S]*data-usage-statistics-range="24h"[\s\S]*data-usage-statistics-range="custom"/, "statistics needs complete time range controls without a duplicated today entry");
 assert.match(index, /id="usageStatisticsMetric"[\s\S]*data-usage-statistics-metric="tokens"[\s\S]*data-usage-statistics-metric="latency"/, "statistics needs all four metric modes");
 assert.match(index, /id="usageStatisticsSummary"[^>]+aria-busy="false"/, "statistics summary needs an exposed loading state");
 assert.match(index, /id="usageStatisticsChart"[^>]+aria-busy="false"/, "statistics chart needs an exposed loading state");

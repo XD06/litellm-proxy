@@ -434,7 +434,6 @@
                   </div>
                   <span class="statistics-toolbar-divider" aria-hidden="true"></span>
                   <div class="segmented-control usage-statistics-range usage-only" id="usageStatisticsRange" role="group" aria-label="Statistics time range" data-i18n-attr="aria-label:usage_stats.range_label">
-                    <button class="segmented-button" type="button" data-usage-statistics-range="today" aria-pressed="false" data-i18n="usage_stats.today">Today</button>
                     <button class="segmented-button" type="button" data-usage-statistics-range="24h" aria-pressed="false">24h</button>
                     <button class="segmented-button" type="button" data-usage-statistics-range="7d" aria-pressed="false">7d</button>
                     <button class="segmented-button" type="button" data-usage-statistics-range="30d" aria-pressed="false">30d</button>
@@ -513,6 +512,7 @@
                         <span class="sr-only" data-i18n="model_usage.search">Search models</span>
                         <input id="modelUsageQuery" class="control" name="model_usage_query" autocomplete="off" spellcheck="false" placeholder="Search model ID..." data-i18n-attr="placeholder:model_usage.search_ph" />
                       </label>
+                      <div id="modelUsagePageNav" class="model-usage-pagination" aria-label="Model pagination" data-i18n-attr="aria-label:model_usage.pages"></div>
                       <select id="modelUsageSort" name="model_usage_sort" class="control model-usage-sort" aria-label="Sort model usage" data-i18n-attr="aria-label:model_usage.sort_label">
                         <option value="calls" data-i18n="model_usage.sort_calls">Calls</option>
                         <option value="tokens" data-i18n="model_usage.sort_tokens">Tokens</option>

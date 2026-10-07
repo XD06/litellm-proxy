@@ -3353,6 +3353,16 @@ import {
       button.dataset.boundStatisticsView = "1";
       button.addEventListener("click", () => switchStatisticsView(button.dataset.statisticsView || "usage"));
     });
+    if (!window.__usageChartResizeBound) {
+      window.__usageChartResizeBound = true;
+      let resizeTimer = 0;
+      window.addEventListener("resize", () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          if (state.configTab === "models" && state.statisticsView === "usage") renderUsageStatisticsChart();
+        }, 180);
+      });
+    }
     if (tabs && !tabs.dataset.restoredStatisticsView) {
       tabs.dataset.restoredStatisticsView = "1";
       let saved = state.statisticsView || "usage";
@@ -9316,8 +9326,8 @@ import {
       updateDOM(target, `<div class="usage-statistics-empty-state">${iconSvg("activity")}<span><strong>${escapeHtml(t("usage_stats.no_series_title"))}</strong><small>${escapeHtml(t("usage_stats.no_series_hint"))}</small></span></div>`);
       return;
     }
-    const width = 1000;
-    const height = 286;
+    const width = Math.max(640, Math.min(2600, Math.round(target.clientWidth || 1000)));
+    const height = 232;
     const pad = { top: 24, right: 24, bottom: 42, left: 62 };
     const plotW = width - pad.left - pad.right;
     const plotH = height - pad.top - pad.bottom;
@@ -9629,6 +9639,7 @@ import {
     const items = Array.isArray(payload.items) ? payload.items : [];
     const summary = payload.summary || {};
     const rangeLabel = state.modelUsageRange === "all" ? t("req.all") : String(state.modelUsageRange || "7d");
+    updateDOM(el("modelUsagePageNav"), modelUsagePagination(payload));
     updateDOM(el("modelUsageSummary"), `
       <article class="model-overview-card tone-info">
         <div class="model-overview-head"><span>${escapeHtml(t("model_usage.fleet_assets"))}</span><i aria-hidden="true"></i></div>
@@ -9657,7 +9668,6 @@ import {
       return;
     }
     updateDOM(target, `
-      ${modelUsagePagination(payload)}
       <div class="model-usage-table-scroll">
       <table class="model-usage-table">
         <caption class="sr-only">${escapeHtml(t("model_usage.table_label"))}</caption>
@@ -9686,7 +9696,7 @@ import {
       </table>
       </div>
     `);
-    bindModelUsagePagination(target);
+    bindModelUsagePagination(el("modelUsagePageNav"));
     target.querySelectorAll("[data-model-usage-row]").forEach((row) => {
       const open = () => openUsageModelDrawer(row.dataset.modelUsageRow || "");
       row.addEventListener("click", (event) => {
