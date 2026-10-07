@@ -3999,6 +3999,38 @@
 				en: "Advanced",
 				zh: "高级"
 			},
+			"pagination.range": {
+				en: "{a}-{b} of {total} {noun}",
+				zh: "第 {a}-{b} 项，共 {total} {noun}"
+			},
+			"pagination.prev": {
+				en: "Previous page",
+				zh: "上一页"
+			},
+			"pagination.next": {
+				en: "Next page",
+				zh: "下一页"
+			},
+			"pagination.noun_providers": {
+				en: "providers",
+				zh: "个供应商"
+			},
+			"pagination.noun_events": {
+				en: "events",
+				zh: "条事件"
+			},
+			"pagination.noun_routes": {
+				en: "routes",
+				zh: "条路由"
+			},
+			"pagination.noun_maps": {
+				en: "maps",
+				zh: "条映射"
+			},
+			"pagination.noun_items": {
+				en: "items",
+				zh: "项"
+			},
 			"cfg.page_title": {
 				en: "Config & Statistics",
 				zh: "配置与统计"
@@ -12104,13 +12136,19 @@
 		}
 		function panelPagination(pageKey, page, noun) {
 			if (!page || page.total <= page.pageSize) return "";
+			const rangeText = t("pagination.range", {
+				a: fmtInt(page.start),
+				b: fmtInt(page.end),
+				total: fmtInt(page.total),
+				noun: t(`pagination.noun_${String(noun || "items")}`)
+			});
 			return `
       <div class="panel-pagination" data-pagination-for="${escapeHtml(pageKey)}">
-        <span><strong>${fmtInt(page.start)}-${fmtInt(page.end)}</strong> of ${fmtInt(page.total)} ${escapeHtml(noun || "items")}</span>
+        <span>${escapeHtml(rangeText)}</span>
         <div class="panel-pagination-actions">
-          <button class="button secondary icon-action" type="button" data-list-page-key="${escapeHtml(pageKey)}" data-list-page="prev" title="Previous page" aria-label="Previous page" ${page.currentPage <= 1 ? "disabled" : ""}>${iconSvg("arrow-left")}</button>
+          <button class="button secondary icon-action" type="button" data-list-page-key="${escapeHtml(pageKey)}" data-list-page="prev" title="${escapeHtml(t("pagination.prev"))}" aria-label="${escapeHtml(t("pagination.prev"))}" ${page.currentPage <= 1 ? "disabled" : ""}>${iconSvg("arrow-left")}</button>
           <span class="request-page-indicator">${fmtInt(page.currentPage)} / ${fmtInt(page.totalPages)}</span>
-          <button class="button secondary icon-action" type="button" data-list-page-key="${escapeHtml(pageKey)}" data-list-page="next" title="Next page" aria-label="Next page" ${page.currentPage >= page.totalPages ? "disabled" : ""}>${iconSvg("arrow-right")}</button>
+          <button class="button secondary icon-action" type="button" data-list-page-key="${escapeHtml(pageKey)}" data-list-page="next" title="${escapeHtml(t("pagination.next"))}" aria-label="${escapeHtml(t("pagination.next"))}" ${page.currentPage >= page.totalPages ? "disabled" : ""}>${iconSvg("arrow-right")}</button>
           ${pageKey === "providersPage" ? `
           <button class="button secondary icon-action" type="button" data-providers-clear-filters="1"
             title="${escapeHtml(t("prov.pagination_clear"))}"
@@ -16278,7 +16316,7 @@
 			target.classList.remove("empty");
 			updateDOM(target, `
       ${panelPagination("configProvidersPage", page, "providers")}
-      <div class="config-provider-page-list">
+      <div class="config-provider-tile-grid">
         ${page.items.map((name) => providerConfigSummaryCard(name, providers[name] || {})).join("")}
       </div>
     `);
@@ -16549,31 +16587,26 @@
     `;
 		}
 		function providerConfigSummaryCard(name, provider) {
-			const formats = provider.formats || {};
-			const keys = Array.isArray(provider.keys) ? provider.keys : [];
-			const enabled = enabledFormats(formats);
-			const firstKey = keys[0];
-			const keyMasked = firstKey ? firstKey.masked || firstKey.key_id || "" : "";
+			const enabled = enabledFormats(provider.formats || {});
 			const priority = Number(provider.priority || 0);
 			return `
-      <article class="config-provider-summary-card">
-        <div class="config-provider-summary-identity">
+      <article class="config-provider-tile" data-view-target="providers" role="button" tabindex="0" aria-label="${escapeHtml(t("prov.open_details", { name }))}" title="${escapeHtml(t("prov.open_details", { name }))}">
+        <div class="config-provider-tile-head">
           ${providerBrandIconMarkup(name, iconSvg("server"))}
-          <div class="config-provider-summary-main">
-            <div class="provider-name">${escapeHtml(name)}</div>
-            <div class="provider-meta">${escapeHtml(provider.base_url || "-")}</div>
+          <div class="config-provider-tile-main">
+            <b class="provider-name">${escapeHtml(name)}</b>
+            <small class="provider-meta">${escapeHtml(provider.base_url || "-")}</small>
           </div>
         </div>
-        <div class="config-provider-summary-badges">
-          ${badge(t("prov.config_prio", { n: fmtInt(priority) }), "info")}
-          ${provider.enabled === false ? badge(t("prov.config_off"), "bad") : badge(t("prov.config_on"), "ok")}
+        <div class="config-provider-tile-foot">
+          <span class="config-provider-tile-fmts">
+            ${enabled.length ? enabled.map((fmt) => `<span class="fmt-chip">${escapeHtml(shortFormatName(fmt))}</span>`).join("") : `<span class="muted">${escapeHtml(t("prov.no_formats"))}</span>`}
+          </span>
+          <span class="config-provider-tile-badges">
+            ${provider.enabled === false ? badge(t("prov.config_off"), "neutral") : ""}
+            ${badge(`P${fmtInt(priority)}`, "info")}
+          </span>
         </div>
-        <div class="config-provider-summary-meta">
-          <span>${escapeHtml(t("prov.key_count_line", { n: fmtInt(keys.length) }))}</span>
-          ${keyMasked ? `<span class="mono">${escapeHtml(keyMasked)}</span>` : ""}
-          ${enabled.length ? enabled.map((fmt) => `<span class="fmt-chip">${escapeHtml(shortFormatName(fmt))}</span>`).join("") : `<span class="muted">${escapeHtml(t("prov.no_formats"))}</span>`}
-        </div>
-        <button class="button secondary compact-action config-provider-open" type="button" data-view-target="providers" title="${escapeHtml(t("prov.row_details"))}" aria-label="${escapeHtml(t("prov.open_details", { name }))}">${escapeHtml(t("prov.details_short"))} →</button>
       </article>
     `;
 		}

@@ -89,6 +89,7 @@ assert.match(
   /data-config-tab-panel="providers"[\s\S]*?id="configProviders"[\s\S]*?id="auditTrail"/,
   "the providers tab must own both the provider config list and the audit trail",
 );
-assert.match(index, /providers-tab-grid/, "providers tab must use the two-column inner grid");
+assert.match(index, /class="panel config-provider-panel"/, "providers tab must own the provider config panel");
+assert.match(styles, /\.config-provider-tile-grid\s*\{/, "provider config list must render as the demo tile grid");
 
 console.log("config shell stability tests passed");

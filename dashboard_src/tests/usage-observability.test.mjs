@@ -123,7 +123,7 @@ assert.match(styles, /\.token-uncached\s*\{\s*background:\s*#4388e7/, "uncached 
 assert.match(styles, /\.token-output\s*\{\s*background:\s*#42a66f/, "output tokens need a familiar green segment");
 assert.match(styles, /#requestsTable \.request-data-table thead[\s\S]*?height:\s*0/, "request table headers should not consume a visual row");
 assert.match(styles, /#configView\.is-model-data \.model-usage-table thead[\s\S]*?height:\s*0/, "model table headers should not consume a visual row");
-assert.match(styles, /#configView\.is-model-data \.model-usage-panel\s*\{[\s\S]*?padding:\s*6px 10px 10px/, "model data needs a compact outer gutter below the config tabs");
+assert.match(styles, /#configView\.is-model-data \.model-usage-panel\s*\{[\s\S]*?padding:\s*14px 16px/, "model data must share the unified panel gutter of the merged config tabs");
 assert.match(styles, /#configView\.is-model-data \.model-usage-workspace\s*\{[\s\S]*?border:\s*1px solid #cbd5e1/, "model data controls and table need one visible inner boundary");
 assert.match(styles, /#configView\.is-model-data \.model-usage-table-scroll\s*\{[\s\S]*?overscroll-behavior-y:\s*auto/, "horizontal model table scrolling must pass vertical wheel input to the page");
 assert.match(styles, /#modelDrawer \.attempt-table-scroll\s*\{[\s\S]*?overscroll-behavior-y:\s*auto/, "model provider details must pass vertical wheel input to the drawer");

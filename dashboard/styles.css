@@ -2727,10 +2727,10 @@ tr.clickable:hover {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 10px;
-  padding: 8px 10px;
+  padding: 9px 12px;
   border: 1px solid var(--line-soft);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--surface-raised) 72%, var(--surface));
+  border-radius: 12px;
+  background: var(--surface);
   color: var(--muted);
   font-size: 12px;
 }
@@ -5749,8 +5749,8 @@ form.is-busy {
 
 .model-route-list {
   display: grid;
-  gap: 6px;
-  padding: 10px;
+  gap: 8px;
+  padding: 12px 14px 14px;
 }
 
 .provider-model-map-list {
@@ -5765,6 +5765,28 @@ form.is-busy {
 .audit-page-list {
   display: grid;
   gap: 6px;
+}
+
+.model-route-page-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 1180px) {
+  .model-route-page-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.audit-page-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+@media (max-width: 1080px) {
+  .audit-page-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .model-route-hint {
@@ -5786,10 +5808,16 @@ form.is-busy {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
   align-items: center;
-  padding: 9px 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
+  padding: 11px 13px;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  background: var(--surface-raised);
+  box-shadow: none;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.model-route-card:hover {
+  border-color: var(--line-strong);
   box-shadow: var(--shadow);
 }
 
@@ -5877,8 +5905,8 @@ form.is-busy {
 
 .config-provider-list {
   display: grid;
-  gap: 7px;
-  padding: 12px;
+  gap: 8px;
+  padding: 0;
 }
 
 .config-summary {
@@ -5933,63 +5961,98 @@ form.is-busy {
   overflow-wrap: anywhere;
 }
 
-.config-provider-summary-card {
+.config-provider-tile-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 4px 10px;
-  align-items: center;
-  min-height: 62px;
-  padding: 11px 13px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  padding: 12px 14px 14px;
+}
+
+@media (max-width: 1420px) {
+  .config-provider-tile-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1080px) {
+  .config-provider-tile-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .config-provider-tile-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.config-provider-tile {
+  display: grid;
+  gap: 9px;
+  align-content: space-between;
+  min-height: 74px;
+  padding: 11px 12px;
   border: 1px solid var(--line-soft);
   border-radius: 12px;
   background: var(--surface);
-  box-shadow: var(--shadow);
-  transition: box-shadow 160ms ease, transform 160ms ease;
+  cursor: pointer;
+  transition: box-shadow 160ms ease, transform 160ms ease, border-color 160ms ease;
 }
 
-.config-provider-summary-card:hover {
-  box-shadow: var(--shadow-tight);
+.config-provider-tile:hover,
+.config-provider-tile:focus-visible {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-card);
   transform: translateY(-1px);
 }
 
-.config-provider-summary-identity {
-  grid-column: 1;
-  grid-row: 1;
+.config-provider-tile-head {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 9px;
   min-width: 0;
 }
 
-.config-provider-summary-main {
+.config-provider-tile-main {
+  display: grid;
+  gap: 1px;
   min-width: 0;
 }
 
-.config-provider-summary-badges {
-  grid-column: 2;
-  grid-row: 1;
-  justify-self: end;
+.config-provider-tile .provider-name {
+  font-weight: 700;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.config-provider-tile .provider-meta {
+  color: var(--muted);
+  font-size: 10.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.config-provider-tile-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.config-provider-tile-fmts {
   display: inline-flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 6px;
-}
-
-.config-provider-summary-meta {
-  grid-column: 1;
-  grid-row: 2;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 9px;
+  gap: 4px;
   min-width: 0;
-  overflow: hidden;
-  color: var(--muted);
-  font-size: 11px;
 }
 
-.config-provider-summary-meta .mono {
-  font-size: 10.5px;
+.config-provider-tile-badges {
+  display: inline-flex;
+  gap: 5px;
+  justify-self: end;
 }
 
 .fmt-chip {
@@ -6002,33 +6065,12 @@ form.is-busy {
   white-space: nowrap;
 }
 
-.config-provider-summary-card .config-provider-open {
-  grid-column: 2;
-  grid-row: 2;
-  justify-self: end;
-}
-
-.config-provider-summary-card .provider-name {
-  font-weight: 700;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.config-provider-summary-card .provider-meta {
-  color: var(--muted);
-  font-size: 11px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .audit-list {
   display: grid;
   gap: 8px;
   max-height: 560px;
   overflow: auto;
-  padding: 12px;
+  padding: 12px 14px 14px;
 }
 
 .audit-item {
@@ -6090,7 +6132,7 @@ form.is-busy {
 
 .audit-item-meta span + span::before {
   content: "·";
-  margin: 0 7px 0 0;
+  margin: 0 6px;
   color: var(--line-strong);
 }
 
@@ -8272,22 +8314,24 @@ form.is-busy {
 
 .conversion-diagnostics-status > span:not(.conversion-diagnostics-empty) {
   display: grid;
-  gap: 3px;
-  padding: 10px 11px;
+  gap: 4px;
+  padding: 12px 14px;
   border: 1px solid var(--line-soft);
-  border-radius: 9px;
-  background: var(--surface-raised);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
 }
 
 .conversion-diagnostics-status small {
   color: var(--muted);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 680;
 }
 
 .conversion-diagnostics-status strong {
   color: var(--text);
-  font: 750 13px/1.2 var(--mono);
+  font: 750 15px/1.2 var(--mono);
+  font-variant-numeric: tabular-nums;
 }
 
 .conversion-diagnostics-status .tone-warning strong {
@@ -8307,16 +8351,21 @@ form.is-busy {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 7px 10px;
+  padding: 9px 12px;
   border: 1px solid var(--line-soft);
-  border-radius: 8px;
-  background: var(--surface-raised);
+  border-radius: 11px;
+  background: var(--surface);
   font-size: 11px;
   min-width: 0;
+  transition: background 140ms ease;
+}
+
+.conversion-diag-record:hover {
+  background: var(--surface-raised);
 }
 
 .conversion-diag-record + .conversion-diag-record {
-  margin-top: 4px;
+  margin-top: 5px;
 }
 
 .conversion-diag-time {
@@ -10968,21 +11017,17 @@ body {
 
   .provider-create-actions,
   .provider-create-format,
-  .global-proxy-form .form-note,
-  .config-provider-summary-main,
-  .config-provider-summary-badges,
-  .config-provider-summary-meta {
+  .global-proxy-form .form-note {
     grid-column: 1 / -1;
     grid-row: auto;
   }
 
-  .config-provider-summary-card {
-    min-height: 0;
+  .config-provider-tile-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .config-provider-summary-badges,
-  .config-provider-summary-card .config-provider-open {
-    justify-self: start;
+  .config-provider-tile {
+    min-height: 0;
   }
 
   .model-route-form,
@@ -21810,11 +21855,11 @@ body {
 /* Model data: high-density table with visual summaries and support badges. */
 #configView.is-model-data .model-usage-panel {
   overflow: visible;
-  padding: 6px 10px 10px;
-  border: 0;
-  border-radius: 10px;
-  background: #f4f6f8;
-  box-shadow: none;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
 }
 
 #configView.is-model-data .model-usage-head {
@@ -22011,7 +22056,7 @@ body {
   --usage-blue: #2f7df4;
   --usage-blue-soft: #eaf2ff;
   display: grid;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
 }
 
