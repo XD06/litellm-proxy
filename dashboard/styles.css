@@ -30481,7 +30481,7 @@ body.is-auth-checking {
 #configView .usage-statistics-dimensions .control {
   height: 30px;
   min-height: 0;
-  max-width: 116px;
+  max-width: 100px;
   padding: 0 6px;
   border-radius: 8px;
   font-size: 12px;
@@ -30514,6 +30514,17 @@ body.is-auth-checking {
   border-color: color-mix(in srgb, var(--warning) 30%, var(--line));
   background: var(--warning-soft);
   color: var(--warning);
+}
+
+/* -- 有效数据窗口标注：范围被保留期截断时在同步 chip 内显示「自 …」 -- */
+#configView .usage-statistics-heading-meta {
+  flex-wrap: nowrap;
+}
+
+#configView .usage-statistics-window {
+  font-style: normal;
+  font-weight: 600;
+  opacity: 0.72;
 }
 
 /* -- Hero KPI 三卡 -- */

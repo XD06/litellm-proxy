@@ -1389,6 +1389,7 @@ const dict = {
   "usage_stats.partial_load_failed": { en: "Some statistics could not be loaded: {error}", zh: "部分统计加载失败：{error}" },
   "usage_stats.failed": { en: "Usage statistics failed: {error}", zh: "使用统计加载失败：{error}" },
   "usage_stats.since": { en: "Statistics since {date}", zh: "统计始于 {date}" },
+  "usage_stats.data_from": { en: "since {date}", zh: "自 {date}" },
   "usage_stats.awaiting_data": { en: "Waiting for the first sample", zh: "等待首条统计数据" },
   "usage_stats.complete": { en: "Complete", zh: "数据完整" },
   "usage_stats.partial": { en: "Backfilling", zh: "正在回填" },

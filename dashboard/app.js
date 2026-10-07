@@ -5767,6 +5767,10 @@
 				en: "Statistics since {date}",
 				zh: "统计始于 {date}"
 			},
+			"usage_stats.data_from": {
+				en: "since {date}",
+				zh: "自 {date}"
+			},
 			"usage_stats.awaiting_data": {
 				en: "Waiting for the first sample",
 				zh: "等待首条统计数据"
@@ -15630,16 +15634,42 @@
 			const data = state.data.usageStatistics || {};
 			return data.summary || data.timeseries || data.breakdown || {};
 		}
+		function usageStatisticsDataFromStart(payload) {
+			const range = payload?.range || {};
+			const name = String(range.name || "");
+			const start = Number(range.start || 0);
+			const end = Number(range.end || 0);
+			if (!start) return 0;
+			const spans = {
+				"24h": 86400,
+				"7d": 604800,
+				"30d": 2592e3,
+				"90d": 7776e3,
+				"1y": 31536e3
+			};
+			if (name === "all") return start;
+			return spans[name] && end && start > end - spans[name] ? start : 0;
+		}
+		function usageStatisticsShortDate(ts) {
+			const n = Number(ts || 0);
+			if (!n) return "-";
+			const locale = getLang() === "zh" ? "zh-CN" : "en-US";
+			return (/* @__PURE__ */ new Date(n * 1e3)).toLocaleDateString(locale, {
+				month: "short",
+				day: "numeric"
+			});
+		}
 		function renderUsageStatisticsMeta() {
 			const payload = usageStatisticsMetaPayload();
 			const target = el("usageStatisticsMeta");
 			if (!target) return;
 			const startedAt = Number(payload.statistics_started_at || 0);
+			const dataFrom = usageStatisticsDataFromStart(payload);
 			const timezone = payload.reporting_timezone || payload.range?.timezone || "";
 			const complete = !payload.partial;
-			const tip = [startedAt ? t("usage_stats.since", { date: fmtDate(startedAt) }) : t("usage_stats.awaiting_data"), timezone].filter(Boolean).join(" · ");
+			const tip = [startedAt || dataFrom ? t("usage_stats.since", { date: fmtDate(startedAt || dataFrom) }) : t("usage_stats.awaiting_data"), timezone].filter(Boolean).join(" · ");
 			updateDOM(target, `
-      <span class="usage-statistics-completeness ${complete ? "is-complete" : "is-partial"}" data-tip="${escapeHtml(tip)}"><i aria-hidden="true"></i>${escapeHtml(complete ? t("usage_stats.synced") : t("usage_stats.partial"))}</span>
+      <span class="usage-statistics-completeness ${complete ? "is-complete" : "is-partial"}" data-tip="${escapeHtml(tip)}"><i aria-hidden="true"></i>${escapeHtml(complete ? t("usage_stats.synced") : t("usage_stats.partial"))}${dataFrom ? `<em class="usage-statistics-window"> · ${escapeHtml(t("usage_stats.data_from", { date: usageStatisticsShortDate(dataFrom) }))}</em>` : ""}</span>
     `);
 		}
 		function usageStatisticsCostStatus(summary) {
@@ -15866,11 +15896,14 @@
 				values: points.map((point) => Math.max(0, definition.value(point)))
 			})).filter((definition) => definition.values.some((value) => value > 0));
 			const subtitle = el("usageStatisticsChartSubtitle");
-			if (subtitle) subtitle.textContent = t("usage_stats.chart_context", {
-				range: usageStatisticsRangeLabel(payload.range?.name || state.usageStatisticsRange),
-				resolution: payload.resolution === "hour" ? t("usage_stats.hourly") : t("usage_stats.daily"),
-				count: fmtInt(points.length)
-			});
+			if (subtitle) {
+				const dataFrom = usageStatisticsDataFromStart(payload);
+				subtitle.textContent = t("usage_stats.chart_context", {
+					range: usageStatisticsRangeLabel(payload.range?.name || state.usageStatisticsRange) + (dataFrom ? ` · ${t("usage_stats.data_from", { date: usageStatisticsShortDate(dataFrom) })}` : ""),
+					resolution: payload.resolution === "hour" ? t("usage_stats.hourly") : t("usage_stats.daily"),
+					count: fmtInt(points.length)
+				});
+			}
 			if (!points.length || !series.some((definition) => definition.values.some((value) => value > 0))) {
 				updateDOM(target, `<div class="usage-statistics-empty-state">${iconSvg("activity")}<span><strong>${escapeHtml(t("usage_stats.no_series_title"))}</strong><small>${escapeHtml(t("usage_stats.no_series_hint"))}</small></span></div>`);
 				return;
