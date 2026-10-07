@@ -30079,8 +30079,11 @@ body.is-auth-checking {
   background: transparent;
 }
 
-#configView.is-model-data .statistics-view-panel[data-statistics-view-panel="usage"] {
+#configView.is-model-data .statistics-view-panel[data-statistics-view-panel="usage"],
+#configView.is-model-data .statistics-view-panel[data-statistics-view-panel="models"] {
+  display: grid;
   gap: 24px;
+  align-content: start;
 }
 
 #configView.is-model-data .usage-statistics-heading {
