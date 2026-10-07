@@ -10519,6 +10519,23 @@
 				cancelButton.addEventListener("click", closeKeyDrawer);
 			}
 		}
+		function positionUsageStatisticsCustomRange() {
+			const pop = el("usageStatisticsCustomRange");
+			const anchor = document.querySelector("[data-usage-statistics-range=\"custom\"]");
+			if (!pop || !anchor) return;
+			pop.hidden = false;
+			const rect = anchor.getBoundingClientRect();
+			const width = pop.offsetWidth || 380;
+			const height = pop.offsetHeight || 80;
+			const left = Math.max(12, Math.min(rect.right - width, window.innerWidth - width - 12));
+			const top = Math.min(rect.bottom + 8, window.innerHeight - height - 12);
+			pop.style.left = `${Math.round(left)}px`;
+			pop.style.top = `${Math.round(Math.max(12, top))}px`;
+		}
+		function hideUsageStatisticsCustomRange() {
+			const pop = el("usageStatisticsCustomRange");
+			if (pop && !pop.hidden) pop.hidden = true;
+		}
 		function usageStatisticsCustomTimestamp(value, endOfDay = false) {
 			const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
 			if (!match) return 0;
@@ -10590,8 +10607,30 @@
 						item.setAttribute("aria-pressed", active ? "true" : "false");
 					});
 					const custom = el("usageStatisticsCustomRange");
-					if (custom) custom.hidden = state.usageStatisticsRange !== "custom";
-					if (state.usageStatisticsRange !== "custom") loadUsageStatistics({ force: true });
+					if (state.usageStatisticsRange === "custom") {
+						if (custom && custom.hidden) positionUsageStatisticsCustomRange();
+						else if (custom) custom.hidden = true;
+						return;
+					}
+					if (custom) custom.hidden = true;
+					loadUsageStatistics({ force: true });
+				});
+			}
+			if (!document.body.dataset.boundUsageStatisticsCustomDismiss) {
+				document.body.dataset.boundUsageStatisticsCustomDismiss = "1";
+				document.addEventListener("pointerdown", (event) => {
+					const pop = el("usageStatisticsCustomRange");
+					if (!pop || pop.hidden) return;
+					if (pop.contains(event.target) || event.target.closest?.("[data-usage-statistics-range=\"custom\"]")) return;
+					pop.hidden = true;
+				});
+				document.addEventListener("keydown", (event) => {
+					if (event.key === "Escape") hideUsageStatisticsCustomRange();
+				});
+				window.addEventListener("resize", hideUsageStatisticsCustomRange);
+				window.addEventListener("scroll", hideUsageStatisticsCustomRange, {
+					passive: true,
+					capture: true
 				});
 			}
 			const metric = el("usageStatisticsMetric");
@@ -10663,6 +10702,7 @@
 					state.usageStatisticsCustomStart = startValue;
 					state.usageStatisticsCustomEnd = endValue;
 					state.usageStatisticsBreakdownPage = 0;
+					hideUsageStatisticsCustomRange();
 					loadUsageStatistics({ force: true });
 				});
 			}
@@ -15733,19 +15773,19 @@
 			updateDOM(target, `
       <div class="usage-hero-grid">
         <article class="usage-hero-card tone-tokens">
-          <div class="usage-hero-head"><span class="usage-hero-label"><i aria-hidden="true"></i>${escapeHtml(t("usage_stats.hero_tokens"))}</span><span class="usage-hero-exact mono">${escapeHtml(tokensKnown ? `${fmtInt(usage.total_tokens)} Tokens` : "—")}</span></div>
+          <div class="usage-hero-head"><span class="usage-hero-label">${iconSvg("layers")}${escapeHtml(t("usage_stats.hero_tokens"))}</span><span class="usage-hero-exact mono">${escapeHtml(tokensKnown ? `${fmtInt(usage.total_tokens)} Tokens` : "—")}</span></div>
           <div class="usage-hero-value"><strong>${escapeHtml(tokensKnown ? fmtTokenCount(usage.total_tokens) : "—")}</strong><span class="usage-hero-tag">${iconSvg("activity")}${escapeHtml(t("usage_stats.upstream_consumption"))}</span></div>
           <div class="usage-hero-bar" role="img" aria-label="${escapeHtml(`${t("tokens.uncached")} ${fmtTokenCount(usage.uncached_input_tokens)} · ${t("tokens.cached")} ${fmtTokenCount(usage.cached_input_tokens)} · ${t("tokens.output")} ${fmtTokenCount(usage.output_tokens)}`)}"><i class="seg-input" style="width:${tokenShare(usage.uncached_input_tokens)}"></i><i class="seg-cache" style="width:${tokenShare(usage.cached_input_tokens)}"></i><i class="seg-write" style="width:${tokenShare(usage.cache_write_tokens)}"></i><i class="seg-output" style="width:${tokenShare(usage.output_tokens)}"></i></div>
           <div class="usage-hero-foot mono"><span>${escapeHtml(t("usage_stats.input_share", { pct: fmtPct(usage.uncached_input_tokens / total) }))}</span><span class="tone-success-text">${escapeHtml(t("usage_stats.cache_share", { pct: fmtPct(usage.cached_input_tokens / total) }))}</span><span>${escapeHtml(t("usage_stats.output_share", { pct: fmtPct(usage.output_tokens / total) }))}</span></div>
         </article>
         <article class="usage-hero-card tone-requests">
-          <div class="usage-hero-head"><span class="usage-hero-label"><i aria-hidden="true"></i>${escapeHtml(t("usage_stats.hero_requests"))}</span><span class="usage-hero-rate">${escapeHtml(fmtPct(successRate))}</span></div>
+          <div class="usage-hero-head"><span class="usage-hero-label">${iconSvg("arrow-right-left")}${escapeHtml(t("usage_stats.hero_requests"))}</span><span class="usage-hero-rate">${escapeHtml(fmtPct(successRate))}</span></div>
           <div class="usage-hero-value"><strong>${escapeHtml(fmtInt(requestCount))}</strong><span class="usage-hero-sub">${escapeHtml(t("usage_stats.requests_count_value", { count: fmtInt(successCount) }))}</span></div>
           <div class="usage-hero-bar" role="img" aria-label="${escapeHtml(`${t("usage_stats.success")} ${fmtInt(successCount)} · ${t("usage_stats.failed_requests")} ${fmtInt(failedCount)}`)}"><i class="seg-success" style="width:${svgNum(successRate * 100)}%"></i><i class="seg-failed" style="width:${svgNum(Math.max(0, 100 - successRate * 100))}%"></i></div>
           <div class="usage-hero-foot mono"><span class="tone-success-text">${escapeHtml(t("usage_stats.hero_success_count", { n: fmtInt(successCount) }))}</span><span class="tone-warning-text">${escapeHtml(t("usage_stats.hero_failed_count", { n: fmtInt(failedCount) }))}</span></div>
         </article>
         <article class="usage-hero-card tone-cost">
-          <div class="usage-hero-head"><span class="usage-hero-label"><i aria-hidden="true"></i>${escapeHtml(t("usage_stats.hero_cost"))}</span><span class="usage-hero-cost-status tone-${escapeHtml(costStatus.tone)}">${iconSvg(costStatus.icon)}${escapeHtml(costStatus.label)}</span></div>
+          <div class="usage-hero-head"><span class="usage-hero-label">${iconSvg("dollar")}${escapeHtml(t("usage_stats.hero_cost"))}</span><span class="usage-hero-cost-status tone-${escapeHtml(costStatus.tone)}">${iconSvg(costStatus.icon)}${escapeHtml(costStatus.label)}</span></div>
           <div class="usage-hero-value"><strong>${escapeHtml(fmtCost3(knownUsd))}</strong><span class="usage-hero-sub mono">USD</span></div>
           <div class="usage-hero-bar" role="img" aria-label="${escapeHtml(`${t("cost.priced")} ${fmtCost(Number(cost.priced_usd || 0))} · ${t("cost.estimated")} ${fmtCost(Number(cost.estimated_usd || 0))}`)}"><i class="seg-priced" style="width:${svgNum(pricedShare)}%"></i><i class="seg-estimated" style="width:${svgNum(estimatedShare)}%"></i></div>
           <div class="usage-hero-foot mono"><span>${escapeHtml(t("usage_stats.cost_counts", {
@@ -16257,22 +16297,22 @@
 			updateDOM(el("modelUsagePageNav"), modelUsagePagination(payload));
 			updateDOM(el("modelUsageSummary"), `
       <article class="model-overview-card tone-info">
-        <div class="model-overview-head"><span>${escapeHtml(t("model_usage.fleet_assets"))}</span><i aria-hidden="true"></i></div>
+        <div class="model-overview-head"><span>${escapeHtml(t("model_usage.fleet_assets"))}</span>${iconSvg("boxes")}</div>
         <div class="model-overview-value"><strong>${escapeHtml(fmtInt(Number(payload.total || 0)))}</strong><span>${escapeHtml(t("model_usage.fleet_assets_note"))}</span></div>
         <div class="model-overview-note">${escapeHtml(t("model_usage.fleet_assets_hint"))}</div>
       </article>
       <article class="model-overview-card tone-success">
-        <div class="model-overview-head"><span>${escapeHtml(t("model_usage.fleet_calls"))}</span><i aria-hidden="true"></i></div>
+        <div class="model-overview-head"><span>${escapeHtml(t("model_usage.fleet_calls"))}</span>${iconSvg("zap")}</div>
         <div class="model-overview-value"><strong>${escapeHtml(fmtInt(summary.calls || 0))}</strong><span>${escapeHtml(t("model_usage.fleet_calls_unit"))}</span></div>
         <div class="model-overview-note">${escapeHtml(t("model_usage.fleet_calls_note", { range: rangeLabel }))}</div>
       </article>
       <article class="model-overview-card tone-compat">
-        <div class="model-overview-head"><span>${escapeHtml(t("model_usage.fleet_tokens"))}</span><i aria-hidden="true"></i></div>
+        <div class="model-overview-head"><span>${escapeHtml(t("model_usage.fleet_tokens"))}</span>${iconSvg("layers")}</div>
         <div class="model-overview-value"><strong>${escapeHtml(fmtTokenCount(summary.total_tokens || 0))}</strong><span>Tokens</span></div>
         <div class="model-overview-note">${escapeHtml(t("model_usage.fleet_tokens_note", { cost: fmtCost3(summary.cost_usd || 0) }))}</div>
       </article>
       <article class="model-overview-card tone-cache">
-        <div class="model-overview-head"><span>${escapeHtml(t("model_usage.fleet_cache"))}</span><i aria-hidden="true"></i></div>
+        <div class="model-overview-head"><span>${escapeHtml(t("model_usage.fleet_cache"))}</span>${iconSvg("gauge")}</div>
         <div class="model-overview-value"><strong>${escapeHtml(fmtPct(summary.cache_rate || 0))}</strong><span>${escapeHtml(t("model_usage.cache_rate"))}</span></div>
         <div class="model-overview-note">${escapeHtml(t("model_usage.fleet_cache_note"))}</div>
       </article>
