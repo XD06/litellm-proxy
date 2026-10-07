@@ -5293,7 +5293,7 @@
 			},
 			"pg.page_title": {
 				en: "Playground",
-				zh: "测试场 (Playground)"
+				zh: "测试场"
 			},
 			"pg.page_desc": {
 				en: "Test runtime model formats, parameters, and response streams.",

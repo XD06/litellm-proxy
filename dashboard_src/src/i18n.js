@@ -1256,7 +1256,7 @@ const dict = {
 
   // ---- Playground ----
   "pg.eyebrow": { en: "Playground", zh: "测试场" },
-  "pg.page_title": { en: "Playground", zh: "测试场 (Playground)" },
+  "pg.page_title": { en: "Playground", zh: "测试场" },
   "pg.page_desc": { en: "Test runtime model formats, parameters, and response streams.", zh: "即时测试代理运行时的模型格式、参数与响应流。" },
   "pg.setup": { en: "Request setup", zh: "请求配置" },
   "pg.setup_desc": { en: "Choose the model, client format, and generation controls for this test run.", zh: "选择此测试运行的模型、客户端格式和生成参数。" },
