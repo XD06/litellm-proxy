@@ -30230,3 +30230,940 @@ body.is-auth-checking {
 #configView.is-model-data .usage-statistics-breakdown-pagination { font-size: 10px; }
 #configView.is-model-data .model-usage-page-copy strong { font-size: 11px; }
 #configView.is-model-data .model-usage-page-copy small { font-size: 10px; }
+
+/* =====================================================================
+   配置与统计 · demo v2 对齐（页头 pill 页签 / 统一工具条 / Hero KPI）
+   ===================================================================== */
+
+:root {
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+#configView .panel {
+  border-radius: 16px;
+}
+
+/* -- 页头：标题 + 持久化 chip + 副标题，页签右置 -- */
+#configView .config-page-head {
+  flex-wrap: wrap;
+  gap: 14px 24px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.config-page-head-main {
+  min-width: 0;
+}
+
+.config-page-head-title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.config-page-head h1 {
+  font-size: 26px;
+}
+
+.config-page-chip {
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-soft, #f4f4f5);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+#configView .config-page-head p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+/* -- 一级页签：浮动分段药丸 -- */
+#configView .config-tab-nav {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin: 0;
+  padding: 4px;
+  border: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
+  border-radius: 12px;
+  background: var(--surface-soft, #f4f4f5);
+  box-shadow: none;
+  overflow-x: auto;
+}
+
+#configView .config-tab-nav button {
+  min-height: 0;
+  padding: 6px 14px;
+  border: 0;
+  border-bottom: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 620;
+  white-space: nowrap;
+}
+
+#configView .config-tab-nav button:hover {
+  background: transparent;
+  color: var(--text);
+}
+
+#configView .config-tab-nav button.is-active {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 700;
+  border-bottom: 0;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.1);
+}
+
+#configView .config-tab-nav button.is-active::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: var(--usage-blue, #2f7df4);
+  vertical-align: 1px;
+}
+
+@media (max-width: 1180px) {
+  #configView .config-page-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* -- 数据统计页签：卡片化堆叠布局 -- */
+#configView .statistics-panel {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+  min-width: 0;
+}
+
+#configView.is-model-data .model-usage-panel {
+  overflow: visible;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* -- 统一控制工具条 -- */
+.statistics-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.statistics-toolbar-divider {
+  flex: 0 0 auto;
+  width: 1px;
+  height: 22px;
+  background: var(--line-soft);
+}
+
+.statistics-toolbar-right {
+  display: flex;
+  flex: 1 0 auto;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
+.statistics-toolbar .usage-statistics-custom-range {
+  flex-basis: 100%;
+  padding: 8px 10px;
+  margin: 0;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+}
+
+.statistics-toolbar[data-view="models"] .usage-only,
+#configView .statistics-toolbar[data-view="models"] .usage-only {
+  display: none !important;
+}
+
+/* -- 子视图药丸切换 -- */
+#configView .statistics-subnav {
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: var(--surface-soft, #f4f4f5);
+  box-shadow: none;
+}
+
+#configView .statistics-subnav button {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  min-height: 0;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 620;
+  box-shadow: none;
+}
+
+#configView .statistics-subnav button .icon-svg {
+  width: 14px;
+  height: 14px;
+}
+
+#usageStatisticsViewTab .icon-svg { color: var(--usage-blue, #2f7df4); }
+#modelStatisticsViewTab .icon-svg { color: #8b5cf6; }
+
+#configView .statistics-subnav button.is-active {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 700;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+/* -- 时间范围：安静文字按钮 + 深色活动片 -- */
+#configView .usage-statistics-range {
+  gap: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#configView .usage-statistics-range .segmented-button {
+  min-width: 0;
+  min-height: 0;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+#configView .usage-statistics-range .segmented-button:hover {
+  background: var(--surface-soft, #f4f4f5);
+  color: var(--text);
+}
+
+#configView .usage-statistics-range .segmented-button.is-active {
+  background: var(--text);
+  color: #fff;
+  box-shadow: none;
+  transform: none;
+}
+
+#configView .usage-statistics-dimensions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+#configView .usage-statistics-dimensions .control {
+  height: 30px;
+  min-height: 0;
+  max-width: 140px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+/* -- 同步状态 chip -- */
+#configView .usage-statistics-completeness {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  min-height: 0;
+  padding: 4px 10px;
+  border: 1px solid color-mix(in srgb, var(--success) 26%, var(--line));
+  border-radius: 999px;
+  background: var(--success-soft);
+  color: var(--success);
+  font-size: 11px;
+  font-weight: 680;
+  white-space: nowrap;
+}
+
+#configView .usage-statistics-completeness i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+#configView .usage-statistics-completeness.is-partial {
+  border-color: color-mix(in srgb, var(--warning) 30%, var(--line));
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+/* -- Hero KPI 三卡 -- */
+#configView.is-model-data .usage-statistics-summary {
+  display: grid;
+  gap: 16px;
+  padding: 0;
+  border-radius: 0;
+}
+
+.usage-hero-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.usage-hero-card {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  transition: border-color 160ms ease;
+}
+
+.usage-hero-card:hover { border-color: var(--line-strong); }
+.usage-hero-card.tone-tokens:hover { border-color: color-mix(in srgb, var(--usage-blue, #2f7df4) 40%, var(--line)); }
+.usage-hero-card.tone-requests:hover { border-color: color-mix(in srgb, var(--success) 40%, var(--line)); }
+.usage-hero-card.tone-cost:hover { border-color: color-mix(in srgb, var(--warning) 40%, var(--line)); }
+
+.usage-hero-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.usage-hero-label {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  font-weight: 620;
+}
+
+.usage-hero-label i {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--line-strong);
+}
+
+.usage-hero-card.tone-tokens .usage-hero-label i { background: var(--usage-blue, #2f7df4); }
+.usage-hero-card.tone-requests .usage-hero-label i { background: var(--success); }
+.usage-hero-card.tone-cost .usage-hero-label i { background: var(--warning); }
+
+.usage-hero-exact {
+  overflow: hidden;
+  color: var(--faint);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.usage-hero-value {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  margin-bottom: 12px;
+  min-width: 0;
+}
+
+.usage-hero-value strong {
+  overflow: hidden;
+  color: var(--text);
+  font: 800 30px/1.05 var(--mono);
+  letter-spacing: -0.03em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-hero-tag {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  color: var(--success);
+  font-size: 11.5px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.usage-hero-tag .icon-svg { width: 13px; height: 13px; }
+
+.usage-hero-sub {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.usage-hero-rate {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--success-soft);
+  color: var(--success);
+  font-size: 11px;
+  font-weight: 720;
+}
+
+.usage-hero-cost-status {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  min-width: 0;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.usage-hero-cost-status .icon-svg { width: 12px; height: 12px; }
+.usage-hero-cost-status.tone-danger { color: var(--danger); }
+.usage-hero-cost-status.tone-warning { color: var(--warning); }
+.usage-hero-cost-status.tone-info { color: var(--info); }
+.usage-hero-cost-status.tone-success { color: var(--success); }
+
+.usage-hero-bar {
+  display: flex;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-soft, #f4f4f5);
+}
+
+.usage-hero-bar i {
+  height: 100%;
+  min-width: 0;
+}
+
+.usage-hero-bar .seg-input { background: var(--usage-blue, #2f7df4); }
+.usage-hero-bar .seg-cache { background: var(--success); }
+.usage-hero-bar .seg-write { background: #e89420; }
+.usage-hero-bar .seg-output { background: #8157d9; }
+.usage-hero-bar .seg-success { background: var(--success); }
+.usage-hero-bar .seg-failed { background: var(--warning); }
+.usage-hero-bar .seg-priced { background: var(--warning); }
+.usage-hero-bar .seg-estimated { background: color-mix(in srgb, var(--warning) 45%, transparent); }
+
+.usage-hero-foot {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.usage-hero-foot span { white-space: nowrap; }
+.tone-success-text { color: var(--success); font-weight: 680; }
+.tone-warning-text { color: var(--warning); font-weight: 680; }
+
+@media (max-width: 1080px) {
+  .usage-hero-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* -- 细分指标六小卡 -- */
+.usage-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.usage-mini-card {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.usage-mini-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
+
+.usage-mini-icon .icon-svg {
+  width: 16px;
+  height: 16px;
+}
+
+.usage-mini-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.usage-mini-copy small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.usage-mini-copy strong {
+  overflow: hidden;
+  color: var(--text);
+  font: 700 16px/1.2 var(--mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-mini-card.tone-info .usage-mini-icon { background: var(--usage-blue-soft, #e8f1fe); color: var(--usage-blue, #2f7df4); }
+.usage-mini-card.tone-cache .usage-mini-icon { background: var(--success-soft); color: var(--success); }
+.usage-mini-card.tone-cache .usage-mini-copy strong { color: var(--success); }
+.usage-mini-card.tone-warning .usage-mini-icon { background: var(--warning-soft); color: var(--warning); }
+.usage-mini-card.tone-compat .usage-mini-icon { background: var(--compat-soft); color: var(--compat); }
+.usage-mini-card.tone-reasoning .usage-mini-icon { background: #fdf0f7; color: #bd5a8e; }
+.usage-mini-card.tone-reasoning .usage-mini-copy strong { color: #bd5a8e; }
+.usage-mini-card.tone-success .usage-mini-icon { background: var(--success-soft); color: var(--success); }
+.usage-mini-card.tone-success .usage-mini-copy strong { color: var(--success); }
+
+@media (max-width: 1420px) {
+  .usage-mini-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  .usage-mini-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* -- 趋势图 / 下钻：独立白卡 -- */
+#configView.is-model-data .usage-statistics-chart-shell,
+#configView.is-model-data .usage-statistics-breakdown-shell {
+  overflow: hidden;
+  padding: 18px 18px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+#configView.is-model-data .usage-statistics-section-head {
+  min-height: 0;
+  margin-bottom: 14px;
+  padding: 0;
+  border-bottom: 0;
+  background: transparent;
+}
+
+#configView.is-model-data .usage-statistics-section-head h3 {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 720;
+}
+
+#configView.is-model-data .usage-statistics-section-head p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+#configView.is-model-data .usage-statistics-chart {
+  min-height: 240px;
+  padding: 0 0 2px;
+  background: transparent;
+}
+
+#configView.is-model-data .usage-statistics-legend {
+  justify-content: flex-start;
+  padding-top: 10px;
+  margin-top: 8px;
+  border-top: 1px solid var(--line-soft);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* 指标切换：白底活动片药丸组 */
+#configView .usage-statistics-metric {
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: var(--surface-soft, #f4f4f5);
+  box-shadow: none;
+}
+
+#configView .usage-statistics-metric .segmented-button {
+  min-width: 0;
+  min-height: 0;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+#configView .usage-statistics-metric .segmented-button:hover {
+  background: transparent;
+  color: var(--text);
+}
+
+#configView .usage-statistics-metric .segmented-button.is-active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  transform: none;
+}
+
+/* 下钻维度切换同款 */
+#configView .usage-statistics-breakdown-mode {
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: var(--surface-soft, #f4f4f5);
+  box-shadow: none;
+}
+
+#configView .usage-statistics-breakdown-mode .segmented-button {
+  min-width: 0;
+  min-height: 0;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+#configView .usage-statistics-breakdown-mode .segmented-button.is-active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  transform: none;
+}
+
+/* 数据管理：独立 quiet 卡 */
+.usage-statistics-data-management {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+/* -- 模型数据：4 概览卡 + 工作台卡 -- */
+.model-usage-overview {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.model-overview-card {
+  min-width: 0;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.model-overview-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 620;
+}
+
+.model-overview-head i {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--line-strong);
+}
+
+.model-overview-card.tone-info .model-overview-head i { background: var(--usage-blue, #2f7df4); }
+.model-overview-card.tone-success .model-overview-head i { background: var(--success); }
+.model-overview-card.tone-compat .model-overview-head i { background: var(--compat, #8157d9); }
+.model-overview-card.tone-cache .model-overview-head i { background: #0f9d72; }
+
+.model-overview-value {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.model-overview-value strong {
+  overflow: hidden;
+  color: var(--text);
+  font: 800 24px/1.15 var(--mono);
+  letter-spacing: -0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.model-overview-card.tone-cache .model-overview-value strong { color: #0f9d72; }
+
+.model-overview-value span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-overview-note {
+  margin-top: 6px;
+  color: var(--faint);
+  font-size: 11px;
+}
+
+@media (max-width: 1080px) {
+  .model-usage-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+#configView.is-model-data .model-usage-workspace {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+#configView.is-model-data .model-usage-toolbar {
+  grid-template-columns: auto minmax(220px, 1fr) 150px auto;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line-soft);
+  background: transparent;
+}
+
+#modelUsageTable {
+  display: flex;
+  flex-direction: column;
+}
+
+#modelUsageTable > .model-usage-table-scroll { order: 1; }
+#modelUsageTable > .model-usage-pagination { order: 2; }
+#modelUsageTable > .empty,
+#modelUsageTable > .notice { order: 0; }
+
+#configView.is-model-data .model-usage-pagination {
+  padding: 10px 14px;
+  border-bottom: 0;
+  border-top: 1px solid var(--line-soft);
+  background: transparent;
+}
+
+#configView.is-model-data .model-usage-table th {
+  background: var(--surface);
+}
+
+/* 模型数据工作台在窄屏保住横向滚动 */
+#configView.is-model-data .model-usage-workspace .model-usage-table-scroll {
+  overflow-x: auto;
+}
+
+/* =====================================================================
+   demo v2 精修：淡雅化 —— 次级文字调浅、语义色降饱和、边框减淡、间距统一
+   ===================================================================== */
+
+/* 边框整体减淡一档 */
+#configView .panel,
+.statistics-toolbar,
+.usage-hero-card,
+.usage-mini-card,
+.model-overview-card,
+#configView.is-model-data .model-usage-workspace,
+#configView.is-model-data .usage-statistics-chart-shell,
+#configView.is-model-data .usage-statistics-breakdown-shell,
+.usage-statistics-data-management {
+  border-color: color-mix(in srgb, var(--line) 72%, transparent);
+}
+
+/* 间距统一：区块间 20px，卡内栅格 16px */
+#configView .statistics-panel {
+  gap: 20px;
+}
+
+.usage-hero-card {
+  padding: 20px;
+}
+
+/* 页头副标题调浅 */
+#configView .config-page-head p {
+  color: color-mix(in srgb, var(--muted) 82%, #fff);
+}
+
+/* 页签 / 子视图 / 时间范围：字重降级 */
+#configView .config-tab-nav button {
+  font-weight: 540;
+}
+
+#configView .config-tab-nav button.is-active {
+  font-weight: 640;
+}
+
+#configView .statistics-subnav button {
+  color: color-mix(in srgb, var(--muted) 88%, #fff);
+  font-weight: 540;
+}
+
+#configView .statistics-subnav button.is-active {
+  color: var(--text);
+  font-weight: 650;
+}
+
+#configView .usage-statistics-range .segmented-button {
+  color: color-mix(in srgb, var(--muted) 85%, #fff);
+  font-weight: 500;
+}
+
+#configView .usage-statistics-range .segmented-button.is-active {
+  color: #fff;
+}
+
+/* Hero 卡：标签淡、注脚更淡 */
+.usage-hero-head {
+  color: #71717a;
+}
+
+.usage-hero-label {
+  font-weight: 500;
+}
+
+.usage-hero-exact {
+  color: #9ca3af;
+}
+
+.usage-hero-sub {
+  color: #71717a;
+}
+
+.usage-hero-foot {
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+.tone-success-text {
+  color: #059669;
+  font-weight: 600;
+}
+
+.tone-warning-text {
+  color: #d97706;
+  font-weight: 600;
+}
+
+.usage-hero-rate {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.usage-hero-cost-status.tone-danger { color: #d97706; }
+.usage-hero-cost-status.tone-warning { color: #d97706; }
+.usage-hero-cost-status.tone-info { color: #2f7df4; }
+.usage-hero-cost-status.tone-success { color: #059669; }
+
+/* 构成条：demo 同款低饱和段色 + 更浅轨道 */
+.usage-hero-bar {
+  background: #f1f2f4;
+}
+
+.usage-hero-bar .seg-input { background: #3b82f6; }
+.usage-hero-bar .seg-cache { background: #10b981; }
+.usage-hero-bar .seg-write { background: #f59e0b; }
+.usage-hero-bar .seg-output { background: #8b5cf6; }
+.usage-hero-bar .seg-success { background: #10b981; }
+.usage-hero-bar .seg-failed { background: #fbbf24; }
+.usage-hero-bar .seg-priced { background: #f59e0b; }
+.usage-hero-bar .seg-estimated { background: #fbbf24; opacity: 0.45; }
+
+/* 细分小卡：图标芯片与数值改淡雅色 */
+.usage-mini-copy small {
+  color: #71717a;
+}
+
+.usage-mini-card.tone-info .usage-mini-icon { background: #eff6ff; color: #2f7df4; }
+.usage-mini-card.tone-cache .usage-mini-icon { background: #ecfdf5; color: #10b981; }
+.usage-mini-card.tone-cache .usage-mini-copy strong { color: #059669; }
+.usage-mini-card.tone-warning .usage-mini-icon { background: #fffbeb; color: #f59e0b; }
+.usage-mini-card.tone-compat .usage-mini-icon { background: #f5f3ff; color: #8b5cf6; }
+.usage-mini-card.tone-reasoning .usage-mini-icon { background: #fdf2f8; color: #db2777; }
+.usage-mini-card.tone-reasoning .usage-mini-copy strong { color: #db2777; }
+.usage-mini-card.tone-success .usage-mini-icon { background: #f0fdfa; color: #0d9488; }
+.usage-mini-card.tone-success .usage-mini-copy strong { color: #0d9488; }
+
+/* 同步 chip 淡雅化 */
+#configView .usage-statistics-completeness {
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+#configView .usage-statistics-completeness.is-partial {
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #b45309;
+}
+
+/* 图表/下钻卡：标题字重收敛、说明文字调浅 */
+#configView.is-model-data .usage-statistics-section-head h3 {
+  font-weight: 650;
+}
+
+#configView.is-model-data .usage-statistics-section-head p {
+  color: #9ca3af;
+}
+
+#configView.is-model-data .usage-statistics-legend {
+  color: #71717a;
+}
+
+/* 模型数据概览卡同步淡雅 */
+.model-overview-head {
+  color: #71717a;
+  font-weight: 500;
+}
+
+.model-overview-note {
+  color: #9ca3af;
+}
+
+.model-overview-value span {
+  color: #71717a;
+}
+
+.model-overview-card.tone-cache .model-overview-value strong { color: #0d9488; }
+.model-overview-card.tone-info .model-overview-head i { background: #3b82f6; }
+.model-overview-card.tone-success .model-overview-head i { background: #10b981; }
+.model-overview-card.tone-compat .model-overview-head i { background: #8b5cf6; }
+.model-overview-card.tone-cache .model-overview-head i { background: #0d9488; }

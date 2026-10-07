@@ -91,7 +91,7 @@ for (const state of ["priced", "estimated", "pending", "unpriced", "legacy"]) {
 
 assert.match(index, /data-model-usage-range="7d" aria-pressed="true"/, "active range needs aria-pressed");
 assert.match(index, /id="modelUsageTable"[^>]+aria-busy="false"/, "model usage loading state needs aria-busy");
-assert.match(index, /class="model-usage-workspace"[\s\S]*id="modelUsageSummary"[\s\S]*id="modelUsageTable"/, "model controls and data must share one inset workspace boundary");
+assert.match(index, /id="modelUsageSummary"[\s\S]*class="model-usage-workspace"[\s\S]*id="modelUsageTable"/, "model overview cards sit above the inset workspace holding controls and data");
 assert.match(index, /data-i18n="cfg\.tab_data_statistics"/, "model data must live under the data statistics top-level tab");
 assert.match(index, /id="statisticsViewTabs"[\s\S]*data-statistics-view="usage"[\s\S]*data-statistics-view="models"/, "statistics needs clear usage and model subviews");
 assert.match(index, /id="usageStatisticsRange"[\s\S]*data-usage-statistics-range="today"[\s\S]*data-usage-statistics-range="custom"/, "statistics needs complete time range controls");
@@ -123,8 +123,8 @@ assert.match(styles, /\.token-uncached\s*\{\s*background:\s*#4388e7/, "uncached 
 assert.match(styles, /\.token-output\s*\{\s*background:\s*#42a66f/, "output tokens need a familiar green segment");
 assert.match(styles, /#requestsTable \.request-data-table thead[\s\S]*?height:\s*0/, "request table headers should not consume a visual row");
 assert.match(styles, /#configView\.is-model-data \.model-usage-table thead[\s\S]*?height:\s*0/, "model table headers should not consume a visual row");
-assert.match(styles, /#configView\.is-model-data \.model-usage-panel\s*\{[\s\S]*?padding:\s*14px 16px/, "model data must share the unified panel gutter of the merged config tabs");
-assert.match(styles, /#configView\.is-model-data \.model-usage-workspace\s*\{[\s\S]*?border:\s*1px solid #cbd5e1/, "model data controls and table need one visible inner boundary");
+assert.match(styles, /#configView\.is-model-data \.model-usage-panel\s*\{[\s\S]*?padding:\s*0/, "model data is a transparent card stack sharing the merged config gutter");
+assert.match(styles, /#configView\.is-model-data \.model-usage-workspace\s*\{[\s\S]*?border:\s*1px solid var\(--line\)/, "model data controls and table need one visible inner boundary");
 assert.match(styles, /#configView\.is-model-data \.model-usage-table-scroll\s*\{[\s\S]*?overscroll-behavior-y:\s*auto/, "horizontal model table scrolling must pass vertical wheel input to the page");
 assert.match(styles, /#modelDrawer \.attempt-table-scroll\s*\{[\s\S]*?overscroll-behavior-y:\s*auto/, "model provider details must pass vertical wheel input to the drawer");
 assert.match(modelIcons, /\/-\/icons\//, "brand artwork must load through the local icon proxy, not a remote CDN");
@@ -140,9 +140,9 @@ assert.match(styles, /#configView\.is-model-data \.model-usage-open-button\s*\{[
 assert.match(styles, /#configView\.is-model-data \.model-usage-cost \.cost-state\s*\{[\s\S]*?display:\s*inline-flex[\s\S]*?align-items:\s*center/, "compact model costs need a single horizontal alignment context");
 assert.match(styles, /grid-template-areas:[\s\S]*?"calls success"/, "mobile model rows must preserve separate calls and success areas");
 assert.match(styles, /#modelDrawer\s*\{[\s\S]*?z-index:\s*36/, "the model drawer must stay above the tablet app shell");
-assert.match(styles, /#configView \.config-tab-nav\s*\{[\s\S]*?margin-bottom:\s*14px/, "config tab bar must keep breathing room above every merged panel");
+assert.match(styles, /#configView \.config-tab-nav\s*\{[\s\S]*?border-radius:\s*12px/, "config tab bar must render as a floating pill group in the page head");
 assert.match(styles, /\.config-panels\s*\{[\s\S]*?gap:\s*14px/, "merged config panels must share one consistent stack gap");
-assert.match(styles, /\.usage-statistics-primary-row\s*\{[\s\S]*?grid-template-columns:/, "usage statistics needs one intentional primary summary row");
+assert.match(styles, /\.usage-hero-grid\s*\{[\s\S]*?grid-template-columns:/, "usage statistics needs one intentional hero KPI row");
 assert.match(styles, /\.usage-statistics-chart-canvas svg\s*\{[\s\S]*?width:\s*100%/, "statistics charts must scale to the workspace");
 assert.match(styles, /\.usage-statistics-breakdown-row\s*\{[\s\S]*?grid-template-columns:/, "statistics breakdown rows must keep aligned metrics");
 

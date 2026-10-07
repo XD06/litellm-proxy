@@ -4036,8 +4036,12 @@
 				zh: "配置与统计"
 			},
 			"cfg.page_desc": {
-				en: "Model routing and mapping, provider config, runtime and probe settings, long-term usage statistics.",
-				zh: "模型路由与映射、供应商配置、运行与探测设置，以及长期用量统计。"
+				en: "Unified routing decisions, provider tuning, and long-horizon usage analytics.",
+				zh: "统一模型路由决策、提供商参数调度与长周期用量分析。"
+			},
+			"cfg.persistence_chip": {
+				en: "SQLite persistence",
+				zh: "SQLite持久化"
 			},
 			"cfg.tab_routing": {
 				en: "Routing & Mapping",
@@ -5576,8 +5580,8 @@
 				zh: "统计视图"
 			},
 			"usage_stats.usage_tab": {
-				en: "Usage Statistics",
-				zh: "使用统计"
+				en: "Usage",
+				zh: "使用统计 (Usage)"
 			},
 			"usage_stats.title": {
 				en: "Usage Statistics",
@@ -5648,8 +5652,72 @@
 				zh: "打开此标签后加载使用统计。"
 			},
 			"usage_stats.trend": {
-				en: "Usage trend",
-				zh: "使用趋势"
+				en: "Usage Timeline",
+				zh: "时序使用趋势 (Usage Timeline)"
+			},
+			"usage_stats.metric_tokens": {
+				en: "Tokens",
+				zh: "Token"
+			},
+			"usage_stats.metric_cost": {
+				en: "Cost (USD)",
+				zh: "成本 (USD)"
+			},
+			"usage_stats.metric_requests": {
+				en: "Requests",
+				zh: "请求次数"
+			},
+			"usage_stats.metric_ttft": {
+				en: "First token (TTFT)",
+				zh: "首包响应 (TTFT)"
+			},
+			"usage_stats.hero_tokens": {
+				en: "Total token throughput",
+				zh: "总 Token 吞吐"
+			},
+			"usage_stats.hero_requests": {
+				en: "Client requests",
+				zh: "客户端请求"
+			},
+			"usage_stats.hero_cost": {
+				en: "Known spend",
+				zh: "已知支出成本"
+			},
+			"usage_stats.requests_count_value": {
+				en: "requests ({count} succeeded)",
+				zh: "次请求 ({count} 次成功)"
+			},
+			"usage_stats.hero_success_count": {
+				en: "{n} succeeded",
+				zh: "{n} 成功"
+			},
+			"usage_stats.hero_failed_count": {
+				en: "{n} failed / failover",
+				zh: "{n} 重试/熔断转移"
+			},
+			"usage_stats.input_share": {
+				en: "input {pct}",
+				zh: "输入 {pct}"
+			},
+			"usage_stats.cache_share": {
+				en: "cache hit {pct}",
+				zh: "缓存命中 {pct}"
+			},
+			"usage_stats.output_share": {
+				en: "output {pct}",
+				zh: "输出 {pct}"
+			},
+			"usage_stats.cost_counts": {
+				en: "{priced} priced · {estimated} estimated",
+				zh: "{priced} 条已定价 · {estimated} 条估算"
+			},
+			"usage_stats.avg_per_1m": {
+				en: "avg {cost} / 1M",
+				zh: "均价 {cost} / 1M"
+			},
+			"usage_stats.synced": {
+				en: "Data fully synced",
+				zh: "数据已完整同步"
 			},
 			"usage_stats.metric_label": {
 				en: "Trend metric",
@@ -5884,8 +5952,48 @@
 				zh: "清除统计失败：{error}"
 			},
 			"model_usage.title": {
-				en: "Model Data",
-				zh: "模型数据"
+				en: "Model Fleet",
+				zh: "模型数据 (Model Fleet)"
+			},
+			"model_usage.fleet_assets": {
+				en: "Active model assets",
+				zh: "活跃模型资产"
+			},
+			"model_usage.fleet_assets_note": {
+				en: "client models",
+				zh: "款客户端模型"
+			},
+			"model_usage.fleet_assets_hint": {
+				en: "Models with calls inside the selected range.",
+				zh: "所选范围内有调用的客户端模型。"
+			},
+			"model_usage.fleet_calls": {
+				en: "Period model calls",
+				zh: "周期模型调用"
+			},
+			"model_usage.fleet_calls_unit": {
+				en: "calls",
+				zh: "次调用"
+			},
+			"model_usage.fleet_calls_note": {
+				en: "Cumulative calls in {range}.",
+				zh: "{range} 范围内累计发起调用。"
+			},
+			"model_usage.fleet_tokens": {
+				en: "Model token throughput",
+				zh: "模型 Token 吞吐"
+			},
+			"model_usage.fleet_tokens_note": {
+				en: "{cost} known cost inside the range.",
+				zh: "范围内已知成本 {cost}。"
+			},
+			"model_usage.fleet_cache": {
+				en: "Average cache rate",
+				zh: "平均缓存收益率"
+			},
+			"model_usage.fleet_cache_note": {
+				en: "Share of tokens served from prompt cache.",
+				zh: "来自提示词缓存读取的 Token 占比。"
 			},
 			"model_usage.subtitle": {
 				en: "Calls, token composition, cache efficiency, cost, and current routing coverage.",
@@ -9495,6 +9603,8 @@
 				panel.hidden = panel.dataset.statisticsViewPanel !== viewName;
 			});
 			state.statisticsView = viewName;
+			const toolbar = el("statisticsToolbar");
+			if (toolbar) toolbar.dataset.view = viewName;
 			if (persist) try {
 				localStorage.setItem("proxyConsoleStatisticsView", viewName);
 			} catch (_e) {}
@@ -15515,12 +15625,11 @@
 			const target = el("usageStatisticsMeta");
 			if (!target) return;
 			const startedAt = Number(payload.statistics_started_at || 0);
-			const timezone = payload.reporting_timezone || payload.range?.timezone || "-";
+			const timezone = payload.reporting_timezone || payload.range?.timezone || "";
 			const complete = !payload.partial;
+			const tip = [startedAt ? t("usage_stats.since", { date: fmtDate(startedAt) }) : t("usage_stats.awaiting_data"), timezone].filter(Boolean).join(" · ");
 			updateDOM(target, `
-      <span class="usage-statistics-period">${iconSvg("clock")}<span>${escapeHtml(startedAt ? t("usage_stats.since", { date: fmtDate(startedAt) }) : t("usage_stats.awaiting_data"))}</span></span>
-      <span class="usage-statistics-timezone mono">${escapeHtml(timezone)}</span>
-      <span class="usage-statistics-completeness ${complete ? "is-complete" : "is-partial"}"><i aria-hidden="true"></i>${escapeHtml(complete ? t("usage_stats.complete") : t("usage_stats.partial"))}</span>
+      <span class="usage-statistics-completeness ${complete ? "is-complete" : "is-partial"}" data-tip="${escapeHtml(tip)}"><i aria-hidden="true"></i>${escapeHtml(complete ? t("usage_stats.synced") : t("usage_stats.partial"))}</span>
     `);
 		}
 		function usageStatisticsCostStatus(summary) {
@@ -15549,12 +15658,11 @@
 				label: t("usage_stats.cost_priced")
 			};
 		}
-		function usageStatisticsTokenCard(icon, label, value, tone, share) {
+		function usageMiniCard(icon, label, value, tone, text) {
 			return `
-      <article class="usage-token-card tone-${escapeHtml(tone)}">
-        <span class="usage-token-card-icon">${iconSvg(icon)}</span>
-        <span class="usage-token-card-copy"><small>${escapeHtml(label)}</small><strong>${escapeHtml(fmtTokenCount(value))}</strong></span>
-        <span class="usage-token-card-share"><b style="--usage-share:${svgNum(Math.max(0, Math.min(100, share)))}%"></b></span>
+      <article class="usage-mini-card tone-${escapeHtml(tone)}">
+        <span class="usage-mini-icon">${iconSvg(icon)}</span>
+        <span class="usage-mini-copy"><small>${escapeHtml(label)}</small><strong>${escapeHtml(text)}</strong></span>
       </article>
     `;
 		}
@@ -15569,40 +15677,50 @@
 			const summary = payload.summary || {};
 			const usage = usageFrom(summary.usage || {});
 			const total = Math.max(1, Number(usage.total_tokens || 0));
+			const cost = summary.cost || {};
+			const statuses = cost.statuses || {};
 			const costStatus = usageStatisticsCostStatus(summary);
 			const requestCount = Number(summary.requests || 0);
-			const successRate = Number(summary.success_rate || 0);
+			const successCount = Number(summary.success || 0);
+			const failedCount = Number(summary.failed || 0);
+			const successRate = Math.max(0, Math.min(1, Number(summary.success_rate || 0)));
 			const tokensKnown = Number(usage.total_tokens || 0) > 0;
+			const tokenShare = (value) => `${svgNum(Math.max(0, Number(value || 0)) / total * 100)}%`;
+			const knownUsd = Number(cost.known_usd || 0);
+			const pricedShare = knownUsd > 0 ? Number(cost.priced_usd || 0) / knownUsd * 100 : 0;
+			const estimatedShare = knownUsd > 0 ? Number(cost.estimated_usd || 0) / knownUsd * 100 : 0;
+			const avgPerM = tokensKnown ? Math.round(knownUsd / Number(usage.total_tokens) * 1e6 * 100) / 100 : 0;
 			updateDOM(target, `
-      <div class="usage-statistics-primary-row">
-        <article class="usage-total-card">
-          <div class="usage-total-label"><span class="usage-total-icon">${iconSvg("bolt")}</span><span><small>${escapeHtml(t("usage_stats.total_tokens"))}</small><b>${escapeHtml(t("usage_stats.upstream_consumption"))}</b></span></div>
-          <strong>${escapeHtml(tokensKnown ? fmtTokenCount(usage.total_tokens) : "—")}</strong>
-          <span class="usage-total-exact mono">${escapeHtml(tokensKnown ? fmtInt(usage.total_tokens) : t("usage_stats.no_token_samples"))}</span>
+      <div class="usage-hero-grid">
+        <article class="usage-hero-card tone-tokens">
+          <div class="usage-hero-head"><span class="usage-hero-label"><i aria-hidden="true"></i>${escapeHtml(t("usage_stats.hero_tokens"))}</span><span class="usage-hero-exact mono">${escapeHtml(tokensKnown ? `${fmtInt(usage.total_tokens)} Tokens` : "—")}</span></div>
+          <div class="usage-hero-value"><strong>${escapeHtml(tokensKnown ? fmtTokenCount(usage.total_tokens) : "—")}</strong><span class="usage-hero-tag">${iconSvg("activity")}${escapeHtml(t("usage_stats.upstream_consumption"))}</span></div>
+          <div class="usage-hero-bar" role="img" aria-label="${escapeHtml(`${t("tokens.uncached")} ${fmtTokenCount(usage.uncached_input_tokens)} · ${t("tokens.cached")} ${fmtTokenCount(usage.cached_input_tokens)} · ${t("tokens.output")} ${fmtTokenCount(usage.output_tokens)}`)}"><i class="seg-input" style="width:${tokenShare(usage.uncached_input_tokens)}"></i><i class="seg-cache" style="width:${tokenShare(usage.cached_input_tokens)}"></i><i class="seg-write" style="width:${tokenShare(usage.cache_write_tokens)}"></i><i class="seg-output" style="width:${tokenShare(usage.output_tokens)}"></i></div>
+          <div class="usage-hero-foot mono"><span>${escapeHtml(t("usage_stats.input_share", { pct: fmtPct(usage.uncached_input_tokens / total) }))}</span><span class="tone-success-text">${escapeHtml(t("usage_stats.cache_share", { pct: fmtPct(usage.cached_input_tokens / total) }))}</span><span>${escapeHtml(t("usage_stats.output_share", { pct: fmtPct(usage.output_tokens / total) }))}</span></div>
         </article>
-        <article class="usage-compact-card">
-          <span class="usage-compact-icon tone-info">${iconSvg("activity")}</span>
-          <span><small>${escapeHtml(t("usage_stats.client_requests"))}</small><strong>${escapeHtml(fmtInt(requestCount))}</strong><b>${escapeHtml(t("usage_stats.success_value", {
-				rate: fmtPct(successRate),
-				count: fmtInt(summary.success || 0)
-			}))}</b></span>
+        <article class="usage-hero-card tone-requests">
+          <div class="usage-hero-head"><span class="usage-hero-label"><i aria-hidden="true"></i>${escapeHtml(t("usage_stats.hero_requests"))}</span><span class="usage-hero-rate">${escapeHtml(fmtPct(successRate))}</span></div>
+          <div class="usage-hero-value"><strong>${escapeHtml(fmtInt(requestCount))}</strong><span class="usage-hero-sub">${escapeHtml(t("usage_stats.requests_count_value", { count: fmtInt(successCount) }))}</span></div>
+          <div class="usage-hero-bar" role="img" aria-label="${escapeHtml(`${t("usage_stats.success")} ${fmtInt(successCount)} · ${t("usage_stats.failed_requests")} ${fmtInt(failedCount)}`)}"><i class="seg-success" style="width:${svgNum(successRate * 100)}%"></i><i class="seg-failed" style="width:${svgNum(Math.max(0, 100 - successRate * 100))}%"></i></div>
+          <div class="usage-hero-foot mono"><span class="tone-success-text">${escapeHtml(t("usage_stats.hero_success_count", { n: fmtInt(successCount) }))}</span><span class="tone-warning-text">${escapeHtml(t("usage_stats.hero_failed_count", { n: fmtInt(failedCount) }))}</span></div>
         </article>
-        <article class="usage-compact-card">
-          <span class="usage-compact-icon tone-success">${iconSvg("dollar")}</span>
-          <span><small>${escapeHtml(t("usage_stats.known_cost"))}</small><strong>${escapeHtml(fmtCost3(summary.cost?.known_usd || 0))}</strong><b class="tone-${escapeHtml(costStatus.tone)}">${iconSvg(costStatus.icon)}${escapeHtml(costStatus.label)}</b></span>
+        <article class="usage-hero-card tone-cost">
+          <div class="usage-hero-head"><span class="usage-hero-label"><i aria-hidden="true"></i>${escapeHtml(t("usage_stats.hero_cost"))}</span><span class="usage-hero-cost-status tone-${escapeHtml(costStatus.tone)}">${iconSvg(costStatus.icon)}${escapeHtml(costStatus.label)}</span></div>
+          <div class="usage-hero-value"><strong>${escapeHtml(fmtCost3(knownUsd))}</strong><span class="usage-hero-sub mono">USD</span></div>
+          <div class="usage-hero-bar" role="img" aria-label="${escapeHtml(`${t("cost.priced")} ${fmtCost(Number(cost.priced_usd || 0))} · ${t("cost.estimated")} ${fmtCost(Number(cost.estimated_usd || 0))}`)}"><i class="seg-priced" style="width:${svgNum(pricedShare)}%"></i><i class="seg-estimated" style="width:${svgNum(estimatedShare)}%"></i></div>
+          <div class="usage-hero-foot mono"><span>${escapeHtml(t("usage_stats.cost_counts", {
+				priced: fmtInt(Number(statuses.priced || 0)),
+				estimated: fmtInt(Number(statuses.estimated || 0))
+			}))}</span><span>${escapeHtml(t("usage_stats.avg_per_1m", { cost: fmtCost(avgPerM) }))}</span></div>
         </article>
       </div>
-      <div class="usage-token-grid">
-        ${usageStatisticsTokenCard("arrow-down", t("tokens.uncached"), usage.uncached_input_tokens, "info", usage.uncached_input_tokens / total * 100)}
-        ${usageStatisticsTokenCard("layers", t("tokens.cached"), usage.cached_input_tokens, "success", usage.cached_input_tokens / total * 100)}
-        ${usageStatisticsTokenCard("boxes", t("tokens.cache_write"), usage.cache_write_tokens, "warning", usage.cache_write_tokens / total * 100)}
-        ${usageStatisticsTokenCard("arrow-up", t("tokens.output"), usage.output_tokens, "compat", usage.output_tokens / total * 100)}
-        ${usageStatisticsTokenCard("brain", t("tokens.reasoning"), usage.reasoning_tokens, "reasoning", usage.reasoning_tokens / total * 100)}
-        <article class="usage-token-card tone-cache">
-          <span class="usage-token-card-icon">${iconSvg("zap")}</span>
-          <span class="usage-token-card-copy"><small>${escapeHtml(t("model_usage.cache_rate"))}</small><strong>${escapeHtml(fmtPct(summary.cache_rate || 0))}</strong></span>
-          <span class="usage-token-card-share"><b style="--usage-share:${svgNum(Math.max(0, Math.min(100, Number(summary.cache_rate || 0) * 100)))}%"></b></span>
-        </article>
+      <div class="usage-mini-grid">
+        ${usageMiniCard("arrow-down", t("tokens.uncached"), usage.uncached_input_tokens, "info", fmtTokenCount(usage.uncached_input_tokens))}
+        ${usageMiniCard("layers", t("tokens.cached"), usage.cached_input_tokens, "cache", fmtTokenCount(usage.cached_input_tokens))}
+        ${usageMiniCard("boxes", t("tokens.cache_write"), usage.cache_write_tokens, "warning", fmtTokenCount(usage.cache_write_tokens))}
+        ${usageMiniCard("arrow-up", t("tokens.output"), usage.output_tokens, "compat", fmtTokenCount(usage.output_tokens))}
+        ${usageMiniCard("brain", t("tokens.reasoning"), usage.reasoning_tokens, "reasoning", fmtTokenCount(usage.reasoning_tokens))}
+        ${usageMiniCard("zap", t("model_usage.cache_rate"), summary.cache_rate, "success", fmtPct(summary.cache_rate || 0))}
       </div>
     `);
 		}
@@ -16092,11 +16210,28 @@
 			const payload = state.data.modelUsage || {};
 			const items = Array.isArray(payload.items) ? payload.items : [];
 			const summary = payload.summary || {};
+			const rangeLabel = state.modelUsageRange === "all" ? t("req.all") : String(state.modelUsageRange || "7d");
 			updateDOM(el("modelUsageSummary"), `
-      <span class="model-summary-stat tone-info"><i>${iconSvg("activity")}</i><span><small>${escapeHtml(t("model_usage.calls"))}</small><strong>${escapeHtml(fmtInt(summary.calls || 0))}</strong></span></span>
-      <span class="model-summary-stat tone-compat"><i>${iconSvg("boxes")}</i><span><small>${escapeHtml(t("model_usage.total_tokens"))}</small><strong>${escapeHtml(fmtTokenCount(summary.total_tokens || 0))}</strong></span></span>
-      <span class="model-summary-stat tone-success"><i>${iconSvg("layers")}</i><span><small>${escapeHtml(t("model_usage.cache_rate"))}</small><strong>${escapeHtml(fmtPct(summary.cache_rate || 0))}</strong></span></span>
-      <span class="model-summary-stat tone-warning"><i>${iconSvg("dollar")}</i><span><small>${escapeHtml(t("model_usage.cost"))}</small><strong>${escapeHtml(fmtCost(summary.cost_usd || 0))}</strong></span></span>
+      <article class="model-overview-card tone-info">
+        <div class="model-overview-head"><span>${escapeHtml(t("model_usage.fleet_assets"))}</span><i aria-hidden="true"></i></div>
+        <div class="model-overview-value"><strong>${escapeHtml(fmtInt(Number(payload.total || 0)))}</strong><span>${escapeHtml(t("model_usage.fleet_assets_note"))}</span></div>
+        <div class="model-overview-note">${escapeHtml(t("model_usage.fleet_assets_hint"))}</div>
+      </article>
+      <article class="model-overview-card tone-success">
+        <div class="model-overview-head"><span>${escapeHtml(t("model_usage.fleet_calls"))}</span><i aria-hidden="true"></i></div>
+        <div class="model-overview-value"><strong>${escapeHtml(fmtInt(summary.calls || 0))}</strong><span>${escapeHtml(t("model_usage.fleet_calls_unit"))}</span></div>
+        <div class="model-overview-note">${escapeHtml(t("model_usage.fleet_calls_note", { range: rangeLabel }))}</div>
+      </article>
+      <article class="model-overview-card tone-compat">
+        <div class="model-overview-head"><span>${escapeHtml(t("model_usage.fleet_tokens"))}</span><i aria-hidden="true"></i></div>
+        <div class="model-overview-value"><strong>${escapeHtml(fmtTokenCount(summary.total_tokens || 0))}</strong><span>Tokens</span></div>
+        <div class="model-overview-note">${escapeHtml(t("model_usage.fleet_tokens_note", { cost: fmtCost3(summary.cost_usd || 0) }))}</div>
+      </article>
+      <article class="model-overview-card tone-cache">
+        <div class="model-overview-head"><span>${escapeHtml(t("model_usage.fleet_cache"))}</span><i aria-hidden="true"></i></div>
+        <div class="model-overview-value"><strong>${escapeHtml(fmtPct(summary.cache_rate || 0))}</strong><span>${escapeHtml(t("model_usage.cache_rate"))}</span></div>
+        <div class="model-overview-note">${escapeHtml(t("model_usage.fleet_cache_note"))}</div>
+      </article>
     `);
 			const target = el("modelUsageTable");
 			if (!items.length) {
