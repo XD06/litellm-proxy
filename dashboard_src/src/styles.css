@@ -4821,12 +4821,12 @@ tr.clickable:hover {
   flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 4px 10px;
+  gap: 4px 7px;
   min-height: 0;
   padding: 0;
   border: 0;
   background: transparent;
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--muted);
   cursor: help;
 }
@@ -21598,13 +21598,13 @@ body {
 
 #detailDrawer .token-composition-legend,
 #modelDrawer .token-composition-legend {
-  gap: 7px;
+  gap: 5px;
 }
 
 #detailDrawer .token-composition-legend span,
 #modelDrawer .token-composition-legend span {
   min-height: 34px;
-  padding: 5px 7px;
+  padding: 4px 6px;
   border: 1px solid var(--line-soft);
   border-radius: 6px;
   background: var(--surface-raised);

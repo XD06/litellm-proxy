@@ -5119,6 +5119,14 @@
 				en: "Output",
 				zh: "输出"
 			},
+			"tokens.cache_rate": {
+				en: "Cache hit",
+				zh: "缓存率"
+			},
+			"tokens.cache_rate_tip": {
+				en: "Cache-read tokens ÷ total input tokens (cache reads and writes included).",
+				zh: "缓存读取 ÷ 总输入 tokens（含缓存读取与缓存写入）。"
+			},
 			"tokens.price_in": {
 				en: "input",
 				zh: "输入"
@@ -16802,6 +16810,17 @@
 			if (n >= 1) return `$${parseFloat(n.toFixed(2))}`;
 			return `$${parseFloat(n.toFixed(4))}`;
 		}
+		function renderTokenLegendCacheRate(usage) {
+			const inputTokens = Number(usage.input_tokens || 0);
+			if (inputTokens <= 0) return "";
+			const pct = Math.max(0, Number(usage.cached_input_tokens || 0)) / inputTokens * 100;
+			const rate = pct >= 10 ? `${Math.round(pct)}%` : `${parseFloat(pct.toFixed(1))}%`;
+			return `
+      <span data-tip="${escapeHtml(t("tokens.cache_rate_tip"))}" tabindex="0">
+        <i class="token-dot token-cached" aria-hidden="true"></i><small>${escapeHtml(t("tokens.cache_rate"))}</small><strong>${escapeHtml(rate)}</strong>
+      </span>
+    `;
+		}
 		function renderTokenLegendPrices(value) {
 			const pricing = value && typeof value.pricing_snapshot === "object" && value.pricing_snapshot || null;
 			if (!pricing) return "";
@@ -16864,6 +16883,7 @@
         </div>
         <div class="token-composition-legend">
           ${segments.map(([tone, count, label]) => `<span><i class="token-dot token-${tone}" aria-hidden="true"></i><small>${escapeHtml(label)}</small><strong>${escapeHtml(fmtTokenCount(count))}</strong></span>`).join("")}
+          ${renderTokenLegendCacheRate(usage)}
           ${usage.reasoning_tokens ? `<span data-tip="${escapeHtml(t("tokens.reasoning_subset"))}" tabindex="0"><i class="token-dot token-reasoning" aria-hidden="true"></i><small>${escapeHtml(t("tokens.reasoning"))}</small><strong>${escapeHtml(fmtTokenCount(usage.reasoning_tokens))}</strong></span>` : ""}
           ${renderTokenLegendPrices(value)}
         </div>

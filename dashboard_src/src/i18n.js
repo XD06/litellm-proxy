@@ -1218,6 +1218,11 @@ const dict = {
   "tokens.cached": { en: "Cache read", zh: "缓存读取" },
   "tokens.cache_write": { en: "Cache write", zh: "缓存写入" },
   "tokens.output": { en: "Output", zh: "输出" },
+  "tokens.cache_rate": { en: "Cache hit", zh: "缓存率" },
+  "tokens.cache_rate_tip": {
+    en: "Cache-read tokens ÷ total input tokens (cache reads and writes included).",
+    zh: "缓存读取 ÷ 总输入 tokens（含缓存读取与缓存写入）。",
+  },
   "tokens.price_in": { en: "input", zh: "输入" },
   "tokens.price_cache": { en: "cache", zh: "缓存" },
   "tokens.price_cache_write": { en: "cache write", zh: "缓存写" },

@@ -26,6 +26,8 @@ const usageStatisticsLoader = between("async function loadUsageStatistics", "fun
 const usageStatisticsChart = between("function renderUsageStatisticsChart", "function usageStatisticsBreakdownMetric");
 const usageStatisticsBreakdown = between("function renderUsageStatisticsBreakdown", "function renderConfig");
 const attempts = between("function renderAttemptsTable", "function renderRequestMetadata");
+const tokenLegendCacheRate = between("function renderTokenLegendCacheRate", "function renderTokenLegendPrices");
+const usageComposition = between("function renderUsageComposition", "function renderAttemptsTable");
 
 assert.match(requests, /<caption class="sr-only">/, "request table needs an accessible caption");
 assert.match(requests, /<th scope="col"/, "request headers need column scope");
@@ -73,6 +75,16 @@ assert.match(state, /usageStatisticsFilters:\s*\{[\s\S]*model:[\s\S]*provider:[\
 
 assert.match(attempts, /<th scope="col"/, "attempt table headers need column scope");
 assert.match(app, /role="img" aria-label=.*token/, "token composition needs accessible text");
+assert.match(usageComposition, /segments\.map\([\s\S]*?renderTokenLegendCacheRate\(usage\)/, "token legend must show the per-request cache rate right after the token segments");
+assert.match(usageComposition, /renderTokenLegendCacheRate\(usage\)[\s\S]*?usage\.reasoning_tokens/, "cache rate sits between token segments and the reasoning subset chip");
+assert.match(tokenLegendCacheRate, /usage\.input_tokens/, "cache rate must use total input tokens as denominator");
+assert.match(tokenLegendCacheRate, /cached_input_tokens/, "cache rate must use cached reads as numerator");
+assert.match(tokenLegendCacheRate, /data-tip=/, "cache rate needs an inspectable definition");
+assert.match(tokenLegendCacheRate, /token-dot token-cached/, "cache rate must reuse the cache-read color");
+assert.match(i18n, /"tokens\.cache_rate"\s*:\s*\{[^}]*zh:/, "cache rate label must be bilingual");
+assert.match(i18n, /"tokens\.cache_rate_tip"[\s\S]{0,200}zh:/, "cache rate definition must be bilingual");
+assert.match(styles, /#detailDrawer \.token-composition-legend span,\s*#modelDrawer \.token-composition-legend span\s*\{[\s\S]*?padding:\s*4px 6px/, "drawer legend chips must stay compact so the cache rate fits on one line");
+assert.match(styles, /\.token-legend-prices,\s*#detailDrawer \.token-composition-legend \.token-legend-prices,[\s\S]{0,400}gap:\s*4px 7px/, "price rates must tighten to keep the legend on one row");
 for (const state of ["priced", "estimated", "pending", "unpriced", "legacy"]) {
   assert.match(app, new RegExp(`${state}: t\\("cost\\.${state}"\\)`), `missing ${state} cost state`);
 }
