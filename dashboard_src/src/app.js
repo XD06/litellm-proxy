@@ -3485,7 +3485,11 @@ import {
     const refresh = el("usageStatisticsRefresh");
     if (refresh && !refresh.dataset.boundUsageStatisticsRefresh) {
       refresh.dataset.boundUsageStatisticsRefresh = "1";
-      refresh.addEventListener("click", () => loadUsageStatistics({ force: true, includeDimensions: true }));
+      refresh.addEventListener("click", () => {
+        // 刷新按钮在两个子视图共用：模型数据视图刷新模型用量，其余刷新使用统计。
+        if (state.statisticsView === "models") loadModelUsage({ force: true });
+        else loadUsageStatistics({ force: true, includeDimensions: true });
+      });
     }
 
     const applyCustom = el("usageStatisticsApplyCustom");
@@ -9639,6 +9643,7 @@ import {
     state.modelUsageLoading = true;
     const tableTarget = el("modelUsageTable");
     tableTarget?.setAttribute("aria-busy", "true");
+    el("usageStatisticsRefresh")?.classList.toggle("is-loading", true);
     if (!state.data.modelUsage) updateDOM(tableTarget, `<div class="empty pad">${escapeHtml(t("model_usage.loading"))}</div>`);
     const params = new URLSearchParams({
       range: state.modelUsageRange || "7d",
@@ -9656,6 +9661,7 @@ import {
     } finally {
       state.modelUsageLoading = false;
       tableTarget?.setAttribute("aria-busy", "false");
+      el("usageStatisticsRefresh")?.classList.toggle("is-loading", false);
     }
   }
 
