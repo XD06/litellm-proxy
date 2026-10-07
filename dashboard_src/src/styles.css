@@ -29870,3 +29870,363 @@ body.is-auth-checking {
   height: 14px;
   color: var(--warning);
 }
+
+/* =====================================================================
+   配置与统计 · demo-flat 拍平
+   规则：外层 panel 是唯一卡片；区块内容直接铺在面板表面；
+   列表项只保留一层浅边框；内部一律不用灰底 / 渐变 / 阴影。
+   ===================================================================== */
+
+:root {
+  --shadow-card: 0 3px 10px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.03);
+}
+
+/* -- 面板壳：统一 demo 卡片规格（radius 15 / 白面 / 单边框） -- */
+#configView .panel {
+  margin-bottom: 0;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+/* -- 面板头：去渐变去灰底，白底纯标题 -- */
+#configView .panel-head {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--surface);
+}
+
+#configView .panel-head h2 {
+  color: var(--text);
+  font-size: 15px;
+}
+
+/* -- 页签容器：统一 14px 节奏 -- */
+#configView .config-tab-panel {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+#configView .config-tab-panel[hidden] {
+  display: none;
+}
+
+/* -- 内容左右边距统一 16px，与面板头对齐 -- */
+#configView .config-provider-tile-grid,
+#configView .model-route-list,
+#configView .provider-model-map-list,
+#configView .audit-list,
+#configView .config-advanced-details {
+  padding-right: 16px;
+  padding-left: 16px;
+}
+
+/* -- 运行时概览：统计块去盒，纯数字排版 -- */
+#configView .config-summary {
+  padding: 16px;
+}
+
+#configView .config-summary-grid {
+  gap: 18px 24px;
+}
+
+#configView .config-status-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+#configView .config-summary .mini-metric {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+#configView .config-summary .mini-metric span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 620;
+  white-space: normal;
+}
+
+#configView .config-summary .mini-metric strong {
+  margin-top: 5px;
+  font-size: 17px;
+  letter-spacing: -0.02em;
+  white-space: normal;
+}
+
+#configView .config-summary .mini-metric small {
+  margin-top: 3px;
+  font-size: 10.5px;
+}
+
+#configView .config-path-row {
+  margin-top: 16px;
+  padding: 12px 0 0;
+  border: 0;
+  border-top: 1px solid var(--line-soft);
+  border-radius: 0;
+  background: transparent;
+}
+
+@media (max-width: 1180px) {
+  #configView .config-status-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+  #configView .config-status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* -- 健康检测：分节平铺，细分隔线分界 -- */
+#configView .health-monitor-form {
+  gap: 0;
+  padding: 6px 0 10px;
+}
+
+#configView .health-monitor-section {
+  padding: 14px 16px 18px;
+  border: 0;
+  border-radius: 0;
+}
+
+#configView .health-monitor-section + .health-monitor-section {
+  border-top: 1px solid var(--line-soft);
+}
+
+/* -- 全局代理：表单直接铺在面板上 -- */
+#configView .global-proxy-form {
+  padding: 14px 16px 16px;
+}
+
+/* -- 路由卡 / 映射卡 / 审计卡 / 供应商卡：单层浅边框白卡，无阴影无灰底 -- */
+#configView .model-route-card {
+  border-color: var(--line);
+  background: var(--surface);
+}
+
+#configView .model-route-card:hover {
+  border-color: var(--line-strong);
+  box-shadow: none;
+}
+
+#configView .provider-model-map-card {
+  border-color: var(--line);
+  box-shadow: none;
+}
+
+#configView .provider-model-map-pair {
+  padding: 7px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+#configView .provider-model-map-pairs {
+  gap: 0;
+}
+
+#configView .provider-model-map-pair + .provider-model-map-pair {
+  border-top: 1px solid var(--line-soft);
+}
+
+#configView .audit-item {
+  border-color: var(--line-soft);
+  box-shadow: none;
+}
+
+#configView .config-provider-tile {
+  border-color: var(--line);
+}
+
+#configView .config-provider-tile:hover {
+  border-color: var(--line-strong);
+  box-shadow: none;
+  transform: none;
+}
+
+/* -- 高级：诊断统计平铺，记录行改分隔线 -- */
+#configView .conversion-diagnostics-status {
+  gap: 16px 24px;
+  padding: 16px 16px 6px;
+}
+
+#configView .conversion-diagnostics-status > span:not(.conversion-diagnostics-empty) {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#configView .conversion-diagnostics-status strong {
+  font-size: 17px;
+}
+
+#configView .conversion-diagnostics-status small {
+  font-size: 10.5px;
+}
+
+#configView .conversion-diagnostics-empty {
+  margin: 4px 0 0;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  background: transparent;
+}
+
+#configView .conversion-diagnostics-records {
+  padding: 2px 16px 16px;
+}
+
+#configView .conversion-diag-record {
+  padding: 9px 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+#configView .conversion-diag-record:hover {
+  background: transparent;
+}
+
+#configView .conversion-diag-record + .conversion-diag-record {
+  margin-top: 0;
+  border-top: 1px solid var(--line-soft);
+}
+
+/* -- 数据统计：所有壳体平铺，内容直接落在面板上 -- */
+#configView.is-model-data .model-usage-workspace {
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+#configView.is-model-data .usage-statistics-heading,
+#configView.is-model-data .usage-statistics-filters,
+#configView.is-model-data .usage-statistics-summary,
+#configView.is-model-data .usage-statistics-chart-shell,
+#configView.is-model-data .usage-statistics-breakdown-shell {
+  border: 0;
+  background: transparent;
+}
+
+#configView.is-model-data .statistics-view-panel[data-statistics-view-panel="usage"] {
+  gap: 12px;
+}
+
+#configView.is-model-data .usage-statistics-heading {
+  min-height: 0;
+  padding: 6px 0 0;
+  border-radius: 0;
+}
+
+#configView.is-model-data .usage-statistics-filters {
+  margin-top: 0;
+  padding: 12px 0 0;
+  border-radius: 0;
+}
+
+#configView.is-model-data .usage-statistics-summary {
+  padding: 4px 0 0;
+  border-radius: 0;
+}
+
+#configView.is-model-data .usage-statistics-chart-shell,
+#configView.is-model-data .usage-statistics-breakdown-shell {
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line-soft);
+  border-radius: 0;
+}
+
+#configView.is-model-data .usage-statistics-section-head {
+  min-height: 0;
+  padding: 0 0 12px;
+  border-bottom: 0;
+  background: transparent;
+}
+
+#configView.is-model-data .usage-statistics-chart {
+  padding: 0 0 4px;
+  background: transparent;
+}
+
+/* -- 汇总卡去边框去阴影，只保留彩色图标芯片 -- */
+#configView.is-model-data .usage-total-card,
+#configView.is-model-data .usage-compact-card,
+#configView.is-model-data .usage-token-card {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#configView.is-model-data .usage-total-card {
+  padding: 0;
+}
+
+#configView.is-model-data .usage-compact-card {
+  padding: 2px 0 0;
+}
+
+#configView.is-model-data .usage-token-card {
+  padding: 4px 0 0;
+}
+
+#configView.is-model-data .usage-statistics-primary-row {
+  gap: 16px;
+}
+
+#configView.is-model-data .usage-token-grid {
+  gap: 14px 12px;
+}
+
+/* -- 模型数据视图：工作台平铺，去掉灰色工具条 / 分页底 -- */
+#configView.is-model-data .model-usage-toolbar,
+#configView.is-model-data .model-usage-summary,
+#configView.is-model-data .model-usage-pagination,
+#configView.is-model-data .usage-statistics-breakdown-pagination {
+  background: transparent;
+}
+
+#configView.is-model-data .model-usage-table th {
+  background: var(--surface);
+}
+
+#configView.is-model-data .usage-statistics-data-management {
+  border: 0;
+  border-top: 1px solid var(--line-soft);
+  border-radius: 0;
+  background: transparent;
+}
+
+/* -- 数据统计字号：7.5-9px 密排版提到可读尺寸 -- */
+#configView.is-model-data .usage-statistics-heading h2 { font-size: 16px; }
+#configView.is-model-data .usage-statistics-heading p { font-size: 11.5px; }
+#configView.is-model-data .usage-statistics-section-head h3 { font-size: 13.5px; }
+#configView.is-model-data .usage-statistics-section-head p { font-size: 10.5px; }
+#configView.is-model-data .usage-statistics-period,
+#configView.is-model-data .usage-statistics-timezone,
+#configView.is-model-data .usage-statistics-completeness { font-size: 10.5px; }
+#configView.is-model-data .usage-statistics-legend { font-size: 10px; }
+#configView.is-model-data .usage-statistics-rank { font-size: 10.5px; }
+#configView.is-model-data .usage-statistics-empty-state strong { font-size: 12.5px; }
+#configView.is-model-data .usage-statistics-empty-state small { font-size: 10.5px; }
+#configView.is-model-data .usage-total-label small { font-size: 11px; }
+#configView.is-model-data .usage-total-label b,
+#configView.is-model-data .usage-total-exact { font-size: 9.5px; }
+#configView.is-model-data .usage-compact-card small { font-size: 10px; }
+#configView.is-model-data .usage-compact-card b { font-size: 9.5px; }
+#configView.is-model-data .usage-token-card-copy small { font-size: 9.5px; }
+#configView.is-model-data .usage-token-card-copy strong { font-size: 12px; }
+#configView.is-model-data .usage-statistics-breakdown-identity strong { font-size: 11.5px; }
+#configView.is-model-data .usage-statistics-breakdown-identity small { font-size: 9.5px; }
+#configView.is-model-data .usage-statistics-breakdown-result strong,
+#configView.is-model-data .usage-statistics-breakdown-cost strong { font-size: 11px; }
+#configView.is-model-data .usage-statistics-breakdown-result small,
+#configView.is-model-data .usage-statistics-breakdown-cost small { font-size: 9px; }
+#configView.is-model-data .usage-statistics-breakdown-pagination { font-size: 10px; }
+#configView.is-model-data .model-usage-page-copy strong { font-size: 11px; }
+#configView.is-model-data .model-usage-page-copy small { font-size: 10px; }
