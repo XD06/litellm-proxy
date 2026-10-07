@@ -5743,6 +5743,20 @@ form.is-busy {
 }
 
 
+/* 格子统一以输入框收尾（帮助文字排到输入框上方），配合 end 对齐保证输入框同一基线 */
+.model-route-form .field {
+  display: flex;
+  flex-direction: column;
+}
+
+.model-route-form .field .field-help {
+  order: 1;
+}
+
+.model-route-form .field .control {
+  order: 2;
+}
+
 .model-route-form .form-actions {
   align-self: end;
 }
@@ -18195,6 +18209,7 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 10px;
+  align-items: end;
 }
 
 .health-monitor-fields .field {
