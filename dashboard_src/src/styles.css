@@ -30249,7 +30249,8 @@ body.is-auth-checking {
 }
 
 .config-page-head h1 {
-  font-size: 26px;
+  font-size: 24px;
+  letter-spacing: 0;
 }
 
 .config-page-chip {
@@ -30266,7 +30267,7 @@ body.is-auth-checking {
 #configView .config-page-head p {
   margin: 4px 0 0;
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: 12px;
 }
 
 /* -- 一级页签：浮动分段药丸 -- */
@@ -31102,7 +31103,7 @@ body.is-auth-checking {
 
 /* 页头副标题调浅 */
 #configView .config-page-head p {
-  color: color-mix(in srgb, var(--muted) 82%, #fff);
+  color: #71717a;
 }
 
 /* 页签 / 子视图 / 时间范围：字重降级 */
