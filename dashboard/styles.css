@@ -26,6 +26,7 @@
   --info-soft: #e8efff;
   --route-info: #2878c8;
   --route-info-soft: #edf6ff;
+  --model-static: #b45309;
   --compat: #6f55c4;
   --compat-soft: #f0edff;
   --metric-neutral: #2f3437;
@@ -1205,6 +1206,19 @@ h2 {
   background: var(--danger-soft);
   color: var(--danger);
   font-weight: 820;
+}
+.badge.off {
+  border-color: color-mix(in srgb, var(--muted) 26%, var(--line));
+  background: color-mix(in srgb, var(--muted) 7%, var(--surface));
+  color: var(--muted);
+  font-weight: 760;
+}
+
+.badge.static {
+  border-color: color-mix(in srgb, var(--model-static) 30%, var(--line));
+  background: color-mix(in srgb, var(--model-static) 10%, var(--surface));
+  color: var(--model-static);
+  font-weight: 800;
 }
 
 .badge.route-info {
@@ -2905,19 +2919,19 @@ tr.clickable:hover {
 }
 
 .model-map-edit-button:hover {
-  color: var(--info);
-  background: color-mix(in srgb, var(--info-soft) 64%, transparent);
+  color: var(--route-info);
+  background: color-mix(in srgb, var(--route-info-soft) 70%, transparent);
 }
 
 .model-chip-toggle:focus-visible,
 .model-map-edit-button:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--info) 70%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--route-info) 70%, transparent);
   outline-offset: 2px;
 }
 
 .provider-model-chip.is-disabled {
-  border-color: color-mix(in srgb, var(--danger) 34%, var(--line));
-  background: color-mix(in srgb, var(--danger-soft) 48%, var(--surface));
+  border-color: color-mix(in srgb, var(--muted) 26%, var(--line));
+  background: color-mix(in srgb, var(--muted) 6%, var(--surface));
 }
 
 .provider-model-chip.is-pending {
@@ -2926,20 +2940,23 @@ tr.clickable:hover {
 }
 
 .provider-model-chip.is-manual-map {
-  border-color: color-mix(in srgb, var(--success) 28%, var(--line));
-  background: color-mix(in srgb, var(--success-soft) 42%, var(--surface));
+  border-color: color-mix(in srgb, var(--route-info) 32%, var(--line));
+  background: color-mix(in srgb, var(--route-info-soft) 60%, var(--surface));
+}
+
+.provider-model-chip.is-static {
+  border-color: color-mix(in srgb, var(--model-static) 34%, var(--line));
+  background: color-mix(in srgb, var(--model-static) 9%, var(--surface));
 }
 
 .provider-model-chip.is-disabled b {
-  color: color-mix(in srgb, var(--danger) 72%, var(--text));
-  text-decoration: line-through;
-  text-decoration-thickness: 2px;
-  text-decoration-color: var(--danger);
+  color: var(--muted);
+  text-decoration: none;
 }
 
-/* State dot in front of the chip label: green routable, red disabled,
-   blue manually mapped. Drawn as a pseudo-element so the chip markup
-   only carries state classes. */
+.provider-drawer-models .provider-model-chip.is-disabled .model-chip-toggle b::before {
+  background: color-mix(in srgb, var(--muted) 55%, var(--surface));
+}
 .provider-drawer-models .model-chip-toggle b::before {
   content: "";
   display: inline-block;
@@ -2952,11 +2969,15 @@ tr.clickable:hover {
 }
 
 .provider-drawer-models .provider-model-chip.is-disabled .model-chip-toggle b::before {
-  background: var(--danger);
+  background: var(--faint);
 }
 
 .provider-drawer-models .provider-model-chip.is-manual-map .model-chip-toggle b::before {
-  background: var(--info);
+  background: var(--route-info);
+}
+
+.provider-drawer-models .provider-model-chip.is-static .model-chip-toggle b::before {
+  background: var(--model-static);
 }
 
 .model-chip-pending-flag {
@@ -2970,6 +2991,37 @@ tr.clickable:hover {
   font: 700 8.5px/1 var(--sans);
   letter-spacing: 0.03em;
   pointer-events: none;
+}
+
+/* Static fallback marker: stays on the chip's single row, between the label and
+   the edit button. Kept in normal flow because the chip carries
+   `content-visibility`, whose paint containment clipped the old badge that sat
+   absolutely positioned at the chip's corner. */
+.provider-drawer-models .provider-model-chip.is-static {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.provider-drawer-models .provider-model-chip.is-static .model-chip-static-badge {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+  justify-self: end;
+}
+
+.provider-drawer-models .provider-model-chip.is-static .model-map-edit-button {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.model-chip-static-badge {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--model-static) 14%, var(--surface));
+  color: var(--model-static);
+  font: 720 8.5px/1.6 var(--sans);
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 .model-price-tip {
@@ -2999,25 +3051,56 @@ tr.clickable:hover {
 }
 
 .static-model-chip {
-  position: relative;
-  padding-right: 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px 8px;
+  min-height: 44px;
+  padding: 7px 8px 7px 11px;
+  border: 1px solid color-mix(in srgb, var(--model-static) 26%, var(--line-soft));
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--model-static) 8%, var(--surface));
+}
+
+.static-model-chip:hover {
+  border-color: color-mix(in srgb, var(--model-static) 40%, var(--line-soft));
+  background: color-mix(in srgb, var(--model-static) 12%, var(--surface));
+  transform: none;
+  box-shadow: none;
+}
+
+.static-model-chip b {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font: 740 11px/1.35 var(--mono);
+}
+
+.static-model-chip small {
+  grid-column: 1;
+  color: var(--model-static);
+  font: 700 9px/1.3 var(--sans);
+  letter-spacing: 0.04em;
+}
+
+.static-model-chip .static-model-delete {
+  grid-column: 2;
+  grid-row: 1 / 3;
 }
 
 .static-model-delete {
-  position: absolute;
-  top: 4px;
-  right: 5px;
-  width: 16px;
-  height: 16px;
   display: grid;
   place-items: center;
-  border: 1px solid transparent;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--muted) 24%, transparent);
   border-radius: 999px;
-  background: transparent;
+  background: var(--surface);
   color: var(--muted);
-  cursor: pointer;
   font-size: 12px;
   line-height: 1;
+  cursor: pointer;
+  transition: all 0.12s ease;
 }
 
 .static-model-delete:hover {
@@ -6577,7 +6660,19 @@ form.is-busy {
 }
 
 .provider-overview-state-dot.bad {
-  background: var(--danger);
+  background: #8B3A3A;
+}
+
+.provider-overview-state-dot.info {
+  background: #FF8C42;
+}
+
+.provider-overview-state-dot.off {
+  background: color-mix(in srgb, var(--muted) 55%, var(--surface));
+}
+
+.provider-overview-state-dot.static {
+  background: var(--model-static);
 }
 
 .provider-overview-readiness-line1 h3 {
@@ -19494,18 +19589,25 @@ body {
 }
 
 .provider-drawer-models .provider-model-chip:hover {
-  border-color: var(--line-soft);
-  background: color-mix(in srgb, var(--info-soft) 32%, var(--surface));
+  border-color: color-mix(in srgb, var(--route-info) 22%, var(--line-soft));
+  background: color-mix(in srgb, var(--surface-soft) 70%, var(--surface));
   box-shadow: none;
   transform: none;
 }
 
 .provider-drawer-models .provider-model-chip.is-disabled {
-  background: color-mix(in srgb, var(--danger-soft) 26%, var(--surface));
+  border-color: color-mix(in srgb, var(--muted) 22%, var(--line-soft));
+  background: color-mix(in srgb, var(--muted) 6%, var(--surface));
 }
 
 .provider-drawer-models .provider-model-chip.is-manual-map {
-  background: color-mix(in srgb, var(--success-soft) 26%, var(--surface));
+  border-color: color-mix(in srgb, var(--route-info) 28%, var(--line-soft));
+  background: color-mix(in srgb, var(--route-info-soft) 62%, var(--surface));
+}
+
+.provider-drawer-models .provider-model-chip.is-static {
+  border-color: color-mix(in srgb, var(--model-static) 34%, var(--line-soft));
+  background: color-mix(in srgb, var(--model-static) 9%, var(--surface));
 }
 
 .provider-drawer-models .model-chip-toggle {
@@ -19562,11 +19664,17 @@ body {
 }
 
 .provider-model-row.is-off {
-  background: color-mix(in srgb, var(--danger-soft) 24%, var(--surface));
+  border-color: color-mix(in srgb, var(--muted) 20%, var(--line-soft));
+  background: color-mix(in srgb, var(--muted) 5%, var(--surface));
 }
 
 .provider-model-row.is-pending {
   border: 1.5px dashed color-mix(in srgb, var(--warning) 55%, white);
+}
+
+.provider-model-row.is-static {
+  border-color: color-mix(in srgb, var(--model-static) 24%, var(--line-soft));
+  background: color-mix(in srgb, var(--model-static) 7%, var(--surface));
 }
 
 .provider-model-row-main {
@@ -19583,11 +19691,17 @@ body {
   white-space: nowrap;
 }
 
+.provider-model-row.is-off .provider-model-row-main {
+  opacity: 0.72;
+}
+
 .provider-model-row.is-off .provider-model-row-main b {
   color: var(--muted);
-  text-decoration: line-through;
-  text-decoration-thickness: 1.5px;
-  text-decoration-color: var(--danger);
+  text-decoration: none;
+}
+
+.provider-model-row.is-static .provider-model-row-main b {
+  color: color-mix(in srgb, var(--model-static) 85%, var(--text));
 }
 
 .provider-model-row-main small {
@@ -19779,7 +19893,7 @@ body {
 }
 
 .provider-model-inline-editor .provider-variant-form,
-.provider-model-static-fallback .config-static-models-form {
+.provider-model-inline-editor .provider-variant-form {
   display: grid;
   gap: 9px;
   min-width: 0;
@@ -19787,6 +19901,35 @@ body {
   border: 1px solid var(--line-soft);
   border-radius: 7px;
   background: var(--surface-raised);
+}
+
+.provider-model-static-fallback .config-static-models-form {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: var(--surface-raised);
+}
+
+.provider-model-static-fallback .static-model-chip-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.provider-model-static-fallback .config-static-models-form .form-row {
+  gap: 6px;
+}
+
+.provider-model-static-fallback .config-static-models-form .form-actions {
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .provider-variant-picker-shell {

@@ -717,6 +717,7 @@ const dict = {
   "prov.models.advanced_fallback_desc": { en: "Manually assert models that discovery omits or cannot fetch.", zh: "手工声明模型，用于补充发现结果遗漏或无法获取的模型。" },
   "prov.models.static_count": { en: "{count} static", zh: "{count} 个静态模型" },
   "prov.models.static": { en: "static", zh: "静态" },
+  "prov.models.static_short": { en: "STATIC", zh: "静态" },
   "prov.models.remove_model": { en: "Remove {model}", zh: "移除 {model}" },
   "prov.models.no_static": { en: "No static fallback models configured.", zh: "未配置静态回退模型。" },
   "prov.models.add_model_ids": { en: "Add model IDs", zh: "添加模型 ID" },

@@ -3255,6 +3255,10 @@
 				en: "static",
 				zh: "静态"
 			},
+			"prov.models.static_short": {
+				en: "STATIC",
+				zh: "静态"
+			},
 			"prov.models.remove_model": {
 				en: "Remove {model}",
 				zh: "移除 {model}"
@@ -12569,13 +12573,16 @@
 				});
 				visibleLabels.add(normalized);
 			});
+			const staticModelsSet = new Set(normalizeStaticModelIds(state.data.config?.providers?.[name]?.static_models || []).map((m) => m.toLowerCase()));
 			const mappedItems = items.map((item) => {
 				const sourceModel = providerModelSourceId(item);
+				const isStatic = staticModelsSet.has(sourceModel.toLowerCase());
 				return {
 					...item,
 					sourceModel,
 					disabled: isProviderModelDisabled(name, sourceModel),
-					pending: Object.prototype.hasOwnProperty.call(providerModelDraft(name), sourceModel)
+					pending: Object.prototype.hasOwnProperty.call(providerModelDraft(name), sourceModel),
+					static: isStatic
 				};
 			});
 			mappedItems.legacyRouteRefs = legacyRouteRefs;
@@ -12638,6 +12645,21 @@
 					item.title
 				].join(" ").toLowerCase().includes(search);
 			});
+		}
+		function providerDrawerCatalogItems(view, visibleItems) {
+			const staticModels = normalizeStaticModelIds(view?.config?.static_models);
+			const seen = new Set((visibleItems || []).map((item) => String(item.sourceModel || "").trim().toLowerCase()));
+			return [...visibleItems || [], ...staticModels.filter((model) => !seen.has(String(model).trim().toLowerCase())).map((model) => ({
+				label: model,
+				raw: model,
+				title: model,
+				sourceModel: model,
+				static: true,
+				disabled: false,
+				pending: false,
+				manual: false,
+				manualOnly: false
+			}))].sort((a, b) => Number(Boolean(b.static)) - Number(Boolean(a.static)));
 		}
 		function providerRouteModels(name) {
 			const routes = state.data.config?.models?.routes || {};
@@ -13736,13 +13758,14 @@
 			const configuredVariants = state.data.config?.models?.provider_model_variants?.[view.name] || {};
 			const modelItems = view.modelItems;
 			const legacyRouteRefs = Array.isArray(modelItems?.legacyRouteRefs) ? modelItems.legacyRouteRefs : [];
+			const staticModels = normalizeStaticModelIds(view.config.static_models);
 			const visibleItems = filteredProviderModelItems(modelItems);
+			const allItems = providerDrawerCatalogItems(view, visibleItems);
 			const largeCatalog = visibleItems.length > 24;
-			const useRows = !largeCatalog && visibleItems.length > 0;
+			const useRows = !largeCatalog && allItems.length > 0;
 			const disabledCount = modelItems.filter((item) => item.disabled).length;
 			const modelFilters = state.providerModelFilters || {};
 			const draftCount = providerModelDraftCount(view.name);
-			const staticModels = normalizeStaticModelIds(view.config.static_models);
 			const statusTone = capability.status === "ok" ? "ok" : capability.status === "error" ? "bad" : capability.status === "pending" || capability.status === "stale" ? "warn" : "neutral";
 			const usableModels = modelItems.length - disabledCount;
 			const usableTone = usableModels === 0 ? "bad" : disabledCount > 0 ? "warn" : "ok";
@@ -13773,7 +13796,7 @@
         <section class="provider-model-catalog ${largeCatalog ? "is-large-catalog" : ""}" aria-labelledby="provider-model-catalog-title">
           <div class="provider-model-catalog-head">
             <h3 id="provider-model-catalog-title">${iconSvg("boxes")} ${escapeHtml(t("prov.models.catalog"))}</h3>
-            <span class="provider-model-section-count">${escapeHtml(t("prov.models.shown", { count: fmtInt(visibleItems.length) }))}</span>
+            <span class="provider-model-section-count">${escapeHtml(t("prov.models.shown", { count: fmtInt(allItems.length) }))}</span>
             <button class="button secondary icon-action provider-model-refresh-action" type="button"
               data-provider-models-refresh="${escapeHtml(view.name)}"
               title="${escapeHtml(t("prov.models.refresh"))}"
@@ -13796,13 +13819,13 @@
               data-provider-model-bulk-action="disable"
               title="${escapeHtml(t("prov.models.disable_shown"))}"
               aria-label="${escapeHtml(t("prov.models.disable_shown"))}"
-              ${visibleItems.length ? "" : "disabled"}>${iconSvg("eye-off")}</button>
+              ${allItems.length ? "" : "disabled"}>${iconSvg("eye-off")}</button>
             <button class="button small secondary icon-action provider-model-toolbar-action" type="button"
               data-provider-model-bulk="${escapeHtml(view.name)}"
               data-provider-model-bulk-action="enable"
               title="${escapeHtml(t("prov.models.enable_shown"))}"
               aria-label="${escapeHtml(t("prov.models.enable_shown"))}"
-              ${visibleItems.length ? "" : "disabled"}>${iconSvg("eye")}</button>
+              ${allItems.length ? "" : "disabled"}>${iconSvg("eye")}</button>
           </div>
           ${legacyRouteRefs.length ? `
           <div class="provider-model-legacy-notice">
@@ -13829,12 +13852,12 @@
           ` : ""}
           ${useRows ? `
           <div class="provider-model-rows" role="list">
-            ${visibleItems.map((item) => providerModelRow(view.name, item)).join("")}
+            ${allItems.map((item) => providerModelRow(view.name, item)).join("")}
           </div>
           ` : `
-          <div class="model-chip-list provider-drawer-models" role="list" ${largeCatalog ? `aria-label="${escapeHtml(t("prov.models.visible_count", { count: fmtInt(visibleItems.length) }))}"` : ""}>
-            ${visibleItems.length ? visibleItems.slice(0, 100).map((item) => `
-              <span class="model-map-chip provider-model-chip ${item.disabled ? "is-disabled" : ""} ${item.pending ? "is-pending" : ""} ${item.manual ? "is-manual-map" : ""}" role="listitem">
+          <div class="model-chip-list provider-drawer-models" role="list" ${largeCatalog ? `aria-label="${escapeHtml(t("prov.models.visible_count", { count: fmtInt(allItems.length) }))}"` : ""}>
+            ${allItems.length ? allItems.slice(0, 100).map((item) => `
+              <span class="model-map-chip provider-model-chip ${item.disabled ? "is-disabled" : ""} ${item.pending ? "is-pending" : ""} ${item.manual ? "is-manual-map" : ""} ${item.static ? "is-static" : ""}" role="listitem">
                 <button class="model-chip-toggle" type="button"
                   data-provider-model-disable-provider="${escapeHtml(view.name)}"
                   data-provider-model-disable-model="${escapeHtml(item.sourceModel)}"
@@ -13852,8 +13875,9 @@
                   data-provider-model-map-edit-manual="${item.manual ? "1" : "0"}"
                   title="${escapeHtml(t("prov.models.edit_mapping"))}"
                   aria-label="${escapeHtml(t("prov.models.edit_mapping_for", { model: item.label }))}">${iconSvg("pencil")}</button>
+                ${item.static ? `<span class="model-chip-static-badge">${escapeHtml(t("prov.models.static_short"))}</span>` : ""}
               </span>
-            `).join("") + (visibleItems.length > 100 ? `<span class="muted provider-model-overflow-note" role="listitem">${escapeHtml(t("prov.models.more", { count: fmtInt(visibleItems.length - 100) }))}</span>` : "") : `<div class="empty pad-slim" role="listitem">${escapeHtml(t("prov.models.no_match"))}</div>`}
+            `).join("") + (allItems.length > 100 ? `<span class="muted provider-model-overflow-note" role="listitem">${escapeHtml(t("prov.models.more", { count: fmtInt(allItems.length - 100) }))}</span>` : "") : `<div class="empty pad-slim" role="listitem">${escapeHtml(t("prov.models.no_match"))}</div>`}
           </div>
           `}
         </section>
@@ -13980,14 +14004,15 @@
 			const subParts = [];
 			if (item.raw && item.raw !== item.label) subParts.push(item.raw);
 			if (item.manual) subParts.push(t("prov.models.manual_map"));
+			if (item.static) subParts.push(t("prov.models.static"));
 			return `
-      <article class="provider-model-row ${item.disabled ? "is-off" : ""} ${item.pending ? "is-pending" : ""}" role="listitem">
-        <span class="provider-overview-state-dot ${item.disabled ? "bad" : "ok"}" aria-hidden="true"></span>
+      <article class="provider-model-row ${item.disabled ? "is-off" : ""} ${item.pending ? "is-pending" : ""} ${item.static ? "is-static" : ""}" role="listitem">
+        <span class="provider-overview-state-dot ${item.static ? "static" : item.disabled ? "off" : "ok"}" aria-hidden="true"></span>
         <div class="provider-model-row-main">
           <b class="mono">${escapeHtml(item.label)}</b>
           ${subParts.length ? `<small>${escapeHtml(subParts.join(" · "))}</small>` : ""}
         </div>
-        ${item.pending ? badge(t("prov.models.pending_short"), "warn") : badge(item.disabled ? t("prov.models.disabled") : t("prov.models.enabled"), item.disabled ? "bad" : "ok")}
+        ${item.pending ? badge(t("prov.models.pending_short"), "warn") : badge(item.disabled ? t("prov.models.disabled") : item.static ? t("prov.models.static") : t("prov.models.enabled"), item.disabled ? "off" : item.static ? "static" : "ok")}
         <div class="provider-model-row-ops">
           <button class="button secondary icon-action model-row-op" type="button"
             data-provider-model-map-edit-provider="${escapeHtml(provider)}"
@@ -15102,7 +15127,7 @@
 					const action = bulkButton.dataset.providerModelBulkAction || "";
 					const view = providerViewModel(provider);
 					if (!view) return;
-					const visibleItems = filteredProviderModelItems(view.modelItems);
+					const visibleItems = providerDrawerCatalogItems(view, filteredProviderModelItems(view.modelItems));
 					const next = action === "disable";
 					const models = {};
 					visibleItems.forEach((item) => {

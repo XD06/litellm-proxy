@@ -242,4 +242,112 @@ assert.match(providerCard, /cooldown\/clear[^>]*data-tip="\$\{escapeHtml\(t\("pr
 assert.match(translations, /"prov\.restore_routing"\s*:\s*\{[^}]*zh:/, "restore routing label must be bilingual");
 assert.match(translations, /"prov\.restore_routing_tip"[\s\S]{0,300}zh:/, "restore routing tooltip must be bilingual");
 
+
+// --- Runtime render guard -------------------------------------------------
+// Every assertion above greps source text. That let a ReferenceError ship:
+// `allItems` was referenced by the toolbar before its `const` declaration, so
+// the Models tab threw at runtime while all regex checks stayed green. Extract
+// the real render functions and execute them so scope errors fail the suite.
+const os = require("os");
+const { execFileSync } = require("child_process");
+
+function sourceRegion(startMarker, endMarker) {
+  const start = source.indexOf(startMarker);
+  const end = source.indexOf(endMarker, start);
+  assert.ok(start >= 0 && end > start, `missing source region: ${startMarker}`);
+  return source.slice(start, end);
+}
+
+const catalogHelper = sourceRegion(
+  "  function providerDrawerCatalogItems(",
+  "  function providerRouteModels(",
+);
+const modelRowRenderFn = sourceRegion(
+  "  function providerModelRow(",
+  "  function providerDrawerRouting(",
+);
+const modelsRenderFn = sourceRegion(
+  "  function providerDrawerModels(",
+  "  function providerModelRow(",
+);
+
+const renderHarness = `
+const state = { data: { config: { providers: {}, models: {} } }, providerModelFilters: {}, providerModelsDisclosuresOpen: new Set() };
+const t = (key) => key;
+const escapeHtml = (value) => String(value ?? "");
+const iconSvg = () => "<i></i>";
+const badge = () => "";
+const fmtInt = (value) => String(value);
+const fmtDate = (value) => String(value);
+const normalizeStaticModelIds = (value) => (Array.isArray(value) ? value.filter(Boolean) : []);
+const filteredProviderModelItems = (value) => (Array.isArray(value) ? value : []);
+const providerModelStatusLabel = () => "";
+const messageMarkup = () => "";
+const refreshSpinner = () => "";
+const providerOverviewMetric = () => "";
+const providerModelDraftCount = () => 0;
+const modelCapabilityItems = () => [];
+const discovered = (count, prefix) => Array.from({ length: count }, (_, index) => ({
+  label: prefix + index,
+  sourceModel: prefix + index,
+  raw: prefix + index,
+  disabled: false,
+  pending: false,
+  manual: false,
+}));
+const catalogOf = (html) => {
+  const start = html.indexOf("provider-model-catalog");
+  const end = html.indexOf("provider-model-disclosure provider-model-aliases");
+  return start < 0 ? "" : html.slice(start, end < 0 ? html.length : end);
+};
+const inspect = (label, html) => ({
+  label,
+  count: catalogOf(html).split(">s1<").length - 1,
+  isStaticClass: catalogOf(html).includes("is-static"),
+  staticBadge: catalogOf(html).includes("model-chip-static-badge"),
+});
+const results = [];
+try {
+  results.push(inspect("rowsMode", providerDrawerModels({ name: "p", config: { static_models: ["s1"] }, capability: {}, modelItems: discovered(1, "a") })));
+  results.push(inspect("chipMode", providerDrawerModels({ name: "p", config: { static_models: ["s1"] }, capability: { status: "ok" }, modelItems: discovered(30, "m") })));
+  results.push(inspect("staticOnly", providerDrawerModels({ name: "p", config: { static_models: ["s1"] }, capability: {}, modelItems: [] })));
+  results.push(inspect("empty", providerDrawerModels({ name: "p", config: {}, capability: {}, modelItems: [] })));
+  const deduped = catalogOf(providerDrawerModels({ name: "p", config: { static_models: ["a0"] }, capability: {}, modelItems: discovered(1, "a") }));
+  results.push({ label: "dedupe", count: deduped.split(">a0<").length - 1, isStaticClass: deduped.includes("is-static"), staticBadge: false });
+  const ordered = catalogOf(providerDrawerModels({ name: "p", config: { static_models: ["s1"] }, capability: {}, modelItems: discovered(1, "a") }));
+  results.push({ label: "ordering", staticFirst: ordered.indexOf(">s1<") >= 0 && ordered.indexOf(">s1<") < ordered.indexOf(">a0<") });
+  console.log("RENDER_RESULT " + JSON.stringify(results));
+} catch (error) {
+  console.log("RENDER_THREW " + error.constructor.name + ": " + error.message);
+  process.exit(1);
+}
+`;
+
+const probePath = path.join(os.tmpdir(), `provider-drawer-render-${process.pid}.js`);
+fs.writeFileSync(probePath, `${renderHarness}\n${catalogHelper}\n${modelRowRenderFn}\n${modelsRenderFn}\n`, "utf8");
+let renderOutput = "";
+try {
+  renderOutput = execFileSync(process.execPath, [probePath], { encoding: "utf8" });
+} catch (error) {
+  assert.fail(`providerDrawerModels threw at runtime: ${error.stdout || error.message}`);
+} finally {
+  fs.rmSync(probePath, { force: true });
+}
+
+const renderResults = Object.fromEntries(
+  JSON.parse(renderOutput.split("RENDER_RESULT ")[1].trim()).map((item) => [item.label, item]),
+);
+for (const label of ["rowsMode", "chipMode", "staticOnly"]) {
+  assert.equal(renderResults[label].count, 1, `${label}: the catalog must list the static model exactly once`);
+  assert.equal(renderResults[label].isStaticClass, true, `${label}: static fallback entries must be marked`);
+}
+assert.equal(renderResults.empty.count, 0, "a provider without static models must not invent catalog entries");
+assert.equal(renderResults.chipMode.staticBadge, true, "large catalogs must carry the visible static badge");
+assert.equal(renderResults.dedupe.count, 1, "a static model that discovery already returned must not render twice");
+assert.equal(renderResults.dedupe.isStaticClass, false, "a discovered model must not be relabeled static");
+assert.equal(renderResults.ordering.staticFirst, true, "static fallback models must lead the catalog so operators see their own additions first");
+
+// The toolbar enablement and the bulk handler must resolve the same catalog,
+// otherwise the buttons enable while staging nothing.
+assert.match(source, /providerDrawerCatalogItems\(view, filteredProviderModelItems\(view\.modelItems\)\)/, "the bulk enable/disable handler must stage the catalog the drawer renders");
 console.log("provider drawer layout tests passed");
