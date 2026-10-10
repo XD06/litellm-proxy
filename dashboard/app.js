@@ -3303,6 +3303,110 @@
 				en: "Empty group: routing ignores it.",
 				zh: "空组：路由会忽略该别名。"
 			},
+			"prov.models.current_kind": {
+				en: "This id is",
+				zh: "当前类型"
+			},
+			"prov.models.kind_variant": {
+				en: "variant group",
+				zh: "变体组"
+			},
+			"prov.models.kind_static": {
+				en: "static declaration",
+				zh: "静态声明"
+			},
+			"prov.models.kind_renamed": {
+				en: "renamed mapping",
+				zh: "重命名映射"
+			},
+			"prov.models.kind_discovered": {
+				en: "automatic mapping",
+				zh: "自动映射"
+			},
+			"prov.models.kind_route": {
+				en: "route model",
+				zh: "路由模型"
+			},
+			"prov.models.kind_also": {
+				en: "also {kind}",
+				zh: "同时：{kind}"
+			},
+			"prov.models.kind_hint_variant": {
+				en: "Saving writes models.provider_model_variants. The whole group overrides renames and discovered mappings by priority; clearing every upstream removes the alias.",
+				zh: "保存写入 models.provider_model_variants。整组按优先级覆盖重命名与发现映射；清空全部上游等于删除该别名。"
+			},
+			"prov.models.kind_hint_static": {
+				en: "Saving rewrites this provider's static_models list; renaming replaces the entry in place.",
+				zh: "保存会重写该提供商的 static_models 名单；改名等于在名单内替换该条目。"
+			},
+			"prov.models.kind_hint_renamed": {
+				en: "Saving updates the 1:1 provider_model_map rename for this client id.",
+				zh: "保存更新该客户端 ID 在 provider_model_map 里的 1:1 重命名。"
+			},
+			"prov.models.kind_hint_discovered": {
+				en: "Saving creates a manual rename mapping for this client id.",
+				zh: "保存会为该客户端 ID 新建一条手动重命名映射。"
+			},
+			"prov.models.client_model": {
+				en: "Client model",
+				zh: "客户端模型"
+			},
+			"prov.models.static_list": {
+				en: "Static list",
+				zh: "当前静态名单"
+			},
+			"prov.models.upstream_model": {
+				en: "Upstream model",
+				zh: "上游模型"
+			},
+			"prov.models.save_mapping": {
+				en: "Save mapping",
+				zh: "保存映射"
+			},
+			"prov.models.reset_mapping": {
+				en: "Reset to automatic mapping",
+				zh: "恢复为自动映射"
+			},
+			"prov.models.empty_name_restores": {
+				en: "An empty name restores the automatic mapping.",
+				zh: "名称留空会恢复为自动映射。"
+			},
+			"prov.models.edit_variant_group": {
+				en: "Edit variant group",
+				zh: "编辑变体组"
+			},
+			"prov.models.edit_static_model": {
+				en: "Edit static model",
+				zh: "编辑静态模型"
+			},
+			"prov.models.variant_members": {
+				en: "Upstream variants ({count})",
+				zh: "上游变体（{count}）"
+			},
+			"prov.models.variant_member_model": {
+				en: "Upstream model id",
+				zh: "上游模型 ID"
+			},
+			"prov.models.variant_member_priority": {
+				en: "Upstream priority",
+				zh: "上游优先级"
+			},
+			"prov.models.variant_members_help": {
+				en: "Higher priority is tried first; clearing every upstream removes the alias.",
+				zh: "优先级高者先试；清空全部上游等于删除该别名。"
+			},
+			"prov.models.add_variant_member": {
+				en: "Add upstream",
+				zh: "添加上游"
+			},
+			"prov.models.remove_variant_member": {
+				en: "Remove this upstream",
+				zh: "移除该上游"
+			},
+			"prov.models.remove_variant_member_for": {
+				en: "Remove upstream {model}",
+				zh: "移除上游 {model}"
+			},
 			"prov.models.remove_model": {
 				en: "Remove {model}",
 				zh: "移除 {model}"
@@ -4879,6 +4983,10 @@
 				en: "Cancel",
 				zh: "取消"
 			},
+			"form.cancel": {
+				en: "Cancel",
+				zh: "取消"
+			},
 			"form.save_provider": {
 				en: "Save provider",
 				zh: "保存提供商"
@@ -5038,6 +5146,18 @@
 			"notice.model_alias_saved": {
 				en: "Model alias {model} saved for {provider}.",
 				zh: "模型别名 {model} 已保存到 {provider}。"
+			},
+			"notice.model_alias_renamed": {
+				en: "Model alias {from} renamed to {to} for {provider}.",
+				zh: "模型别名 {from} 已改名为 {to}（{provider}）。"
+			},
+			"notice.model_alias_failed": {
+				en: "Saving the model alias failed: {error}",
+				zh: "模型别名保存失败：{error}"
+			},
+			"notice.static_model_renamed": {
+				en: "Static model {from} renamed to {to} for {provider}.",
+				zh: "静态模型 {from} 已改名为 {to}（{provider}）。"
 			},
 			"notice.failed": {
 				en: "Failed: {error}",
@@ -5326,6 +5446,38 @@
 			"modal.key_owner_none": {
 				en: "No per-key catalog match — test uses the provider catalog (key #0)",
 				zh: "无 key 级目录匹配 —— 将按 provider 级目录测试（key #0）"
+			},
+			"modal.rename_clash_title": {
+				en: "That name is taken",
+				zh: "目标名称已被占用"
+			},
+			"modal.rename_clash_variant": {
+				en: "{id} is already a variant group. Continuing overwrites that group's upstreams with this group's members.",
+				zh: "{id} 已是一个变体组。继续会用它当前的变体内容覆盖该组的上游列表。"
+			},
+			"modal.rename_clash_other": {
+				en: "{id} already exists as {kind}. After renaming, the variant group still resolves that id first.",
+				zh: "{id} 已存在（{kind}）。改名后该 ID 仍由变体组优先解析。"
+			},
+			"modal.rename_clash_accept": {
+				en: "Rename anyway",
+				zh: "仍要改名"
+			},
+			"modal.mapping_variant_owner_title": {
+				en: "That name belongs to a variant group",
+				zh: "该名称由变体组提供"
+			},
+			"modal.mapping_variant_owner_msg": {
+				en: "{name} is the variant group {owner}. Groups override renames, so this rename would be saved but never used.",
+				zh: "{name} 是变体组 {owner}。变体组优先于重命名，这条重命名保存后不会生效。"
+			},
+			"modal.static_clash_title": {
+				en: "Already declared static",
+				zh: "该名称已在静态名单中"
+			},
+			"modal.static_clash_msg": {
+				en: "{id} is already in the static list; edit or remove that entry instead.",
+				zh: "{id} 已在静态名单里，请直接改这一个条目，或先移除它。"
 			},
 			"modal.test_via_key": {
 				en: "· key #{index}",
@@ -12952,8 +13104,50 @@
 				variant: row.variant,
 				variantCount: row.variants.length,
 				variantWarnings: row.warnings.length,
+				mainSource: row.mainSource,
+				sources: row.sources.slice(),
+				variants: row.variants.map((variant) => ({
+					model: variant.model,
+					priority: variant.priority
+				})),
+				warnings: row.warnings.map((warning) => ({
+					code: warning.code,
+					detail: { ...warning.detail }
+				})),
 				refs: row.refs
 			};
+		}
+		function providerCatalogEditKind(item) {
+			if (!item) return "discovered";
+			if (item.variant) return "variant";
+			if (item.mainSource) return item.mainSource;
+			if (item.static) return "static";
+			return item.manual ? "renamed" : "discovered";
+		}
+		function providerCatalogEntry(provider, modelId) {
+			const view = providerViewModel(provider);
+			if (!view || !modelId) return null;
+			const target = String(modelId).trim().toLowerCase();
+			return providerDrawerCatalogItems(view, filteredProviderModelItems(view.modelItems)).find((entry) => String(entry.label || "").trim().toLowerCase() === target) || null;
+		}
+		function providerCatalogTakenIds(provider, excludeModel = "") {
+			const exclude = String(excludeModel).trim().toLowerCase();
+			const taken = [];
+			const add = (value, source) => {
+				const id = String(value || "").trim();
+				if (id && id.toLowerCase() !== exclude) taken.push({
+					id,
+					source
+				});
+			};
+			Object.keys(state.data.config?.models?.provider_model_variants?.[provider] || {}).forEach((id) => add(id, "variant"));
+			Object.keys(state.data.config?.models?.provider_model_map?.[provider] || {}).forEach((id) => add(id, "renamed"));
+			normalizeStaticModelIds(state.data.config?.providers?.[provider]?.static_models).forEach((id) => add(id, "static"));
+			providerRouteModels(provider).forEach((id) => add(id, "route"));
+			providerModelItems(provider, providerModelItemsCapability(provider)).forEach((entry) => {
+				if (!entry.manual) add(entry.label, "discovered");
+			});
+			return taken;
 		}
 		function providerCatalogWarningLabel(warning) {
 			const detail = warning?.detail || {};
@@ -15154,22 +15348,273 @@
 				keyCatalogCount: keys.length
 			};
 		}
-		function modelMapKeyOwnersHtml(keyOwnerInfo) {
-			if (!keyOwnerInfo.owners.length) return `<div class="model-map-key-owners is-empty" data-model-map-key-owners aria-label="${escapeHtml(t("modal.key_owner_title"))}">
-        <span>${escapeHtml(t("modal.key_owner_none"))}</span>
-      </div>`;
-			return `<div class="model-map-key-owners" data-model-map-key-owners aria-label="${escapeHtml(t("modal.key_owner_title"))}">
-      ${keyOwnerInfo.owners.map((owner) => `
-        <button type="button" class="model-map-key-chip" data-model-map-key-chip="${escapeHtml(owner.key_index)}"
-          title="${escapeHtml(`${t("modal.key_owner_title")} · ${owner.masked || owner.key_id} · ${owner.status}`)}">
-          <span class="mono">#${escapeHtml(owner.key_index)}</span>
-          <small>${escapeHtml(owner.masked || owner.key_id)}</small>
-        </button>
-      `).join("")}
-    </div>`;
+		function providerModelMemberRowHtml(member) {
+			const model = String(member?.model || "").trim();
+			const priority = Number(member?.priority) || 0;
+			return `
+      <div class="model-map-member-row" data-model-map-member-row>
+        <input class="control mono model-map-member-model" name="member_model" list="model-map-member-choices"
+          value="${escapeHtml(model)}" placeholder="${escapeHtml(t("prov.models.raw_variants"))}"
+          aria-label="${escapeHtml(t("prov.models.variant_member_model"))}" autocomplete="off" spellcheck="false" />
+        <input class="control model-map-member-priority" name="member_priority" type="number" min="-1000" max="1000" step="1"
+          value="${escapeHtml(String(priority))}" aria-label="${escapeHtml(t("prov.models.variant_member_priority"))}" />
+        <button class="button small secondary icon-action" type="button" data-model-map-member-remove
+          title="${escapeHtml(t("prov.models.remove_variant_member_for", { model: model || "-" }))}"
+          aria-label="${escapeHtml(t("prov.models.remove_variant_member"))}">${iconSvg("trash")}</button>
+      </div>
+    `;
 		}
-		function openProviderModelMappingModal({ provider, oldModel, rawModel, isManual }) {
+		function providerVariantChoiceModels(provider) {
+			const capability = providerModelItemsCapability(provider);
+			const seen = /* @__PURE__ */ new Set();
+			const choices = [];
+			modelCapabilityItems(Array.isArray(capability.models) ? capability.models : [], capability.canonical_map || {}).forEach((entry) => {
+				const raw = String(entry.raw || entry.label || "").trim();
+				if (!raw || seen.has(raw)) return;
+				seen.add(raw);
+				choices.push(raw);
+			});
+			return choices;
+		}
+		async function confirmCatalogRenameClash(clash) {
+			return openConfirmDialog({
+				title: t("modal.rename_clash_title"),
+				message: clash.source === "variant" ? t("modal.rename_clash_variant", { id: clash.id }) : t("modal.rename_clash_other", {
+					id: clash.id,
+					kind: t(`prov.models.kind_${clash.source || "discovered"}`)
+				}),
+				acceptLabel: t("modal.rename_clash_accept")
+			});
+		}
+		async function updateProviderVariantGroup(provider, plan, owner) {
+			if (!provider || !plan?.writes?.length) return false;
+			return runOptimisticConfigAction(owner, async () => {
+				let result = null;
+				for (const write of plan.writes) result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/models/${encodeURIComponent(write.model)}/variants`, { variants: write.variants });
+				setNotice(plan.renamed ? t("notice.model_alias_renamed", {
+					from: plan.id,
+					to: plan.nextId,
+					provider
+				}) : t("notice.model_alias_saved", {
+					model: plan.nextId,
+					provider
+				}), "ok");
+				return result;
+			}, {
+				resourceKey: `model-variants:${provider}:${plan.id}`,
+				apply: (config) => {
+					const modelsConfig = config.models ||= {};
+					const providerVariants = modelsConfig.provider_model_variants ||= {};
+					const groups = providerVariants[provider] ||= {};
+					plan.writes.forEach((write) => {
+						if (write.variants.length) groups[write.model] = structuredClone(write.variants);
+						else delete groups[write.model];
+					});
+					if (!Object.keys(groups).length) delete providerVariants[provider];
+				}
+			}, { onError: (err) => setNotice(t("notice.model_alias_failed", { error: err.message }), "bad") });
+		}
+		async function updateProviderStaticModels(provider, models, owner, { removedModel = "", renamed = null } = {}) {
+			if (!provider) return false;
+			return runOptimisticConfigAction(owner, () => apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { static_models: models }), {
+				resourceKey: `provider-static-models:${provider}`,
+				apply: (config) => {
+					const providerConfig = (config.providers || {})[provider];
+					if (providerConfig) providerConfig.static_models = [...models];
+				}
+			}, {
+				onSuccess: () => setNotice(removedModel ? t("notice.static_model_removed", {
+					model: removedModel,
+					provider
+				}) : renamed ? t("notice.static_model_renamed", {
+					from: renamed.from,
+					to: renamed.to,
+					provider
+				}) : t("notice.static_models_saved", { provider }), "ok"),
+				onError: (err) => setNotice(t("notice.failed", { error: err.message }), "bad")
+			});
+		}
+		function openProviderVariantGroupModal({ provider, item }) {
+			if (!provider || !item) return;
+			const members = Array.isArray(item.variants) ? item.variants : [];
+			const choices = providerVariantChoiceModels(provider);
+			openFormModal({
+				title: t("prov.models.edit_variant_group"),
+				subtitle: provider,
+				bodyHtml: `
+        <form class="model-map-form model-map-variant-group" data-provider-model-map-form>
+          ${providerModelKindStrip("variant", item)}
+          <label class="model-map-field">
+            <span>${escapeHtml(t("prov.models.client_model"))}</span>
+            <input name="model" value="${escapeHtml(item.label)}" autocomplete="off" spellcheck="false" />
+          </label>
+          <fieldset class="model-map-members">
+            <legend>${escapeHtml(t("prov.models.variant_members", { count: fmtInt(members.length) }))}</legend>
+            <datalist id="model-map-member-choices">
+              ${choices.map((choice) => `<option value="${escapeHtml(choice)}"></option>`).join("")}
+            </datalist>
+            <div class="model-map-member-list" data-model-map-member-list>
+              ${members.map((member) => providerModelMemberRowHtml(member)).join("")}
+            </div>
+            <button class="button small secondary" type="button" data-model-map-member-add>${iconSvg("plus")}${escapeHtml(t("prov.models.add_variant_member"))}</button>
+            <small class="muted">${escapeHtml(t("prov.models.variant_members_help"))}</small>
+          </fieldset>
+          <div class="model-map-actions">
+            <button class="model-map-action secondary" type="button" data-model-map-cancel title="${escapeHtml(t("form.cancel"))}" aria-label="${escapeHtml(t("form.cancel"))}">${iconSvg("x")}</button>
+            <button class="model-map-action primary" type="submit" title="${escapeHtml(t("prov.models.save_alias"))}" aria-label="${escapeHtml(t("prov.models.save_alias"))}">${iconSvg("save")}</button>
+          </div>
+        </form>
+      `
+			});
+			el("formModal")?.classList.add("is-model-map-modal");
+			const form = el("formModalBody")?.querySelector("[data-provider-model-map-form]");
+			if (!form) return;
+			form.elements.model?.focus();
+			form.elements.model?.select();
+			form.querySelector("[data-model-map-cancel]")?.addEventListener("click", closeFormModal);
+			const memberList = form.querySelector("[data-model-map-member-list]");
+			const collectMembers = () => Array.from(form.querySelectorAll("[data-model-map-member-row]")).map((row) => ({
+				model: String(row.querySelector(".model-map-member-model")?.value || "").trim(),
+				priority: Number(row.querySelector(".model-map-member-priority")?.value || 0)
+			})).filter((entry) => entry.model);
+			const bindMemberRows = () => {
+				form.querySelectorAll("[data-model-map-member-remove]").forEach((button) => {
+					if (button.dataset.boundmemberremove) return;
+					button.dataset.boundmemberremove = "1";
+					button.addEventListener("click", () => button.closest("[data-model-map-member-row]")?.remove());
+				});
+			};
+			form.querySelector("[data-model-map-member-add]")?.addEventListener("click", () => {
+				memberList?.insertAdjacentHTML("beforeend", providerModelMemberRowHtml({
+					model: "",
+					priority: 0
+				}));
+				bindMemberRows();
+				const rows = form.querySelectorAll("[data-model-map-member-row]");
+				rows[rows.length - 1]?.querySelector(".model-map-member-model")?.focus();
+			});
+			bindMemberRows();
+			let submitInFlight = false;
+			form.addEventListener("submit", async (event) => {
+				event.preventDefault();
+				if (submitInFlight) return;
+				const plan = planVariantGroupSave({
+					canonical: item.label,
+					nextModel: String(form.elements.model?.value || "").trim(),
+					variants: collectMembers(),
+					taken: providerCatalogTakenIds(provider, item.label)
+				});
+				if (!plan.writes.length) return;
+				if (plan.clash && !await confirmCatalogRenameClash(plan.clash)) return;
+				submitInFlight = true;
+				try {
+					if (await updateProviderVariantGroup(provider, plan, form)) closeFormModal();
+				} finally {
+					submitInFlight = false;
+				}
+			});
+		}
+		function openProviderStaticModelModal({ provider, item }) {
+			if (!provider || !item) return;
+			const existing = normalizeStaticModelIds(state.data.config?.providers?.[provider]?.static_models);
+			openFormModal({
+				title: t("prov.models.edit_static_model"),
+				subtitle: provider,
+				bodyHtml: `
+        <form class="model-map-form" data-provider-model-map-form>
+          ${providerModelKindStrip("static", item)}
+          <label class="model-map-field">
+            <span>${escapeHtml(t("prov.models.client_model"))}</span>
+            <input name="model" value="${escapeHtml(item.label)}" autocomplete="off" spellcheck="false" />
+          </label>
+          <div class="model-map-raw-line">
+            <span>${escapeHtml(t("prov.models.static_list"))}</span>
+            <code>${escapeHtml(existing.join(", "))}</code>
+          </div>
+          <div class="model-map-clash-warning" data-model-map-clash hidden></div>
+          <div class="model-map-actions">
+            <button class="model-map-action secondary" type="button" data-model-map-cancel title="${escapeHtml(t("form.cancel"))}" aria-label="${escapeHtml(t("form.cancel"))}">${iconSvg("x")}</button>
+            <button class="model-map-action danger" type="button" data-model-map-remove title="${escapeHtml(t("prov.models.remove_model", { model: item.label }))}" aria-label="${escapeHtml(t("prov.models.remove_model", { model: item.label }))}">${iconSvg("trash")}</button>
+            <button class="model-map-action primary" type="submit" title="${escapeHtml(t("prov.models.save_alias"))}" aria-label="${escapeHtml(t("prov.models.save_alias"))}">${iconSvg("save")}</button>
+          </div>
+        </form>
+      `
+			});
+			el("formModal")?.classList.add("is-model-map-modal");
+			const form = el("formModalBody")?.querySelector("[data-provider-model-map-form]");
+			if (!form) return;
+			form.elements.model?.focus();
+			form.elements.model?.select();
+			form.querySelector("[data-model-map-cancel]")?.addEventListener("click", closeFormModal);
+			const clashBox = form.querySelector("[data-model-map-clash]");
+			let inFlight = false;
+			const write = async (models, notice) => {
+				if (inFlight) return;
+				inFlight = true;
+				try {
+					if (await updateProviderStaticModels(provider, models, form, notice)) closeFormModal();
+				} finally {
+					inFlight = false;
+				}
+			};
+			form.querySelector("[data-model-map-remove]")?.addEventListener("click", () => {
+				write(planStaticModelSave({
+					existing,
+					model: item.label,
+					remove: true
+				}).models, { removedModel: item.label });
+			});
+			form.addEventListener("submit", async (event) => {
+				event.preventDefault();
+				if (inFlight) return;
+				const nextModel = String(form.elements.model?.value || "").trim();
+				const plan = planStaticModelSave({
+					existing,
+					model: item.label,
+					nextModel
+				});
+				if (plan.clash) {
+					if (clashBox) {
+						clashBox.innerHTML = `${iconSvg("alert")}<div><strong>${escapeHtml(t("modal.static_clash_title"))}</strong><small>${escapeHtml(t("modal.static_clash_msg", { id: plan.clash.id }))}</small></div>`;
+						clashBox.hidden = false;
+					}
+					return;
+				}
+				if (!plan.renamed) {
+					closeFormModal();
+					return;
+				}
+				write(plan.models, { renamed: {
+					from: item.label,
+					to: nextModel
+				} });
+			});
+		}
+		function providerModelKindTone(kind) {
+			return {
+				variant: "variant",
+				static: "static",
+				renamed: "route-info"
+			}[kind] || "ok";
+		}
+		function providerModelKindStrip(kind, item) {
+			const others = (item?.sources || []).filter((source) => source !== kind);
+			const warnings = (item?.warnings || []).map((warning) => providerCatalogWarningLabel(warning));
+			return `
+      <div class="model-map-kind-strip" data-model-map-kind="${escapeHtml(kind)}">
+        <div class="model-map-kind-head">
+          <span class="model-map-kind-label">${escapeHtml(t("prov.models.current_kind"))}</span>
+          ${badge(t(`prov.models.kind_${kind}`), providerModelKindTone(kind))}
+          ${others.map((source) => `<span class="model-map-kind-also">${escapeHtml(t("prov.models.kind_also", { kind: t(`prov.models.kind_${source}`) }))}</span>`).join("")}
+        </div>
+        <small class="model-map-kind-hint">${escapeHtml(t(`prov.models.kind_hint_${kind}`))}</small>
+        ${warnings.length ? `<ul class="model-map-kind-warnings">${warnings.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}</ul>` : ""}
+      </div>
+    `;
+		}
+		function openProviderModelMappingModal({ provider, oldModel, rawModel, isManual, item = null }) {
 			if (!provider || !oldModel || !rawModel) return;
+			const kind = item ? providerCatalogEditKind(item) : isManual ? "renamed" : "discovered";
 			const keyOwnerInfo = modelMapKeyOwners(provider, rawModel, oldModel);
 			openFormModal({
 				title: t("modal.edit_mapping_title"),
@@ -15184,23 +15629,23 @@
               <small>${escapeHtml(t("prov.models.raw_hero_hint"))}</small>
             </div>
           </div>
-          ${modelMapKeyOwnersHtml(keyOwnerInfo)}
+          ${providerModelKindStrip(kind, item)}
           <label class="model-map-field">
-            <span>Client model</span>
+            <span>${escapeHtml(t("prov.models.client_model"))}</span>
             <input name="model" value="${escapeHtml(oldModel)}" autocomplete="off" spellcheck="false" />
           </label>
           <div class="model-map-raw-line">
-            <span>Provider</span>
+            <span>${escapeHtml(t("prov.models.upstream_model"))}</span>
             <code>${escapeHtml(rawModel)}</code>
           </div>
-          ${isManual ? `<p class="model-map-hint">Empty name restores automatic mapping.</p>` : ""}
+          ${isManual ? `<p class="model-map-hint">${escapeHtml(t("prov.models.empty_name_restores"))}</p>` : ""}
           <div class="model-map-clash-warning" data-model-map-clash hidden></div>
           <div class="model-map-test-result" data-model-map-test-result hidden></div>
           <div class="model-map-actions">
             <button class="model-map-action secondary model-map-test-button" type="button" data-model-map-test title="${escapeHtml(t("modal.mapping_test"))}" aria-label="${escapeHtml(t("modal.mapping_test"))}">${iconSvg("activity")}</button>
-            <button class="model-map-action secondary" type="button" data-model-map-cancel title="Cancel" aria-label="Cancel">${iconSvg("x")}</button>
-            ${isManual ? `<button class="model-map-action danger" type="button" data-model-map-reset title="Reset to automatic mapping" aria-label="Reset to automatic mapping">${iconSvg("trash")}</button>` : ""}
-            <button class="model-map-action primary" type="submit" title="Save mapping" aria-label="Save mapping">${iconSvg("save")}</button>
+            <button class="model-map-action secondary" type="button" data-model-map-cancel title="${escapeHtml(t("form.cancel"))}" aria-label="${escapeHtml(t("form.cancel"))}">${iconSvg("x")}</button>
+            ${isManual ? `<button class="model-map-action danger" type="button" data-model-map-reset title="${escapeHtml(t("prov.models.reset_mapping"))}" aria-label="${escapeHtml(t("prov.models.reset_mapping"))}">${iconSvg("trash")}</button>` : ""}
+            <button class="model-map-action primary" type="submit" title="${escapeHtml(t("prov.models.save_mapping"))}" aria-label="${escapeHtml(t("prov.models.save_mapping"))}">${iconSvg("save")}</button>
           </div>
         </form>
       `
@@ -15286,6 +15731,12 @@
 					return label === String(target).trim().toLowerCase() && raw !== String(rawModel).trim() && label !== String(oldModel || "").trim().toLowerCase();
 				}) || null;
 			};
+			const variantGroupOwner = (target) => {
+				const groups = state.data.config?.models?.provider_model_variants?.[provider] || {};
+				const wanted = String(target || "").trim().toLowerCase();
+				const current = String(oldModel || "").trim().toLowerCase();
+				return Object.keys(groups).find((id) => id.trim().toLowerCase() === wanted && wanted !== current) || "";
+			};
 			const resetClashUi = () => {
 				clashAcknowledged = false;
 				if (clashBox) clashBox.hidden = true;
@@ -15309,13 +15760,17 @@
 					return;
 				}
 				const clash = findClash(nextModel);
-				if (clash && !clashAcknowledged) {
+				const shadowOwner = variantGroupOwner(nextModel);
+				if ((clash || shadowOwner) && !clashAcknowledged) {
 					clashAcknowledged = true;
 					if (clashBox) {
-						clashBox.innerHTML = `${iconSvg("alert")}<div><strong>${escapeHtml(t("modal.mapping_clash_title"))}</strong><small>${escapeHtml(t("modal.mapping_clash_msg", {
+						clashBox.innerHTML = shadowOwner && !clash ? `${iconSvg("alert")}<div><strong>${escapeHtml(t("modal.mapping_variant_owner_title"))}</strong><small>${escapeHtml(t("modal.mapping_variant_owner_msg", {
+							name: nextModel,
+							owner: shadowOwner
+						}))}</small></div>` : `${iconSvg("alert")}<div><strong>${escapeHtml(t("modal.mapping_clash_title"))}</strong><small>${escapeHtml(t("modal.mapping_clash_msg", {
 							editingRaw: rawModel,
 							name: nextModel,
-							ownerRaw: clash.raw || rawModel
+							ownerRaw: clash?.raw || rawModel
 						}))}</small></div>`;
 						clashBox.hidden = false;
 					}
@@ -15423,11 +15878,32 @@
 			root.addEventListener("click", async (event) => {
 				const mapEditButton = event.target.closest("[data-provider-model-map-edit-provider]");
 				if (mapEditButton && root.contains(mapEditButton)) {
+					const provider = mapEditButton.dataset.providerModelMapEditProvider || "";
+					const oldModel = mapEditButton.dataset.providerModelMapEditModel || "";
+					const rawModel = mapEditButton.dataset.providerModelMapEditRaw || "";
+					const isManual = mapEditButton.dataset.providerModelMapEditManual === "1";
+					const item = providerCatalogEntry(provider, oldModel);
+					const kind = item ? providerCatalogEditKind(item) : isManual ? "renamed" : "discovered";
+					if (kind === "variant") {
+						openProviderVariantGroupModal({
+							provider,
+							item
+						});
+						return;
+					}
+					if (kind === "static") {
+						openProviderStaticModelModal({
+							provider,
+							item
+						});
+						return;
+					}
 					openProviderModelMappingModal({
-						provider: mapEditButton.dataset.providerModelMapEditProvider || "",
-						oldModel: mapEditButton.dataset.providerModelMapEditModel || "",
-						rawModel: mapEditButton.dataset.providerModelMapEditRaw || "",
-						isManual: mapEditButton.dataset.providerModelMapEditManual === "1"
+						provider,
+						oldModel,
+						rawModel,
+						isManual,
+						item
 					});
 					return;
 				}
@@ -17476,7 +17952,6 @@
 					const variantsInput = form.elements.namedItem("variants");
 					if (!canonicalInput || !variantsInput) return;
 					canonicalInput.value = canonicalModel;
-					canonicalInput.readOnly = true;
 					variantsInput.value = custom;
 					form.dataset.editingCanonical = canonicalModel;
 					const editor = form.closest(".provider-model-inline-editor");
@@ -17563,21 +18038,37 @@
 					});
 					const variants = Array.from(variantsByModel.values());
 					if (!provider || !canonicalModel) return;
+					const plan = planVariantGroupSave({
+						canonical: form.dataset.editingCanonical || canonicalModel,
+						nextModel: canonicalModel,
+						variants,
+						taken: providerCatalogTakenIds(provider, form.dataset.editingCanonical || canonicalModel)
+					});
+					if (!plan.writes.length) return;
+					if (plan.clash && !await confirmCatalogRenameClash(plan.clash)) return;
 					if (await runConfigMutation(form, async () => {
-						const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/models/${encodeURIComponent(canonicalModel)}/variants`, { variants });
-						setNotice(t("notice.model_alias_saved", {
-							model: canonicalModel,
+						let result = null;
+						for (const write of plan.writes) result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/models/${encodeURIComponent(write.model)}/variants`, { variants: write.variants });
+						setNotice(plan.renamed ? t("notice.model_alias_renamed", {
+							from: plan.id,
+							to: plan.nextId,
+							provider
+						}) : t("notice.model_alias_saved", {
+							model: plan.nextId,
 							provider
 						}), "ok");
 						return result;
 					}, {
-						resourceKey: `model-variants:${provider}:${canonicalModel}`,
+						resourceKey: `model-variants:${provider}:${plan.id}`,
 						apply: (config) => {
 							const modelsConfig = config.models ||= {};
 							const providerVariants = modelsConfig.provider_model_variants ||= {};
-							const variantsByModel = providerVariants[provider] ||= {};
-							if (variants.length) variantsByModel[canonicalModel] = structuredClone(variants);
-							else delete variantsByModel[canonicalModel];
+							const groups = providerVariants[provider] ||= {};
+							plan.writes.forEach((write) => {
+								if (write.variants.length) groups[write.model] = structuredClone(write.variants);
+								else delete groups[write.model];
+							});
+							if (!Object.keys(groups).length) delete providerVariants[provider];
 						}
 					})) Array.from(root.querySelectorAll(".provider-variant-form")).find((candidate) => candidate.dataset.provider === provider)?.reset();
 				});

@@ -9,6 +9,8 @@ import {
   normalizeVariantEntries,
   normalizeVariantGroups,
   planCatalogEntries,
+  planStaticModelSave,
+  planVariantGroupSave,
   providerModelMappingOldId,
   providerModelSourceId,
   resetLiveForm,
@@ -249,5 +251,83 @@ assert.deepEqual(
 );
 assert.deepEqual(planCatalogEntries(), [], "an empty provider must not invent catalog rows");
 assert.deepEqual(normalizeVariantGroups(null).entries, [], "a provider without variant groups must stay empty");
+
+
+// --- catalog edits: write plans ------------------------------------------
+const groupPlan = planVariantGroupSave({
+  canonical: "grok-4.3",
+  variants: [
+    { model: "xai/grok-4-mini", priority: 10 },
+    { model: "xai/grok-4", priority: 50 },
+    { model: "xai/grok-4-mini", priority: 99 },
+  ],
+  taken: [{ id: "gpt-5.5", source: "static" }],
+});
+assert.deepEqual(groupPlan.writes, [{ model: "grok-4.3", variants: [
+  { model: "xai/grok-4", priority: 50 },
+  { model: "xai/grok-4-mini", priority: 10 },
+] }], "an untouched name writes one key with the members the backend will store");
+assert.equal(groupPlan.renamed, false);
+assert.equal(groupPlan.clash, null);
+
+const renamePlan = planVariantGroupSave({
+  canonical: "grok-4.3",
+  nextModel: "grok-4.3-fast",
+  variants: [{ model: "xai/grok-4", priority: 50 }],
+});
+assert.deepEqual(
+  renamePlan.writes,
+  [
+    { model: "grok-4.3-fast", variants: [{ model: "xai/grok-4", priority: 50 }] },
+    { model: "grok-4.3", variants: [] },
+  ],
+  "a rename must write the new key first and only then empty the old one",
+);
+assert.equal(renamePlan.renamed, true);
+assert.equal(renamePlan.clash, null, "an unused name needs no confirmation");
+
+const clashPlan = planVariantGroupSave({
+  canonical: "grok-4.3",
+  nextModel: "GPT-5.5",
+  variants: [{ model: "xai/grok-4", priority: 50 }],
+  taken: [{ id: "gpt-5.5", source: "variant" }],
+});
+assert.deepEqual(clashPlan.clash, { id: "gpt-5.5", source: "variant" }, "a taken name must be reported for confirmation");
+assert.equal(clashPlan.writes.length, 2, "the confirmed rename still performs both writes");
+
+assert.deepEqual(
+  planVariantGroupSave({ canonical: "", nextModel: "x" }).writes,
+  [],
+  "an edit without a canonical id must not write anything",
+);
+assert.deepEqual(
+  planVariantGroupSave({ canonical: "grok-4.3", variants: [] }).writes,
+  [{ model: "grok-4.3", variants: [] }],
+  "clearing every member writes the empty group, which removes the alias",
+);
+assert.deepEqual(
+  planVariantGroupSave({ canonical: "grok-4.3", nextModel: "GROK-4.3", variants: [] }).writes.length,
+  1,
+  "a case-only difference is the same client id, not a rename",
+);
+
+const staticRename = planStaticModelSave({ existing: ["a", "b", "c"], model: "b", nextModel: "b2" });
+assert.deepEqual(staticRename.models, ["a", "b2", "c"], "a static rename must keep the operator's order");
+assert.equal(staticRename.renamed, true);
+assert.equal(staticRename.clash, null);
+
+const staticClash = planStaticModelSave({ existing: ["a", "b"], model: "b", nextModel: "a" });
+assert.deepEqual(staticClash.clash, { id: "a", source: "static" });
+assert.deepEqual(staticClash.models, ["a", "b"], "a clashing static rename must leave the list untouched");
+assert.equal(staticClash.renamed, false);
+
+const staticRemove = planStaticModelSave({ existing: ["a", "b"], model: "B", remove: true });
+assert.deepEqual(staticRemove.models, ["a"], "removing an entry matches case-insensitively");
+assert.equal(staticRemove.removed, true);
+assert.deepEqual(
+  planStaticModelSave({ existing: ["a"], model: "missing", nextModel: "x" }),
+  { models: ["a"], renamed: false, removed: false, clash: null },
+  "editing an entry the list does not hold must be a no-op",
+);
 
 console.log("provider model config tests passed");

@@ -5721,8 +5721,57 @@ import {
       variant: row.variant,
       variantCount: row.variants.length,
       variantWarnings: row.warnings.length,
+      // The editor needs the row's identity, not only its marker: which source
+      // owns the id, the members of a variant group, and the advisory warnings
+      // the tooltip already shows.
+      mainSource: row.mainSource,
+      sources: row.sources.slice(),
+      variants: row.variants.map((variant) => ({ model: variant.model, priority: variant.priority })),
+      warnings: row.warnings.map((warning) => ({ code: warning.code, detail: { ...warning.detail } })),
       refs: row.refs,
     };
+  }
+
+  // Which editor a catalog row opens. The row's main identity decides: a variant
+  // group is edited as a group, a static declaration as a list entry, and a
+  // discovered or renamed model keeps the historical 1:1 mapping editor.
+  function providerCatalogEditKind(item) {
+    if (!item) return "discovered";
+    if (item.variant) return "variant";
+    if (item.mainSource) return item.mainSource;
+    if (item.static) return "static";
+    return item.manual ? "renamed" : "discovered";
+  }
+
+  // Resolve the same merged catalog row the drawer rendered, so the pencil never
+  // opens an editor for a different id than the one the operator clicked.
+  function providerCatalogEntry(provider, modelId) {
+    const view = providerViewModel(provider);
+    if (!view || !modelId) return null;
+    const target = String(modelId).trim().toLowerCase();
+    return providerDrawerCatalogItems(view, filteredProviderModelItems(view.modelItems))
+      .find((entry) => String(entry.label || "").trim().toLowerCase() === target) || null;
+  }
+
+  // Client ids that already belong to someone else in this provider: renaming a
+  // variant group onto one of them overwrites it (variant group) or is shadowed
+  // by it (everything else), so the editor asks before writing.
+  function providerCatalogTakenIds(provider, excludeModel = "") {
+    const exclude = String(excludeModel).trim().toLowerCase();
+    const taken = [];
+    const add = (value, source) => {
+      const id = String(value || "").trim();
+      if (id && id.toLowerCase() !== exclude) taken.push({ id, source });
+    };
+    Object.keys(state.data.config?.models?.provider_model_variants?.[provider] || {}).forEach((id) => add(id, "variant"));
+    Object.keys(state.data.config?.models?.provider_model_map?.[provider] || {}).forEach((id) => add(id, "renamed"));
+    normalizeStaticModelIds(state.data.config?.providers?.[provider]?.static_models).forEach((id) => add(id, "static"));
+    providerRouteModels(provider).forEach((id) => add(id, "route"));
+    const capability = providerModelItemsCapability(provider);
+    providerModelItems(provider, capability).forEach((entry) => {
+      if (!entry.manual) add(entry.label, "discovered");
+    });
+    return taken;
   }
 
   // Warning codes come from the pure planner and are rendered here, so all prose
@@ -8424,8 +8473,304 @@ import {
     </div>`;
   }
 
-  function openProviderModelMappingModal({ provider, oldModel, rawModel, isManual }) {
+  // The upstream member rows of the variant-group editor: the id is free text
+  // with the discovered catalog offered as a datalist, so an operator can pick a
+  // known model or type an id discovery never returned.
+  function providerModelMemberRowHtml(member) {
+    const model = String(member?.model || "").trim();
+    const priority = Number(member?.priority) || 0;
+    return `
+      <div class="model-map-member-row" data-model-map-member-row>
+        <input class="control mono model-map-member-model" name="member_model" list="model-map-member-choices"
+          value="${escapeHtml(model)}" placeholder="${escapeHtml(t("prov.models.raw_variants"))}"
+          aria-label="${escapeHtml(t("prov.models.variant_member_model"))}" autocomplete="off" spellcheck="false" />
+        <input class="control model-map-member-priority" name="member_priority" type="number" min="-1000" max="1000" step="1"
+          value="${escapeHtml(String(priority))}" aria-label="${escapeHtml(t("prov.models.variant_member_priority"))}" />
+        <button class="button small secondary icon-action" type="button" data-model-map-member-remove
+          title="${escapeHtml(t("prov.models.remove_variant_member_for", { model: model || "-" }))}"
+          aria-label="${escapeHtml(t("prov.models.remove_variant_member"))}">${iconSvg("trash")}</button>
+      </div>
+    `;
+  }
+
+  // Discovered upstream ids, offered as completion values in the member editor —
+  // the same list the alias disclosure's picker is built from.
+  function providerVariantChoiceModels(provider) {
+    const capability = providerModelItemsCapability(provider);
+    const seen = new Set();
+    const choices = [];
+    modelCapabilityItems(
+      Array.isArray(capability.models) ? capability.models : [],
+      capability.canonical_map || {},
+    ).forEach((entry) => {
+      const raw = String(entry.raw || entry.label || "").trim();
+      if (!raw || seen.has(raw)) return;
+      seen.add(raw);
+      choices.push(raw);
+    });
+    return choices;
+  }
+
+  async function confirmCatalogRenameClash(clash) {
+    return openConfirmDialog({
+      title: t("modal.rename_clash_title"),
+      message: clash.source === "variant"
+        ? t("modal.rename_clash_variant", { id: clash.id })
+        : t("modal.rename_clash_other", { id: clash.id, kind: t(`prov.models.kind_${clash.source || "discovered"}`) }),
+      acceptLabel: t("modal.rename_clash_accept"),
+    });
+  }
+
+  // Persist a variant group: the members under the (possibly new) client id, and
+  // the emptied old key when the operator renamed it. Two writes because the
+  // backend renames a key by writing the new one and clearing the old one, so a
+  // failure between them can only leave a visible duplicate, never lose a group.
+  async function updateProviderVariantGroup(provider, plan, owner) {
+    if (!provider || !plan?.writes?.length) return false;
+    return runOptimisticConfigAction(
+      owner,
+      async () => {
+        let result = null;
+        for (const write of plan.writes) {
+          result = await apiPatch(
+            `/-/admin/providers/${encodeURIComponent(provider)}/models/${encodeURIComponent(write.model)}/variants`,
+            { variants: write.variants },
+          );
+        }
+        setNotice(
+          plan.renamed
+            ? t("notice.model_alias_renamed", { from: plan.id, to: plan.nextId, provider })
+            : t("notice.model_alias_saved", { model: plan.nextId, provider }),
+          "ok",
+        );
+        return result;
+      },
+      {
+        resourceKey: `model-variants:${provider}:${plan.id}`,
+        apply: (config) => {
+          const modelsConfig = (config.models ||= {});
+          const providerVariants = (modelsConfig.provider_model_variants ||= {});
+          const groups = (providerVariants[provider] ||= {});
+          plan.writes.forEach((write) => {
+            if (write.variants.length) groups[write.model] = structuredClone(write.variants);
+            else delete groups[write.model];
+          });
+          if (!Object.keys(groups).length) delete providerVariants[provider];
+        },
+      },
+      { onError: (err) => setNotice(t("notice.model_alias_failed", { error: err.message }), "bad") },
+    );
+  }
+
+  // Persist the static declaration list. It is a plain ordered list of ids the
+  // provider is asserted to support, so a rename is one list rewrite.
+  async function updateProviderStaticModels(provider, models, owner, { removedModel = "", renamed = null } = {}) {
+    if (!provider) return false;
+    return runOptimisticConfigAction(
+      owner,
+      () => apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}`, { static_models: models }),
+      {
+        resourceKey: `provider-static-models:${provider}`,
+        apply: (config) => {
+          const providerConfig = (config.providers || {})[provider];
+          if (providerConfig) providerConfig.static_models = [...models];
+        },
+      },
+      {
+        onSuccess: () => setNotice(
+          removedModel
+            ? t("notice.static_model_removed", { model: removedModel, provider })
+            : renamed
+              ? t("notice.static_model_renamed", { from: renamed.from, to: renamed.to, provider })
+              : t("notice.static_models_saved", { provider }),
+          "ok",
+        ),
+        onError: (err) => setNotice(t("notice.failed", { error: err.message }), "bad"),
+      },
+    );
+  }
+
+  // Variant-group editor behind the catalog pencil. It edits the exact config
+  // keys the alias disclosure edits, so a save here shows up there and the other
+  // way round: one source of truth, two doors.
+  function openProviderVariantGroupModal({ provider, item }) {
+    if (!provider || !item) return;
+    const members = Array.isArray(item.variants) ? item.variants : [];
+    const choices = providerVariantChoiceModels(provider);
+    openFormModal({
+      title: t("prov.models.edit_variant_group"),
+      subtitle: provider,
+      bodyHtml: `
+        <form class="model-map-form model-map-variant-group" data-provider-model-map-form>
+          ${providerModelKindStrip("variant", item)}
+          <label class="model-map-field">
+            <span>${escapeHtml(t("prov.models.client_model"))}</span>
+            <input name="model" value="${escapeHtml(item.label)}" autocomplete="off" spellcheck="false" />
+          </label>
+          <fieldset class="model-map-members">
+            <legend>${escapeHtml(t("prov.models.variant_members", { count: fmtInt(members.length) }))}</legend>
+            <datalist id="model-map-member-choices">
+              ${choices.map((choice) => `<option value="${escapeHtml(choice)}"></option>`).join("")}
+            </datalist>
+            <div class="model-map-member-list" data-model-map-member-list>
+              ${members.map((member) => providerModelMemberRowHtml(member)).join("")}
+            </div>
+            <button class="button small secondary" type="button" data-model-map-member-add>${iconSvg("plus")}${escapeHtml(t("prov.models.add_variant_member"))}</button>
+            <small class="muted">${escapeHtml(t("prov.models.variant_members_help"))}</small>
+          </fieldset>
+          <div class="model-map-actions">
+            <button class="model-map-action secondary" type="button" data-model-map-cancel title="${escapeHtml(t("form.cancel"))}" aria-label="${escapeHtml(t("form.cancel"))}">${iconSvg("x")}</button>
+            <button class="model-map-action primary" type="submit" title="${escapeHtml(t("prov.models.save_alias"))}" aria-label="${escapeHtml(t("prov.models.save_alias"))}">${iconSvg("save")}</button>
+          </div>
+        </form>
+      `,
+    });
+    el("formModal")?.classList.add("is-model-map-modal");
+    const form = el("formModalBody")?.querySelector("[data-provider-model-map-form]");
+    if (!form) return;
+    form.elements.model?.focus();
+    form.elements.model?.select();
+    form.querySelector("[data-model-map-cancel]")?.addEventListener("click", closeFormModal);
+    const memberList = form.querySelector("[data-model-map-member-list]");
+    const collectMembers = () => Array.from(form.querySelectorAll("[data-model-map-member-row]"))
+      .map((row) => ({
+        model: String(row.querySelector(".model-map-member-model")?.value || "").trim(),
+        priority: Number(row.querySelector(".model-map-member-priority")?.value || 0),
+      }))
+      .filter((entry) => entry.model);
+    const bindMemberRows = () => {
+      form.querySelectorAll("[data-model-map-member-remove]").forEach((button) => {
+        if (button.dataset.boundmemberremove) return;
+        button.dataset.boundmemberremove = "1";
+        button.addEventListener("click", () => button.closest("[data-model-map-member-row]")?.remove());
+      });
+    };
+    form.querySelector("[data-model-map-member-add]")?.addEventListener("click", () => {
+      memberList?.insertAdjacentHTML("beforeend", providerModelMemberRowHtml({ model: "", priority: 0 }));
+      bindMemberRows();
+      const rows = form.querySelectorAll("[data-model-map-member-row]");
+      rows[rows.length - 1]?.querySelector(".model-map-member-model")?.focus();
+    });
+    bindMemberRows();
+    let submitInFlight = false;
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (submitInFlight) return;
+      const plan = planVariantGroupSave({
+        canonical: item.label,
+        nextModel: String(form.elements.model?.value || "").trim(),
+        variants: collectMembers(),
+        taken: providerCatalogTakenIds(provider, item.label),
+      });
+      if (!plan.writes.length) return;
+      if (plan.clash && !(await confirmCatalogRenameClash(plan.clash))) return;
+      submitInFlight = true;
+      try {
+        const saved = await updateProviderVariantGroup(provider, plan, form);
+        if (saved) closeFormModal();
+      } finally {
+        submitInFlight = false;
+      }
+    });
+  }
+
+  // Static declaration editor behind the catalog pencil: rename the entry in the
+  // provider's static list or drop it. Everything else about a static model is
+  // untouched by this modal, which the type strip states outright.
+  function openProviderStaticModelModal({ provider, item }) {
+    if (!provider || !item) return;
+    const existing = normalizeStaticModelIds(state.data.config?.providers?.[provider]?.static_models);
+    openFormModal({
+      title: t("prov.models.edit_static_model"),
+      subtitle: provider,
+      bodyHtml: `
+        <form class="model-map-form" data-provider-model-map-form>
+          ${providerModelKindStrip("static", item)}
+          <label class="model-map-field">
+            <span>${escapeHtml(t("prov.models.client_model"))}</span>
+            <input name="model" value="${escapeHtml(item.label)}" autocomplete="off" spellcheck="false" />
+          </label>
+          <div class="model-map-raw-line">
+            <span>${escapeHtml(t("prov.models.static_list"))}</span>
+            <code>${escapeHtml(existing.join(", "))}</code>
+          </div>
+          <div class="model-map-clash-warning" data-model-map-clash hidden></div>
+          <div class="model-map-actions">
+            <button class="model-map-action secondary" type="button" data-model-map-cancel title="${escapeHtml(t("form.cancel"))}" aria-label="${escapeHtml(t("form.cancel"))}">${iconSvg("x")}</button>
+            <button class="model-map-action danger" type="button" data-model-map-remove title="${escapeHtml(t("prov.models.remove_model", { model: item.label }))}" aria-label="${escapeHtml(t("prov.models.remove_model", { model: item.label }))}">${iconSvg("trash")}</button>
+            <button class="model-map-action primary" type="submit" title="${escapeHtml(t("prov.models.save_alias"))}" aria-label="${escapeHtml(t("prov.models.save_alias"))}">${iconSvg("save")}</button>
+          </div>
+        </form>
+      `,
+    });
+    el("formModal")?.classList.add("is-model-map-modal");
+    const form = el("formModalBody")?.querySelector("[data-provider-model-map-form]");
+    if (!form) return;
+    form.elements.model?.focus();
+    form.elements.model?.select();
+    form.querySelector("[data-model-map-cancel]")?.addEventListener("click", closeFormModal);
+    const clashBox = form.querySelector("[data-model-map-clash]");
+    let inFlight = false;
+    const write = async (models, notice) => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const saved = await updateProviderStaticModels(provider, models, form, notice);
+        if (saved) closeFormModal();
+      } finally {
+        inFlight = false;
+      }
+    };
+    form.querySelector("[data-model-map-remove]")?.addEventListener("click", () => {
+      const plan = planStaticModelSave({ existing, model: item.label, remove: true });
+      write(plan.models, { removedModel: item.label });
+    });
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (inFlight) return;
+      const nextModel = String(form.elements.model?.value || "").trim();
+      const plan = planStaticModelSave({ existing, model: item.label, nextModel });
+      if (plan.clash) {
+        if (clashBox) {
+          clashBox.innerHTML = `${iconSvg("alert")}<div><strong>${escapeHtml(t("modal.static_clash_title"))}</strong><small>${escapeHtml(t("modal.static_clash_msg", { id: plan.clash.id }))}</small></div>`;
+          clashBox.hidden = false;
+        }
+        return;
+      }
+      if (!plan.renamed) {
+        closeFormModal();
+        return;
+      }
+      write(plan.models, { renamed: { from: item.label, to: nextModel } });
+    });
+  }
+
+  function providerModelKindTone(kind) {
+    return { variant: "variant", static: "static", renamed: "route-info" }[kind] || "ok";
+  }
+
+  // Every catalog edit modal leads with the same strip: which source owns this
+  // client id, what saving writes, and the advisory conflicts the catalog
+  // tooltip already reports. One vocabulary for the tooltip and the editor.
+  function providerModelKindStrip(kind, item) {
+    const others = (item?.sources || []).filter((source) => source !== kind);
+    const warnings = (item?.warnings || []).map((warning) => providerCatalogWarningLabel(warning));
+    return `
+      <div class="model-map-kind-strip" data-model-map-kind="${escapeHtml(kind)}">
+        <div class="model-map-kind-head">
+          <span class="model-map-kind-label">${escapeHtml(t("prov.models.current_kind"))}</span>
+          ${badge(t(`prov.models.kind_${kind}`), providerModelKindTone(kind))}
+          ${others.map((source) => `<span class="model-map-kind-also">${escapeHtml(t("prov.models.kind_also", { kind: t(`prov.models.kind_${source}`) }))}</span>`).join("")}
+        </div>
+        <small class="model-map-kind-hint">${escapeHtml(t(`prov.models.kind_hint_${kind}`))}</small>
+        ${warnings.length ? `<ul class="model-map-kind-warnings">${warnings.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}</ul>` : ""}
+      </div>
+    `;
+  }
+
+  function openProviderModelMappingModal({ provider, oldModel, rawModel, isManual, item = null }) {
     if (!provider || !oldModel || !rawModel) return;
+    const kind = item ? providerCatalogEditKind(item) : (isManual ? "renamed" : "discovered");
     const keyOwnerInfo = modelMapKeyOwners(provider, rawModel, oldModel);
     openFormModal({
       title: t("modal.edit_mapping_title"),
@@ -8440,23 +8785,23 @@ import {
               <small>${escapeHtml(t("prov.models.raw_hero_hint"))}</small>
             </div>
           </div>
-          ${modelMapKeyOwnersHtml(keyOwnerInfo)}
+          ${providerModelKindStrip(kind, item)}
           <label class="model-map-field">
-            <span>Client model</span>
+            <span>${escapeHtml(t("prov.models.client_model"))}</span>
             <input name="model" value="${escapeHtml(oldModel)}" autocomplete="off" spellcheck="false" />
           </label>
           <div class="model-map-raw-line">
-            <span>Provider</span>
+            <span>${escapeHtml(t("prov.models.upstream_model"))}</span>
             <code>${escapeHtml(rawModel)}</code>
           </div>
-          ${isManual ? `<p class="model-map-hint">Empty name restores automatic mapping.</p>` : ""}
+          ${isManual ? `<p class="model-map-hint">${escapeHtml(t("prov.models.empty_name_restores"))}</p>` : ""}
           <div class="model-map-clash-warning" data-model-map-clash hidden></div>
           <div class="model-map-test-result" data-model-map-test-result hidden></div>
           <div class="model-map-actions">
             <button class="model-map-action secondary model-map-test-button" type="button" data-model-map-test title="${escapeHtml(t("modal.mapping_test"))}" aria-label="${escapeHtml(t("modal.mapping_test"))}">${iconSvg("activity")}</button>
-            <button class="model-map-action secondary" type="button" data-model-map-cancel title="Cancel" aria-label="Cancel">${iconSvg("x")}</button>
-            ${isManual ? `<button class="model-map-action danger" type="button" data-model-map-reset title="Reset to automatic mapping" aria-label="Reset to automatic mapping">${iconSvg("trash")}</button>` : ""}
-            <button class="model-map-action primary" type="submit" title="Save mapping" aria-label="Save mapping">${iconSvg("save")}</button>
+            <button class="model-map-action secondary" type="button" data-model-map-cancel title="${escapeHtml(t("form.cancel"))}" aria-label="${escapeHtml(t("form.cancel"))}">${iconSvg("x")}</button>
+            ${isManual ? `<button class="model-map-action danger" type="button" data-model-map-reset title="${escapeHtml(t("prov.models.reset_mapping"))}" aria-label="${escapeHtml(t("prov.models.reset_mapping"))}">${iconSvg("trash")}</button>` : ""}
+            <button class="model-map-action primary" type="submit" title="${escapeHtml(t("prov.models.save_mapping"))}" aria-label="${escapeHtml(t("prov.models.save_mapping"))}">${iconSvg("save")}</button>
           </div>
         </form>
       `,
@@ -8554,6 +8899,13 @@ import {
           && label !== String(oldModel || "").trim().toLowerCase();
       }) || null;
     };
+
+    const variantGroupOwner = (target) => {
+      const groups = state.data.config?.models?.provider_model_variants?.[provider] || {};
+      const wanted = String(target || "").trim().toLowerCase();
+      const current = String(oldModel || "").trim().toLowerCase();
+      return Object.keys(groups).find((id) => id.trim().toLowerCase() === wanted && wanted !== current) || "";
+    };
     const resetClashUi = () => {
       clashAcknowledged = false;
       if (clashBox) clashBox.hidden = true;
@@ -8581,15 +8933,25 @@ import {
       // owner of the target name) and flips the button to an explicit
       // "rename anyway" state; only the SECOND click submits. This keeps
       // the confirmation in context, right next to the raw-model hero.
+      // Two-stage clash guard: the FIRST save click renders an in-form
+      // warning naming BOTH models (the one being edited and the current
+      // owner of the target name) and flips the button to an explicit
+      // "rename anyway" state; only the SECOND click submits. This keeps
+      // the confirmation in context, right next to the raw-model hero.
       const clash = findClash(nextModel);
-      if (clash && !clashAcknowledged) {
+      // Renaming onto a variant group deserves its own wording: the group keeps
+      // winning resolution, so the rename would be saved but never used.
+      const shadowOwner = variantGroupOwner(nextModel);
+      if ((clash || shadowOwner) && !clashAcknowledged) {
         clashAcknowledged = true;
         if (clashBox) {
-          clashBox.innerHTML = `${iconSvg("alert")}<div><strong>${escapeHtml(t("modal.mapping_clash_title"))}</strong><small>${escapeHtml(t("modal.mapping_clash_msg", {
-            editingRaw: rawModel,
-            name: nextModel,
-            ownerRaw: clash.raw || rawModel,
-          }))}</small></div>`;
+          clashBox.innerHTML = shadowOwner && !clash
+            ? `${iconSvg("alert")}<div><strong>${escapeHtml(t("modal.mapping_variant_owner_title"))}</strong><small>${escapeHtml(t("modal.mapping_variant_owner_msg", { name: nextModel, owner: shadowOwner }))}</small></div>`
+            : `${iconSvg("alert")}<div><strong>${escapeHtml(t("modal.mapping_clash_title"))}</strong><small>${escapeHtml(t("modal.mapping_clash_msg", {
+              editingRaw: rawModel,
+              name: nextModel,
+              ownerRaw: clash?.raw || rawModel,
+            }))}</small></div>`;
           clashBox.hidden = false;
         }
         if (submitBtn) {
@@ -8706,7 +9068,20 @@ import {
         const oldModel = mapEditButton.dataset.providerModelMapEditModel || "";
         const rawModel = mapEditButton.dataset.providerModelMapEditRaw || "";
         const isManual = mapEditButton.dataset.providerModelMapEditManual === "1";
-        openProviderModelMappingModal({ provider, oldModel, rawModel, isManual });
+        // The row's identity picks the editor. A variant group and a static
+        // declaration are not 1:1 mappings, so the mapping modal used to save a
+        // rename that could never take effect for them.
+        const item = providerCatalogEntry(provider, oldModel);
+        const kind = item ? providerCatalogEditKind(item) : (isManual ? "renamed" : "discovered");
+        if (kind === "variant") {
+          openProviderVariantGroupModal({ provider, item });
+          return;
+        }
+        if (kind === "static") {
+          openProviderStaticModelModal({ provider, item });
+          return;
+        }
+        openProviderModelMappingModal({ provider, oldModel, rawModel, isManual, item });
         return;
       }
 
@@ -10825,7 +11200,8 @@ import {
         const variantsInput = form.elements.namedItem("variants");
         if (!canonicalInput || !variantsInput) return;
         canonicalInput.value = canonicalModel;
-        canonicalInput.readOnly = true;
+        // The canonical stays editable: renaming an alias moves its key, and
+        // dataset.editingCanonical remembers the stored id for the submit.
         variantsInput.value = custom;
         form.dataset.editingCanonical = canonicalModel;
         const editor = form.closest(".provider-model-inline-editor");
@@ -10912,21 +11288,43 @@ import {
         });
         const variants = Array.from(variantsByModel.values());
         if (!provider || !canonicalModel) return;
+        // One write plan for both doors: the alias disclosure and the catalog
+        // editor rename a group the same way (new key first, then the emptied
+        // old one), so a rename from either side lands identically.
+        const plan = planVariantGroupSave({
+          canonical: form.dataset.editingCanonical || canonicalModel,
+          nextModel: canonicalModel,
+          variants,
+          taken: providerCatalogTakenIds(provider, form.dataset.editingCanonical || canonicalModel),
+        });
+        if (!plan.writes.length) return;
+        if (plan.clash && !(await confirmCatalogRenameClash(plan.clash))) return;
         const saved = await runConfigMutation(form, async () => {
-          const result = await apiPatch(
-            `/-/admin/providers/${encodeURIComponent(provider)}/models/${encodeURIComponent(canonicalModel)}/variants`,
-            { variants },
+          let result = null;
+          for (const write of plan.writes) {
+            result = await apiPatch(
+              `/-/admin/providers/${encodeURIComponent(provider)}/models/${encodeURIComponent(write.model)}/variants`,
+              { variants: write.variants },
+            );
+          }
+          setNotice(
+            plan.renamed
+              ? t("notice.model_alias_renamed", { from: plan.id, to: plan.nextId, provider })
+              : t("notice.model_alias_saved", { model: plan.nextId, provider }),
+            "ok",
           );
-          setNotice(t("notice.model_alias_saved", { model: canonicalModel, provider }), "ok");
           return result;
         }, {
-          resourceKey: `model-variants:${provider}:${canonicalModel}`,
+          resourceKey: `model-variants:${provider}:${plan.id}`,
           apply: (config) => {
             const modelsConfig = config.models ||= {};
             const providerVariants = (modelsConfig.provider_model_variants ||= {});
-            const variantsByModel = (providerVariants[provider] ||= {});
-            if (variants.length) variantsByModel[canonicalModel] = structuredClone(variants);
-            else delete variantsByModel[canonicalModel];
+            const groups = (providerVariants[provider] ||= {});
+            plan.writes.forEach((write) => {
+              if (write.variants.length) groups[write.model] = structuredClone(write.variants);
+              else delete groups[write.model];
+            });
+            if (!Object.keys(groups).length) delete providerVariants[provider];
           },
         });
         if (saved) {

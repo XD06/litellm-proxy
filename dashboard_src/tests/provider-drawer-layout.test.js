@@ -284,11 +284,13 @@ function configRegion(startMarker, endMarker) {
 const modelIdFn = configRegion("function modelId(", "export function normalizeStaticModelIds");
 const variantPlanFns = configRegion("export function normalizeVariantGroups(", "export function mergeProviderModelCatalogItems");
 const idHelpers = configRegion("export function providerModelSourceId(", "export function clearLiveFormField");
-
+const memberRowFn = sourceRegion("  function providerModelMemberRowHtml(", "  // Discovered upstream ids");
+const escapeHtmlFn = sourceRegion("  function escapeHtml(value) {", "\n  function ");
 const renderHarness = `
 const state = { data: { config: { providers: {}, models: { provider_model_variants: { p: { "grok-4.3": [{ model: "xai/grok-4", priority: 10 }] } } } } }, providerModelFilters: {}, providerModelsDisclosuresOpen: new Set() };
 const t = (key) => key;
-const escapeHtml = (value) => String(value ?? "");
+// escapeHtml comes from app.js itself (extracted below): the member-row guard
+// asserts that a typed upstream id cannot break out of its attribute.
 const iconSvg = () => "<i></i>";
 const badge = (label, tone) => '<span class="badge' + (tone ? " " + tone : "") + '">' + label + "</span>";
 const fmtInt = (value) => String(value);
@@ -363,6 +365,7 @@ try {
     summary: variantRowHtml.includes("prov.models.variant_group_summary"),
     tooltip: variantRowHtml.includes("grok-4.3 → xai/grok-4 (10)"),
   });
+  results.push({ label: "memberRow", html: providerModelMemberRowHtml({ model: 'x"y<script>', priority: 7 }) });
   console.log("RENDER_RESULT " + JSON.stringify(results));
 } catch (error) {
   console.log("RENDER_THREW " + error.constructor.name + ": " + error.message);
@@ -373,7 +376,7 @@ try {
 const probePath = path.join(os.tmpdir(), `provider-drawer-render-${process.pid}.js`);
 // The pure helpers load first: their module-level constants must be initialised
 // before the harness below executes the render functions at the top level.
-fs.writeFileSync(probePath, `${modelIdFn}\n${variantPlanFns}\n${idHelpers}\n${renderHarness}\n${catalogHelper}\n${modelRowRenderFn}\n${modelsRenderFn}\n`, "utf8");
+fs.writeFileSync(probePath, `${escapeHtmlFn}\n${modelIdFn}\n${variantPlanFns}\n${idHelpers}\n${memberRowFn}\n${renderHarness}\n${catalogHelper}\n${modelRowRenderFn}\n${modelsRenderFn}\n`, "utf8");
 let renderOutput = "";
 try {
   renderOutput = execFileSync(process.execPath, [probePath], { encoding: "utf8" });
@@ -445,4 +448,76 @@ for (const code of [
 ]) {
   assert.ok(translations.includes(`"prov.models.warn_${code}":`), `missing variant warning translation: ${code}`);
 }
+
+// The catalog pencil is type-aware: a variant group and a static declaration are
+// not 1:1 mappings, so they must open their own editor instead of the mapping
+// modal, which used to save a rename that could never take effect for them.
+assert.match(
+  source,
+  /if \(kind === "variant"\) \{\n\s*openProviderVariantGroupModal/,
+  "the catalog pencil must open the variant-group editor for variant rows",
+);
+assert.match(
+  source,
+  /if \(kind === "static"\) \{\n\s*openProviderStaticModelModal/,
+  "the catalog pencil must open the static editor for static rows",
+);
+assert.match(
+  source,
+  /const item = providerCatalogEntry\(provider, oldModel\)/,
+  "the pencil must resolve the same merged catalog row the drawer rendered",
+);
+assert.match(
+  source,
+  /function providerModelKindStrip[\s\S]{0,1200}prov\.models\.kind_/,
+  "every catalog edit modal must state which source owns the id",
+);
+assert.match(
+  source,
+  /canonical: form\.dataset\.editingCanonical \|\| canonicalModel/,
+  "the alias editor must rename through the same write plan as the catalog editor",
+);
+assert.match(
+  source,
+  /for \(const write of plan\.writes\)/,
+  "a variant rename must issue the planned writes in order",
+);
+assert.match(
+  source,
+  /variantGroupOwner[\s\S]{0,600}modal\.mapping_variant_owner_msg/,
+  "renaming onto a variant group must warn that the rename cannot take effect",
+);
+assert.ok(
+  renderResults.memberRow.html.includes('value="x&quot;y&lt;script&gt;"'),
+  "a typed upstream id must not break out of its input attribute",
+);
+assert.match(
+  renderResults.memberRow.html,
+  /data-model-map-member-row[\s\S]*model-map-member-priority[\s\S]*value="7"/,
+  "a member row must pair the upstream id with its priority",
+);
+assert.match(
+  renderResults.memberRow.html,
+  /data-model-map-member-remove/,
+  "a member row must offer a remove action",
+);
+
+// The mapping modal behind the same pencil must be bilingual too: its labels
+// used to be hardcoded English.
+assert.match(
+  source,
+  /t\("prov\.models\.client_model"\)/,
+  "the mapping modal must translate its client-model label",
+);
+assert.match(
+  source,
+  /t\("prov\.models\.upstream_model"\)/,
+  "the mapping modal must translate its provider label",
+);
+assert.match(
+  source,
+  /t\("prov\.models\.save_mapping"\)/,
+  "the mapping modal must translate its save action",
+);
+assert.doesNotMatch(source, />Client model</, "the mapping modal must not keep hardcoded English labels");
 console.log("provider drawer layout tests passed");
