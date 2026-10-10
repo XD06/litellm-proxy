@@ -7771,6 +7771,111 @@
 		}
 		return chain.join(" → ");
 	}
+	function sortVariantMembers(entries) {
+		return entries.map((entry, index) => ({
+			...entry,
+			index
+		})).sort((a, b) => b.priority - a.priority || a.index - b.index).map(({ model, priority }) => ({
+			model,
+			priority
+		}));
+	}
+	/**
+	* Write plan for a variant group edit. A rename needs two writes — the new key
+	* first, then the emptied old key (the backend tombstones a key that exists in
+	* the base config and drops the key otherwise) — so a failure mid-way can only
+	* leave a duplicate, never lose the group. `taken` lists the client ids that
+	* already exist elsewhere; a collision does not block the write, but it must be
+	* confirmed first because writing a name owned by another variant group
+	* overwrites that group.
+	*
+	* @param {object} input
+	* @param {string} input.canonical Stored client id being edited.
+	* @param {string} input.nextModel Name the operator typed (empty keeps current).
+	* @param {Array} input.variants Members from the editor.
+	* @param {Array} input.taken `[{ id, source }]` of ids owned elsewhere.
+	*/
+	function planVariantGroupSave({ canonical, nextModel = "", variants = [], taken = [] } = {}) {
+		const key = (value) => String(value || "").trim().toLowerCase();
+		const id = String(canonical || "").trim();
+		if (!id) return {
+			id: "",
+			nextId: "",
+			renamed: false,
+			clash: null,
+			members: [],
+			writes: []
+		};
+		const nextId = String(nextModel || "").trim() || id;
+		const members = sortVariantMembers(normalizeVariantEntries(variants));
+		const renamed = key(nextId) !== key(id);
+		const collision = renamed ? taken.find((entry) => {
+			const value = key(entry?.id ?? entry);
+			return value === key(nextId) && value !== key(id);
+		}) : null;
+		const clash = collision ? {
+			id: String(collision?.id ?? collision).trim(),
+			source: String(collision?.source || "")
+		} : null;
+		const writes = [{
+			model: nextId,
+			variants: members
+		}];
+		if (renamed) writes.push({
+			model: id,
+			variants: []
+		});
+		return {
+			id,
+			nextId,
+			renamed,
+			clash,
+			members,
+			writes
+		};
+	}
+	/**
+	* Write plan for a static declaration edit. `static_models` is a plain list, so
+	* editing is a list rewrite: rename in place (keeping the operator's order) or
+	* drop the entry. A rename onto an id the list already holds changes nothing and
+	* reports the clash instead of silently duplicating.
+	*
+	* @param {object} input
+	* @param {Array} input.existing Current `static_models` entries.
+	* @param {string} input.model Entry being edited.
+	* @param {string} input.nextModel New id (empty keeps current).
+	* @param {boolean} input.remove Drop the entry instead of renaming it.
+	*/
+	function planStaticModelSave({ existing = [], model = "", nextModel = "", remove = false } = {}) {
+		const list = normalizeStaticModelIds(existing);
+		const currentKey = String(model || "").trim().toLowerCase();
+		const index = list.findIndex((entry) => entry.toLowerCase() === currentKey);
+		if (index < 0) return {
+			models: list,
+			renamed: false,
+			removed: false,
+			clash: null
+		};
+		if (remove) return {
+			models: list.filter((_entry, position) => position !== index),
+			renamed: false,
+			removed: true,
+			clash: null
+		};
+		const nextId = String(nextModel || "").trim() || list[index];
+		const nextKey = nextId.toLowerCase();
+		const renamed = nextKey !== currentKey;
+		const clash = renamed && list.some((entry, position) => position !== index && entry.toLowerCase() === nextKey) ? {
+			id: nextId,
+			source: "static"
+		} : null;
+		return {
+			models: renamed && !clash ? list.map((entry, position) => position === index ? nextId : entry) : list,
+			renamed: renamed && !clash,
+			removed: false,
+			clash
+		};
+	}
 	/**
 	* Merge the four client-id sources into catalog rows: one row per client-facing
 	* id, matched case-insensitively, annotated with the sources it came from and

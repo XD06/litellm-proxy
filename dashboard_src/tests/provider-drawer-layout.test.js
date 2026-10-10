@@ -520,4 +520,39 @@ assert.match(
   "the mapping modal must translate its save action",
 );
 assert.doesNotMatch(source, />Client model</, "the mapping modal must not keep hardcoded English labels");
+// Import-consistency guard. The console bundle is not checked strictly enough
+// to catch a missing named import: a binding that app.js references but never
+// imports is treated as a global, so the build stays green and the failure
+// only surfaces as a runtime ReferenceError inside a handler that no UI test
+// executes. Diff every local module's exports against the `import { ... }`
+// list app.js actually declares and fail on any used-but-unimported export.
+const localImportPattern = /import\s*\{([\s\S]*?)\}\s*from\s*"\.\/([^"]+)";/g;
+const importGaps = [];
+for (let entry = localImportPattern.exec(source); entry; entry = localImportPattern.exec(source)) {
+  const importedNames = entry[1]
+    .split(",")
+    .map((name) => name.trim().split(/\s+as\s+/)[0])
+    .filter(Boolean);
+  const modulePath = path.join(__dirname, "..", "src", entry[2]);
+  if (!fs.existsSync(modulePath)) {
+    importGaps.push(`${entry[2]} is imported by app.js but does not exist`);
+    continue;
+  }
+  const moduleSource = fs.readFileSync(modulePath, "utf8");
+  const exportedNames = new Set(
+    [...moduleSource.matchAll(/^export\s+(?:async\s+)?(?:function|const|let|class)\s+(\w+)/gm)].map(
+      (match) => match[1],
+    ),
+  );
+  for (const name of exportedNames) {
+    if (!importedNames.includes(name) && new RegExp(`\\b${name}\\b`).test(source)) {
+      importGaps.push(`${entry[2]} exports ${name} but app.js uses it without importing it`);
+    }
+  }
+}
+assert.deepStrictEqual(
+  importGaps,
+  [],
+  `app.js must import every local export it uses:\n${importGaps.join("\n")}`,
+);
 console.log("provider drawer layout tests passed");
