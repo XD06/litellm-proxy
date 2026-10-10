@@ -4991,6 +4991,10 @@
 				en: "Model alias {model} removed from {provider}.",
 				zh: "模型别名 {model} 已从 {provider} 删除。"
 			},
+			"notice.model_alias_saved": {
+				en: "Model alias {model} saved for {provider}.",
+				zh: "模型别名 {model} 已保存到 {provider}。"
+			},
 			"notice.failed": {
 				en: "Failed: {error}",
 				zh: "失败：{error}"
@@ -13897,9 +13901,9 @@
                 <article class="provider-route-card provider-model-alias-card">
                   <div>
                     <strong class="mono">${escapeHtml(canonical)}</strong>
-                    <small>${escapeHtml((variants || []).map((entry) => `${entry.model}:${entry.priority ?? 0}`).join(", "))}</small>
+                    <small title="${escapeHtml((variants || []).map((entry) => `${entry.model}:${entry.priority ?? 0}`).join(", "))}">${escapeHtml((variants || []).map((entry) => `${entry.model}:${entry.priority ?? 0}`).join(", "))}</small>
                   </div>
-                  ${badge(t("prov.models.variants", { count: fmtInt((variants || []).length) }), "info")}
+                  ${badge(t("prov.models.variants", { count: fmtInt((variants || []).length) }), "route-info")}
                   <button class="button small secondary icon-action" type="button"
                     data-provider-variant-edit="${escapeHtml(canonical)}"
                     data-provider-variant-provider="${escapeHtml(view.name)}"
@@ -17249,7 +17253,10 @@
 					if (!provider || !canonicalModel) return;
 					if (await runConfigMutation(form, async () => {
 						const result = await apiPatch(`/-/admin/providers/${encodeURIComponent(provider)}/models/${encodeURIComponent(canonicalModel)}/variants`, { variants });
-						setNotice(`Model variants updated for ${provider} / ${canonicalModel}.`, "ok");
+						setNotice(t("notice.model_alias_saved", {
+							model: canonicalModel,
+							provider
+						}), "ok");
 						return result;
 					}, {
 						resourceKey: `model-variants:${provider}:${canonicalModel}`,

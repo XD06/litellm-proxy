@@ -7247,9 +7247,9 @@ import {
                 <article class="provider-route-card provider-model-alias-card">
                   <div>
                     <strong class="mono">${escapeHtml(canonical)}</strong>
-                    <small>${escapeHtml((variants || []).map((entry) => `${entry.model}:${entry.priority ?? 0}`).join(", "))}</small>
+                    <small title="${escapeHtml((variants || []).map((entry) => `${entry.model}:${entry.priority ?? 0}`).join(", "))}">${escapeHtml((variants || []).map((entry) => `${entry.model}:${entry.priority ?? 0}`).join(", "))}</small>
                   </div>
-                  ${badge(t("prov.models.variants", { count: fmtInt((variants || []).length) }), "info")}
+                  ${badge(t("prov.models.variants", { count: fmtInt((variants || []).length) }), "route-info")}
                   <button class="button small secondary icon-action" type="button"
                     data-provider-variant-edit="${escapeHtml(canonical)}"
                     data-provider-variant-provider="${escapeHtml(view.name)}"
@@ -10851,7 +10851,7 @@ import {
             `/-/admin/providers/${encodeURIComponent(provider)}/models/${encodeURIComponent(canonicalModel)}/variants`,
             { variants },
           );
-          setNotice(`Model variants updated for ${provider} / ${canonicalModel}.`, "ok");
+          setNotice(t("notice.model_alias_saved", { model: canonicalModel, provider }), "ok");
           return result;
         }, {
           resourceKey: `model-variants:${provider}:${canonicalModel}`,

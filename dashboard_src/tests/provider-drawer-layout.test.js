@@ -272,14 +272,15 @@ const modelsRenderFn = sourceRegion(
 );
 
 const renderHarness = `
-const state = { data: { config: { providers: {}, models: {} } }, providerModelFilters: {}, providerModelsDisclosuresOpen: new Set() };
+const state = { data: { config: { providers: {}, models: { provider_model_variants: { p: { "grok-4.3": [{ model: "xai/grok-4", priority: 10 }] } } } } }, providerModelFilters: {}, providerModelsDisclosuresOpen: new Set() };
 const t = (key) => key;
 const escapeHtml = (value) => String(value ?? "");
 const iconSvg = () => "<i></i>";
-const badge = () => "";
+const badge = (label, tone) => '<span class="badge' + (tone ? " " + tone : "") + '">' + label + "</span>";
 const fmtInt = (value) => String(value);
 const fmtDate = (value) => String(value);
 const normalizeStaticModelIds = (value) => (Array.isArray(value) ? value.filter(Boolean) : []);
+const normalizeVariantEntries = (entries) => (Array.isArray(entries) ? entries.filter((entry) => entry && entry.model).map((entry) => ({ model: String(entry.model), priority: Number(entry.priority) || 0 })) : []);
 const filteredProviderModelItems = (value) => (Array.isArray(value) ? value : []);
 const providerModelStatusLabel = () => "";
 const messageMarkup = () => "";
@@ -316,6 +317,14 @@ try {
   results.push({ label: "dedupe", count: deduped.split(">a0<").length - 1, isStaticClass: deduped.includes("is-static"), staticBadge: false });
   const ordered = catalogOf(providerDrawerModels({ name: "p", config: { static_models: ["s1"] }, capability: {}, modelItems: discovered(1, "a") }));
   results.push({ label: "ordering", staticFirst: ordered.indexOf(">s1<") >= 0 && ordered.indexOf(">s1<") < ordered.indexOf(">a0<") });
+  const aliasHtml = providerDrawerModels({ name: "p", config: {}, capability: {}, modelItems: [] });
+  const aliasStart = aliasHtml.indexOf("provider-model-alias-card");
+  const aliasArticle = aliasStart < 0 ? "" : aliasHtml.slice(aliasStart, aliasHtml.indexOf("</article>", aliasStart));
+  results.push({
+    label: "alias",
+    children: (aliasArticle.match(/<div|<button|class="badge/g) || []).length,
+    countBadgeTone: aliasArticle.includes("badge route-info"),
+  });
   console.log("RENDER_RESULT " + JSON.stringify(results));
 } catch (error) {
   console.log("RENDER_THREW " + error.constructor.name + ": " + error.message);
@@ -346,6 +355,13 @@ assert.equal(renderResults.chipMode.staticBadge, true, "large catalogs must carr
 assert.equal(renderResults.dedupe.count, 1, "a static model that discovery already returned must not render twice");
 assert.equal(renderResults.dedupe.isStaticClass, false, "a discovered model must not be relabeled static");
 assert.equal(renderResults.ordering.staticFirst, true, "static fallback models must lead the catalog so operators see their own additions first");
+
+// The alias card renders four children (identity, variant count, edit, delete),
+// so its grid template must declare four tracks; with three the delete button
+// wrapped onto its own row and the card doubled in height.
+assert.equal(renderResults.alias.children, 4, "an alias card must render identity, variant count, edit and delete");
+assert.equal(renderResults.alias.countBadgeTone, true, "the variant count badge must carry the alias/mapping tone");
+assert.match(styles, /\.provider-model-disclosure \.provider-model-alias-card\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto 32px 32px/, "the alias card grid must declare one track per rendered control");
 
 // The toolbar enablement and the bulk handler must resolve the same catalog,
 // otherwise the buttons enable while staging nothing.

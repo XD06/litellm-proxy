@@ -1177,6 +1177,7 @@ const dict = {
   "notice.static_models_cleared": { en: "Static models for {provider} cleared.", zh: "{provider} 的静态模型已清除。" },
   "notice.static_model_removed": { en: "Static model {model} removed from {provider}.", zh: "静态模型 {model} 已从 {provider} 移除。" },
   "notice.model_alias_deleted": { en: "Model alias {model} removed from {provider}.", zh: "模型别名 {model} 已从 {provider} 删除。" },
+  "notice.model_alias_saved": { en: "Model alias {model} saved for {provider}.", zh: "模型别名 {model} 已保存到 {provider}。" },
   "notice.failed": { en: "Failed: {error}", zh: "失败：{error}" },
   "notice.saving": { en: "Saving...", zh: "正在保存..." },
   "notice.saved": { en: "Saved.", zh: "已保存。" },
