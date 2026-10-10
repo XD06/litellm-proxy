@@ -8,7 +8,7 @@
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-3776AB.svg?style=flat-square&logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![CI](https://github.com/XD06/litellm-proxy/actions/workflows/ci.yml/badge.svg?style=flat-square)](https://github.com/XD06/litellm-proxy/actions/workflows/ci.yml)
 [![Docker Pulls](https://img.shields.io/docker/pulls/dsk3/litellm-proxy.svg?style=flat-square&logo=docker&logoColor=white)](https://hub.docker.com/r/dsk3/litellm-proxy)
-[![Tests](https://img.shields.io/badge/tests-886%20passed-brightgreen.svg?style=flat-square)](https://github.com/XD06/litellm-proxy/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-986%20collected-brightgreen.svg?style=flat-square)](https://github.com/XD06/litellm-proxy/actions/workflows/ci.yml)
 [![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-ff69b4.svg?style=flat-square)](https://github.com/XD06/litellm-proxy/pulls)
 
 [![Platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macOS%20%7C%20Windows-blue.svg?style=flat-square)]()
@@ -63,7 +63,7 @@
 | 🧠 | **智能路由** | 5 种路由模式：优先级故障转移、轮询、加权轮询、随机选择，以及基于健康分数实时调整优先级的 **auto 模式** |
 | 🛡️ | **故障转移与冷却** | Per-key 和 per-provider 冷却、重试策略、候选去重 — 天生具备弹性 |
 | 📈 | **可观测性** | SQLite 持久化历史、逐次尝试延迟归因、路由可解释性、Token/费用估算 |
-| 🖥️ | **Web 控制台** | 供应商健康卡片（延迟图表）、请求追踪、路由配置、模型映射、内置 Playground、审计日志 |
+| 🖥️ | **Web 控制台** | 供应商健康卡片（延迟图表）、请求追踪、路由配置、模型目录（变体组 / 静态声明 / 重命名映射 / 上游发现）、内置 Playground、审计日志 |
 | ⚡ | **运行时配置** | 三层覆盖（`config.json → runtime_config.json → 环境变量`），Tombstone 删除机制；所有变更通过 `RLock` 序列化 |
 | 🔒 | **并发安全** | `RuntimeContext` 快照确保热交换期间状态一致；流式适配器优雅处理客户端断连 |
 | 🐳 | **Docker 就绪** | 一键 `docker compose up`，健康检查，多架构（amd64 + arm64），Nginx/Caddy 指南 |
@@ -370,7 +370,7 @@ sequenceDiagram
 
 </details>
 
-> 完整配置参考请见 [config.example.jsonc](config.example.jsonc)。
+> 完整配置参考请见 [config.example.jsonc](../config.example.jsonc)。
 
 ---
 
@@ -388,7 +388,7 @@ sequenceDiagram
 | 🖥️ 控制台运行时 | `dashboard/` | 构建后的静态资源，由代理服务 |
 | 🎨 控制台源码 | `dashboard_src/` | Vite + 原生 JS 源码，含 i18n、morphdom |
 | 🐳 部署 | `Dockerfile`, `docker-compose.yml`, `deploy/` | Docker、systemd、Nginx 反向代理配置 |
-| 🧪 测试 | `tests/`（51 个文件，886 测试）+ `dashboard_src/tests/`（32 个 Node 测试，`npm test` 实跑） | 覆盖路由、转换、配置、流式、Admin API 的 pytest；控制台 UI 的 Node 测试 |
+| 🧪 测试 | `tests/`（54 个文件，986 测试）+ `dashboard_src/tests/`（34 个 Node 测试，`npm test` 实跑） | 覆盖路由、转换、配置、流式、Admin API 的 pytest；控制台 UI 的 Node 测试 |
 
 > **📚 进阶架构与排障指南**：
 > - **[架构全景（克制版）](../ARCHITECTURE.md)**
@@ -401,7 +401,7 @@ sequenceDiagram
 ## 🛠️ 开发
 
 ```bash
-# 运行测试（886 测试，51 个文件）
+# 运行测试（986 测试，54 个文件）
 python -m pytest tests/ -q
 
 # 编译检查核心文件
@@ -460,4 +460,4 @@ cd dashboard_src && npm run dev
 
 ## 📄 许可证
 
-[MIT](LICENSE) © 2026 [XD06](https://github.com/XD06)
+[MIT](../LICENSE) © 2026 [XD06](https://github.com/XD06)

@@ -342,15 +342,19 @@ LiteLLM Proxy 是一个基于 Python 的**格式感知 LLM API 代理**，位于
 
 ```
 客户端模型名
-  ↓ client_model_map（别名映射）
+  ↓ client_model_map（全局别名映射，可用 disable_client_model_map 关闭）
 canonical model
-  ↓ provider_model_map（供应商特定映射）
+  ↓ provider_model_variants（1 对多候选 + priority，遮蔽其余来源）
+  ↓ provider_model_map（per-provider 手工重命名，1 对 1）
+  ↓ 自动发现映射（canonical_map primary + 同 canonical 的 variant_map 副本）
 上游实际模型 ID
 ```
 
 - `disable_client_model_map`：禁用客户端别名映射，原样传递
 - `client_model_map`：全局别名映射
-- `provider_model_map`：per-provider 的手工映射，优先级最高
+- `provider_model_variants`：per-provider 的 1 对多候选列表，**解析优先级最高**，命中即可遮蔽 `provider_model_map` 与自动发现映射
+- `provider_model_map`：per-provider 的手工 1 对 1 重命名，优先级高于自动发现、低于变体组
+- 完整解析顺序（6 级）与"变体组存在时 provider 级 canonical_map 不进候选"的不对称行为见 [docs/MODEL_ROUTING_LIFECYCLE.md](MODEL_ROUTING_LIFECYCLE.md)
 
 ### 7.2 模型发现
 
@@ -370,6 +374,8 @@ canonical model
 
 - 只读取本地快照，不临时请求上游
 - 快照随运行时状态保存，重启后立即可用
+- 候选 id 由 5 类来源合并去重：自动发现的 canonical、`provider_model_map` 键、`provider_model_variants` 键、`static_models`、`models.routes` 键，外加全局 `client_model_map` 键（`model_registry._configured_model_ids`）；详见 [docs/MODEL_ROUTING_LIFECYCLE.md](MODEL_ROUTING_LIFECYCLE.md) 的"变体组的不对称语义与客户端可见性"
+- 变体组的键即客户端模型 id：组内至少一条 raw 非空、且该键本身未被 `provider_model_disabled` 命中才出现；禁用该键 = 整组消失，禁用某个 raw 只剔除该候选
 
 ### 7.4 模型摘要预取
 
@@ -512,6 +518,7 @@ litellm-proxy --host 0.0.0.0 --port 8080   # 自定义绑定地址和端口
 | 运行时覆盖 | 导出、验证或清除运行时覆盖配置 |
 | 审计日志 | 管理员操作记录，敏感字段自动脱敏 |
 | 模型定价 | 基于 Artificial Analysis 数据的模型定价查询 |
+| 模型目录 | 供应商抽屉的模型目录：变体组 / 静态声明 / 重命名映射 / 上游发现四源合一，铅笔按类型分流到对应编辑器 |
 
 ### 10.2 技术栈
 
@@ -534,6 +541,17 @@ litellm-proxy --host 0.0.0.0 --port 8080   # 自定义绑定地址和端口
 - 密钥错误不短暂暴露应用界面
 - `admin_key` 登录后通过 `history.replaceState` 从 URL 移除
 - 刷新时显示中性检查状态而非登录表单
+
+### 10.5 供应商抽屉 · 模型目录与变体组
+
+供应商抽屉"模型"页签的目录不是"上游发现列表"，而是**四源合一**（前端纯函数 `planCatalogEntries`）：变体组（`provider_model_variants` 的键）→ 静态声明（`static_models`）→ 重命名映射（`provider_model_map` 的键）→ 上游发现（canonical）。同一个 id 命中多个来源时合并为一行，并保留全部来源标记（`refs`）；排序固定为 变体组 → 静态 → 其余（同组内稳定）。
+
+* **行样式**：变体组紫色点 + 「变体 N」徽标 + 生效链悬浮提示（`raw (priority) → ...`）；静态声明琥珀色「静态」角标；重命名映射蓝色；禁用灰。
+* **行级开关**：写 canonical 到 `provider_model_disabled`；对变体组是**整组开关**（禁用后该 id 从 `/v1/models` 消失），组内单个 raw 的禁用状态只读展示。
+* **铅笔按类型分流**：变体组 → 变体组编辑器（改 canonical 键名、增删改上游成员与 `priority`）；静态声明 → 静态模型编辑器（改 ID 或移除）；重命名映射 / 上游发现 → 映射弹窗。三个编辑器顶部一律标注当前类型与"保存会做什么"，被更高优先级来源覆盖时给出警告。
+* **写入口径与 API 一致**：变体组改键名是两次 PATCH（先写新键、再对旧键发空列表，占用冲突先二次确认）；目录侧编辑与抽屉"别名"区块共用同一份写入计划，两处改动相通（端点细节见 [docs/API_REFERENCE.md](API_REFERENCE.md) §2.4）。
+* **冲突警告（7 类）**：`variant_shadows_manual_map`（变体组遮蔽手动重命名）、`variant_shadows_discovered`（遮蔽自动发现）、`same_name_static`（与静态声明同名）、`shared_upstream`（多个 id 共用同一上游 raw）、`case_only_duplicate`（仅大小写不同的重复键）、`stale_upstream_disabled`（组内上游已禁用）、`empty_variant_group`（空组，不会出现在 `/v1/models`）。警告只出现在悬浮提示与 `aria-label` 计数里，**不阻塞保存**（后端同样保持"最高优先级生效、永不阻塞"）。
+* 设计决策与取舍见 [2026-10-10 变体组进入模型目录设计文档](superpowers/specs/2026-10-10-variant-group-catalog-design.md)。
 
 ---
 
@@ -770,7 +788,7 @@ OPENAI_API_KEY=sk-... DEEPSEEK_API_KEY=sk-... python sse2json.py
 
 ### 17.1 测试规模
 
-- **886 个测试用例**（51 个测试文件，`python -m pytest tests/ --collect-only` 实测）
+- **986 个测试用例**（54 个测试文件，`python -m pytest tests/ --collect-only` 实测）
 - 覆盖路由、转换、配置、流式、Admin API、可观测性、基础设施、模型管理
 
 ### 17.2 测试分类

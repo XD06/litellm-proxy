@@ -59,17 +59,22 @@ config.json / runtime_config.json
    对每个候选供应商，按以下【严格优先级】解析出待尝试的 Raw Model 候选列表：
    │
    ├─► [优先级 1: 变体列表] provider_model_variants[provider]["X"]
-   │      └─ 命中则返回变体列表中的 Raw ID（按 priority 降序）
+   │      └─ 命中则以变体组为准，返回 变体 raw（priority 降序、同名首现去重）
+   │         + key 级手动映射 + key 级已发现能力 的拼接列表；
+   │         此时 provider 级 canonical_map 的 primary 与 variant_map 一律不进候选（不对称，见下文专题）
    │
    ├─► [优先级 2: Key 手动模型映射] key["models"][canonical] (如果 key 为 dict)
    │
    ├─► [优先级 3: 供应商手动重命名] provider_model_map[provider]["X"]
    │      └─ 命中则返回配置的目标 Raw ID (如 "deepseek/deepseek-v4-flash-0731")
    │
-   ├─► [优先级 4: 自动发现映射] provider_model_capabilities[provider].canonical_map["X"]
-   │      └─ 命中则返回归一化自动关联的 Raw ID
+   ├─► [优先级 4: Key 级已发现能力] provider_key_model_capabilities 指纹条目
    │
-   └─► [优先级 5: 原样兜底] 直接使用 "X" 作为 Raw ID
+   ├─► [优先级 5: 自动发现映射] provider_model_capabilities[provider].canonical_map["X"]
+   │      └─ 命中则返回归一化自动关联的 Raw ID（primary），随后追加同 canonical 的
+   │         variant_map 兄弟副本（聚合供应商 1 对多故障转移），并逐个过 provider_model_disabled
+   │
+   └─► [优先级 6: 原样兜底] 直接使用 "X" 作为 Raw ID
        │
        ▼
 【阶段 3: 筛选有效密钥 (Key Validation & Whitelist Check)】
@@ -102,6 +107,21 @@ config.json / runtime_config.json
           ├─ HTTP 200 ──► 返回客户端，记录成功，重置失败计数
           └─ 异常/报错 ──► 触发 Scheduler Policy 冷却阶梯，尝试下一个候选 Key/Provider
 ```
+
+### 变体组的不对称语义与客户端可见性
+
+变体组（`provider_model_variants`）是解析链的**第一优先级**，命中后会遮蔽同 canonical 的其他来源，有两点必须清楚（实现见 `model_registry.resolve_provider_model_candidates`，行号见代码注释）：
+
+1. **不对称：变体组命中时，provider 级 `canonical_map` 的 primary 与 `variant_map` 一律不进候选。** 候选列表 = 变体 raw（`priority` 降序、同名首现去重） + key 级手动映射 + key 级已发现能力。也就是说"变体组 + 自动发现"并存时，发现出来的 raw 不再参与路由——这正是控制台对同名并发场景给出 `variant_shadows_discovered` 警告的原因；只有 `provider_model_variants` 该键被删空（空列表）后，发现映射才会重新生效。
+2. **变体组是未命中时的第 2～5 优先级**：key 级手动映射 → provider 级手动重命名（`provider_model_map`）→ key 级已发现能力 → provider 级自动发现映射（`canonical_map` primary + 同 canonical 的 `variant_map` 兄弟副本，并逐个过 `provider_model_disabled`）。
+
+**客户端可见性**：变体组的键本身就是一个合法的客户端模型 id，与 `static_models`、`provider_model_map` 键、`models.routes` 键、全局 `client_model_map` 键一起并入 `/v1/models`（`model_registry._configured_model_ids`）。可见性规则：
+
+* 组内**至少一条** raw 非空，且该 canonical 键**自身**未被 `provider_model_disabled` 命中 → 出现在 `/v1/models`；
+* 禁用该 canonical 键 → 整组从客户端目录消失（控制台的目录行开关按此语义实现，即"整组开关"）；
+* 禁用**某个 raw** → 只剔除该候选，其余副本仍可路由（聚合供应商的常用策略），列表可见性不受影响。
+
+控制台侧的呈现与冲突警告见 [docs/FEATURES.md](FEATURES.md) §10.5。
 
 ### 探测/巡检路径的 key 级模型解析（与真实路由对齐）
 

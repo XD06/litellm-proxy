@@ -217,3 +217,36 @@ Merge rules:
 - **A variant group shadowing a discovered mapping** is the most surprising
   outcome for operators; the tooltip states it explicitly rather than relying on
   the operator to know the resolution order.
+
+## Landing status
+
+Delivered (2026-10-10, console only — no backend change):
+
+| Commit | Scope |
+|---|---|
+| `1c1fa3e` | variant groups listed in the catalog: `normalizeVariantGroups`, `planCatalogEntries`, `CATALOG_SOURCE_ORDER`, the 7 warning codes, violet marker, chain tooltip, whole-group row switch |
+| `80bbd94` | type-routed pencils: variant-group editor, static-model editor, rename through the same write plan as the alias block, type strip in every editor |
+| `d06cefe` | fix: the two write plans were referenced but never imported, so saving threw `ReferenceError: planVariantGroupSave is not defined`; plus an import-consistency guard |
+
+Verification: `npm test` 34/34 (pure-function tests for the merge, ordering,
+warning codes and both write plans; the drawer guard executes the real extracted
+functions), `npm run build` + `node --check dashboard/app.js`, and a browser
+probe for chip/row geometry, colours and tooltips. pytest is not part of the
+verification because no Python file changed.
+
+Not shipped (accepted, listed for a future phase):
+
+* **No atomic rename endpoint.** Renaming a variant group is two PATCHes
+  (`model_registry`-side rename semantics: write the new key, then empty the old
+  one). A failure between the two leaves a duplicate group rather than losing
+  it, and the console confirms first when the new id is already taken.
+* **Renaming does not rewrite references.** `models.routes`,
+  `client_model_map`, `static_models` and account-side records that still name
+  the old id are untouched; the console says so in the confirmation.
+* **The new editors have no "test model" button.** Testing stays in the mapping
+  modal, which owns the key-level test payload.
+* **`empty_variant_group` renders as `变体 0`.** A dedicated empty-state badge
+  would read better than a count of zero.
+* **Warnings remain tooltip-only** (plus the count in `aria-label`), per decision
+  5. Phase 2 could have the variants endpoint return the codes it cannot see
+  today, so CLI/curl writers get the same feedback.

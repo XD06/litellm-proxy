@@ -112,8 +112,8 @@ provider/keys/format 变更或后台触发 → `model_discovery_queue` → 拉�
 - **版本管理**：`pyproject.toml` 声明版本 `1.0.0`，但仓库尚无 git tag，发版流程待建立（见 CHANGELOG.md 顶部说明）。
 - **并发模型**：单进程多线程（`max_workers` 默认 20）承担全部请求与后台任务；流式长连接长期占用线程，高并发流式需调大 `max_workers` 或进程化。
 - **历史持久化**：SQLite 单文件、默认 30 天保留；长期留存依赖剪枝机制，暂无分库/分表方案。
-- **控制台产物未压缩**：`vite.config.js` 显式 `minify: false`——32 个 Node UI 测试直接断言源码/产物的正则子串；改动关键类名/结构须同步跑 `npm test`。
-- **文档漂移风险**：历史文档中测试数出现过 459 / 821 两个过期值；约定以 `python -m pytest tests/ --collect-only` 实测数为准（当前 886 个 / 51 文件）。
+- **控制台产物未压缩**：`vite.config.js` 显式 `minify: false`——34 个 Node UI 测试直接断言源码/产物的正则子串；改动关键类名/结构须同步跑 `npm test`。
+- **文档漂移风险**：历史文档中测试数出现过 459 / 821 / 886 三个过期值；约定以 `python -m pytest tests/ --collect-only` 实测数为准（当前 986 个 / 54 文件）。
 - **多线程共享状态**：热重载期间必须经快照或 RLock 访问共享状态；历史上曾修复 readline-of-closed-file、字典迭代中修改等竞态（2026-06~07 修复并测试固化）。
 
 ---

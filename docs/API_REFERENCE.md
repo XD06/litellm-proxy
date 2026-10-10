@@ -54,16 +54,29 @@
 * 控制台"密钥"页签：每个 key 一张统一卡片（身份 + 状态徽标 + 代理/模型映射编辑 + fails/cooldown/disabled 指标 + 启用/禁用/清除/删除），底部为全宽"添加密钥"表单。
 
 ### 2.4 模型路由与映射管理 (Models & Routes)
-* **`PATCH /-/admin/models/mapping`**：更新供应商模型重命名映射（`provider_model_map`）。
-  * Payload 示例：`{"provider": "requesty", "model": "deepseek-v4-flash-plus", "raw_model": "deepseek/deepseek-v4-flash-0731"}`
-* **`PATCH /-/admin/models/variants`**：更新供应商模型多变体回退列表（`provider_model_variants`）。
-* **`PATCH /-/admin/models/disabled`**：启用/禁用指定供应商下的特定模型。
-* **`POST /-/admin/models/refresh`**：强制立即触发后台供应商 `/v1/models` 自动发现。
+
+模型与映射的写入端点全部按**供应商维度**（控制台供应商抽屉的"模型目录"即调用这些端点；此前文档里写作 `/-/admin/models/mapping|variants|disabled` 的路径并不存在）：
+
+* **`PATCH /-/admin/providers/{provider}/models/map`**：更新该供应商的模型重命名映射（`provider_model_map`）。
+  * Payload：`{"model": "deepseek-v4-flash-plus", "raw_model": "deepseek/deepseek-v4-flash-0731", "old_model": "deepseek-v4-flash"}`；`old_model` 是改名时被替换的旧键（新增时留空），`model` 留空表示恢复为自动映射。
+  * 响应含可选 `warning`（`last_model_mapping_warning`），两种真实来源：**改名时拒绝级联删除**（旧键当前指向的 raw 与本次提交的 raw 不一致时保留旧键并提示 "refused to remove mapping ..."），以及**覆盖已有映射**（同名键原本指向另一个 raw，提示 "overwrote mapping ..."）。跨供应商同名 canonical 只写日志不阻断（合法用法）。
+* **`PATCH /-/admin/providers/{provider}/models/{model}/variants`**：整表改写该 canonical 的多变体回退列表（`provider_model_variants[provider][model]`）。
+  * Payload：`{"variants": [{"model": "xai/grok-4", "priority": 10}, {"model": "xai/grok-4-mini", "priority": 5}]}`；元素也可为裸字符串（priority 记 0）。
+  * 写入规则：必须是列表且 ≤ 32 条；`priority` 限 `[-1000, 1000]`；同名 raw 只保留**首现**一条；落库前按 `(-priority, 首现下标)` 稳定排序。
+  * **空列表 = 删除该键**：该 canonical 若在基础 `config.json` 中存在则写 `null`（tombstone，用于遮蔽基础配置），否则直接 `pop`；该 provider 下已无键时连 provider 键一并移除。provider 级 `provider_model_map` 空表同样删键。
+  * **改名没有原子端点**：URL 里的 `{model}` 就是 canonical，改名需要两次 PATCH（先写新键、再对旧键发空列表）；中途失败最多留下重复键，不会丢组。控制台在占用冲突时先二次确认再执行完整两步。
+  * 该端点**不做跨来源冲突校验**：组与 `provider_model_map` / 自动发现映射 / `static_models` 同名时照样写入成功，冲突只在控制台以警告呈现（7 类警告码见 [docs/FEATURES.md](FEATURES.md) §10.5）。
+* **`PATCH /-/admin/providers/{provider}/models/{model}/disabled`**：启用/禁用单个模型 id。Payload `{"disabled": true|false}`。
+* **`PATCH /-/admin/providers/{provider}/models/disabled`**：批量改写该供应商的禁用表。Payload `{"models": {"grok-4.3": true, "grok-4": false}}`。
+  * 判定口径：读路径先精确匹配 id，再 `lower()` 兜底（`provider_model_disabled`）；禁用 canonical 会让它从 `/v1/models` 消失，禁用某个 raw 只剔除该候选（聚合供应商的其他副本仍可用）。
+* **静态模型名单**：沿用 §2.2 的 `PATCH /-/admin/providers/{provider}` 的 `static_models` 字段，**整表重写**语义——接受字符串数组或逗号分隔字符串（保序去重），传 `null` 清空。
+* **`POST /-/admin/providers/{provider}/models/refresh`**：立即触发该供应商的 `/v1/models` 重新发现。
+* **`POST /-/admin/models/refresh`**：立即触发全部供应商的模型发现。
 * **`POST /-/admin/models/test`**：对指定供应商模型发起一次真实的最小测试请求（复用 key 探测管道，15s 预算，去重并发，结果记入请求历史）。
   * Payload：`{"provider": "requesty", "model": "runware/deepseek-v4-flash-0731", "key_index": 0}`（`key_index` 可选，默认 0）
   * **key 级解析**：探测按所选 key 的自身目录解析上游模型名（key 条目 `models` dict → `provider_key_model_capabilities` 指纹条目），无 key 级信息时回退 provider 级主 raw；控制台映射弹窗会展示该模型的归属 key 徽章（脱敏形态，可多选）并把所选 `key_index` 传入本端点。
   * 返回：`{"action": "model_tested", "result": {"ok": true, "format": "...", "upstream_model": "...", "latency_ms": 42}}`；失败时含 `http_status` / `error_type` / `error`（脱敏）。
-* **模型目录可见性**：聚合供应商（如 requesty）同一基础模型的多个厂商副本归一为 1 个 canonical id，并记录 1 对多 `variant_map`；只要任一副本未被禁用，canonical 即出现在 `/v1/models`，且路由按 副本优先级 依次故障转移。
+* **模型目录可见性（`GET /v1/models`）**：候选 id 来自 5 类来源 —— 自动发现的 canonical、`provider_model_map` 键、`provider_model_variants` 键、`static_models`、`models.routes` 的模型键，外加全局 `client_model_map` 键（`model_registry._configured_model_ids` 去重后输出）；变体组只要**至少一条** raw 非空且 canonical 键自身未被禁用即出现在列表里。聚合供应商（如 requesty）同一基础模型的多个厂商副本归一为 1 个 canonical id 并记录 1 对多 `variant_map`，只要任一副本未被禁用 canonical 即可见，路由按副本优先级依次故障转移。
 
 ### 2.5 模型定价 (Model Pricing)
 * **`PATCH /-/admin/models/pricing`**：设置人工模型价格覆盖（`models.pricing_overrides`）。保存后会自动重算历史请求中匹配该模型的价格记录（含此前 pending/unpriced 的记录），无法定价的键自动重新排队抓取。

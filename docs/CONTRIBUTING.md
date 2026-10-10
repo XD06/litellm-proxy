@@ -88,7 +88,7 @@ litellm-proxy/
 │   ├── src/api.js           # API client with admin key auth
 │   └── src/styles.css       # Dashboard styles
 ├── dashboard/               # Built Dashboard (served by the proxy)
-├── tests/                   # Test suite (886 tests, 51 files)
+├── tests/                   # Test suite (986 tests, 54 files)
 ├── docs/                    # Documentation
 ├── deploy/                  # Deployment configs (nginx, systemd)
 ├── Dockerfile               # Container image definition
@@ -105,7 +105,7 @@ For a deeper architectural overview, see [ARCHITECTURE.md](../ARCHITECTURE.md) o
 ### Running Tests
 
 ```bash
-# Full suite (886 tests, 51 files)
+# Full suite (986 tests, 54 files)
 python -m pytest tests/ -q
 
 # Specific module

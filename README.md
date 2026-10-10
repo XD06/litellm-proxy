@@ -8,7 +8,7 @@
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-3776AB.svg?style=flat-square&logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![CI](https://github.com/XD06/litellm-proxy/actions/workflows/ci.yml/badge.svg?style=flat-square)](https://github.com/XD06/litellm-proxy/actions/workflows/ci.yml)
 [![Docker Pulls](https://img.shields.io/docker/pulls/dsk3/litellm-proxy.svg?style=flat-square&logo=docker&logoColor=white)](https://hub.docker.com/r/dsk3/litellm-proxy)
-[![Tests](https://img.shields.io/badge/tests-886%20passed-brightgreen.svg?style=flat-square)](https://github.com/XD06/litellm-proxy/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-986%20collected-brightgreen.svg?style=flat-square)](https://github.com/XD06/litellm-proxy/actions/workflows/ci.yml)
 [![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-ff69b4.svg?style=flat-square)](https://github.com/XD06/litellm-proxy/pulls)
 
 [![Platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macOS%20%7C%20Windows-blue.svg?style=flat-square)]()
@@ -63,7 +63,7 @@
 | 🧠 | **Smart Routing** | 5 routing modes: priority failover, round-robin, weighted rotation, random, and **auto mode** with real-time health-score-based priority adjustment |
 | 🛡️ | **Failover & Cooldown** | Per-key and per-provider cooldown, retry policies, candidate de-duplication — resilient by design |
 | 📈 | **Observability** | SQLite-persisted request history, per-attempt latency attribution, routing explainability, token/cost estimation |
-| 🖥️ | **Web Dashboard** | Provider health cards with latency charts, request traces, routing config, model mapping, built-in Playground, audit logs |
+| 🖥️ | **Web Dashboard** | Provider health cards with latency charts, request traces, routing config, model catalog (variant groups / static / renames / discovery), built-in Playground, audit logs |
 | ⚡ | **Runtime Config** | Three-layer overlay (`config.json → runtime_config.json → env vars`) with tombstone-based deletion; all mutations `RLock`-serialized |
 | 🔒 | **Concurrency Safety** | `RuntimeContext` snapshots ensure consistent state during hot-swaps; stream adapters handle client disconnections gracefully |
 | 🐳 | **Docker Ready** | One-command `docker compose up` with health checks, multi-arch (amd64 + arm64), Nginx/Caddy guidance |
@@ -402,7 +402,7 @@ Instant requests always come first. While a real request is in flight — or wit
 | 🖥️ Dashboard runtime | `dashboard/` | Built static assets served by the proxy |
 | 🎨 Dashboard source | `dashboard_src/` | Vite + vanilla JS source with i18n, morphdom |
 | 🐳 Deployment | `Dockerfile`, `docker-compose.yml`, `deploy/` | Docker, systemd, Nginx reverse proxy configs |
-| 🧪 Tests | `tests/` (51 files, 886 tests) + `dashboard_src/tests/` (32 Node tests via `npm test`) | pytest covering routing, conversion, config, streaming, admin API; Node tests for dashboard UI |
+| 🧪 Tests | `tests/` (54 files, 986 tests) + `dashboard_src/tests/` (34 Node tests via `npm test`) | pytest covering routing, conversion, config, streaming, admin API; Node tests for dashboard UI |
 
 > **For a restrained system overview, see [ARCHITECTURE.md](ARCHITECTURE.md); for a deep module-by-module walkthrough, see [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md).**
 
@@ -411,7 +411,7 @@ Instant requests always come first. While a real request is in flight — or wit
 ## 🛠️ Development
 
 ```bash
-# Run tests (886 tests, 51 files)
+# Run tests (986 tests, 54 files)
 python -m pytest tests/ -q
 
 # Compile-check core files

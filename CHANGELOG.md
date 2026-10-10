@@ -55,10 +55,13 @@
 - **控制台密钥页签改版**：每个 key 合并为一张统一卡片（身份 + 状态徽标 + 内嵌代理/模型映射编辑 + fails/cooldown/disabled 指标 + 启用/禁用/清除/删除），移除按 key 的模型测试下拉与测试按钮（后端 key 探测端点保留，由模型测试复用），独立的"密钥配置"表格撤除，"添加密钥"表单改为卡片列表下方的全宽行；卡片列响应式布局（约 430px 阈值自动单列）。
 
 ### 文档
+- **端点文档纠偏**：`docs/API_REFERENCE.md` §2.4 更正为真实端点——模型映射 / 变体 / 禁用 / 刷新全部是**供应商维度**（`PATCH /-/admin/providers/{provider}/models/map`、`.../models/{model}/variants`、`.../models/{model}/disabled`、`.../models/disabled`，`POST /-/admin/providers/{provider}/models/refresh`），此前文档写的 `/-/admin/models/mapping|variants|disabled` 路径并不存在；同时补写变体写入规则（≤ 32 条、`priority` ∈ [-1000, 1000]、同名 raw 首现去重、按 (-priority, 首现下标) 排序、空列表 tombstone 遮蔽基础配置）、映射接口两种真实 warning、禁用匹配口径，以及 `GET /v1/models` 的 5 类候选来源。
+- **路由与功能文档补齐变体组语义**：`docs/MODEL_ROUTING_LIFECYCLE.md` 的解析优先级补全为 6 级（原缺"key 级已发现能力"与自动发现分支的 `variant_map` 兄弟副本），并新增"变体组的不对称语义与客户端可见性"专题（变体组命中时 provider 级 `canonical_map` primary 不进候选；变体键即客户端 id 及三类可见性规则）；`docs/FEATURES.md` §7.1 映射层级补入变体组、§7.3 补 `/v1/models` 候选来源、新增 §10.5「供应商抽屉 · 模型目录与变体组」（四源合一、按类型分流的编辑器、7 类冲突警告码）；设计文档追加落地状态与未交付项。
+- **测试数量校准与断链修复**：全仓测试数更新为实测值（986 个 pytest / 54 文件；34 个 Node UI 测试，`npm test` 脚本实跑，目录 35 文件含未纳入脚本的 `operation-guard.test.mjs`），同步 README / README_CN / ARCHITECTURE / CONTRIBUTING / FEATURES / PROJECT_OVERVIEW 与三份 REFACTOR_GUIDE；`docs/README_CN.md` 两处断链（`config.example.jsonc`、`LICENSE`）补 `../` 前缀。
 - 新增根级 `ARCHITECTURE.md`（克制版架构全景）与 `CHANGELOG.md`。
 - 根目录收敛为核心四文档（README / ARCHITECTURE / CHANGELOG / AGENTS）；`PROJECT_OVERVIEW.md`、`CONTRIBUTING.md`、`README_CN.md` 移入 `docs/`。
 - 过期计划/修复类文档归档至 `docs/archive/2026-09-05/`（仅本地保留，不随仓库提交）。
-- 测试数量统一校准为实测值：886 个 pytest（51 文件）+ 32 个 Node UI 测试（`npm test` 脚本实跑）。
+- 测试数量统一校准为实测值（该次校准值：886 个 pytest / 51 文件 + 32 个 Node UI 测试；最新实测值见上方条目）。
 
 ---
 
