@@ -23,9 +23,12 @@ import {
   mergeStaticModelIds,
   normalizeStaticModelIds,
   normalizeVariantEntries,
+  normalizeVariantGroups,
+  planCatalogEntries,
   providerModelMappingOldId,
   providerModelSourceId,
   resetLiveForm,
+  variantChainLabel,
 } from "./provider-model-config.mjs";
 
   const el = (id) => document.getElementById(id);
@@ -5658,35 +5661,90 @@ import {
     });
   }
 
-  // Catalog rows for the drawer models list: the filtered discovered/managed
-  // models plus configured static fallback models that discovery never returned.
-  // Render and the bulk enable/disable handler both use this so the toolbar
-  // never enables a button that stages nothing.
+  // Catalog rows for the drawer models list: every client-facing id the provider
+  // answers to gets exactly one row, so the renderer and the bulk enable/disable
+  // handler can never disagree about what is on screen. Discovered and renamed
+  // models come from the (filtered) capability list; ids that exist only because
+  // of configuration — variant groups and static declarations — are appended, so
+  // an operator can finally see, and switch off, what the backend already
+  // advertises. Variant groups lead the catalog because they override
+  // resolution, static declarations follow, and discovery keeps its order.
   function providerDrawerCatalogItems(view, visibleItems) {
-    const staticModels = normalizeStaticModelIds(view?.config?.static_models);
-    const seen = new Set(
-      (visibleItems || []).map((item) => String(item.sourceModel || "").trim().toLowerCase()),
+    const plan = planCatalogEntries({
+      items: view?.modelItems || [],
+      staticIds: normalizeStaticModelIds(view?.config?.static_models),
+      variantGroups: normalizeVariantGroups(
+        state.data.config?.models?.provider_model_variants?.[view?.name] || {},
+      ),
+      disabledKeys: Object.keys(providerModelDisabledMap(view?.name)),
+    });
+    const visibleKeys = new Set(
+      (visibleItems || []).map((item) => String(item.label || item.sourceModel || "").trim().toLowerCase()),
     );
-    const items = [
-      ...(visibleItems || []),
-      ...staticModels
-        .filter((model) => !seen.has(String(model).trim().toLowerCase()))
-        .map((model) => ({
-          label: model,
-          raw: model,
-          title: model,
-          sourceModel: model,
-          static: true,
-          disabled: false,
-          pending: false,
-          manual: false,
-          manualOnly: false,
-        })),
-    ];
-    // Hand-declared static fallbacks are deliberate operator additions, so they
-    // lead the catalog; discovered models keep their relative order. Array#sort
-    // is stable, so the two groups stay in discovery order internally.
-    return items.sort((a, b) => Number(Boolean(b.static)) - Number(Boolean(a.static)));
+    const items = [];
+    for (const row of plan) {
+      const item = providerCatalogRowItem(view, row);
+      if (!visibleKeys.has(row.key)) {
+        // Only configuration can keep an id the toolbar filtered out on screen,
+        // and even then the search and status filters still apply to it.
+        if (!row.variant && !row.static) continue;
+        if (!filteredProviderModelItems([item]).length) continue;
+      }
+      items.push(item);
+    }
+    return items;
+  }
+
+  // One catalog row → one render item. A variant group's switch writes the
+  // canonical id, so the whole group toggles; every other row keeps the
+  // historical upstream/raw key. The resolution chain and the conflict warnings
+  // go into the row title, the only place the operator can read them.
+  function providerCatalogRowItem(view, row) {
+    const item = row.item || {};
+    const sourceModel = row.variant ? row.id : row.raw || row.id;
+    const chain = row.variant ? variantChainLabel(row.id, row.variants) : "";
+    const tooltip = [row.variant ? chain : item.title || row.id];
+    row.refs.forEach((groupId) => tooltip.push(t("prov.models.referenced_by", { model: groupId })));
+    row.warnings.forEach((warning) => tooltip.push(providerCatalogWarningLabel(warning)));
+    return {
+      label: row.id,
+      raw: row.raw,
+      title: tooltip.filter(Boolean).join("\n"),
+      sourceModel,
+      disabled: isProviderModelDisabled(view.name, sourceModel),
+      pending: Object.prototype.hasOwnProperty.call(providerModelDraft(view.name), sourceModel),
+      // The row's main identity decides the marker: a variant group owns the
+      // violet one, so the amber static and blue rename markers stand down.
+      static: row.static && !row.variant,
+      manual: Boolean(item.manual),
+      manualOnly: false,
+      variant: row.variant,
+      variantCount: row.variants.length,
+      variantWarnings: row.warnings.length,
+      refs: row.refs,
+    };
+  }
+
+  // Warning codes come from the pure planner and are rendered here, so all prose
+  // stays in i18n.
+  function providerCatalogWarningLabel(warning) {
+    const detail = warning?.detail || {};
+    return t(`prov.models.warn_${warning.code}`, {
+      model: detail.model || "",
+      by: (detail.by || []).join(", "),
+      ids: (detail.ids || []).join(", "),
+      rename: detail.rename || "",
+      raw: detail.raw || "",
+      disabled: fmtInt(detail.disabled ?? 0),
+      total: fmtInt(detail.total ?? 0),
+    });
+  }
+
+  // Touch devices and screen readers never see the hover tooltip, so the row
+  // switch repeats the variant wording and the warning count.
+  function providerCatalogVariantAria(item) {
+    if (!item?.variant) return "";
+    return `, ${t("prov.models.variant_aria", { count: fmtInt(item.variantCount), warnings: fmtInt(item.variantWarnings) })}`;
   }
 
   function providerRouteModels(name) {
@@ -7207,15 +7265,15 @@ import {
           ` : `
           <div class="model-chip-list provider-drawer-models" role="list" ${largeCatalog ? `aria-label="${escapeHtml(t("prov.models.visible_count", { count: fmtInt(allItems.length) }))}"` : ""}>
             ${allItems.length ? allItems.slice(0, 100).map((item) => `
-              <span class="model-map-chip provider-model-chip ${item.disabled ? "is-disabled" : ""} ${item.pending ? "is-pending" : ""} ${item.manual ? "is-manual-map" : ""} ${item.static ? "is-static" : ""}" role="listitem">
+              <span class="model-map-chip provider-model-chip ${item.disabled ? "is-disabled" : ""} ${item.pending ? "is-pending" : ""} ${item.manual ? "is-manual-map" : ""} ${item.static ? "is-static" : ""} ${item.variant ? "is-variant" : ""}" role="listitem">
                 <button class="model-chip-toggle" type="button"
                   data-provider-model-disable-provider="${escapeHtml(view.name)}"
                   data-provider-model-disable-model="${escapeHtml(item.sourceModel)}"
                   data-provider-model-disable-next="${item.disabled ? "false" : "true"}"
                   title="${escapeHtml(`${item.disabled ? t("prov.models.stage_enable") : t("prov.models.stage_disable")} ${item.title}`)}"
-                  aria-label="${escapeHtml(`${item.disabled ? t("prov.models.stage_enable") : t("prov.models.stage_disable")} ${item.label}`)}">
+                  aria-label="${escapeHtml(`${item.disabled ? t("prov.models.stage_enable") : t("prov.models.stage_disable")} ${item.label}${providerCatalogVariantAria(item)}`)}">
                   <b>${escapeHtml(item.label)}</b>
-                  ${item.raw && item.raw !== item.label ? `<small>${escapeHtml(item.raw)}</small>` : ""}
+                  ${!item.variant && item.raw && item.raw !== item.label ? `<small>${escapeHtml(item.raw)}</small>` : ""}
                 </button>
                 ${item.pending ? `<span class="model-chip-pending-flag">${escapeHtml(t("prov.models.pending_short"))}</span>` : ""}
                 <button class="model-map-edit-button" type="button"
@@ -7225,7 +7283,7 @@ import {
                   data-provider-model-map-edit-manual="${item.manual ? "1" : "0"}"
                   title="${escapeHtml(t("prov.models.edit_mapping"))}"
                   aria-label="${escapeHtml(t("prov.models.edit_mapping_for", { model: item.label }))}">${iconSvg("pencil")}</button>
-                ${item.static ? `<span class="model-chip-static-badge">${escapeHtml(t("prov.models.static_short"))}</span>` : ""}
+                ${item.variant ? `<span class="model-chip-variant-badge">${escapeHtml(t("prov.models.variant_count_short", { count: fmtInt(item.variantCount) }))}</span>` : item.static ? `<span class="model-chip-static-badge">${escapeHtml(t("prov.models.static_short"))}</span>` : ""}
               </span>
             `).join("") + (allItems.length > 100 ? `<span class="muted provider-model-overflow-note" role="listitem">${escapeHtml(t("prov.models.more", { count: fmtInt(allItems.length - 100) }))}</span>` : "") : `<div class="empty pad-slim" role="listitem">${escapeHtml(t("prov.models.no_match"))}</div>`}
           </div>
@@ -7355,19 +7413,27 @@ import {
   // the chip grid, so the delegated bindings stay identical.
   function providerModelRow(provider, item) {
     const subParts = [];
-    if (item.raw && item.raw !== item.label) subParts.push(item.raw);
-    if (item.manual) subParts.push(t("prov.models.manual_map"));
+    // A variant group owns the row: its upstream list lives in the tooltip, so
+    // the line reports the group shape instead of one shadowed rename target.
+    if (item.variant) {
+      subParts.push(t("prov.models.variant_group_summary", { count: fmtInt(item.variantCount) }));
+    } else {
+      if (item.raw && item.raw !== item.label) subParts.push(item.raw);
+      if (item.manual) subParts.push(t("prov.models.manual_map"));
+    }
     if (item.static) subParts.push(t("prov.models.static"));
     return `
-      <article class="provider-model-row ${item.disabled ? "is-off" : ""} ${item.pending ? "is-pending" : ""} ${item.static ? "is-static" : ""}" role="listitem">
-        <span class="provider-overview-state-dot ${item.static ? "static" : item.disabled ? "off" : "ok"}" aria-hidden="true"></span>
+      <article class="provider-model-row ${item.disabled ? "is-off" : ""} ${item.pending ? "is-pending" : ""} ${item.static ? "is-static" : ""} ${item.variant ? "is-variant" : ""}" role="listitem">
+        <span class="provider-overview-state-dot ${item.variant ? "variant" : item.static ? "static" : item.disabled ? "off" : "ok"}" aria-hidden="true"></span>
         <div class="provider-model-row-main">
           <b class="mono">${escapeHtml(item.label)}</b>
           ${subParts.length ? `<small>${escapeHtml(subParts.join(" · "))}</small>` : ""}
         </div>
         ${item.pending
           ? badge(t("prov.models.pending_short"), "warn")
-          : badge(item.disabled ? t("prov.models.disabled") : item.static ? t("prov.models.static") : t("prov.models.enabled"), item.disabled ? "off" : item.static ? "static" : "ok")}
+          : item.variant
+            ? badge(t("prov.models.variant_count_short", { count: fmtInt(item.variantCount) }), "variant")
+            : badge(item.disabled ? t("prov.models.disabled") : item.static ? t("prov.models.static") : t("prov.models.enabled"), item.disabled ? "off" : item.static ? "static" : "ok")}
         <div class="provider-model-row-ops">
           <button class="button secondary icon-action model-row-op" type="button"
             data-provider-model-map-edit-provider="${escapeHtml(provider)}"
@@ -7380,8 +7446,8 @@ import {
             data-provider-model-disable-provider="${escapeHtml(provider)}"
             data-provider-model-disable-model="${escapeHtml(item.sourceModel)}"
             data-provider-model-disable-next="${item.disabled ? "false" : "true"}"
-            title="${escapeHtml(`${item.disabled ? t("prov.models.stage_enable") : t("prov.models.stage_disable")} ${item.label}`)}"
-            aria-label="${escapeHtml(`${item.disabled ? t("prov.models.stage_enable") : t("prov.models.stage_disable")} ${item.label}`)}">${iconSvg(item.disabled ? "power" : "eye-off")}</button>
+            title="${escapeHtml(`${item.disabled ? t("prov.models.stage_enable") : t("prov.models.stage_disable")} ${item.title || item.label}`)}"
+            aria-label="${escapeHtml(`${item.disabled ? t("prov.models.stage_enable") : t("prov.models.stage_disable")} ${item.label}${providerCatalogVariantAria(item)}`)}">${iconSvg(item.disabled ? "power" : "eye-off")}</button>
         </div>
       </article>
     `;

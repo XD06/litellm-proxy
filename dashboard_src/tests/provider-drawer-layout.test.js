@@ -271,6 +271,20 @@ const modelsRenderFn = sourceRegion(
   "  function providerModelRow(",
 );
 
+// Extract the real provider-model-config helpers so the render guard runs the
+// same merge/conflict logic the console ships (stubbing it would hide exactly
+// the regressions this guard exists to catch).
+const configSource = fs.readFileSync(path.join(__dirname, "..", "src", "provider-model-config.mjs"), "utf8");
+function configRegion(startMarker, endMarker) {
+  const start = configSource.indexOf(startMarker);
+  const end = configSource.indexOf(endMarker, start);
+  assert.ok(start >= 0 && end > start, `missing provider model config region: ${startMarker}`);
+  return configSource.slice(start, end).replace(/^export /gm, "");
+}
+const modelIdFn = configRegion("function modelId(", "export function normalizeStaticModelIds");
+const variantPlanFns = configRegion("export function normalizeVariantGroups(", "export function mergeProviderModelCatalogItems");
+const idHelpers = configRegion("export function providerModelSourceId(", "export function clearLiveFormField");
+
 const renderHarness = `
 const state = { data: { config: { providers: {}, models: { provider_model_variants: { p: { "grok-4.3": [{ model: "xai/grok-4", priority: 10 }] } } } } }, providerModelFilters: {}, providerModelsDisclosuresOpen: new Set() };
 const t = (key) => key;
@@ -288,6 +302,12 @@ const refreshSpinner = () => "";
 const providerOverviewMetric = () => "";
 const providerModelDraftCount = () => 0;
 const modelCapabilityItems = () => [];
+// The catalog planner is pure and shared with the unit tests below, so it is
+// executed rather than stubbed: a regression in the merge or conflict logic
+// must fail here, not only in the source-regex assertions.
+const providerModelDisabledMap = () => ({});
+const providerModelDraft = () => ({});
+const isProviderModelDisabled = () => false;
 const discovered = (count, prefix) => Array.from({ length: count }, (_, index) => ({
   label: prefix + index,
   sourceModel: prefix + index,
@@ -325,6 +345,24 @@ try {
     children: (aliasArticle.match(/<div|<button|class="badge/g) || []).length,
     countBadgeTone: aliasArticle.includes("badge route-info"),
   });
+  const variantChip = catalogOf(providerDrawerModels({ name: "p", config: {}, capability: { status: "ok" }, modelItems: discovered(30, "m") }));
+  results.push({
+    label: "variant",
+    chipMode: variantChip.includes("is-variant"),
+    badge: variantChip.includes("model-chip-variant-badge"),
+    chain: variantChip.includes("grok-4.3 → xai/grok-4 (10)"),
+    disableKey: variantChip.includes('data-provider-model-disable-model="grok-4.3"'),
+    leads: variantChip.indexOf(">grok-4.3<") >= 0 && variantChip.indexOf(">grok-4.3<") < variantChip.indexOf(">m0<"),
+  });
+  const variantRowHtml = catalogOf(providerDrawerModels({ name: "p", config: {}, capability: {}, modelItems: discovered(1, "a") }));
+  results.push({
+    label: "variantRow",
+    rowMode: variantRowHtml.includes("is-variant"),
+    dot: variantRowHtml.includes("provider-overview-state-dot variant"),
+    badge: variantRowHtml.includes("badge variant"),
+    summary: variantRowHtml.includes("prov.models.variant_group_summary"),
+    tooltip: variantRowHtml.includes("grok-4.3 → xai/grok-4 (10)"),
+  });
   console.log("RENDER_RESULT " + JSON.stringify(results));
 } catch (error) {
   console.log("RENDER_THREW " + error.constructor.name + ": " + error.message);
@@ -333,7 +371,9 @@ try {
 `;
 
 const probePath = path.join(os.tmpdir(), `provider-drawer-render-${process.pid}.js`);
-fs.writeFileSync(probePath, `${renderHarness}\n${catalogHelper}\n${modelRowRenderFn}\n${modelsRenderFn}\n`, "utf8");
+// The pure helpers load first: their module-level constants must be initialised
+// before the harness below executes the render functions at the top level.
+fs.writeFileSync(probePath, `${modelIdFn}\n${variantPlanFns}\n${idHelpers}\n${renderHarness}\n${catalogHelper}\n${modelRowRenderFn}\n${modelsRenderFn}\n`, "utf8");
 let renderOutput = "";
 try {
   renderOutput = execFileSync(process.execPath, [probePath], { encoding: "utf8" });
@@ -353,7 +393,7 @@ for (const label of ["rowsMode", "chipMode", "staticOnly"]) {
 assert.equal(renderResults.empty.count, 0, "a provider without static models must not invent catalog entries");
 assert.equal(renderResults.chipMode.staticBadge, true, "large catalogs must carry the visible static badge");
 assert.equal(renderResults.dedupe.count, 1, "a static model that discovery already returned must not render twice");
-assert.equal(renderResults.dedupe.isStaticClass, false, "a discovered model must not be relabeled static");
+assert.equal(renderResults.dedupe.isStaticClass, true, "a declared static id keeps its static marker on the row discovery returned");
 assert.equal(renderResults.ordering.staticFirst, true, "static fallback models must lead the catalog so operators see their own additions first");
 
 // The alias card renders four children (identity, variant count, edit, delete),
@@ -366,4 +406,43 @@ assert.match(styles, /\.provider-model-disclosure \.provider-model-alias-card\s*
 // The toolbar enablement and the bulk handler must resolve the same catalog,
 // otherwise the buttons enable while staging nothing.
 assert.match(source, /providerDrawerCatalogItems\(view, filteredProviderModelItems\(view\.modelItems\)\)/, "the bulk enable/disable handler must stage the catalog the drawer renders");
+
+// Variant groups must reach the catalog in both render modes, carry the violet
+// marker, and stage the canonical id when switched off.
+assert.equal(renderResults.variant.chipMode, true, "a variant group must appear in the dense model catalog");
+assert.equal(renderResults.variant.badge, true, "a variant chip must carry the variant badge");
+assert.equal(renderResults.variant.chain, true, "the variant chip must carry the effective resolution chain");
+assert.equal(renderResults.variant.disableKey, true, "the variant row switch must stage the canonical id, not a raw upstream");
+assert.equal(renderResults.variant.leads, true, "variant groups must lead the catalog");
+assert.equal(renderResults.variantRow.rowMode, true, "the detailed row mode must mark variant groups");
+assert.equal(renderResults.variantRow.dot, true, "variant rows must use the dedicated state dot");
+assert.equal(renderResults.variantRow.badge, true, "variant rows must use the dedicated badge tone");
+assert.equal(renderResults.variantRow.summary, true, "variant rows must describe the group in their sub line");
+assert.equal(renderResults.variantRow.tooltip, true, "detailed rows must carry the same chain tooltip as the chips");
+assert.match(
+  styles,
+  /\.provider-drawer-models \.provider-model-chip\.is-variant \.model-chip-variant-badge\s*\{[^}]*grid-column: 2/,
+  "the variant badge must occupy the chip's own grid track",
+);
+assert.match(
+  styles,
+  /\.model-chip-variant-badge\s*\{[^}]*background: color-mix\(in srgb, var\(--model-variant\)/,
+  "the variant badge must use the violet variant token",
+);
+assert.match(
+  styles,
+  /\.provider-model-row\.is-variant\.is-off \.provider-model-row-main b\s*\{[^}]*var\(--muted\)/,
+  "a disabled variant row must still read as disabled",
+);
+for (const code of [
+  "variant_shadows_manual_map",
+  "variant_shadows_discovered",
+  "same_name_static",
+  "shared_upstream",
+  "case_only_duplicate",
+  "stale_upstream_disabled",
+  "empty_variant_group",
+]) {
+  assert.ok(translations.includes(`"prov.models.warn_${code}":`), `missing variant warning translation: ${code}`);
+}
 console.log("provider drawer layout tests passed");

@@ -3259,6 +3259,50 @@
 				en: "STATIC",
 				zh: "静态"
 			},
+			"prov.models.variant_count_short": {
+				en: "VAR {count}",
+				zh: "变体 {count}"
+			},
+			"prov.models.variant_group_summary": {
+				en: "variant group · {count} upstreams",
+				zh: "变体组 · {count} 个上游"
+			},
+			"prov.models.variant_aria": {
+				en: "variant group, {count} upstreams, {warnings} warnings",
+				zh: "变体组，{count} 个上游，{warnings} 个警告"
+			},
+			"prov.models.referenced_by": {
+				en: "Referenced by variant group {model}",
+				zh: "被变体组 {model} 引用"
+			},
+			"prov.models.warn_variant_shadows_manual_map": {
+				en: "Manual rename overridden by the variant group.",
+				zh: "手动映射被变体组覆盖（变体优先）。"
+			},
+			"prov.models.warn_variant_shadows_discovered": {
+				en: "Variant group shadows the discovered mapping {raw}.",
+				zh: "变体组遮蔽了已发现映射 {raw}。"
+			},
+			"prov.models.warn_same_name_static": {
+				en: "Same name as a static declaration: that entry is not a routing candidate.",
+				zh: "与静态声明同名：该静态条目不参与路由候选。"
+			},
+			"prov.models.warn_shared_upstream": {
+				en: "Upstream {model} is also used by {by}.",
+				zh: "上游 {model} 也被 {by} 使用。"
+			},
+			"prov.models.warn_case_only_duplicate": {
+				en: "Differs only by case ({ids}); one spelling may be unreachable.",
+				zh: "仅大小写不同（{ids}），其中一个拼写可能无法访问。"
+			},
+			"prov.models.warn_stale_upstream_disabled": {
+				en: "{disabled} of {total} upstreams disabled.",
+				zh: "{total} 个上游中 {disabled} 个已禁用。"
+			},
+			"prov.models.warn_empty_variant_group": {
+				en: "Empty group: routing ignores it.",
+				zh: "空组：路由会忽略该别名。"
+			},
 			"prov.models.remove_model": {
 				en: "Remove {model}",
 				zh: "移除 {model}"
@@ -7526,6 +7570,217 @@
 		}
 		return variants;
 	}
+	function normalizeVariantGroups(rawGroups) {
+		const entries = [];
+		if (rawGroups && typeof rawGroups === "object") for (const [canonical, rawVariants] of Object.entries(rawGroups)) {
+			const id = String(canonical || "").trim();
+			if (!id || rawVariants === null || rawVariants === void 0) continue;
+			const ordered = (Array.isArray(rawVariants) ? rawVariants : []).map((entry, index) => {
+				const model = modelId(entry);
+				if (!model) return null;
+				const rawPriority = entry && typeof entry === "object" ? Number(entry.priority ?? 0) : 0;
+				return {
+					model,
+					priority: Number.isFinite(rawPriority) ? rawPriority : 0,
+					index
+				};
+			}).filter(Boolean).sort((a, b) => b.priority - a.priority || a.index - b.index);
+			const seen = /* @__PURE__ */ new Set();
+			const variants = [];
+			for (const item of ordered) {
+				if (seen.has(item.model)) continue;
+				seen.add(item.model);
+				variants.push({
+					model: item.model,
+					priority: item.priority
+				});
+			}
+			entries.push({
+				id,
+				key: id.toLowerCase(),
+				variants
+			});
+		}
+		const byKey = /* @__PURE__ */ new Map();
+		for (const entry of entries) if (!byKey.has(entry.key)) byKey.set(entry.key, entry);
+		return {
+			entries,
+			byKey
+		};
+	}
+	function variantChainLabel(id, variants) {
+		const chain = [];
+		const head = String(id || "").trim();
+		if (head) chain.push(head);
+		for (const variant of Array.isArray(variants) ? variants : []) {
+			const model = String(variant?.model || "").trim();
+			if (!model) continue;
+			chain.push(`${model} (${Number(variant.priority) || 0})`);
+		}
+		return chain.join(" → ");
+	}
+	/**
+	* Merge the four client-id sources into catalog rows: one row per client-facing
+	* id, matched case-insensitively, annotated with the sources it came from and
+	* with advisory conflict warnings. Nothing here blocks a write — the backend
+	* precedence decides what actually routes, and every warning is a hint for the
+	* operator (rendered from the returned codes by app.js, never as prose here).
+	*
+	* @param {object} input
+	* @param {Array} input.items Discovered/renamed provider model items (unfiltered).
+	* @param {Array} input.staticIds Normalized `static_models` entries.
+	* @param {object} input.variantGroups Result of `normalizeVariantGroups`.
+	* @param {Array} input.disabledKeys Keys of the saved `provider_model_disabled` map.
+	* @returns {Array} Rows sorted variant groups → static → the rest, stable.
+	*/
+	function planCatalogEntries({ items = [], staticIds = [], variantGroups = null, disabledKeys = [] } = {}) {
+		const key = (value) => String(value || "").trim().toLowerCase();
+		const groups = Array.isArray(variantGroups?.entries) ? variantGroups.entries : [];
+		const staticList = (Array.isArray(staticIds) ? staticIds : []).map(modelId).filter(Boolean);
+		const staticKeys = new Set(staticList.map(key));
+		const disabled = new Set(Array.from(disabledKeys, key));
+		const remember = (list, value) => {
+			if (value && !list.includes(value)) list.push(value);
+		};
+		const rows = /* @__PURE__ */ new Map();
+		const declare = (value) => {
+			const id = String(value || "").trim();
+			if (!id) return null;
+			const rowKey = id.toLowerCase();
+			if (!rows.has(rowKey)) rows.set(rowKey, {
+				id,
+				key: rowKey,
+				spellings: [],
+				variants: [],
+				raws: [],
+				refs: [],
+				warnings: [],
+				item: null,
+				manualItem: null,
+				discoveredItem: null,
+				variant: false,
+				renamed: false,
+				discovered: false,
+				static: false
+			});
+			const row = rows.get(rowKey);
+			remember(row.spellings, id);
+			return row;
+		};
+		const memberOwners = /* @__PURE__ */ new Map();
+		const renameTargets = /* @__PURE__ */ new Map();
+		for (const group of groups) {
+			const row = declare(group?.id);
+			if (!row) continue;
+			row.variant = true;
+			row.variants = (Array.isArray(group.variants) ? group.variants : []).filter((variant) => variant?.model).map((variant) => ({
+				model: String(variant.model).trim(),
+				priority: Number(variant.priority) || 0
+			}));
+			for (const variant of row.variants) {
+				const memberKey = key(variant.model);
+				if (!memberKey) continue;
+				if (!memberOwners.has(memberKey)) memberOwners.set(memberKey, []);
+				remember(memberOwners.get(memberKey), row.id);
+			}
+		}
+		for (const item of Array.isArray(items) ? items : []) {
+			const row = declare(item?.label || item?.raw);
+			if (!row) continue;
+			const raw = providerModelSourceId(item);
+			if (item?.manual) {
+				row.renamed = true;
+				row.manualItem = row.manualItem || item;
+				if (raw) {
+					remember(row.raws, raw);
+					const targetKey = key(raw);
+					if (targetKey && targetKey !== row.key) {
+						if (!renameTargets.has(targetKey)) renameTargets.set(targetKey, []);
+						remember(renameTargets.get(targetKey), row.id);
+					}
+				}
+			} else {
+				row.discovered = true;
+				row.discoveredItem = row.discoveredItem || item;
+				remember(row.raws, raw || row.id);
+			}
+			row.item = row.manualItem || row.discoveredItem;
+		}
+		for (const id of staticList) declare(id);
+		for (const row of rows.values()) {
+			row.static = staticKeys.has(row.key) || row.raws.some((raw) => staticKeys.has(key(raw)));
+			row.raw = row.raws[0] || "";
+			row.refs = (memberOwners.get(row.key) || []).filter((id) => key(id) !== row.key);
+			row.mainSource = row.variant ? "variant" : row.renamed ? "renamed" : row.static ? "static" : "discovered";
+			row.sources = CATALOG_SOURCE_ORDER.filter((source) => Boolean(row[source]));
+			if (row.variant && row.renamed) row.warnings.push({
+				code: "variant_shadows_manual_map",
+				detail: { rename: row.raws[0] || "" }
+			});
+			if (row.variant && row.discovered) row.warnings.push({
+				code: "variant_shadows_discovered",
+				detail: { raw: providerModelSourceId(row.discoveredItem) }
+			});
+			if (row.variant && staticKeys.has(row.key)) row.warnings.push({
+				code: "same_name_static",
+				detail: {}
+			});
+			if (row.variant) for (const variant of row.variants) {
+				const memberKey = key(variant.model);
+				const others = [];
+				(memberOwners.get(memberKey) || []).forEach((id) => {
+					if (key(id) !== row.key) remember(others, id);
+				});
+				(renameTargets.get(memberKey) || []).forEach((id) => {
+					if (key(id) !== row.key) remember(others, id);
+				});
+				if (others.length) row.warnings.push({
+					code: "shared_upstream",
+					detail: {
+						model: variant.model,
+						by: others
+					}
+				});
+			}
+			else if (row.renamed && row.raw) {
+				const others = [];
+				(memberOwners.get(key(row.raw)) || []).forEach((id) => {
+					if (key(id) !== row.key) remember(others, id);
+				});
+				(renameTargets.get(key(row.raw)) || []).forEach((id) => {
+					if (key(id) !== row.key) remember(others, id);
+				});
+				if (others.length) row.warnings.push({
+					code: "shared_upstream",
+					detail: {
+						model: row.raw,
+						by: others
+					}
+				});
+			}
+			if (row.spellings.length > 1) row.warnings.push({
+				code: "case_only_duplicate",
+				detail: { ids: row.spellings.slice() }
+			});
+			if (row.variant) {
+				const off = row.variants.filter((variant) => disabled.has(key(variant.model)));
+				if (off.length) row.warnings.push({
+					code: "stale_upstream_disabled",
+					detail: {
+						disabled: off.length,
+						total: row.variants.length,
+						models: off.map((variant) => variant.model)
+					}
+				});
+				if (!row.variants.length) row.warnings.push({
+					code: "empty_variant_group",
+					detail: {}
+				});
+			}
+		}
+		const rank = (row) => row.variant ? 0 : row.static ? 1 : 2;
+		return [...rows.values()].sort((a, b) => rank(a) - rank(b));
+	}
 	function mergeProviderModelCatalogItems(discoveredItems, configuredMap) {
 		const items = [];
 		const seenPairs = /* @__PURE__ */ new Set();
@@ -7584,7 +7839,15 @@
 		form.reset();
 		return true;
 	}
-	var init_provider_model_config = __esmMin((() => {}));
+	var CATALOG_SOURCE_ORDER;
+	var init_provider_model_config = __esmMin((() => {
+		CATALOG_SOURCE_ORDER = [
+			"variant",
+			"renamed",
+			"static",
+			"discovered"
+		];
+	}));
 	(/* @__PURE__ */ __commonJSMin((() => {
 		init_morphdom_esm();
 		init_state();
@@ -12651,19 +12914,65 @@
 			});
 		}
 		function providerDrawerCatalogItems(view, visibleItems) {
-			const staticModels = normalizeStaticModelIds(view?.config?.static_models);
-			const seen = new Set((visibleItems || []).map((item) => String(item.sourceModel || "").trim().toLowerCase()));
-			return [...visibleItems || [], ...staticModels.filter((model) => !seen.has(String(model).trim().toLowerCase())).map((model) => ({
-				label: model,
-				raw: model,
-				title: model,
-				sourceModel: model,
-				static: true,
-				disabled: false,
-				pending: false,
-				manual: false,
-				manualOnly: false
-			}))].sort((a, b) => Number(Boolean(b.static)) - Number(Boolean(a.static)));
+			const plan = planCatalogEntries({
+				items: view?.modelItems || [],
+				staticIds: normalizeStaticModelIds(view?.config?.static_models),
+				variantGroups: normalizeVariantGroups(state.data.config?.models?.provider_model_variants?.[view?.name] || {}),
+				disabledKeys: Object.keys(providerModelDisabledMap(view?.name))
+			});
+			const visibleKeys = new Set((visibleItems || []).map((item) => String(item.label || item.sourceModel || "").trim().toLowerCase()));
+			const items = [];
+			for (const row of plan) {
+				const item = providerCatalogRowItem(view, row);
+				if (!visibleKeys.has(row.key)) {
+					if (!row.variant && !row.static) continue;
+					if (!filteredProviderModelItems([item]).length) continue;
+				}
+				items.push(item);
+			}
+			return items;
+		}
+		function providerCatalogRowItem(view, row) {
+			const item = row.item || {};
+			const sourceModel = row.variant ? row.id : row.raw || row.id;
+			const chain = row.variant ? variantChainLabel(row.id, row.variants) : "";
+			const tooltip = [row.variant ? chain : item.title || row.id];
+			row.refs.forEach((groupId) => tooltip.push(t("prov.models.referenced_by", { model: groupId })));
+			row.warnings.forEach((warning) => tooltip.push(providerCatalogWarningLabel(warning)));
+			return {
+				label: row.id,
+				raw: row.raw,
+				title: tooltip.filter(Boolean).join("\n"),
+				sourceModel,
+				disabled: isProviderModelDisabled(view.name, sourceModel),
+				pending: Object.prototype.hasOwnProperty.call(providerModelDraft(view.name), sourceModel),
+				static: row.static && !row.variant,
+				manual: Boolean(item.manual),
+				manualOnly: false,
+				variant: row.variant,
+				variantCount: row.variants.length,
+				variantWarnings: row.warnings.length,
+				refs: row.refs
+			};
+		}
+		function providerCatalogWarningLabel(warning) {
+			const detail = warning?.detail || {};
+			return t(`prov.models.warn_${warning.code}`, {
+				model: detail.model || "",
+				by: (detail.by || []).join(", "),
+				ids: (detail.ids || []).join(", "),
+				rename: detail.rename || "",
+				raw: detail.raw || "",
+				disabled: fmtInt(detail.disabled ?? 0),
+				total: fmtInt(detail.total ?? 0)
+			});
+		}
+		function providerCatalogVariantAria(item) {
+			if (!item?.variant) return "";
+			return `, ${t("prov.models.variant_aria", {
+				count: fmtInt(item.variantCount),
+				warnings: fmtInt(item.variantWarnings)
+			})}`;
 		}
 		function providerRouteModels(name) {
 			const routes = state.data.config?.models?.routes || {};
@@ -13861,15 +14170,15 @@
           ` : `
           <div class="model-chip-list provider-drawer-models" role="list" ${largeCatalog ? `aria-label="${escapeHtml(t("prov.models.visible_count", { count: fmtInt(allItems.length) }))}"` : ""}>
             ${allItems.length ? allItems.slice(0, 100).map((item) => `
-              <span class="model-map-chip provider-model-chip ${item.disabled ? "is-disabled" : ""} ${item.pending ? "is-pending" : ""} ${item.manual ? "is-manual-map" : ""} ${item.static ? "is-static" : ""}" role="listitem">
+              <span class="model-map-chip provider-model-chip ${item.disabled ? "is-disabled" : ""} ${item.pending ? "is-pending" : ""} ${item.manual ? "is-manual-map" : ""} ${item.static ? "is-static" : ""} ${item.variant ? "is-variant" : ""}" role="listitem">
                 <button class="model-chip-toggle" type="button"
                   data-provider-model-disable-provider="${escapeHtml(view.name)}"
                   data-provider-model-disable-model="${escapeHtml(item.sourceModel)}"
                   data-provider-model-disable-next="${item.disabled ? "false" : "true"}"
                   title="${escapeHtml(`${item.disabled ? t("prov.models.stage_enable") : t("prov.models.stage_disable")} ${item.title}`)}"
-                  aria-label="${escapeHtml(`${item.disabled ? t("prov.models.stage_enable") : t("prov.models.stage_disable")} ${item.label}`)}">
+                  aria-label="${escapeHtml(`${item.disabled ? t("prov.models.stage_enable") : t("prov.models.stage_disable")} ${item.label}${providerCatalogVariantAria(item)}`)}">
                   <b>${escapeHtml(item.label)}</b>
-                  ${item.raw && item.raw !== item.label ? `<small>${escapeHtml(item.raw)}</small>` : ""}
+                  ${!item.variant && item.raw && item.raw !== item.label ? `<small>${escapeHtml(item.raw)}</small>` : ""}
                 </button>
                 ${item.pending ? `<span class="model-chip-pending-flag">${escapeHtml(t("prov.models.pending_short"))}</span>` : ""}
                 <button class="model-map-edit-button" type="button"
@@ -13879,7 +14188,7 @@
                   data-provider-model-map-edit-manual="${item.manual ? "1" : "0"}"
                   title="${escapeHtml(t("prov.models.edit_mapping"))}"
                   aria-label="${escapeHtml(t("prov.models.edit_mapping_for", { model: item.label }))}">${iconSvg("pencil")}</button>
-                ${item.static ? `<span class="model-chip-static-badge">${escapeHtml(t("prov.models.static_short"))}</span>` : ""}
+                ${item.variant ? `<span class="model-chip-variant-badge">${escapeHtml(t("prov.models.variant_count_short", { count: fmtInt(item.variantCount) }))}</span>` : item.static ? `<span class="model-chip-static-badge">${escapeHtml(t("prov.models.static_short"))}</span>` : ""}
               </span>
             `).join("") + (allItems.length > 100 ? `<span class="muted provider-model-overflow-note" role="listitem">${escapeHtml(t("prov.models.more", { count: fmtInt(allItems.length - 100) }))}</span>` : "") : `<div class="empty pad-slim" role="listitem">${escapeHtml(t("prov.models.no_match"))}</div>`}
           </div>
@@ -14006,17 +14315,20 @@
 		}
 		function providerModelRow(provider, item) {
 			const subParts = [];
-			if (item.raw && item.raw !== item.label) subParts.push(item.raw);
-			if (item.manual) subParts.push(t("prov.models.manual_map"));
+			if (item.variant) subParts.push(t("prov.models.variant_group_summary", { count: fmtInt(item.variantCount) }));
+			else {
+				if (item.raw && item.raw !== item.label) subParts.push(item.raw);
+				if (item.manual) subParts.push(t("prov.models.manual_map"));
+			}
 			if (item.static) subParts.push(t("prov.models.static"));
 			return `
-      <article class="provider-model-row ${item.disabled ? "is-off" : ""} ${item.pending ? "is-pending" : ""} ${item.static ? "is-static" : ""}" role="listitem">
-        <span class="provider-overview-state-dot ${item.static ? "static" : item.disabled ? "off" : "ok"}" aria-hidden="true"></span>
+      <article class="provider-model-row ${item.disabled ? "is-off" : ""} ${item.pending ? "is-pending" : ""} ${item.static ? "is-static" : ""} ${item.variant ? "is-variant" : ""}" role="listitem">
+        <span class="provider-overview-state-dot ${item.variant ? "variant" : item.static ? "static" : item.disabled ? "off" : "ok"}" aria-hidden="true"></span>
         <div class="provider-model-row-main">
           <b class="mono">${escapeHtml(item.label)}</b>
           ${subParts.length ? `<small>${escapeHtml(subParts.join(" · "))}</small>` : ""}
         </div>
-        ${item.pending ? badge(t("prov.models.pending_short"), "warn") : badge(item.disabled ? t("prov.models.disabled") : item.static ? t("prov.models.static") : t("prov.models.enabled"), item.disabled ? "off" : item.static ? "static" : "ok")}
+        ${item.pending ? badge(t("prov.models.pending_short"), "warn") : item.variant ? badge(t("prov.models.variant_count_short", { count: fmtInt(item.variantCount) }), "variant") : badge(item.disabled ? t("prov.models.disabled") : item.static ? t("prov.models.static") : t("prov.models.enabled"), item.disabled ? "off" : item.static ? "static" : "ok")}
         <div class="provider-model-row-ops">
           <button class="button secondary icon-action model-row-op" type="button"
             data-provider-model-map-edit-provider="${escapeHtml(provider)}"
@@ -14029,8 +14341,8 @@
             data-provider-model-disable-provider="${escapeHtml(provider)}"
             data-provider-model-disable-model="${escapeHtml(item.sourceModel)}"
             data-provider-model-disable-next="${item.disabled ? "false" : "true"}"
-            title="${escapeHtml(`${item.disabled ? t("prov.models.stage_enable") : t("prov.models.stage_disable")} ${item.label}`)}"
-            aria-label="${escapeHtml(`${item.disabled ? t("prov.models.stage_enable") : t("prov.models.stage_disable")} ${item.label}`)}">${iconSvg(item.disabled ? "power" : "eye-off")}</button>
+            title="${escapeHtml(`${item.disabled ? t("prov.models.stage_enable") : t("prov.models.stage_disable")} ${item.title || item.label}`)}"
+            aria-label="${escapeHtml(`${item.disabled ? t("prov.models.stage_enable") : t("prov.models.stage_disable")} ${item.label}${providerCatalogVariantAria(item)}`)}">${iconSvg(item.disabled ? "power" : "eye-off")}</button>
         </div>
       </article>
     `;

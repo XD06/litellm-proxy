@@ -27,6 +27,7 @@
   --route-info: #2878c8;
   --route-info-soft: #edf6ff;
   --model-static: #b45309;
+  --model-variant: #6b46c1;
   --compat: #6f55c4;
   --compat-soft: #f0edff;
   --metric-neutral: #2f3437;
@@ -1218,6 +1219,13 @@ h2 {
   border-color: color-mix(in srgb, var(--model-static) 30%, var(--line));
   background: color-mix(in srgb, var(--model-static) 10%, var(--surface));
   color: var(--model-static);
+  font-weight: 800;
+}
+
+.badge.variant {
+  border-color: color-mix(in srgb, var(--model-variant) 30%, var(--line));
+  background: color-mix(in srgb, var(--model-variant) 10%, var(--surface));
+  color: var(--model-variant);
   font-weight: 800;
 }
 
@@ -2949,6 +2957,11 @@ tr.clickable:hover {
   background: color-mix(in srgb, var(--model-static) 9%, var(--surface));
 }
 
+.provider-model-chip.is-variant {
+  border-color: color-mix(in srgb, var(--model-variant) 34%, var(--line));
+  background: color-mix(in srgb, var(--model-variant) 9%, var(--surface));
+}
+
 .provider-model-chip.is-disabled b {
   color: var(--muted);
   text-decoration: none;
@@ -2978,6 +2991,10 @@ tr.clickable:hover {
 
 .provider-drawer-models .provider-model-chip.is-static .model-chip-toggle b::before {
   background: var(--model-static);
+}
+
+.provider-drawer-models .provider-model-chip.is-variant .model-chip-toggle b::before {
+  background: var(--model-variant);
 }
 
 .model-chip-pending-flag {
@@ -3013,11 +3030,41 @@ tr.clickable:hover {
   grid-row: 1;
 }
 
+/* A variant group carries the same in-row badge as a static declaration, so it
+   reuses that grid: label, badge, edit button on a single track row. */
+.provider-drawer-models .provider-model-chip.is-variant {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.provider-drawer-models .provider-model-chip.is-variant .model-chip-variant-badge {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+  justify-self: end;
+}
+
+.provider-drawer-models .provider-model-chip.is-variant .model-map-edit-button {
+  grid-column: 3;
+  grid-row: 1;
+}
+
 .model-chip-static-badge {
   padding: 1px 6px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--model-static) 14%, var(--surface));
   color: var(--model-static);
+  font: 720 8.5px/1.6 var(--sans);
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* Variant marker: same violet family as the chip dot and the row state dot. */
+.model-chip-variant-badge {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--model-variant) 14%, var(--surface));
+  color: var(--model-variant);
   font: 720 8.5px/1.6 var(--sans);
   letter-spacing: 0.04em;
   pointer-events: none;
@@ -6673,6 +6720,10 @@ form.is-busy {
 
 .provider-overview-state-dot.static {
   background: var(--model-static);
+}
+
+.provider-overview-state-dot.variant {
+  background: var(--model-variant);
 }
 
 .provider-overview-readiness-line1 h3 {
@@ -19610,6 +19661,11 @@ body {
   background: color-mix(in srgb, var(--model-static) 9%, var(--surface));
 }
 
+.provider-drawer-models .provider-model-chip.is-variant {
+  border-color: color-mix(in srgb, var(--model-variant) 34%, var(--line-soft));
+  background: color-mix(in srgb, var(--model-variant) 9%, var(--surface));
+}
+
 .provider-drawer-models .model-chip-toggle {
   align-self: stretch;
   justify-content: start;
@@ -19702,6 +19758,19 @@ body {
 
 .provider-model-row.is-static .provider-model-row-main b {
   color: color-mix(in srgb, var(--model-static) 85%, var(--text));
+}
+
+.provider-model-row.is-variant {
+  border-color: color-mix(in srgb, var(--model-variant) 24%, var(--line-soft));
+  background: color-mix(in srgb, var(--model-variant) 7%, var(--surface));
+}
+
+.provider-model-row.is-variant .provider-model-row-main b {
+  color: color-mix(in srgb, var(--model-variant) 85%, var(--text));
+}
+
+.provider-model-row.is-variant.is-off .provider-model-row-main b {
+  color: var(--muted);
 }
 
 .provider-model-row-main small {
