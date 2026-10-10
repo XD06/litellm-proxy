@@ -162,7 +162,9 @@ Merge rules:
   the `empty_variant_group` warning with no chain. The backend ignores such a
   group entirely, which the tooltip states outright.
 - Members are ordered exactly as the backend orders them: `-priority`, then
-  configuration order; duplicates by raw collapse to the first occurrence.
+  configuration order; duplicates by raw collapse to the highest-priority
+  occurrence, because `model_registry.resolve_provider_model_candidates` sorts
+  before it de-duplicates.
 
 ## Rendering
 
