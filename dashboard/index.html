@@ -447,6 +447,25 @@
                     <label><span class="sr-only" data-i18n="usage_stats.provider_filter">Provider filter</span><select id="usageStatisticsProvider" class="control" data-usage-statistics-filter="provider" aria-label="Provider filter" data-i18n-attr="aria-label:usage_stats.provider_filter"><option value="" data-i18n="usage_stats.all_providers">All providers</option></select></label>
                     <label><span class="sr-only" data-i18n="usage_stats.format_filter">Client format filter</span><select id="usageStatisticsFormat" class="control" data-usage-statistics-filter="client_format" aria-label="Client format filter" data-i18n-attr="aria-label:usage_stats.format_filter"><option value="" data-i18n="usage_stats.all_formats">All formats</option></select></label>
                   </div>
+                  <div class="segmented-control usage-statistics-range models-only" id="modelUsageRange" role="group" aria-label="Model data time range" data-i18n-attr="aria-label:model_usage.range_label">
+                    <button class="segmented-button" type="button" data-model-usage-range="24h" aria-pressed="false">24h</button>
+                    <button class="segmented-button is-active" type="button" data-model-usage-range="7d" aria-pressed="true">7d</button>
+                    <button class="segmented-button" type="button" data-model-usage-range="30d" aria-pressed="false">30d</button>
+                    <button class="segmented-button" type="button" data-model-usage-range="90d" aria-pressed="false">90d</button>
+                    <button class="segmented-button" type="button" data-model-usage-range="1y" aria-pressed="false" data-i18n="usage_stats.one_year">1y</button>
+                    <button class="segmented-button" type="button" data-model-usage-range="all" aria-pressed="false" data-i18n="req.all">All</button>
+                    <button class="segmented-button" type="button" data-model-usage-range="custom" aria-pressed="false" data-i18n="usage_stats.custom">Custom</button>
+                  </div>
+                  <div class="usage-statistics-dimensions models-only">
+                    <label><span class="sr-only" data-i18n="usage_stats.provider_filter">Provider filter</span><select id="modelUsageProvider" class="control" data-model-usage-filter="provider" aria-label="Provider filter" data-i18n-attr="aria-label:usage_stats.provider_filter"><option value="" data-i18n="usage_stats.all_providers">All providers</option></select></label>
+                    <label><span class="sr-only" data-i18n="usage_stats.format_filter">Client format filter</span><select id="modelUsageFormat" class="control" data-model-usage-filter="client_format" aria-label="Client format filter" data-i18n-attr="aria-label:usage_stats.format_filter"><option value="" data-i18n="usage_stats.all_formats">All formats</option></select></label>
+                  </div>
+                  <div class="usage-statistics-custom-range models-only" id="modelUsageCustomRange" hidden>
+                    <label><span data-i18n="usage_stats.start_date">Start</span><input id="modelUsageStart" class="control" type="date" /></label>
+                    <span aria-hidden="true">→</span>
+                    <label><span data-i18n="usage_stats.end_date">End</span><input id="modelUsageEnd" class="control" type="date" /></label>
+                    <button id="modelUsageApplyCustom" class="button secondary compact-action" type="button" data-i18n="req.apply">Apply</button>
+                  </div>
                   <div class="statistics-toolbar-right">
                     <div class="usage-statistics-heading-meta" id="usageStatisticsMeta" aria-live="polite"></div>
                     <button id="usageStatisticsRefresh" class="icon-button usage-statistics-refresh" type="button" title="Refresh statistics" aria-label="Refresh statistics" data-i18n-attr="title:usage_stats.refresh;aria-label:usage_stats.refresh">
@@ -502,12 +521,6 @@
                   <div id="modelUsageSummary" class="model-usage-overview" aria-live="polite"></div>
                   <div class="model-usage-workspace">
                     <div class="model-usage-toolbar">
-                      <div class="segmented-control" id="modelUsageRange" role="group" aria-label="Model usage time range">
-                        <button class="segmented-button" type="button" data-model-usage-range="24h" aria-pressed="false">24h</button>
-                        <button class="segmented-button is-active" type="button" data-model-usage-range="7d" aria-pressed="true">7d</button>
-                        <button class="segmented-button" type="button" data-model-usage-range="30d" aria-pressed="false">30d</button>
-                        <button class="segmented-button" type="button" data-model-usage-range="all" aria-pressed="false" data-i18n="req.all">All</button>
-                      </div>
                       <label class="filter-search-field model-usage-search">
                         <span class="sr-only" data-i18n="model_usage.search">Search models</span>
                         <input id="modelUsageQuery" class="control" name="model_usage_query" autocomplete="off" spellcheck="false" placeholder="Search model ID..." data-i18n-attr="placeholder:model_usage.search_ph" />

@@ -30518,8 +30518,8 @@ body.is-auth-checking {
 #configView.is-model-data .usage-statistics-section-head h3 { font-size: 13.5px; }
 #configView.is-model-data .usage-statistics-section-head p { font-size: 10.5px; }
 #configView.is-model-data .usage-statistics-period,
-#configView.is-model-data .usage-statistics-timezone,
-#configView.is-model-data .usage-statistics-completeness { font-size: 10.5px; }
+#configView.is-model-data .usage-statistics-timezone { font-size: 10.5px; }
+#configView.is-model-data .usage-statistics-completeness { font-size: 11.5px; }
 #configView.is-model-data .usage-statistics-legend { font-size: 10px; }
 #configView.is-model-data .usage-statistics-rank { font-size: 10.5px; }
 #configView.is-model-data .usage-statistics-empty-state strong { font-size: 12.5px; }
@@ -30685,25 +30685,11 @@ body.is-auth-checking {
   box-shadow: var(--shadow-card);
 }
 
-/* 桌面宽度强制单行：装不下时横向滚动而不是换行 */
-@media (min-width: 1024px) {
-  .statistics-toolbar {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .statistics-toolbar::-webkit-scrollbar {
-    display: none;
-  }
-
-  .statistics-toolbar > * {
-    flex: 0 0 auto;
-  }
-
-  .statistics-toolbar-right {
-    margin-left: auto;
-  }
+/* 单行装不下时整组换到第二行，而不是把右侧同步 chip / 刷新按钮挤出可视区
+   （旧实现是 flex-wrap: nowrap + overflow-x: auto + 隐藏滚动条，
+   1024–1400px 窗口下右侧控件会被推到容器外、既看不见也滚不到） */
+.statistics-toolbar > * {
+  flex: 0 0 auto;
 }
 
 .statistics-toolbar-divider {
@@ -30715,11 +30701,12 @@ body.is-auth-checking {
 
 .statistics-toolbar-right {
   display: flex;
-  flex: 1 0 auto;
-  gap: 8px;
+  flex: 0 0 auto;
+  gap: 10px;
   align-items: center;
   justify-content: flex-end;
   margin-left: auto;
+  padding-left: 10px;
 }
 
 /* -- 自定义日期范围：fixed 弹层（工具条是 nowrap+overflow 容器，absolute 子元素会被裁剪） -- */
@@ -30759,6 +30746,12 @@ body.is-auth-checking {
 
 .statistics-toolbar[data-view="models"] .usage-only,
 #configView .statistics-toolbar[data-view="models"] .usage-only {
+  display: none !important;
+}
+
+/* -- 模型数据子视图的筛选控件：与使用统计同排同位，只在模型数据视图显示 -- */
+.statistics-toolbar[data-view="usage"] .models-only,
+#configView .statistics-toolbar[data-view="usage"] .models-only {
   display: none !important;
 }
 
@@ -30846,10 +30839,11 @@ body.is-auth-checking {
   align-items: center;
 }
 
+/* 筛选下拉略收窄（96px 仍容得下「全部供应商」）：给工具条单行留出余量 */
 #configView .usage-statistics-dimensions .control {
   height: 30px;
   min-height: 0;
-  max-width: 100px;
+  max-width: 96px;
   padding: 0 6px;
   border-radius: 8px;
   font-size: 12px;
@@ -30884,17 +30878,10 @@ body.is-auth-checking {
   color: var(--warning);
 }
 
-/* -- 有效数据窗口标注：范围被保留期截断时在同步 chip 内显示「自 …」 -- */
+/* -- 同步 chip 保持单行文本：有效数据窗口只在 tooltip 与图表副标题里说明 -- */
 #configView .usage-statistics-heading-meta {
   flex-wrap: nowrap;
 }
-
-#configView .usage-statistics-window {
-  font-style: normal;
-  font-weight: 600;
-  opacity: 0.72;
-}
-
 /* -- Hero KPI 三卡 -- */
 #configView.is-model-data .usage-statistics-summary {
   display: grid;
@@ -31530,13 +31517,20 @@ body.is-auth-checking {
 .usage-mini-card.tone-success .usage-mini-icon { background: #f0fdfa; color: #0d9488; }
 .usage-mini-card.tone-success .usage-mini-copy strong { color: #0d9488; }
 
-/* 同步 chip 淡雅化 */
+/* 同步 chip 淡雅化：与刷新按钮同高（28px）、字号提到 11.5px，行距不再发挤 */
 #configView .usage-statistics-completeness {
-  min-height: 0;
-  padding: 3px 9px;
+  min-height: 28px;
+  gap: 7px;
+  padding: 0 12px;
   border-color: #a7f3d0;
   background: #ecfdf5;
   color: #047857;
+}
+
+#configView .usage-statistics-completeness i {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
 }
 
 #configView .usage-statistics-completeness.is-partial {

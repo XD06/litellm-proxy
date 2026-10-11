@@ -481,6 +481,33 @@ class AdminApiTests(unittest.TestCase):
         self.assertEqual(listed["items"][0]["current_support_provider_count"], 1)
         self.assertEqual(detail_status, 200)
         self.assertEqual(detail["current_support"][0]["provider"], "alpha")
+        # The model-data view now accepts the same range vocabulary and the same
+        # source filters as the usage-statistics view, and rejects a custom range
+        # without usable bounds instead of silently ignoring it.
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(sse2json, "OBSERVABILITY", obs):
+            filtered_status, filtered = self.get_json(
+                "/-/admin/models/usage?range=7d&provider=alpha&client_format=chat_completions",
+                headers=headers,
+            )
+            missed_status, missed = self.get_json(
+                "/-/admin/models/usage?range=7d&provider=beta", headers=headers
+            )
+            bad_range_status, bad_range = self.get_json(
+                "/-/admin/models/usage?range=custom", headers=headers
+            )
+            bad_detail_status, _ = self.get_json(
+                "/-/admin/models/usage/client-model?range=custom", headers=headers
+            )
+
+        self.assertEqual(filtered_status, 200)
+        self.assertEqual(filtered["provider"], "alpha")
+        self.assertEqual(filtered["client_format"], "chat_completions")
+        self.assertEqual(filtered["total"], 1)
+        self.assertEqual(missed_status, 200)
+        self.assertEqual(missed["total"], 0)
+        self.assertEqual(bad_range_status, 400)
+        self.assertIn("custom range requires start < end", bad_range["error"]["message"])
+        self.assertEqual(bad_detail_status, 400)
 
     def test_admin_usage_statistics_endpoints_and_clear_are_authenticated(self):
         db_path = self.temp_overlay_path() + ".sqlite3"

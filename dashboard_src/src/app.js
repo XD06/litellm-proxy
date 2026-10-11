@@ -3317,9 +3317,9 @@ import {
 
   // 弹层用 fixed 定位贴着「自定义」按钮：工具条是 nowrap+overflow 容器，
   // absolute 子元素会被裁剪，fixed 则不受影响（祖先无 transform/filter）。
-  function positionUsageStatisticsCustomRange() {
-    const pop = el("usageStatisticsCustomRange");
-    const anchor = document.querySelector('[data-usage-statistics-range="custom"]');
+  function positionCustomRangePopover(popId, anchorSelector) {
+    const pop = el(popId);
+    const anchor = document.querySelector(anchorSelector);
     if (!pop || !anchor) return;
     pop.hidden = false;
     const rect = anchor.getBoundingClientRect();
@@ -3331,9 +3331,25 @@ import {
     pop.style.top = `${Math.round(Math.max(12, top))}px`;
   }
 
-  function hideUsageStatisticsCustomRange() {
-    const pop = el("usageStatisticsCustomRange");
+  function hideCustomRangePopover(popId) {
+    const pop = el(popId);
     if (pop && !pop.hidden) pop.hidden = true;
+  }
+
+  function positionUsageStatisticsCustomRange() {
+    positionCustomRangePopover("usageStatisticsCustomRange", '[data-usage-statistics-range="custom"]');
+  }
+
+  function hideUsageStatisticsCustomRange() {
+    hideCustomRangePopover("usageStatisticsCustomRange");
+  }
+
+  function positionModelUsageCustomRange() {
+    positionCustomRangePopover("modelUsageCustomRange", '[data-model-usage-range="custom"]');
+  }
+
+  function hideModelUsageCustomRange() {
+    hideCustomRangePopover("modelUsageCustomRange");
   }
 
   function usageStatisticsCustomTimestamp(value, endOfDay = false) {
@@ -3600,6 +3616,7 @@ import {
       button.classList.toggle("is-waiting-config", !configReady);
     });
     const modelUsageRange = el("modelUsageRange");
+    bindHorizontalSelectorKeys(modelUsageRange, "[data-model-usage-range]");
     if (modelUsageRange && !modelUsageRange.dataset.boundModelUsageRange) {
       modelUsageRange.dataset.boundModelUsageRange = "1";
       modelUsageRange.addEventListener("click", (event) => {
@@ -3607,14 +3624,67 @@ import {
         if (!button) return;
         state.modelUsageRange = button.dataset.modelUsageRange || "7d";
         state.modelUsagePage = 0;
-        qsa("[data-model-usage-range]").forEach((item) => {
+        modelUsageRange.querySelectorAll("[data-model-usage-range]").forEach((item) => {
           const active = item === button;
           item.classList.toggle("is-active", active);
           item.setAttribute("aria-pressed", active ? "true" : "false");
         });
+        const custom = el("modelUsageCustomRange");
+        if (state.modelUsageRange === "custom") {
+          // 自定义不直接拉数据：首次点开弹层，再次点击收起，应用后才加载。
+          if (custom && custom.hidden) positionModelUsageCustomRange();
+          else if (custom) custom.hidden = true;
+          return;
+        }
+        if (custom) custom.hidden = true;
         loadModelUsage({ force: true });
       });
     }
+    if (!document.body.dataset.boundModelUsageCustomDismiss) {
+      document.body.dataset.boundModelUsageCustomDismiss = "1";
+      document.addEventListener("pointerdown", (event) => {
+        const pop = el("modelUsageCustomRange");
+        if (!pop || pop.hidden) return;
+        if (pop.contains(event.target) || event.target.closest?.('[data-model-usage-range="custom"]')) return;
+        pop.hidden = true;
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") hideModelUsageCustomRange();
+      });
+      window.addEventListener("resize", hideModelUsageCustomRange);
+      window.addEventListener("scroll", hideModelUsageCustomRange, { passive: true, capture: true });
+    }
+    const modelUsageApplyCustom = el("modelUsageApplyCustom");
+    if (modelUsageApplyCustom && !modelUsageApplyCustom.dataset.boundModelUsageCustom) {
+      modelUsageApplyCustom.dataset.boundModelUsageCustom = "1";
+      modelUsageApplyCustom.addEventListener("click", () => {
+        const startValue = el("modelUsageStart")?.value || "";
+        const endValue = el("modelUsageEnd")?.value || "";
+        const start = usageStatisticsCustomTimestamp(startValue);
+        const end = usageStatisticsCustomTimestamp(endValue, true);
+        if (!start || !end || start >= end) {
+          setNotice(t("usage_stats.invalid_custom_range"), "bad");
+          return;
+        }
+        state.modelUsageCustomStart = startValue;
+        state.modelUsageCustomEnd = endValue;
+        state.modelUsagePage = 0;
+        hideModelUsageCustomRange();
+        loadModelUsage({ force: true });
+      });
+    }
+    document.querySelectorAll("[data-model-usage-filter]").forEach((select) => {
+      if (select.dataset.boundModelUsageFilter) return;
+      select.dataset.boundModelUsageFilter = "1";
+      select.addEventListener("change", () => {
+        const key = select.dataset.modelUsageFilter;
+        if (!key) return;
+        if (key === "provider") state.modelUsageProvider = select.value || "";
+        else if (key === "client_format") state.modelUsageFormat = select.value || "";
+        state.modelUsagePage = 0;
+        loadModelUsage({ force: true });
+      });
+    });
     const modelUsageApply = el("modelUsageApply");
     if (modelUsageApply && !modelUsageApply.dataset.boundModelUsageApply) {
       modelUsageApply.dataset.boundModelUsageApply = "1";
@@ -9576,6 +9646,33 @@ import {
     return params;
   }
 
+  // 模型数据视图与使用统计共用同一套范围词汇与来源筛选（provider / client_format），
+  // 两者只差一个维度下拉（模型数据用搜索框代替「全部模型」）。
+  function modelUsageParams() {
+    const params = new URLSearchParams({ range: state.modelUsageRange || "7d" });
+    if (state.modelUsageProvider) params.set("provider", state.modelUsageProvider);
+    if (state.modelUsageFormat) params.set("client_format", state.modelUsageFormat);
+    if (state.modelUsageRange === "custom") {
+      const start = usageStatisticsCustomTimestamp(state.modelUsageCustomStart);
+      const end = usageStatisticsCustomTimestamp(state.modelUsageCustomEnd, true);
+      if (start && end && start < end) {
+        params.set("start", String(start));
+        params.set("end", String(end));
+      }
+    }
+    return params;
+  }
+
+  async function ensureUsageStatisticsDimensions() {
+    if (state.data.usageStatisticsDimensions) return;
+    try {
+      state.data.usageStatisticsDimensions = await apiGet("/-/admin/usage-statistics/dimensions");
+    } catch (_e) {
+      return;
+    }
+    populateUsageStatisticsDimensions();
+  }
+
   function setUsageStatisticsBusy(parts, busy) {
     const mapping = {
       summary: "usageStatisticsSummary",
@@ -9662,19 +9759,23 @@ import {
   function populateUsageStatisticsDimensions() {
     const dimensions = state.data.usageStatisticsDimensions || {};
     const specs = [
-      ["usageStatisticsModel", "models", "model", t("usage_stats.all_models")],
-      ["usageStatisticsProvider", "providers", "provider", t("usage_stats.all_providers")],
-      ["usageStatisticsFormat", "client_formats", "client_format", t("usage_stats.all_formats")],
+      ["usageStatisticsModel", "models", "model", t("usage_stats.all_models"), state.usageStatisticsFilters],
+      ["usageStatisticsProvider", "providers", "provider", t("usage_stats.all_providers"), state.usageStatisticsFilters],
+      ["usageStatisticsFormat", "client_formats", "client_format", t("usage_stats.all_formats"), state.usageStatisticsFilters],
+      // 模型数据视图的筛选下拉复用同一份维度数据（同一套 provider / client_format 口径）。
+      ["modelUsageProvider", "providers", "provider", t("usage_stats.all_providers"), { provider: state.modelUsageProvider }],
+      ["modelUsageFormat", "client_formats", "client_format", t("usage_stats.all_formats"), { client_format: state.modelUsageFormat }],
     ];
-    specs.forEach(([id, listKey, filterKey, allLabel]) => {
+    specs.forEach(([id, listKey, filterKey, allLabel, source]) => {
       const select = el(id);
       if (!select) return;
       const values = Array.isArray(dimensions[listKey]) ? dimensions[listKey] : [];
-      const selected = String(state.usageStatisticsFilters?.[filterKey] || "");
-      const signature = JSON.stringify([values, allLabel]);
+      const selected = String(source?.[filterKey] || "");
+      const signature = JSON.stringify([values, allLabel, selected]);
       if (select.dataset.dimensionSignature !== signature) {
         select.dataset.dimensionSignature = signature;
-        updateDOM(select, `<option value="">${escapeHtml(allLabel)}</option>${values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("")}`);
+        const options = values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("");
+        updateDOM(select, `<option value="">${escapeHtml(allLabel)}</option>${options}`);
       }
       select.value = selected;
     });
@@ -9716,8 +9817,10 @@ import {
     const tip = [(startedAt || dataFrom) ? t("usage_stats.since", { date: fmtDate(startedAt || dataFrom) }) : t("usage_stats.awaiting_data"), timezone]
       .filter(Boolean)
       .join(" · ");
+    // 有效数据窗口只保留在 tooltip（tip 已含统计起始时间 + 时区）与图表副标题里：
+    // 内联「· 自 9月7日」会把 chip 撑宽 ~62px，在 ~1400px 窗口下把工具条顶成两行。
     updateDOM(target, `
-      <span class="usage-statistics-completeness ${complete ? "is-complete" : "is-partial"}" data-tip="${escapeHtml(tip)}"><i aria-hidden="true"></i>${escapeHtml(complete ? t("usage_stats.synced") : t("usage_stats.partial"))}${dataFrom ? `<em class="usage-statistics-window"> · ${escapeHtml(t("usage_stats.data_from", { date: usageStatisticsShortDate(dataFrom) }))}</em>` : ""}</span>
+      <span class="usage-statistics-completeness ${complete ? "is-complete" : "is-partial"}" data-tip="${escapeHtml(tip)}"><i aria-hidden="true"></i>${escapeHtml(complete ? t("usage_stats.synced") : t("usage_stats.partial"))}</span>
     `);
   }
 
@@ -10130,14 +10233,13 @@ import {
     tableTarget?.setAttribute("aria-busy", "true");
     el("usageStatisticsRefresh")?.classList.toggle("is-loading", true);
     if (!state.data.modelUsage) updateDOM(tableTarget, `<div class="empty pad">${escapeHtml(t("model_usage.loading"))}</div>`);
-    const params = new URLSearchParams({
-      range: state.modelUsageRange || "7d",
-      query: state.modelUsageQuery || "",
-      sort: state.modelUsageSort || "calls",
-      order: "desc",
-      limit: String(MODEL_USAGE_PAGE_SIZE),
-      offset: String(Math.max(0, Number(state.modelUsagePage || 0)) * MODEL_USAGE_PAGE_SIZE),
-    });
+    await ensureUsageStatisticsDimensions();
+    const params = modelUsageParams();
+    params.set("query", state.modelUsageQuery || "");
+    params.set("sort", state.modelUsageSort || "calls");
+    params.set("order", "desc");
+    params.set("limit", String(MODEL_USAGE_PAGE_SIZE));
+    params.set("offset", String(Math.max(0, Number(state.modelUsagePage || 0)) * MODEL_USAGE_PAGE_SIZE));
     try {
       state.data.modelUsage = await apiGet(`/-/admin/models/usage?${params.toString()}`);
       renderModelUsage();
@@ -10196,7 +10298,7 @@ import {
     const payload = state.data.modelUsage || {};
     const items = Array.isArray(payload.items) ? payload.items : [];
     const summary = payload.summary || {};
-    const rangeLabel = state.modelUsageRange === "all" ? t("req.all") : String(state.modelUsageRange || "7d");
+    const rangeLabel = usageStatisticsRangeLabel(state.modelUsageRange);
     updateDOM(el("modelUsagePageNav"), modelUsagePagination(payload));
     updateDOM(el("modelUsageSummary"), `
       <article class="model-overview-card tone-info">
@@ -10285,7 +10387,7 @@ import {
     drawer.classList.add("is-open");
     drawer.setAttribute("aria-hidden", "false");
     try {
-      const detail = await apiGet(`/-/admin/models/usage/${encodeURIComponent(modelName)}?range=${encodeURIComponent(state.modelUsageRange || "7d")}`);
+      const detail = await apiGet(`/-/admin/models/usage/${encodeURIComponent(modelName)}?${modelUsageParams().toString()}`);
       state.data.modelUsageDetail = detail;
       renderUsageModelDrawer(detail);
     } catch (err) {

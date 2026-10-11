@@ -1502,6 +1502,7 @@ const dict = {
   "model_usage.search": { en: "Search models", zh: "搜索模型" },
   "model_usage.search_ph": { en: "Search model ID…", zh: "搜索模型 ID…" },
   "model_usage.sort_label": { en: "Sort model usage", zh: "模型用量排序" },
+  "model_usage.range_label": { en: "Model data time range", zh: "模型数据时间范围" },
   "model_usage.table_label": { en: "Model usage and routing coverage", zh: "模型用量与路由覆盖" },
   "model_usage.open_model": { en: "Open model {model}", zh: "打开模型 {model}" },
   "model_usage.timeline_label": { en: "Calls over time: {summary}", zh: "调用趋势：{summary}" },

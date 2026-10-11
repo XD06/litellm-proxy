@@ -41,8 +41,8 @@ assert.match(modelUsage, /<caption class="sr-only">/, "model table needs an acce
 assert.match(modelUsage, /<th scope="col"/, "model table headers need column scope");
 assert.match(modelUsage, /data-model-usage-open=/, "model rows need a real open button");
 assert.doesNotMatch(modelUsage, /<tr[^>]+tabindex=/, "model table rows must not impersonate buttons");
-assert.match(app, /limit: String\(MODEL_USAGE_PAGE_SIZE\)/, "model usage must request a bounded page instead of silently truncating at 200 rows");
-assert.match(app, /offset: String\(Math\.max\(0, Number\(state\.modelUsagePage \|\| 0\)\) \* MODEL_USAGE_PAGE_SIZE\)/, "model usage pagination must send the selected model-page offset");
+assert.match(app, /params\.set\("limit", String\(MODEL_USAGE_PAGE_SIZE\)\)/, "model usage must request a bounded page instead of silently truncating at 200 rows");
+assert.match(app, /params\.set\("offset", String\(Math\.max\(0, Number\(state\.modelUsagePage \|\| 0\)\) \* MODEL_USAGE_PAGE_SIZE\)\)/, "model usage pagination must send the selected model-page offset");
 assert.match(app, /function modelUsagePagination[\s\S]*data-model-usage-page/, "model usage needs visible previous and next page controls");
 assert.match(modelUsage, /modelUsagePagination\(payload\)/, "model pagination must render with the aggregated model rows");
 assert.match(modelUsage, /current_support[\s\S]*model-usage-support/, "each client-model row must show its aggregated current provider support");
@@ -54,9 +54,49 @@ assert.match(state, /modelUsagePage:\s*0/, "model pagination needs explicit stat
 assert.match(constants, /MODEL_USAGE_PAGE_SIZE\s*=\s*10/, "model usage page size must remain intentionally bounded");
 assert.match(constants, /USAGE_STATISTICS_BREAKDOWN_PAGE_SIZE\s*=\s*6/, "lifetime breakdown must remain intentionally bounded");
 
+// 模型数据子视图必须与使用统计共享同一套筛选控件：范围（含 90d / 1y / 自定义）
+// 与来源下拉（provider / client_format）都在工具条同一行，面板内不再重复。
+const toolbarSlice = index.slice(index.indexOf('id="statisticsToolbar"'), index.indexOf('data-statistics-view-panel="usage"'));
+const panelSlice = index.slice(index.indexOf('class="model-usage-toolbar"'), index.indexOf('id="modelUsageTable"'));
+assert.ok(panelSlice.length > 0, "the model-data panel must keep its own search and sort toolbar");
+assert.match(toolbarSlice, /models-only[\s\S]*id="modelUsageRange"/, "the model-data view must expose its time range in the statistics toolbar");
+for (const range of ["24h", "7d", "30d", "90d", "1y", "all", "custom"]) {
+  assert.ok(toolbarSlice.includes(`data-model-usage-range="${range}"`), `the model-data toolbar must offer the ${range} range`);
+}
+assert.match(toolbarSlice, /data-model-usage-filter="provider"/, "the model-data toolbar must offer a provider filter");
+assert.match(toolbarSlice, /data-model-usage-filter="client_format"/, "the model-data toolbar must offer a client-format filter");
+assert.match(toolbarSlice, /id="modelUsageCustomRange"/, "the model-data toolbar must offer a custom date range");
+assert.doesNotMatch(panelSlice, /data-model-usage-range/, "the in-panel toolbar must not duplicate the shared range control");
+assert.match(app, /function modelUsageParams\(\)[\s\S]*params\.set\("provider"/, "the model-data request must carry the provider filter");
+assert.match(app, /function modelUsageParams\(\)[\s\S]*params\.set\("client_format"/, "the model-data request must carry the client-format filter");
+assert.match(app, /function modelUsageParams\(\)[\s\S]*params\.set\("start"[\s\S]*params\.set\("end"/, "a custom model-data range must send explicit start and end");
+assert.match(app, /models\/usage\/\$\{encodeURIComponent\(modelName\)\}\?\$\{modelUsageParams\(\)\.toString\(\)\}/, "the model drawer must reuse the same range and filters as the list");
+assert.match(styles, /data-view="usage"\] \.models-only/, "model-data controls must stay hidden on the usage subview");
+assert.match(styles, /data-view="models"\] \.usage-only/, "usage controls must stay hidden on the model-data subview");
+assert.match(state, /modelUsageProvider:\s*""[\s\S]*modelUsageFormat:\s*""/, "the model-data view needs explicit filter state");
+assert.match(i18n, /"model_usage\.range_label":/, "the model-data range control needs a bilingual label");
+
 for (const endpoint of ["summary", "timeseries", "breakdown", "dimensions"]) {
   assert.match(usageStatisticsLoader, new RegExp(`usage-statistics/${endpoint}`), `usage statistics must load ${endpoint}`);
 }
+// 样式表大括号必须配平：插入规则时漏掉闭合大括号会静默吞掉后续规则，
+// 而子串断言和浏览器都不会报错（本轮真实事故，靠 DOM 探针才发现）。
+let styleDepth = 0;
+let styleMinDepth = 0;
+for (const char of styles) {
+  if (char === "{") styleDepth += 1;
+  else if (char === "}") {
+    styleDepth -= 1;
+    styleMinDepth = Math.min(styleMinDepth, styleDepth);
+  }
+}
+assert.strictEqual(styleDepth, 0, "styles.css must not end with an unclosed rule block");
+assert.strictEqual(styleMinDepth, 0, "styles.css must not close more rule blocks than it opens");
+assert.match(
+  styles,
+  /data-view="usage"\] \.models-only,[\s\S]*?display: none !important;\s*\}/,
+  "the models-only hide rule must be a complete rule block",
+);
 assert.match(usageStatisticsLoader, /Promise\.allSettled/, "independent statistics panels must degrade without blanking the whole page");
 assert.match(usageStatisticsLoader, /usageStatisticsLoadSeq/, "stale statistics responses must not overwrite newer filters");
 assert.match(app, /usage-statistics\/clear[\s\S]*clear_usage_statistics/, "permanent statistics clearing must use the backend confirmation contract");
@@ -145,5 +185,29 @@ assert.match(styles, /\.config-panels\s*\{[\s\S]*?gap:\s*14px/, "merged config p
 assert.match(styles, /\.usage-hero-grid\s*\{[\s\S]*?grid-template-columns:/, "usage statistics needs one intentional hero KPI row");
 assert.match(styles, /\.usage-statistics-chart-canvas svg\s*\{[\s\S]*?width:\s*100%/, "statistics charts must scale to the workspace");
 assert.match(styles, /\.usage-statistics-breakdown-row\s*\{[\s\S]*?grid-template-columns:/, "statistics breakdown rows must keep aligned metrics");
+
+// 使用统计工具条：单行优先，装不下时优雅换行 —— 绝不能靠"隐藏滚动条的横向溢出"来省空间。
+// 实测（headless Chrome + 真实 viewport）：旧实现 flex-wrap: nowrap + overflow-x: auto +
+// scrollbar-width: none，在 1100px 窗口下溢出 297px，右侧 chip/刷新被推到容器右缘 284px 之外，
+// 既看不见也滚不到。同步 chip 也必须保持紧凑：内联「· 自 9月7日」会让 chip 从 120.5px 涨到
+// 188.1px，把 ~1400px 窗口的工具条顶成两行（窗口宽度实测阈值 1440 → 1400）。
+// 注释里会提到历史实现，比对前先剥掉 CSS 注释，避免守护被自己的说明文字触发。
+const stylesNoComments = styles.replace(/\/\*[\s\S]*?\*\//g, "");
+const toolbarRules = stylesNoComments.slice(stylesNoComments.indexOf(".statistics-toolbar {"), stylesNoComments.indexOf(".statistics-toolbar-divider"));
+assert.ok(toolbarRules.length > 0, "the statistics toolbar base rule must exist");
+assert.match(toolbarRules, /flex-wrap:\s*wrap/, "the toolbar must wrap instead of clipping when one row cannot fit");
+assert.doesNotMatch(toolbarRules, /flex-wrap:\s*nowrap/, "the toolbar must not pin a single row: hidden overflow clips the sync chip");
+assert.doesNotMatch(toolbarRules, /overflow-x:\s*auto/, "the toolbar must not scroll horizontally because its scrollbar is hidden and clipped controls are unreachable");
+assert.match(styles, /\.statistics-toolbar > \*\s*\{[^}]*flex:\s*0 0 auto/, "toolbar controls must keep their intrinsic width instead of shrinking unpredictably");
+assert.match(styles, /\.statistics-toolbar-right\s*\{[^}]*flex:\s*0 0 auto[^}]*padding-left/, "the sync cluster must stay intact with a guaranteed gap from the filters");
+assert.match(styles, /#configView \.usage-statistics-completeness\s*\{[\s\S]*?min-height:\s*28px/, "the sync chip must match the refresh button height instead of being squeezed");
+assert.match(styles, /usage-statistics-completeness \{ font-size: 11\.5px; \}/, "the sync chip needs a readable font size in the toolbar");
+assert.match(styles, /\.usage-statistics-dimensions \.control\s*\{[\s\S]*?max-width:\s*96px/, "filter selects must stay narrow enough to keep the toolbar on one row");
+assert.doesNotMatch(styles, /\.usage-statistics-window/, "the inline data-window rule must stay removed: it widened the sync chip");
+const usageStatisticsMetaMarkup = between("function renderUsageStatisticsMeta", "function usageStatisticsCostStatus");
+assert.doesNotMatch(usageStatisticsMetaMarkup, /usage-statistics-window/, "the sync chip must not inline the data window: it forces a second toolbar row");
+assert.doesNotMatch(usageStatisticsMetaMarkup, /usage_stats\.data_from/, "the sync chip must keep a short label; the window belongs in its tooltip");
+assert.match(usageStatisticsMetaMarkup, /usage_stats\.since/, "the sync chip tooltip must still explain when statistics started");
+assert.match(usageStatisticsChart, /usage_stats\.data_from/, "the truncated data window must stay visible in the chart subtitle");
 
 console.log("usage observability UI tests passed");

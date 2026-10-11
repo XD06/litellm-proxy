@@ -1667,6 +1667,10 @@ class ProxyObservability:
         order: str = "desc",
         limit: int = 50,
         offset: int = 0,
+        start: Any = None,
+        end: Any = None,
+        provider: str = "",
+        client_format: str = "",
     ) -> Dict[str, Any]:
         payload = self._history.model_usage(
             range_name=range_name,
@@ -1675,11 +1679,19 @@ class ProxyObservability:
             order=order,
             limit=limit,
             offset=offset,
+            start=start,
+            end=end,
+            provider=provider,
+            client_format=client_format,
         )
         if payload is None:
             return {
                 "source": "disabled",
                 "range": range_name,
+                "start": start,
+                "end": end,
+                "provider": provider,
+                "client_format": client_format,
                 "total": 0,
                 "limit": limit,
                 "offset": offset,
@@ -1692,8 +1704,24 @@ class ProxyObservability:
             item["current_support_provider_count"] = sum(1 for entry in current if entry.get("enabled"))
         return payload
 
-    def model_usage_detail(self, client_model: str, *, range_name: str = "7d") -> Optional[Dict[str, Any]]:
-        payload = self._history.model_usage_detail(client_model, range_name=range_name)
+    def model_usage_detail(
+        self,
+        client_model: str,
+        *,
+        range_name: str = "7d",
+        start: Any = None,
+        end: Any = None,
+        provider: str = "",
+        client_format: str = "",
+    ) -> Optional[Dict[str, Any]]:
+        payload = self._history.model_usage_detail(
+            client_model,
+            range_name=range_name,
+            start=start,
+            end=end,
+            provider=provider,
+            client_format=client_format,
+        )
         if payload is None:
             return None
         payload["current_support"] = self._current_model_support(client_model)

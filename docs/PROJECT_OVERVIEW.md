@@ -305,7 +305,7 @@ For specific architectural subsystems and operations, refer to the dedicated gui
 
 ## Testing
 
-### Test Suite (986 tests / 54 files — current measured value; earlier "886", "821", "459" were historical)
+### Test Suite (989 tests / 54 files — current measured value; earlier "886", "821", "459" were historical)
 
 > Trust source: `python -m pytest tests/ --collect-only`. Dashboard UI adds 34 Node tests via `npm test` (`dashboard_src/tests/` contains 35 files; `operation-guard.test.mjs` is not in the npm script).
 

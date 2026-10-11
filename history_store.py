@@ -1561,10 +1561,50 @@ class RequestHistoryStore:
         return out
 
     @staticmethod
-    def _usage_range_start(value: Any) -> int:
-        ranges = {"24h": 86400, "7d": 7 * 86400, "30d": 30 * 86400}
-        seconds = ranges.get(str(value or "7d").lower())
-        return int(time.time()) - seconds if seconds else 0
+    def _usage_window(
+        range_name: Any, start: Any = None, end: Any = None, *, now: Optional[int] = None
+    ) -> Tuple[int, int]:
+        """Resolve a statistics-style range into a [start, end) epoch window.
+
+        Mirrors the usage-statistics vocabulary (24h / 7d / 30d / 90d / 1y / all /
+        custom) so the model-data view and the usage view can never disagree about
+        what a range means — the previous 24h/7d/30d-only resolver silently treated
+        everything else as "no time filter", i.e. a 90d request returned all data.
+
+        A 0 bound means unbounded (no clause is emitted). ``custom`` requires an
+        explicit start < end and raises ValueError otherwise, exactly like
+        ``usage_statistics._range``.
+        """
+
+        def as_epoch(value: Any) -> int:
+            try:
+                return int(float(value))
+            except (TypeError, ValueError):
+                return 0
+
+        now_i = int(now if now is not None else time.time())
+        end_i = as_epoch(end)
+        bounded_end = min(end_i, now_i) if end_i else 0
+        name = str(range_name or "7d").lower()
+        if name == "custom":
+            start_i = as_epoch(start)
+            if not start_i or not bounded_end or start_i >= bounded_end:
+                raise ValueError("custom range requires start < end")
+            return start_i, bounded_end
+        if name == "all":
+            return 0, bounded_end
+        seconds = {
+            "24h": 86400,
+            "7d": 7 * 86400,
+            "30d": 30 * 86400,
+            "90d": 90 * 86400,
+            "1y": 365 * 86400,
+        }.get(name)
+        if not seconds:
+            return 0, bounded_end
+        # Relative ranges only bound the past; an explicit end (or "all") is what
+        # introduces an upper bound, so rows written in the current second survive.
+        return now_i - seconds, bounded_end
 
     def first_event_latency_stats(
         self,
@@ -1691,9 +1731,14 @@ class RequestHistoryStore:
         order: str = "desc",
         limit: int = 50,
         offset: int = 0,
+        start: Any = None,
+        end: Any = None,
+        provider: str = "",
+        client_format: str = "",
     ) -> Optional[Dict[str, Any]]:
         if not self.enabled:
             return None
+        window_start, window_end = self._usage_window(range_name, start, end)
         sort_columns = {
             "calls": "calls",
             "tokens": "total_tokens",
@@ -1705,8 +1750,29 @@ class RequestHistoryStore:
         order_sql = "ASC" if str(order or "desc").lower() == "asc" else "DESC"
         limit = max(1, min(500, int(limit or 50)))
         offset = max(0, int(offset or 0))
-        clauses = ["r.finished_at >= ?"] if self._usage_range_start(range_name) else []
-        params: list[Any] = [self._usage_range_start(range_name)] if clauses else []
+        time_clauses: list[str] = []
+        time_params: list[Any] = []
+        if window_start:
+            time_clauses.append("r.finished_at >= ?")
+            time_params.append(window_start)
+        if window_end:
+            time_clauses.append("r.finished_at < ?")
+            time_params.append(window_end)
+        clauses: list[str] = [*time_clauses]
+        params: list[Any] = [*time_params]
+        provider = str(provider or "").strip()
+        if provider:
+            # "Served by this provider" means it produced a successful attempt —
+            # the same notion the model drawer reports as historical_success_providers.
+            clauses.append(
+                "EXISTS (SELECT 1 FROM attempts a WHERE a.request_id = r.request_id"
+                " AND a.provider = ? AND a.outcome = 'success')"
+            )
+            params.append(provider)
+        client_format = str(client_format or "").strip()
+        if client_format:
+            clauses.append("r.client_format = ?")
+            params.append(client_format)
         query = str(query or "").strip()
         if query:
             clauses.append("r.model LIKE ? ESCAPE '\\'")
@@ -1740,10 +1806,10 @@ class RequestHistoryStore:
                         SELECT DISTINCT r.model, a.provider
                         FROM requests r JOIN attempts a ON a.request_id = r.request_id
                         WHERE r.model IN ({placeholders}) AND a.outcome = 'success'
-                        {"AND r.finished_at >= ?" if self._usage_range_start(range_name) else ""}
+                        {" ".join(f"AND {clause}" for clause in time_clauses)}
                         ORDER BY a.provider ASC
                         """,
-                        [*models, *([self._usage_range_start(range_name)] if self._usage_range_start(range_name) else [])],
+                        [*models, *time_params],
                     ).fetchall()
                     for row in provider_rows:
                         historical.setdefault(str(row["model"] or ""), []).append(str(row["provider"] or ""))
@@ -1766,6 +1832,10 @@ class RequestHistoryStore:
             return {
                 "source": "sqlite",
                 "range": str(range_name or "7d"),
+                "start": window_start,
+                "end": window_end,
+                "provider": provider,
+                "client_format": client_format,
                 "query": query,
                 "sort": str(sort or "calls"),
                 "order": order_sql.lower(),
@@ -1783,13 +1853,41 @@ class RequestHistoryStore:
         except Exception:
             return None
 
-    def model_usage_detail(self, client_model: str, *, range_name: str = "7d") -> Optional[Dict[str, Any]]:
+    def model_usage_detail(
+        self,
+        client_model: str,
+        *,
+        range_name: str = "7d",
+        start: Any = None,
+        end: Any = None,
+        provider: str = "",
+        client_format: str = "",
+    ) -> Optional[Dict[str, Any]]:
         if not self.enabled or not str(client_model or "").strip():
             return None
         model = str(client_model).strip()
-        start = self._usage_range_start(range_name)
-        range_clause = "AND r.finished_at >= ?" if start else ""
-        params: list[Any] = [model, *([start] if start else [])]
+        window_start, window_end = self._usage_window(range_name, start, end)
+        filter_clauses: list[str] = []
+        filter_params: list[Any] = []
+        if window_start:
+            filter_clauses.append("AND r.finished_at >= ?")
+            filter_params.append(window_start)
+        if window_end:
+            filter_clauses.append("AND r.finished_at < ?")
+            filter_params.append(window_end)
+        provider = str(provider or "").strip()
+        if provider:
+            filter_clauses.append(
+                "AND EXISTS (SELECT 1 FROM attempts a WHERE a.request_id = r.request_id"
+                " AND a.provider = ? AND a.outcome = 'success')"
+            )
+            filter_params.append(provider)
+        client_format = str(client_format or "").strip()
+        if client_format:
+            filter_clauses.append("AND r.client_format = ?")
+            filter_params.append(client_format)
+        range_clause = " ".join(filter_clauses)
+        params: list[Any] = [model, *filter_params]
         try:
             self._ensure_ready()
             with self._connection() as conn:
@@ -1821,7 +1919,9 @@ class RequestHistoryStore:
                     """,
                     params,
                 ).fetchall()
-                span = max(1, int(time.time()) - (start or int(time.time()) - 30 * 86400))
+                window_end_i = int(window_end) if window_end else int(time.time())
+                window_start_i = int(window_start) if window_start else window_end_i - 30 * 86400
+                span = max(1, window_end_i - window_start_i)
                 bucket_s = 3600 if span <= 2 * 86400 else 86400
                 series_rows = conn.execute(
                     f"""
@@ -1856,6 +1956,10 @@ class RequestHistoryStore:
             return {
                 "source": "sqlite",
                 "range": str(range_name or "7d"),
+                "start": window_start,
+                "end": window_end,
+                "provider": provider,
+                "client_format": client_format,
                 "client_model": model,
                 "summary": self._model_usage_row(summary_row),
                 "providers": providers,

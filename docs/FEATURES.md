@@ -513,7 +513,8 @@ litellm-proxy --host 0.0.0.0 --port 8080   # 自定义绑定地址和端口
 | 供应商管理 | 添加/编辑供应商、密钥、代理设置、上游格式 |
 | 路由配置 | 编辑路由模式、重试策略、失败策略、模型路由 |
 | 请求历史 | 逐次尝试追踪、延迟分解、Token 用量、费用估算 |
-| 用量统计 | 时序趋势与分组明细（Token/成本/请求数/TTFT），24h–自定义时间范围与维度筛选，模型维度汇总 |
+| 用量统计 | 时序趋势与分组明细（Token/成本/请求数/TTFT），24h/7d/30d/90d/1年/全部/自定义时间范围与模型/供应商/格式筛选 |
+| 模型数据 | 客户端模型维度的用量聚合与明细抽屉，与用量统计**共用同一排**时间范围与筛选控件（区间与过滤口径完全一致） |
 | Playground | 内置 API 测试器，支持三种格式，SSE 流式 |
 | 运行时覆盖 | 导出、验证或清除运行时覆盖配置 |
 | 审计日志 | 管理员操作记录，敏感字段自动脱敏 |
@@ -552,6 +553,15 @@ litellm-proxy --host 0.0.0.0 --port 8080   # 自定义绑定地址和端口
 * **写入口径与 API 一致**：变体组改键名是两次 PATCH（先写新键、再对旧键发空列表，占用冲突先二次确认）；目录侧编辑与抽屉"别名"区块共用同一份写入计划，两处改动相通（端点细节见 [docs/API_REFERENCE.md](API_REFERENCE.md) §2.4）。
 * **冲突警告（7 类）**：`variant_shadows_manual_map`（变体组遮蔽手动重命名）、`variant_shadows_discovered`（遮蔽自动发现）、`same_name_static`（与静态声明同名）、`shared_upstream`（多个 id 共用同一上游 raw）、`case_only_duplicate`（仅大小写不同的重复键）、`stale_upstream_disabled`（组内上游已禁用）、`empty_variant_group`（空组，不会出现在 `/v1/models`）。警告只出现在悬浮提示与 `aria-label` 计数里，**不阻塞保存**（后端同样保持"最高优先级生效、永不阻塞"）。
 * 设计决策与取舍见 [2026-10-10 变体组进入模型目录设计文档](superpowers/specs/2026-10-10-variant-group-catalog-design.md)。
+
+### 10.6 配置与统计 · 统一工具条与同步 chip
+
+"数据统计"页的两个子视图（使用统计 / 模型数据）共用**同一排工具条**，靠根节点 `data-view` 属性切换：使用统计显示 `.usage-only` 控件、模型数据显示 `.models-only` 控件，两组样式上互斥（`display: none !important`），因此不会再出现"两个视图各有一套范围控件、口径又不一致"的情况。
+
+* **控件分工**：时间范围（24h / 7d / 30d / 90d / 1 年 / 全部 / 自定义）、供应商下拉、客户端格式下拉、自定义日期浮层都在工具条里；搜索、排序、分页留在面板内（避免同页两组范围控件）。范围是**会话内共享**的：两个子视图各自记住自己的选择（`state.modelUsageRange` / `state.usageStatisticsRange`）。
+* **后端口径一致**：两个视图的区间与过滤走同一套解析与同义过滤（`provider` = 被该供应商成功服务过），详见 [docs/API_REFERENCE.md](API_REFERENCE.md) §2.6。
+* **布局契约（单行优先，装不下整组换行）**：工具条是 `flex-wrap: wrap` 容器，子项一律 `flex: 0 0 auto`（不收缩，避免控件被压成不可用宽度），右侧同步组 `flex: 0 0 auto` + `padding-left`（保证与筛选控件的最小间距，同时不因换行被裁）。**不允许**用 `flex-wrap: nowrap` + 隐藏滚动条的横向溢出省空间——实测 1100px 窗口下溢出 297px，右侧 chip/刷新会被推到容器外，既看不见也滚不到。用 headless Chrome 在真实 viewport 下实测：≥ ~1350px 窗口单行，更窄时右侧同步组整体落到第二行，任何宽度零溢出、右侧控件距右边缘固定 13px。
+* **同步 chip 契约**：只显示同步状态文字（数据已完整同步 / 数据不完整）与状态圆点，高度 28px（与刷新按钮同高）、字号 11.5px；**有效数据窗口（"自 N月N日"）只放在 chip 悬浮提示与图表副标题里**——内联进 chip 会让它从 120.5px 涨到 188.1px，把 ~1400px 窗口的单行工具条顶成两行。回归守护见 `dashboard_src/tests/usage-observability.test.mjs`（含"不许 nowrap / 不许横向溢出滚动 / chip 高度与字号 / 不许内联窗口标注"五条反向验证过的断言）。
 
 ---
 
@@ -788,7 +798,7 @@ OPENAI_API_KEY=sk-... DEEPSEEK_API_KEY=sk-... python sse2json.py
 
 ### 17.1 测试规模
 
-- **986 个测试用例**（54 个测试文件，`python -m pytest tests/ --collect-only` 实测）
+- **989 个测试用例**（54 个测试文件，`python -m pytest tests/ --collect-only` 实测）
 - 覆盖路由、转换、配置、流式、Admin API、可观测性、基础设施、模型管理
 
 ### 17.2 测试分类

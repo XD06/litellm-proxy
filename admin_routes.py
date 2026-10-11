@@ -315,16 +315,23 @@ class AdminRoutesMixin:
             return self._resp_json(OBSERVABILITY.list_requests(filters=filters, limit=limit, offset=offset))
         if endpoint == "models/usage":
             params = self._query_params()
-            return self._resp_json(
-                OBSERVABILITY.model_usage(
-                    range_name=params.get("range", "7d"),
-                    query=params.get("query", ""),
-                    sort=params.get("sort", "calls"),
-                    order=params.get("order", "desc"),
-                    limit=params.get("limit", 50),
-                    offset=params.get("offset", 0),
+            try:
+                return self._resp_json(
+                    OBSERVABILITY.model_usage(
+                        range_name=params.get("range", "7d"),
+                        query=params.get("query", ""),
+                        sort=params.get("sort", "calls"),
+                        order=params.get("order", "desc"),
+                        limit=params.get("limit", 50),
+                        offset=params.get("offset", 0),
+                        start=params.get("start"),
+                        end=params.get("end"),
+                        provider=params.get("provider", ""),
+                        client_format=params.get("client_format", ""),
+                    )
                 )
-            )
+            except ValueError as exc:
+                return self._resp_json({"error": {"message": str(exc)}}, 400)
         if endpoint == "usage-statistics/summary":
             params = self._query_params()
             try:
@@ -376,7 +383,17 @@ class AdminRoutesMixin:
         if endpoint.startswith("models/usage/"):
             params = self._query_params()
             client_model = urllib.parse.unquote(endpoint.split("models/usage/", 1)[1])
-            detail = OBSERVABILITY.model_usage_detail(client_model, range_name=params.get("range", "7d"))
+            try:
+                detail = OBSERVABILITY.model_usage_detail(
+                    client_model,
+                    range_name=params.get("range", "7d"),
+                    start=params.get("start"),
+                    end=params.get("end"),
+                    provider=params.get("provider", ""),
+                    client_format=params.get("client_format", ""),
+                )
+            except ValueError as exc:
+                return self._resp_json({"error": {"message": str(exc)}}, 400)
             if detail is None:
                 return self._resp_json({"error": {"message": f"unknown model usage: {client_model}"}}, 404)
             try:

@@ -89,6 +89,11 @@
 * **`GET /-/admin/stats`**：获取系统全局及各供应商的请求成功率、延迟百分位数、Token 消耗与费用统计。
 * **`GET /-/admin/history`**：获取近期请求的详细调用链追踪记录（包含每轮 Attempt、上游响应时延、状态码）。
 * **`GET /-/admin/health`**：获取各供应商节点的实时探针健康度与冷却剩余时间。
+* **`GET /-/admin/models/usage`**：按**客户端模型 id** 聚合的用量列表（控制台「模型数据」子视图的数据源）。
+  * 查询参数：`range`（`24h` / `7d` / `30d` / `90d` / `1y` / `all` / `custom`，默认 `7d`）、`query`（模型名过滤）、`sort`（`calls` 等）与 `order`（`asc|desc`）、`limit`（默认 50）与 `offset`、`start` / `end`（epoch 秒）、`provider`、`client_format`。
+  * 与 `usage-statistics/*` **共用同一套区间解析**（`history_store._usage_window`）：`custom` 缺少 `start`/`end` 或 `start >= end` → **400** `custom range requires start < end`；相对区间只设**下界**（`end` 仅在显式传入或 `custom` 时生效），避免把与 `now` 同一秒写入的行排除。此前该端点只认 24h/7d/30d，其余区间被静默当作"无时间过滤"。
+  * `provider` / `client_format` 过滤语义 = "被该供应商 / 客户端格式**成功服务过**"（`attempts` 子查询要求 `outcome = 'success'`），只产生失败尝试的供应商不计入。响应回显 `range` / `start` / `end` / `provider` / `client_format`。
+* **`GET /-/admin/models/usage/{client_model}`**：单个客户端模型的用量明细（同样的区间与过滤参数，无分页与排序），并附该模型当前生效的供应商支持与路由总览；未知模型 → 404 `unknown model usage: {client_model}`。控制台模型数据抽屉复用与列表完全相同的参数（见 [docs/FEATURES.md](FEATURES.md) §10.6）。
 
 ### 2.7 客户端虚拟密钥 (Client Keys)
 * **`GET /-/admin/client-keys`**：列出虚拟密钥（脱敏预览 + 用量计数 `requests_total` / `consumed_tokens` / `cost_usd` / `last_used_at`，随请求实时累加）。

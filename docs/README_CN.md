@@ -8,7 +8,7 @@
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-3776AB.svg?style=flat-square&logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![CI](https://github.com/XD06/litellm-proxy/actions/workflows/ci.yml/badge.svg?style=flat-square)](https://github.com/XD06/litellm-proxy/actions/workflows/ci.yml)
 [![Docker Pulls](https://img.shields.io/docker/pulls/dsk3/litellm-proxy.svg?style=flat-square&logo=docker&logoColor=white)](https://hub.docker.com/r/dsk3/litellm-proxy)
-[![Tests](https://img.shields.io/badge/tests-986%20collected-brightgreen.svg?style=flat-square)](https://github.com/XD06/litellm-proxy/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-989%20collected-brightgreen.svg?style=flat-square)](https://github.com/XD06/litellm-proxy/actions/workflows/ci.yml)
 [![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-ff69b4.svg?style=flat-square)](https://github.com/XD06/litellm-proxy/pulls)
 
 [![Platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macOS%20%7C%20Windows-blue.svg?style=flat-square)]()
@@ -388,7 +388,7 @@ sequenceDiagram
 | 🖥️ 控制台运行时 | `dashboard/` | 构建后的静态资源，由代理服务 |
 | 🎨 控制台源码 | `dashboard_src/` | Vite + 原生 JS 源码，含 i18n、morphdom |
 | 🐳 部署 | `Dockerfile`, `docker-compose.yml`, `deploy/` | Docker、systemd、Nginx 反向代理配置 |
-| 🧪 测试 | `tests/`（54 个文件，986 测试）+ `dashboard_src/tests/`（34 个 Node 测试，`npm test` 实跑） | 覆盖路由、转换、配置、流式、Admin API 的 pytest；控制台 UI 的 Node 测试 |
+| 🧪 测试 | `tests/`（54 个文件，989 测试）+ `dashboard_src/tests/`（34 个 Node 测试，`npm test` 实跑） | 覆盖路由、转换、配置、流式、Admin API 的 pytest；控制台 UI 的 Node 测试 |
 
 > **📚 进阶架构与排障指南**：
 > - **[架构全景（克制版）](../ARCHITECTURE.md)**
@@ -401,7 +401,7 @@ sequenceDiagram
 ## 🛠️ 开发
 
 ```bash
-# 运行测试（986 测试，54 个文件）
+# 运行测试（989 测试，54 个文件）
 python -m pytest tests/ -q
 
 # 编译检查核心文件

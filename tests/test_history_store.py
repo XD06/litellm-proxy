@@ -384,6 +384,84 @@ class RequestHistoryStoreTests(unittest.TestCase):
         self.assertEqual(payload["items"][0]["client_model"], "beta-model")
         self.assertEqual(payload["summary"]["calls"], 3)
 
+    def test_model_usage_window_matches_the_statistics_range_vocabulary(self):
+        now = int(time.time())
+
+        # The model-data view used to resolve only 24h/7d/30d and treated every
+        # other name as "no time filter", so a 90d request silently returned all
+        # history. The vocabulary must match usage_statistics._range.
+        self.assertEqual(
+            RequestHistoryStore._usage_window("90d", now=now), (now - 90 * 86400, 0)
+        )
+        self.assertEqual(
+            RequestHistoryStore._usage_window("1y", now=now), (now - 365 * 86400, 0)
+        )
+        self.assertEqual(RequestHistoryStore._usage_window("all", now=now), (0, 0))
+        self.assertEqual(RequestHistoryStore._usage_window("7d", now=now), (now - 7 * 86400, 0))
+        self.assertEqual(
+            RequestHistoryStore._usage_window("custom", now - 3600, now - 60, now=now),
+            (now - 3600, now - 60),
+        )
+        # An explicit end is honoured (and never runs past "now").
+        self.assertEqual(
+            RequestHistoryStore._usage_window("7d", None, now + 600, now=now),
+            (now - 7 * 86400, now),
+        )
+        for bad in (("custom", None, None), ("custom", now, now - 10), ("custom", "x", "y")):
+            with self.assertRaises(ValueError):
+                RequestHistoryStore._usage_window(bad[0], bad[1], bad[2], now=now)
+
+    def test_model_usage_applies_custom_windows_and_source_filters(self):
+        store = self.store()
+        now = int(time.time())
+        served = sample_request("req-filter-alpha", provider="alpha", finished_at=now - 60)
+        served["model"] = "alpha-model"
+        other = sample_request("req-filter-beta", provider="beta", finished_at=now - 30)
+        other["model"] = "beta-model"
+        other["client_format"] = "responses"
+        other["attempts"][0]["upstream_format"] = "responses"
+        failed_only = sample_request(
+            "req-filter-gamma", status_code=502, provider="gamma", finished_at=now - 30
+        )
+        failed_only["model"] = "gamma-model"
+        for item in (served, other, failed_only):
+            store.record_request(item)
+
+        by_provider = store.model_usage(range_name="24h", provider="alpha")
+        by_format = store.model_usage(range_name="24h", client_format="responses")
+        crossed = store.model_usage(range_name="24h", provider="beta", client_format="chat_completions")
+        # A provider that only produced failed attempts did not "serve" the model.
+        failed_provider = store.model_usage(range_name="24h", provider="gamma")
+        # An earlier window that ends before these rows: nothing matches.
+        stale_window = store.model_usage(
+            range_name="custom", start=now - 100000, end=now - 90000
+        )
+        recent = store.model_usage(
+            range_name="custom", start=now - 3600, end=now - 1
+        )
+
+        self.assertEqual([item["client_model"] for item in by_provider["items"]], ["alpha-model"])
+        self.assertEqual(by_provider["provider"], "alpha")
+        self.assertEqual([item["client_model"] for item in by_format["items"]], ["beta-model"])
+        self.assertEqual(by_format["client_format"], "responses")
+        self.assertEqual(crossed["total"], 0)
+        self.assertEqual(failed_provider["total"], 0)
+        self.assertEqual(stale_window["total"], 0)
+        self.assertEqual(recent["total"], 3)
+        self.assertEqual(recent["start"], now - 3600)
+        self.assertEqual(recent["end"], now - 1)
+
+        detail = store.model_usage_detail("alpha-model", range_name="24h", provider="alpha")
+        self.assertEqual([entry["provider"] for entry in detail["providers"]], ["alpha"])
+        self.assertIsNone(store.model_usage_detail("alpha-model", range_name="24h", provider="beta"))
+
+    def test_model_usage_rejects_an_incomplete_custom_range(self):
+        store = self.store()
+        with self.assertRaises(ValueError):
+            store.model_usage(range_name="custom")
+        with self.assertRaises(ValueError):
+            store.model_usage_detail("client-model", range_name="custom", start=int(time.time()))
+
     def test_pending_price_backfill_is_fixed_and_request_total_is_recomputed(self):
         store = self.store()
         item = sample_request("req-pending", provider="alpha")
