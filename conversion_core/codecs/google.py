@@ -22,7 +22,7 @@ import base64
 import hashlib
 import json
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from ..common import (
     content_text,
@@ -75,6 +75,47 @@ _FINISH_TO_STOP = {
 # Google function name charset is stricter than Chat's (no hyphens, <=63 chars).
 _GOOGLE_NAME_RE = re.compile(r"^[a-zA-Z0-9_]{1,63}$")
 _GOOGLE_BAD_CHARS = re.compile(r"[^a-zA-Z0-9_]")
+
+# Signature side-channel hooks wired by the proxy layer (a bounded store keeps
+# signatures for client formats without a signature slot, e.g. Anthropic
+# tool_use history).  The codec itself stays storage-free so conversion_core
+# remains standalone-importable.
+_SIGNATURE_LOOKUP: Optional[Callable[[str], Optional[str]]] = None
+_SIGNATURE_PERSIST: Optional[Callable[[Dict[str, str]], None]] = None
+
+
+def set_signature_hooks(lookup=None, persist=None) -> None:
+    """Install store hooks: lookup(call_id)->signature|None, persist(dict)->None.
+    Passing None for both disables the store path (dummy fallback only)."""
+    global _SIGNATURE_LOOKUP, _SIGNATURE_PERSIST
+    _SIGNATURE_LOOKUP = lookup if callable(lookup) else None
+    _SIGNATURE_PERSIST = persist if callable(persist) else None
+
+
+def persist_signatures(signatures: Dict[str, str]) -> None:
+    if _SIGNATURE_PERSIST is None or not signatures:
+        return
+    try:
+        _SIGNATURE_PERSIST(dict(signatures))
+    except Exception:
+        pass
+
+
+def _lookup_signature(call_id: str) -> str:
+    if not call_id or _SIGNATURE_LOOKUP is None:
+        return ""
+    try:
+        return str(_SIGNATURE_LOOKUP(call_id) or "")
+    except Exception:
+        return ""
+
+
+def collect_response_signatures(response: AgentResponse) -> Dict[str, str]:
+    out: Dict[str, str] = {}
+    for block in response.items:
+        if block.kind == "tool_call" and block.signature and block.call_id:
+            out[block.call_id] = block.signature
+    return out
 
 
 def _google_tool_name(name: str, used: Optional[set] = None) -> str:
@@ -386,9 +427,12 @@ def _turn_parts(
         if block.kind in ("tool_call", "custom_tool_call"):
             flush_text()
             wire_name = context.original_tool_to_wire.get(block.name, block.name)
-            signature = block.signature or DUMMY_THOUGHT_SIGNATURE
-            if not block.signature:
+            signature = block.signature or _lookup_signature(block.call_id)
+            if not signature:
+                signature = DUMMY_THOUGHT_SIGNATURE
                 report.add(field, "map", target="thoughtSignature=dummy", detail="no round-trippable signature; using skip_thought_signature_validator")
+            elif not block.signature:
+                report.add(field, "map", target="thoughtSignature=stored", detail="thought signature restored from the proxy-side store")
             call: Dict[str, Any] = {
                 "name": wire_name,
                 "args": _call_arguments(block, f"{field}.arguments"),

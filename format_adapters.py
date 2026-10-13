@@ -177,10 +177,26 @@ def convert_response(
     context: Optional[ConversionContext] = None,
 ) -> Dict[str, Any]:
     """Convert a non-streaming response body between canonical formats."""
-    return translate_agent_response(
+    translated = translate_agent_response(
         from_format,
         to_format,
         response,
         original_model=original_model,
         context=context,
     )
+    if from_format == GOOGLE and context is not None:
+        # Remember thought signatures for the next turn (Google responses only;
+        # the stream converters persist through the same hook).
+        signatures = dict((context.google_state or {}).get("signatures") or {})
+        if signatures:
+            from conversion_core.codecs import google as _google_codec
+
+            _google_codec.persist_signatures(signatures)
+    return translated
+
+
+def configure_google_signature_store(config: Dict[str, Any]):
+    """Wire the bounded thought-signature store into the Google codec hooks."""
+    from thought_signature_store import configure as _configure_store
+
+    return _configure_store(config)

@@ -153,6 +153,12 @@ def translate_response(
     report = context.report if context and context.report else ConversionReport(source_format, target_format)
     agent_response = _codec(source_format).parse_response(response, context=context)
     validate_response_tool_calls(agent_response)
+    if source_format == GOOGLE and context is not None:
+        # Side-channel so the proxy store can keep signatures for client
+        # formats that have no place to carry one back (Anthropic tool_use).
+        signatures = google.collect_response_signatures(agent_response)
+        if signatures:
+            context.google_state.setdefault("signatures", {}).update(signatures)
     converted = _codec(target_format).render_response(
         agent_response,
         original_model=original_model,

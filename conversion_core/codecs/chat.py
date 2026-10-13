@@ -16,6 +16,7 @@ from ..common import (
 )
 from ..model import (
     CHAT,
+    GOOGLE,
     AgentRequest,
     AgentResponse,
     AgentTool,
@@ -201,12 +202,14 @@ def parse_request(request: Dict[str, Any], report: ConversionReport) -> AgentReq
                 if not isinstance(call, dict):
                     continue
                 fn = call.get("function") if isinstance(call.get("function"), dict) else {}
+                psf = call.get("provider_specific_fields") if isinstance(call.get("provider_specific_fields"), dict) else {}
                 blocks.append(
                     ContentBlock(
                         kind="tool_call",
                         call_id=str(call.get("id") or new_id("call")),
                         name=str(fn.get("name") or ""),
                         arguments=str(fn.get("arguments") or ""),
+                        signature=str(psf.get("thought_signature") or call.get("thought_signature") or ""),
                         source_format=CHAT,
                         raw={**dict(call), "_field": f"messages[{index}].tool_calls[{tool_index}].function.arguments"},
                     )
@@ -445,14 +448,19 @@ def render_response(
         message["reasoning_content"] = reasoning
     calls = [item for item in response.items if item.kind in ("tool_call", "custom_tool_call")]
     if calls:
-        message["tool_calls"] = [
-            {
+        entries = []
+        for item in calls:
+            entry = {
                 "id": item.call_id or new_id("call"),
                 "type": "function",
                 "function": {"name": item.name, "arguments": item.arguments or "{}"},
             }
-            for item in calls
-        ]
+            if item.signature and response.source_format == GOOGLE:
+                # LiteLLM-compatible transport of Gemini 3 thought signatures
+                # so chat clients can replay them in assistant history.
+                entry["provider_specific_fields"] = {"thought_signature": item.signature}
+            entries.append(entry)
+        message["tool_calls"] = entries
     refusal = "\n".join(item.text for item in response.items if item.kind == "refusal" and item.text)
     if refusal:
         message["refusal"] = refusal

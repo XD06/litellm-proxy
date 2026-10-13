@@ -14,6 +14,7 @@ from ..common import (
     unwrap_custom_tool_arguments,
 )
 from ..model import (
+    GOOGLE,
     RESPONSES,
     AgentRequest,
     AgentResponse,
@@ -117,6 +118,7 @@ def _parse_input(agent: AgentRequest, value: Any) -> None:
             custom = item_type == "custom_tool_call"
             raw_input = item.get("input") if custom else None
             arguments = json_dumps({"content": str(raw_input or "")}) if custom else str(item.get("arguments") or "")
+            psf = item.get("provider_specific_fields") if isinstance(item.get("provider_specific_fields"), dict) else {}
             _append_turn(
                 agent.turns,
                 "assistant",
@@ -128,6 +130,7 @@ def _parse_input(agent: AgentRequest, value: Any) -> None:
                         arguments=arguments,
                         input=raw_input,
                         status=str(item.get("status") or ""),
+                        signature=str(psf.get("thought_signature") or item.get("thought_signature") or ""),
                         source_format=RESPONSES,
                         raw=dict(item),
                     )
@@ -560,16 +563,19 @@ def render_response(
                     }
                 )
             else:
-                output.append(
-                    {
-                        "id": new_id("fc"),
-                        "type": "function_call",
-                        "status": "completed",
-                        "call_id": call_id,
-                        "name": item.name,
-                        "arguments": item.arguments or json_dumps(item.input or {}),
-                    }
-                )
+                fc_item = {
+                    "id": new_id("fc"),
+                    "type": "function_call",
+                    "status": "completed",
+                    "call_id": call_id,
+                    "name": item.name,
+                    "arguments": item.arguments or json_dumps(item.input or {}),
+                }
+                if item.signature and response.source_format == GOOGLE:
+                    # Carry Gemini 3 thought signatures so Responses clients can
+                    # replay them when the same history returns to Google.
+                    fc_item["provider_specific_fields"] = {"thought_signature": item.signature}
+                output.append(fc_item)
         elif item.kind == "opaque" and item.source_format == RESPONSES:
             output.append(dict(item.raw))
     status = response.status

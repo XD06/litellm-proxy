@@ -95,7 +95,7 @@ class GoogleRenderRequestTests(unittest.TestCase):
         self.assertEqual(response_part["id"], "call_1")
         self.assertEqual(response_part["response"], {"result": "sunny, 21C"})
 
-    def test_chat_history_unknown_signature_key_falls_back_to_dummy(self):
+    def test_chat_history_top_level_signature_key_flows_through(self):
         prepared = prepare_request(CHAT, GOOGLE, {
             "model": "gemini-3-pro",
             "messages": [
@@ -117,9 +117,9 @@ class GoogleRenderRequestTests(unittest.TestCase):
             "tools": [{"type": "function", "function": {"name": "get_weather", "parameters": {"type": "object", "properties": {}}}}],
         }, resolve_model=same_model)
         call = _parts_by_role(prepared.payload, "model")[0]["functionCall"]
-        # The chat codec only understands provider_specific_fields (Phase 4);
-        # a top-level thought_signature key must not crash the pipeline.
-        self.assertEqual(call["thoughtSignature"], DUMMY)
+        # The chat codec accepts both provider_specific_fields and the
+        # LiteLLM-style top-level thought_signature key on history calls.
+        self.assertEqual(call["thoughtSignature"], "REAL_SIG")
 
     def test_tool_choice_modes_map_to_function_calling_config(self):
         base = {
@@ -366,12 +366,15 @@ class GoogleParseResponseTests(unittest.TestCase):
                 {"role": "tool", "tool_call_id": calls[0]["id"], "content": "ok"},
                 {"role": "tool", "tool_call_id": calls[1]["id"], "content": "ok"},
             ],
-            "tools": prepared.request.tools and [
+            "tools": [
                 {"type": "function", "function": {"name": "get-weather", "parameters": {"type": "object", "properties": {}}}}
             ],
         }, resolve_model=same_model)
         model_parts = _parts_by_role(back.payload, "model")
-        self.assertEqual(model_parts[0]["functionCall"]["thoughtSignature"], DUMMY)
+        # The first (signed) call replays its real signature via
+        # provider_specific_fields; the second, never signed, gets the dummy.
+        self.assertEqual(model_parts[0]["functionCall"]["thoughtSignature"], "S1==")
+        self.assertEqual(model_parts[1]["functionCall"]["thoughtSignature"], DUMMY)
 
     def test_finish_reason_mappings(self):
         prepared = self._prepared_chat()

@@ -31,6 +31,7 @@ from format_adapters import (
     CHAT,
     GOOGLE,
     RESPONSES,
+    configure_google_signature_store,
     configure_responses_session_store,
     convert_request,
     convert_response,
@@ -128,6 +129,7 @@ BASE_CONFIG = load_base_config(apply_env=False)
 CONFIG_MANAGER = RuntimeConfigManager(BASE_CONFIG)
 CONFIG = apply_env_overlays(CONFIG_MANAGER.config)
 configure_responses_session_store(CONFIG)
+configure_google_signature_store(CONFIG)
 
 PORT = int((CONFIG.get("server") or {}).get("port", 4894))
 HOST = str((CONFIG.get("server") or {}).get("host", "0.0.0.0")).strip() or "0.0.0.0"
@@ -2369,6 +2371,7 @@ def _apply_runtime_config(new_config: dict, *, persist_state: bool = True) -> No
     RUNTIME = new_runtime
     CONFIG = new_config
     configure_responses_session_store(new_config)
+    configure_google_signature_store(new_config)
     ROUTER = new_router
     UPSTREAM_CLIENT = new_upstream_client
     OBSERVABILITY = new_observability

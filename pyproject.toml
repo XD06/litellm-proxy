@@ -71,6 +71,7 @@ py-modules = [
     "usage_statistics",
     "pricing_resolver",
     "probe_coordinator",
+    "thought_signature_store",
     "audit_store",
     "request_routes",
     "request_dispatcher",

@@ -2751,17 +2751,26 @@ class _GoogleStreamAccumulator:
         return out
 
     def flush_to_context(self) -> None:
-        """Persist functionCall signatures into the conversion context so the
-        proxy-side thought signature store (and stream consumers) can replay
-        them on the next turn even when the client format has no signature."""
+        """Persist functionCall signatures into the conversion context and the
+        proxy-side thought signature store so the next request can replay them
+        even when the client format has no signature slot."""
         signatures = self.collect_signatures()
-        if not signatures or self.context is None:
+        call_signatures = {
+            call_id: signature
+            for call_id, signature in signatures.items()
+            if call_id != "__thought__"
+        }
+        if not call_signatures:
             return
-        store = self.context.google_state.setdefault("signatures", {})
-        for call_id, signature in signatures.items():
-            if call_id == "__thought__":
-                continue
-            store[call_id] = signature
+        if self.context is not None:
+            store = self.context.google_state.setdefault("signatures", {})
+            store.update(call_signatures)
+        try:
+            from conversion_core.codecs import google as _google_codec
+
+            _google_codec.persist_signatures(call_signatures)
+        except Exception:
+            pass
 
 
 def _google_usage_chat(usage: Dict[str, Any]) -> Dict[str, Any]:
