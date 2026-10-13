@@ -2530,7 +2530,7 @@ def _provider_model_refresh_signature(config: dict, provider: str) -> str:
     pcfg = ((config.get("providers") or {}).get(provider) or {})
     payload = {
         "base_url": pcfg.get("base_url") or "",
-        "models_path": pcfg.get("models_path") or "/v1/models",
+        "models_path": pcfg.get("models_path") or ("/v1beta/models" if model_registry.is_google_native_provider(pcfg) else "/v1/models"),
         "keys": [
             {
                 "value": key_value(entry),

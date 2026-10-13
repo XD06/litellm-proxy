@@ -154,6 +154,8 @@ def _split_base_and_format_path(full_url: str) -> Tuple[str, Optional[str], Opti
 def _infer_default_format(provider_name: str, base_url: str) -> str:
     parsed = urlparse(base_url or "")
     haystack = f"{provider_name} {base_url} {parsed.path}".lower()
+    if "generativelanguage" in haystack or "googleapis" in haystack or "gemini" in haystack:
+        return "google_generate"
     if "anthropic" in haystack:
         return "anthropic_messages"
     if "responses" in haystack or "response" in haystack or "codex" in haystack:
@@ -612,6 +614,12 @@ PROVIDER_ENV_PRESETS: Dict[str, Dict[str, Any]] = {
         "base_url": "https://api.anthropic.com",
         "formats": {"anthropic_messages": True},
         "priority": 10,
+    },
+    "GEMINI_API_KEY": {
+        "name": "google",
+        "base_url": "https://generativelanguage.googleapis.com",
+        "formats": {"google_generate": True},
+        "priority": 8,
     },
     "DEEPSEEK_API_KEY": {
         "name": "deepseek",

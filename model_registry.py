@@ -341,7 +341,7 @@ def provider_config_signature(config: Dict[str, Any], provider: str) -> str:
     pcfg = ((config.get("providers") or {}).get(provider) or {})
     payload = {
         "base_url": pcfg.get("base_url") or "",
-        "models_path": pcfg.get("models_path") or "/v1/models",
+        "models_path": pcfg.get("models_path") or ("/v1beta/models" if is_google_native_provider(pcfg) else "/v1/models"),
         "keys": [
             {
                 "value": key_value(entry),
@@ -1598,6 +1598,66 @@ def default_models():
     }
 
 
+def _provider_format_enabled(pcfg: Dict[str, Any], fmt: str) -> bool:
+    entry = (pcfg.get("formats") or {}).get(fmt)
+    if isinstance(entry, dict):
+        return bool(entry.get("enabled"))
+    return bool(entry)
+
+
+def is_google_native_provider(pcfg: Dict[str, Any]) -> bool:
+    """True when the provider speaks Google native generateContent.
+
+    Discovery uses this to pick /v1beta/models + x-goog-api-key and to accept
+    the native {"models": [...]} payload shape. A provider that also enables a
+    standard format (e.g. an OpenAI-compat gateway that additionally fronts
+    Gemini) keeps the OpenAI discovery path.
+    """
+    if not _provider_format_enabled(pcfg, "google_generate"):
+        return False
+    return not any(
+        _provider_format_enabled(pcfg, fmt)
+        for fmt in ("chat_completions", "responses", "anthropic_messages")
+    )
+
+
+def normalize_models_payload(data: Any) -> Any:
+    """Translate a Google listModels body into the OpenAI {data:[...]} shape.
+
+    ``name`` carries a ``models/`` resource prefix and ``supportedGenerationMethods``
+    filters non-generate models (embeddings-only etc.) out of the catalog.
+    """
+    if not isinstance(data, dict) or isinstance(data.get("data"), list):
+        return data
+    raw_models = data.get("models")
+    if not isinstance(raw_models, list):
+        return data
+    out = []
+    for item in raw_models:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name") or "")
+        if not name:
+            continue
+        mid = name[len("models/"):] if name.startswith("models/") else name
+        methods = item.get("supportedGenerationMethods") or []
+        if methods and not any(str(method) in ("generateContent", "streamGenerateContent") for method in methods):
+            continue
+        entry: Dict[str, Any] = {
+            "type": "model",
+            "id": mid,
+            "display_name": str(item.get("displayName") or mid),
+        }
+        description = str(item.get("description") or "")
+        if description:
+            entry["description"] = description
+        created = str(item.get("createdAt") or "")
+        if created:
+            entry["created_at"] = created
+        out.append(entry)
+    return {"data": out, "has_more": False, "object": "list"}
+
+
 def fetch_upstream_models(
     config: Dict[str, Any],
     router,
@@ -1617,7 +1677,7 @@ def fetch_upstream_models(
 
         raw_base_url = pcfg.get("base_url") or ""
         base_url = raw_base_url if raw_base_url.endswith("/") else raw_base_url.rstrip("/")
-        models_path = pcfg.get("models_path") or "/v1/models"
+        models_path = pcfg.get("models_path") or ("/v1beta/models" if is_google_native_provider(pcfg) else "/v1/models")
         key_entry = selected_key_entry
         if key_entry is None and hasattr(router, "first_healthy_key_entry"):
             selected = router.first_healthy_key_entry(provider)
@@ -1628,7 +1688,12 @@ def fetch_upstream_models(
         key = key_value(key_entry)
         headers = {}
         headers.update((pcfg.get("headers") or {}))
-        headers["Authorization"] = f"Bearer {key}"
+        if is_google_native_provider(pcfg):
+            headers["x-goog-api-key"] = key
+            if not (pcfg.get("headers") or {}):
+                headers.pop("Authorization", None)
+        else:
+            headers["Authorization"] = f"Bearer {key}"
         configured_ua = ""
         for header_name in list(headers.keys()):
             if str(header_name).lower() == "user-agent":
@@ -1652,7 +1717,7 @@ def fetch_upstream_models(
             try:
                 data = upstream_client.fetch_models(candidate_base_url, models_path, headers=headers, timeout_s=6, proxy_url=proxy_url)
                 if data:
-                    return data
+                    return normalize_models_payload(data)
                 errors.append(f"{candidate_base_url.rstrip('/')}{models_path}: empty response")
                 return None
             except Exception as e:
