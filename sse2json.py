@@ -21,6 +21,7 @@ import model_registry
 import model_discovery_queue
 import scheduler_policy
 from conversion_core import ConversionError
+from conversion_core.codecs.google import thinking_override_for_effort
 from conversion_diagnostics import ConversionDiagnosticStore
 from audit_store import AdminAuditStore
 from config_manager import ConfigValidationError, RuntimeConfigManager
@@ -28,6 +29,7 @@ from config_loader import apply_env_overlays, load_base_config, load_config, joi
 from format_adapters import (
     ANTHROPIC,
     CHAT,
+    GOOGLE,
     RESPONSES,
     configure_responses_session_store,
     convert_request,
@@ -57,6 +59,9 @@ from stream_adapters import (
     relay_sse_stream,
     stream_anthropic_sse_to_responses,
     stream_anthropic_sse_to_openai_chat,
+    stream_google_sse_to_anthropic,
+    stream_google_sse_to_openai_chat,
+    stream_google_sse_to_responses,
     stream_openai_sse_to_anthropic,
     stream_openai_sse_to_responses,
     stream_responses_sse_to_openai_chat,
@@ -4610,6 +4615,22 @@ def _response_visibility_flags(response_format, response):
                 flags["has_reasoning"] = True
         return flags
 
+    if response_format == GOOGLE:
+        candidates = [c for c in (response.get("candidates") or []) if isinstance(c, dict)]
+        candidate = candidates[0] if candidates else {}
+        if candidate.get("finishReason") == "MAX_TOKENS":
+            flags["is_truncated"] = True
+        for part in (candidate.get("content") or {}).get("parts") or []:
+            if not isinstance(part, dict):
+                continue
+            if isinstance(part.get("functionCall"), dict):
+                flags["has_visible_output"] = True
+            elif part.get("thought") and _has_text(part.get("text")):
+                flags["has_reasoning"] = True
+            elif _has_text(part.get("text")):
+                flags["has_visible_output"] = True
+        return flags
+
     return flags
 
 
@@ -4744,6 +4765,20 @@ def _apply_reasoning_effort_override(payload, upstream_format: str, canonical_mo
                     payload.pop("thinking", None)
                     return {"field": "reasoning_effort", "action": "drop", "from": client_value, "to": "off", "reason": "max_tokens_too_small"}
             payload["thinking"] = {"type": "enabled", "budget_tokens": budget}
+    elif upstream_format == GOOGLE:
+        override = thinking_override_for_effort(value, canonical_model)
+        if not override:
+            return None
+        gen = payload.get("generationConfig") if isinstance(payload.get("generationConfig"), dict) else {}
+        previous = gen.get("thinkingConfig") if isinstance(gen.get("thinkingConfig"), dict) else {}
+        if previous.get("thinkingBudget") is not None:
+            client_value = f"budget:{int(previous.get('thinkingBudget') or 0)}"
+        elif previous.get("thinkingLevel"):
+            client_value = str(previous.get("thinkingLevel"))
+        else:
+            client_value = "default" if previous.get("includeThoughts") else ""
+        gen["thinkingConfig"] = override
+        payload["generationConfig"] = gen
     else:
         return None
     return {
@@ -5344,7 +5379,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         max_budget = (connect_t + read_t) * min(3, max(1, max_attempts))
         semantic_conversion_mode = _semantic_conversion_mode(CONFIG)
         allowed_formats, blocked_formats = _trace_format_compatibility(
-            routing_trace, req, client_format=CHAT, candidate_formats=[CHAT, RESPONSES, ANTHROPIC],
+            routing_trace, req, client_format=CHAT, candidate_formats=[CHAT, RESPONSES, ANTHROPIC, GOOGLE],
             mode=semantic_conversion_mode,
         )
         if blocked_formats and log_each:
@@ -5397,8 +5432,12 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             prepared_request = prepared_payloads[payload_cache_key]
             payload = dict(prepared_request.payload)
             conversion_context = prepared_request.context
-            payload["model"] = attempt.provider_model
-            payload["stream"] = is_stream if attempt.upstream_format in (CHAT, RESPONSES, ANTHROPIC) else False
+            if attempt.upstream_format != GOOGLE:
+                # Google carries the model in the URL and switches streaming by
+                # endpoint action; injecting model/stream would make the
+                # generateContent body fail proto JSON validation.
+                payload["model"] = attempt.provider_model
+                payload["stream"] = is_stream if attempt.upstream_format in (CHAT, RESPONSES, ANTHROPIC) else False
             _force_chat_reasoning_content_if_needed(attempt, payload, log_each=log_each)
             _force_anthropic_thinking_if_needed(attempt, payload, log_each=log_each)
             actual_token_field = next((field for field in ("max_output_tokens", "max_completion_tokens", "max_tokens") if field in payload), output_token_field)
@@ -5475,6 +5514,17 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                         elif attempt.upstream_format == RESPONSES:
                             stream_conversion_recorder = _stream_conversion_error_recorder(request_id, attempt, RESPONSES, CHAT, req)
                             stream_resp = stream_responses_sse_to_openai_chat(
+                                upstream_conn,
+                                bwfile,
+                                original_model,
+                                read_timeout_s=read_t,
+                                initial_lines=initial_lines,
+                                conversion_context=conversion_context,
+                                on_conversion_error=stream_conversion_recorder,
+                            )
+                        elif attempt.upstream_format == GOOGLE:
+                            stream_conversion_recorder = _stream_conversion_error_recorder(request_id, attempt, GOOGLE, CHAT, req)
+                            stream_resp = stream_google_sse_to_openai_chat(
                                 upstream_conn,
                                 bwfile,
                                 original_model,
@@ -5746,7 +5796,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         )
         semantic_conversion_mode = _semantic_conversion_mode(CONFIG)
         allowed_formats, blocked_formats = _trace_format_compatibility(
-            routing_trace, req, client_format=RESPONSES, candidate_formats=[RESPONSES, CHAT, ANTHROPIC],
+            routing_trace, req, client_format=RESPONSES, candidate_formats=[RESPONSES, CHAT, ANTHROPIC, GOOGLE],
             mode=semantic_conversion_mode,
         )
         compatibility_profile = request_compatibility_profile(req, client_format=RESPONSES)
@@ -5816,8 +5866,9 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             prepared_request = prepared_payloads[payload_cache_key]
             payload = dict(prepared_request.payload)
             conversion_context = prepared_request.context
-            payload["model"] = attempt.provider_model
-            payload["stream"] = is_stream if attempt.upstream_format in (RESPONSES, CHAT, ANTHROPIC) else False
+            if attempt.upstream_format != GOOGLE:
+                payload["model"] = attempt.provider_model
+                payload["stream"] = is_stream if attempt.upstream_format in (RESPONSES, CHAT, ANTHROPIC) else False
             _force_chat_reasoning_content_if_needed(attempt, payload, log_each=log_each)
             _force_anthropic_thinking_if_needed(attempt, payload, log_each=log_each)
             actual_token_field = next((field for field in ("max_output_tokens", "max_completion_tokens", "max_tokens") if field in payload), output_token_field)
@@ -5862,7 +5913,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                     )
                     if attempt.upstream_format == RESPONSES and _native_stream_mode(CONFIG) == "guarded":
                         initial_lines = None
-                    elif attempt.upstream_format in (RESPONSES, ANTHROPIC):
+                    elif attempt.upstream_format in (RESPONSES, ANTHROPIC, GOOGLE):
                         initial_lines = _prefetch_initial_stream_lines(upstream_conn, first_event_remaining)
                     else:
                         first_line = _prefetch_first_stream_line(upstream_conn, first_event_remaining)
@@ -5899,6 +5950,17 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                         elif attempt.upstream_format == CHAT:
                             stream_conversion_recorder = _stream_conversion_error_recorder(request_id, attempt, CHAT, RESPONSES, req)
                             stream_resp = stream_openai_sse_to_responses(
+                                upstream_conn,
+                                bwfile,
+                                original_model,
+                                read_timeout_s=read_t,
+                                initial_lines=initial_lines,
+                                conversion_context=conversion_context,
+                                on_conversion_error=stream_conversion_recorder,
+                            )
+                        elif attempt.upstream_format == GOOGLE:
+                            stream_conversion_recorder = _stream_conversion_error_recorder(request_id, attempt, GOOGLE, RESPONSES, req)
+                            stream_resp = stream_google_sse_to_responses(
                                 upstream_conn,
                                 bwfile,
                                 original_model,
@@ -6497,7 +6559,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
 
             semantic_conversion_mode = _semantic_conversion_mode(CONFIG)
             allowed_formats, blocked_formats = _trace_format_compatibility(
-                routing_trace, req, client_format=ANTHROPIC, candidate_formats=[ANTHROPIC, CHAT, RESPONSES],
+                routing_trace, req, client_format=ANTHROPIC, candidate_formats=[ANTHROPIC, CHAT, RESPONSES, GOOGLE],
                 mode=semantic_conversion_mode,
             )
             if blocked_formats and log_each:
@@ -6551,8 +6613,9 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                 prepared_request = prepared_payloads[payload_cache_key]
                 payload = dict(prepared_request.payload)
                 conversion_context = prepared_request.context
-                payload["model"] = attempt.provider_model
-                payload["stream"] = bool(is_stream) if attempt.upstream_format in (ANTHROPIC, CHAT, RESPONSES) else False
+                if attempt.upstream_format != GOOGLE:
+                    payload["model"] = attempt.provider_model
+                    payload["stream"] = bool(is_stream) if attempt.upstream_format in (ANTHROPIC, CHAT, RESPONSES) else False
                 _force_chat_reasoning_content_if_needed(attempt, payload, log_each=log_each)
                 _force_anthropic_thinking_if_needed(attempt, payload, log_each=log_each)
                 actual_token_field = next((field for field in ("max_output_tokens", "max_completion_tokens", "max_tokens") if field in payload), output_token_field)
@@ -6590,7 +6653,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                         )
                         if attempt.upstream_format == ANTHROPIC and _native_stream_mode(CONFIG) == "guarded":
                             initial_lines = None
-                        elif attempt.upstream_format in (ANTHROPIC, RESPONSES):
+                        elif attempt.upstream_format in (ANTHROPIC, RESPONSES, GOOGLE):
                             initial_lines = _prefetch_initial_stream_lines(upstream_conn, first_event_remaining)
                         else:
                             first_line = _prefetch_first_stream_line(upstream_conn, first_event_remaining)
@@ -6626,6 +6689,17 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                             elif attempt.upstream_format == RESPONSES:
                                 stream_conversion_recorder = _stream_conversion_error_recorder(request_id, attempt, RESPONSES, ANTHROPIC, req)
                                 anth_resp = stream_responses_sse_to_anthropic(
+                                    upstream_conn,
+                                    bwfile,
+                                    original_model,
+                                    read_timeout_s=read_t,
+                                    initial_lines=initial_lines,
+                                    conversion_context=conversion_context,
+                                    on_conversion_error=stream_conversion_recorder,
+                                )
+                            elif attempt.upstream_format == GOOGLE:
+                                stream_conversion_recorder = _stream_conversion_error_recorder(request_id, attempt, GOOGLE, ANTHROPIC, req)
+                                anth_resp = stream_google_sse_to_anthropic(
                                     upstream_conn,
                                     bwfile,
                                     original_model,

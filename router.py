@@ -47,6 +47,36 @@ class Attempt:
     key_fingerprint: str = ""
 
 
+GOOGLE_NATIVE_FORMAT = "google_generate"
+_GOOGLE_GENERATE_ACTION = ":generateContent"
+_GOOGLE_STREAM_ACTION = ":streamGenerateContent?alt=sse"
+
+
+def _google_attempt_url(url: str, model: str, is_stream: bool) -> str:
+    """Render the per-attempt Google REST URL.
+
+    Google puts the model in the path (``/v1beta/models/{model}:generateContent``)
+    and switches between unary and SSE streaming by endpoint action, not by a
+    body field.  Provider paths may use the ``{model}`` placeholder; a plain
+    API-base path gets the canonical suffix appended.
+    """
+    slug = str(model or "").strip()
+    if slug.lower().startswith("models/"):
+        slug = slug[len("models/"):]
+    path = str(url or "")
+    if "{model}" in path:
+        path = path.replace("{model}", slug)
+    elif _GOOGLE_GENERATE_ACTION not in path and ":streamGenerateContent" not in path:
+        path = path.rstrip("/") + f"/models/{slug}{_GOOGLE_GENERATE_ACTION}"
+    if is_stream:
+        if ":streamGenerateContent" not in path:
+            path = path.replace(_GOOGLE_GENERATE_ACTION, _GOOGLE_STREAM_ACTION)
+    elif ":streamGenerateContent" in path:
+        path = path.replace(_GOOGLE_STREAM_ACTION, _GOOGLE_GENERATE_ACTION)
+        path = path.replace(":streamGenerateContent", _GOOGLE_GENERATE_ACTION)
+    return path
+
+
 @dataclass(frozen=True)
 class _ProviderItem:
     name: str
@@ -315,6 +345,7 @@ class UpstreamRouter:
                 upstream_format=upstream_format,
                 client_headers=client_headers,
                 provider_model=provider_model,
+                is_stream=is_stream,
             )
             if routing_trace is not None:
                 _record_trace(
@@ -1859,6 +1890,7 @@ class UpstreamRouter:
                 "chat_completions": "/v1/chat/completions",
                 "responses": "/v1/responses",
                 "anthropic_messages": "/v1/messages",
+                GOOGLE_NATIVE_FORMAT: "/v1beta/models/{model}:generateContent",
             }
             path = defaults.get(upstream_format, "/v1/chat/completions")
         if not str(path).startswith("/"):
@@ -1905,6 +1937,7 @@ class UpstreamRouter:
         upstream_format: str = "chat_completions",
         client_headers: Optional[Dict[str, str]] = None,
         provider_model: Optional[str] = None,
+        is_stream: bool = False,
     ) -> Tuple[str, Dict[str, str], str, Optional[str]]:
         """返回 (url, headers, provider_model, proxy_url)。
         proxy 优先级：key.proxy > provider.proxy > 全局 proxy > None（直连）。
@@ -1926,7 +1959,15 @@ class UpstreamRouter:
                         headers[hdr_name] = value
 
         headers["Content-Type"] = "application/json"
-        headers["Authorization"] = f"Bearer {key}"
+        if upstream_format == GOOGLE_NATIVE_FORMAT:
+            # generativelanguage.googleapis.com authenticates API keys via
+            # x-goog-api-key; keep an explicitly configured Authorization.
+            if "x-goog-api-key" not in header_names_lower:
+                headers["x-goog-api-key"] = key
+            if "authorization" not in header_names_lower:
+                headers.pop("Authorization", None)
+        else:
+            headers["Authorization"] = f"Bearer {key}"
         # User-Agent 优先级：provider.user_agent > 客户端 User-Agent > provider.headers/default。
         client_ua = None
         if client_headers:
@@ -1952,4 +1993,6 @@ class UpstreamRouter:
         resolved_provider_model = provider_model or model_registry.resolve_provider_model(
             self.cfg, provider, canonical_model
         )
+        if upstream_format == GOOGLE_NATIVE_FORMAT:
+            url = _google_attempt_url(url, resolved_provider_model, is_stream)
         return url, headers, resolved_provider_model, proxy_url

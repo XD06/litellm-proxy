@@ -17,16 +17,20 @@ from urllib.parse import urlparse
 from proxy_utils import normalize_key_entries, normalize_proxy_config
 
 
-SUPPORTED_FORMATS = ("chat_completions", "responses", "anthropic_messages")
+SUPPORTED_FORMATS = ("chat_completions", "responses", "anthropic_messages", "google_generate")
 DEFAULT_FORMAT_PATHS = {
     "chat_completions": "/v1/chat/completions",
     "responses": "/v1/responses",
     "anthropic_messages": "/v1/messages",
+    # Google REST carries the model in the path and switches streaming by the
+    # endpoint action (:streamGenerateContent?alt=sse is derived at runtime).
+    "google_generate": "/v1beta/models/{model}:generateContent",
 }
 LEGACY_FORMAT_PATH_KEYS = {
     "chat_completions": "chat_completions_path",
     "responses": "responses_path",
     "anthropic_messages": "anthropic_messages_path",
+    "google_generate": "google_generate_path",
 }
 
 # Cloudflare publishes these ranges as the definitive list of proxy addresses
@@ -185,7 +189,7 @@ def _normalize_formats(
                     allowed_fields = {"auto", "max_tokens", "max_completion_tokens", "max_output_tokens"}
                     if output_token_field not in allowed_fields:
                         raise ValueError(f"invalid output_token_field for {provider_name}.{fmt}: {output_token_field}")
-                    native_fields = {"chat_completions": {"auto", "max_tokens", "max_completion_tokens"}, "responses": {"auto", "max_output_tokens"}, "anthropic_messages": {"auto", "max_tokens"}}
+                    native_fields = {"chat_completions": {"auto", "max_tokens", "max_completion_tokens"}, "responses": {"auto", "max_output_tokens"}, "anthropic_messages": {"auto", "max_tokens"}, "google_generate": {"auto"}}
                     if output_token_field not in native_fields[fmt]:
                         raise ValueError(f"output_token_field {output_token_field} is invalid for {fmt}")
                     normalized_entry["parameters"] = {"output_token_field": output_token_field}

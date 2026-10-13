@@ -214,6 +214,26 @@ def _parse_thinking_config(
     return config
 
 
+def thinking_override_for_effort(effort: str, model: str) -> Optional[Dict[str, Any]]:
+    """Map one proxy reasoning-effort value to a generationConfig.thinkingConfig
+    override for a Google request body.  Returns None when the value is unknown
+    (leave the codec-produced thinkingConfig untouched)."""
+    value = str(effort or "").strip().lower()
+    if not value:
+        return None
+    three = _is_gemini_3(model)
+    if value == "off":
+        if three:
+            return {"includeThoughts": False, "thinkingLevel": "minimal"}
+        return {"includeThoughts": False, "thinkingBudget": 0}
+    if three:
+        return {"includeThoughts": True, "thinkingLevel": value if value in _THINKING_LEVELS else "medium"}
+    budget = _EFFORT_TO_BUDGET.get(value)
+    if budget is None:
+        return None
+    return {"includeThoughts": True, "thinkingBudget": budget}
+
+
 def parse_request(request: Dict[str, Any], report: ConversionReport) -> AgentRequest:
     raise ConversionError(
         "Google native requests are not accepted by this proxy; clients should use Chat Completions, Responses, or Anthropic Messages",

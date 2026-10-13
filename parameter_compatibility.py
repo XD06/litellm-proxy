@@ -19,6 +19,10 @@ _NATIVE_FIELD = {
     "chat_completions": "max_tokens",
     "responses": "max_output_tokens",
     "anthropic_messages": "max_tokens",
+    # Display-only for adaptation traces: the Google codec writes the nested
+    # generationConfig field directly, apply_output_token_limit skips this
+    # target (see format_adapters.prepare_request_conversion).
+    "google_generate": "generationConfig.maxOutputTokens",
 }
 
 
@@ -280,7 +284,12 @@ def parameter_adaptations(request: Dict[str, Any], *, client_format: str, target
         changes.append({"source": "proxy_default", "target": "max_tokens", "value": anthropic_default_max_tokens})
     stop = extract_stop_sequences(request, client_format=client_format)
     if stop.present:
-        target = "stop_sequences" if target_format == "anthropic_messages" else "stop"
+        if target_format == "anthropic_messages":
+            target = "stop_sequences"
+        elif target_format == "google_generate":
+            target = "generationConfig.stopSequences"
+        else:
+            target = "stop"
         if stop.source_field != target: changes.append({"source": stop.source_field, "target": target, "value": list(stop.value or ())})
     plan = format_compatibility_plan(
         request,

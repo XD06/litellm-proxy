@@ -127,14 +127,18 @@ def prepare_request_conversion(
         raise
     converted = prepared.payload
 
-    if not token_limit.present and to_format == ANTHROPIC and anthropic_default_max_tokens:
-        token_limit = OutputTokenLimit(value=int(anthropic_default_max_tokens), source_field="proxy_default", aliases=())
-    if token_limit.present or from_format != to_format:
-        converted = apply_output_token_limit(
-            converted, token_limit, target_format=to_format, configured_field=output_token_field,
-        )
-    if stop_sequences.present:
-        converted = apply_stop_sequences(converted, stop_sequences, target_format=to_format)
+    if to_format != GOOGLE:
+        # The Google codec maps output tokens and stop sequences into the
+        # nested generationConfig via the IR; the flat post-processing would
+        # add rejected top-level keys to a generateContent body.
+        if not token_limit.present and to_format == ANTHROPIC and anthropic_default_max_tokens:
+            token_limit = OutputTokenLimit(value=int(anthropic_default_max_tokens), source_field="proxy_default", aliases=())
+        if token_limit.present or from_format != to_format:
+            converted = apply_output_token_limit(
+                converted, token_limit, target_format=to_format, configured_field=output_token_field,
+            )
+        if stop_sequences.present:
+            converted = apply_stop_sequences(converted, stop_sequences, target_format=to_format)
 
     prepared.payload = converted
     return prepared

@@ -383,7 +383,7 @@ class RuntimeConfigManager:
             if not isinstance(parameters, dict):
                 raise ConfigValidationError("format parameters must be an object")
             field = str(parameters.get("output_token_field") or "auto").strip()
-            allowed = {"chat_completions": {"auto", "max_tokens", "max_completion_tokens"}, "responses": {"auto", "max_output_tokens"}, "anthropic_messages": {"auto", "max_tokens"}}
+            allowed = {"chat_completions": {"auto", "max_tokens", "max_completion_tokens"}, "responses": {"auto", "max_output_tokens"}, "anthropic_messages": {"auto", "max_tokens"}, "google_generate": {"auto"}}
             if field not in allowed[fmt]:
                 raise ConfigValidationError(f"invalid output_token_field for {fmt}: {field}")
             clean["parameters"] = {"output_token_field": field}
