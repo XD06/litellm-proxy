@@ -7,6 +7,10 @@ from typing import Any, Callable, Dict, List, Optional
 CHAT = "chat_completions"
 RESPONSES = "responses"
 ANTHROPIC = "anthropic_messages"
+# Google native generateContent is upstream-only: it may appear as a
+# target_format for requests and a source_format for responses, never as a
+# client-facing format.  FORMATS stays the client-visible triple on purpose.
+GOOGLE = "google_generate"
 FORMATS = (CHAT, RESPONSES, ANTHROPIC)
 
 

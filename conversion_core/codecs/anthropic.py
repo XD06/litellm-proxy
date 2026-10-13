@@ -15,6 +15,7 @@ from ..common import (
 )
 from ..model import (
     ANTHROPIC,
+    GOOGLE,
     AgentRequest,
     AgentResponse,
     AgentTool,
@@ -478,6 +479,17 @@ def render_response(response: AgentResponse, *, original_model: str | None = Non
         if item.kind == "reasoning":
             if item.source_format == ANTHROPIC and item.signature:
                 content.append({"type": "thinking", "thinking": item.text, "signature": item.signature})
+            elif item.source_format == GOOGLE and (item.text or item.signature):
+                # Carry Google's thought summary as a thinking block and ride
+                # thoughtSignature in its signature slot, so Anthropic-native
+                # clients can round-trip it back to a Google upstream.  If the
+                # same history is later re-rendered toward a real Anthropic
+                # upstream, render_request drops non-Anthropic signatures, so
+                # a foreign signature can never be echoed back to Anthropic.
+                block = {"type": "thinking", "thinking": item.text or ""}
+                if item.signature:
+                    block["signature"] = item.signature
+                content.append(block)
             else:
                 report.add(f"response.output[{index}].reasoning", "safe_drop", detail="cannot forge Anthropic thinking signature")
         elif item.kind == "text":

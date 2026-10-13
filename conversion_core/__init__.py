@@ -4,6 +4,7 @@ from .errors import ConversionError
 from .model import (
     ANTHROPIC,
     CHAT,
+    GOOGLE,
     RESPONSES,
     ConversionAction,
     ConversionContext,
@@ -15,6 +16,7 @@ from .session_store import ResponsesSessionStore, SessionStoreLimits
 __all__ = [
     "ANTHROPIC",
     "CHAT",
+    "GOOGLE",
     "RESPONSES",
     "ConversionAction",
     "ConversionContext",

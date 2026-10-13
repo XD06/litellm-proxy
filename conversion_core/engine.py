@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from .codecs import anthropic, chat, responses
+from .codecs import anthropic, chat, google, responses
 from .compatibility import analyze_request
 from .errors import ConversionError
 from .model import (
     ANTHROPIC,
     CHAT,
+    GOOGLE,
     RESPONSES,
     AgentRequest,
     ConversionContext,
@@ -22,6 +23,7 @@ _CODECS = {
     CHAT: chat,
     RESPONSES: responses,
     ANTHROPIC: anthropic,
+    GOOGLE: google,
 }
 
 

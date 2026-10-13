@@ -1,3 +1,3 @@
-from . import anthropic, chat, responses
+from . import anthropic, chat, google, responses
 
-__all__ = ["anthropic", "chat", "responses"]
+__all__ = ["anthropic", "chat", "google", "responses"]
