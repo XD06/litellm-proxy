@@ -2593,3 +2593,906 @@ def _chat_usage(usage: dict) -> dict:
         "completion_tokens": normalized["output_tokens"],
         "total_tokens": normalized["total_tokens"],
     }
+
+
+# ---------------------------------------------------------------------------
+# Google Gemini native (generateContent SSE) -> client formats.
+# The Google wire format streams `data: {GenerateContentResponse chunk}` with
+# no event names and no [DONE]: text arrives in parts, thought parts are
+# flagged {"thought": true}, functionCall arguments may be split across
+# chunks (string values continue, other values overwrite), and the
+# thoughtSignature + usageMetadata + finishReason live on the final chunks.
+# ---------------------------------------------------------------------------
+
+_GOOGLE_FINISH_TO_CHAT = {
+    "STOP": "stop",
+    "MAX_TOKENS": "length",
+    "SAFETY": "content_filter",
+    "RECITATION": "content_filter",
+    "BLOCKLIST": "content_filter",
+    "PROHIBITED_CONTENT": "content_filter",
+    "SPII": "content_filter",
+    "MODEL_STACKING": "content_filter",
+    "OTHER": "stop",
+}
+_GOOGLE_FINISH_TO_ANTHROPIC = {
+    "STOP": "end_turn",
+    "MAX_TOKENS": "max_tokens",
+    "SAFETY": "refusal",
+    "RECITATION": "refusal",
+    "BLOCKLIST": "refusal",
+    "PROHIBITED_CONTENT": "refusal",
+    "SPII": "refusal",
+    "MODEL_STACKING": "refusal",
+    "OTHER": "end_turn",
+}
+
+
+class _GoogleCallSlot:
+    __slots__ = ("call_id", "name", "args", "signature")
+
+    def __init__(self) -> None:
+        self.call_id = ""
+        self.name = ""
+        self.args: Dict[str, Any] = {}
+        self.signature = ""
+
+    def merged_arguments(self) -> str:
+        return json.dumps(self.args, ensure_ascii=False)
+
+
+class _GoogleStreamAccumulator:
+    """Parse GenerateContentResponse SSE chunks into stream-agnostic events."""
+
+    def __init__(self, context: Optional[ConversionContext] = None) -> None:
+        self.context = context
+        self.text_pieces: list = []
+        self.thought_pieces: list = []
+        self.thought_signature = ""
+        self.calls: list = []
+        self._index: Dict[str, _GoogleCallSlot] = {}
+        self.finish = ""
+        self.usage: Dict[str, Any] = {}
+        self.response_id = ""
+        self.model_version = ""
+
+    def _slot_for(self, fc: Dict[str, Any]) -> _GoogleCallSlot:
+        key = str(fc.get("id") or "") or str(fc.get("name") or "")
+        if key:
+            slot = self._index.get(key)
+            if slot is None:
+                slot = _GoogleCallSlot()
+                self._index[key] = slot
+                self.calls.append(slot)
+            return slot
+        # Fragment without id/name continues the most recent call.
+        if self.calls:
+            return self.calls[-1]
+        slot = _GoogleCallSlot()
+        self.calls.append(slot)
+        return slot
+
+    def feed(self, chunk: Any) -> list:
+        """Return text/thought deltas found in one chunk as ("text"|"thought", str)."""
+        events: list = []
+        if not isinstance(chunk, dict):
+            return events
+        if isinstance(chunk.get("error"), dict):
+            err = chunk["error"]
+            raise RuntimeError(str(err.get("message") or "upstream Google stream error"))
+        if chunk.get("responseId"):
+            self.response_id = str(chunk["responseId"])
+        if chunk.get("modelVersion"):
+            self.model_version = str(chunk["modelVersion"])
+        usage_meta = chunk.get("usageMetadata")
+        if isinstance(usage_meta, dict) and usage_meta:
+            self.usage = usage_meta
+        prompt_feedback = chunk.get("promptFeedback")
+        if isinstance(prompt_feedback, dict) and prompt_feedback.get("blockReason"):
+            self.finish = str(prompt_feedback.get("blockReason") or "SAFETY")
+        for candidate in chunk.get("candidates") or []:
+            if not isinstance(candidate, dict):
+                continue
+            if candidate.get("finishReason"):
+                self.finish = str(candidate["finishReason"])
+            for part in (candidate.get("content") or {}).get("parts") or []:
+                if not isinstance(part, dict):
+                    continue
+                fc = part.get("functionCall") if isinstance(part.get("functionCall"), dict) else None
+                if fc:
+                    slot = self._slot_for(fc)
+                    if fc.get("id"):
+                        slot.call_id = str(fc["id"])
+                    if fc.get("name"):
+                        slot.name = str(fc["name"])
+                    fc_signature = part.get("thoughtSignature") or fc.get("thoughtSignature")
+                    if fc_signature:
+                        slot.signature = str(fc_signature)
+                    args = fc.get("args")
+                    if isinstance(args, dict):
+                        for key, value in args.items():
+                            existing = slot.args.get(key)
+                            if isinstance(existing, str) and isinstance(value, str):
+                                slot.args[key] = existing + value
+                            else:
+                                slot.args[key] = value
+                    continue
+                text = str(part.get("text") or "")
+                if not text:
+                    continue
+                if part.get("thought"):
+                    if part.get("thoughtSignature"):
+                        self.thought_signature = str(part["thoughtSignature"])
+                    self.thought_pieces.append(text)
+                    events.append(("thought", text))
+                else:
+                    self.text_pieces.append(text)
+                    events.append(("text", text))
+        return events
+
+    @property
+    def content(self) -> str:
+        return "".join(self.text_pieces)
+
+    @property
+    def reasoning(self) -> str:
+        return "".join(self.thought_pieces)
+
+    def original_name(self, wire_name: str) -> str:
+        return original_tool_name(self.context, wire_name)
+
+    def collect_signatures(self) -> Dict[str, str]:
+        out: Dict[str, str] = {}
+        if self.thought_signature:
+            out["__thought__"] = self.thought_signature
+        for slot in self.calls:
+            if slot.signature and slot.call_id:
+                out[slot.call_id] = slot.signature
+        return out
+
+    def flush_to_context(self) -> None:
+        """Persist functionCall signatures into the conversion context so the
+        proxy-side thought signature store (and stream consumers) can replay
+        them on the next turn even when the client format has no signature."""
+        signatures = self.collect_signatures()
+        if not signatures or self.context is None:
+            return
+        store = self.context.google_state.setdefault("signatures", {})
+        for call_id, signature in signatures.items():
+            if call_id == "__thought__":
+                continue
+            store[call_id] = signature
+
+
+def _google_usage_chat(usage: Dict[str, Any]) -> Dict[str, Any]:
+    prompt = int(usage.get("promptTokenCount", 0) or 0)
+    completion = int(usage.get("candidatesTokenCount", 0) or 0)
+    thoughts = int(usage.get("thoughtsTokenCount", 0) or 0)
+    total = int(usage.get("totalTokenCount", prompt + completion + thoughts) or 0)
+    out = {
+        "prompt_tokens": prompt,
+        "completion_tokens": completion,
+        "total_tokens": total,
+    }
+    if thoughts:
+        out["completion_tokens_details"] = {"reasoning_tokens": thoughts}
+    cached = int(usage.get("cachedContentTokenCount", 0) or 0)
+    if cached:
+        out["prompt_tokens_details"] = {"cached_tokens": cached}
+    return out
+
+
+def _google_usage_pair(usage: Dict[str, Any]) -> Dict[str, int]:
+    prompt = int(usage.get("promptTokenCount", 0) or 0)
+    completion = int(usage.get("candidatesTokenCount", 0) or 0)
+    thoughts = int(usage.get("thoughtsTokenCount", 0) or 0)
+    return {
+        "input": prompt,
+        "output": completion + thoughts,
+    }
+
+
+def _google_interrupted(err_type_name: str) -> str:
+    return f"[Stream interrupted: {err_type_name}]"
+
+
+def stream_google_sse_to_openai_chat(
+    upstream,
+    wfile,
+    original_model,
+    first_byte_timeout_s: Optional[int] = None,
+    read_timeout_s: Optional[int] = None,
+    initial_lines: Optional[Iterable[bytes]] = None,
+    conversion_context: Optional[ConversionContext] = None,
+    on_conversion_error: Optional[Callable[[ConversionError], None]] = None,
+):
+    """Read upstream Google generateContent SSE and write Chat Completions SSE chunks."""
+    completion_id = f"chatcmpl_{uuid.uuid4().hex[:24]}"
+    created = int(time.time())
+    acc = _GoogleStreamAccumulator(conversion_context)
+    first_byte_received = False
+    stream_start_time = time.time()
+
+    def write_chunk(delta, finish=None):
+        chunk = {
+            "id": completion_id,
+            "object": "chat.completion.chunk",
+            "created": created,
+            "model": original_model,
+            "choices": [{"index": 0, "delta": delta, "finish_reason": finish}],
+        }
+        wfile.write(f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n".encode())
+        wfile.flush()
+
+    try:
+        def upstream_lines():
+            for raw0 in initial_lines or []:
+                yield raw0
+            for raw0 in upstream:
+                yield raw0
+
+        for raw in upstream_lines():
+            if first_byte_timeout_s and not first_byte_received:
+                elapsed = time.time() - stream_start_time
+                if elapsed > first_byte_timeout_s:
+                    raise socket.timeout(f"First byte timeout: {elapsed:.1f}s > {first_byte_timeout_s}s")
+            line = raw.decode("utf-8", errors="replace").strip()
+            if not line or line.startswith(":"):
+                continue
+            data = sse_data_payload(line)
+            if data is None or is_sse_done(data):
+                continue
+            if not first_byte_received:
+                first_byte_received = True
+                if read_timeout_s:
+                    set_response_read_timeout(upstream, read_timeout_s)
+            try:
+                chunk = json.loads(data)
+            except json.JSONDecodeError:
+                continue
+            for kind, text in acc.feed(chunk):
+                if kind == "thought":
+                    write_chunk({"reasoning_content": text})
+                else:
+                    write_chunk({"content": text})
+    except Exception as e:
+        err_text = _google_interrupted(type(e).__name__)
+        print(f"[proxy] {err_text}: {str(e)[:200]}", flush=True)
+        try:
+            write_chunk({"content": err_text}, finish="stop")
+            wfile.write(b"data: [DONE]\n\n")
+            wfile.flush()
+        except Exception:
+            pass
+        return None
+
+    finish = _GOOGLE_FINISH_TO_CHAT.get(acc.finish, "stop")
+    tool_calls = []
+    for slot in acc.calls:
+        call_id = slot.call_id or f"call_{uuid.uuid4().hex[:24]}"
+        entry = {
+            "id": call_id,
+            "type": "function",
+            "function": {"name": acc.original_name(slot.name) or "unknown", "arguments": slot.merged_arguments()},
+        }
+        if slot.signature:
+            entry["provider_specific_fields"] = {"thought_signature": slot.signature}
+        tool_calls.append(entry)
+    for index, entry in enumerate(tool_calls):
+        write_chunk(
+            {
+                "tool_calls": [
+                    {
+                        "index": index,
+                        "id": entry["id"],
+                        "type": "function",
+                        "function": {"name": entry["function"]["name"], "arguments": entry["function"]["arguments"]},
+                    }
+                ]
+            }
+        )
+    if tool_calls:
+        finish = "tool_calls"
+    write_chunk({}, finish=finish)
+    wfile.write(b"data: [DONE]\n\n")
+    wfile.flush()
+
+    acc.flush_to_context()
+    message = {"role": "assistant", "content": acc.content}
+    if acc.reasoning:
+        message["reasoning_content"] = acc.reasoning
+    if tool_calls:
+        message["tool_calls"] = tool_calls
+    return {
+        "id": completion_id,
+        "object": "chat.completion",
+        "created": created,
+        "model": original_model,
+        "choices": [{"index": 0, "message": message, "finish_reason": finish}],
+        "usage": _google_usage_chat(acc.usage),
+    }
+
+
+def stream_google_sse_to_responses(
+    upstream,
+    wfile,
+    original_model,
+    first_byte_timeout_s: Optional[int] = None,
+    read_timeout_s: Optional[int] = None,
+    initial_lines: Optional[Iterable[bytes]] = None,
+    conversion_context: Optional[ConversionContext] = None,
+    on_conversion_error: Optional[Callable[[ConversionError], None]] = None,
+):
+    """Read upstream Google generateContent SSE and write OpenAI Responses SSE events."""
+    response_id = f"resp_{uuid.uuid4().hex}"
+    message_item_id = f"msg_{uuid.uuid4().hex[:24]}"
+    reasoning_item_id = f"rs_{uuid.uuid4().hex[:24]}"
+    tool_registry = ToolCallRegistry(conversion_context)
+    output_order: list = []
+    sequence_number = 0
+    text_started = False
+    reasoning_started = False
+    first_byte_received = False
+    stream_start_time = time.time()
+
+    def sse(event, data):
+        nonlocal sequence_number
+        sequence_number += 1
+        if isinstance(data, dict) and "sequence_number" not in data:
+            payload = dict(data)
+            payload["sequence_number"] = sequence_number
+        else:
+            payload = data
+        wfile.write(f"event: {event}\n".encode())
+        wfile.write(f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode())
+
+    def response_obj(status="in_progress", output=None, usage_pair=None):
+        out = {
+            "id": response_id,
+            "object": "response",
+            "created_at": int(time.time()),
+            "status": status,
+            "model": original_model,
+            "output": output or [],
+            "parallel_tool_calls": True,
+        }
+        if status == "completed" and usage_pair is not None:
+            out["usage"] = {
+                "input_tokens": usage_pair["input"],
+                "output_tokens": usage_pair["output"],
+                "total_tokens": usage_pair["input"] + usage_pair["output"],
+            }
+        return out
+
+    def next_output_index(kind, ref=None):
+        output_order.append((kind, ref))
+        return len(output_order) - 1
+
+    acc = _GoogleStreamAccumulator(conversion_context)
+
+    sse("response.created", {"type": "response.created", "response": response_obj()})
+    wfile.flush()
+
+    def emit_reasoning(text):
+        nonlocal reasoning_started
+        if not reasoning_started:
+            reasoning_started = True
+            next_output_index("reasoning")
+            sse(
+                "response.output_item.added",
+                {
+                    "type": "response.output_item.added",
+                    "output_index": len(output_order) - 1,
+                    "item": {"id": reasoning_item_id, "type": "reasoning", "summary": [], "status": "in_progress"},
+                },
+            )
+        sse(
+            "response.reasoning_summary_text.delta",
+            {
+                "type": "response.reasoning_summary_text.delta",
+                "item_id": reasoning_item_id,
+                "output_index": len(output_order) - 1,
+                "summary_index": 0,
+                "delta": text,
+            },
+        )
+
+    def emit_text(text):
+        nonlocal text_started
+        if not text_started:
+            text_started = True
+            next_output_index("message")
+            sse(
+                "response.output_item.added",
+                {
+                    "type": "response.output_item.added",
+                    "output_index": len(output_order) - 1,
+                    "item": {"id": message_item_id, "type": "message", "role": "assistant", "content": []},
+                },
+            )
+            sse(
+                "response.content_part.added",
+                {
+                    "type": "response.content_part.added",
+                    "item_id": message_item_id,
+                    "output_index": len(output_order) - 1,
+                    "content_index": 0,
+                    "part": {"type": "output_text", "text": ""},
+                },
+            )
+        sse(
+            "response.output_text.delta",
+            {
+                "type": "response.output_text.delta",
+                "item_id": message_item_id,
+                "output_index": len(output_order) - 1,
+                "content_index": 0,
+                "delta": text,
+            },
+        )
+
+    try:
+        def upstream_lines():
+            for raw0 in initial_lines or []:
+                yield raw0
+            for raw0 in upstream:
+                yield raw0
+
+        for raw in upstream_lines():
+            if first_byte_timeout_s and not first_byte_received:
+                elapsed = time.time() - stream_start_time
+                if elapsed > first_byte_timeout_s:
+                    raise socket.timeout(f"First byte timeout: {elapsed:.1f}s > {first_byte_timeout_s}s")
+            line = raw.decode("utf-8", errors="replace").strip()
+            if not line or line.startswith(":"):
+                continue
+            data = sse_data_payload(line)
+            if data is None or is_sse_done(data):
+                continue
+            if not first_byte_received:
+                first_byte_received = True
+                if read_timeout_s:
+                    set_response_read_timeout(upstream, read_timeout_s)
+            try:
+                chunk = json.loads(data)
+            except json.JSONDecodeError:
+                continue
+            for kind, text in acc.feed(chunk):
+                if kind == "thought":
+                    emit_reasoning(text)
+                else:
+                    emit_text(text)
+            wfile.flush()
+    except Exception as e:
+        err_text = _google_interrupted(type(e).__name__)
+        print(f"[proxy] {err_text}: {str(e)[:200]}", flush=True)
+        try:
+            sse(
+                "response.failed",
+                {
+                    "type": "response.failed",
+                    "response": {
+                        "id": response_id,
+                        "object": "response",
+                        "status": "failed",
+                        "model": original_model,
+                        "error": {"message": err_text},
+                    },
+                },
+            )
+            wfile.flush()
+        except Exception:
+            pass
+        return None
+
+    reasoning_index = output_order.index(("reasoning", None)) if ("reasoning", None) in output_order else None
+    if reasoning_started and reasoning_index is not None:
+        sse(
+            "response.reasoning_summary_text.done",
+            {
+                "type": "response.reasoning_summary_text.done",
+                "item_id": reasoning_item_id,
+                "output_index": reasoning_index,
+                "summary_index": 0,
+                "text": acc.reasoning,
+            },
+        )
+        sse(
+            "response.output_item.done",
+            {
+                "type": "response.output_item.done",
+                "output_index": reasoning_index,
+                "item": {
+                    "id": reasoning_item_id,
+                    "type": "reasoning",
+                    "status": "completed",
+                    "summary": [{"type": "summary_text", "text": acc.reasoning}],
+                },
+            },
+        )
+    text_index = output_order.index(("message", None)) if ("message", None) in output_order else None
+    if text_started and text_index is not None:
+        sse(
+            "response.output_text.done",
+            {
+                "type": "response.output_text.done",
+                "item_id": message_item_id,
+                "output_index": text_index,
+                "content_index": 0,
+                "text": acc.content,
+            },
+        )
+        sse(
+            "response.content_part.done",
+            {
+                "type": "response.content_part.done",
+                "item_id": message_item_id,
+                "output_index": text_index,
+                "content_index": 0,
+                "part": {"type": "output_text", "text": acc.content},
+            },
+        )
+        sse(
+            "response.output_item.done",
+            {
+                "type": "response.output_item.done",
+                "output_index": text_index,
+                "item": {
+                    "id": message_item_id,
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": acc.content}],
+                    "status": "completed",
+                },
+            },
+        )
+
+    output_items = []
+    try:
+        for slot_index, slot in enumerate(acc.calls):
+            state = tool_registry.get(slot_index)
+            state.update(call_id=slot.call_id or "", name=slot.name or "")
+            args = slot.merged_arguments()
+            state.arguments = args
+            state.validate_arguments()
+            item_id = slot.call_id or f"call_{uuid.uuid4().hex[:24]}"
+            output_index = next_output_index("tool", slot_index)
+            item = state.responses_item(status="in_progress", item_id=item_id)
+            if slot.signature:
+                item["provider_specific_fields"] = {"thought_signature": slot.signature}
+            sse(
+                "response.output_item.added",
+                {"type": "response.output_item.added", "output_index": output_index, "item": item},
+            )
+            sse(
+                "response.function_call_arguments.delta",
+                {
+                    "type": "response.function_call_arguments.delta",
+                    "item_id": item_id,
+                    "output_index": output_index,
+                    "delta": args,
+                },
+            )
+            sse(
+                "response.function_call_arguments.done",
+                {
+                    "type": "response.function_call_arguments.done",
+                    "item_id": item_id,
+                    "output_index": output_index,
+                    "arguments": args,
+                },
+            )
+            done_item = state.responses_item(status="completed", item_id=item_id)
+            if slot.signature:
+                done_item["provider_specific_fields"] = {"thought_signature": slot.signature}
+            sse(
+                "response.output_item.done",
+                {"type": "response.output_item.done", "output_index": output_index, "item": done_item},
+            )
+            output_items.append(done_item)
+    except ConversionError as exc:
+        _notify_conversion_error(on_conversion_error, exc)
+        sse(
+            "response.failed",
+            {
+                "type": "response.failed",
+                "response": {
+                    "id": response_id,
+                    "object": "response",
+                    "status": "failed",
+                    "model": original_model,
+                    "error": exc.as_dict(),
+                },
+            },
+        )
+        wfile.flush()
+        return None
+
+    output = []
+    for kind, ref in output_order:
+        if kind == "reasoning":
+            output.append(
+                {
+                    "id": reasoning_item_id,
+                    "type": "reasoning",
+                    "status": "completed",
+                    "summary": [{"type": "summary_text", "text": acc.reasoning}],
+                }
+            )
+        elif kind == "message":
+            output.append(
+                {
+                    "id": message_item_id,
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": acc.content}],
+                    "status": "completed",
+                }
+            )
+        elif kind == "tool":
+            output.append(output_items[ref])
+    usage_pair = _google_usage_pair(acc.usage)
+    status = "incomplete" if acc.finish == "MAX_TOKENS" else "completed"
+    completed = response_obj(status=status, output=output, usage_pair=usage_pair)
+    completed["output_text"] = acc.content
+    if status == "incomplete":
+        completed["incomplete_details"] = {"reason": "max_output_tokens"}
+    acc.flush_to_context()
+    _persist_streamed_response(conversion_context, completed)
+    sse("response.completed", {"type": "response.completed", "response": completed})
+    wfile.flush()
+    return completed
+
+
+def stream_google_sse_to_anthropic(
+    upstream,
+    wfile,
+    original_model,
+    first_byte_timeout_s: Optional[int] = None,
+    read_timeout_s: Optional[int] = None,
+    initial_lines: Optional[Iterable[bytes]] = None,
+    conversion_context: Optional[ConversionContext] = None,
+    on_conversion_error: Optional[Callable[[ConversionError], None]] = None,
+):
+    """Read upstream Google generateContent SSE and write Anthropic Messages SSE events."""
+    msg_id = f"msg_{uuid.uuid4().hex[:24]}"
+    acc = _GoogleStreamAccumulator(conversion_context)
+    block_idx = 0
+    thinking_open = False
+    text_open = False
+    first_byte_received = False
+    stream_start_time = time.time()
+
+    def sse(event, data):
+        wfile.write(f"event: {event}\n".encode())
+        wfile.write(f"data: {json.dumps(data, ensure_ascii=False)}\n\n".encode())
+
+    sse(
+        "message_start",
+        {
+            "type": "message_start",
+            "message": {
+                "id": msg_id,
+                "type": "message",
+                "role": "assistant",
+                "content": [],
+                "model": original_model,
+                "stop_reason": None,
+                "stop_sequence": None,
+                "usage": {"input_tokens": 0, "output_tokens": 0},
+            },
+        },
+    )
+    wfile.flush()
+
+    def close_block(bidx):
+        sse("content_block_stop", {"type": "content_block_stop", "index": bidx})
+
+    def close_thinking():
+        nonlocal block_idx, thinking_open
+        if not thinking_open:
+            return
+        if acc.thought_signature:
+            sse(
+                "content_block_delta",
+                {
+                    "type": "content_block_delta",
+                    "index": block_idx,
+                    "delta": {"type": "signature_delta", "signature": acc.thought_signature},
+                },
+            )
+        close_block(block_idx)
+        block_idx += 1
+        thinking_open = False
+
+    def close_text():
+        nonlocal block_idx, text_open
+        if not text_open:
+            return
+        close_block(block_idx)
+        block_idx += 1
+        text_open = False
+
+    def close_all_blocks():
+        close_thinking()
+        close_text()
+
+    try:
+        def upstream_lines():
+            for raw0 in initial_lines or []:
+                yield raw0
+            for raw0 in upstream:
+                yield raw0
+
+        for raw in upstream_lines():
+            if first_byte_timeout_s and not first_byte_received:
+                elapsed = time.time() - stream_start_time
+                if elapsed > first_byte_timeout_s:
+                    raise socket.timeout(f"First byte timeout: {elapsed:.1f}s > {first_byte_timeout_s}s")
+            line = raw.decode("utf-8", errors="replace").strip()
+            if not line or line.startswith(":"):
+                continue
+            data = sse_data_payload(line)
+            if data is None or is_sse_done(data):
+                continue
+            if not first_byte_received:
+                first_byte_received = True
+                if read_timeout_s:
+                    set_response_read_timeout(upstream, read_timeout_s)
+            try:
+                chunk = json.loads(data)
+            except json.JSONDecodeError:
+                continue
+            for kind, text in acc.feed(chunk):
+                if kind == "thought":
+                    close_text()
+                    if not thinking_open:
+                        thinking_open = True
+                        sse(
+                            "content_block_start",
+                            {
+                                "type": "content_block_start",
+                                "index": block_idx,
+                                "content_block": {"type": "thinking", "thinking": ""},
+                            },
+                        )
+                    sse(
+                        "content_block_delta",
+                        {
+                            "type": "content_block_delta",
+                            "index": block_idx,
+                            "delta": {"type": "thinking_delta", "thinking": text},
+                        },
+                    )
+                else:
+                    close_thinking()
+                    if not text_open:
+                        text_open = True
+                        sse(
+                            "content_block_start",
+                            {
+                                "type": "content_block_start",
+                                "index": block_idx,
+                                "content_block": {"type": "text", "text": ""},
+                            },
+                        )
+                    sse(
+                        "content_block_delta",
+                        {
+                            "type": "content_block_delta",
+                            "index": block_idx,
+                            "delta": {"type": "text_delta", "text": text},
+                        },
+                    )
+                wfile.flush()
+    except Exception as e:
+        err_text = _google_interrupted(type(e).__name__)
+        print(f"[proxy] {err_text}: {str(e)[:200]}", flush=True)
+        try:
+            close_all_blocks()
+            sse("content_block_start", {"type": "content_block_start", "index": block_idx, "content_block": {"type": "text", "text": ""}})
+            sse(
+                "content_block_delta",
+                {
+                    "type": "content_block_delta",
+                    "index": block_idx,
+                    "delta": {"type": "text_delta", "text": err_text},
+                },
+            )
+            close_block(block_idx)
+            sse(
+                "message_delta",
+                {
+                    "type": "message_delta",
+                    "delta": {"stop_reason": "end_turn", "stop_sequence": None},
+                    "usage": {"input_tokens": 0, "output_tokens": 0},
+                },
+            )
+            sse("message_stop", {"type": "message_stop"})
+            wfile.flush()
+        except Exception:
+            pass
+        return None
+
+    close_all_blocks()
+
+    tool_blocks = []
+    try:
+        for slot in acc.calls:
+            input_value = json.loads(slot.merged_arguments())
+            if not isinstance(input_value, dict):
+                input_value = {"value": input_value}
+            tool_blocks.append((slot, input_value))
+    except (json.JSONDecodeError, TypeError) as exc:
+        conv_exc = ConversionError(
+            f"streamed tool arguments contain invalid JSON: {exc}",
+            code="invalid_tool_arguments",
+            field="stream.tool_calls",
+            source_format="google_generate",
+            target_format="anthropic_messages",
+        )
+        _notify_conversion_error(on_conversion_error, conv_exc)
+        sse("error", {"type": "error", "error": {"type": "conversion_error", **conv_exc.as_dict()}})
+        sse("message_stop", {"type": "message_stop"})
+        wfile.flush()
+        return None
+
+    content_log = []
+    if acc.reasoning:
+        thinking_block = {"type": "thinking", "thinking": acc.reasoning}
+        if acc.thought_signature:
+            thinking_block["signature"] = acc.thought_signature
+        content_log.append(thinking_block)
+    if acc.content:
+        content_log.append({"type": "text", "text": acc.content})
+
+    stop_reason = _GOOGLE_FINISH_TO_ANTHROPIC.get(acc.finish, "end_turn")
+    for slot, input_value in tool_blocks:
+        call_id = slot.call_id or f"toolu_{uuid.uuid4().hex[:24]}"
+        tool_name = acc.original_name(slot.name) or "unknown"
+        sse(
+            "content_block_start",
+            {
+                "type": "content_block_start",
+                "index": block_idx,
+                "content_block": {"type": "tool_use", "id": call_id, "name": tool_name},
+            },
+        )
+        args_json = json.dumps(input_value, ensure_ascii=False)
+        sse(
+            "content_block_delta",
+            {
+                "type": "content_block_delta",
+                "index": block_idx,
+                "delta": {"type": "input_json_delta", "partial_json": args_json},
+            },
+        )
+        close_block(block_idx)
+        block_idx += 1
+        content_log.append({"type": "tool_use", "id": call_id, "name": tool_name, "input": input_value})
+    if tool_blocks:
+        stop_reason = "tool_use"
+
+    usage_pair = _google_usage_pair(acc.usage)
+    sse(
+        "message_delta",
+        {
+            "type": "message_delta",
+            "delta": {"stop_reason": stop_reason, "stop_sequence": None},
+            "usage": {"input_tokens": usage_pair["input"], "output_tokens": usage_pair["output"]},
+        },
+    )
+    sse("message_stop", {"type": "message_stop"})
+    wfile.flush()
+
+    acc.flush_to_context()
+    return {
+        "id": msg_id,
+        "type": "message",
+        "role": "assistant",
+        "content": content_log,
+        "model": original_model,
+        "stop_reason": stop_reason,
+        "stop_sequence": None,
+        "usage": {"input_tokens": usage_pair["input"], "output_tokens": usage_pair["output"]},
+    }

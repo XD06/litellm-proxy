@@ -187,6 +187,10 @@ class ConversionContext:
     session_store: Any = None
     session_request: Dict[str, Any] = field(default_factory=dict)
     session_expanded_from: str = ""
+    # Side channel for Google upstream streams: thought signatures observed on
+    # functionCall/thought parts are collected here so the proxy can replay
+    # them on the next request even when the client format has no slot for one.
+    google_state: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass

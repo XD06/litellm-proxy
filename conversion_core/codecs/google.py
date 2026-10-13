@@ -237,8 +237,11 @@ def parse_response(response: Dict[str, Any], context: Optional[ConversionContext
         for part in parts:
             if not isinstance(part, dict):
                 continue
-            signature = str(part.get("thoughtSignature") or "")
+            # Google attaches thoughtSignature on the part (sibling of
+            # functionCall); tolerate the nested placement seen in some
+            # captured payloads.
             function_call = part.get("functionCall") if isinstance(part.get("functionCall"), dict) else None
+            signature = str(part.get("thoughtSignature") or (function_call or {}).get("thoughtSignature") or "")
             if function_call:
                 wire_name = str(function_call.get("name") or "")
                 name = context.tool_name_to_original.get(wire_name, wire_name) if context else wire_name

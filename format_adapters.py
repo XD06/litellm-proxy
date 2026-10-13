@@ -22,6 +22,8 @@ from parameter_compatibility import (
 CHAT = "chat_completions"
 RESPONSES = "responses"
 ANTHROPIC = "anthropic_messages"
+# Google native generateContent: upstream-only format (see conversion_core.codecs.google).
+GOOGLE = "google_generate"
 
 
 _SESSION_STORE: Optional[ResponsesSessionStore] = None
