@@ -607,7 +607,10 @@ def _build_probe_payload(provider_model: str, *, stream: bool, fmt: str, attempt
     stream
         Whether this is a streaming probe.
     fmt
-        The upstream format (chat_completions / responses / anthropic_messages).
+        The upstream format (chat_completions / responses / anthropic_messages /
+        google_generate).  Conversion happens through the shared codecs, so a
+        Google probe sends a real generateContent body and its streaming URL
+        must be the :streamGenerateContent?alt=sse endpoint (is_stream=True).
     attempt
         Optional Attempt namedtuple; if provided, provider-specific
         transformations (_force_chat_reasoning_content_if_needed,
@@ -743,7 +746,7 @@ def _idle_probe_one_provider_impl(rt, provider: str, *, idle_tier: str = "", nex
         return False
 
     fmt = router._first_supported_format(
-        provider, ["chat_completions", "responses", "anthropic_messages"]
+        provider, ["chat_completions", "responses", "anthropic_messages", GOOGLE]
     )
     if not fmt:
         _record_probe(
@@ -789,6 +792,7 @@ def _idle_probe_one_provider_impl(rt, provider: str, *, idle_tier: str = "", nex
         key_index=key_indices_to_try[0],
         upstream_format=fmt,
         provider_model=_key_probe_raw(key_indices_to_try[0]) or None,
+        is_stream=True,
     )
     provider_model = first_provider_model
     first_attempt = _Attempt(
@@ -832,11 +836,14 @@ def _idle_probe_one_provider_impl(rt, provider: str, *, idle_tier: str = "", nex
             key_index=key_index,
             upstream_format=fmt,
             provider_model=_key_probe_raw(key_index) or None,
+            is_stream=True,
         )
         # Keys of one provider can map the canonical to different raw ids
         # (per-key model maps / per-key discovered catalogs); send each key
         # the raw its own catalog recognizes.
-        if key_provider_model:
+        if key_provider_model and fmt != GOOGLE:
+            # Google carries the model in the URL; a body field would fail
+            # proto JSON validation.
             payload["model"] = key_provider_model
 
         probe_attempt = _Attempt(
@@ -1378,7 +1385,7 @@ def _patrol_probe_one_key_impl(rt, provider: str, key_index: int, *, canonical_m
         return False
 
     fmt = router._first_supported_format(
-        provider, ["chat_completions", "responses", "anthropic_messages"]
+        provider, ["chat_completions", "responses", "anthropic_messages", GOOGLE]
     )
     if not fmt:
         _record_probe(
@@ -1421,6 +1428,7 @@ def _patrol_probe_one_key_impl(rt, provider: str, key_index: int, *, canonical_m
         key_index=key_index,
         upstream_format=fmt,
         provider_model=key_provider_model or None,
+        is_stream=True,
     )
 
     # Build a STREAMING payload — stream=true so we can read just the first
@@ -2860,7 +2868,7 @@ def _probe_provider_key_once(provider: str, key_index: int, model: str = "") -> 
         return {"ok": False, "error_type": "model_disabled", "error": f"model '{canonical_model}' is disabled for provider '{provider}'"}
 
     fmt = ROUTER._first_supported_format(
-        provider, ["chat_completions", "responses", "anthropic_messages"]
+        provider, ["chat_completions", "responses", "anthropic_messages", GOOGLE]
     )
     if not fmt:
         return {"ok": False, "error_type": "no_format", "error": "no enabled upstream format"}

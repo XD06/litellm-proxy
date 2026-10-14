@@ -1716,7 +1716,7 @@ class UpstreamRouter:
         list a request arriving right now would try.
         """
         if allowed_upstream_formats is None:
-            allowed_upstream_formats = ["chat_completions", "responses", "anthropic_messages"]
+            allowed_upstream_formats = ["chat_completions", "responses", "anthropic_messages", GOOGLE_NATIVE_FORMAT]
         provider_formats = self._select_provider_attempts(
             canonical_model,
             request_id="routing-preview",

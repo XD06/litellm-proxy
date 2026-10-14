@@ -9,7 +9,7 @@ import unittest
 
 import format_adapters
 import thought_signature_store
-from conversion_core import prepare_request
+from conversion_core import prepare_request, translate_response
 from conversion_core.codecs import google as google_codec
 from format_adapters import ANTHROPIC, CHAT, GOOGLE, RESPONSES
 
