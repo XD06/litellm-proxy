@@ -23,7 +23,7 @@
 
 ---
 
-> A Python-based **format-aware LLM API proxy** that sits between LLM clients (Cherry Studio, Claude Code, OpenAI SDK, etc.) and multiple upstream LLM providers. It accepts three API formats — **OpenAI Chat Completions**, **OpenAI Responses**, and **Anthropic Messages** — and can convert between any pair when the best available provider uses a different format than the client requested.
+> A Python-based **format-aware LLM API proxy** that sits between LLM clients (Cherry Studio, Claude Code, OpenAI SDK, etc.) and multiple upstream LLM providers. It accepts three API formats — **OpenAI Chat Completions**, **OpenAI Responses**, and **Anthropic Messages** — and can convert between any pair when the best available provider uses a different format than the client requested. Providers may additionally speak **Google's native Gemini format** (`generateContent`) as an upstream-only format: the proxy renders requests into it and converts responses and SSE streams back to the three client formats, with full `thought_signature` fidelity for agent tool loops.
 
 <table>
   <tr>
@@ -60,6 +60,7 @@
 | Icon | Feature | Description |
 |:---:|---|---|
 | 🔄 | **Three-Format Conversion** | Bidirectional conversion between `chat_completions` ↔ `responses` ↔ `anthropic_messages`, including streaming SSE with text, reasoning/thinking blocks, and tool calls |
+| 🌐 | **Google Gemini Upstream** | Native `generateContent` as an **upstream-only** provider format (non-streaming + SSE): tools with parallel calls, thinking parts, `thinkingBudget`/`thinkingLevel` across 2.5/3.x generations, and `thought_signature` replay (psf round-trip → bounded store → dummy fallback) so multi-turn agent loops never break |
 | 🧠 | **Smart Routing** | 5 routing modes: priority failover, round-robin, weighted rotation, random, and **auto mode** with real-time health-score-based priority adjustment |
 | 🛡️ | **Failover & Cooldown** | Per-key and per-provider cooldown, retry policies, candidate de-duplication — resilient by design |
 | 📈 | **Observability** | SQLite-persisted request history, per-attempt latency attribution, routing explainability, token/cost estimation |
@@ -80,6 +81,7 @@ No config file needed — just set API keys as environment variables:
 ```bash
 export OPENAI_API_KEY=sk-...
 export DEEPSEEK_API_KEY=sk-...
+export GEMINI_API_KEY=AIza-...   # optional: Google native generateContent upstream
 python sse2json.py
 # Proxy auto-detects providers from env vars and starts immediately
 ```
@@ -207,7 +209,7 @@ graph TB
         SJ["sse2json.py<br/>Request Normalization & Dispatch"]
         RT["router.py<br/>Provider + Key Selection<br/>(5 routing modes, failover, cooldown)"]
         UC["upstream_client.py<br/>HTTP Client (urllib3, streaming)"]
-        SA["stream_adapters.py<br/>6 SSE Stream Converters"]
+        SA["stream_adapters.py<br/>9 SSE Stream Converters"]
         PA["protocol_adapters.py<br/>Non-Streaming Conversion"]
         OB["observability.py<br/>history_store.py<br/>Metrics + SQLite History"]
     end
@@ -217,6 +219,7 @@ graph TB
         P2["DeepSeek<br/>(chat_completions)"]
         P3["Anthropic<br/>(anthropic_messages)"]
         P4["Other Providers<br/>(any format)"]
+        P5["Google Gemini<br/>(google_generate, upstream-only)"]
     end
 
     Client -->|"POST /v1/chat/completions<br/>POST /v1/responses<br/>POST /anthropic/v1/messages"| RC
@@ -227,12 +230,15 @@ graph TB
     UC -->|"streaming / non-streaming"| P2
     UC -->|"streaming / non-streaming"| P3
     UC -->|"streaming / non-streaming"| P4
+    UC -->|"generateContent"| P5
     P1 -->|"SSE / JSON"| SA
     P2 -->|"SSE / JSON"| SA
     P3 -->|"SSE / JSON"| SA
+    P5 -->|"SSE / JSON"| SA
     P1 -->|"JSON"| PA
     P2 -->|"JSON"| PA
     P3 -->|"JSON"| PA
+    P5 -->|"JSON"| PA
     SA -->|"converted SSE"| Client
     PA -->|"converted JSON"| Client
     SJ -->|"masked metadata"| OB
@@ -340,6 +346,7 @@ sequenceDiagram
 | `PROXY_PROVIDER_KEYS__name` | Override provider keys (JSON array) |
 | `OPENAI_API_KEY` | Auto-detected provider key (zero-config mode) |
 | `DEEPSEEK_API_KEY` | Auto-detected provider key (zero-config mode) |
+| `GEMINI_API_KEY` | Auto-detected provider key (zero-config mode) — registers the Google native `google_generate` upstream (`https://generativelanguage.googleapis.com`) |
 
 </details>
 
@@ -362,6 +369,19 @@ sequenceDiagram
       ],
       "enabled": true,
       "priority": 90
+    },
+    // Google native upstream: requests are rendered to Gemini's generateContent
+    // body; responses/SSE convert back to the three client formats. Auth is the
+    // x-goog-api-key header (no Bearer). {model} in the path is replaced per attempt.
+    "gemini": {
+      "base_url": "https://generativelanguage.googleapis.com",
+      "formats": {
+        "google_generate": { "enabled": true, "path": "/v1beta/models/{model}:generateContent" }
+      },
+      "models_path": "/v1beta/models",
+      "keys": ["AIza-your-google-api-key"],
+      "enabled": true,
+      "priority": 70
     }
   }
 }
@@ -396,13 +416,13 @@ Instant requests always come first. While a real request is in flight — or wit
 | 🔑 Admin API | `admin_routes.py`, `config_manager.py` | Authenticated admin endpoints, runtime overlay with `RLock`-serialized commits |
 | 🧭 Routing & retry | `router.py`, `scheduler_policy.py`, `model_registry.py` | Provider/key selection, cooldown, failover, health scores, model discovery |
 | ☁️ Upstream HTTP | `upstream_client.py` | urllib3-based HTTP client with streaming support, timeout management |
-| 🔄 Non-streaming conversion | `format_adapters.py`, `protocol_adapters.py`, `chat.py`, `responses.py` | Bidirectional request/response format conversion |
-| 📡 Streaming conversion | `stream_adapters.py` | 6 SSE stream adapters + `relay_sse_stream` pass-through + `BufferedSSEWriter` |
+| 🔄 Non-streaming conversion | `format_adapters.py`, `protocol_adapters.py`, `chat.py`, `responses.py` | Bidirectional request/response format conversion (+ upstream-only Google `generateContent` codec with thought-signature store) |
+| 📡 Streaming conversion | `stream_adapters.py` | 9 SSE stream adapters (6 between the three client formats + 3 google→X) + `relay_sse_stream` pass-through + `BufferedSSEWriter` |
 | 📈 Observability | `observability.py`, `history_store.py`, `audit_store.py`, `routing_explain.py`, `usage_accounting.py` | SQLite history, metrics, audit log, cost estimation |
 | 🖥️ Dashboard runtime | `dashboard/` | Built static assets served by the proxy |
 | 🎨 Dashboard source | `dashboard_src/` | Vite + vanilla JS source with i18n, morphdom |
 | 🐳 Deployment | `Dockerfile`, `docker-compose.yml`, `deploy/` | Docker, systemd, Nginx reverse proxy configs |
-| 🧪 Tests | `tests/` (54 files, 989 tests) + `dashboard_src/tests/` (34 Node tests via `npm test`) | pytest covering routing, conversion, config, streaming, admin API; Node tests for dashboard UI |
+| 🧪 Tests | `tests/` (57 files, 1036 tests) + `dashboard_src/tests/` (34 Node tests via `npm test`) | pytest covering routing, conversion, config, streaming, admin API, Google native format; Node tests for dashboard UI |
 
 > **For a restrained system overview, see [ARCHITECTURE.md](ARCHITECTURE.md); for a deep module-by-module walkthrough, see [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md).**
 

@@ -8,10 +8,12 @@
 
 所有客户端接口支持标准 Bearer Token 认证（配置于 `server.admin_key` 或各客户端 API Key）。
 
+> 三种客户端入口可路由到四种上游格式：`chat_completions` / `responses` / `anthropic_messages` 双向互转，另有 **`google_generate`（Google Gemini 原生 `generateContent`）仅作上游格式**——请求被渲染为 Gemini 原生 body，响应/SSE 转回客户端格式；不提供 `/v1beta` 客户端入口。
+
 ### 1.1 OpenAI Chat Completions
 * **方法**: `POST`
 * **路径**: `/v1/chat/completions`
-* **说明**: 标准 OpenAI 格式对话接口，支持流式（SSE）与非流式。若上游仅支持 Anthropic Messages 或 Responses，网关会自动完成双向格式转码。
+* **说明**: 标准 OpenAI 格式对话接口，支持流式（SSE）与非流式。若上游仅支持 Anthropic Messages、Responses 或 Google `generateContent`，网关会自动完成格式转码（工具调用与 thought_signature 在多轮 Agent 循环中保真）。
 * **主要参数**: `model`, `messages`, `stream`, `temperature`, `max_tokens`, `tools`, `tool_choice`。
 
 ### 1.2 Anthropic Messages
@@ -43,7 +45,7 @@
 ### 2.2 供应商管理 (Providers)
 * **`GET /-/admin/providers`**：获取所有供应商配置、Key 数量及实时健康状态。
 * **`POST /-/admin/providers`**：新增供应商。
-* **`PATCH /-/admin/providers/{provider}`**：更新指定供应商基础信息（`base_url`, `priority`, `weight`, `enabled` 等）。
+* **`PATCH /-/admin/providers/{provider}`**：更新指定供应商基础信息（`base_url`, `priority`, `weight`, `enabled` 等）。`formats` 支持第四键 `google_generate`（path 模板含 `{model}`，由路由逐 attempt 替换；鉴权自动用 `x-goog-api-key`）。
 * **`DELETE /-/admin/providers/{provider}`**：删除供应商。
 
 ### 2.3 密钥管理 (Keys)
@@ -70,12 +72,12 @@
 * **`PATCH /-/admin/providers/{provider}/models/disabled`**：批量改写该供应商的禁用表。Payload `{"models": {"grok-4.3": true, "grok-4": false}}`。
   * 判定口径：读路径先精确匹配 id，再 `lower()` 兜底（`provider_model_disabled`）；禁用 canonical 会让它从 `/v1/models` 消失，禁用某个 raw 只剔除该候选（聚合供应商的其他副本仍可用）。
 * **静态模型名单**：沿用 §2.2 的 `PATCH /-/admin/providers/{provider}` 的 `static_models` 字段，**整表重写**语义——接受字符串数组或逗号分隔字符串（保序去重），传 `null` 清空。
-* **`POST /-/admin/providers/{provider}/models/refresh`**：立即触发该供应商的 `/v1/models` 重新发现。
+* **`POST /-/admin/providers/{provider}/models/refresh`**：立即触发该供应商的 `/v1/models` 重新发现。Google 原生供应商默认走 `/v1beta/models`，`{"models":[...]}` 自动归一为 `{"data":[...]}`（剥 `models/` 前缀、按 `supportedGenerationMethods` 过滤）。
 * **`POST /-/admin/models/refresh`**：立即触发全部供应商的模型发现。
 * **`POST /-/admin/models/test`**：对指定供应商模型发起一次真实的最小测试请求（复用 key 探测管道，15s 预算，去重并发，结果记入请求历史）。
   * Payload：`{"provider": "requesty", "model": "runware/deepseek-v4-flash-0731", "key_index": 0}`（`key_index` 可选，默认 0）
   * **key 级解析**：探测按所选 key 的自身目录解析上游模型名（key 条目 `models` dict → `provider_key_model_capabilities` 指纹条目），无 key 级信息时回退 provider 级主 raw；控制台映射弹窗会展示该模型的归属 key 徽章（脱敏形态，可多选）并把所选 `key_index` 传入本端点。
-  * 返回：`{"action": "model_tested", "result": {"ok": true, "format": "...", "upstream_model": "...", "latency_ms": 42}}`；失败时含 `http_status` / `error_type` / `error`（脱敏）。
+  * 返回：`{"action": "model_tested", "result": {"ok": true, "format": "...", "upstream_model": "...", "latency_ms": 42}}`；失败时含 `http_status` / `error_type` / `error`（脱敏）。`format` 可为四种上游格式之一（含 `google_generate`；Google 原生供应商的 key/模型探测会渲染真实 generateContent 请求，流式探测 URL 为 `:streamGenerateContent?alt=sse`）。
 * **模型目录可见性（`GET /v1/models`）**：候选 id 来自 5 类来源 —— 自动发现的 canonical、`provider_model_map` 键、`provider_model_variants` 键、`static_models`、`models.routes` 的模型键，外加全局 `client_model_map` 键（`model_registry._configured_model_ids` 去重后输出）；变体组只要**至少一条** raw 非空且 canonical 键自身未被禁用即出现在列表里。聚合供应商（如 requesty）同一基础模型的多个厂商副本归一为 1 个 canonical id 并记录 1 对多 `variant_map`，只要任一副本未被禁用 canonical 即可见，路由按副本优先级依次故障转移。
 
 ### 2.5 模型定价 (Model Pricing)
