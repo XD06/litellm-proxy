@@ -390,9 +390,12 @@ class GoogleProxyNonStreamingTests(GoogleProxyBase):
             second,
         )
         self.assertEqual(status2, 200)
-        fc = self.model_parts(second.calls[0]["payload"])[0]["functionCall"]
+        part = self.model_parts(second.calls[0]["payload"])[0]
+        fc = part["functionCall"]
         self.assertEqual(fc["id"], "call_1")
-        self.assertEqual(fc["thoughtSignature"], "SIG-LOOP")
+        # thoughtSignature is Part-level; inside functionCall Google 400s.
+        self.assertEqual(part["thoughtSignature"], "SIG-LOOP")
+        self.assertNotIn("thoughtSignature", fc)
         self.assertEqual(fc["args"], {"city": "SF"})
 
     def test_tool_loop_signature_recovered_from_store(self):
@@ -426,8 +429,9 @@ class GoogleProxyNonStreamingTests(GoogleProxyBase):
             second,
         )
         self.assertEqual(status2, 200)
-        fc = self.model_parts(second.calls[0]["payload"])[0]["functionCall"]
-        self.assertEqual(fc["thoughtSignature"], "SIG-STORE")
+        part = self.model_parts(second.calls[0]["payload"])[0]
+        self.assertEqual(part["thoughtSignature"], "SIG-STORE")
+        self.assertNotIn("thoughtSignature", part["functionCall"])
 
     def test_parallel_calls_first_signed_second_dummy(self):
         client = FakeClient(google_fc_response([
@@ -467,9 +471,11 @@ class GoogleProxyNonStreamingTests(GoogleProxyBase):
         self.assertEqual(status2, 200)
         parts = self.model_parts(second.calls[0]["payload"])
         self.assertEqual(len(parts), 2)
-        self.assertEqual(parts[0]["functionCall"]["thoughtSignature"], "SIG-A")
+        self.assertEqual(parts[0]["thoughtSignature"], "SIG-A")
         # Store is disabled here: the unsigned parallel call falls back to the dummy.
-        self.assertEqual(parts[1]["functionCall"]["thoughtSignature"], DUMMY)
+        self.assertEqual(parts[1]["thoughtSignature"], DUMMY)
+        self.assertNotIn("thoughtSignature", parts[0]["functionCall"])
+        self.assertNotIn("thoughtSignature", parts[1]["functionCall"])
         # Both results land in one user turn (merged functionResponse parts).
         user_turns = [c for c in second.calls[0]["payload"]["contents"] if c["role"] == "user"]
         self.assertEqual(len(user_turns[-1]["parts"]), 2)
@@ -513,8 +519,9 @@ class GoogleProxyNonStreamingTests(GoogleProxyBase):
         )
         self.assertEqual(status2, 200)
         payload2 = second.calls[0]["payload"]
-        fc = self.model_parts(payload2)[0]["functionCall"]
-        self.assertEqual(fc["thoughtSignature"], "SIG-SWAP")
+        part = self.model_parts(payload2)[0]
+        self.assertEqual(part["thoughtSignature"], "SIG-SWAP")
+        self.assertNotIn("thoughtSignature", part["functionCall"])
         gen = payload2["generationConfig"]
         self.assertEqual(gen["thinkingConfig"], {"includeThoughts": True, "thinkingLevel": "high"})
         self.assertNotIn("thinkingBudget", gen["thinkingConfig"])
@@ -575,8 +582,9 @@ class GoogleProxyStreamingTests(GoogleProxyBase):
             second,
         )
         self.assertEqual(status2, 200)
-        fc = self.model_parts(second.calls[0]["payload"])[0]["functionCall"]
-        self.assertEqual(fc["thoughtSignature"], "SIG-STREAM")
+        part = self.model_parts(second.calls[0]["payload"])[0]
+        self.assertEqual(part["thoughtSignature"], "SIG-STREAM")
+        self.assertNotIn("thoughtSignature", part["functionCall"])
 
     def test_responses_stream_lifecycle(self):
         lines = google_sse_lines([

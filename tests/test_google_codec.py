@@ -87,7 +87,10 @@ class GoogleRenderRequestTests(unittest.TestCase):
         self.assertEqual(model_parts[0]["functionCall"]["args"], {"city": "SF"})
         self.assertEqual(model_parts[0]["functionCall"]["id"], "call_1")
         # No round-trippable signature yet -> documented dummy, never a 400.
-        self.assertEqual(model_parts[0]["functionCall"]["thoughtSignature"], DUMMY)
+        # thoughtSignature is a Part-level field; the FunctionCall proto only
+        # carries name/args/id, so anything else inside it is a Google 400.
+        self.assertEqual(model_parts[0]["thoughtSignature"], DUMMY)
+        self.assertNotIn("thoughtSignature", model_parts[0]["functionCall"])
 
         user_parts = _parts_by_role(payload, "user")
         response_part = [part for part in user_parts if "functionResponse" in part][0]["functionResponse"]
@@ -116,10 +119,11 @@ class GoogleRenderRequestTests(unittest.TestCase):
             ],
             "tools": [{"type": "function", "function": {"name": "get_weather", "parameters": {"type": "object", "properties": {}}}}],
         }, resolve_model=same_model)
-        call = _parts_by_role(prepared.payload, "model")[0]["functionCall"]
+        part = _parts_by_role(prepared.payload, "model")[0]
         # The chat codec accepts both provider_specific_fields and the
         # LiteLLM-style top-level thought_signature key on history calls.
-        self.assertEqual(call["thoughtSignature"], "REAL_SIG")
+        self.assertEqual(part["thoughtSignature"], "REAL_SIG")
+        self.assertNotIn("thoughtSignature", part["functionCall"])
 
     def test_tool_choice_modes_map_to_function_calling_config(self):
         base = {
@@ -373,8 +377,11 @@ class GoogleParseResponseTests(unittest.TestCase):
         model_parts = _parts_by_role(back.payload, "model")
         # The first (signed) call replays its real signature via
         # provider_specific_fields; the second, never signed, gets the dummy.
-        self.assertEqual(model_parts[0]["functionCall"]["thoughtSignature"], "S1==")
-        self.assertEqual(model_parts[1]["functionCall"]["thoughtSignature"], DUMMY)
+        # Both render at Part level, never inside functionCall.
+        self.assertEqual(model_parts[0]["thoughtSignature"], "S1==")
+        self.assertEqual(model_parts[1]["thoughtSignature"], DUMMY)
+        self.assertNotIn("thoughtSignature", model_parts[0]["functionCall"])
+        self.assertNotIn("thoughtSignature", model_parts[1]["functionCall"])
 
     def test_finish_reason_mappings(self):
         prepared = self._prepared_chat()

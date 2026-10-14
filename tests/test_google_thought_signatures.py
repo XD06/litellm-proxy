@@ -114,8 +114,9 @@ class ProviderSpecificFieldsTests(unittest.TestCase):
         # The client replays its assistant history verbatim -> real signature.
         replay = _chat_request_with_history(extra={"provider_specific_fields": {"thought_signature": "WIRE_SIG"}})
         prepared2 = prepare_request(CHAT, GOOGLE, replay, resolve_model=same_model)
-        fc = prepared2.payload["contents"][1]["parts"][0]["functionCall"]
-        self.assertEqual(fc["thoughtSignature"], "WIRE_SIG")
+        part = prepared2.payload["contents"][1]["parts"][0]
+        self.assertEqual(part["thoughtSignature"], "WIRE_SIG")
+        self.assertNotIn("thoughtSignature", part["functionCall"])
 
     def test_google_response_exposes_signature_to_responses_history(self):
         self._chat_to_google_with_store_off()
@@ -136,7 +137,9 @@ class ProviderSpecificFieldsTests(unittest.TestCase):
         }
         prepared2 = prepare_request(RESPONSES, GOOGLE, replay, resolve_model=same_model)
         model_parts = [p for c in prepared2.payload["contents"] if c["role"] == "model" for p in c["parts"]]
-        self.assertEqual(model_parts[0]["functionCall"]["thoughtSignature"], "RS_SIG")
+        # thoughtSignature renders at Part level (sibling of functionCall).
+        self.assertEqual(model_parts[0]["thoughtSignature"], "RS_SIG")
+        self.assertNotIn("thoughtSignature", model_parts[0]["functionCall"])
 
     def test_signed_reasoning_blocks_never_forge_chat_signatures(self):
         self._chat_to_google_with_store_off()
@@ -185,13 +188,15 @@ class ProviderSpecificFieldsTests(unittest.TestCase):
         }
         prepared2 = prepare_request(ANTHROPIC, GOOGLE, history, resolve_model=same_model)
         model_parts = [p for c in prepared2.payload["contents"] if c["role"] == "model" for p in c["parts"]]
-        self.assertEqual(model_parts[0]["functionCall"]["thoughtSignature"], "STORED_SIG")
+        self.assertEqual(model_parts[0]["thoughtSignature"], "STORED_SIG")
+        self.assertNotIn("thoughtSignature", model_parts[0]["functionCall"])
 
     def test_unknown_call_id_uses_dummy_signature(self):
         thought_signature_store.configure({"observability": {"google_thought_signatures": {"enabled": False}}})
         prepared = prepare_request(CHAT, GOOGLE, _chat_request_with_history(tool_call_id="never-seen"), resolve_model=same_model)
         model_parts = [p for c in prepared.payload["contents"] if c["role"] == "model" for p in c["parts"]]
-        self.assertEqual(model_parts[0]["functionCall"]["thoughtSignature"], DUMMY)
+        self.assertEqual(model_parts[0]["thoughtSignature"], DUMMY)
+        self.assertNotIn("thoughtSignature", model_parts[0]["functionCall"])
 
 
 if __name__ == "__main__":

@@ -439,8 +439,9 @@ def _turn_parts(
             }
             if block.call_id:
                 call["id"] = block.call_id
-            call["thoughtSignature"] = signature
-            parts.append({"functionCall": call})
+            # thoughtSignature is a Part-level field (sibling of functionCall);
+            # the FunctionCall proto only carries name/args/id.
+            parts.append({"functionCall": call, "thoughtSignature": signature})
             continue
         if block.kind == "tool_result":
             flush_text()
