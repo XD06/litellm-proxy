@@ -472,7 +472,7 @@ import {
     { tone: "info", words: ["network_error", "network", "connect", "connection", "transport"] },
     { tone: "compat", words: ["provider_compat", "tool_choice", "unsupported", "compat", "empty_visible_output", "reasoning", "thinking", "length"] },
     { tone: "success", words: ["success", "available", "enabled", "ok", "200"] },
-    { tone: "neutral", words: ["chat_completions", "responses", "anthropic_messages", "client_error", "400", "404", "422"] },
+    { tone: "neutral", words: ["chat_completions", "responses", "anthropic_messages", "google_generate", "client_error", "400", "404", "422"] },
   ];
 
   const keywordRegex = new RegExp(
@@ -1158,6 +1158,7 @@ import {
   const PROVIDER_PRESETS = [
     { name: "openai", base_url: "https://api.openai.com", format: "chat_completions", label: "OpenAI", env_var: "OPENAI_API_KEY", priority: 10 },
     { name: "anthropic", base_url: "https://api.anthropic.com", format: "anthropic_messages", label: "Anthropic", env_var: "ANTHROPIC_API_KEY", priority: 10 },
+    { name: "google", base_url: "https://generativelanguage.googleapis.com", format: "google_generate", label: "Gemini (Google AI)", env_var: "GEMINI_API_KEY", priority: 8 },
     { name: "deepseek", base_url: "https://api.deepseek.com", format: "chat_completions", label: "DeepSeek", env_var: "DEEPSEEK_API_KEY", priority: 8 },
     { name: "groq", base_url: "https://api.groq.com/openai", format: "chat_completions", label: "Groq", env_var: "GROQ_API_KEY", priority: 7 },
     { name: "openrouter", base_url: "https://openrouter.ai/api", format: "chat_completions", label: "OpenRouter", env_var: "OPENROUTER_API_KEY", priority: 6 },
@@ -1205,6 +1206,7 @@ import {
               <option value="chat_completions" selected>Chat Completions</option>
               <option value="responses">Responses</option>
               <option value="anthropic_messages">Anthropic Messages</option>
+              <option value="google_generate">Google Gemini (generateContent)</option>
             </select>
           </label>
           <label class="field form-field-inline">
@@ -1436,6 +1438,7 @@ import {
             chat_completions: { enabled: format === "chat_completions", path: "/v1/chat/completions" },
             responses: { enabled: format === "responses", path: "/v1/responses" },
             anthropic_messages: { enabled: format === "anthropic_messages", path: "/v1/messages" },
+            google_generate: { enabled: format === "google_generate", path: "/v1beta/models/{model}:generateContent" },
           };
         }
         const saved = await runConfigMutation(form, async () => {
@@ -5140,7 +5143,9 @@ import {
         ? "responses"
         : displayFormat === "anthropic_messages"
           ? "messages"
-          : "neutral";
+          : displayFormat === "google_generate"
+            ? "google"
+            : "neutral";
     return `<span class="request-meta-chip request-format-chip format-${escapeHtml(formatTone)}${converted ? " is-converted" : ""}" data-tip="${escapeHtml(tip)}" aria-label="${escapeHtml(tip)}">${converted ? iconSvg("arrow-right-left") : ""}${escapeHtml(label)}</span>`;
   }
 
@@ -6350,6 +6355,7 @@ import {
     if (fmt === "chat_completions") return "Chat";
     if (fmt === "responses") return "Responses";
     if (fmt === "anthropic_messages") return "Anthropic";
+    if (fmt === "google_generate") return "Gemini";
     return String(fmt || "");
   }
 
@@ -10468,7 +10474,7 @@ import {
     const keyCount = names.reduce((sum, name) => sum + (Array.isArray(providers[name]?.keys) ? providers[name].keys.length : 0), 0);
     const enabledProviders = names.filter((name) => providers[name]?.enabled !== false).length;
     const overlayPath = config.overlay_path || "-";
-    const formatCounts = { chat_completions: 0, responses: 0, anthropic_messages: 0 };
+    const formatCounts = { chat_completions: 0, responses: 0, anthropic_messages: 0, google_generate: 0 };
     names.forEach((name) => {
       Object.entries(providers[name]?.formats || {}).forEach(([fmt, cfg]) => {
         if (cfg?.enabled && formatCounts[fmt] !== undefined) formatCounts[fmt] += 1;
@@ -10866,6 +10872,7 @@ import {
     if (format === "chat_completions") return "Chat";
     if (format === "responses") return "Resp";
     if (format === "anthropic_messages") return "Anth";
+    if (format === "google_generate") return "Gem";
     return String(format || "");
   }
 
@@ -10963,12 +10970,14 @@ import {
     if (fmt === "chat_completions") return "OpenAI Chat Completions";
     if (fmt === "responses") return "OpenAI Responses";
     if (fmt === "anthropic_messages") return "Anthropic Messages";
+    if (fmt === "google_generate") return "Google Gemini (generateContent)";
     return String(fmt || "");
   }
 
   function defaultFormatPath(fmt) {
     if (fmt === "responses") return "/v1/responses";
     if (fmt === "anthropic_messages") return "/v1/messages";
+    if (fmt === "google_generate") return "/v1beta/models/{model}:generateContent";
     return "/v1/chat/completions";
   }
 
@@ -12193,6 +12202,7 @@ import {
       anthropic_messages: "Anthropic Messages",
       chat_completions: "Chat Completions",
       responses: "Responses",
+      google_generate: "Gemini generateContent",
     }[String(format || "")] || String(format || "-");
   }
 
@@ -13118,6 +13128,7 @@ import {
           chat_completions: { enabled: format === "chat_completions", path: "/v1/chat/completions" },
           responses: { enabled: format === "responses", path: "/v1/responses" },
           anthropic_messages: { enabled: format === "anthropic_messages", path: "/v1/messages" },
+          google_generate: { enabled: format === "google_generate", path: "/v1beta/models/{model}:generateContent" },
         };
       }
       const saved = await runConfigMutation(formEl, async () => {

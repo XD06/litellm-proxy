@@ -8603,6 +8603,7 @@
 					"chat_completions",
 					"responses",
 					"anthropic_messages",
+					"google_generate",
 					"client_error",
 					"400",
 					"404",
@@ -9176,6 +9177,14 @@
 				priority: 10
 			},
 			{
+				name: "google",
+				base_url: "https://generativelanguage.googleapis.com",
+				format: "google_generate",
+				label: "Gemini (Google AI)",
+				env_var: "GEMINI_API_KEY",
+				priority: 8
+			},
+			{
 				name: "deepseek",
 				base_url: "https://api.deepseek.com",
 				format: "chat_completions",
@@ -9274,6 +9283,7 @@
               <option value="chat_completions" selected>Chat Completions</option>
               <option value="responses">Responses</option>
               <option value="anthropic_messages">Anthropic Messages</option>
+              <option value="google_generate">Google Gemini (generateContent)</option>
             </select>
           </label>
           <label class="field form-field-inline">
@@ -9472,6 +9482,10 @@
 						anthropic_messages: {
 							enabled: format === "anthropic_messages",
 							path: "/v1/messages"
+						},
+						google_generate: {
+							enabled: format === "google_generate",
+							path: "/v1beta/models/{model}:generateContent"
 						}
 					};
 					if (await runConfigMutation(form, async () => {
@@ -12753,7 +12767,7 @@
 			const displayFormat = converted ? finalUpstreamFormat : clientFormat;
 			const label = shortFormatLabel(displayFormat);
 			const tip = converted ? `${formatLabel(clientFormat)} → ${formatLabel(finalUpstreamFormat)}` : formatLabel(clientFormat);
-			return `<span class="request-meta-chip request-format-chip format-${escapeHtml(displayFormat === "chat_completions" ? "chat" : displayFormat === "responses" ? "responses" : displayFormat === "anthropic_messages" ? "messages" : "neutral")}${converted ? " is-converted" : ""}" data-tip="${escapeHtml(tip)}" aria-label="${escapeHtml(tip)}">${converted ? iconSvg("arrow-right-left") : ""}${escapeHtml(label)}</span>`;
+			return `<span class="request-meta-chip request-format-chip format-${escapeHtml(displayFormat === "chat_completions" ? "chat" : displayFormat === "responses" ? "responses" : displayFormat === "anthropic_messages" ? "messages" : displayFormat === "google_generate" ? "google" : "neutral")}${converted ? " is-converted" : ""}" data-tip="${escapeHtml(tip)}" aria-label="${escapeHtml(tip)}">${converted ? iconSvg("arrow-right-left") : ""}${escapeHtml(label)}</span>`;
 		}
 		var REASONING_EFFORT_BUDGET_STEPS = [
 			[1024, "minimal"],
@@ -13772,6 +13786,7 @@
 			if (fmt === "chat_completions") return "Chat";
 			if (fmt === "responses") return "Responses";
 			if (fmt === "anthropic_messages") return "Anthropic";
+			if (fmt === "google_generate") return "Gemini";
 			return String(fmt || "");
 		}
 		function bindProviderCards(target) {
@@ -17514,7 +17529,8 @@
 			const formatCounts = {
 				chat_completions: 0,
 				responses: 0,
-				anthropic_messages: 0
+				anthropic_messages: 0,
+				google_generate: 0
 			};
 			names.forEach((name) => {
 				Object.entries(providers[name]?.formats || {}).forEach(([fmt, cfg]) => {
@@ -17879,17 +17895,20 @@
 			if (format === "chat_completions") return "Chat";
 			if (format === "responses") return "Resp";
 			if (format === "anthropic_messages") return "Anth";
+			if (format === "google_generate") return "Gem";
 			return String(format || "");
 		}
 		function formatLabel(fmt) {
 			if (fmt === "chat_completions") return "OpenAI Chat Completions";
 			if (fmt === "responses") return "OpenAI Responses";
 			if (fmt === "anthropic_messages") return "Anthropic Messages";
+			if (fmt === "google_generate") return "Google Gemini (generateContent)";
 			return String(fmt || "");
 		}
 		function defaultFormatPath(fmt) {
 			if (fmt === "responses") return "/v1/responses";
 			if (fmt === "anthropic_messages") return "/v1/messages";
+			if (fmt === "google_generate") return "/v1beta/models/{model}:generateContent";
 			return "/v1/chat/completions";
 		}
 		function bindConfigProviderForms(root) {
@@ -18950,7 +18969,8 @@
 			return {
 				anthropic_messages: "Anthropic Messages",
 				chat_completions: "Chat Completions",
-				responses: "Responses"
+				responses: "Responses",
+				google_generate: "Gemini generateContent"
 			}[String(format || "")] || String(format || "-");
 		}
 		function routingDiagnosticStageLabel(event) {
@@ -19745,6 +19765,10 @@
 					anthropic_messages: {
 						enabled: format === "anthropic_messages",
 						path: "/v1/messages"
+					},
+					google_generate: {
+						enabled: format === "google_generate",
+						path: "/v1beta/models/{model}:generateContent"
 					}
 				};
 				if (await runConfigMutation(formEl, async () => {

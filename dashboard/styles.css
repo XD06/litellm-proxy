@@ -27075,7 +27075,8 @@ body {
 
   #requestsTable .request-format-chip.format-chat,
   #requestsTable .request-format-chip.format-responses,
-  #requestsTable .request-format-chip.format-messages {
+  #requestsTable .request-format-chip.format-messages,
+  #requestsTable .request-format-chip.format-google {
     padding: 1px 5px;
     border: 1px solid;
     border-radius: 5px;
@@ -27098,6 +27099,12 @@ body {
     border-color: #fde68a;
     background: #fffbeb;
     color: #b45309;
+  }
+
+  #requestsTable .request-format-chip.format-google {
+    border-color: #fecdd3;
+    background: #fff1f2;
+    color: #be123c;
   }
 
   #requestsTable .request-format-chip.is-converted {
