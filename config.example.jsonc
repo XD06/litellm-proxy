@@ -488,7 +488,8 @@
     },
 
     // Google thought signature 保真存储（SQLite，有界；仅 google_generate 上游用到）
-    // generateContent 的 functionCall.thoughtSignature 按 call_id 入库，Agent 多轮工具
+    // generateContent 的 thoughtSignature（Part 级字段，与 functionCall 平级；
+    // FunctionCall proto 仅 name/args/id）按 call_id 入库，Agent 多轮工具
     // 调用回放原签名（客户端剥离 provider_specific_fields 时靠它兜底）；仍缺失时注入
     // dummy 跳过签名（skip_thought_signature_validator），避免第二轮请求 400。
     // ttl_seconds 过期即删，max_records 超限修剪最旧记录；enabled=false 整体关闭。
