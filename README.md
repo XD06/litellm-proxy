@@ -422,7 +422,7 @@ Instant requests always come first. While a real request is in flight — or wit
 | 🖥️ Dashboard runtime | `dashboard/` | Built static assets served by the proxy |
 | 🎨 Dashboard source | `dashboard_src/` | Vite + vanilla JS source with i18n, morphdom |
 | 🐳 Deployment | `Dockerfile`, `docker-compose.yml`, `deploy/` | Docker, systemd, Nginx reverse proxy configs |
-| 🧪 Tests | `tests/` (57 files, 1036 tests) + `dashboard_src/tests/` (34 Node tests via `npm test`) | pytest covering routing, conversion, config, streaming, admin API, Google native format; Node tests for dashboard UI |
+| 🧪 Tests | `tests/` (58 files, 1050 tests) + `dashboard_src/tests/` (34 Node tests via `npm test`) | pytest covering routing, conversion, config, streaming, admin API, Google native format (codec/stream/signature/handler E2E); Node tests for dashboard UI |
 
 > **For a restrained system overview, see [ARCHITECTURE.md](ARCHITECTURE.md); for a deep module-by-module walkthrough, see [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md).**
 
