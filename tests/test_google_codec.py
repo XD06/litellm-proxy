@@ -12,6 +12,7 @@ from conversion_core import (
     prepare_request,
     translate_response,
 )
+from conversion_core.codecs.google import thinking_override_for_effort
 
 
 def same_model(name):
@@ -181,6 +182,55 @@ class GoogleRenderRequestTests(unittest.TestCase):
             "reasoning_effort": "minimal",
         }, resolve_model=same_model)
         self.assertEqual(level.payload["generationConfig"]["thinkingConfig"]["thinkingLevel"], "minimal")
+
+    def test_xhigh_effort_clamps_per_generation(self):
+        # Live-verified upstream 400: thinkingBudget 32768 is invalid on
+        # gemini-2.5-flash (0..24576) but valid on 2.5-pro; Gemini 3 exposes
+        # no xhigh level, so unknown intensities clamp to the highest level.
+        for model, expected in (
+            ("gemini-2.5-flash", 24576),
+            ("gemini-2.5-pro", 32768),
+        ):
+            prepared = prepare_request(CHAT, GOOGLE, {
+                "model": model,
+                "messages": [{"role": "user", "content": "think"}],
+                "reasoning_effort": "xhigh",
+            }, resolve_model=same_model)
+            config = prepared.payload["generationConfig"]["thinkingConfig"]
+            self.assertEqual(config["thinkingBudget"], expected, model)
+            self.assertEqual(config["includeThoughts"], True, model)
+        three = prepare_request(CHAT, GOOGLE, {
+            "model": "gemini-3.5-flash-lite",
+            "messages": [{"role": "user", "content": "think"}],
+            "reasoning_effort": "xhigh",
+        }, resolve_model=same_model)
+        config = three.payload["generationConfig"]["thinkingConfig"]
+        self.assertEqual(config["thinkingLevel"], "high")
+        self.assertEqual(config["includeThoughts"], True)
+
+    def test_explicit_budget_clamped_to_family_cap(self):
+        prepared = prepare_request(ANTHROPIC, GOOGLE, {
+            "model": "gemini-2.5-flash",
+            "messages": [{"role": "user", "content": "x"}],
+            "thinking": {"type": "enabled", "budget_tokens": 32768},
+            "max_tokens": 65536,
+        }, resolve_model=same_model)
+        config = prepared.payload["generationConfig"]["thinkingConfig"]
+        self.assertEqual(config["thinkingBudget"], 24576)
+
+    def test_thinking_override_for_effort_rules(self):
+        self.assertEqual(
+            thinking_override_for_effort("xhigh", "gemini-2.5-flash")["thinkingBudget"], 24576)
+        self.assertEqual(
+            thinking_override_for_effort("xhigh", "gemini-2.5-pro")["thinkingBudget"], 32768)
+        self.assertEqual(
+            thinking_override_for_effort("xhigh", "gemini-3.5-flash-lite")["thinkingLevel"], "high")
+        self.assertEqual(
+            thinking_override_for_effort("banana", "gemini-3-flash")["thinkingLevel"], "high")
+        self.assertEqual(
+            thinking_override_for_effort("off", "gemini-2.5-flash"),
+            {"includeThoughts": False, "thinkingBudget": 0})
+        self.assertIsNone(thinking_override_for_effort("banana", "gemini-2.5-flash"))
 
     def test_thinking_disabled_semantics(self):
         chat_off = prepare_request(ANTHROPIC, GOOGLE, {

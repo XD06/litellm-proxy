@@ -50,6 +50,9 @@ from ..model import (
 DUMMY_THOUGHT_SIGNATURE = base64.b64encode(b"skip_thought_signature_validator").decode("ascii")
 
 # reasoning effort -> thinkingBudget for Gemini 2.5-family models.
+# Live-verified caps: gemini-2.5-flash rejects budgets above 24576 with
+# "Please choose a value between 0 and 24576", while the pro family accepts
+# 32768 — so the mapped value must be clamped per model family below.
 _EFFORT_TO_BUDGET = {
     "minimal": 1024,
     "low": 1024,
@@ -57,6 +60,8 @@ _EFFORT_TO_BUDGET = {
     "high": 24576,
     "xhigh": 32768,
 }
+_THINKING_BUDGET_MAX_FLASH = 24576
+_THINKING_BUDGET_MAX_PRO = 32768
 _THINKING_LEVELS = ("minimal", "low", "medium", "high")
 
 # Google REST enums -> IR stop tokens (values the other renderers already map).
@@ -147,6 +152,16 @@ def _is_gemini_3(model: str) -> bool:
         return False
 
 
+def _thinking_budget_cap(model: str) -> int:
+    """Per-family thinkingBudget ceiling for Gemini 2.5 models (live-verified:
+    flash rejects >24576, pro accepts 32768).  Anything pro-named gets the pro
+    ceiling; everything else in the 2.5 family clamps at the flash ceiling."""
+    name = str(model or "").lower()
+    if "pro" in name:
+        return _THINKING_BUDGET_MAX_PRO
+    return _THINKING_BUDGET_MAX_FLASH
+
+
 def _data_url_to_inline(url: str) -> Optional[Dict[str, Any]]:
     if not url.startswith("data:") or ";base64," not in url:
         return None
@@ -230,7 +245,11 @@ def _parse_thinking_config(
             if level:
                 config["thinkingLevel"] = level
             elif effort:
-                config["thinkingLevel"] = effort if effort in _THINKING_LEVELS else "medium"
+                # Unknown intensities (e.g. OpenAI-style "xhigh") clamp to the
+                # highest level Google offers, never silently below "high".
+                config["thinkingLevel"] = effort if effort in _THINKING_LEVELS else "high"
+                if effort not in _THINKING_LEVELS:
+                    report.add("reasoning.effort", "map", target="thinkingLevel=high", detail=f"unrecognized effort {effort!r} clamped to the highest thinking level")
             elif budget is not None:
                 mapped = "high" if budget > 16384 else "medium" if budget > 4096 else "low" if budget > 1024 else "minimal"
                 config["thinkingLevel"] = mapped
@@ -249,6 +268,10 @@ def _parse_thinking_config(
     explicit_budget = budget if budget is not None else _EFFORT_TO_BUDGET.get(effort)
     config["includeThoughts"] = True
     if explicit_budget is not None:
+        cap = _thinking_budget_cap(gen_model)
+        if explicit_budget > cap:
+            report.add("reasoning.budget_tokens", "map", target=f"thinkingBudget={cap}", detail=f"budget {explicit_budget} exceeds the {cap} ceiling for this model family; clamped")
+            explicit_budget = cap
         config["thinkingBudget"] = explicit_budget
     elif effort and effort not in _EFFORT_TO_BUDGET:
         report.add("reasoning.effort", "safe_drop", detail=f"unrecognized reasoning effort {effort!r}; keeping model default thinking budget")
@@ -268,11 +291,12 @@ def thinking_override_for_effort(effort: str, model: str) -> Optional[Dict[str, 
             return {"includeThoughts": False, "thinkingLevel": "minimal"}
         return {"includeThoughts": False, "thinkingBudget": 0}
     if three:
-        return {"includeThoughts": True, "thinkingLevel": value if value in _THINKING_LEVELS else "medium"}
+        # Mirror _parse_thinking_config: unknown intensities clamp to "high".
+        return {"includeThoughts": True, "thinkingLevel": value if value in _THINKING_LEVELS else "high"}
     budget = _EFFORT_TO_BUDGET.get(value)
     if budget is None:
         return None
-    return {"includeThoughts": True, "thinkingBudget": budget}
+    return {"includeThoughts": True, "thinkingBudget": min(budget, _thinking_budget_cap(model))}
 
 
 def parse_request(request: Dict[str, Any], report: ConversionReport) -> AgentRequest:
