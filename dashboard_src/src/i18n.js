@@ -1288,6 +1288,7 @@ const dict = {
   "modal.mapping_clash_msg": { en: "You are renaming {editingRaw} to \"{name}\", but that name currently belongs to {ownerRaw}. If you continue, \"{name}\" will point to {editingRaw} and {ownerRaw} will fall back to its original upstream id. Continue?", zh: "你正在将 {editingRaw} 命名为「{name}」，但该名称当前属于 {ownerRaw}。继续后「{name}」将指向 {editingRaw}，{ownerRaw} 将恢复其原始上游 ID。确认继续？" },
   "modal.mapping_clash_accept": { en: "Rename anyway", zh: "仍要重命名" },
   "modal.mapping_test": { en: "Test model", zh: "测试模型" },
+  "modal.mapping_test_action": { en: "Run test", zh: "运行测试" },
   "modal.mapping_test_running": { en: "Testing…", zh: "测试中…" },
   "modal.mapping_test_ok": { en: "OK · {ms} ms", zh: "可用 · {ms} ms" },
   "modal.mapping_test_failed": { en: "Failed: {error}", zh: "失败：{error}" },

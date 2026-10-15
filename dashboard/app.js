@@ -5431,6 +5431,10 @@
 				en: "Test model",
 				zh: "测试模型"
 			},
+			"modal.mapping_test_action": {
+				en: "Run test",
+				zh: "运行测试"
+			},
 			"modal.mapping_test_running": {
 				en: "Testing…",
 				zh: "测试中…"
@@ -15544,6 +15548,21 @@
 				keyCatalogCount: keys.length
 			};
 		}
+		function modelMapKeyOwnersHtml(keyOwnerInfo) {
+			if (!keyOwnerInfo.owners.length) return `<div class="model-map-key-owners is-empty" data-model-map-key-owners role="group" aria-label="${escapeHtml(t("modal.key_owner_title"))}">
+        <span>${escapeHtml(t("modal.key_owner_none"))}</span>
+      </div>`;
+			return `<div class="model-map-key-owners" data-model-map-key-owners role="group" aria-label="${escapeHtml(t("modal.key_owner_title"))}">
+      ${keyOwnerInfo.owners.map((owner) => `
+        <button type="button" class="model-map-key-chip" data-model-map-key-chip="${escapeHtml(owner.key_index)}"
+          aria-pressed="false"
+          title="${escapeHtml(`${t("modal.key_owner_title")} · ${owner.masked || owner.key_id} · ${owner.status}`)}">
+          <span class="mono">#${escapeHtml(owner.key_index)}</span>
+          <small>${escapeHtml(owner.masked || owner.key_id)}</small>
+        </button>
+      `).join("")}
+    </div>`;
+		}
 		function providerModelMemberRowHtml(member) {
 			const model = String(member?.model || "").trim();
 			const priority = Number(member?.priority) || 0;
@@ -15793,11 +15812,11 @@
 				renamed: "route-info"
 			}[kind] || "ok";
 		}
-		function providerModelKindStrip(kind, item) {
+		function providerModelKindStrip(kind, item, { secondary = false } = {}) {
 			const others = (item?.sources || []).filter((source) => source !== kind);
 			const warnings = (item?.warnings || []).map((warning) => providerCatalogWarningLabel(warning));
 			return `
-      <div class="model-map-kind-strip" data-model-map-kind="${escapeHtml(kind)}">
+      <div class="model-map-kind-strip${secondary ? " is-secondary" : ""}" data-model-map-kind="${escapeHtml(kind)}">
         <div class="model-map-kind-head">
           <span class="model-map-kind-label">${escapeHtml(t("prov.models.current_kind"))}</span>
           ${badge(t(`prov.models.kind_${kind}`), providerModelKindTone(kind))}
@@ -15820,28 +15839,32 @@
           <div class="model-map-raw-hero">
             <span class="model-map-raw-hero-icon">${modelBrandIconMarkup(rawModel, iconSvg("boxes"))}</span>
             <div class="model-map-raw-hero-text">
-              <span class="model-map-raw-hero-label">${escapeHtml(t("prov.models.editing_mapping_for"))} · ${escapeHtml(oldModel)}</span>
+              <span class="model-map-raw-hero-label">${escapeHtml(t("prov.models.upstream_model"))}</span>
               <strong class="mono">${escapeHtml(rawModel)}</strong>
               <small>${escapeHtml(t("prov.models.raw_hero_hint"))}</small>
             </div>
           </div>
-          ${providerModelKindStrip(kind, item)}
           <label class="model-map-field">
             <span>${escapeHtml(t("prov.models.client_model"))}</span>
             <input name="model" value="${escapeHtml(oldModel)}" autocomplete="off" spellcheck="false" />
           </label>
-          <div class="model-map-raw-line">
-            <span>${escapeHtml(t("prov.models.upstream_model"))}</span>
-            <code>${escapeHtml(rawModel)}</code>
-          </div>
           ${isManual ? `<p class="model-map-hint">${escapeHtml(t("prov.models.empty_name_restores"))}</p>` : ""}
+          <div class="model-map-test-panel" data-model-map-test-panel>
+            <div class="model-map-test-head">
+              <span class="model-map-test-title">${escapeHtml(t("modal.mapping_test"))}</span>
+              <button class="model-map-action secondary model-map-test-button" type="button" data-model-map-test title="${escapeHtml(t("modal.mapping_test_action"))}" aria-label="${escapeHtml(t("modal.mapping_test_action"))}">${iconSvg("activity")}<span>${escapeHtml(t("modal.mapping_test_action"))}</span></button>
+            </div>
+            ${modelMapKeyOwnersHtml(keyOwnerInfo)}
+            <div class="model-map-test-result" data-model-map-test-result aria-live="polite" hidden></div>
+          </div>
           <div class="model-map-clash-warning" data-model-map-clash hidden></div>
-          <div class="model-map-test-result" data-model-map-test-result hidden></div>
           <div class="model-map-actions">
-            <button class="model-map-action secondary model-map-test-button" type="button" data-model-map-test title="${escapeHtml(t("modal.mapping_test"))}" aria-label="${escapeHtml(t("modal.mapping_test"))}">${iconSvg("activity")}</button>
-            <button class="model-map-action secondary" type="button" data-model-map-cancel title="${escapeHtml(t("form.cancel"))}" aria-label="${escapeHtml(t("form.cancel"))}">${iconSvg("x")}</button>
-            ${isManual ? `<button class="model-map-action danger" type="button" data-model-map-reset title="${escapeHtml(t("prov.models.reset_mapping"))}" aria-label="${escapeHtml(t("prov.models.reset_mapping"))}">${iconSvg("trash")}</button>` : ""}
-            <button class="model-map-action primary" type="submit" title="${escapeHtml(t("prov.models.save_mapping"))}" aria-label="${escapeHtml(t("prov.models.save_mapping"))}">${iconSvg("save")}</button>
+            ${providerModelKindStrip(kind, item, { secondary: true })}
+            <div class="model-map-actions-buttons">
+              <button class="model-map-action secondary" type="button" data-model-map-cancel title="${escapeHtml(t("form.cancel"))}" aria-label="${escapeHtml(t("form.cancel"))}">${iconSvg("x")}</button>
+              ${isManual ? `<button class="model-map-action danger" type="button" data-model-map-reset title="${escapeHtml(t("prov.models.reset_mapping"))}" aria-label="${escapeHtml(t("prov.models.reset_mapping"))}">${iconSvg("trash")}</button>` : ""}
+              <button class="model-map-action primary" type="submit" title="${escapeHtml(t("prov.models.save_mapping"))}" aria-label="${escapeHtml(t("prov.models.save_mapping"))}">${iconSvg("save")}</button>
+            </div>
           </div>
         </form>
       `
@@ -15855,9 +15878,21 @@
 			const testButton = form.querySelector("[data-model-map-test]");
 			const testResult = form.querySelector("[data-model-map-test-result]");
 			let selectedKeyIndex = keyOwnerInfo.owners.length ? keyOwnerInfo.owners[0].key_index : null;
+			const markKeyOutcome = (keyIndex, outcome) => {
+				const chip = keyIndex === null ? null : form.querySelector(`[data-model-map-key-chip="${Number(keyIndex)}"]`);
+				if (!chip) return;
+				const ok = Boolean(outcome?.ok);
+				const text = ok ? `${fmtInt(outcome.latency_ms || 0)}ms` : String(outcome?.http_status ? `HTTP ${outcome.http_status}` : outcome?.error_type || "fail");
+				chip.classList.toggle("is-ok", ok);
+				chip.classList.toggle("is-bad", !ok);
+				chip.querySelector(".model-map-key-chip-result")?.remove();
+				chip.insertAdjacentHTML("beforeend", `<small class="model-map-key-chip-result ${ok ? "is-ok" : "is-bad"}">${escapeHtml(text)}</small>`);
+			};
 			const syncKeyChipSelection = () => {
 				form.querySelectorAll("[data-model-map-key-chip]").forEach((chip) => {
-					chip.classList.toggle("is-selected", Number(chip.dataset.modelMapKeyChip) === selectedKeyIndex);
+					const isSelected = Number(chip.dataset.modelMapKeyChip) === selectedKeyIndex;
+					chip.classList.toggle("is-selected", isSelected);
+					chip.setAttribute("aria-pressed", isSelected ? "true" : "false");
 				});
 			};
 			form.querySelectorAll("[data-model-map-key-chip]").forEach((chip) => {
@@ -15883,6 +15918,7 @@
 					if (selectedKeyIndex !== null) payload.key_index = selectedKeyIndex;
 					const viaKeySuffix = selectedKeyIndex !== null ? ` ${escapeHtml(t("modal.test_via_key", { index: selectedKeyIndex }))}` : "";
 					const result = (await apiPost("/-/admin/models/test", payload))?.result || {};
+					markKeyOutcome(selectedKeyIndex, result);
 					if (testResult) if (result.ok) {
 						testResult.className = "model-map-test-result is-ok";
 						testResult.innerHTML = `${iconSvg("check")}<span>${escapeHtml(t("modal.mapping_test_ok", { ms: fmtInt(result.latency_ms || 0) }))}${viaKeySuffix}</span>`;
@@ -15896,6 +15932,10 @@
 						testResult.innerHTML = `${iconSvg("alert")}<span>${escapeHtml(t("modal.mapping_test_failed", { error: errText || "unknown" }))}${viaKeySuffix}</span>`;
 					}
 				} catch (err) {
+					markKeyOutcome(selectedKeyIndex, {
+						ok: false,
+						error_type: "request_error"
+					});
 					if (testResult) {
 						testResult.className = "model-map-test-result is-bad";
 						testResult.innerHTML = `${iconSvg("alert")}<span>${escapeHtml(t("modal.mapping_test_failed", { error: errorMessage(err) }))}</span>`;

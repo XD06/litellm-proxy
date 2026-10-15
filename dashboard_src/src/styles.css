@@ -7880,6 +7880,26 @@ form.is-busy {
   font: 500 11px/1.45 var(--sans);
 }
 
+/* Secondary placement: the mapping editor leads with the mapping and its test,
+   so its type strip drops the card and becomes footer metadata next to the
+   save button — read after the action, not before it. */
+.model-map-kind-strip.is-secondary {
+  display: flex;
+  flex: 1 1 260px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px 6px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.model-map-kind-strip.is-secondary .model-map-kind-warnings {
+  flex-basis: 100%;
+}
+
 /* Member editor of the variant-group modal: one row per upstream, ids offered
    from the discovered catalog through a datalist. */
 .model-map-members {
@@ -8018,6 +8038,17 @@ form.is-busy {
   border-top: 1px solid var(--line-soft);
 }
 
+/* The mapping modal's footer holds metadata beside the save button. The group
+   stays one unbreakable row: a wrapped footer must never push the cancel and
+   save buttons onto different lines. */
+.model-map-actions-buttons {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
 /* Icon-first actions, but they must survive text labels (e.g. the two-stage
    "rename anyway" confirm) without collapsing into one-character columns. */
 .model-map-action {
@@ -8041,8 +8072,12 @@ form.is-busy {
   flex: 0 0 auto;
 }
 
+/* The icon alone read as an unknown glyph, so the test action carries a label
+   and the modal's strongest non-primary text tone. It closes its section
+   header, opposite the section title. */
 .model-map-test-button {
-  margin-right: auto;
+  margin-left: auto;
+  color: var(--text);
 }
 
 .model-map-action:disabled {
@@ -8145,6 +8180,55 @@ form.is-busy {
 
 .model-map-key-chip.is-selected small {
   color: var(--text);
+}
+
+/* Mapping modal: the test section owns the primary slot. It is a section, not
+   another card — the form is already one, and nesting boxes is what made the
+   per-key row unreadable. Pick the key that runs the probe, run it, and read
+   each key's own outcome off its chip. */
+.model-map-test-panel {
+  display: grid;
+  gap: 9px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.model-map-test-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.model-map-test-title {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.model-map-test-panel .model-map-key-owners,
+.model-map-test-panel .model-map-test-result {
+  margin-top: 0;
+}
+
+.model-map-key-chip.is-ok {
+  border-color: color-mix(in srgb, #22c55e 48%, var(--line));
+}
+
+.model-map-key-chip.is-bad {
+  border-color: color-mix(in srgb, #ef4444 48%, var(--line));
+}
+
+.model-map-key-chip-result {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.model-map-key-chip-result.is-ok {
+  color: #15803d;
+}
+
+.model-map-key-chip-result.is-bad {
+  color: #b91c1c;
 }
 
 
@@ -30038,45 +30122,44 @@ body.is-auth-checking {
   height: 11px;
 }
 
-/* Mapping modal: explicit raw-model hero (P1 — prevent cross-contamination) */
+/* Mapping modal: explicit raw-model hero (P1 — prevent cross-contamination).
+   Sits inside the form card, so it carries the emphasis with a tint instead of
+   a second border. */
 .model-map-raw-hero {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  margin-bottom: 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #f8fafc;
+  gap: 11px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-muted) 62%, transparent);
 }
 
 .model-map-raw-hero-icon {
   display: inline-flex;
-  width: 34px;
-  height: 34px;
-  flex: 0 0 34px;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
-  border: 1px solid var(--line);
+  border-radius: 9px;
   background: var(--surface);
 }
 
 .model-map-raw-hero-icon .model-brand-mark img {
-  width: 18px;
-  height: 18px;
+  width: 17px;
+  height: 17px;
 }
 
 .model-map-raw-hero-text {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
 .model-map-raw-hero-label {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -30084,7 +30167,7 @@ body.is-auth-checking {
 
 .model-map-raw-hero-text strong {
   color: #0f172a;
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 600;
   word-break: break-all;
 }
@@ -30092,6 +30175,7 @@ body.is-auth-checking {
 .model-map-raw-hero-text small {
   color: #64748b;
   font-size: 11px;
+  line-height: 1.4;
 }
 
 /* Request-log thinking intensity: one distinct hue per level, ordered from

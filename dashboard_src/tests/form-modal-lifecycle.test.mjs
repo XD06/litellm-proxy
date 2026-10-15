@@ -76,11 +76,54 @@ assert.match(source, /data-model-map-key-chip/, "each serving key must render as
 assert.match(source, /payload\.key_index = selectedKeyIndex/, "model test must target the selected provider key");
 assert.match(source, /modelMapKeyOwnerMaskedLookup\(/, "ownership chips must resolve masked key identities from snapshots");
 assert.match(source, /owner\.masked \|\| owner\.key_id/, "chips prefer the real masked key over the hash id");
+// The chips helper existing is not enough: it must be interpolated into the
+// mapping modal body, or the ownership row silently disappears from the UI.
+assert.match(source, /data-model-map-test-panel[\s\S]{0,1500}\$\{modelMapKeyOwnersHtml\(keyOwnerInfo\)\}/, "the mapping modal body must interpolate the ownership row inside the test panel");
+assert.match(source, /data-model-map-test[\s\S]{0,400}modal\.mapping_test_action/, "the test action must carry a visible label, not just a glyph");
+assert.match(source, /aria-live="polite"/, "the test outcome line must be announced when it changes");
+assert.match(source, /role="group"[\s\S]{0,120}modal\.key_owner_title/, "the key row must be a labelled group, not an anonymous div");
+assert.match(source, /setAttribute\("aria-pressed"/, "the selected key chip must expose its pressed state");
+assert.match(source, /model-map-actions-buttons[\s\S]{0,600}data-model-map-cancel[\s\S]{0,600}type="submit"/, "the mapping modal footer must keep cancel and save in one unbreakable group");
+assert.match(source, /data-model-map-test-panel[\s\S]{0,900}data-model-map-test\b/, "the test action must live inside the test panel");
+assert.match(source, /markKeyOutcome\(selectedKeyIndex, result\)/, "a finished test must record its outcome on the tested key chip");
+assert.match(source, /model-map-key-chip-result/, "each tested key must keep its own outcome next to its chip");
+assert.match(source, /data-model-map-key-chip="\$\{Number\(keyIndex\)\}"/, "chip outcomes must be patched by key index, not by list position");
+assert.match(source, /providerModelKindStrip\(kind, item, \{ secondary: true \}\)/, "the type strip must not lead the mapping modal");
+
+// Render the ownership row for real: the substring checks above pass even when
+// the helper only exists, so execute it and assert the markup it produces.
+const chipsMatch = source.match(/  function modelMapKeyOwnersHtml\([\s\S]*?\n  }\n/);
+assert.ok(chipsMatch, "modelMapKeyOwnersHtml must remain extractable for render coverage");
+const renderKeyOwners = new Function(
+  "escapeHtml",
+  "t",
+  `${chipsMatch[0]}; return modelMapKeyOwnersHtml;`,
+)((value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])), (key) => key);
+
+const ownersHtml = renderKeyOwners({
+  owners: [
+    { key_index: 0, key_id: "hash-a", masked: "ms-559**1d", status: "available" },
+    { key_index: 2, key_id: "hash-b", masked: "", status: "cooldown" },
+  ],
+  keyCatalogCount: 3,
+});
+assert.match(ownersHtml, /data-model-map-key-owners/, "the row renders its container");
+assert.match(ownersHtml, /data-model-map-key-chip="0"[\s\S]*?ms-559\*\*1d/, "each owner renders a chip with its masked identity");
+assert.match(ownersHtml, /data-model-map-key-chip="2"[\s\S]*?hash-b/, "a chip without a masked identity falls back to the key id");
+assert.equal((ownersHtml.match(/data-model-map-key-chip=/g) || []).length, 2, "one chip per owning key, no more");
+
+const noOwnersHtml = renderKeyOwners({ owners: [], keyCatalogCount: 0 });
+assert.match(noOwnersHtml, /model-map-key-owners is-empty/, "without per-key owners the row states the provider-level fallback");
+assert.doesNotMatch(noOwnersHtml, /data-model-map-key-chip/, "the fallback note must not render chips");
 
 const styles = readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
 assert.match(styles, /\.model-map-action\s*\{[\s\S]*?white-space:\s*nowrap/, "mapping modal actions must never wrap into one-character columns");
 assert.match(styles, /\.model-map-action\s*\{[\s\S]*?min-width:\s*36px/, "mapping modal icon actions keep their square hit target");
 assert.match(styles, /\.model-map-test-result\.is-ok/, "model test result must expose an ok tone");
 assert.match(styles, /\.model-map-key-chip/, "key ownership chips must be styled");
+assert.match(styles, /\.model-map-key-chip\.is-ok[\s\S]*?\.model-map-key-chip\.is-bad/, "tested key chips must expose ok/bad tones");
+assert.match(styles, /\.model-map-test-panel\s*\{/, "the test panel must be styled");
+assert.match(styles, /\.model-map-actions-buttons\s*\{[\s\S]*?flex:\s*0 0 auto/, "the footer button group must not shrink or wrap apart");
+assert.match(styles, /\.model-map-kind-strip\.is-secondary/, "the demoted type strip must be styled");
 
 console.log("form modal lifecycle tests passed");
