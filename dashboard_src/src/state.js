@@ -85,6 +85,10 @@ export const state = {
     search: "",
     status: "",
   },
+  // Models tab presentation: "auto" keeps the size-based default (detailed rows
+  // for small catalogs, dense chip grid for large ones). An explicit "grid" /
+  // "list" pick from the catalog head wins for every provider until switched.
+  providerModelViewMode: "auto",
   providerModelDrafts: {},
   // Models tab: which disclosures (aliases / fallback / alias editor) the user
   // expanded, so poll re-renders keep them open instead of snapping shut.

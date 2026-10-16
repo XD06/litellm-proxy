@@ -19,6 +19,10 @@ export const SETTINGS_PRICING_PAGE_SIZE = 10;
 export const OVERVIEW_PROVIDER_LIMIT = 5;
 export const OVERVIEW_FAILURE_LIMIT = 5;
 export const USAGE_MODEL_LIMIT = 5;
+// Detailed model rows cost several times the DOM of a catalog chip, so the
+// list view of a large catalog renders a bounded window instead of the whole
+// discovery result (both views are searchable, the overflow note points there).
+export const PROVIDER_MODEL_LIST_LIMIT = 200;
 
 export const views = {
   overview: {

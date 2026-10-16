@@ -548,6 +548,7 @@ litellm-proxy --host 0.0.0.0 --port 8080   # 自定义绑定地址和端口
 供应商抽屉"模型"页签的目录不是"上游发现列表"，而是**四源合一**（前端纯函数 `planCatalogEntries`）：变体组（`provider_model_variants` 的键）→ 静态声明（`static_models`）→ 重命名映射（`provider_model_map` 的键）→ 上游发现（canonical）。同一个 id 命中多个来源时合并为一行，并保留全部来源标记（`refs`）；排序固定为 变体组 → 静态 → 其余（同组内稳定）。
 
 * **行样式**：变体组紫色点 + 「变体 N」徽标 + 生效链悬浮提示（`raw (priority) → ...`）；静态声明琥珀色「静态」角标；重命名映射蓝色；禁用灰。
+* **双视图（紧凑网格 / 详细列表）**：目录头部"显示 N 个"旁的分段切换（网格 / 列表图标按钮 + tooltip，`role="group"` / `aria-pressed`）在密集 chip 网格与明细行之间切换——明细行**复用小目录的行组件**（状态点 / 模型 id / 上游 raw 与来源 / 状态徽标 / 映射 + 启停图标操作），两种视图共用同一份 data 属性，行内开关与批量启停无需分别接线。默认 `auto`＝过滤后超过 24 个模型用网格、否则用行；显式选择存 `localStorage.proxyConsoleProviderModelsView` 并对所有供应商生效。大目录的列表与网格共用同一滚动容器高度（切换时抽屉不跳动），列表按 `PROVIDER_MODEL_LIST_LIMIT`（200 行）截断并提示剩余数量，越界行由 `content-visibility` 跳过布局/绘制。
 * **行级开关**：写 canonical 到 `provider_model_disabled`；对变体组是**整组开关**（禁用后该 id 从 `/v1/models` 消失），组内单个 raw 的禁用状态只读展示。
 * **铅笔按类型分流**：变体组 → 变体组编辑器（改 canonical 键名、增删改上游成员与 `priority`）；静态声明 → 静态模型编辑器（改 ID 或移除）；重命名映射 / 上游发现 → 映射弹窗。三个编辑器顶部一律标注当前类型与"保存会做什么"，被更高优先级来源覆盖时给出警告。
 * **写入口径与 API 一致**：变体组改键名是两次 PATCH（先写新键、再对旧键发空列表，占用冲突先二次确认）；目录侧编辑与抽屉"别名"区块共用同一份写入计划，两处改动相通（端点细节见 [docs/API_REFERENCE.md](API_REFERENCE.md) §2.4）。

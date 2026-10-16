@@ -19732,13 +19732,65 @@ body {
   overflow: hidden;
 }
 
+.provider-model-catalog-head-actions {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 6px;
+  margin-left: auto;
+}
+
 .provider-model-refresh-action {
   flex: 0 0 auto;
   width: 30px;
   min-width: 30px;
   height: 30px;
   min-height: 30px;
-  margin-left: auto;
+}
+
+/* Same segmented grammar as the providers cards/table toggle, sized down for
+   the 30px catalog head it shares with the refresh action. */
+.provider-model-view-toggle {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+
+.provider-model-view-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease;
+}
+
+.provider-model-view-btn:hover {
+  color: var(--text);
+}
+
+.provider-model-view-btn.is-active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+
+.provider-model-view-btn .icon-svg {
+  width: 13px;
+  height: 13px;
+}
+
+.provider-model-view-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--info) 62%, transparent);
+  outline-offset: 1px;
 }
 
 .provider-model-refresh-action .icon-svg,
@@ -19903,6 +19955,18 @@ body {
   padding: 10px;
 }
 
+/* The same rows, served on demand for large catalogs through the head toggle:
+   the list replaces the chip wall, so it takes over the wall's scroll box
+   instead of growing the drawer without bound. */
+.provider-model-catalog.is-large-catalog .provider-model-rows {
+  align-content: start;
+  max-height: min(420px, calc(100dvh - 390px));
+  min-height: 120px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
 .provider-model-row {
   display: flex;
   align-items: center;
@@ -19912,6 +19976,10 @@ body {
   border: 1.5px solid var(--line-soft);
   border-radius: 9px;
   background: var(--surface);
+  /* Up to PROVIDER_MODEL_LIST_LIMIT rows can be on screen at once, so skipped
+     rows must not pay for layout/paint the user cannot see. */
+  content-visibility: auto;
+  contain-intrinsic-size: 48px;
 }
 
 .provider-model-row.is-off {
@@ -20321,6 +20389,10 @@ body {
     grid-template-columns: 1fr;
     max-height: min(420px, 52dvh);
     padding: 8px;
+  }
+
+  .provider-model-catalog.is-large-catalog .provider-model-rows {
+    max-height: min(420px, 52dvh);
   }
 
   .provider-model-disclosure > summary {

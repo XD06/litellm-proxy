@@ -5,6 +5,12 @@ const assert = require("assert");
 const source = fs.readFileSync(path.join(__dirname, "..", "src", "app.js"), "utf8");
 const styles = fs.readFileSync(path.join(__dirname, "..", "src", "styles.css"), "utf8");
 const translations = fs.readFileSync(path.join(__dirname, "..", "src", "i18n.js"), "utf8");
+// The render harness executes the shipped catalog functions, so the render
+// limits they read from constants.js are taken from the real module too.
+const constantsSource = fs.readFileSync(path.join(__dirname, "..", "src", "constants.js"), "utf8");
+const modelListLimitMatch = /export const PROVIDER_MODEL_LIST_LIMIT = (\d+);/.exec(constantsSource);
+assert.ok(modelListLimitMatch, "constants.js must export the model catalog list render limit");
+const providerModelListLimit = Number(modelListLimitMatch[1]);
 
 function bodyBetween(startMarker, endMarker) {
   const start = source.indexOf(startMarker);
@@ -289,6 +295,8 @@ const escapeHtmlFn = sourceRegion("  function escapeHtml(value) {", "\n  functio
 const renderHarness = `
 const state = { data: { config: { providers: {}, models: { provider_model_variants: { p: { "grok-4.3": [{ model: "xai/grok-4", priority: 10 }] } } } } }, providerModelFilters: {}, providerModelsDisclosuresOpen: new Set() };
 const t = (key) => key;
+// Imported by app.js from constants.js; the harness runs outside the module graph.
+const PROVIDER_MODEL_LIST_LIMIT = ${providerModelListLimit};
 // escapeHtml comes from app.js itself (extracted below): the member-row guard
 // asserts that a typed upstream id cannot break out of its attribute.
 const iconSvg = () => "<i></i>";
@@ -366,6 +374,24 @@ try {
     tooltip: variantRowHtml.includes("grok-4.3 → xai/grok-4 (10)"),
   });
   results.push({ label: "memberRow", html: providerModelMemberRowHtml({ model: 'x"y<script>', priority: 7 }) });
+  // Catalog presentation override. These run last because they mutate the
+  // harness state the earlier probes rely on for the size-based default.
+  const countRows = (html) => html.split("provider-model-row ").length - 1;
+  state.providerModelViewMode = "list";
+  const forcedList = catalogOf(providerDrawerModels({ name: "p", config: { static_models: ["s1"] }, capability: { status: "ok" }, modelItems: discovered(30, "m") }));
+  results.push({
+    label: "forcedList",
+    rows: countRows(forcedList),
+    chips: forcedList.includes("provider-drawer-models"),
+    overflow: forcedList.includes("provider-model-overflow-note"),
+  });
+  state.providerModelViewMode = "grid";
+  const forcedGrid = catalogOf(providerDrawerModels({ name: "p", config: { static_models: ["s1"] }, capability: {}, modelItems: discovered(1, "a") }));
+  results.push({ label: "forcedGrid", rows: countRows(forcedGrid), chips: forcedGrid.includes("provider-drawer-models") });
+  state.providerModelViewMode = "list";
+  const cappedList = catalogOf(providerDrawerModels({ name: "p", config: {}, capability: { status: "ok" }, modelItems: discovered(PROVIDER_MODEL_LIST_LIMIT + 5, "m") }));
+  results.push({ label: "cappedList", rows: countRows(cappedList), overflow: cappedList.includes("provider-model-overflow-note") });
+  state.providerModelViewMode = "auto";
   console.log("RENDER_RESULT " + JSON.stringify(results));
 } catch (error) {
   console.log("RENDER_THREW " + error.constructor.name + ": " + error.message);
@@ -422,6 +448,25 @@ assert.equal(renderResults.variantRow.dot, true, "variant rows must use the dedi
 assert.equal(renderResults.variantRow.badge, true, "variant rows must use the dedicated badge tone");
 assert.equal(renderResults.variantRow.summary, true, "variant rows must describe the group in their sub line");
 assert.equal(renderResults.variantRow.tooltip, true, "detailed rows must carry the same chain tooltip as the chips");
+
+// The catalog view switch must actually change what the shipped renderer emits:
+// an explicit pick wins over the size heuristic in both directions, and a large
+// catalog still bounds the detailed list it renders.
+assert.equal(
+  renderResults.forcedList.rows,
+  32,
+  "list mode must render every catalog row (30 discovered + 1 variant group + 1 static declaration)",
+);
+assert.equal(renderResults.forcedList.chips, false, "list mode must not fall back to the chip wall");
+assert.equal(renderResults.forcedList.overflow, false, "a catalog under the limit must not claim hidden models");
+assert.equal(renderResults.forcedGrid.rows, 0, "an explicit grid pick must render chips even for a small catalog");
+assert.equal(renderResults.forcedGrid.chips, true, "an explicit grid pick must keep the chip container");
+assert.equal(
+  renderResults.cappedList.rows,
+  providerModelListLimit,
+  "a large catalog's list must render at most PROVIDER_MODEL_LIST_LIMIT rows",
+);
+assert.equal(renderResults.cappedList.overflow, true, "truncated lists must point at the models they did not render");
 assert.match(
   styles,
   /\.provider-drawer-models \.provider-model-chip\.is-variant \.model-chip-variant-badge\s*\{[^}]*grid-column: 2/,

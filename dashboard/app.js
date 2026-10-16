@@ -515,6 +515,7 @@
 				search: "",
 				status: ""
 			},
+			providerModelViewMode: "auto",
 			providerModelDrafts: {},
 			providerModelsDisclosuresOpen: /* @__PURE__ */ new Set(),
 			providerRoutingContextOpen: false,
@@ -3074,6 +3075,18 @@
 			"prov.models.shown": {
 				en: "{count} shown",
 				zh: "显示 {count} 个"
+			},
+			"prov.models.view_toggle_label": {
+				en: "Model catalog view",
+				zh: "模型目录视图"
+			},
+			"prov.models.view_grid": {
+				en: "Compact grid",
+				zh: "紧凑网格"
+			},
+			"prov.models.view_list": {
+				en: "Detailed list",
+				zh: "详细列表"
 			},
 			"prov.models.search": {
 				en: "Search models",
@@ -14469,7 +14482,10 @@
 			const visibleItems = filteredProviderModelItems(modelItems);
 			const allItems = providerDrawerCatalogItems(view, visibleItems);
 			const largeCatalog = visibleItems.length > 24;
-			const useRows = !largeCatalog && allItems.length > 0;
+			const viewMode = state.providerModelViewMode === "grid" || state.providerModelViewMode === "list" ? state.providerModelViewMode : largeCatalog ? "grid" : "list";
+			const listView = viewMode === "list";
+			const listLimit = largeCatalog ? 200 : allItems.length;
+			const listItems = allItems.slice(0, listLimit);
 			const disabledCount = modelItems.filter((item) => item.disabled).length;
 			const modelFilters = state.providerModelFilters || {};
 			const draftCount = providerModelDraftCount(view.name);
@@ -14504,10 +14520,13 @@
           <div class="provider-model-catalog-head">
             <h3 id="provider-model-catalog-title">${iconSvg("boxes")} ${escapeHtml(t("prov.models.catalog"))}</h3>
             <span class="provider-model-section-count">${escapeHtml(t("prov.models.shown", { count: fmtInt(allItems.length) }))}</span>
-            <button class="button secondary icon-action provider-model-refresh-action" type="button"
-              data-provider-models-refresh="${escapeHtml(view.name)}"
-              title="${escapeHtml(t("prov.models.refresh"))}"
-              aria-label="${escapeHtml(t("prov.models.refresh"))}">${iconSvg("rotate")}</button>
+            <div class="provider-model-catalog-head-actions">
+              ${providerModelViewToggle(view.name, viewMode)}
+              <button class="button secondary icon-action provider-model-refresh-action" type="button"
+                data-provider-models-refresh="${escapeHtml(view.name)}"
+                title="${escapeHtml(t("prov.models.refresh"))}"
+                aria-label="${escapeHtml(t("prov.models.refresh"))}">${iconSvg("rotate")}</button>
+            </div>
           </div>
           <div class="provider-model-toolbar">
             <input class="control provider-model-search" type="search"
@@ -14557,9 +14576,9 @@
               </div>
             </div>
           ` : ""}
-          ${useRows ? `
+          ${listView ? `
           <div class="provider-model-rows" role="list">
-            ${allItems.map((item) => providerModelRow(view.name, item)).join("")}
+            ${listItems.length ? listItems.map((item) => providerModelRow(view.name, item)).join("") + (allItems.length > listItems.length ? `<div class="muted provider-model-overflow-note" role="listitem">${escapeHtml(t("prov.models.more", { count: fmtInt(allItems.length - listItems.length) }))}</div>` : "") : `<div class="empty pad-slim" role="listitem">${escapeHtml(t("prov.models.no_match"))}</div>`}
           </div>
           ` : `
           <div class="model-chip-list provider-drawer-models" role="list" ${largeCatalog ? `aria-label="${escapeHtml(t("prov.models.visible_count", { count: fmtInt(allItems.length) }))}"` : ""}>
@@ -14706,6 +14725,41 @@
         </details>
       </section>
     `;
+		}
+		function providerModelViewToggle(provider, mode) {
+			const options = [{
+				id: "grid",
+				icon: "grid",
+				label: t("prov.models.view_grid")
+			}, {
+				id: "list",
+				icon: "list",
+				label: t("prov.models.view_list")
+			}];
+			return `
+      <div class="provider-model-view-toggle" role="group" aria-label="${escapeHtml(t("prov.models.view_toggle_label"))}">
+        ${options.map((option) => {
+				const active = mode === option.id;
+				return `
+          <button class="provider-model-view-btn ${active ? "is-active" : ""}" type="button"
+            data-provider-model-view="${option.id}"
+            data-provider-model-view-provider="${escapeHtml(provider)}"
+            aria-pressed="${active ? "true" : "false"}"
+            title="${escapeHtml(option.label)}"
+            aria-label="${escapeHtml(option.label)}">${iconSvg(option.icon)}</button>
+        `;
+			}).join("")}
+      </div>
+    `;
+		}
+		function setProviderModelViewMode(mode) {
+			if (mode !== "grid" && mode !== "list") return;
+			if (state.providerModelViewMode === mode) return;
+			state.providerModelViewMode = mode;
+			try {
+				localStorage.setItem("proxyConsoleProviderModelsView", mode);
+			} catch (_err) {}
+			renderProviderDrawer({ force: true });
 		}
 		function providerModelRow(provider, item) {
 			const subParts = [];
@@ -15355,6 +15409,8 @@
 				zap: `<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"></path>`,
 				message: `<path d="M5 19l3-3h9a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v6a3 3 0 0 0 3 3"></path><path d="M8 9h8"></path><path d="M8 12h5"></path>`,
 				shield: `<path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3z"></path>`,
+				grid: `<rect x="3" y="3" width="7.5" height="7.5" rx="1.6"></rect><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6"></rect><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6"></rect><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6"></rect>`,
+				list: `<path d="M8 6h13"></path><path d="M8 12h13"></path><path d="M8 18h13"></path><path d="M3.5 6h.01"></path><path d="M3.5 12h.01"></path><path d="M3.5 18h.01"></path>`,
 				brain: `<path d="M9.5 4.5A3 3 0 0 0 4 6v1.2A3 3 0 0 0 3 12a3 3 0 0 0 1.5 4.8V18a3 3 0 0 0 5.5 1.6V4.8"></path><path d="M14.5 4.5A3 3 0 0 1 20 6v1.2a3 3 0 0 1 1 4.8 3 3 0 0 1-1.5 4.8V18a3 3 0 0 1-5.5 1.6V4.8"></path><path d="M8 9h2M14 9h2M8 15h2M14 15h2"></path>`
 			};
 			return `<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${icons[name] || icons.dot}</svg>`;
@@ -16112,6 +16168,11 @@
 				renderProviderDrawer({ force: true });
 			});
 			root.addEventListener("click", async (event) => {
+				const viewButton = event.target.closest("[data-provider-model-view]");
+				if (viewButton && root.contains(viewButton)) {
+					setProviderModelViewMode(viewButton.dataset.providerModelView || "");
+					return;
+				}
 				const mapEditButton = event.target.closest("[data-provider-model-map-edit-provider]");
 				if (mapEditButton && root.contains(mapEditButton)) {
 					const provider = mapEditButton.dataset.providerModelMapEditProvider || "";
@@ -19457,6 +19518,10 @@
 				button.addEventListener("click", () => setProvidersViewMode(button.dataset.providersView || "cards"));
 			});
 			syncProvidersViewToggle();
+			try {
+				const savedModelsView = localStorage.getItem("proxyConsoleProviderModelsView");
+				if (savedModelsView === "grid" || savedModelsView === "list") state.providerModelViewMode = savedModelsView;
+			} catch (_err) {}
 			el("reloadConfigButton").addEventListener("click", async () => {
 				try {
 					applyMutationResult(await apiPost("/-/admin/config/reload"));

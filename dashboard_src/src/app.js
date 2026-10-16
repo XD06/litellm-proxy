@@ -1,6 +1,6 @@
 import morphdom from "morphdom";
 import { state } from "./state.js";
-import { timeRanges, REQUEST_PAGE_SIZE, PROVIDERS_PAGE_SIZE, CONFIG_PROVIDERS_PAGE_SIZE, MODEL_ROUTES_PAGE_SIZE, PROVIDER_MODEL_MAP_PAGE_SIZE, AUDIT_PAGE_SIZE, MODEL_USAGE_PAGE_SIZE, USAGE_STATISTICS_BREAKDOWN_PAGE_SIZE, SETTINGS_PRICING_PAGE_SIZE, OVERVIEW_PROVIDER_LIMIT, OVERVIEW_FAILURE_LIMIT, USAGE_MODEL_LIMIT, views } from "./constants.js";
+import { timeRanges, REQUEST_PAGE_SIZE, PROVIDERS_PAGE_SIZE, CONFIG_PROVIDERS_PAGE_SIZE, MODEL_ROUTES_PAGE_SIZE, PROVIDER_MODEL_MAP_PAGE_SIZE, AUDIT_PAGE_SIZE, MODEL_USAGE_PAGE_SIZE, USAGE_STATISTICS_BREAKDOWN_PAGE_SIZE, SETTINGS_PRICING_PAGE_SIZE, OVERVIEW_PROVIDER_LIMIT, OVERVIEW_FAILURE_LIMIT, USAGE_MODEL_LIMIT, PROVIDER_MODEL_LIST_LIMIT, views } from "./constants.js";
 import { adminQuery, withAdmin, apiGet, apiPost, apiPatch, readJson, errorMessage } from "./api.js";
 import { t, getLang, setLang, applyI18n, initLang, onLangChange } from "./i18n.js";
 import { PROVIDER_CALL_BAR_SLOTS, recentProviderActivityEvents } from "./provider-activity-window.mjs";
@@ -7297,9 +7297,19 @@ import {
     const allItems = providerDrawerCatalogItems(view, visibleItems);
     const largeCatalog = visibleItems.length > 24;
     // Dual mode: small catalogs read better as detailed rows; large ones stay
-    // in the dense chip grid. Based on the filtered set so search results in a
-    // big catalog also get the detailed treatment.
-    const useRows = !largeCatalog && allItems.length > 0;
+    // in the dense chip grid by default. Based on the filtered set so search
+    // results in a big catalog also get the detailed treatment. The operator can
+    // override the default for the current catalog (and every other one) with
+    // the head toggle, which is why the effective mode is state, not size alone.
+    const viewMode = state.providerModelViewMode === "grid" || state.providerModelViewMode === "list"
+      ? state.providerModelViewMode
+      : (largeCatalog ? "grid" : "list");
+    const listView = viewMode === "list";
+    // Rows are ~5x the DOM of a chip (status badge + two icon buttons), so the
+    // list renders a bounded window and sends the operator to search for the
+    // rest instead of paying that cost on every poll and keystroke.
+    const listLimit = largeCatalog ? PROVIDER_MODEL_LIST_LIMIT : allItems.length;
+    const listItems = allItems.slice(0, listLimit);
     const disabledCount = modelItems.filter((item) => item.disabled).length;
     const modelFilters = state.providerModelFilters || {};
     const draftCount = providerModelDraftCount(view.name);
@@ -7335,10 +7345,13 @@ import {
           <div class="provider-model-catalog-head">
             <h3 id="provider-model-catalog-title">${iconSvg("boxes")} ${escapeHtml(t("prov.models.catalog"))}</h3>
             <span class="provider-model-section-count">${escapeHtml(t("prov.models.shown", { count: fmtInt(allItems.length) }))}</span>
-            <button class="button secondary icon-action provider-model-refresh-action" type="button"
-              data-provider-models-refresh="${escapeHtml(view.name)}"
-              title="${escapeHtml(t("prov.models.refresh"))}"
-              aria-label="${escapeHtml(t("prov.models.refresh"))}">${iconSvg("rotate")}</button>
+            <div class="provider-model-catalog-head-actions">
+              ${providerModelViewToggle(view.name, viewMode)}
+              <button class="button secondary icon-action provider-model-refresh-action" type="button"
+                data-provider-models-refresh="${escapeHtml(view.name)}"
+                title="${escapeHtml(t("prov.models.refresh"))}"
+                aria-label="${escapeHtml(t("prov.models.refresh"))}">${iconSvg("rotate")}</button>
+            </div>
           </div>
           <div class="provider-model-toolbar">
             <input class="control provider-model-search" type="search"
@@ -7385,9 +7398,9 @@ import {
               </div>
             </div>
           ` : ""}
-          ${useRows ? `
+          ${listView ? `
           <div class="provider-model-rows" role="list">
-            ${allItems.map((item) => providerModelRow(view.name, item)).join("")}
+            ${listItems.length ? listItems.map((item) => providerModelRow(view.name, item)).join("") + (allItems.length > listItems.length ? `<div class="muted provider-model-overflow-note" role="listitem">${escapeHtml(t("prov.models.more", { count: fmtInt(allItems.length - listItems.length) }))}</div>` : "") : `<div class="empty pad-slim" role="listitem">${escapeHtml(t("prov.models.no_match"))}</div>`}
           </div>
           ` : `
           <div class="model-chip-list provider-drawer-models" role="list" ${largeCatalog ? `aria-label="${escapeHtml(t("prov.models.visible_count", { count: fmtInt(allItems.length) }))}"` : ""}>
@@ -7533,6 +7546,42 @@ import {
         </details>
       </section>
     `;
+  }
+
+  // Presentation switch for one catalog: the same two modes the size heuristic
+  // already picks between, so a 465-model provider can be read as a detailed
+  // list instead of a chip wall. Rendered in the catalog head, next to the
+  // count it changes the reading of, and icon-only because the drawer is narrow.
+  function providerModelViewToggle(provider, mode) {
+    const options = [
+      { id: "grid", icon: "grid", label: t("prov.models.view_grid") },
+      { id: "list", icon: "list", label: t("prov.models.view_list") },
+    ];
+    return `
+      <div class="provider-model-view-toggle" role="group" aria-label="${escapeHtml(t("prov.models.view_toggle_label"))}">
+        ${options.map((option) => {
+          const active = mode === option.id;
+          return `
+          <button class="provider-model-view-btn ${active ? "is-active" : ""}" type="button"
+            data-provider-model-view="${option.id}"
+            data-provider-model-view-provider="${escapeHtml(provider)}"
+            aria-pressed="${active ? "true" : "false"}"
+            title="${escapeHtml(option.label)}"
+            aria-label="${escapeHtml(option.label)}">${iconSvg(option.icon)}</button>
+        `;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  // Explicit picks are global (they follow the operator, not one provider) and
+  // outlive the session, matching the providers cards/table toggle.
+  function setProviderModelViewMode(mode) {
+    if (mode !== "grid" && mode !== "list") return;
+    if (state.providerModelViewMode === mode) return;
+    state.providerModelViewMode = mode;
+    try { localStorage.setItem("proxyConsoleProviderModelsView", mode); } catch (_err) {}
+    renderProviderDrawer({ force: true });
   }
 
   // Small-catalog treatment: one detailed row per model (state dot, raw id,
@@ -8316,6 +8365,8 @@ import {
       zap: `<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"></path>`,
       message: `<path d="M5 19l3-3h9a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v6a3 3 0 0 0 3 3"></path><path d="M8 9h8"></path><path d="M8 12h5"></path>`,
       shield: `<path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3z"></path>`,
+      grid: `<rect x="3" y="3" width="7.5" height="7.5" rx="1.6"></rect><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6"></rect><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6"></rect><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6"></rect>`,
+      list: `<path d="M8 6h13"></path><path d="M8 12h13"></path><path d="M8 18h13"></path><path d="M3.5 6h.01"></path><path d="M3.5 12h.01"></path><path d="M3.5 18h.01"></path>`,
       brain: `<path d="M9.5 4.5A3 3 0 0 0 4 6v1.2A3 3 0 0 0 3 12a3 3 0 0 0 1.5 4.8V18a3 3 0 0 0 5.5 1.6V4.8"></path><path d="M14.5 4.5A3 3 0 0 1 20 6v1.2a3 3 0 0 1 1 4.8 3 3 0 0 1-1.5 4.8V18a3 3 0 0 1-5.5 1.6V4.8"></path><path d="M8 9h2M14 9h2M8 15h2M14 15h2"></path>`,
     };
     return `<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${icons[name] || icons.dot}</svg>`;
@@ -9168,6 +9219,11 @@ import {
       renderProviderDrawer({ force: true });
     });
     root.addEventListener("click", async (event) => {
+      const viewButton = event.target.closest("[data-provider-model-view]");
+      if (viewButton && root.contains(viewButton)) {
+        setProviderModelViewMode(viewButton.dataset.providerModelView || "");
+        return;
+      }
       const mapEditButton = event.target.closest("[data-provider-model-map-edit-provider]");
       if (mapEditButton && root.contains(mapEditButton)) {
         const provider = mapEditButton.dataset.providerModelMapEditProvider || "";
@@ -12763,6 +12819,15 @@ import {
       button.addEventListener("click", () => setProvidersViewMode(button.dataset.providersView || "cards"));
     });
     syncProvidersViewToggle();
+
+    // Model catalog view: same contract as the providers toggle above. Only an
+    // explicit grid/list pick is restored; unset stays on the size heuristic.
+    try {
+      const savedModelsView = localStorage.getItem("proxyConsoleProviderModelsView");
+      if (savedModelsView === "grid" || savedModelsView === "list") {
+        state.providerModelViewMode = savedModelsView;
+      }
+    } catch (_err) {}
 
     el("reloadConfigButton").addEventListener("click", async () => {
       try {
