@@ -405,6 +405,7 @@ const dict = {
   "prov.desc": { en: "Runtime health, model coverage, key state, and routing readiness.", zh: "运行状态、模型覆盖、密钥状态与路由就绪情况。" },
   "prov.add": { en: "Add Provider", zh: "添加提供商" },
   "prov.search": { en: "Search", zh: "搜索" },
+  "prov.clear_search": { en: "Clear search", zh: "清除搜索" },
   "prov.search_ph": { en: "provider, model, base url", zh: "提供商、模型、基础 URL" },
   "prov.format": { en: "Format", zh: "格式" },
   "prov.all_formats": { en: "All formats", zh: "所有格式" },

@@ -6549,7 +6549,18 @@ import {
     };
     state.providersPage = 0;
     state.forceProvidersRender = true;
+    syncProviderSearchClear();
     renderProvidersTable();
+  }
+
+  // The clear affordance lives inside the search field and only exists while
+  // there is something to clear. Driven from the same funnel as the filter
+  // state, so typing, "clear filters" and the button itself keep both in step.
+  function syncProviderSearchClear() {
+    const input = el("providerSearchInput");
+    const button = el("clearProviderSearchButton");
+    if (!input || !button) return;
+    button.hidden = !input.value;
   }
 
   function clearProviderFilters() {
@@ -12802,6 +12813,16 @@ import {
     });
 
     el("providerSearchInput")?.addEventListener("input", syncProviderFiltersFromControls);
+    // Clearing is a field action, not a navigation: empty the search, keep the
+    // caret in the input so the next query can be typed straight away.
+    el("clearProviderSearchButton")?.addEventListener("click", () => {
+      const input = el("providerSearchInput");
+      if (!input) return;
+      input.value = "";
+      syncProviderFiltersFromControls();
+      input.focus();
+    });
+    syncProviderSearchClear();
     ["providerFormatFilter", "providerStatusFilter", "providerKeyFilter"].forEach((id) => {
       el(id)?.addEventListener("change", syncProviderFiltersFromControls);
     });

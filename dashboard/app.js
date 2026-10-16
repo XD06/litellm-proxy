@@ -2060,6 +2060,10 @@
 				en: "Search",
 				zh: "搜索"
 			},
+			"prov.clear_search": {
+				en: "Clear search",
+				zh: "清除搜索"
+			},
 			"prov.search_ph": {
 				en: "provider, model, base url",
 				zh: "提供商、模型、基础 URL"
@@ -13851,7 +13855,14 @@
 			};
 			state.providersPage = 0;
 			state.forceProvidersRender = true;
+			syncProviderSearchClear();
 			renderProvidersTable();
+		}
+		function syncProviderSearchClear() {
+			const input = el("providerSearchInput");
+			const button = el("clearProviderSearchButton");
+			if (!input || !button) return;
+			button.hidden = !input.value;
 		}
 		function clearProviderFilters() {
 			[
@@ -19502,6 +19513,14 @@
 				});
 			});
 			el("providerSearchInput")?.addEventListener("input", syncProviderFiltersFromControls);
+			el("clearProviderSearchButton")?.addEventListener("click", () => {
+				const input = el("providerSearchInput");
+				if (!input) return;
+				input.value = "";
+				syncProviderFiltersFromControls();
+				input.focus();
+			});
+			syncProviderSearchClear();
 			[
 				"providerFormatFilter",
 				"providerStatusFilter",

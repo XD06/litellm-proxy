@@ -2788,6 +2788,61 @@ tr.clickable:hover {
   min-width: 0;
 }
 
+/* Provider search field: the clear affordance sits inside the box, so the
+   input keeps the console's control styling while the shell anchors the
+   button. The button only exists while there is text to clear. */
+.providers-search-shell {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}
+
+.providers-search-shell > .control {
+  width: 100%;
+  padding-right: 32px;
+}
+
+.providers-search-clear {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  /* --faint is a pale accent in this theme; the cross has to read against the
+     field's #fafafa fill, so it rests at --muted and darkens on hover. */
+  color: var(--muted);
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition: color 120ms ease, background 120ms ease;
+}
+
+/* `hidden` must win over the grid display above. */
+.providers-search-clear[hidden] {
+  display: none;
+}
+
+.providers-search-clear:hover {
+  background: color-mix(in srgb, var(--muted) 16%, transparent);
+  color: var(--text);
+}
+
+.providers-search-clear:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--info) 62%, transparent);
+  outline-offset: 1px;
+}
+
+.providers-search-clear .icon-svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.6;
+}
+
 .provider-model-list {
   display: grid;
   gap: 10px;

@@ -287,7 +287,12 @@
             </div>
           </header>
           <div id="providerToolbar" class="provider-toolbar providers-filter-bar">
-            <input id="providerSearchInput" class="control" placeholder="provider, model, base url" data-i18n-attr="placeholder:prov.search_ph,aria-label:prov.search" />
+            <div class="providers-search-shell">
+              <input id="providerSearchInput" class="control" placeholder="provider, model, base url" data-i18n-attr="placeholder:prov.search_ph,aria-label:prov.search" />
+              <button id="clearProviderSearchButton" class="providers-search-clear" type="button" hidden data-i18n-attr="aria-label:prov.clear_search,title:prov.clear_search">
+                <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 7l10 10"></path><path d="M17 7L7 17"></path></svg>
+              </button>
+            </div>
             <select id="providerFormatFilter" class="control" data-i18n-attr="aria-label:prov.format">
               <option value="" data-i18n="prov.all_formats">All formats</option>
               <option value="chat_completions">OpenAI Chat</option>
