@@ -564,6 +564,24 @@ litellm-proxy --host 0.0.0.0 --port 8080   # 自定义绑定地址和端口
 * **布局契约（单行优先，装不下整组换行）**：工具条是 `flex-wrap: wrap` 容器，子项一律 `flex: 0 0 auto`（不收缩，避免控件被压成不可用宽度），右侧同步组 `flex: 0 0 auto` + `padding-left`（保证与筛选控件的最小间距，同时不因换行被裁）。**不允许**用 `flex-wrap: nowrap` + 隐藏滚动条的横向溢出省空间——实测 1100px 窗口下溢出 297px，右侧 chip/刷新会被推到容器外，既看不见也滚不到。用 headless Chrome 在真实 viewport 下实测：≥ ~1350px 窗口单行，更窄时右侧同步组整体落到第二行，任何宽度零溢出、右侧控件距右边缘固定 13px。
 * **同步 chip 契约**：只显示同步状态文字（数据已完整同步 / 数据不完整）与状态圆点，高度 28px（与刷新按钮同高）、字号 11.5px；**有效数据窗口（"自 N月N日"）只放在 chip 悬浮提示与图表副标题里**——内联进 chip 会让它从 120.5px 涨到 188.1px，把 ~1400px 窗口的单行工具条顶成两行。回归守护见 `dashboard_src/tests/usage-observability.test.mjs`（含"不许 nowrap / 不许横向溢出滚动 / chip 高度与字号 / 不许内联窗口标注"五条反向验证过的断言）。
 
+### 10.7 请求详情 · 结果横幅跳转与返回
+
+请求日志点击单条记录打开的详情抽屉（`#detailDrawer`）顶部是结果横幅，按"状态 / 指标条 / 结论"三级纵向排列。指标条里的**模型 / 最终提供商 / 客户端密钥**三块可点击，直达对应实体：
+
+| 指标块 | 落点 | 实现 |
+|---|---|---|
+| 模型 | 配置与统计 → 模型数据 → 该模型用量抽屉 | `setView("config")` → `switchConfigTab("models")` → `switchStatisticsView("models")` → `openUsageModelDrawer(model)` |
+| 最终提供商 | 提供商页 → 该 provider 抽屉 | `setView("providers")` → `openProviderDrawer(final_provider)` |
+| 客户端密钥 | 系统设置 → 密钥 → 该 key 编辑抽屉 | `setView("settings")` → `switchSettingsTab("keys")` → `ensureClientKeysFresh()` → `openKeyDrawer("edit", record)` |
+
+* **交互契约**：有落点的块渲染为真正的 `<button>`（原生 Enter/Space、`focus-visible` 焦点环），`↗` 角标**常驻在标签行内**而非 hover 才出现（悬浮提示不可发现），也**不允许绝对定位覆盖标签**——650px 抽屉下标签只有几个字宽，覆盖式角标会把"最终提供商"截成"最终提供"。值缺失时（模型空 / 无最终提供商 / 无 `client_key_id`）退化为原来的 `<div>`，不产生点了没反应的死按钮。耗时与成本**刻意不可点**（没有唯一落点）。
+* **返回入口放在目标抽屉自己头上**：三个目标抽屉打开时都会关闭请求抽屉，因此 `providerDrawer` / `modelDrawer` / `keyDrawer` 头部各有一个默认隐藏的「返回请求」按钮，点击关闭当前抽屉 → 回到请求日志 → 重开原请求。返回目标存在抽屉的 `dataset.returnRequest`，**打开抽屉永不清除、关闭抽屉必清除**，避免"从别处打开抽屉却冒出无关返回按钮"。
+* **密钥已删除/重建**：仍停在「设置 → 密钥」并弹出说明（`req.jump_client_key_missing`），不静默失败。`ensureClientKeysFresh()` 绕开 `loadClientKeys` 的 5s 陈旧预算与 fire-and-forget 语义，保证拿到记录。
+* **布局契约**：指标条是 `flex-wrap: wrap` 的可换行容器（`flex: 1 1 104px`），**不允许**退回固定 N 列网格——5 列挤在 650px 下每个标签都被截断；也**不允许**用 `nth-of-type` 按位置定位单元格（`has-client-key` 会多插一块，有无密钥时指向不同两块）。
+* **控件一致性**：抽屉关闭按钮与「返回请求」同属一个控件族——同 30px 高、同中心线、同 `--text-soft` 颜色、同源 24px 图标集（13px / 12px）。历史实现用文字字形 `×`（18px 字形、墨迹高 23px、`--muted` 灰），与 SVG 箭头一重一轻。
+
+回归守护：`dashboard_src/tests/request-result-band-jump.test.mjs`（按钮/div 分流、三处落点、返回目标的存与清、换行布局、i18n 双语）。
+
 ---
 
 ## 11. Admin API

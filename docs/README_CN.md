@@ -388,7 +388,7 @@ sequenceDiagram
 | 🖥️ 控制台运行时 | `dashboard/` | 构建后的静态资源，由代理服务 |
 | 🎨 控制台源码 | `dashboard_src/` | Vite + 原生 JS 源码，含 i18n、morphdom |
 | 🐳 部署 | `Dockerfile`, `docker-compose.yml`, `deploy/` | Docker、systemd、Nginx 反向代理配置 |
-| 🧪 测试 | `tests/`（58 个文件，1053 测试）+ `dashboard_src/tests/`（36 个 Node 测试，`npm test` 实跑） | 覆盖路由、转换、配置、流式、Admin API 的 pytest；控制台 UI 的 Node 测试 |
+| 🧪 测试 | `tests/`（58 个文件，1053 测试）+ `dashboard_src/tests/`（37 个 Node 测试，`npm test` 实跑） | 覆盖路由、转换、配置、流式、Admin API 的 pytest；控制台 UI 的 Node 测试 |
 
 > **📚 进阶架构与排障指南**：
 > - **[架构全景（克制版）](../ARCHITECTURE.md)**
