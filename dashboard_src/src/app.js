@@ -2436,6 +2436,7 @@ import {
 
   const CLIENT_KEYS_REFRESH_MS = 5000;
   let _clientKeysLoadedAt = 0;
+  let _clientKeysLoadPromise = null;
 
   async function loadClientKeys() {
     // Retry until a successful load: the first attempt often runs during the
@@ -2444,25 +2445,41 @@ import {
     // After a successful load, re-fetch on a staleness budget instead of
     // caching the first snapshot forever (that pinned the quota display at
     // its creation-time zeros even while the key was being used).
-    if (_clientKeysLoadInFlight) return;
+    if (_clientKeysLoadInFlight) return _clientKeysLoadPromise || Promise.resolve();
     if (
       state.clientKeysAvailable === true
       && Date.now() - _clientKeysLoadedAt < CLIENT_KEYS_REFRESH_MS
-    ) return;
+    ) return Promise.resolve();
     _clientKeysLoadInFlight = true;
-    try {
-      const data = await apiGet("/-/admin/client-keys");
-      state.data.clientKeys = Array.isArray(data?.keys) ? data.keys : [];
-      state.clientKeysAvailable = true;
-      _clientKeysLoadedAt = Date.now();
-    } catch (err) {
-      state.data.clientKeys = [];
-      state.clientKeysAvailable = false;
-      setNotice(`client-keys load failed: ${err && err.message ? err.message : err}`, "bad", { key: "settings:keys-load", sticky: true });
-    } finally {
-      _clientKeysLoadInFlight = false;
-      if (state.view === "settings") renderSettingsKeys();
-    }
+    _clientKeysLoadPromise = (async () => {
+      try {
+        const data = await apiGet("/-/admin/client-keys");
+        state.data.clientKeys = Array.isArray(data?.keys) ? data.keys : [];
+        state.clientKeysAvailable = true;
+        _clientKeysLoadedAt = Date.now();
+      } catch (err) {
+        state.data.clientKeys = [];
+        state.clientKeysAvailable = false;
+        setNotice(`client-keys load failed: ${err && err.message ? err.message : err}`, "bad", { key: "settings:keys-load", sticky: true });
+      } finally {
+        _clientKeysLoadInFlight = false;
+        if (state.view === "settings") renderSettingsKeys();
+      }
+    })();
+    return _clientKeysLoadPromise;
+  }
+
+  /**
+   * Force a fresh client-key list and return it. Used by the request detail
+   * "jump to client key" path, which needs the record (id → quota/models) that
+   * only the list endpoint carries, and must not race the 5s staleness budget
+   * or a fire-and-forget load already in flight.
+   */
+  async function ensureClientKeysFresh() {
+    if (_clientKeysLoadInFlight) await loadClientKeys();
+    _clientKeysLoadedAt = 0;
+    await loadClientKeys();
+    return Array.isArray(state.data.clientKeys) ? state.data.clientKeys : [];
   }
 
   async function refreshClientKeys() {
@@ -3161,6 +3178,7 @@ import {
     // Drop the dirty flag so the next open renders a fresh form instead of
     // being permanently blocked by shouldPreserveContainer.
     clearDirty("#keyDrawerBody");
+    clearDrawerReturn("keyDrawer");
   }
 
   function renderKeyDrawer({ force = false } = {}) {
@@ -6605,6 +6623,7 @@ import {
     _lastDrawerRenderSignature = "";
     resetProviderActivityEventsCache("");
     clearDirty("#providerDrawer");
+    clearDrawerReturn("providerDrawer");
   }
 
   function providerDrawerTabMeta(tab) {
@@ -8354,6 +8373,7 @@ import {
       "arrow-right": `<path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path>`,
       "arrow-up": `<path d="M12 19V5"></path><path d="M5 12l7-7 7 7"></path>`,
       "arrow-down": `<path d="M12 5v14"></path><path d="M19 12l-7 7-7-7"></path>`,
+      "arrow-up-right": `<path d="M7 17 17 7"></path><path d="M9 7h8v8"></path>`,
       "arrow-right-left": `<path d="M8 3 4 7l4 4"></path><path d="M4 7h16"></path><path d="m16 21 4-4-4-4"></path><path d="M20 17H4"></path>`,
       "git-branch": `<line x1="6" x2="6" y1="3" y2="15"></line><circle cx="18" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M18 9a9 9 0 0 1-9 9"></path>`,
       boxes: `<path d="M4 7l8-4 8 4-8 4-8-4z"></path><path d="M4 7v10l8 4 8-4V7"></path><path d="M12 11v10"></path>`,
@@ -11709,6 +11729,10 @@ import {
     `;
   }
 
+  // Last successfully loaded request detail. The result band's jump buttons
+  // read their target from here instead of re-parsing the rendered DOM.
+  let _currentRequestDetail = null;
+
   async function openRequestDetail(requestId) {
     if (!requestId) return;
     state.detailDrawerReturn = null;
@@ -11733,8 +11757,10 @@ import {
     updateDOM(el("drawerBody"), `<div class="empty">${escapeHtml(t("req.detail_loading"))}</div>`);
     try {
       const detail = await apiGet(`/-/admin/requests/${encodeURIComponent(requestId)}`);
+      _currentRequestDetail = detail && typeof detail === "object" ? detail : null;
       renderDrawer(detail);
     } catch (err) {
+      _currentRequestDetail = null;
       updateDOM(el("drawerBody"), `<div class="notice">${escapeHtml(t("req.detail_failed", { error: err.message }))}</div>`);
     }
   }
@@ -11756,11 +11782,44 @@ import {
           ${statusBadge(detail.status || detail.state, detail.status_code || "")}
           <span class="request-detail-route-chip tone-${escapeHtml(routeTone)}">${iconSvg(routeOutcomeIcon(outcome))}${escapeHtml(routeOutcomeLabel(outcome))}</span>
         </div>
-        <div class="request-result-stat">${iconSvg("boxes")}<span><small>${escapeHtml(t("req.col_model"))}</small><strong class="mono">${escapeHtml(detail.model || "-")}</strong></span></div>
-        <div class="request-result-stat">${iconSvg("server")}<span><small>${escapeHtml(t("req.summary_final_provider"))}</small><strong>${escapeHtml(summary.final_provider || "-")}</strong></span></div>
-        ${clientKeyTitle ? `<div class="request-result-stat" title="${escapeHtml(clientKeyTitle)}">${iconSvg("key-round")}<span><small>${escapeHtml(t("req.meta_client_key"))}</small><strong>${escapeHtml(clientKeyTitle)}</strong></span></div>` : ""}
-        <div class="request-result-stat">${iconSvg("clock")}<span><small>${escapeHtml(t("req.col_latency"))}</small><strong class="mono">${firstEvent ? escapeHtml(fmtCompactMs(firstEvent)) : "-"} / ${escapeHtml(fmtCompactMs(detail.duration_ms))}</strong></span></div>
-        <div class="request-result-stat">${iconSvg("dollar")}<span><small>${escapeHtml(t("req.col_cost"))}</small>${renderCost({ ...detail, cost_usd: usage.cost_usd }, { compact: true })}</span></div>
+        <div class="request-result-stats">
+          ${requestResultStat({
+            kind: "model",
+            icon: "boxes",
+            label: t("req.col_model"),
+            value: detail.model || "",
+            mono: true,
+            jump: "model",
+          })}
+          ${requestResultStat({
+            kind: "provider",
+            icon: "server",
+            label: t("req.summary_final_provider"),
+            value: summary.final_provider || "",
+            jump: "provider",
+          })}
+          ${clientKeyTitle ? requestResultStat({
+            kind: "client-key",
+            icon: "key-round",
+            label: t("req.meta_client_key"),
+            value: clientKeyTitle,
+            jump: detail.client_key_id ? "client-key" : "",
+            tip: clientKeyTitle,
+          }) : ""}
+          ${requestResultStat({
+            kind: "latency",
+            icon: "clock",
+            label: t("req.col_latency"),
+            value: `${firstEvent ? fmtCompactMs(firstEvent) : "-"} / ${fmtCompactMs(detail.duration_ms)}`,
+            mono: true,
+          })}
+          ${requestResultStat({
+            kind: "cost",
+            icon: "dollar",
+            label: t("req.col_cost"),
+            markup: renderCost({ ...detail, cost_usd: usage.cost_usd }, { compact: true }),
+          })}
+        </div>
         <p class="request-result-message tone-${escapeHtml(routeTone)}">${iconSvg(routeOutcomeIcon(outcome))}<span>${requestResultHeadlineMarkup(summary.headline || detail.error || "-")}</span></p>
       </section>
       ${renderRequestIssuePanel(detail, attempts, summary)}
@@ -11779,6 +11838,131 @@ import {
 
   function requestResultHeadlineMarkup(value) {
     return messageMarkup(String(value || "-").replace(/;\s+/g, ". "));
+  }
+
+  /**
+   * One cell of the request result band.
+   *
+   * Cells with a destination (`jump`) render as real <button> elements so
+   * keyboard users get Enter/Space activation and a focus ring for free. Cells
+   * without one keep the original <div> markup. Every cell carries a stable
+   * `request-result-stat--<kind>` modifier: the band's column count changes when
+   * a client key is present, so positional selectors (nth-of-type) are unsafe.
+   */
+  function requestResultStat({ kind, icon, label, value = "", markup = "", mono = false, jump = "", tip = "" }) {
+    const body = markup || `<strong class="${mono ? "mono" : ""}">${escapeHtml(value || "-")}</strong>`;
+    const baseClass = `request-result-stat request-result-stat--${kind}`;
+    if (!jump) {
+      const titleAttr = tip ? ` title="${escapeHtml(tip)}"` : "";
+      return `<div class="${baseClass}"${titleAttr}>${iconSvg(icon)}<span><small>${escapeHtml(label)}</small>${body}</span></div>`;
+    }
+    const action = t(`req.jump_${jump.replace("-", "_")}`);
+    const title = [tip, action].filter(Boolean).join(" · ");
+    // The glyph rides inside the label row instead of being absolutely
+    // positioned over it: at this drawer width the label is only a few
+    // characters wide and an overlay clipped it ("最终提供" instead of
+    // "最终提供商").
+    return `<button class="${baseClass} is-jumpable" type="button" data-request-stat-jump="${escapeHtml(jump)}" title="${escapeHtml(title)}" aria-label="${escapeHtml(`${label}: ${value || "-"} — ${action}`)}">${iconSvg(icon)}<span><small>${escapeHtml(label)}<i class="request-result-jump-glyph" aria-hidden="true">${iconSvg("arrow-up-right")}</i></small>${body}</span></button>`;
+  }
+
+  // ---- Result-band jumps -------------------------------------------------
+  // Each destination lives in another view, and the provider / model-usage /
+  // client-key drawers all close the request drawer when they open. The return
+  // affordance is therefore stored on the destination drawer itself (dataset),
+  // not in global state: opening a drawer never clears it, closing that drawer
+  // does, so a stale "back to request" can never leak into an unrelated visit.
+  const DRAWER_RETURN_TARGETS = [
+    ["providerDrawer", "providerDrawerReturnButton"],
+    ["modelDrawer", "modelDrawerReturnButton"],
+    ["keyDrawer", "keyDrawerReturnButton"],
+  ];
+
+  function syncDrawerReturnButtons() {
+    DRAWER_RETURN_TARGETS.forEach(([drawerId, buttonId]) => {
+      const drawer = el(drawerId);
+      const button = el(buttonId);
+      if (!drawer || !button) return;
+      const requestId = drawer.dataset.returnRequest || "";
+      button.hidden = !requestId;
+      if (!requestId) return;
+      const label = t("req.back_to_request");
+      button.title = label;
+      button.setAttribute("aria-label", `${label}: ${requestId}`);
+      updateDOM(button, `${iconSvg("arrow-left")}<span>${escapeHtml(label)}</span>`);
+    });
+  }
+
+  function markDrawerReturn(drawerId, requestId) {
+    const drawer = el(drawerId);
+    if (!drawer || !requestId) return;
+    drawer.dataset.returnRequest = requestId;
+    syncDrawerReturnButtons();
+  }
+
+  function clearDrawerReturn(drawerId) {
+    const drawer = el(drawerId);
+    if (!drawer || !drawer.dataset.returnRequest) return;
+    delete drawer.dataset.returnRequest;
+    syncDrawerReturnButtons();
+  }
+
+  function returnToRequest(drawerId) {
+    const requestId = el(drawerId)?.dataset.returnRequest || "";
+    if (!requestId) return;
+    if (drawerId === "providerDrawer") closeProviderDrawer();
+    else if (drawerId === "modelDrawer") closeModelDrawer();
+    else if (drawerId === "keyDrawer") closeKeyDrawer();
+    setView("requests");
+    openRequestDetail(requestId);
+  }
+
+  async function jumpToRequestModel(model) {
+    const name = String(model || "").trim();
+    if (!name) return;
+    const requestId = _currentRequestDetail?.request_id || "";
+    closeDrawer(false);
+    setView("config");
+    switchConfigTab("models");
+    switchStatisticsView("models");
+    markDrawerReturn("modelDrawer", requestId);
+    await openUsageModelDrawer(name);
+  }
+
+  function jumpToRequestProvider(provider) {
+    const name = String(provider || "").trim();
+    if (!name) return;
+    const requestId = _currentRequestDetail?.request_id || "";
+    setView("providers");
+    openProviderDrawer(name);
+    markDrawerReturn("providerDrawer", requestId);
+  }
+
+  async function jumpToRequestClientKey(keyId, keyLabel) {
+    const id = String(keyId || "").trim();
+    if (!id) return;
+    const requestId = _currentRequestDetail?.request_id || "";
+    closeDrawer(false);
+    setView("settings");
+    switchSettingsTab("keys");
+    const keys = await ensureClientKeysFresh();
+    const record = keys.find((item) => String(item?.id ?? "") === id);
+    if (!record) {
+      // Deleted or re-created since the request was recorded. Landing on the
+      // keys tab is still the right destination, but say why the drawer is not
+      // opening instead of failing silently.
+      setNotice(t("req.jump_client_key_missing", { name: keyLabel || id }), "info");
+      return;
+    }
+    markDrawerReturn("keyDrawer", requestId);
+    openKeyDrawer("edit", record);
+  }
+
+  function handleRequestStatJump(kind) {
+    const detail = _currentRequestDetail;
+    if (!detail) return;
+    if (kind === "model") jumpToRequestModel(detail.model);
+    else if (kind === "provider") jumpToRequestProvider(detail.routing_summary?.final_provider);
+    else if (kind === "client-key") jumpToRequestClientKey(detail.client_key_id, detail.client_key_name);
   }
 
   function renderRequestIssuePanel(detail, attempts, summary) {
@@ -13410,6 +13594,13 @@ import {
     el("closeDrawerButton").addEventListener("click", closeDrawer);
     el("closeProviderDrawerButton")?.addEventListener("click", closeProviderDrawer);
     el("closeModelDrawerButton")?.addEventListener("click", closeModelDrawer);
+    DRAWER_RETURN_TARGETS.forEach(([drawerId, buttonId]) => {
+      el(buttonId)?.addEventListener("click", () => returnToRequest(drawerId));
+    });
+    el("drawerBody")?.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-request-stat-jump]");
+      if (button) handleRequestStatJump(button.dataset.requestStatJump || "");
+    });
     el("modelCapabilities")?.addEventListener("click", (event) => {
       const chip = event.target.closest(".model-map-chip");
       if (chip) {
@@ -13478,6 +13669,7 @@ import {
     const drawer = el("detailDrawer");
     drawer.classList.remove("is-open");
     drawer.setAttribute("aria-hidden", "true");
+    _currentRequestDetail = null;
     const returnTarget = restoreReturn ? state.detailDrawerReturn : null;
     state.detailDrawerReturn = null;
     if (returnTarget?.type === "provider" && returnTarget.name) {
@@ -13629,6 +13821,7 @@ import {
       drawer.setAttribute("aria-hidden", "true");
     }
     state.modelDrawerMode = "summary";
+    clearDrawerReturn("modelDrawer");
   }
 
   window.LP_openModelDrawer = openModelDrawer;

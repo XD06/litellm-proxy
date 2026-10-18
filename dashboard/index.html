@@ -961,7 +961,7 @@
             <h2 data-i18n="req.detail_title">Request Detail</h2>
             <p id="drawerSubtitle" data-i18n="req.detail_subtitle">Click a request to view its trace and payload.</p>
           </div>
-          <button id="closeDrawerButton" class="icon-button" aria-label="Close" data-i18n-attr="aria-label:confirm.close">×</button>
+          <button id="closeDrawerButton" class="icon-button drawer-close-button" aria-label="Close" data-i18n-attr="aria-label:confirm.close"><svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg></button>
         </div>
         <div id="drawerBody" class="drawer-body"></div>
       </aside>
@@ -972,7 +972,10 @@
             <h2 id="providerDrawerTitle"><span id="providerDrawerIconSlot" class="provider-drawer-icon-slot"><span class="provider-server-icon" aria-hidden="true"><svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4" y="4" width="16" height="6" rx="2"></rect><rect x="4" y="14" width="16" height="6" rx="2"></rect><path d="M8 7h.01"></path><path d="M8 17h.01"></path><path d="M12 7h4"></path><path d="M12 17h4"></path></svg></span></span><span id="providerDrawerTitleText" data-i18n="prov.drawer_title">Provider</span></h2>
             <p id="providerDrawerSubtitle" data-i18n="prov.drawer_subtitle">Select a provider to view its models and state.</p>
           </div>
-          <button id="closeProviderDrawerButton" class="icon-button" aria-label="Close" data-i18n-attr="aria-label:confirm.close">×</button>
+          <div class="drawer-head-actions">
+            <button id="providerDrawerReturnButton" class="drawer-return-button" type="button" hidden></button>
+            <button id="closeProviderDrawerButton" class="icon-button drawer-close-button" aria-label="Close" data-i18n-attr="aria-label:confirm.close"><svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg></button>
+          </div>
         </div>
         <div id="providerDrawerBody" class="drawer-body provider-drawer-body"></div>
       </aside>
@@ -983,7 +986,10 @@
             <h2 id="modelDrawerTitle" data-i18n="model.drawer_title">Model Details</h2>
             <p id="modelDrawerSubtitle" data-i18n="model.drawer_subtitle">Artificial Analysis Summary</p>
           </div>
-          <button id="closeModelDrawerButton" class="icon-button" aria-label="Close" data-i18n-attr="aria-label:confirm.close">×</button>
+          <div class="drawer-head-actions">
+            <button id="modelDrawerReturnButton" class="drawer-return-button" type="button" hidden></button>
+            <button id="closeModelDrawerButton" class="icon-button drawer-close-button" aria-label="Close" data-i18n-attr="aria-label:confirm.close"><svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg></button>
+          </div>
         </div>
         <div id="modelDrawerBody" class="drawer-body"></div>
       </aside>
@@ -994,7 +1000,10 @@
             <h2 id="keyDrawerTitle" data-i18n="settings.keys.drawer_title_new">Create Client Key</h2>
             <p id="keyDrawerSubtitle" data-i18n="settings.keys.drawer_subtitle">Configure quota, rate limit, and model scope for a new client key.</p>
           </div>
-          <button id="closeKeyDrawerButton" class="icon-button" aria-label="Close" data-i18n-attr="aria-label:confirm.close">×</button>
+          <div class="drawer-head-actions">
+            <button id="keyDrawerReturnButton" class="drawer-return-button" type="button" hidden></button>
+            <button id="closeKeyDrawerButton" class="icon-button drawer-close-button" aria-label="Close" data-i18n-attr="aria-label:confirm.close"><svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg></button>
+          </div>
         </div>
         <div id="keyDrawerBody" class="drawer-body"></div>
       </aside>
@@ -1034,7 +1043,7 @@
             <h2 data-i18n="action.more_settings">More settings</h2>
             <p data-i18n="mobile.nav_desc">Navigation, runtime controls, and view filters.</p>
           </div>
-          <button id="closeMobileSettingsButton" class="icon-button" aria-label="Close settings" data-i18n-attr="aria-label:mobile.close">×</button>
+          <button id="closeMobileSettingsButton" class="icon-button drawer-close-button" aria-label="Close settings" data-i18n-attr="aria-label:mobile.close"><svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg></button>
         </div>
         <div class="mobile-settings-body">
           <section class="mobile-settings-section">

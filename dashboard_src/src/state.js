@@ -74,6 +74,10 @@ export const state = {
   // Tracked in state so poll re-renders keep the user's disclosure open.
   providerKeyOverridesOpen: new Set(),
   detailDrawerReturn: null,
+  // Set when a request-detail stat jumped to the provider / model-usage / client-key
+  // drawer. Those drawers close the request drawer on open, so this is the only
+  // handle that lets the "back to request" button in their header re-open it.
+  drawerReturnRequest: null,
   modelDrawerMode: "summary",
   providerFilters: {
     search: "",

@@ -4945,15 +4945,16 @@ tr.clickable:hover {
   background: var(--surface-soft);
 }
 
-.request-result-band > div:not(.request-result-status) {
+.request-result-band > div:not(.request-result-status):not(.request-result-stats) {
   min-width: 0;
 }
 
-/* A client-key stat joins the row: widen the band from 4 to 5 stat columns.
-   The paired selector must outrank "#detailDrawer .request-result-band". */
+/* The band is a single stacked column now (status / metric strip / headline),
+   so the client-key variant no longer needs an extra grid track. The selector
+   is kept for the "has a client key" hook and to outrank the base rule. */
 .request-result-band.has-client-key,
 #detailDrawer .request-result-band.has-client-key {
-  grid-template-columns: auto repeat(5, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .request-result-band span,
@@ -21715,13 +21716,45 @@ body {
 
 #detailDrawer .request-result-band {
   display: grid;
-  grid-template-columns: auto repeat(4, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   align-items: center;
   padding: 12px;
   border: 1px solid #e1e4e8;
   border-radius: 8px;
   background: var(--surface);
+}
+
+/* The metric strip wraps instead of squeezing five columns into the ~650px
+   drawer: at that width fixed columns clipped every label ("最终提供",
+   "客户端密"). Cells are min-content sized with a sensible floor. */
+#detailDrawer .request-result-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  align-items: stretch;
+}
+
+#detailDrawer .request-result-stats > .request-result-stat {
+  flex: 1 1 104px;
+  min-width: 0;
+}
+
+/* renderCost() emits an icon + value (+ label) stack; inside a metric cell it
+   has to behave like the plain <strong> next to it, or the cell grows a third
+   row and knocks the strip out of alignment. */
+#detailDrawer .request-result-stat--cost .cost-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+#detailDrawer .request-result-stat--cost .cost-state > .icon-svg {
+  width: 11px;
+  height: 11px;
+  flex: 0 0 auto;
 }
 
 #detailDrawer .drawer-body {
@@ -21774,9 +21807,13 @@ body {
 }
 
 #detailDrawer .request-result-stat small {
+  display: flex;
+  align-items: center;
+  gap: 2px;
   color: color-mix(in srgb, var(--text) 58%, var(--muted));
   font-size: 8.5px;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 #detailDrawer .request-detail-route-chip {
@@ -21830,6 +21867,147 @@ body {
   font-weight: 720;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Jumpable stat cells (model / final provider / client key).
+   They are real <button>s, so every browser default has to be reset before the
+   cell can look identical to the plain <div> cells next to it. */
+#detailDrawer .request-result-stat.is-jumpable {
+  position: relative;
+  width: 100%;
+  margin: 0;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+#detailDrawer .request-result-stat.is-jumpable:hover {
+  border-color: #d8dde3;
+  background: var(--surface-raised);
+}
+
+#detailDrawer .request-result-stat.is-jumpable:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--accent-strong, #3b82f6) 55%, #d8dde3);
+  background: var(--surface-raised);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-strong, #3b82f6) 16%, transparent);
+}
+
+/* The glyph is always visible (a hover-only affordance is undiscoverable) and
+   sits inline after the label, so it can never cover the label text. */
+#detailDrawer .request-result-jump-glyph {
+  display: inline-flex;
+  width: 10px;
+  height: 10px;
+  margin-left: 3px;
+  vertical-align: -1px;
+  color: color-mix(in srgb, var(--text) 38%, var(--muted));
+  transition: color 120ms ease;
+}
+
+#detailDrawer .request-result-jump-glyph .icon-svg {
+  width: 10px;
+  height: 10px;
+}
+
+#detailDrawer .request-result-stat.is-jumpable:hover .request-result-jump-glyph,
+#detailDrawer .request-result-stat.is-jumpable:focus-visible .request-result-jump-glyph {
+  color: var(--accent-strong, #3b82f6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #detailDrawer .request-result-stat.is-jumpable,
+  #detailDrawer .request-result-jump-glyph {
+    transition: none;
+  }
+}
+
+/* "Back to request" affordance shown in the provider / model / client-key
+   drawer headers after a jump from a request detail. */
+.drawer-head-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Close and "back to request" are the same control family: both are square-ish
+   icon buttons at the same height, drawn from the same 24px icon set with the
+   same rendered size. Mixing a text "×" (18px glyph, ~23px ink box) with an
+   SVG arrow made them read as two different weights.
+   The selector is scoped to `.drawer-head` on purpose: it has to match the
+   specificity of the earlier `.drawer-head .icon-button` sizing rule to win. */
+.drawer-head .drawer-close-button {
+  display: inline-flex;
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+}
+
+.drawer-head .drawer-close-button .icon-svg {
+  width: 13px;
+  height: 13px;
+}
+
+.drawer-head .drawer-close-button:hover {
+  border-color: #d8dde3;
+  background: var(--surface-raised);
+  color: var(--text);
+}
+
+.drawer-head .drawer-close-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-strong, #3b82f6) 16%, transparent);
+}
+
+.drawer-return-button {
+  display: inline-flex;
+  height: 30px;
+  min-height: 30px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-raised);
+  color: var(--text-soft);
+  font: 650 11px/1 var(--mono);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.drawer-return-button[hidden] {
+  display: none;
+}
+
+.drawer-return-button:hover {
+  border-color: #d8dde3;
+  color: var(--text);
+}
+
+.drawer-return-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-strong, #3b82f6) 16%, transparent);
+}
+
+.drawer-return-button .icon-svg {
+  width: 12px;
+  height: 12px;
 }
 
 #detailDrawer .request-result-message {
@@ -23662,13 +23840,10 @@ body {
 }
 
 @media (max-width: 900px) {
-  #detailDrawer .request-result-band {
-    grid-template-columns: auto repeat(2, minmax(0, 1fr));
-  }
-
-  #detailDrawer .request-result-stat:nth-of-type(4),
-  #detailDrawer .request-result-stat:nth-of-type(5) {
-    grid-column: auto;
+  /* The metric strip is a wrapping flex row now, so the old positional column
+     overrides are gone; the cells keep their own min-width and wrap naturally. */
+  #detailDrawer .request-result-stats > .request-result-stat {
+    flex-basis: 118px;
   }
 }
 
