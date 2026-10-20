@@ -5242,12 +5242,12 @@ tr.clickable:hover {
   }
 
   .request-result-band {
-    grid-template-columns: auto repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .request-result-band.has-client-key,
   #detailDrawer .request-result-band.has-client-key {
-    grid-template-columns: auto repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -5265,13 +5265,15 @@ tr.clickable:hover {
     display: block;
   }
 
+  /* The band is a stacked container (status / metric strip / headline): a
+     multi-column grid here would squeeze the wrapping strip into one column. */
   .request-result-band {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .request-result-band.has-client-key,
   #detailDrawer .request-result-band.has-client-key {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .request-result-status {
@@ -21871,14 +21873,19 @@ body {
 
 /* Jumpable stat cells (model / final provider / client key).
    They are real <button>s, so every browser default has to be reset before the
-   cell can look identical to the plain <div> cells next to it. */
-#detailDrawer .request-result-stat.is-jumpable {
-  position: relative;
-  width: 100%;
-  margin: 0;
+   cell can look identical to the plain <div> cells next to it. The transparent
+   border + padding are NOT decorative: they give the hover/focus ring room
+   without shifting the icon, and every cell reserves the same box so the
+   icon columns line up across jumpable and non-jumpable cells alike. */
+#detailDrawer .request-result-stat {
   padding: 4px 6px;
   border: 1px solid transparent;
   border-radius: 7px;
+}
+
+#detailDrawer .request-result-stat.is-jumpable {
+  width: 100%;
+  margin: 0;
   background: transparent;
   color: inherit;
   font: inherit;
@@ -23930,7 +23937,21 @@ body {
   }
 
   #detailDrawer .request-result-band {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Two metrics per row on a phone. A grid (not wrapping flex) keeps every
+     cell the same width and stops a lone trailing cell from stretching across
+     the full row. */
+  #detailDrawer .request-result-stats {
+    display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+  }
+
+  #detailDrawer .request-result-stats > .request-result-stat {
+    flex: none;
+    min-width: 0;
   }
 
   #detailDrawer .request-result-status,
