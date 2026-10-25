@@ -219,5 +219,49 @@ class ZeroConfigIntegrationTests(unittest.TestCase):
         self.assertLess(pool.index("openai"), pool.index("deepseek"))
 
 
+class OpenProxyWarningTests(unittest.TestCase):
+    """Zero-config defaults (0.0.0.0 + empty admin_key + no client keys) are an
+    open proxy; startup must say so instead of implying the admin key protects it."""
+
+    class _Keys:
+        def __init__(self, enabled=True, has_keys=True):
+            self.enabled = enabled
+            self._has_keys = has_keys
+
+        def has_any_keys(self):
+            return self._has_keys
+
+    def test_no_auth_at_all_warns(self):
+        import sse2json
+
+        cfg = {"server": {"host": "0.0.0.0", "admin_key": ""}}
+        warning = sse2json._open_proxy_warning(cfg, self._Keys(has_keys=False))
+        self.assertIn("OPEN PROXY", warning)
+        self.assertIn("admin_key", warning)
+
+    def test_admin_key_configured_is_quiet(self):
+        import sse2json
+
+        cfg = {"server": {"host": "0.0.0.0", "admin_key": "secret"}}
+        self.assertEqual(sse2json._open_proxy_warning(cfg, self._Keys(has_keys=False)), "")
+
+    def test_client_keys_present_is_quiet(self):
+        import sse2json
+
+        cfg = {"server": {"host": "0.0.0.0", "admin_key": ""}}
+        self.assertEqual(sse2json._open_proxy_warning(cfg, self._Keys(has_keys=True)), "")
+
+    def test_disabled_client_keys_section_still_warns(self):
+        # Disabling the section reopens the endpoints (documented backward
+        # compatibility), so it must not silence the warning.
+        import sse2json
+
+        cfg = {"server": {"host": "0.0.0.0", "admin_key": ""}}
+        self.assertIn(
+            "OPEN PROXY",
+            sse2json._open_proxy_warning(cfg, self._Keys(enabled=False, has_keys=False)),
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -7293,6 +7293,29 @@ def _prefetch_model_summaries():
         print(f"[proxy] Failed to start prefetcher: {e}", flush=True)
 
 
+def _open_proxy_warning(cfg, client_keys) -> str:
+    """Warning text when the proxy is network-reachable with no auth at all.
+
+    The zero-config defaults (host 0.0.0.0, empty admin_key, no client keys)
+    leave every proxy endpoint open: anyone who can reach the port spends the
+    owner's upstream provider keys. Docker needs 0.0.0.0 inside the container,
+    so we warn loudly instead of silently rebinding.
+    """
+    has_admin_key = bool(str(((cfg or {}).get("server") or {}).get("admin_key") or "").strip())
+    try:
+        client_keys_open = (not client_keys.enabled) or (not client_keys.has_any_keys())
+    except Exception:
+        client_keys_open = True
+    if has_admin_key or not client_keys_open:
+        return ""
+    return (
+        "[proxy][WARN] *** OPEN PROXY: bound to all interfaces with no admin key and no "
+        "client keys — anyone who can reach this port can use your upstream provider keys "
+        "and quota. Set server.admin_key in config.json (or issue client keys), or set "
+        "server.host to 127.0.0.1."
+    )
+
+
 def main():
     """CLI entry point. Supports --config, --port, --host, --init."""
     import argparse
@@ -7378,6 +7401,9 @@ def main():
             "Set server.host to 127.0.0.1 to restrict to localhost.",
             flush=True,
         )
+        open_warning = _open_proxy_warning(CONFIG, CLIENT_KEYS)
+        if open_warning:
+            print(open_warning, flush=True)
     try:
         s.serve_forever()
     except KeyboardInterrupt:
