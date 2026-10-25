@@ -783,7 +783,19 @@ class ProxyObservability:
             if error:
                 recent_item["error"] = str(error)[:500]
             self._recent.appendleft(recent_item)
-            self._first_event_stats_cache.clear()
+            # Invalidate only the (provider, model, profile) keys this request
+            # could have changed. A full clear() made the 60s TTL pointless —
+            # under continuous traffic the cache was wiped on every request,
+            # so low-sample models fell back to the SQLite aggregate query on
+            # every stream open.
+            if self._first_event_stats_cache:
+                profile_key = str(active.get("request_profile") or "plain")
+                model_key = str(active.get("model") or "")
+                for attempt_item in active.get("attempts") or []:
+                    self._first_event_stats_cache.pop(
+                        (str(attempt_item.get("provider") or ""), model_key, profile_key),
+                        None,
+                    )
             self._failure_summary_cache = None  # Invalidate cache
             self._invalidate_provider_activity_locked()
             # admin_probe (manual key test) requests must NOT refresh the

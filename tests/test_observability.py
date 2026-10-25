@@ -659,5 +659,59 @@ class BackgroundNetworkClearTests(unittest.TestCase):
         self.assertIsInstance(obs.background_network_clear(), bool)
 
 
+class FirstEventStatsCacheTests(unittest.TestCase):
+    def _start(self, obs, request_id, model):
+        obs.record_request_start(
+            request_id,
+            client_format="chat_completions",
+            endpoint="/v1/chat/completions",
+            model=model,
+            stream=True,
+            path="/v1/chat/completions",
+            request_profile="plain",
+        )
+
+    def test_request_end_invalidates_only_its_own_keys(self):
+        # The old code called .clear() on every request end, so under steady
+        # traffic the 60s TTL never applied and low-sample models hit the
+        # SQLite aggregate query on every stream open.
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+        obs.first_event_latency_stats("provA", "modelA", "plain")
+        obs.first_event_latency_stats("provB", "modelB", "plain")
+        self.assertIn(("provA", "modelA", "plain"), obs._first_event_stats_cache)
+        self.assertIn(("provB", "modelB", "plain"), obs._first_event_stats_cache)
+
+        self._start(obs, "r1", "modelA")
+        obs.record_attempt(
+            "r1",
+            make_attempt("r1", provider="provA"),
+            outcome="success",
+            first_event_ms=120,
+            duration_ms=500,
+        )
+        obs.record_request_end("r1", status_code=200)
+
+        self.assertNotIn(("provA", "modelA", "plain"), obs._first_event_stats_cache)
+        # Unrelated keys survive this request's completion.
+        self.assertIn(("provB", "modelB", "plain"), obs._first_event_stats_cache)
+
+    def test_matching_key_is_recached_on_next_read(self):
+        obs = ProxyObservability({"observability": {"history": {"enabled": False}}})
+        self._start(obs, "r2", "modelA")
+        obs.record_attempt(
+            "r2",
+            make_attempt("r2", provider="provA"),
+            outcome="success",
+            first_event_ms=120,
+            duration_ms=500,
+        )
+        obs.record_request_end("r2", status_code=200)
+
+        stats = obs.first_event_latency_stats("provA", "modelA", "plain")
+        self.assertEqual(stats["count"], 1)
+        self.assertEqual(stats["p95_ms"], 120)
+        self.assertIn(("provA", "modelA", "plain"), obs._first_event_stats_cache)
+
+
 if __name__ == "__main__":
     unittest.main()
