@@ -46,7 +46,10 @@ class ModelFetcher:
         transport = httpx.AsyncHTTPTransport(proxy=self._proxy) if self._proxy else None
         headers = {**HEADERS, "User-Agent": random.choice(USER_AGENTS)}
         timeout = httpx.Timeout(self._total_timeout_s, connect=self._connect_timeout_s)
-        return httpx.AsyncClient(transport=transport, follow_redirects=True, timeout=timeout)
+        # No redirect following: every URL is derived from the fixed AA_BASE
+        # host, and following redirects would let a compromised/hijacked AA
+        # response make this process fetch attacker-chosen URLs.
+        return httpx.AsyncClient(transport=transport, follow_redirects=False, timeout=timeout)
 
     async def fetch_html(self, slug: str) -> tuple[str, str]:
         url = f"{AA_BASE}/models/{slug}"
