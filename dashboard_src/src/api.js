@@ -3,13 +3,18 @@ import { state } from "./state.js";
 const conditionalGetCache = new Map();
 
 export function adminQuery() {
-  return state.adminKey ? `admin_key=${encodeURIComponent(state.adminKey)}` : "";
+  // Compatibility stub: the backend ignores ?admin_key= unless
+  // server.allow_query_admin_key is enabled, and putting the raw key in the
+  // URL leaks it into server access logs, PROXY_DEBUG dumps, and any
+  // reverse-proxy logs in between. Auth goes via the X-Admin-Key header.
+  return "";
 }
 
 export function withAdmin(path) {
-  const q = adminQuery();
-  if (!q) return path;
-  return path.includes("?") ? `${path}&${q}` : `${path}?${q}`;
+  // Never append the admin key to the URL — every request already carries it
+  // in the X-Admin-Key header (see apiGet/apiPost/apiPatch and the two raw
+  // fetch call sites in app.js).
+  return path;
 }
 
 export async function apiGet(path, { signal, cache = false } = {}) {

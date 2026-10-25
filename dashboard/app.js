@@ -6951,13 +6951,8 @@
 	}));
 	//#endregion
 	//#region src/api.js
-	function adminQuery() {
-		return state.adminKey ? `admin_key=${encodeURIComponent(state.adminKey)}` : "";
-	}
 	function withAdmin(path) {
-		const q = adminQuery();
-		if (!q) return path;
-		return path.includes("?") ? `${path}&${q}` : `${path}?${q}`;
+		return path;
 	}
 	async function apiGet(path, { signal, cache = false } = {}) {
 		const url = withAdmin(path);

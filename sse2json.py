@@ -5230,7 +5230,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         os.makedirs(LOG_DIR, exist_ok=True)
         ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         with open(os.path.join(LOG_DIR, f"debug_{ts}_{prefix}.txt"), "w", encoding="utf-8") as f:
-            f.write(f"Path: {path}\n")
+            f.write(f"Path: {str(path).split('?', 1)[0]}\n")
             # NC2: never write raw auth headers to disk — mask sensitive
             # values (Authorization, X-Admin-Key, Cookie, ...) before logging.
             f.write(f"Headers: {_redact_headers_for_log(headers)}\n")
