@@ -5279,7 +5279,13 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                 ),
                 401,
             )
-        if token == _admin_key():
+        try:
+            owner_bypass = hmac.compare_digest(str(token), _admin_key())
+        except TypeError:
+            # compare_digest requires ASCII strs; a non-ASCII token can never
+            # match the ASCII admin key this bypass is meant for.
+            owner_bypass = False
+        if owner_bypass:
             return None  # owner bypass; no key attribution
         record = CLIENT_KEYS.authenticate(token)
         if record is None:

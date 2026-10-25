@@ -1,3 +1,4 @@
+import collections
 import hmac
 import json
 import re
@@ -16,6 +17,20 @@ _MODEL_PRICING_CACHE: dict = {}
 # all write the cache simultaneously.  The lock ensures only one thread does
 # the work; others wait and reuse the result.
 _MODEL_PRICING_LOCK = threading.Lock()
+
+# Brute-force throttle for admin auth: compare_digest hides key contents but
+# does not rate-limit guessing. After _ADMIN_AUTH_FAIL_LIMIT failed attempts
+# from one source IP within the window, further attempts from that IP are
+# refused for _ADMIN_AUTH_BLOCK_S without even reaching the key comparison.
+# ponytail: in-process OrderedDicts capped at 1024 IPs, oldest evicted; move
+# to a shared store only if a multi-process deployment appears.
+_ADMIN_AUTH_FAIL_LIMIT = 15
+_ADMIN_AUTH_FAIL_WINDOW_S = 60.0
+_ADMIN_AUTH_BLOCK_S = 60.0
+_ADMIN_AUTH_TRACKED_IPS = 1024
+_admin_auth_failures: "collections.OrderedDict[str, collections.deque]" = collections.OrderedDict()
+_admin_auth_blocks: "collections.OrderedDict[str, float]" = collections.OrderedDict()
+_admin_auth_lock = threading.Lock()
 
 
 def _test_proxy_connectivity(proxy_url: str, target_url: str = "", timeout_s: float = 4.0) -> dict:
@@ -75,10 +90,60 @@ def _test_proxy_connectivity(proxy_url: str, target_url: str = "", timeout_s: fl
             pass
 
 class AdminRoutesMixin:
+    def _admin_auth_blocked(self) -> bool:
+        peer = self._auth_peer_ip()
+        if not peer:
+            return False
+        now = time.monotonic()
+        with _admin_auth_lock:
+            until = _admin_auth_blocks.get(peer)
+            if until and until > now:
+                return True
+            if until:
+                _admin_auth_blocks.pop(peer, None)
+            return False
+
+    def _admin_auth_record_failure(self) -> None:
+        peer = self._auth_peer_ip()
+        if not peer:
+            return
+        now = time.monotonic()
+        with _admin_auth_lock:
+            window = _admin_auth_failures.setdefault(peer, collections.deque())
+            _admin_auth_failures.move_to_end(peer)
+            window.append(now)
+            while window and window[0] <= now - _ADMIN_AUTH_FAIL_WINDOW_S:
+                window.popleft()
+            if len(window) >= _ADMIN_AUTH_FAIL_LIMIT:
+                _admin_auth_blocks[peer] = now + _ADMIN_AUTH_BLOCK_S
+                window.clear()
+            while len(_admin_auth_failures) > _ADMIN_AUTH_TRACKED_IPS:
+                _admin_auth_failures.popitem(last=False)
+            while len(_admin_auth_blocks) > _ADMIN_AUTH_TRACKED_IPS:
+                _admin_auth_blocks.popitem(last=False)
+
+    def _admin_auth_reset(self) -> None:
+        peer = self._auth_peer_ip()
+        if not peer:
+            return
+        with _admin_auth_lock:
+            _admin_auth_failures.pop(peer, None)
+            _admin_auth_blocks.pop(peer, None)
+
+    def _auth_peer_ip(self) -> str:
+        try:
+            if isinstance(getattr(self, "client_address", None), tuple) and self.client_address:
+                return str(self.client_address[0])
+        except Exception:
+            pass
+        return ""
+
     def _admin_authorized(self) -> bool:
         import sse2json as sse
         _admin_key = sse._admin_key
         _allow_query_admin_key = sse._allow_query_admin_key
+        if self._admin_auth_blocked():
+            return False
         expected = _admin_key()
         if not expected:
             return False
@@ -95,8 +160,20 @@ class AdminRoutesMixin:
             except Exception:
                 supplied = ""
         if not supplied:
+            self._admin_auth_record_failure()
             return False
-        return hmac.compare_digest(str(supplied), expected)
+        try:
+            authorized = hmac.compare_digest(str(supplied), expected)
+        except TypeError:
+            # compare_digest only accepts ASCII str; a non-ASCII supplied key
+            # can never equal an ASCII admin key, and a non-ASCII admin key
+            # could never have been used against this endpoint anyway.
+            authorized = False
+        if authorized:
+            self._admin_auth_reset()
+        else:
+            self._admin_auth_record_failure()
+        return authorized
 
     def _audit_admin_event(
         self,
