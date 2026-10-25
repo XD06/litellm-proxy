@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import patch
 
 from proxy_utils import key_fingerprint
-from router import Attempt, UpstreamRouter
+from router import Attempt, UpstreamRouter, _google_attempt_url
 from routing_trace import RoutingTrace
 
 
@@ -2171,6 +2171,30 @@ class RouterTests(unittest.TestCase):
         self.assertGreater(first_candidate_calls, 0)
         self.assertEqual(support_spy.call_count, first_support_calls)
         self.assertEqual(candidates_spy.call_count, first_candidate_calls)
+
+
+class GoogleAttemptUrlTests(unittest.TestCase):
+    def test_plain_model_ids_unchanged(self):
+        url = _google_attempt_url("https://g.example/v1beta", "gemini-2.0-flash", False)
+        self.assertEqual(url, "https://g.example/v1beta/models/gemini-2.0-flash:generateContent")
+        self.assertEqual(
+            _google_attempt_url("https://g.example/v1beta", "tunedModels/my-tune", False),
+            "https://g.example/v1beta/models/tunedModels/my-tune:generateContent",
+        )
+
+    def test_models_prefix_stripped(self):
+        url = _google_attempt_url("https://g.example/v1beta", "models/gemini-2.0-flash", True)
+        self.assertEqual(
+            url,
+            "https://g.example/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse",
+        )
+
+    def test_hostile_slug_cannot_inject_query_or_fragment(self):
+        # The slug is client-influenced via unknown-model passthrough; '?', '#'
+        # and friends must be percent-encoded, never allowed to reshape the URL.
+        url = _google_attempt_url("https://g.example/v1beta", 'evil?alt=json#frag', False)
+        self.assertEqual(url, "https://g.example/v1beta/models/evil%3Falt%3Djson%23frag:generateContent")
+        self.assertNotIn("?alt=json", url)
 
 
 if __name__ == "__main__":

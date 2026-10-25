@@ -9,6 +9,7 @@ import time
 from dataclasses import dataclass
 from email.utils import parsedate_to_datetime
 from typing import Any, Dict, Generator, List, Optional, Tuple
+from urllib.parse import quote
 
 import model_registry
 import scheduler_policy
@@ -63,6 +64,11 @@ def _google_attempt_url(url: str, model: str, is_stream: bool) -> str:
     slug = str(model or "").strip()
     if slug.lower().startswith("models/"):
         slug = slug[len("models/"):]
+    # The slug is client-influenced (unknown-model passthrough): quote it so
+    # '?', '#', spaces and friends can never reshape the URL into a query or
+    # path of their choosing. '.', '-', '_', '~' and '/' stay literal so real
+    # model ids (gemini-2.0-flash, tunedModels/x) are unchanged.
+    slug = quote(slug, safe="/")
     path = str(url or "")
     if "{model}" in path:
         path = path.replace("{model}", slug)
