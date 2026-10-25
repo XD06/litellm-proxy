@@ -680,6 +680,17 @@ class ProxyObservability:
         if callable(listener) and listener not in self._usage_listeners:
             self._usage_listeners.append(listener)
 
+    def is_request_active(self, request_id: str) -> bool:
+        """Whether record_request_start ran and record_request_end has not.
+
+        Fatal guards consult this before closing a request out: a second
+        record_request_end would double-count the status counters and
+        decrement requests_in_flight again (stealing a slot from another
+        in-flight request).
+        """
+        with self._lock:
+            return str(request_id) in self._active
+
     def record_request_end(
         self,
         request_id: str,

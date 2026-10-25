@@ -5338,7 +5338,47 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         else:
             self._resp_json({"error": {"message": f"unknown endpoint: {self.path}"}}, 404)
 
+    def _proxy_fatal_guard(self, exc, req, request_id, start_ts):
+        """Last-resort safety net for chat/responses/aux proxy handlers.
+
+        Mirrors the anthropic branch's guard: log loudly, close the
+        observability record ONLY while the request is still active (a second
+        record_request_end would double-count status and steal an in-flight
+        slot from another request), and answer 502. Without this net, one
+        exception between record_request_start and the attempt loop leaks the
+        _active entry forever and requests_in_flight never returns to zero,
+        which permanently freezes model discovery and pricing resolution.
+        """
+        dur_ms = int((time.time() - start_ts) * 1000)
+        err_msg = f"{type(exc).__name__}: {str(exc)[:500]}"
+        print(f"[proxy] FATAL req={request_id} {dur_ms}ms: {err_msg}", flush=True)
+        if DEBUG_LOG:
+            try:
+                log_request(req, {"stream": bool((req or {}).get("stream"))}, {"error": err_msg}, None)
+            except Exception:
+                pass
+        observability = None
+        try:
+            observability = _current_rt().observability
+        except Exception:
+            observability = globals().get("OBSERVABILITY")
+        try:
+            if observability is not None and observability.is_request_active(request_id):
+                observability.record_request_end(request_id, status_code=502, error=err_msg)
+        except Exception:
+            pass
+        try:
+            return self._resp_json({"error": {"message": err_msg, "request_id": request_id}}, 502)
+        except Exception:
+            return None
+
     def _proxy_openai_chat_completions(self, req, request_id, start_ts):
+        try:
+            return self._proxy_openai_chat_completions_impl(req, request_id, start_ts)
+        except Exception as e:
+            return self._proxy_fatal_guard(e, req, request_id, start_ts)
+
+    def _proxy_openai_chat_completions_impl(self, req, request_id, start_ts):
         # Snapshot the live runtime once so the whole request sees a consistent
         # (config, router, client, observability, audit) set even if a config
         # hot-swap happens concurrently in another thread. Local names shadow
@@ -5776,6 +5816,12 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         return self._resp_json({"error": {"message": err_msg, "request_id": request_id}}, final_status)
 
     def _proxy_openai_responses(self, req, request_id, start_ts, path="/openai/v1/responses"):
+        try:
+            return self._proxy_openai_responses_impl(req, request_id, start_ts, path=path)
+        except Exception as e:
+            return self._proxy_fatal_guard(e, req, request_id, start_ts)
+
+    def _proxy_openai_responses_impl(self, req, request_id, start_ts, path="/openai/v1/responses"):
         # Snapshot the live runtime once for whole-request consistency during
         # config hot-swap. See _proxy_openai_chat_completions for rationale.
         rt = _request_runtime()
@@ -6212,6 +6258,14 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
         return self._resp_json({"error": {"message": err_msg, "request_id": request_id}}, final_status)
 
     def _proxy_openai_aux(self, req, request_id, start_ts, *, endpoint: str, upstream_path: str, client_format: str):
+        try:
+            return self._proxy_openai_aux_impl(
+                req, request_id, start_ts, endpoint=endpoint, upstream_path=upstream_path, client_format=client_format
+            )
+        except Exception as e:
+            return self._proxy_fatal_guard(e, req, request_id, start_ts)
+
+    def _proxy_openai_aux_impl(self, req, request_id, start_ts, *, endpoint: str, upstream_path: str, client_format: str):
         """Non-streaming passthrough for OpenAI-compatible auxiliary endpoints
         (embeddings, image generations): same routing/failover/observability as
         chat, but no format conversion and no stream handling."""
