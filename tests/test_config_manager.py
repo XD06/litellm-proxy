@@ -1014,6 +1014,47 @@ class ConfigManagerTests(unittest.TestCase):
         with self.assertRaises(config_manager.ConfigValidationError):
             mgr.update_format("alpha", "responses", {"parameters": {"output_token_field": "max_tokens"}})
 
+    def test_corrupt_overlay_warns_instead_of_silent_empty(self):
+        # Regression: a corrupt runtime_config.json used to read as {} without
+        # a trace, so every admin override (keys, admin_key rotation) silently
+        # vanished. It must still start (return {}) but say so loudly.
+        import io
+        from contextlib import redirect_stdout
+
+        _config_path, overlay_path = self.temp_paths()
+        with open(overlay_path, "w", encoding="utf-8") as f:
+            f.write('{"providers": {"alpha": {"enabled": false}   NOT-JSON')
+
+        captured = io.StringIO()
+        with redirect_stdout(captured):
+            mgr = config_manager.RuntimeConfigManager(base_config(), overlay_path=overlay_path)
+
+        self.assertIn("WARNING", captured.getvalue())
+        self.assertIn("runtime_config.json", captured.getvalue())
+        self.assertIn("LOST", captured.getvalue())
+        # Base config still applies; the broken overlay contributes nothing.
+        self.assertIn("alpha", mgr.snapshot()["providers"])
+
+    def test_in_place_overlay_write_keeps_bak_of_previous_content(self):
+        # The EBUSY fallback truncates the live file before writing; without a
+        # .bak a crash mid-write would lose the whole overlay.
+        _config_path, overlay_path = self.temp_paths()
+        with open(overlay_path, "w", encoding="utf-8") as f:
+            json.dump({"routing": {"max_attempts": 3}}, f)
+
+        mgr = config_manager.RuntimeConfigManager(base_config(), overlay_path=overlay_path)
+        with tempfile.NamedTemporaryFile("w", suffix=".tmp", delete=False, encoding="utf-8") as tmp:
+            tmp.write('{"routing": {"max_attempts": 5}}')
+            tmp_path = tmp.name
+        self.addCleanup(os.unlink, tmp_path)
+
+        mgr._write_overlay_in_place(tmp_path)
+
+        with open(overlay_path, "r", encoding="utf-8") as f:
+            self.assertEqual(json.load(f), {"routing": {"max_attempts": 5}})
+        with open(overlay_path + ".bak", "r", encoding="utf-8") as f:
+            self.assertEqual(json.load(f), {"routing": {"max_attempts": 3}})
+
 
 if __name__ == "__main__":
     unittest.main()

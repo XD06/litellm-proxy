@@ -1266,8 +1266,25 @@ class RuntimeConfigManager:
         try:
             with open(self.overlay_path, "r", encoding="utf-8-sig") as f:
                 data = json.load(f)
-            return data if isinstance(data, dict) else {}
-        except Exception:
+            if not isinstance(data, dict):
+                print(
+                    f"[config] WARNING: {self.overlay_path} is not a JSON object; "
+                    "treating runtime overlay as empty (all runtime overrides lost).",
+                    flush=True,
+                )
+                return {}
+            return data
+        except Exception as exc:
+            # A corrupt overlay must never be a silent no-op: every admin
+            # change (provider keys, admin_key rotation, routing overrides)
+            # lives in this file, so losing it without a trace looks like the
+            # proxy randomly "forgetting" settings.
+            print(
+                f"[config] WARNING: failed to parse {self.overlay_path} ({exc}); "
+                "treating runtime overlay as empty — all runtime overrides are "
+                f"LOST. Recover from {self.overlay_path}.bak if it exists.",
+                flush=True,
+            )
             return {}
 
     def _normalized_merged(self) -> Dict[str, Any]:
@@ -1433,8 +1450,18 @@ class RuntimeConfigManager:
                     pass
 
     def _write_overlay_in_place(self, tmp_path: str) -> None:
-        """Fallback for Docker single-file bind mounts where rename returns EBUSY."""
+        """Fallback for Docker single-file bind mounts where rename returns EBUSY.
+
+        This path truncates the live file before writing, so a crash mid-write
+        loses the whole overlay. Keep a .bak of the previous content first:
+        it is the only recovery source once the truncate has happened.
+        """
         data = self._read_text(tmp_path)
+        try:
+            if os.path.exists(self.overlay_path):
+                self._copy_file(self.overlay_path, self.overlay_path + ".bak")
+        except (OSError, UnicodeDecodeError):
+            pass  # best-effort: never block the overlay write on the backup
         with open(self.overlay_path, "w", encoding="utf-8") as dst:
             dst.write(data)
             dst.flush()
