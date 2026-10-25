@@ -87,11 +87,29 @@ class Urllib3RequestTests(unittest.TestCase):
             }
         })
 
+    @staticmethod
+    def _stream_mock(body: bytes, status: int = 200, **attrs):
+        # Behaves like a urllib3 response opened with preload_content=False:
+        # read() drains the body (then b""), close() is a no-op.
+        mock_resp = Mock()
+        mock_resp.status = status
+        remaining = iter([body])
+
+        def _read(amt=None):
+            try:
+                return next(remaining)
+            except StopIteration:
+                return b""
+
+        mock_resp.read = _read
+        mock_resp.close = lambda: None
+        for key, value in attrs.items():
+            setattr(mock_resp, key, value)
+        return mock_resp
+
     @patch("urllib3.PoolManager.request")
     def test_request_json_success(self, mock_request):
-        mock_resp = Mock()
-        mock_resp.status = 200
-        mock_resp.data = b'{"success": true}'
+        mock_resp = self._stream_mock(b'{"success": true}')
         mock_request.return_value = mock_resp
 
         res = self.client.request_json("https://example.com/api", {}, {"ping": "pong"})
@@ -100,11 +118,12 @@ class Urllib3RequestTests(unittest.TestCase):
 
     @patch("urllib3.PoolManager.request")
     def test_request_json_error(self, mock_request):
-        mock_resp = Mock()
-        mock_resp.status = 401
-        mock_resp.data = b'{"error": "Unauthorized"}'
-        mock_resp.reason = "Unauthorized"
-        mock_resp.headers = {"Content-Type": "application/json"}
+        mock_resp = self._stream_mock(
+            b'{"error": "Unauthorized"}',
+            status=401,
+            reason="Unauthorized",
+            headers={"Content-Type": "application/json"},
+        )
         mock_request.return_value = mock_resp
 
         with self.assertRaises(HTTPError) as ctx:

@@ -263,7 +263,7 @@ class NativeStreamTimeoutTests(unittest.TestCase):
         """The CHAT native relay_sse_stream call in _proxy_openai_chat_completions
         must pass read_timeout_s=read_t."""
         import inspect
-        source = inspect.getsource(sse2json.Handler._proxy_openai_chat_completions)
+        source = inspect.getsource(sse2json.Handler._proxy_openai_chat_completions_impl)
         # Find the relay_sse_stream call for CHAT format
         self.assertIn("relay_sse_stream", source)
         # Verify read_timeout_s is passed (not just the cross-format converters)
@@ -281,7 +281,7 @@ class NativeStreamTimeoutTests(unittest.TestCase):
     def test_responses_native_passes_read_timeout(self):
         """The Responses native relay_sse_stream call must pass read_timeout_s."""
         import inspect
-        source = inspect.getsource(sse2json.Handler._proxy_openai_responses)
+        source = inspect.getsource(sse2json.Handler._proxy_openai_responses_impl)
         self.assertIn("relay_sse_stream", source)
         lines = source.split("\n")
         found = False
