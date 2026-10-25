@@ -117,6 +117,44 @@ def set_response_read_timeout(resp, timeout_s) -> bool:
     return False
 
 
+# Cap for non-stream upstream bodies. The client request-body limit is 32MB
+# (server.max_request_body_bytes) and any legit non-stream LLM/image JSON
+# response fits comfortably under 64MB; an uncapped read (preload_content=True
+# / resp.read()) lets one hostile or broken upstream OOM the worker with a
+# multi-GB body. Streaming already caps its prefetch at 128 rows / 64KB.
+_MAX_NONSTREAM_RESPONSE_BYTES = 64 * 1024 * 1024
+_ERROR_BODY_CAP_BYTES = 65536
+
+
+def _read_nonstream_capped_urllib3(resp, cap: int = _MAX_NONSTREAM_RESPONSE_BYTES) -> bytes:
+    """Read a urllib3 response body (preload_content=False) up to cap bytes."""
+    try:
+        chunks = []
+        total = 0
+        while True:
+            chunk = resp.read(262144)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > cap:
+                raise URLError(f"upstream response exceeds {cap} bytes")
+            chunks.append(chunk)
+        return b"".join(chunks)
+    finally:
+        try:
+            resp.close()
+        except Exception:
+            pass
+
+
+def _read_capped_urllib(resp, cap: int = _MAX_NONSTREAM_RESPONSE_BYTES) -> bytes:
+    """Read a http.client response body up to cap bytes."""
+    raw = resp.read(cap + 1)
+    if len(raw) > cap:
+        raise URLError(f"upstream response exceeds {cap} bytes")
+    return raw
+
+
 class OpenAIUpstreamClient:
     """
     OpenAI Chat Completions 上游客户端（支持 urllib 与 urllib3 双传输通道，高性能与测试兼容）。
@@ -285,7 +323,7 @@ class OpenAIUpstreamClient:
                     headers=headers,
                     body=json.dumps(payload).encode("utf-8"),
                     timeout=urllib3_timeout,
-                    preload_content=True,
+                    preload_content=False,
                     redirect=False
                 )
             except urllib3.exceptions.TimeoutError as e:
@@ -294,16 +332,22 @@ class OpenAIUpstreamClient:
                 raise URLError(str(e))
 
             if resp.status >= 400:
-                fp = io.BytesIO(resp.data)
+                try:
+                    body_bytes = resp.read(_ERROR_BODY_CAP_BYTES)
+                except Exception:
+                    body_bytes = b""
+                finally:
+                    resp.close()
+                fp = io.BytesIO(body_bytes)
                 raise HTTPError(url, resp.status, getattr(resp, "reason", ""), resp.headers, fp)
 
-            return json.loads(resp.data.decode("utf-8", errors="replace"))
+            return json.loads(_read_nonstream_capped_urllib3(resp).decode("utf-8", errors="replace"))
         else:
             http_req = Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers)
             opener = self._opener_for(proxy_url)
             timeout = self._timeout(is_stream=False, remaining_timeout_s=remaining_timeout_s)
             with closing(opener.open(http_req, timeout=timeout)) as resp:
-                raw = resp.read()
+                raw = _read_capped_urllib(resp)
             return json.loads(raw)
 
     def request_json_with_timing(
@@ -330,7 +374,7 @@ class OpenAIUpstreamClient:
                     headers=headers,
                     body=json.dumps(payload).encode("utf-8"),
                     timeout=urllib3_timeout,
-                    preload_content=True,
+                    preload_content=False,
                     redirect=False
                 )
                 first_byte_ms = max(0, int((time.time() - started) * 1000))
@@ -340,10 +384,16 @@ class OpenAIUpstreamClient:
                 raise URLError(str(e))
 
             if resp.status >= 400:
-                fp = io.BytesIO(resp.data)
+                try:
+                    body_bytes = resp.read(_ERROR_BODY_CAP_BYTES)
+                except Exception:
+                    body_bytes = b""
+                finally:
+                    resp.close()
+                fp = io.BytesIO(body_bytes)
                 raise HTTPError(url, resp.status, getattr(resp, "reason", ""), resp.headers, fp)
 
-            return json.loads(resp.data.decode("utf-8", errors="replace")), first_byte_ms
+            return json.loads(_read_nonstream_capped_urllib3(resp).decode("utf-8", errors="replace")), first_byte_ms
         else:
             http_req = Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers)
             opener = self._opener_for(proxy_url)
@@ -351,7 +401,7 @@ class OpenAIUpstreamClient:
             started = time.time()
             with closing(opener.open(http_req, timeout=timeout)) as resp:
                 first_byte_ms = max(0, int((time.time() - started) * 1000))
-                raw = resp.read()
+                raw = _read_capped_urllib(resp)
             return json.loads(raw), first_byte_ms
 
     def request_raw_with_timing(
@@ -378,7 +428,7 @@ class OpenAIUpstreamClient:
                     headers=headers,
                     body=json.dumps(payload).encode("utf-8"),
                     timeout=urllib3_timeout,
-                    preload_content=True,
+                    preload_content=False,
                     redirect=False
                 )
                 first_byte_ms = max(0, int((time.time() - started) * 1000))
@@ -388,10 +438,16 @@ class OpenAIUpstreamClient:
                 raise URLError(str(e))
 
             if resp.status >= 400:
-                fp = io.BytesIO(resp.data)
+                try:
+                    body_bytes = resp.read(_ERROR_BODY_CAP_BYTES)
+                except Exception:
+                    body_bytes = b""
+                finally:
+                    resp.close()
+                fp = io.BytesIO(body_bytes)
                 raise HTTPError(url, resp.status, getattr(resp, "reason", ""), resp.headers, fp)
 
-            return bytes(resp.data), first_byte_ms
+            return _read_nonstream_capped_urllib3(resp), first_byte_ms
         else:
             http_req = Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers)
             opener = self._opener_for(proxy_url)
@@ -399,7 +455,7 @@ class OpenAIUpstreamClient:
             started = time.time()
             with closing(opener.open(http_req, timeout=timeout)) as resp:
                 first_byte_ms = max(0, int((time.time() - started) * 1000))
-                raw = resp.read()
+                raw = _read_capped_urllib(resp)
             return raw, first_byte_ms
 
     def open_stream(
@@ -491,7 +547,7 @@ class OpenAIUpstreamClient:
                     url,
                     headers=headers,
                     timeout=urllib3_timeout,
-                    preload_content=True,
+                    preload_content=False,
                     redirect=False
                 )
             except urllib3.exceptions.TimeoutError as e:
@@ -500,17 +556,23 @@ class OpenAIUpstreamClient:
                 raise URLError(str(e))
 
             if resp.status >= 400:
-                body = resp.data.decode("utf-8", errors="replace")[:300]
+                try:
+                    body_bytes = resp.read(_ERROR_BODY_CAP_BYTES)
+                except Exception:
+                    body_bytes = b""
+                finally:
+                    resp.close()
+                body = body_bytes.decode("utf-8", errors="replace")[:300]
                 raise RuntimeError(f"HTTP {resp.status} fetching {url}: {body}")
 
-            return json.loads(resp.data.decode("utf-8", errors="replace"))
+            return json.loads(_read_nonstream_capped_urllib3(resp).decode("utf-8", errors="replace"))
         else:
             url = join_base_url(base_url, models_path if models_path.startswith("/") else ("/" + models_path))
             req = Request(url, headers=headers)
             opener = self._opener_for(proxy_url)
             try:
                 with closing(opener.open(req, timeout=int(timeout_s))) as resp:
-                    raw = resp.read()
+                    raw = _read_capped_urllib(resp)
                 return json.loads(raw)
             except HTTPError as e:
                 body = ""
