@@ -45,7 +45,10 @@
     "trusted_proxy_headers": ["cf-connecting-ip", "forwarded", "x-forwarded-for", "x-real-ip"],
 
     // Admin API 密钥。为空时 /-/admin/* 不可访问。
-    // 可通过 X-Admin-Key、Authorization: Bearer ... 或 ?admin_key=... 传入。
+    // 通过 X-Admin-Key 或 Authorization: Bearer ... 传入（比较恒定时间；同一来源 IP
+    // 60s 内连续 15 次失败会被拒绝 60s，防在线爆破）。
+    // ?admin_key= 查询串传 key 默认关闭（server.allow_query_admin_key=true 才启用，
+    // 仅建议本机 curl 调试时开——URL 里的 key 会进反代/访问日志）。
     // 也可在控制台"系统设置 → 运维与系统 → 控制台安全"中直接轮换（写入 runtime_config.json
     // 覆盖层，config.json 永不改写）；设置 PROXY_ADMIN_KEY 环境变量时环境变量优先且控制台不可改。
     "admin_key": "sk-admin-change-me"

@@ -86,6 +86,14 @@ python sse2json.py
 # Proxy auto-detects providers from env vars and starts immediately
 ```
 
+> [!WARNING]
+> Zero-config mode binds `0.0.0.0` with an **empty admin key and no client
+> keys** — every proxy endpoint is open to whoever can reach the port, and
+> they spend *your* upstream provider quota. On anything other than a
+> personal machine, set `PROXY_ADMIN_KEY` (or create `config.json` with a
+> `server.admin_key` / client keys) before starting; the proxy prints an
+> `OPEN PROXY` warning at startup when this combination is live.
+
 ### 📦 Via pip (PyPI)
 
 ```bash
