@@ -3,7 +3,12 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PROXY_CONFIG_PATH=/app/config.json \
-    PROXY_RUNTIME_CONFIG_PATH=/app/runtime_config.json
+    PROXY_RUNTIME_CONFIG_PATH=/app/runtime_config.json \
+    # LLM payloads are multi-MB strings allocated outside pymalloc; without a
+    # cap glibc opens one 64MB arena per worker thread and container RSS
+    # ratchets up to the daily watermark. (The proxy also malloc_trim()s once
+    # a minute; fewer arenas make that trim able to actually return pages.)
+    MALLOC_ARENA_MAX=2
 
 WORKDIR /app
 

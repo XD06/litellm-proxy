@@ -400,12 +400,35 @@ def _update_health_scores() -> None:
         pass
 
 
+def _trim_allocator() -> None:
+    """Best-effort glibc malloc_trim on Linux: return freed arenas to the OS.
+
+    LLM proxy payloads are multi-MB strings parsed outside pymalloc, so glibc
+    arenas accumulate fragmented free pages and container RSS ratchets up to
+    the daily watermark without ever dropping. Trimming once a minute keeps
+    idle RSS close to the working set. No-op on Windows/macOS/pytest.
+    ponytail: single-process only; jemalloc/mimalloc via LD_PRELOAD if arenas
+    ever show up as the bottleneck in profiles.
+    """
+    if not sys.platform.startswith("linux"):
+        return
+    try:
+        import ctypes
+
+        libc = ctypes.CDLL("libc.so.6", use_errno=True)
+        if hasattr(libc, "malloc_trim"):
+            libc.malloc_trim(0)
+    except Exception:
+        pass
+
+
 def _start_state_autosave() -> None:
     """Start background runtime state autosave."""
     def _loop():
         while True:
             time.sleep(_ROUTER_STATE_INTERVAL_S)
             _save_router_state()
+            _trim_allocator()
     t = threading.Thread(target=_loop, name="router-state-saver", daemon=True)
     t.start()
 

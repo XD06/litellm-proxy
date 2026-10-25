@@ -93,3 +93,59 @@ docker restart litellm-proxy
 docker exec litellm-proxy rm -f /app/tmp/router_state.json
 docker restart litellm-proxy
 ```
+
+---
+
+## 5. VPS / 容器内存占用分析与调优
+
+实测画像（Windows 本机、20 worker、隔离配置；Linux 容器量级相近）：
+
+| 状态 | RSS | 说明 |
+| :--- | :--- | :--- |
+| 空闲启动 | ~70 MB | 14–15 线程（20 worker 池按需增长 + 7 个后台线程） |
+| 8 × 2MB 非流式 | 峰值 +1 MB，结束回落 | 转换副本请求结束即释放 |
+| 8 × 4MB 跨格式流式并发 | 峰值 +37 MB ≈ 8 × 输出体积，结束回落 | content/reasoning 缓冲按输出量累积（usage 兜底与会话持久化需要） |
+| 24 轮 × 4 并发持续负载 | 持平（71.4 MB） | **稳态无泄漏** |
+
+内存构成（全部有界）：
+- **每请求**：请求体（默认上限 `server.max_request_body_bytes` = 32MB）+ 逐格式转换副本（最多 4 份）+ 流式输出缓冲（= 输出文本体积）。并发 × 大请求是唯一的理论尖峰来源：20 worker × 32MB ≈ 640MB 上限。
+- **进程级**：`_recent` 环形队列（200 条元数据）、历史写入队列（1000 条元数据）、AA 定价索引（~30KB）、Responses 会话存储（SQLite，1 万条/256MB 磁盘）、线程栈（~27 线程）。
+
+### 「内存只涨不跌」的最常见原因：glibc malloc arena
+
+LLM 请求/响应是多 MB 字符串，Python 的 pymalloc 只管 ≤512B 的小对象，大块直接走 glibc `malloc`——**每个 worker 线程一个 64MB arena**，碎片化空闲页不还给 OS，容器 RSS 爬到"当日水位"后不回落。代理已内置两层缓解：
+
+1. **每 60 秒 `malloc_trim(0)`**（router-state-saver 线程顺带执行，仅 Linux glibc，失败静默）；
+2. **Docker 镜像默认 `MALLOC_ARENA_MAX=2`**（arena 收敛后 trim 才真正能归还页）。
+
+裸机/systemd 部署请自行设置：
+
+```bash
+# systemd: 在 [Service] 段加
+Environment=MALLOC_ARENA_MAX=2
+```
+
+进一步压榨（可选）：`LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so.2` 换分配器，抗碎片显著优于 glibc。
+
+### 小内存 VPS（≤1GB）推荐配置
+
+```jsonc
+{
+  "server": {
+    "max_workers": 8,                    // 线程池与并发缓冲同步缩小
+    "max_request_body_bytes": 8388608    // 8MB：无超长 agent 历史场景够用
+  }
+}
+```
+
+配合 `docker-compose.yml` 的硬上限防 OOM 连坐：`mem_limit: 512m`（RSS 触顶时先拒绝新连接而不是被内核击杀）。
+
+### 排查命令
+
+```bash
+# 容器实际 RSS vs 虚拟内存（VSZ 大是线程栈预留，正常）
+docker stats --no-stream litellm-proxy
+# 进程内对象视角：python -c "import sse2json" 后用 tracemalloc/objgraph 深挖
+# glibc 碎片视角
+docker exec litellm-proxy sh -c 'cat /proc/1/status | grep -E "VmRSS|VmData|Threads"'
+```
