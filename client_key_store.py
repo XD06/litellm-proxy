@@ -93,6 +93,83 @@ def _parse_models(value: Any) -> Any:
     return "*"
 
 
+def _entry_model(entry: Any) -> str:
+    """Model id part of an allowlist entry: ``'alpha:gpt-5'`` -> ``'gpt-5'``.
+
+    Plain ids stay themselves, so existing keys keep their exact-name meaning.
+    A provider-qualified entry pins the model to that provider at routing time.
+    """
+    provider, sep, model = str(entry).partition(":")
+    return model if sep else provider
+
+
+def model_allowed(scope: Any, model: Any) -> bool:
+    """Whether a client model id is inside a key's model scope.
+
+    Shared by :meth:`ClientKeyStore.check_access` (request enforcement) and the
+    /v1/models catalog filter, so a restricted key never sees a model it cannot
+    call. ``scope`` is the normalized ``'*'`` or list stored on the record.
+    Entries may be ``'provider:model'``; only the model id participates here.
+    """
+    if scope is None or scope == "*":
+        return True
+    allowed = scope if isinstance(scope, (list, tuple, set, frozenset)) else [scope]
+    target = str(model)
+    return any(_entry_model(entry) == target for entry in allowed)
+
+
+def allowed_providers_for_model(scope: Any, model: Any) -> Optional[set]:
+    """Which upstream providers a key may use for this exact model id.
+
+    ``None`` means unrestricted (plain allowlist entry, ``'*'``, or no match —
+    the latter is already rejected by :meth:`ClientKeyStore.check_access`).
+    A non-empty set is passed to the router so every attempt outside it is
+    skipped instead of failing over to another provider.
+    """
+    if scope is None or scope == "*":
+        return None
+    entries = scope if isinstance(scope, (list, tuple, set, frozenset)) else [scope]
+    target = str(model)
+    providers = set()
+    unrestricted = False
+    for entry in entries:
+        provider, sep, entry_model = str(entry).partition(":")
+        if (entry_model if sep else provider) != target:
+            continue
+        if sep:
+            providers.add(provider)
+        else:
+            unrestricted = True
+    if unrestricted or not providers:
+        return None
+    return providers
+
+
+def filter_models_payload(payload: Dict[str, Any], scope: Any) -> Dict[str, Any]:
+    """Trim a /v1/models payload to a client key's model scope.
+
+    Unrestricted keys ('*') and malformed payloads pass through untouched. The
+    cached catalog snapshot is never mutated: restricted keys get a shallow
+    copy with a fresh ``data`` list and refreshed first_id/last_id sentinels.
+    """
+    if scope is None or scope == "*" or not isinstance(payload, dict):
+        return payload
+    data = payload.get("data")
+    if not isinstance(data, list):
+        return payload
+    out = dict(payload)
+    out["data"] = [
+        item
+        for item in data
+        if isinstance(item, dict) and model_allowed(scope, item.get("id") or "")
+    ]
+    if "first_id" in out:
+        out["first_id"] = str(out["data"][0].get("id") or "") if out["data"] else ""
+    if "last_id" in out:
+        out["last_id"] = str(out["data"][-1].get("id") or "") if out["data"] else ""
+    return out
+
+
 def _parse_expires(value: Any, now: Optional[float] = None) -> Optional[float]:
     """Accept 'never'/'30d'/'90d'/'<seconds>' and return an epoch timestamp."""
     if value is None:
@@ -361,13 +438,15 @@ class ClientKeyStore:
             return False, 429, "quota_exceeded", (
                 "Token quota exhausted for this key. Reset usage or raise the quota."
             )
+        # A missing scope (None) is *not* an unrestricted key: keep the old
+        # fail-closed behavior for malformed/legacy rows instead of widening
+        # permissions. `model_allowed(None, ...)` means "no TLS ctx" only in
+        # the /v1/models filter, which is a different caller.
         scope = record.get("models")
-        if model is not None and scope != "*":
-            allowed = scope if isinstance(scope, list) else [scope]
-            if str(model) not in allowed:
-                return False, 403, "model_not_allowed", (
-                    f"Model '{model}' is not allowed for this client key."
-                )
+        if model is not None and (scope is None or not model_allowed(scope, model)):
+            return False, 403, "model_not_allowed", (
+                f"Model '{model}' is not allowed for this client key."
+            )
         return True, 0, "", ""
 
     def stamp_rate_limit(self, key_id: int, now: Optional[float] = None) -> None:

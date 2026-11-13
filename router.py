@@ -220,6 +220,7 @@ class UpstreamRouter:
         allowed_upstream_formats: Optional[List[str]] = None,
         compatibility_profile: str = "plain",
         routing_trace: Any = None,
+        allowed_providers: Optional[set] = None,
     ) -> Generator[Attempt, None, None]:
         """按 provider_select 选择 provider+key。
 
@@ -229,7 +230,9 @@ class UpstreamRouter:
 
         client_headers: 客户端原始请求头，用于按 provider 配置透传特定 header。
         client_format: 客户端需要的目标格式，用于优先选择同格式上游。
-        allowed_upstream_formats: 当前调用链已经支持的上游格式集合。"""
+        allowed_upstream_formats: 当前调用链已经支持的上游格式集合。
+        allowed_providers: 客户端密钥限定的供应商集合；非空时先剔除其它
+        provider 的候选，因此限定供应商不可用会直接无候选，不会跨供应商故障转移。"""
         max_attempts = int(self.cfg.get("routing", {}).get("max_attempts", 6))
         provider_formats = self._select_provider_attempts(
             canonical_model,
@@ -252,6 +255,11 @@ class UpstreamRouter:
                     [(provider, upstream_format, provider_model)] * slot_count
                 )
             index += slot_count
+
+        # Client keys scoped to one provider must not fail over to another one:
+        # drop those candidates before any attempt/key selection happens.
+        if allowed_providers is not None:
+            provider_order = [c for c in provider_order if c[0] in allowed_providers]
 
         attempt_no = 0
         prov_count = len(provider_order)

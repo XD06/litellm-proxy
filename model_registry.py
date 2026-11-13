@@ -975,6 +975,62 @@ def models_from_capabilities(config: Dict[str, Any], router=None) -> Dict[str, A
     return rebuild_models_union_snapshot(config, router)
 
 
+def client_key_model_catalog(config: Dict[str, Any], router=None) -> Dict[str, Any]:
+    """Provider-grouped catalog for the client-key model-scope picker.
+
+    Every id is a client-facing model id from the same snapshot as GET
+    /v1/models, so each pick is a valid allowlist entry. A provider group holds
+    its discovered canonicals plus configured maps/variants/static models; ids
+    owned by no single provider (routes, client_model_map) stay in ``models``
+    only and the picker shows them in a separate "other" group.
+    """
+    payload = models_from_capabilities(config, router)
+    all_ids = [
+        str(item.get("id") or "").strip()
+        for item in (payload.get("data") or [])
+        if isinstance(item, dict) and str(item.get("id") or "").strip()
+    ]
+    visible = set(all_ids)
+    models_cfg = config.get("models") or {}
+    providers_cfg = config.get("providers") or {}
+    caps = models_cfg.get("provider_model_capabilities") or {}
+    manual_maps = models_cfg.get("provider_model_map") or {}
+    variant_maps = models_cfg.get("provider_model_variants") or {}
+    providers: List[Dict[str, Any]] = []
+    for name, pcfg in providers_cfg.items():
+        pname = str(name)
+        ids: List[str] = []
+        entry = caps.get(pname) if isinstance(caps, dict) else None
+        if isinstance(entry, dict):
+            canonical_map = entry.get("canonical_map") or {}
+            ids.extend(str(mid) for mid in canonical_map.keys())
+            if not ids:
+                ids.extend(str(mid) for mid in (entry.get("models") or []))
+        manual = manual_maps.get(pname) if isinstance(manual_maps, dict) else {}
+        if isinstance(manual, dict):
+            ids.extend(str(mid) for mid in manual.keys())
+        variants = variant_maps.get(pname) if isinstance(variant_maps, dict) else {}
+        if isinstance(variants, dict):
+            ids.extend(str(mid) for mid in variants.keys())
+        static = (pcfg or {}).get("static_models")
+        if isinstance(static, list):
+            for item in static:
+                if isinstance(item, str):
+                    mid = item.strip()
+                elif isinstance(item, dict):
+                    mid = str(item.get("id") or "").strip()
+                else:
+                    mid = ""
+                if mid:
+                    ids.append(mid)
+        providers.append({
+            "name": pname,
+            "enabled": bool((pcfg or {}).get("enabled", True)),
+            "models": [mid for mid in _dedupe(ids) if mid in visible],
+        })
+    return {"providers": providers, "models": all_ids}
+
+
 def to_anthropic_models(data):
     anth_models = []
     for m in _extract_model_items(data):

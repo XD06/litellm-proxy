@@ -369,6 +369,12 @@ class AdminRoutesMixin:
         if endpoint == "client-keys":
             CLIENT_KEYS = sse.CLIENT_KEYS
             return self._resp_json(CLIENT_KEYS.list_keys())
+        if endpoint == "client-keys/catalog":
+            # Read-only provider/model tree for the client-key scope picker.
+            # Same snapshot as GET /v1/models, but never filtered by a key.
+            return self._resp_json(
+                model_registry.client_key_model_catalog(CONFIG, ROUTER)
+            )
         if endpoint == "conversion-diagnostics":
             return self._resp_json(CONVERSION_DIAGNOSTICS.status())
         if endpoint == "conversion-diagnostics/records":

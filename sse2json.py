@@ -50,7 +50,7 @@ from parameter_compatibility import (
     upstream_format_eligibility,
 )
 from proxy_utils import key_fingerprint, key_proxy, key_value, mask_proxy_url, resolve_client_ip
-from client_key_store import ClientKeyStore
+from client_key_store import ClientKeyStore, allowed_providers_for_model, filter_models_payload
 from request_routes import classify_get, classify_post
 from router import UpstreamRouter, parse_retry_after_seconds
 from routing_trace import RoutingTrace
@@ -2190,9 +2190,34 @@ OBSERVABILITY = ProxyObservability(CONFIG)
 AUDIT = AdminAuditStore(CONFIG)
 CLIENT_KEYS = ClientKeyStore(CONFIG)
 
-# Per-request client-key context for usage accounting. Set at auth time in the
-# handler thread; read by the observability usage listener at request end.
+# Per-request client-key context for usage accounting and model-scope
+# filtering. Set at auth time in the handler thread; read by the observability
+# usage listener at request end and by GET /v1/models before responding.
 _client_key_tls = threading.local()
+
+
+def _client_key_models_scope():
+    """Model scope of the client key authenticated for this request.
+
+    The admin-key bypass and the open (no-key) mode leave no TLS context, so
+    they keep receiving the full catalog.
+    """
+    ctx = getattr(_client_key_tls, "ctx", None)
+    return (ctx or {}).get("models") or "*"
+
+
+def _client_key_allowed_providers(model):
+    """Provider restriction for the authenticated key and this client model id.
+
+    ``None`` means unrestricted. A scoped allowlist entry (``'alpha:gpt-5'``)
+    pins the model to that provider; the router then skips every other
+    provider instead of failing over to it. Uses the same raw ``req.model``
+    as :meth:`ClientKeyStore.check_access`, never the resolved/canonical id.
+    """
+    ctx = getattr(_client_key_tls, "ctx", None)
+    if not ctx:
+        return None
+    return allowed_providers_for_model(ctx.get("models"), model)
 
 
 def _client_key_usage_listener(recent_item):
@@ -5325,6 +5350,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             "id": record["id"],
             "name": record.get("name") or "",
             "masked": CLIENT_KEYS.masked_preview(record),
+            "models": record.get("models", "*"),
         }
         return None
 
@@ -5359,11 +5385,16 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             if models_source in ("first_healthy_provider", "union"):
                 if _should_log_each_request():
                     print(f"[proxy] Models: using saved capabilities ({models_source})")
-                self._resp_json(model_registry.models_from_capabilities(rt.config, rt.router))
+                models_payload = model_registry.models_from_capabilities(rt.config, rt.router)
             else:
                 if _should_log_each_request():
                     print(f"[proxy] Models: using hardcoded list")
-                self._resp_json(self.MODELS)
+                models_payload = self.MODELS
+            # A key with a model allowlist must not see models it cannot call;
+            # admin bypass / open mode keep scope '*' and the full catalog.
+            self._resp_json(
+                filter_models_payload(models_payload, _client_key_models_scope())
+            )
         else:
             self._resp_json({"error": {"message": f"unknown endpoint: {self.path}"}}, 404)
 
@@ -5475,6 +5506,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             client_format="chat_completions",
             allowed_upstream_formats=allowed_formats,
             compatibility_profile=compatibility_profile,
+            allowed_providers=_client_key_allowed_providers(original_model),
             routing_trace=routing_trace,
         ):
             has_attempt = True
@@ -5915,6 +5947,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             client_format="responses",
             allowed_upstream_formats=allowed_formats,
             compatibility_profile=compatibility_profile,
+            allowed_providers=_client_key_allowed_providers(original_model),
             routing_trace=routing_trace,
         ):
             has_attempt = True
@@ -6339,6 +6372,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
             client_headers=self.headers,
             client_format=CHAT,
             allowed_upstream_formats=[CHAT],
+            allowed_providers=_client_key_allowed_providers(original_model),
             routing_trace=routing_trace,
         ):
             has_attempt = True
@@ -6668,6 +6702,7 @@ class Handler(BaseHTTPRequestHandler, admin_routes.AdminRoutesMixin):
                 client_format=ANTHROPIC,
                 allowed_upstream_formats=allowed_formats,
                 compatibility_profile=compatibility_profile,
+                allowed_providers=_client_key_allowed_providers(original_model),
                 routing_trace=routing_trace,
             ):
                 has_attempt = True
