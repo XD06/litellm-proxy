@@ -374,6 +374,8 @@ canonical model
 
 - 只读取本地快照，不临时请求上游
 - 快照随运行时状态保存，重启后立即可用
+- 客户端虚拟密钥带 `models` 白名单时，响应只保留白名单内的 id（`first_id` / `last_id` 同步刷新）；管理员密钥直连、未签发密钥的开放模式与 `models="*"` 仍返回完整目录，见 [docs/API_REFERENCE.md](API_REFERENCE.md) §1.4
+- 白名单条目写成 `供应商:模型`（设置页弹窗每个独立勾选写入）时，该模型被严格限定到该供应商：路由在产出候选前剔除其它供应商，该供应商不可用时直接返回 503 `no_eligible_candidate`，**不再跨供应商故障转移**；纯模型名条目仍表示任意供应商。弹窗内每个 `(供应商, 模型)` 复选框相互独立，不联动同名模型；搜索模型 id 后「全选」只选中当前可见项，用于一次允许多供应商的同名模型。见 [docs/API_REFERENCE.md](API_REFERENCE.md) §2.7
 - 候选 id 由 5 类来源合并去重：自动发现的 canonical、`provider_model_map` 键、`provider_model_variants` 键、`static_models`、`models.routes` 键，外加全局 `client_model_map` 键（`model_registry._configured_model_ids`）；详见 [docs/MODEL_ROUTING_LIFECYCLE.md](MODEL_ROUTING_LIFECYCLE.md) 的"变体组的不对称语义与客户端可见性"
 - 变体组的键即客户端模型 id：组内至少一条 raw 非空、且该键本身未被 `provider_model_disabled` 命中才出现；禁用该键 = 整组消失，禁用某个 raw 只剔除该候选
 

@@ -31,6 +31,7 @@
 * **方法**: `GET`
 * **路径**: `/v1/models`
 * **说明**: 获取当前所有可用模型的联合快照（Union Snapshot）。支持返回已去重、已重命名的 Canonical Model 列表。
+* **客户端密钥可见性**: 若请求使用带模型白名单的客户端虚拟密钥（`models` ≠ `*`），本端点只返回白名单内的模型 id（`data` 被过滤，`first_id` / `last_id` 同步刷新），不泄漏完整目录；白名单为 `*` / 留空、管理员密钥直连、未签发密钥的开放模式仍返回完整列表。判定与请求时的 `model_not_allowed` 403 共用同一套 `client_key_store.model_allowed` 规则；`provider:model` 条目按 `model` 部分精确匹配，因此目录也只显示该条目的模型 id（条目本身不带供应商前缀，也不做通配）。`/anthropic/v1/models`、`/openai/v1/models` 同样遵循。
 
 ---
 
@@ -99,10 +100,13 @@
 
 ### 2.7 客户端虚拟密钥 (Client Keys)
 * **`GET /-/admin/client-keys`**：列出虚拟密钥（脱敏预览 + 用量计数 `requests_total` / `consumed_tokens` / `cost_usd` / `last_used_at`，随请求实时累加）。
-* **`POST /-/admin/client-keys`**：签发虚拟密钥（`name` / `quota`（支持 `100M`/`1.5B`）/ `rpm` / `models` / `expires`）。完整 Key 仅创建时返回一次，服务端只存哈希。
-* **`PATCH /-/admin/client-keys/{id}`**：更新备注、额度、RPM、模型范围、有效期、启用状态。
+* **`GET /-/admin/client-keys/catalog`**：只读的「供应商 → 模型」选择树，供设置页模型范围弹窗使用。返回 `{"providers": [{"name", "enabled", "models": [...]}], "models": [...]}`：`models` 与 `GET /v1/models` 同源（含 `client_model_map` / `routes` 等全局别名），每个 provider 的 `models` 是该供应商的已发现 canonical + 手动映射 / 变体组 / 静态模型 id 与全局目录的交集；不属于任何单一供应商的 id 只出现在 `models` 里，由前端归入「其它 / 全局模型」分组。该端点不触发上游发现 I/O，也不按任何客户端密钥过滤。
+* **`POST /-/admin/client-keys`**：签发虚拟密钥（`name` / `quota`（支持 `100M`/`1.5B`）/ `rpm` / `models` / `expires`）。完整 Key 仅创建时返回一次，服务端只存哈希。`models` 支持 `*` 或逗号分隔白名单（也接受 JSON 数组），空值等价于 `*`；条目可写成 `provider:model`（如 `alpha:gpt-5.5`）把该模型严格限定到该供应商；设置页弹窗的每个 `(供应商, 模型)` 复选框相互独立，勾选即写入一条这种逐条前缀，重新打开时按前缀精确回显（不会联动其它供应商的同名模型）。搜索模型 id 后点「全选」可一次性允许多个供应商的同名模型。纯模型名条目仍表示任意供应商（向后兼容），无需数据库迁移。
+* **`PATCH /-/admin/client-keys/{id}`**：更新备注、额度、RPM、模型范围、有效期、启用状态。`enabled`（布尔）用于暂停 / 恢复密钥而不删除它——控制台密钥表状态列的开关即调用此字段；停用后的请求返回 403 `key_disabled`，已过期密钥返回 403 `key_expired`（需先改有效期，界面会禁用开关）。
 * **`POST /-/admin/client-keys/{id}/reset-usage`** / **`.../delete`**：重置用量计数 / 删除密钥。
 * 额度拦截：`quota_tokens > 0` 且 `consumed_tokens >= quota_tokens` 时新请求返回 429 `quota_exceeded`；用量经可观测性 usage 监听器在请求结束时记账，设置页数据随 5s 轮询刷新（K/M/B 压缩显示）。
+* 模型范围：请求 `model` 不在白名单内 → 403 `model_not_allowed`；白名单同时收敛 `GET /v1/models`（见 §1.4）。权限按客户端模型 id（canonical / 别名）匹配，纯模型名条目不区分供应商；设置页「选择」弹窗按供应商分组浏览目录，勾选结果写回白名单文本。
+* **供应商限定**：条目写成 `provider:model` 时，`allowed_providers_for_model` 解析出允许集合，四个代理入口把该集合传给 `ROUTER.iter_attempts(allowed_providers=...)`，路由在产出候选前剔除其它供应商。此时**失去跨供应商故障转移**：限定供应商无可用 key / 被冷却时直接无候选，返回 503 `no_eligible_candidate`（不新增专门 403），不会转移到其它供应商。同一模型有多个带前缀条目时允许这几个供应商；若同一模型同时存在纯名条目，后端会视为不限供应商——因此设置页弹窗应用时会移除该模型的纯名条目，避免限定静默失效（其它手输纯名条目原样保留）。模型发现刷新后新增的模型不会自动获得权限，需手动更新白名单；聚合供应商（requesty / openrouter 等）限定到 provider ≠ 限定到厂商，请勿混淆。
 
 ### 2.8 控制台安全 (Console Security)
 * **`PATCH /-/admin/server/admin-key`**：轮换控制台管理员密钥。Payload：`{"admin_key": "新密钥"}`（6–128 位、不含空白）。用**当前**密钥鉴权，保存后立即生效并写入 runtime overlay（`config.json` 永不改写）；响应、配置快照（掩码 `***`）与审计日志均不回显密钥明文。设置 `PROXY_ADMIN_KEY` 环境变量时拒绝修改（env 优先级高于 overlay，避免改动静默失效）。

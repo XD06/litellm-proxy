@@ -196,7 +196,7 @@ The dashboard is static HTML/CSS/JS served by the proxy:
 | 🧭 **Routing Config** | Edit routing mode, retry policies, failure strategy, model routes |
 | 📋 **Request History** | Per-attempt traces, latency breakdown, token usage, cost estimation |
 | 🎮 **Playground** | Built-in API tester supporting all three formats |
-| 🔑 **Client Keys & Settings** | Issue virtual client keys (quota / RPM / model scope) with live usage, per-model pricing overrides, runtime ops, and admin-key rotation |
+| 🔑 **Client Keys & Settings** | Issue virtual client keys (quota / RPM / model scope) with live usage, per-model pricing overrides, runtime ops, and admin-key rotation. The model scope is picked from a live provider/model catalog and also scopes `GET /v1/models` to the allowed models; a `provider:model` entry (written by each independent picker checkbox) pins requests to that provider — if it has no available key the request fails directly instead of failing over. Search a model id and use Select all to allow it across providers; keys can be paused and resumed in place with a switch |
 | 📦 **Runtime Overlay** | Export, validate, or clear the runtime overlay |
 | 📝 **Audit Log** | Admin mutation records with sensitive field sanitization |
 

@@ -50,12 +50,12 @@ graph TB
 
 - **HTTP / 入口层** — `sse2json.py`：代理唯一进程入口（`ThreadingHTTPServer` + `ThreadingMixIn`，`server.max_workers` 默认 20），负责路径分类后的流式/非流式处理与后台任务（健康检查、状态保存等）。`request_routes.py`：把路径归入 `chat / responses / anthropic / dashboard / admin / shared` 家族。`request_dispatcher.py`：请求调度辅助。
 - **路由决策层** — `router.py`（候选频取、冷却、失败上报）、`scheduler_policy.py`（错误类型 → cooldown 范围/时长）、`model_registry.py`（canonical/raw 命名与发现）。
-  **该层不接触客户端 IO，也不直接发起上游请求**——只产出"下一个尝试"候选（Attempt）。
+  **该层不接触客户端 IO，也不直接发起上游请求**——只产出"下一个尝试"候选（Attempt）。`iter_attempts(allowed_providers=...)` 在生成候选前剔除白名单外的 provider：客户端密钥限定供应商后**失去跨供应商故障转移**，该供应商无可用 key 时直接无候选（503）。
 - **上游 IO 层** — `upstream_client.py`：唯一被允许直接连接上游的模块。
 - **格式转换层** — `conversion_core/`（新一代转换引擎，codecs 按 chat / responses / anthropic / google 分文件。前三个双向互转；`google_generate` 是**单向仅上游**格式，只实现 `render_request` + `parse_response`，客户端入口仍为三种标准格式）、`stream_adapters.py`（SSE 流式转换 + 直通中继，含 3 个 google→X 转换器）、`protocol_adapters.py`（非流式转换）、`format_adapters.py`（格式配对分派）、`chat.py` / `responses.py`（各格式非流式处理器）、`thought_signature_store.py`（Google thought signature 有界 SQLite 存储：call_id → signature，多轮 Agent 工具调用回放，客户端剥离 `provider_specific_fields` 时兜底）。
 - **配置层** — `config_loader.py`（加载/归一/推断/环境变量覆盖/零配置检测）、`config_manager.py`（运行时 overlay + tombstone 合并）。优先级：`config.json → runtime_config.json → env`。
 - **可观测层** — `observability.py`（内存指标/健康分）、`history_store.py`（SQLite 请求历史，默认保留 30 天并定时剪枝）、`audit_store.py`（JSONL 审计）、`usage_accounting.py` / `usage_statistics.py` / `pricing_resolver.py`（用量与成本）。
-- **管理面** — `admin_routes.py`（Admin API 分发）、`routing_explain.py` / `routing_trace.py`（路由可解释性）、`proxy_utils.py`（密钥掩码/代理解析与内网绕过/IP 解析）、`client_key_store.py`（客户端虚拟密钥：存储/鉴权/限流/配额/用量归因——请求结束经 observability usage 监听器记账，请求记录固化 name+脱敏预览快照）。
+- **管理面** — `admin_routes.py`（Admin API 分发）、`routing_explain.py` / `routing_trace.py`（路由可解释性）、`proxy_utils.py`（密钥掩码/代理解析与内网绕过/IP 解析）、`client_key_store.py`（客户端虚拟密钥：存储/鉴权/限流/配额/用量归因——请求结束经 observability usage 监听器记账，请求记录固化 name+脱敏预览快照；`model_allowed` / `filter_models_payload` 为纯逻辑，请求鉴权与 `GET /v1/models` 目录过滤共用，受限密钥看不到白名单外的模型；白名单条目可写成 `provider:model`，由 `allowed_providers_for_model` 解析出供应商集合，经 TLS 上的密钥上下文传给四个代理入口的 `ROUTER.iter_attempts`，在候选层完成限定（纯模型名条目仍表示任意供应商，向后兼容）；`GET /-/admin/client-keys/catalog` 由 `model_registry.client_key_model_catalog` 提供按供应商分组的选择目录，弹窗每个 `(供应商, 模型)` 复选框相互独立、勾选即写入一条带前缀的条目；「全选」只作用于当前搜索可见项）。
 - **前端** — `dashboard/`（构建产物，代理直接伺服）、`dashboard_src/`（Vite + vanilla JS 源；`npm run build` 产物写入 `dashboard/`）。
 - **打包子包** — `conversion_core/`、`artificial_analysis_api/`（pyproject `packages.find` 仅包含这两个包）；`artificial_analysis_api/` 负责 artificialanalysis.ai 基准定价数据抓取与缓存。
 
