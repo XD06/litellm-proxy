@@ -66,6 +66,63 @@ class FakeRouter:
         return provider == "alpha" and (key_index is None or key_index == 0)
 
 
+class ScopeFakeRouter(FakeRouter):
+    """FakeRouter that records `allowed_providers` and honours it like the real one."""
+
+    def __init__(self, available=("alpha", "beta")):
+        super().__init__()
+        self.scope_calls = []
+        self.attempted = []
+        self.available = set(available)
+
+    def iter_attempts(self, canonical_model, is_stream, request_id, client_headers=None, **kwargs):
+        allowed = kwargs.get("allowed_providers")
+        self.scope_calls.append(allowed)
+        for provider in ("alpha", "beta"):
+            if allowed is not None and provider not in allowed:
+                continue
+            if provider not in self.available:
+                continue
+            self.attempted.append(provider)
+            yield Attempt(
+                request_id=request_id,
+                attempt_no=len(self.attempted),
+                provider=provider,
+                key_index=0,
+                key=f"raw-{provider}-key",
+                url=f"https://{provider}.example/v1/chat/completions",
+                headers={"Authorization": f"Bearer raw-{provider}-key"},
+                provider_model=canonical_model,
+                upstream_format="chat_completions",
+            )
+
+
+@contextmanager
+def scoped_client_key(models):
+    """Install a throwaway client-key store holding one scoped key."""
+    import shutil
+
+    root = tempfile.mkdtemp(prefix="client_keys_scoped_")
+    store = None
+    original = sse2json.CLIENT_KEYS
+    try:
+        store = sse2json.ClientKeyStore(
+            {"client_keys": {"store_path": os.path.join(root, "keys.sqlite3")}}
+        )
+        _record, key = store.create_key(name="scoped", models=models)
+        sse2json.CLIENT_KEYS = store
+        yield key
+    finally:
+        sse2json.CLIENT_KEYS = original
+        sse2json.model_registry.clear_cache()
+        if store is not None:
+            try:
+                store._conn.close()
+            except Exception:
+                pass
+        shutil.rmtree(root, ignore_errors=True)
+
+
 class FakeClient:
     def request_json(self, url, headers, payload, *, proxy_url=None, remaining_timeout_s=None):
         _ = url, headers, payload, proxy_url, remaining_timeout_s
@@ -1115,6 +1172,252 @@ class AdminApiTests(unittest.TestCase):
 
         self.assertEqual(status, 200)
         self.assertEqual([m["id"] for m in body["data"]], ["alpha-model"])
+
+    def test_client_key_scope_filters_v1_models(self):
+        cfg = {
+            "server": {"admin_key": "admin-secret"},
+            "models": {
+                "models_source": "union",
+                "provider_model_capabilities": {
+                    "alpha": {
+                        "status": "ok",
+                        "fetched_at": 456,
+                        "models": ["alpha/raw"],
+                        "canonical_map": {"alpha-model": "alpha/raw"},
+                        "formats": ["chat_completions"],
+                    },
+                    "beta": {
+                        "status": "ok",
+                        "fetched_at": 456,
+                        "models": ["beta/raw"],
+                        "canonical_map": {"beta-model": "beta/raw"},
+                        "formats": ["chat_completions"],
+                    },
+                },
+            },
+            "providers": {
+                "alpha": {"base_url": "https://alpha.example", "keys": ["raw-alpha-key"], "enabled": True},
+                "beta": {"base_url": "https://beta.example", "keys": ["raw-beta-key"], "enabled": True},
+            },
+        }
+        router = sse2json.UpstreamRouter(cfg)
+        sse2json.model_registry.clear_cache()
+        original = sse2json.CLIENT_KEYS
+        import shutil
+
+        root = tempfile.mkdtemp(prefix="client_keys_models_")
+        store = None
+        open_store = None
+        try:
+            store = sse2json.ClientKeyStore(
+                {"client_keys": {"store_path": os.path.join(root, "keys.sqlite3")}}
+            )
+            _limited, limited_key = store.create_key(name="limited", models=["alpha-model"])
+            _unrestricted, all_key = store.create_key(name="all", models="*")
+            sse2json.CLIENT_KEYS = store
+            with patch.object(sse2json, "CONFIG", cfg), patch.object(sse2json, "ROUTER", router):
+                limited_status, limited = self.get_json(
+                    "/v1/models", headers={"Authorization": "Bearer " + limited_key}
+                )
+                all_status, all_body = self.get_json(
+                    "/v1/models", headers={"Authorization": "Bearer " + all_key}
+                )
+                admin_status, admin_body = self.get_json(
+                    "/v1/models", headers={"X-Admin-Key": "admin-secret"}
+                )
+                missing_status, _missing = self.get_json("/v1/models")
+
+            # Open mode (no keys issued) must keep the full catalog.
+            open_store = sse2json.ClientKeyStore(
+                {"client_keys": {"store_path": os.path.join(root, "empty.sqlite3")}}
+            )
+            sse2json.CLIENT_KEYS = open_store
+            with patch.object(sse2json, "CONFIG", cfg), patch.object(sse2json, "ROUTER", router):
+                open_status, open_body = self.get_json("/v1/models")
+        finally:
+            sse2json.CLIENT_KEYS = original
+            sse2json.model_registry.clear_cache()
+            # Windows keeps an open sqlite3 file locked; close the handles
+            # before removing the temp directory.
+            for scoped_store in (store, open_store):
+                if scoped_store is not None:
+                    try:
+                        scoped_store._conn.close()
+                    except Exception:
+                        pass
+            shutil.rmtree(root, ignore_errors=True)
+
+        self.assertEqual(limited_status, 200)
+        self.assertEqual([m["id"] for m in limited["data"]], ["alpha-model"])
+        self.assertEqual((limited["first_id"], limited["last_id"]), ("alpha-model", "alpha-model"))
+        self.assertEqual(all_status, 200)
+        self.assertEqual([m["id"] for m in all_body["data"]], ["alpha-model", "beta-model"])
+        self.assertEqual(admin_status, 200)
+        self.assertEqual(len(admin_body["data"]), 2)
+        self.assertEqual(missing_status, 401)
+        self.assertEqual(open_status, 200)
+        self.assertEqual(len(open_body["data"]), 2)
+
+    def test_client_key_provider_scoped_allowlist_filters_catalog_and_access(self):
+        cfg = {
+            "server": {"admin_key": "admin-secret"},
+            "models": {
+                "models_source": "union",
+                "disable_client_model_map": True,
+                "provider_model_capabilities": {
+                    "alpha": {
+                        "status": "ok",
+                        "fetched_at": 456,
+                        "models": ["alpha/raw"],
+                        "canonical_map": {"alpha-model": "alpha/raw"},
+                        "formats": ["chat_completions"],
+                    },
+                    "beta": {
+                        "status": "ok",
+                        "fetched_at": 456,
+                        "models": ["beta/raw"],
+                        "canonical_map": {"beta-model": "beta/raw"},
+                        "formats": ["chat_completions"],
+                    },
+                },
+            },
+            "providers": {
+                "alpha": {"base_url": "https://alpha.example", "keys": ["raw-alpha-key"], "enabled": True},
+                "beta": {"base_url": "https://beta.example", "keys": ["raw-beta-key"], "enabled": True},
+            },
+            "routing": {"connect_timeout_s": 1, "read_timeout_s": 1, "max_attempts": 1},
+        }
+        router = sse2json.UpstreamRouter(cfg)
+        sse2json.model_registry.clear_cache()
+        with scoped_client_key(["alpha:alpha-model"]) as key:
+            headers = {"Content-Type": "application/json", "Authorization": "Bearer " + key}
+            with patch.object(sse2json, "CONFIG", cfg), patch.object(sse2json, "ROUTER", FakeRouter()), patch.object(
+                sse2json, "UPSTREAM_CLIENT", FakeClient()
+            ), patch.object(sse2json, "DISABLE_MAP", True):
+                catalog_status, catalog = self.get_json("/v1/models", headers=headers)
+                ok_status, _ok = self.post_json(
+                    "/v1/chat/completions",
+                    {"model": "alpha-model", "messages": [{"role": "user", "content": "hi"}]},
+                    headers=headers,
+                )
+                denied_status, denied = self.post_json(
+                    "/v1/chat/completions",
+                    {"model": "beta-model", "messages": [{"role": "user", "content": "hi"}]},
+                    headers=headers,
+                )
+
+        self.assertEqual(catalog_status, 200)
+        self.assertEqual([m["id"] for m in catalog["data"]], ["alpha-model"])
+        self.assertEqual(ok_status, 200)
+        self.assertEqual(denied_status, 403)
+        self.assertEqual(denied["error"]["code"], "model_not_allowed")
+
+    def test_all_proxy_entries_forward_provider_scope_and_fail_closed(self):
+        cfg = {
+            "server": {"admin_key": "admin-secret"},
+            "models": {"disable_client_model_map": True},
+            "routing": {"connect_timeout_s": 1, "read_timeout_s": 1, "max_attempts": 2},
+            "providers": {},
+        }
+        entries = [
+            ("/v1/chat/completions", {"model": "shared-model", "messages": [{"role": "user", "content": "hi"}]}),
+            ("/openai/v1/responses", {"model": "shared-model", "input": "hi"}),
+            ("/v1/messages", {"model": "shared-model", "max_tokens": 16, "messages": [{"role": "user", "content": "hi"}]}),
+            ("/v1/embeddings", {"model": "shared-model", "input": "hi"}),
+        ]
+        statuses = []
+        with scoped_client_key(["alpha:shared-model"]) as key:
+            headers = {"Content-Type": "application/json", "Authorization": "Bearer " + key}
+            # A provider-scoped key must reach every proxy entry with the same
+            # restriction, and only the pinned provider may produce attempts.
+            available_router = ScopeFakeRouter(available=("alpha", "beta"))
+            with patch.object(sse2json, "CONFIG", cfg), patch.object(sse2json, "ROUTER", available_router), patch.object(
+                sse2json, "UPSTREAM_CLIENT", FakeClient()
+            ), patch.object(sse2json, "DISABLE_MAP", True):
+                for path, payload in entries:
+                    status, _body = self.post_json(path, payload, headers=headers)
+                    statuses.append((path, status))
+            self.assertEqual(available_router.scope_calls, [{"alpha"}] * 4)
+            self.assertEqual(available_router.attempted, ["alpha"] * 4)
+
+            # Pinned provider has no usable key: every entry fails directly
+            # (503) instead of failing over to the unrestricted beta provider.
+            blocked_router = ScopeFakeRouter(available=())
+            with patch.object(sse2json, "CONFIG", cfg), patch.object(sse2json, "ROUTER", blocked_router), patch.object(
+                sse2json, "UPSTREAM_CLIENT", FakeClient()
+            ), patch.object(sse2json, "DISABLE_MAP", True):
+                for path, payload in entries:
+                    status, body = self.post_json(path, payload, headers=headers)
+                    self.assertEqual(status, 503, f"{path} must fail closed without a candidate")
+                    self.assertEqual(body["error"]["code"], "no_eligible_candidate")
+            self.assertEqual(blocked_router.scope_calls, [{"alpha"}] * 4)
+            self.assertEqual(blocked_router.attempted, [], "no attempt may fall over to beta")
+
+        for path, status in statuses:
+            self.assertEqual(status, 200, f"{path} must complete with the pinned provider")
+
+    def test_client_key_scope_helper_is_inert_without_key_context(self):
+        # An admin-key / open-mode request has no TLS client-key context: the
+        # helper must return None so all four proxy entries keep their exact
+        # pre-scoping behavior. This is the "did I break routing?" regression.
+        original = getattr(sse2json._client_key_tls, "ctx", None)
+        try:
+            sse2json._client_key_tls.ctx = None
+            self.assertIsNone(sse2json._client_key_allowed_providers("any-model"))
+            sse2json._client_key_tls.ctx = {"models": ["alpha:any-model"]}
+            self.assertEqual(
+                sse2json._client_key_allowed_providers("any-model"), {"alpha"}
+            )
+            sse2json._client_key_tls.ctx = {"models": ["any-model"]}
+            self.assertIsNone(sse2json._client_key_allowed_providers("any-model"))
+            sse2json._client_key_tls.ctx = {"models": ["alpha:other"]}
+            self.assertIsNone(sse2json._client_key_allowed_providers("any-model"))
+        finally:
+            sse2json._client_key_tls.ctx = original
+
+    def test_client_key_catalog_endpoint_returns_provider_tree(self):
+        cfg = {
+            "server": {"admin_key": "admin-secret"},
+            "models": {
+                "models_source": "union",
+                "client_model_map": {"alias-model": "alpha-model"},
+                "provider_model_capabilities": {
+                    "alpha": {
+                        "status": "ok",
+                        "fetched_at": 456,
+                        "models": ["alpha/raw"],
+                        "canonical_map": {"alpha-model": "alpha/raw"},
+                        "formats": ["chat_completions"],
+                    },
+                    "beta": {
+                        "status": "ok",
+                        "fetched_at": 456,
+                        "models": ["beta/raw"],
+                        "canonical_map": {"beta-model": "beta/raw"},
+                        "formats": ["chat_completions"],
+                    },
+                },
+            },
+            "providers": {
+                "alpha": {"base_url": "https://alpha.example", "keys": ["raw-alpha-key"], "enabled": True},
+                "beta": {"base_url": "https://beta.example", "keys": ["raw-beta-key"], "enabled": True},
+            },
+        }
+        router = sse2json.UpstreamRouter(cfg)
+        sse2json.model_registry.clear_cache()
+        with patch.object(sse2json, "CONFIG", cfg), patch.object(sse2json, "ROUTER", router):
+            status, body = self.get_json(
+                "/-/admin/client-keys/catalog",
+                headers={"X-Admin-Key": "admin-secret"},
+            )
+        sse2json.model_registry.clear_cache()
+
+        self.assertEqual(status, 200)
+        self.assertEqual(body["models"], ["alpha-model", "beta-model", "alias-model"])
+        by_name = {item["name"]: item for item in body["providers"]}
+        self.assertEqual(by_name["alpha"]["models"], ["alpha-model"])
+        self.assertEqual(by_name["beta"]["models"], ["beta-model"])
+        self.assertNotIn("alias-model", by_name["alpha"]["models"] + by_name["beta"]["models"])
 
     def test_metrics_record_successful_proxy_request(self):
         cfg = {

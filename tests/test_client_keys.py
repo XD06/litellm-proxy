@@ -9,8 +9,12 @@ import unittest
 from client_key_store import (
     ClientKeyError,
     ClientKeyStore,
+    _entry_model,
     _parse_models,
     _parse_expires,
+    allowed_providers_for_model,
+    filter_models_payload,
+    model_allowed,
     parse_quota_tokens,
 )
 
@@ -185,6 +189,118 @@ class ParseHelpersTests(unittest.TestCase):
         self.assertEqual(parse_quota_tokens("123"), 123)
         self.assertEqual(parse_quota_tokens(""), 0)
         self.assertEqual(parse_quota_tokens(None), 0)
+
+
+class ModelScopeFilterTests(unittest.TestCase):
+    def _payload(self):
+        return {
+            "data": [
+                {"type": "model", "id": "a"},
+                {"type": "model", "id": "b"},
+                {"type": "model", "id": "c"},
+            ],
+            "has_more": False,
+            "object": "list",
+            "first_id": "a",
+            "last_id": "c",
+        }
+
+    def test_model_allowed_shared_by_access_check_and_catalog(self):
+        self.assertTrue(model_allowed("*", "anything"))
+        self.assertTrue(model_allowed(None, "anything"))
+        self.assertTrue(model_allowed(["a", "b"], "b"))
+        self.assertFalse(model_allowed(["a", "b"], "c"))
+        self.assertTrue(model_allowed("a", "a"))
+        self.assertFalse(model_allowed("a", "b"))
+
+    def test_filter_models_payload_keeps_only_allowed_ids(self):
+        payload = self._payload()
+        filtered = filter_models_payload(payload, ["c", "a"])
+        self.assertEqual([m["id"] for m in filtered["data"]], ["a", "c"])
+        self.assertEqual(filtered["first_id"], "a")
+        self.assertEqual(filtered["last_id"], "c")
+        self.assertEqual(filtered["object"], "list")
+        # The union snapshot is cached and shared; never mutate it in place.
+        self.assertEqual([m["id"] for m in payload["data"]], ["a", "b", "c"])
+        self.assertEqual(payload["first_id"], "a")
+
+    def test_filter_models_payload_empty_intersection_and_passthrough(self):
+        payload = self._payload()
+        empty = filter_models_payload(payload, ["not-in-catalog"])
+        self.assertEqual(empty["data"], [])
+        self.assertEqual(empty["first_id"], "")
+        self.assertEqual(empty["last_id"], "")
+        self.assertIs(filter_models_payload(payload, "*"), payload)
+        self.assertIs(filter_models_payload(payload, None), payload)
+        malformed = {"data": "not-a-list"}
+        self.assertIs(filter_models_payload(malformed, ["a"]), malformed)
+
+    def test_access_check_and_filter_agree_on_scope(self):
+        store = make_store()
+        rec, _ = store.create_key(name="scoped", models=["a", "c"])
+        self.assertTrue(store.check_access(rec, model="a")[0])
+        self.assertFalse(store.check_access(rec, model="b")[0])
+        filtered_ids = [
+            m["id"]
+            for m in filter_models_payload(self._payload(), rec["models"])["data"]
+        ]
+        self.assertEqual(filtered_ids, ["a", "c"])
+
+    def test_provider_scoped_entries_keep_the_model_id_only(self):
+        self.assertEqual(_entry_model("alpha:gpt-5"), "gpt-5")
+        self.assertEqual(_entry_model("gpt-5"), "gpt-5")
+        self.assertEqual(_entry_model("alpha:group:model"), "group:model")
+        self.assertTrue(model_allowed(["alpha:a"], "a"))
+        self.assertFalse(model_allowed(["alpha:a"], "b"))
+        self.assertTrue(model_allowed(["alpha:a", "plain"], "plain"))
+        # A provider prefix is never a wildcard: unknown ids stay blocked.
+        self.assertFalse(model_allowed(["alpha:*"], "anything"))
+
+    def test_allowed_providers_for_model(self):
+        self.assertIsNone(allowed_providers_for_model("*", "a"))
+        self.assertIsNone(allowed_providers_for_model(None, "a"))
+        self.assertIsNone(
+            allowed_providers_for_model(["a"], "a"),
+            "a plain id still means any provider",
+        )
+        self.assertEqual(allowed_providers_for_model("alpha:a", "a"), {"alpha"})
+        self.assertEqual(allowed_providers_for_model(["alpha:a"], "a"), {"alpha"})
+        self.assertEqual(
+            allowed_providers_for_model(["alpha:a", "beta:a"], "a"),
+            {"alpha", "beta"},
+        )
+        self.assertIsNone(
+            allowed_providers_for_model(["alpha:a", "a"], "a"),
+            "a plain entry for the same model removes the restriction",
+        )
+        # No match for the requested model: check_access already rejects it.
+        self.assertIsNone(allowed_providers_for_model(["alpha:other"], "a"))
+        self.assertEqual(allowed_providers_for_model(["alpha:a"], "a"), {"alpha"})
+
+    def test_scoped_scope_keeps_access_and_catalog_in_agreement(self):
+        payload = self._payload()
+        filtered = filter_models_payload(payload, ["alpha:a", "beta:c"])
+        self.assertEqual([m["id"] for m in filtered["data"]], ["a", "c"])
+        store = make_store()
+        rec, _ = store.create_key(name="scoped", models=["alpha:a"])
+        self.assertTrue(store.check_access(rec, model="a")[0])
+        self.assertFalse(store.check_access(rec, model="b")[0])
+        self.assertEqual(
+            [m["id"] for m in filter_models_payload(payload, rec["models"])["data"]],
+            ["a"],
+        )
+        self.assertEqual(allowed_providers_for_model(rec["models"], "a"), {"alpha"})
+
+    def test_missing_scope_stays_fail_closed(self):
+        # A malformed/legacy row with models=None must not silently become an
+        # unrestricted key just because the filter treats None as "no context".
+        store = make_store()
+        ok, status, code, _message = store.check_access(
+            {"enabled": True, "models": None}, model="a"
+        )
+        self.assertFalse(ok)
+        self.assertEqual(status, 403)
+        self.assertEqual(code, "model_not_allowed")
 
 
 if __name__ == "__main__":

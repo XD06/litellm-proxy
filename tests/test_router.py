@@ -806,6 +806,73 @@ class RouterTests(unittest.TestCase):
         self.assertEqual(second.key_index, 1)
         self.assertEqual(next_request_first.key_index, 0)
 
+    def test_allowed_providers_pins_attempts_and_fails_closed(self):
+        cfg = base_config()
+        router = UpstreamRouter(cfg)
+
+        open_providers = {
+            a.provider for a in router.iter_attempts("any-model", False, "req-open")
+        }
+        self.assertIn("alpha", open_providers)
+        self.assertIn("beta", open_providers)
+
+        pinned = list(
+            router.iter_attempts(
+                "any-model", False, "req-pinned", allowed_providers={"alpha"},
+            )
+        )
+        self.assertTrue(pinned, "the allowed provider still gets candidates")
+        self.assertEqual({a.provider for a in pinned}, {"alpha"})
+
+        # The pinned provider has no usable key: fail closed. The unrestricted
+        # beta provider must NOT take over (that is the whole point of a
+        # provider-scoped client key).
+        blocked_cfg = base_config()
+        blocked_cfg["providers"]["alpha"]["keys"] = []
+        blocked = UpstreamRouter(blocked_cfg)
+        self.assertEqual(
+            list(
+                blocked.iter_attempts(
+                    "any-model", False, "req-no-key", allowed_providers={"alpha"},
+                )
+            ),
+            [],
+        )
+        self.assertEqual(
+            list(
+                router.iter_attempts(
+                    "any-model", False, "req-unknown", allowed_providers={"omega"},
+                )
+            ),
+            [],
+        )
+
+    def test_allowed_providers_none_preserves_default_routing(self):
+        # Regression guard: the client-key scope filter must be completely
+        # inert for every unscoped request. Fix the provider order so the
+        # candidate streams can be compared exactly, not just as a set.
+        cfg = base_config()
+        cfg["routing"]["provider_select"] = "priority_failover"
+        cfg["routing"]["default_provider_pool"] = ["alpha", "beta"]
+        cfg["providers"]["alpha"]["priority"] = 1
+        cfg["providers"]["beta"]["priority"] = 2
+        router = UpstreamRouter(cfg)
+
+        def stream(request_id, **kwargs):
+            return [
+                (a.provider, a.key_index, a.provider_model, a.upstream_format)
+                for a in router.iter_attempts("any-model", False, request_id, **kwargs)
+            ]
+
+        default_stream = stream("req-default")
+        none_stream = stream("req-none", allowed_providers=None)
+        self.assertEqual(none_stream, default_stream)
+        self.assertEqual(
+            {item[0] for item in default_stream},
+            {"alpha", "beta"},
+            "unscoped routing must still consider both providers",
+        )
+
     def test_attempts_include_upstream_format_and_format_specific_url(self):
         cfg = base_config()
         cfg["routing"]["default_provider_pool"] = ["alpha", "beta"]

@@ -900,6 +900,40 @@ class ModelRegistryTests(unittest.TestCase):
         self.assertEqual(client.calls[0]["headers"]["Authorization"], "Bearer alpha-key-object")
         self.assertEqual(client.calls[0]["proxy_url"], "http://127.0.0.1:9000")
 
+    def test_client_key_model_catalog_groups_by_provider_and_keeps_unassigned_ids(self):
+        cfg = registry_config("union")
+        cfg["models"]["provider_model_capabilities"] = {
+            "alpha": {
+                "status": "ok",
+                "models": ["alpha/raw"],
+                "canonical_map": {"alpha-model": "alpha/raw"},
+            },
+            "beta": {
+                "status": "ok",
+                "models": ["beta/raw"],
+                "canonical_map": {"beta-model": "beta/raw"},
+            },
+        }
+        cfg["models"]["provider_model_map"] = {"alpha": {"manual-alpha": "alpha/manual"}}
+        cfg["models"]["client_model_map"] = {"alias-model": "alpha-model"}
+
+        catalog = model_registry.client_key_model_catalog(cfg, FakeRouter())
+
+        self.assertEqual(
+            catalog["models"],
+            ["alpha-model", "beta-model", "manual-alpha", "alias-model"],
+        )
+        by_name = {item["name"]: item for item in catalog["providers"]}
+        self.assertTrue(by_name["alpha"]["enabled"])
+        self.assertEqual(by_name["alpha"]["models"], ["alpha-model", "manual-alpha"])
+        self.assertEqual(by_name["beta"]["models"], ["beta-model"])
+        # A global alias belongs to no single provider: it stays in `models`
+        # only, so the picker can put it in a separate "other" group.
+        self.assertNotIn(
+            "alias-model",
+            [mid for item in catalog["providers"] for mid in item["models"]],
+        )
+
     def test_models_fetch_proxy_falls_back_to_provider_then_global(self):
         cfg = registry_config("union")
         cfg["proxy"] = "http://127.0.0.1:7000"
