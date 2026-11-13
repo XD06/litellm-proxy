@@ -7822,6 +7822,223 @@ form.is-busy {
   padding-top: 16px;
 }
 
+/* ---- Client-key model scope picker ---- */
+.key-model-scope-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.key-model-scope-row > input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.key-model-pick-button {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.key-model-picker {
+  display: grid;
+  gap: 12px;
+}
+
+.key-model-picker-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.key-model-picker-toolbar > input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.key-model-picker-count {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.key-model-picker-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.key-model-picker-actions small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.key-model-picker-groups {
+  display: grid;
+  gap: 10px;
+  max-height: min(46vh, 420px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.key-model-picker-group {
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.key-model-picker-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.key-model-picker-group-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.key-model-picker-group-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.key-model-picker-group-label strong {
+  font-size: 12.5px;
+}
+
+.key-model-picker-models {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 6px 12px;
+}
+
+.key-model-picker-model {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 7px;
+  min-width: 0;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.key-model-picker-model span {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 560px) {
+  .key-model-picker-models {
+    grid-template-columns: 1fr;
+  }
+
+  .key-model-pick-button span {
+    display: none;
+  }
+}
+
+/* ---- Client-key enable / pause switch ---- */
+.settings-key-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+/* Fixed slot keeps the row from shifting when the status label changes
+   ("Enabled" / "Disabled" / "Expired" have different text widths). */
+.settings-key-status .badge {
+  justify-content: center;
+  min-width: 72px;
+}
+
+/* Monochrome switch: black track + white thumb when on, white track + dark
+   thumb when off. One component, two states, no accent color. */
+.key-switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--text) 28%, var(--line));
+  border-radius: 999px;
+  background: var(--surface);
+  cursor: pointer;
+  transition: background-color 180ms ease, border-color 180ms ease;
+}
+
+.key-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text);
+  box-shadow: 0 1px 3px rgba(9, 9, 11, 0.22);
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1), width 180ms ease, background-color 180ms ease;
+}
+
+.key-switch.is-on {
+  background: var(--text);
+  border-color: var(--text);
+}
+
+.key-switch.is-on .key-switch-thumb {
+  background: var(--surface);
+  transform: translateX(16px);
+}
+
+.key-switch:hover:not(:disabled):not(.is-busy) {
+  border-color: var(--text);
+}
+
+.key-switch:active:not(:disabled):not(.is-busy) .key-switch-thumb {
+  width: 17px;
+}
+
+.key-switch:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+.key-switch:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.key-switch.is-busy {
+  cursor: progress;
+}
+
+.key-switch.is-busy .key-switch-thumb {
+  animation: key-switch-pulse 900ms ease-in-out infinite;
+}
+
+@keyframes key-switch-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .key-switch,
+  .key-switch-thumb {
+    transition: none;
+  }
+
+  .key-switch.is-busy .key-switch-thumb {
+    animation: none;
+  }
+}
+
 .model-map-form,
 .format-path-form {
   display: grid;
@@ -30185,6 +30402,23 @@ body.is-auth-checking {
   padding: 13px 16px;
 }
 
+/* A long allowlist must never wrap and stretch the row: the cell shows a
+   compact count, with the full list kept in the tooltip / accessible name. */
+.settings-key-models {
+  white-space: nowrap;
+}
+
+.settings-key-models-summary {
+  display: inline-block;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+
 .settings-keys-table tbody tr:hover {
   background: color-mix(in srgb, var(--accent-soft) 40%, var(--surface));
   box-shadow: inset 3px 0 0 var(--accent);
@@ -30207,8 +30441,9 @@ body.is-auth-checking {
   transform: translateY(-50%);
 }
 
+/* Status badges stay neutral in every state; the dot follows the text color. */
 .settings-keys-table .badge.ok::before {
-  background: var(--success);
+  background: currentColor;
 }
 
 /* Client key drawer */

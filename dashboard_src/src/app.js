@@ -12,6 +12,14 @@ import { ConfigRefreshCoordinator, InFlightActionRegistry } from "./operation-gu
 import { groupRoutingTrace, routingTraceIdentity, routingTraceTone, summarizeFormatTraceStep } from "./routing-trace-view.mjs";
 import { shouldAcceptModelCapabilitySnapshot } from "./model-capability-order.mjs";
 import { keyModelsPatchValue } from "./key-models.mjs";
+import {
+  keyModelPickerGroups,
+  mergeKeyModelSelection,
+  parseScopedKeySelection,
+  selectionKey,
+  selectionScopedIds,
+} from "./key-model-picker.mjs";
+import { keySwitchState } from "./key-enable-switch.mjs";
 import { mergedProviderKeys } from "./provider-key-view.mjs";
 import { bindPanelPaginationDelegated, changePanelPage } from "./panel-pagination.mjs";
 import { requestPageTarget, requestPayloadMatchesPage, requestNavigationPayloadMatchesPage } from "./request-pagination.mjs";
@@ -2554,15 +2562,35 @@ import {
     const quotaPct = quota > 0 ? Math.min(100, (consumed / quota) * 100) : 0;
     const quotaTone = quota > 0 && quotaPct >= 100 ? "is-bad" : quota > 0 && quotaPct >= 80 ? "is-warn" : "";
     const rpm = entry.rpm;
-    const models = entry.models === "*" || !entry.models
+    const modelEntries = entry.models === "*" || !entry.models
+      ? []
+      : (Array.isArray(entry.models)
+        ? entry.models
+        : String(entry.models).split(/[\n,;]+/).map((id) => id.trim()).filter(Boolean));
+    const allModels = modelEntries.length === 0;
+    const modelsFull = allModels ? t("settings.keys.f_models_all") : modelEntries.join(", ");
+    // A long allowlist used to wrap the cell and stretch the whole row. Show
+    // a compact count instead; the full list stays reachable via the cell
+    // tooltip / accessible name and the row's edit button.
+    const modelsSummary = allModels
       ? t("settings.keys.f_models_all")
-      : (Array.isArray(entry.models) ? entry.models.join(", ") : String(entry.models));
-    const expired = Boolean(entry.expired);
-    const status = entry.enabled === false
-      ? `<span class="badge">${escapeHtml(t("settings.keys.status_disabled"))}</span>`
-      : expired
-        ? `<span class="badge">${escapeHtml(t("settings.keys.status_expired"))}</span>`
-        : `<span class="badge ok">${escapeHtml(t("settings.keys.status_active"))}</span>`;
+      : t("settings.keys.models_count", { count: modelEntries.length });
+    const modelsTipAttrs = allModels
+      ? ""
+      : ` title="${escapeHtml(modelsFull)}" aria-label="${escapeHtml(modelsFull)}"`;
+    const switchState = keySwitchState(entry);
+    const switchLabel = switchState.disabled
+      ? t("settings.keys.switch_expired_tip")
+      : switchState.checked
+        ? t("settings.keys.switch_pause_tip", { name })
+        : t("settings.keys.switch_resume_tip", { name });
+    // One neutral badge in every state; the switch carries the state color.
+    const statusKey = switchState.state === "paused"
+      ? "settings.keys.status_disabled"
+      : switchState.state === "expired"
+        ? "settings.keys.status_expired"
+        : "settings.keys.status_active";
+    const status = `<span class="badge">${escapeHtml(t(statusKey))}</span>`;
     const hasFullKey = Boolean(entry.full_key);
     const copyAttrs = hasFullKey
       ? `data-copy-key="${escapeHtml(entry.full_key)}"`
@@ -2587,9 +2615,18 @@ import {
             <div class="settings-quota-fill ${quotaTone}" style="width:${quota > 0 ? quotaPct : 0}%;"></div>
           </div>
         </td>
-        <td>${escapeHtml(models)}</td>
+        <td class="settings-key-models"${modelsTipAttrs}>
+          <span class="settings-key-models-summary">${escapeHtml(modelsSummary)}</span>
+        </td>
         <td class="mono">${rpm ? `${escapeHtml(String(rpm))} RPM` : "—"}</td>
-        <td>${status}</td>
+        <td>
+          <div class="settings-key-status">
+            <button class="key-switch${switchState.checked ? " is-on" : ""}" type="button" role="switch" aria-checked="${switchState.checked}" data-toggle-key-id="${escapeHtml(String(entry.id ?? ""))}" title="${escapeHtml(switchLabel)}" aria-label="${escapeHtml(switchLabel)}" ${switchState.disabled ? "disabled" : ""}>
+              <span class="key-switch-thumb" aria-hidden="true"></span>
+            </button>
+            ${status}
+          </div>
+        </td>
         <td class="cell-actions">
           <button class="button secondary icon-action" type="button" data-edit-key-id="${escapeHtml(String(entry.id ?? ""))}" title="${escapeHtml(t("settings.keys.edit"))}" aria-label="${escapeHtml(t("settings.keys.edit"))}">${iconSvg("pencil")}</button>
           <button class="button secondary icon-action" type="button" data-reset-key-id="${escapeHtml(String(entry.id ?? ""))}" title="${escapeHtml(t("settings.keys.reset_usage"))}" aria-label="${escapeHtml(t("settings.keys.reset_usage"))}">${iconSvg("rotate")}</button>
@@ -2599,6 +2636,59 @@ import {
   }
 
   function bindSettingsKeyRows(target) {
+    // Pause / resume is reversible and destructive of nothing, so it is an
+    // inline switch with instant feedback — no confirmation dialog. Deletion
+    // stays the separate, confirmed action for permanently removing a key.
+    target.querySelectorAll("[data-toggle-key-id]").forEach((button) => {
+      if (button.dataset.boundSettingsKeyToggle) return;
+      button.dataset.boundSettingsKeyToggle = "1";
+      button.addEventListener("click", async () => {
+        // A disabled button loses keyboard focus, so the busy state is a
+        // dataset flag + aria-busy rather than the disabled attribute.
+        if (button.disabled || button.dataset.busy === "1") return;
+        const id = button.dataset.toggleKeyId;
+        const record = (state.data.clientKeys || []).find((item) => String(item.id) === id);
+        if (!record || Boolean(record.expired)) return;
+        const next = record.enabled === false;
+        const label = record.name || `#${id}`;
+        const clearBusy = () => {
+          delete button.dataset.busy;
+          button.classList.remove("is-busy");
+          button.removeAttribute("aria-busy");
+        };
+        button.dataset.busy = "1";
+        button.classList.add("is-busy");
+        button.setAttribute("aria-busy", "true");
+        try {
+          await apiPatch(`/-/admin/client-keys/${encodeURIComponent(id)}`, { enabled: next });
+          // Patch only this row in place. Re-rendering the whole table (and
+          // re-focusing afterwards) made the row jump under the pointer; the
+          // next poll reconciles identical markup with zero DOM changes.
+          record.enabled = next;
+          button.classList.toggle("is-on", next);
+          button.setAttribute("aria-checked", String(next));
+          const tip = next
+            ? t("settings.keys.switch_pause_tip", { name: label })
+            : t("settings.keys.switch_resume_tip", { name: label });
+          button.title = tip;
+          button.setAttribute("aria-label", tip);
+          const badge = button.closest(".settings-key-status")?.querySelector(".badge");
+          if (badge) {
+            // Neutral badge in both states: only the label changes, so the row
+            // never reflows and no accent color flips on toggle.
+            badge.textContent = t(next ? "settings.keys.status_active" : "settings.keys.status_disabled");
+          }
+          clearBusy();
+          setNotice(
+            t(next ? "settings.keys.switch_resumed_notice" : "settings.keys.switch_paused_notice", { name: label }),
+            next ? "ok" : "info",
+          );
+        } catch (err) {
+          clearBusy();
+          setNotice(t("settings.keys.switch_failed", { error: errorMessage(err) }), "bad");
+        }
+      });
+    });
     target.querySelectorAll("[data-copy-masked-key]").forEach((button) => {
       if (button.dataset.boundSettingsCopyMaskedKey) return;
       button.dataset.boundSettingsCopyMaskedKey = "1";
@@ -3265,7 +3355,10 @@ import {
         </label>
         <label class="field">
           <span>${escapeHtml(t("settings.keys.f_models"))}</span>
-          <input class="control mono" name="models" type="text" value="${escapeHtml(modelsValue)}" placeholder="${escapeHtml(t("settings.keys.f_models_ph"))}" />
+          <div class="key-model-scope-row">
+            <input class="control mono" name="models" type="text" value="${escapeHtml(modelsValue)}" placeholder="${escapeHtml(t("settings.keys.f_models_ph"))}" />
+            <button class="button secondary key-model-pick-button" type="button" data-key-model-picker-open title="${escapeHtml(t("settings.keys.f_models_pick"))}" aria-label="${escapeHtml(t("settings.keys.f_models_pick"))}">${iconSvg("list")}<span>${escapeHtml(t("settings.keys.f_models_pick"))}</span></button>
+          </div>
           <small>${escapeHtml(t("settings.keys.f_models_hint"))}</small>
         </label>
         <label class="field">
@@ -3285,6 +3378,13 @@ import {
     const form = el("settingsKeyForm");
     if (form && !form.dataset.boundSettingsKeyForm) {
       form.dataset.boundSettingsKeyForm = "1";
+      // Delegation survives morphdom re-renders of the drawer form nodes.
+      form.addEventListener("click", (event) => {
+        if (event.target.closest("[data-key-model-picker-open]")) {
+          event.preventDefault();
+          openKeyModelPicker(form);
+        }
+      });
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         // Re-entrancy guard: implicit submissions (e.g. held Enter) and any
@@ -3334,6 +3434,178 @@ import {
       cancelButton.dataset.boundSettingsKeyCancel = "1";
       cancelButton.addEventListener("click", closeKeyDrawer);
     }
+  }
+
+  // Client-key model scope picker: reads the live provider/model catalog from
+  // the admin API and writes a comma-separated allowlist back to the drawer.
+  async function openKeyModelPicker(form) {
+    let catalog;
+    try {
+      catalog = await apiGet("/-/admin/client-keys/catalog");
+    } catch (err) {
+      setNotice(t("settings.keys.picker_load_failed", { error: errorMessage(err) }), "bad");
+      return;
+    }
+    const groups = keyModelPickerGroups(catalog);
+    const currentText = String(form.elements.models?.value || "");
+    // Every checkbox is an independent (provider, model id) choice: a saved
+    // `provider:model` entry restores exactly that one box, never the same id
+    // in other providers. Plain / unknown entries are kept verbatim.
+    const parsed = parseScopedKeySelection(currentText, catalog);
+    const selected = new Set(parsed.keys);
+    const custom = parsed.custom;
+    openFormModal({
+      title: t("settings.keys.picker_title"),
+      subtitle: t("settings.keys.picker_subtitle"),
+      bodyHtml: `
+        <div class="key-model-picker" data-key-model-picker>
+          <div class="key-model-picker-toolbar">
+            <input class="control mono" type="search" data-key-model-search placeholder="${escapeHtml(t("settings.keys.picker_search_ph"))}" autocomplete="off" aria-label="${escapeHtml(t("settings.keys.picker_search_ph"))}" />
+            <span class="key-model-picker-count mono" data-key-model-count aria-live="polite"></span>
+          </div>
+          <div class="key-model-picker-actions">
+            <button class="button secondary" type="button" data-key-model-select-all>${escapeHtml(t("settings.keys.picker_select_all"))}</button>
+            <button class="button secondary" type="button" data-key-model-clear>${escapeHtml(t("settings.keys.picker_clear"))}</button>
+            <small>${escapeHtml(t("settings.keys.picker_empty_hint"))}</small>
+          </div>
+          <div class="key-model-picker-groups" data-key-model-groups></div>
+          <div class="empty pad" data-key-model-no-results hidden>${escapeHtml(t("settings.keys.picker_no_results"))}</div>
+          <div class="form-actions">
+            <button class="button secondary" type="button" data-key-model-cancel>${escapeHtml(t("settings.keys.picker_cancel"))}</button>
+            <button class="button primary" type="button" data-key-model-apply>${escapeHtml(t("settings.keys.picker_apply"))}</button>
+          </div>
+        </div>`,
+    });
+    const root = el("formModalBody")?.querySelector("[data-key-model-picker]");
+    if (!root) return;
+    const groupsEl = root.querySelector("[data-key-model-groups]");
+    const searchEl = root.querySelector("[data-key-model-search]");
+    const countEl = root.querySelector("[data-key-model-count]");
+    const noResultsEl = root.querySelector("[data-key-model-no-results]");
+    const updateCount = () => {
+      if (countEl) countEl.textContent = t("settings.keys.picker_selected", {
+        count: selected.size,
+      });
+    };
+    // The catalog can hold thousands of ids: build the DOM ONCE, then only
+    // flip `checked` / `hidden`. Rebuilding innerHTML on every click was the
+    // source of the visible lag.
+    const syncChecks = (onlyId = null) => {
+      groupsEl.querySelectorAll("[data-key-model-id]").forEach((box) => {
+        const id = box.dataset.keyModelId;
+        if (onlyId !== null && id !== onlyId) return;
+        const wanted = selected.has(selectionKey(box.dataset.keyModelOwner, id));
+        if (box.checked !== wanted) box.checked = wanted;
+      });
+      groupsEl.querySelectorAll("[data-key-model-group]").forEach((box) => {
+        const group = groups.find((item) => item.name === box.dataset.keyModelGroup);
+        if (!group) return;
+        if (onlyId !== null && !group.models.includes(onlyId)) return;
+        const wanted = group.models.every((id) => selected.has(selectionKey(group.name, id)));
+        if (box.checked !== wanted) box.checked = wanted;
+      });
+      updateCount();
+    };
+    // "Select all" acts on the current search result, not the whole catalog:
+    // searching a model id then hitting Select all is how one model is
+    // allowed across several providers without any implicit linkage.
+    let visibleKeys = new Set();
+    const applyFilter = () => {
+      const needle = String(searchEl?.value || "").trim().toLowerCase();
+      let anyVisible = false;
+      visibleKeys = new Set();
+      groupsEl.querySelectorAll(".key-model-picker-group").forEach((section) => {
+        const groupName = section.dataset.keyModelGroupName || "";
+        let groupVisible = false;
+        section.querySelectorAll("[data-key-model-id]").forEach((box) => {
+          const id = box.dataset.keyModelId || "";
+          const show = !needle
+            || groupName.toLowerCase().includes(needle)
+            || id.toLowerCase().includes(needle);
+          const label = box.closest(".key-model-picker-model");
+          if (label) label.hidden = !show;
+          if (show) {
+            groupVisible = true;
+            visibleKeys.add(selectionKey(groupName, id));
+          }
+        });
+        section.hidden = !groupVisible;
+        if (groupVisible) anyVisible = true;
+      });
+      if (noResultsEl) noResultsEl.hidden = anyVisible;
+    };
+    groupsEl.innerHTML = groups.length
+      ? groups.map((group) => {
+        const label = group.name === "*" ? t("settings.keys.picker_other") : group.name;
+        const allChecked = group.models.every((id) => selected.has(selectionKey(group.name, id)));
+        return `
+            <section class="key-model-picker-group" data-key-model-group-name="${escapeHtml(group.name)}">
+              <div class="key-model-picker-group-head">
+                <label class="key-model-picker-group-label">
+                  <input type="checkbox" data-key-model-group="${escapeHtml(group.name)}" ${allChecked ? "checked" : ""} />
+                  <strong>${escapeHtml(label)}</strong>
+                  ${group.enabled ? "" : `<span class="badge">${escapeHtml(t("settings.keys.picker_disabled"))}</span>`}
+                </label>
+                <div class="key-model-picker-group-actions">
+                  <span class="mono">${group.models.length}</span>
+                </div>
+              </div>
+              <div class="key-model-picker-models">
+                ${group.models.map((id) => `
+                  <label class="key-model-picker-model">
+                    <input type="checkbox" data-key-model-id="${escapeHtml(id)}" data-key-model-owner="${escapeHtml(group.name)}" ${selected.has(selectionKey(group.name, id)) ? "checked" : ""} />
+                    <span class="mono">${escapeHtml(id)}</span>
+                  </label>`).join("")}
+              </div>
+            </section>`;
+      }).join("")
+      : "";
+    updateCount();
+    applyFilter();
+    searchEl?.addEventListener("input", applyFilter);
+    // Delegated change: `selected` is the single source of truth; no DOM is
+    // rebuilt, so keyboard focus and scroll position stay put. Every click
+    // touches exactly one (provider, model) key — no same-name linkage.
+    groupsEl.addEventListener("change", (event) => {
+      const target = event.target;
+      const groupName = target.getAttribute("data-key-model-group");
+      if (groupName !== null) {
+        const group = groups.find((item) => item.name === groupName);
+        (group?.models || []).forEach((id) => {
+          const key = selectionKey(groupName, id);
+          if (target.checked) selected.add(key);
+          else selected.delete(key);
+        });
+        syncChecks();
+        return;
+      }
+      const modelId = target.getAttribute("data-key-model-id");
+      if (modelId !== null) {
+        const key = selectionKey(target.dataset.keyModelOwner, modelId);
+        if (target.checked) selected.add(key);
+        else selected.delete(key);
+        syncChecks(modelId);
+      }
+    });
+    root.querySelector("[data-key-model-select-all]")?.addEventListener("click", () => {
+      visibleKeys.forEach((key) => selected.add(key));
+      syncChecks();
+    });
+    root.querySelector("[data-key-model-clear]")?.addEventListener("click", () => {
+      selected.clear();
+      syncChecks();
+    });
+    root.querySelector("[data-key-model-cancel]")?.addEventListener("click", closeFormModal);
+    root.querySelector("[data-key-model-apply]")?.addEventListener("click", () => {
+      const input = form.elements.models;
+      if (input) {
+        input.value = mergeKeyModelSelection(selectionScopedIds(selected), custom);
+        // Mark the drawer dirty so the next 5s poll cannot re-render the form
+        // from the stored record and silently drop the new selection.
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      closeFormModal();
+    });
   }
 
   // 弹层用 fixed 定位贴着「自定义」按钮：工具条是 nowrap+overflow 容器，

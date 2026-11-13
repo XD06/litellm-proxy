@@ -874,8 +874,8 @@
 				zh: "状态"
 			},
 			"settings.keys.status_active": {
-				en: "Active",
-				zh: "活跃"
+				en: "Enabled",
+				zh: "已启用"
 			},
 			"settings.keys.status_disabled": {
 				en: "Disabled",
@@ -949,6 +949,10 @@
 				en: "All models",
 				zh: "全部模型"
 			},
+			"settings.keys.models_count": {
+				en: "{count} models",
+				zh: "{count} 个模型"
+			},
 			"settings.keys.f_expires": {
 				en: "Expires",
 				zh: "有效期限"
@@ -1018,8 +1022,88 @@
 				zh: "留空 = 全部模型，或逗号分隔的白名单"
 			},
 			"settings.keys.f_models_hint": {
-				en: "Example: gpt-5.5, deepseek-v4-flash",
-				zh: "示例：gpt-5.5, deepseek-v4-flash"
+				en: "The picker writes provider:model entries (e.g. alpha:gpt-5.5), pinning each model to that provider; if that provider has no available key the request fails instead of failing over. A restricted key's /v1/models lists only these models. Plain hand-typed ids still mean any provider.",
+				zh: "弹窗选择写入 供应商:模型（如 alpha:gpt-5.5），把模型限定到该供应商；该供应商不可用时请求直接失败、不会转移到其它供应商。受限密钥的 /v1/models 也只列出这些模型；手输纯模型名仍表示任意供应商。"
+			},
+			"settings.keys.f_models_pick": {
+				en: "Browse",
+				zh: "选择"
+			},
+			"settings.keys.picker_title": {
+				en: "Choose model scope",
+				zh: "选择模型范围"
+			},
+			"settings.keys.picker_subtitle": {
+				en: "Grouped by provider from the live config and discovery snapshot. Each checkbox is independent — pick one, or search a model id and use Select all.",
+				zh: "按供应商分组，来自当前配置与模型发现快照。每个勾选相互独立——可单选，也可搜索模型名后全选。"
+			},
+			"settings.keys.picker_search_ph": {
+				en: "Search models or providers",
+				zh: "搜索模型或供应商"
+			},
+			"settings.keys.picker_select_all": {
+				en: "Select all",
+				zh: "全选"
+			},
+			"settings.keys.picker_clear": {
+				en: "Clear",
+				zh: "清空"
+			},
+			"settings.keys.picker_apply": {
+				en: "Apply",
+				zh: "应用"
+			},
+			"settings.keys.picker_cancel": {
+				en: "Cancel",
+				zh: "取消"
+			},
+			"settings.keys.picker_other": {
+				en: "Other / global models",
+				zh: "其它 / 全局模型"
+			},
+			"settings.keys.picker_disabled": {
+				en: "Disabled",
+				zh: "已停用"
+			},
+			"settings.keys.picker_selected": {
+				en: "{count} selected",
+				zh: "已选 {count} 个"
+			},
+			"settings.keys.picker_no_results": {
+				en: "No matching models",
+				zh: "没有匹配的模型"
+			},
+			"settings.keys.picker_load_failed": {
+				en: "Failed to load model catalog: {error}",
+				zh: "读取模型目录失败：{error}"
+			},
+			"settings.keys.picker_empty_hint": {
+				en: "No selection = all models. Plain ids in the input are kept as-is, unless you pick a provider for that same model (the provider restriction wins).",
+				zh: "未选择任何模型 = 全部模型；输入框里的纯模型名会原样保留，但若勾选了同一模型的某个供应商，则以该供应商限定为准。"
+			},
+			"settings.keys.switch_pause_tip": {
+				en: "Pause \"{name}\" — client requests are refused, nothing is deleted",
+				zh: "停用「{name}」——客户端请求将被拒绝，密钥不会被删除"
+			},
+			"settings.keys.switch_resume_tip": {
+				en: "Re-enable \"{name}\"",
+				zh: "重新启用「{name}」"
+			},
+			"settings.keys.switch_expired_tip": {
+				en: "This key expired — edit its expiry before re-enabling",
+				zh: "密钥已过期，请先修改有效期再启用"
+			},
+			"settings.keys.switch_paused_notice": {
+				en: "\"{name}\" paused. Client requests are refused; re-enable it anytime.",
+				zh: "「{name}」已停用，客户端请求会被拒绝；可随时重新启用。"
+			},
+			"settings.keys.switch_resumed_notice": {
+				en: "\"{name}\" is active again.",
+				zh: "「{name}」已重新启用。"
+			},
+			"settings.keys.switch_failed": {
+				en: "Could not update the key state: {error}",
+				zh: "更新密钥状态失败：{error}"
 			},
 			"settings.keys.cancel": {
 				en: "Cancel",
@@ -7486,6 +7570,117 @@
 	}
 	var init_key_models = __esmMin((() => {}));
 	//#endregion
+	//#region src/key-model-picker.mjs
+	function selectionKey(group, modelId) {
+		return `${group}${SEP}${modelId}`;
+	}
+	function selectionScopedIds(selectedKeys) {
+		return [...new Set([...selectedKeys].map((key) => {
+			const text = String(key);
+			const sep = text.indexOf(SEP);
+			if (sep < 0) return text;
+			const group = text.slice(0, sep);
+			const model = text.slice(sep + 1);
+			return group === "*" ? model : `${group}:${model}`;
+		}))];
+	}
+	function parseKeyModelScope(value) {
+		const text = String(value ?? "").trim();
+		if (!text || text === "*") return [];
+		const seen = /* @__PURE__ */ new Set();
+		const out = [];
+		for (const item of text.split(/[\n,;]+/)) {
+			const id = item.trim();
+			if (id && !seen.has(id)) {
+				seen.add(id);
+				out.push(id);
+			}
+		}
+		return out;
+	}
+	function keyModelPickerGroups(catalog) {
+		const all = Array.isArray(catalog?.models) ? catalog.models.map(String).filter(Boolean) : [];
+		const known = /* @__PURE__ */ new Set();
+		const groups = (Array.isArray(catalog?.providers) ? catalog.providers : []).map((provider) => {
+			const models = Array.isArray(provider?.models) ? provider.models.map(String).filter(Boolean) : [];
+			models.forEach((id) => known.add(id));
+			return {
+				name: String(provider?.name || ""),
+				enabled: provider?.enabled !== false,
+				models: [...new Set(models)]
+			};
+		}).filter((group) => group.name && group.models.length);
+		const other = [...new Set(all)].filter((id) => !known.has(id));
+		if (other.length) groups.push({
+			name: "*",
+			enabled: true,
+			models: other
+		});
+		return groups;
+	}
+	function parseScopedKeySelection(text, catalog) {
+		const byName = new Map(keyModelPickerGroups(catalog).map((group) => [group.name, new Set(group.models)]));
+		const keys = [];
+		const custom = [];
+		for (const entry of parseKeyModelScope(text)) {
+			const sep = entry.indexOf(":");
+			if (sep > 0) {
+				const provider = entry.slice(0, sep);
+				const model = entry.slice(sep + 1);
+				if (model && byName.get(provider)?.has(model)) {
+					keys.push(selectionKey(provider, model));
+					continue;
+				}
+			} else if (byName.get("*")?.has(entry)) {
+				keys.push(selectionKey("*", entry));
+				continue;
+			}
+			custom.push(entry);
+		}
+		return {
+			keys: [...new Set(keys)],
+			custom
+		};
+	}
+	function serializeKeyModelSelection(selected, custom = []) {
+		const merged = [];
+		const seen = /* @__PURE__ */ new Set();
+		for (const id of [...custom || [], ...selected || []]) {
+			const value = String(id || "").trim();
+			if (value && !seen.has(value)) {
+				seen.add(value);
+				merged.push(value);
+			}
+		}
+		return merged.join(", ");
+	}
+	function mergeKeyModelSelection(selected, custom = []) {
+		const modelOf = (entry) => {
+			const text = String(entry);
+			const sep = text.indexOf(":");
+			return sep > 0 ? text.slice(sep + 1) : text;
+		};
+		const scopedModels = new Set((selected || []).map(modelOf));
+		return serializeKeyModelSelection(selected, (custom || []).filter((entry) => !scopedModels.has(modelOf(entry))));
+	}
+	var SEP;
+	var init_key_model_picker = __esmMin((() => {
+		SEP = "\0";
+	}));
+	//#endregion
+	//#region src/key-enable-switch.mjs
+	function keySwitchState(record) {
+		const entry = record || {};
+		const expired = Boolean(entry.expired);
+		const checked = entry.enabled !== false;
+		return {
+			checked,
+			disabled: expired,
+			state: expired ? "expired" : checked ? "active" : "paused"
+		};
+	}
+	var init_key_enable_switch = __esmMin((() => {}));
+	//#endregion
 	//#region src/provider-key-view.mjs
 	function mergedProviderKeys(runtimeKeys, configKeys) {
 		const runtime = Array.isArray(runtimeKeys) ? runtimeKeys : [];
@@ -8165,6 +8360,8 @@
 		init_routing_trace_view();
 		init_model_capability_order();
 		init_key_models();
+		init_key_model_picker();
+		init_key_enable_switch();
 		init_provider_key_view();
 		init_panel_pagination();
 		init_request_pagination();
@@ -10406,9 +10603,14 @@
 			const quotaPct = quota > 0 ? Math.min(100, consumed / quota * 100) : 0;
 			const quotaTone = quota > 0 && quotaPct >= 100 ? "is-bad" : quota > 0 && quotaPct >= 80 ? "is-warn" : "";
 			const rpm = entry.rpm;
-			const models = entry.models === "*" || !entry.models ? t("settings.keys.f_models_all") : Array.isArray(entry.models) ? entry.models.join(", ") : String(entry.models);
-			const expired = Boolean(entry.expired);
-			const status = entry.enabled === false ? `<span class="badge">${escapeHtml(t("settings.keys.status_disabled"))}</span>` : expired ? `<span class="badge">${escapeHtml(t("settings.keys.status_expired"))}</span>` : `<span class="badge ok">${escapeHtml(t("settings.keys.status_active"))}</span>`;
+			const modelEntries = entry.models === "*" || !entry.models ? [] : Array.isArray(entry.models) ? entry.models : String(entry.models).split(/[\n,;]+/).map((id) => id.trim()).filter(Boolean);
+			const allModels = modelEntries.length === 0;
+			const modelsFull = allModels ? t("settings.keys.f_models_all") : modelEntries.join(", ");
+			const modelsSummary = allModels ? t("settings.keys.f_models_all") : t("settings.keys.models_count", { count: modelEntries.length });
+			const modelsTipAttrs = allModels ? "" : ` title="${escapeHtml(modelsFull)}" aria-label="${escapeHtml(modelsFull)}"`;
+			const switchState = keySwitchState(entry);
+			const switchLabel = switchState.disabled ? t("settings.keys.switch_expired_tip") : switchState.checked ? t("settings.keys.switch_pause_tip", { name }) : t("settings.keys.switch_resume_tip", { name });
+			const status = `<span class="badge">${escapeHtml(t(switchState.state === "paused" ? "settings.keys.status_disabled" : switchState.state === "expired" ? "settings.keys.status_expired" : "settings.keys.status_active"))}</span>`;
 			const hasFullKey = Boolean(entry.full_key);
 			const copyAttrs = hasFullKey ? `data-copy-key="${escapeHtml(entry.full_key)}"` : `data-copy-masked-key="1"`;
 			const copyTip = hasFullKey ? t("settings.keys.copy") : t("settings.keys.copy_masked_tip");
@@ -10431,9 +10633,18 @@
             <div class="settings-quota-fill ${quotaTone}" style="width:${quota > 0 ? quotaPct : 0}%;"></div>
           </div>
         </td>
-        <td>${escapeHtml(models)}</td>
+        <td class="settings-key-models"${modelsTipAttrs}>
+          <span class="settings-key-models-summary">${escapeHtml(modelsSummary)}</span>
+        </td>
         <td class="mono">${rpm ? `${escapeHtml(String(rpm))} RPM` : "—"}</td>
-        <td>${status}</td>
+        <td>
+          <div class="settings-key-status">
+            <button class="key-switch${switchState.checked ? " is-on" : ""}" type="button" role="switch" aria-checked="${switchState.checked}" data-toggle-key-id="${escapeHtml(String(entry.id ?? ""))}" title="${escapeHtml(switchLabel)}" aria-label="${escapeHtml(switchLabel)}" ${switchState.disabled ? "disabled" : ""}>
+              <span class="key-switch-thumb" aria-hidden="true"></span>
+            </button>
+            ${status}
+          </div>
+        </td>
         <td class="cell-actions">
           <button class="button secondary icon-action" type="button" data-edit-key-id="${escapeHtml(String(entry.id ?? ""))}" title="${escapeHtml(t("settings.keys.edit"))}" aria-label="${escapeHtml(t("settings.keys.edit"))}">${iconSvg("pencil")}</button>
           <button class="button secondary icon-action" type="button" data-reset-key-id="${escapeHtml(String(entry.id ?? ""))}" title="${escapeHtml(t("settings.keys.reset_usage"))}" aria-label="${escapeHtml(t("settings.keys.reset_usage"))}">${iconSvg("rotate")}</button>
@@ -10442,6 +10653,42 @@
       </tr>`;
 		}
 		function bindSettingsKeyRows(target) {
+			target.querySelectorAll("[data-toggle-key-id]").forEach((button) => {
+				if (button.dataset.boundSettingsKeyToggle) return;
+				button.dataset.boundSettingsKeyToggle = "1";
+				button.addEventListener("click", async () => {
+					if (button.disabled || button.dataset.busy === "1") return;
+					const id = button.dataset.toggleKeyId;
+					const record = (state.data.clientKeys || []).find((item) => String(item.id) === id);
+					if (!record || Boolean(record.expired)) return;
+					const next = record.enabled === false;
+					const label = record.name || `#${id}`;
+					const clearBusy = () => {
+						delete button.dataset.busy;
+						button.classList.remove("is-busy");
+						button.removeAttribute("aria-busy");
+					};
+					button.dataset.busy = "1";
+					button.classList.add("is-busy");
+					button.setAttribute("aria-busy", "true");
+					try {
+						await apiPatch(`/-/admin/client-keys/${encodeURIComponent(id)}`, { enabled: next });
+						record.enabled = next;
+						button.classList.toggle("is-on", next);
+						button.setAttribute("aria-checked", String(next));
+						const tip = next ? t("settings.keys.switch_pause_tip", { name: label }) : t("settings.keys.switch_resume_tip", { name: label });
+						button.title = tip;
+						button.setAttribute("aria-label", tip);
+						const badge = button.closest(".settings-key-status")?.querySelector(".badge");
+						if (badge) badge.textContent = t(next ? "settings.keys.status_active" : "settings.keys.status_disabled");
+						clearBusy();
+						setNotice(t(next ? "settings.keys.switch_resumed_notice" : "settings.keys.switch_paused_notice", { name: label }), next ? "ok" : "info");
+					} catch (err) {
+						clearBusy();
+						setNotice(t("settings.keys.switch_failed", { error: errorMessage(err) }), "bad");
+					}
+				});
+			});
 			target.querySelectorAll("[data-copy-masked-key]").forEach((button) => {
 				if (button.dataset.boundSettingsCopyMaskedKey) return;
 				button.dataset.boundSettingsCopyMaskedKey = "1";
@@ -11059,7 +11306,10 @@
         </label>
         <label class="field">
           <span>${escapeHtml(t("settings.keys.f_models"))}</span>
-          <input class="control mono" name="models" type="text" value="${escapeHtml(modelsValue)}" placeholder="${escapeHtml(t("settings.keys.f_models_ph"))}" />
+          <div class="key-model-scope-row">
+            <input class="control mono" name="models" type="text" value="${escapeHtml(modelsValue)}" placeholder="${escapeHtml(t("settings.keys.f_models_ph"))}" />
+            <button class="button secondary key-model-pick-button" type="button" data-key-model-picker-open title="${escapeHtml(t("settings.keys.f_models_pick"))}" aria-label="${escapeHtml(t("settings.keys.f_models_pick"))}">${iconSvg("list")}<span>${escapeHtml(t("settings.keys.f_models_pick"))}</span></button>
+          </div>
           <small>${escapeHtml(t("settings.keys.f_models_hint"))}</small>
         </label>
         <label class="field">
@@ -11079,6 +11329,12 @@
 			const form = el("settingsKeyForm");
 			if (form && !form.dataset.boundSettingsKeyForm) {
 				form.dataset.boundSettingsKeyForm = "1";
+				form.addEventListener("click", (event) => {
+					if (event.target.closest("[data-key-model-picker-open]")) {
+						event.preventDefault();
+						openKeyModelPicker(form);
+					}
+				});
 				form.addEventListener("submit", async (event) => {
 					event.preventDefault();
 					if (state.settingsKeySubmitting) return;
@@ -11122,6 +11378,153 @@
 				cancelButton.dataset.boundSettingsKeyCancel = "1";
 				cancelButton.addEventListener("click", closeKeyDrawer);
 			}
+		}
+		async function openKeyModelPicker(form) {
+			let catalog;
+			try {
+				catalog = await apiGet("/-/admin/client-keys/catalog");
+			} catch (err) {
+				setNotice(t("settings.keys.picker_load_failed", { error: errorMessage(err) }), "bad");
+				return;
+			}
+			const groups = keyModelPickerGroups(catalog);
+			const parsed = parseScopedKeySelection(String(form.elements.models?.value || ""), catalog);
+			const selected = new Set(parsed.keys);
+			const custom = parsed.custom;
+			openFormModal({
+				title: t("settings.keys.picker_title"),
+				subtitle: t("settings.keys.picker_subtitle"),
+				bodyHtml: `
+        <div class="key-model-picker" data-key-model-picker>
+          <div class="key-model-picker-toolbar">
+            <input class="control mono" type="search" data-key-model-search placeholder="${escapeHtml(t("settings.keys.picker_search_ph"))}" autocomplete="off" aria-label="${escapeHtml(t("settings.keys.picker_search_ph"))}" />
+            <span class="key-model-picker-count mono" data-key-model-count aria-live="polite"></span>
+          </div>
+          <div class="key-model-picker-actions">
+            <button class="button secondary" type="button" data-key-model-select-all>${escapeHtml(t("settings.keys.picker_select_all"))}</button>
+            <button class="button secondary" type="button" data-key-model-clear>${escapeHtml(t("settings.keys.picker_clear"))}</button>
+            <small>${escapeHtml(t("settings.keys.picker_empty_hint"))}</small>
+          </div>
+          <div class="key-model-picker-groups" data-key-model-groups></div>
+          <div class="empty pad" data-key-model-no-results hidden>${escapeHtml(t("settings.keys.picker_no_results"))}</div>
+          <div class="form-actions">
+            <button class="button secondary" type="button" data-key-model-cancel>${escapeHtml(t("settings.keys.picker_cancel"))}</button>
+            <button class="button primary" type="button" data-key-model-apply>${escapeHtml(t("settings.keys.picker_apply"))}</button>
+          </div>
+        </div>`
+			});
+			const root = el("formModalBody")?.querySelector("[data-key-model-picker]");
+			if (!root) return;
+			const groupsEl = root.querySelector("[data-key-model-groups]");
+			const searchEl = root.querySelector("[data-key-model-search]");
+			const countEl = root.querySelector("[data-key-model-count]");
+			const noResultsEl = root.querySelector("[data-key-model-no-results]");
+			const updateCount = () => {
+				if (countEl) countEl.textContent = t("settings.keys.picker_selected", { count: selected.size });
+			};
+			const syncChecks = (onlyId = null) => {
+				groupsEl.querySelectorAll("[data-key-model-id]").forEach((box) => {
+					const id = box.dataset.keyModelId;
+					if (onlyId !== null && id !== onlyId) return;
+					const wanted = selected.has(selectionKey(box.dataset.keyModelOwner, id));
+					if (box.checked !== wanted) box.checked = wanted;
+				});
+				groupsEl.querySelectorAll("[data-key-model-group]").forEach((box) => {
+					const group = groups.find((item) => item.name === box.dataset.keyModelGroup);
+					if (!group) return;
+					if (onlyId !== null && !group.models.includes(onlyId)) return;
+					const wanted = group.models.every((id) => selected.has(selectionKey(group.name, id)));
+					if (box.checked !== wanted) box.checked = wanted;
+				});
+				updateCount();
+			};
+			let visibleKeys = /* @__PURE__ */ new Set();
+			const applyFilter = () => {
+				const needle = String(searchEl?.value || "").trim().toLowerCase();
+				let anyVisible = false;
+				visibleKeys = /* @__PURE__ */ new Set();
+				groupsEl.querySelectorAll(".key-model-picker-group").forEach((section) => {
+					const groupName = section.dataset.keyModelGroupName || "";
+					let groupVisible = false;
+					section.querySelectorAll("[data-key-model-id]").forEach((box) => {
+						const id = box.dataset.keyModelId || "";
+						const show = !needle || groupName.toLowerCase().includes(needle) || id.toLowerCase().includes(needle);
+						const label = box.closest(".key-model-picker-model");
+						if (label) label.hidden = !show;
+						if (show) {
+							groupVisible = true;
+							visibleKeys.add(selectionKey(groupName, id));
+						}
+					});
+					section.hidden = !groupVisible;
+					if (groupVisible) anyVisible = true;
+				});
+				if (noResultsEl) noResultsEl.hidden = anyVisible;
+			};
+			groupsEl.innerHTML = groups.length ? groups.map((group) => {
+				const label = group.name === "*" ? t("settings.keys.picker_other") : group.name;
+				const allChecked = group.models.every((id) => selected.has(selectionKey(group.name, id)));
+				return `
+            <section class="key-model-picker-group" data-key-model-group-name="${escapeHtml(group.name)}">
+              <div class="key-model-picker-group-head">
+                <label class="key-model-picker-group-label">
+                  <input type="checkbox" data-key-model-group="${escapeHtml(group.name)}" ${allChecked ? "checked" : ""} />
+                  <strong>${escapeHtml(label)}</strong>
+                  ${group.enabled ? "" : `<span class="badge">${escapeHtml(t("settings.keys.picker_disabled"))}</span>`}
+                </label>
+                <div class="key-model-picker-group-actions">
+                  <span class="mono">${group.models.length}</span>
+                </div>
+              </div>
+              <div class="key-model-picker-models">
+                ${group.models.map((id) => `
+                  <label class="key-model-picker-model">
+                    <input type="checkbox" data-key-model-id="${escapeHtml(id)}" data-key-model-owner="${escapeHtml(group.name)}" ${selected.has(selectionKey(group.name, id)) ? "checked" : ""} />
+                    <span class="mono">${escapeHtml(id)}</span>
+                  </label>`).join("")}
+              </div>
+            </section>`;
+			}).join("") : "";
+			updateCount();
+			applyFilter();
+			searchEl?.addEventListener("input", applyFilter);
+			groupsEl.addEventListener("change", (event) => {
+				const target = event.target;
+				const groupName = target.getAttribute("data-key-model-group");
+				if (groupName !== null) {
+					(groups.find((item) => item.name === groupName)?.models || []).forEach((id) => {
+						const key = selectionKey(groupName, id);
+						if (target.checked) selected.add(key);
+						else selected.delete(key);
+					});
+					syncChecks();
+					return;
+				}
+				const modelId = target.getAttribute("data-key-model-id");
+				if (modelId !== null) {
+					const key = selectionKey(target.dataset.keyModelOwner, modelId);
+					if (target.checked) selected.add(key);
+					else selected.delete(key);
+					syncChecks(modelId);
+				}
+			});
+			root.querySelector("[data-key-model-select-all]")?.addEventListener("click", () => {
+				visibleKeys.forEach((key) => selected.add(key));
+				syncChecks();
+			});
+			root.querySelector("[data-key-model-clear]")?.addEventListener("click", () => {
+				selected.clear();
+				syncChecks();
+			});
+			root.querySelector("[data-key-model-cancel]")?.addEventListener("click", closeFormModal);
+			root.querySelector("[data-key-model-apply]")?.addEventListener("click", () => {
+				const input = form.elements.models;
+				if (input) {
+					input.value = mergeKeyModelSelection(selectionScopedIds(selected), custom);
+					input.dispatchEvent(new Event("input", { bubbles: true }));
+				}
+				closeFormModal();
+			});
 		}
 		function positionCustomRangePopover(popId, anchorSelector) {
 			const pop = el(popId);
